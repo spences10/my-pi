@@ -1,12 +1,12 @@
 {
 	"name": "my-pi",
-	"version": "0.0.1",
+	"version": "0.0.0",
 	"description": "Personal pi coding agent wrapper with MCP tool integration",
 	"keywords": [
-		"pi",
+		"cli",
 		"coding-agent",
 		"mcp",
-		"cli"
+		"pi"
 	],
 	"license": "MIT",
 	"author": "Scott Spence <spences10apps@gmail.com>",
@@ -33,6 +33,7 @@
 		"release": "pnpm run build && changeset publish"
 	},
 	"dependencies": {
+		"@mariozechner/pi-ai": "^0.66.1",
 		"@mariozechner/pi-coding-agent": "^0.66.1",
 		"citty": "^0.2.2"
 	},
