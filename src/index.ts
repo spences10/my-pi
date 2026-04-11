@@ -15,13 +15,16 @@ import { defineCommand, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { load_env } from './env.js';
+import { create_mcp_tools } from './mcp/bridge.js';
+import { load_mcp_config } from './mcp/config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
 	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'),
 );
 
-function injectApiKeys(authStorage: AuthStorage) {
+function inject_api_keys(authStorage: AuthStorage) {
 	if (process.env.ANTHROPIC_API_KEY) {
 		authStorage.setRuntimeApiKey(
 			'anthropic',
@@ -59,23 +62,34 @@ const main = defineCommand({
 		const cwd = process.cwd();
 		const agentDir = getAgentDir();
 
+		// Load .env from cwd
+		load_env(cwd);
+
+		// Load MCP servers from mcp.json
+		const mcp_configs = load_mcp_config(cwd);
+		const mcp =
+			mcp_configs.length > 0
+				? await create_mcp_tools(mcp_configs)
+				: null;
+
 		const createRuntime: CreateAgentSessionRuntimeFactory = async ({
-			cwd: runtimeCwd,
+			cwd: runtime_cwd,
 			sessionManager,
 			sessionStartEvent,
 		}) => {
 			const services = await createAgentSessionServices({
-				cwd: runtimeCwd,
+				cwd: runtime_cwd,
 			});
 
 			// Inject API keys
-			injectApiKeys(services.authStorage);
+			inject_api_keys(services.authStorage);
 
 			return {
 				...(await createAgentSessionFromServices({
 					services,
 					sessionManager,
 					sessionStartEvent,
+					customTools: mcp?.tools,
 				})),
 				services,
 				diagnostics: services.diagnostics,
@@ -88,6 +102,11 @@ const main = defineCommand({
 			sessionManager: SessionManager.create(cwd),
 		});
 
+		if (mcp_configs.length > 0) {
+			const names = mcp_configs.map((c) => c.name).join(', ');
+			console.error(`MCP servers: ${names}`);
+		}
+
 		if (args.print || args.prompt) {
 			await runPrintMode(runtime, {
 				mode: 'text',
@@ -95,6 +114,7 @@ const main = defineCommand({
 				initialImages: [],
 				messages: [],
 			});
+			await mcp?.cleanup();
 		} else if (!process.stdout.isTTY) {
 			// Non-TTY without prompt: show help for LLM agents
 			console.log(
