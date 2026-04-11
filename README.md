@@ -17,15 +17,14 @@ pnpm run build
 
 ### API Keys
 
-Create a `.env` in the project root (auto-loaded at startup):
+Pi handles authentication natively via `AuthStorage`. Options
+(in priority order):
 
-```
-ANTHROPIC_API_KEY=sk-ant-...
-MISTRAL_API_KEY=...
-```
-
-Keys are injected into pi's `AuthStorage` at runtime. Existing
-environment variables take precedence.
+1. **`pi auth`** — interactive login, stores credentials in
+   `~/.pi/agent/auth.json`
+2. **Environment variables** — `ANTHROPIC_API_KEY`,
+   `MISTRAL_API_KEY`, etc.
+3. **OAuth** — supported for providers that offer it
 
 ## Usage
 
@@ -106,7 +105,6 @@ server name, the project config wins.
 ```
 src/
   index.ts          CLI entry point (citty + pi SDK)
-  env.ts            .env file loader
   mcp/
     client.ts       Minimal MCP stdio client (JSON-RPC 2.0)
     bridge.ts       Converts MCP tools to pi customTools

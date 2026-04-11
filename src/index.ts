@@ -2,7 +2,6 @@
 
 import {
 	type CreateAgentSessionRuntimeFactory,
-	AuthStorage,
 	createAgentSessionFromServices,
 	createAgentSessionRuntime,
 	createAgentSessionServices,
@@ -15,7 +14,6 @@ import { defineCommand, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { load_env } from './env.js';
 import { create_mcp_tools } from './mcp/bridge.js';
 import { load_mcp_config } from './mcp/config.js';
 
@@ -23,21 +21,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
 	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'),
 );
-
-function inject_api_keys(authStorage: AuthStorage) {
-	if (process.env.ANTHROPIC_API_KEY) {
-		authStorage.setRuntimeApiKey(
-			'anthropic',
-			process.env.ANTHROPIC_API_KEY,
-		);
-	}
-	if (process.env.MISTRAL_API_KEY) {
-		authStorage.setRuntimeApiKey(
-			'mistral',
-			process.env.MISTRAL_API_KEY,
-		);
-	}
-}
 
 const main = defineCommand({
 	meta: {
@@ -62,9 +45,6 @@ const main = defineCommand({
 		const cwd = process.cwd();
 		const agentDir = getAgentDir();
 
-		// Load .env from cwd
-		load_env(cwd);
-
 		// Load MCP servers from mcp.json
 		const mcp_configs = load_mcp_config(cwd);
 		const mcp =
@@ -80,9 +60,6 @@ const main = defineCommand({
 			const services = await createAgentSessionServices({
 				cwd: runtime_cwd,
 			});
-
-			// Inject API keys
-			inject_api_keys(services.authStorage);
 
 			return {
 				...(await createAgentSessionFromServices({
