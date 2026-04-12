@@ -60,7 +60,17 @@ const main = defineCommand({
 		},
 		'no-builtin': {
 			type: 'boolean',
-			description: 'Disable built-in mcp+skills extensions',
+			description: 'Disable all built-in extensions',
+			default: false,
+		},
+		'no-mcp': {
+			type: 'boolean',
+			description: 'Disable built-in MCP extension',
+			default: false,
+		},
+		'no-skills': {
+			type: 'boolean',
+			description: 'Disable built-in skills extension',
 			default: false,
 		},
 		prompt: {
@@ -82,7 +92,8 @@ const main = defineCommand({
 		const runtime = await createMyPi({
 			cwd,
 			extensions: extensionPaths,
-			builtins: !args['no-builtin'],
+			mcp: !args['no-builtin'] && !args['no-mcp'],
+			skills: !args['no-builtin'] && !args['no-skills'],
 		});
 
 		if (args.print || args.json || prompt) {

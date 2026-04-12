@@ -20,7 +20,10 @@ export interface CreateMyPiOptions {
 	cwd?: string;
 	extensions?: string[];
 	extensionFactories?: ExtensionFactory[];
-	builtins?: boolean;
+	/** Enable MCP extension (default true) */
+	mcp?: boolean;
+	/** Enable skills extension (default true) */
+	skills?: boolean;
 }
 
 export async function createMyPi(
@@ -30,22 +33,23 @@ export async function createMyPi(
 		cwd = process.cwd(),
 		extensions = [],
 		extensionFactories: userFactories = [],
-		builtins = true,
+		mcp = true,
+		skills = true,
 	} = options;
 
 	const resolvedExtensions = extensions.map((p) =>
 		resolve(cwd, p),
 	);
-	const skills_mgr = builtins
+	const skills_mgr = skills
 		? create_skills_manager()
 		: null;
 
-	const builtinFactories: ExtensionFactory[] = builtins
-		? [
-				create_mcp_extension(cwd),
-				create_skills_extension(skills_mgr!),
-			]
-		: [];
+	const builtinFactories: ExtensionFactory[] = [
+		...(mcp ? [create_mcp_extension(cwd)] : []),
+		...(skills && skills_mgr
+			? [create_skills_extension(skills_mgr)]
+			: []),
+	];
 
 	const createRuntime: CreateAgentSessionRuntimeFactory =
 		async ({
