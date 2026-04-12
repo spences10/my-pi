@@ -4,8 +4,8 @@
 
 ### Patch Changes
 
-- 6588a83: Simplify recall extension to system prompt hint, model uses npx
-  pirecall via bash directly
+- 6588a83: Simplify recall extension to system prompt hint, model uses
+  npx pirecall via bash directly
 
 ## 0.0.2
 
