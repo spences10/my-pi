@@ -17,59 +17,75 @@ export function create_mcp_extension(cwd: string): ExtensionFactory {
 		const servers = new Map<string, ServerState>();
 		const configs = load_mcp_config(cwd);
 
-		for (const config of configs) {
-			try {
+		// Connect all MCP servers in parallel for faster startup
+		const results = await Promise.allSettled(
+			configs.map(async (config) => {
 				const client = new McpClient(config);
 				await client.connect();
-
 				const mcp_tools = await client.listTools();
-				const tool_names: string[] = [];
+				return { config, client, mcp_tools };
+			}),
+		);
 
-				for (const mcp_tool of mcp_tools) {
-					const tool_name = `mcp__${config.name}__${mcp_tool.name}`;
-					tool_names.push(tool_name);
-
-					pi.registerTool(
-						defineTool({
-							name: tool_name,
-							label: `${config.name}: ${mcp_tool.name}`,
-							description: mcp_tool.description || mcp_tool.name,
-							parameters: (mcp_tool.inputSchema || {
-								type: 'object',
-								properties: {},
-							}) as Parameters<typeof defineTool>[0]['parameters'],
-							execute: async (_id, params) => {
-								const result = (await client.callTool(
-									mcp_tool.name,
-									params as Record<string, unknown>,
-								)) as {
-									content?: Array<{ type: string; text?: string }>;
-								};
-
-								const text =
-									result?.content
-										?.map((c) => c.text || '')
-										.join('\n') || JSON.stringify(result);
-
-								return {
-									content: [{ type: 'text' as const, text }],
-									details: {},
-								};
-							},
-						}),
-					);
-				}
-
-				servers.set(config.name, {
-					config,
-					client,
-					tool_names,
-					enabled: true,
-				});
-			} catch (err) {
-				const msg = err instanceof Error ? err.message : String(err);
-				console.error(`MCP server ${config.name} failed: ${msg}`);
+		for (const result of results) {
+			if (result.status === 'rejected') {
+				console.error(`MCP server failed: ${result.reason}`);
+				continue;
 			}
+
+			const { config, client, mcp_tools } = result.value;
+			const tool_names: string[] = [];
+
+			for (const mcp_tool of mcp_tools) {
+				const tool_name = `mcp__${config.name}__${mcp_tool.name}`;
+				tool_names.push(tool_name);
+
+				pi.registerTool(
+					defineTool({
+						name: tool_name,
+						label: `${config.name}: ${mcp_tool.name}`,
+						description:
+							mcp_tool.description || mcp_tool.name,
+						parameters: (mcp_tool.inputSchema || {
+							type: 'object',
+							properties: {},
+						}) as Parameters<
+							typeof defineTool
+						>[0]['parameters'],
+						execute: async (_id, params) => {
+							const result = (await client.callTool(
+								mcp_tool.name,
+								params as Record<string, unknown>,
+							)) as {
+								content?: Array<{
+									type: string;
+									text?: string;
+								}>;
+							};
+
+							const text =
+								result?.content
+									?.map((c) => c.text || '')
+									.join('\n') ||
+								JSON.stringify(result);
+
+							return {
+								content: [
+									{ type: 'text' as const, text },
+								],
+								details: {},
+							};
+						},
+					}),
+				);
+			}
+
+			servers.set(config.name, {
+				config,
+				client,
+				tool_names,
+				enabled: true,
+			});
 		}
 
 		pi.registerCommand('mcp', {
