@@ -36,17 +36,17 @@ interface AgentDef {
 function parse_chain_yaml(raw: string): ChainDef[] {
 	const chains: ChainDef[] = [];
 	let current: ChainDef | null = null;
-	let currentStep: ChainStep | null = null;
+	let current_step: ChainStep | null = null;
 
 	for (const line of raw.split('\n')) {
-		const chainMatch = line.match(/^(\S[^:]*):$/);
-		if (chainMatch) {
-			if (current && currentStep) {
-				current.steps.push(currentStep);
-				currentStep = null;
+		const chain_match = line.match(/^(\S[^:]*):$/);
+		if (chain_match) {
+			if (current && current_step) {
+				current.steps.push(current_step);
+				current_step = null;
 			}
 			current = {
-				name: chainMatch[1].trim(),
+				name: chain_match[1].trim(),
 				description: '',
 				steps: [],
 			};
@@ -54,9 +54,9 @@ function parse_chain_yaml(raw: string): ChainDef[] {
 			continue;
 		}
 
-		const descMatch = line.match(/^\s+description:\s+(.+)$/);
-		if (descMatch && current && !currentStep) {
-			let desc = descMatch[1].trim();
+		const desc_match = line.match(/^\s+description:\s+(.+)$/);
+		if (desc_match && current && !current_step) {
+			let desc = desc_match[1].trim();
 			if (
 				(desc.startsWith('"') && desc.endsWith('"')) ||
 				(desc.startsWith("'") && desc.endsWith("'"))
@@ -69,19 +69,19 @@ function parse_chain_yaml(raw: string): ChainDef[] {
 
 		if (line.match(/^\s+steps:\s*$/) && current) continue;
 
-		const agentMatch = line.match(/^\s+-\s+agent:\s+(.+)$/);
-		if (agentMatch && current) {
-			if (currentStep) current.steps.push(currentStep);
-			currentStep = {
-				agent: agentMatch[1].trim(),
+		const agent_match = line.match(/^\s+-\s+agent:\s+(.+)$/);
+		if (agent_match && current) {
+			if (current_step) current.steps.push(current_step);
+			current_step = {
+				agent: agent_match[1].trim(),
 				prompt: '',
 			};
 			continue;
 		}
 
-		const promptMatch = line.match(/^\s+prompt:\s+(.+)$/);
-		if (promptMatch && currentStep) {
-			let prompt = promptMatch[1].trim();
+		const prompt_match = line.match(/^\s+prompt:\s+(.+)$/);
+		if (prompt_match && current_step) {
+			let prompt = prompt_match[1].trim();
 			if (
 				(prompt.startsWith('"') && prompt.endsWith('"')) ||
 				(prompt.startsWith("'") && prompt.endsWith("'"))
@@ -89,13 +89,13 @@ function parse_chain_yaml(raw: string): ChainDef[] {
 				prompt = prompt.slice(1, -1);
 			}
 			prompt = prompt.replace(/\\n/g, '\n');
-			currentStep.prompt = prompt;
+			current_step.prompt = prompt;
 			continue;
 		}
 	}
 
-	if (current && currentStep) {
-		current.steps.push(currentStep);
+	if (current && current_step) {
+		current.steps.push(current_step);
 	}
 
 	return chains;
@@ -155,7 +155,7 @@ function scan_agent_dirs(cwd: string): Map<string, AgentDef> {
 // ── Run a single agent step via my-pi print mode ─
 
 function run_agent_step(
-	agentDef: AgentDef,
+	agent_def: AgentDef,
 	task: string,
 ): Promise<{ output: string; exitCode: number }> {
 	// Use the current process (my-pi) in print mode
@@ -169,7 +169,7 @@ function run_agent_step(
 			stdio: ['ignore', 'pipe', 'pipe'],
 			env: {
 				...process.env,
-				MY_PI_AGENT_SYSTEM_PROMPT: agentDef.systemPrompt,
+				MY_PI_AGENT_SYSTEM_PROMPT: agent_def.systemPrompt,
 			},
 		});
 
@@ -205,7 +205,7 @@ export function create_chain_extension(
 	return async (pi) => {
 		const agents = scan_agent_dirs(cwd);
 		let chains: ChainDef[] = [];
-		let activeChain: ChainDef | null = null;
+		let active_chain: ChainDef | null = null;
 
 		// Load chain definitions
 		const chain_paths = [
@@ -226,7 +226,7 @@ export function create_chain_extension(
 		}
 
 		if (chains.length > 0) {
-			activeChain = chains[0];
+			active_chain = chains[0];
 		}
 
 		// ── run_chain tool ─────────────────────────
@@ -251,7 +251,7 @@ export function create_chain_extension(
 				}> => {
 					const { task } = params as { task: string };
 
-					if (!activeChain) {
+					if (!active_chain) {
 						return {
 							content: [
 								{
@@ -270,29 +270,29 @@ export function create_chain_extension(
 					const original = task;
 					const results: string[] = [];
 
-					for (let i = 0; i < activeChain.steps.length; i++) {
-						const step = activeChain.steps[i];
-						const agentDef = agents.get(step.agent.toLowerCase());
+					for (let i = 0; i < active_chain.steps.length; i++) {
+						const step = active_chain.steps[i];
+						const agent_def = agents.get(step.agent.toLowerCase());
 
-						if (!agentDef) {
+						if (!agent_def) {
 							const msg = `Step ${i + 1}: agent "${step.agent}" not found. Available: ${Array.from(agents.keys()).join(', ')}`;
 							results.push(msg);
 							return {
 								content: [{ type: 'text' as const, text: msg }],
 								details: {
-									chain: activeChain.name,
+									chain: active_chain.name,
 									steps: i,
 								},
 							};
 						}
 
-						const resolvedPrompt = step.prompt
+						const resolved_prompt = step.prompt
 							.replace(/\$INPUT/g, input)
 							.replace(/\$ORIGINAL/g, original);
 
 						const result = await run_agent_step(
-							agentDef,
-							resolvedPrompt,
+							agent_def,
+							resolved_prompt,
 						);
 
 						if (result.exitCode !== 0) {
@@ -301,7 +301,7 @@ export function create_chain_extension(
 							return {
 								content: [{ type: 'text' as const, text: msg }],
 								details: {
-									chain: activeChain.name,
+									chain: active_chain.name,
 									steps: i + 1,
 								},
 							};
@@ -317,8 +317,8 @@ export function create_chain_extension(
 					return {
 						content: [{ type: 'text' as const, text: summary }],
 						details: {
-							chain: activeChain.name,
-							steps: activeChain.steps.length,
+							chain: active_chain.name,
+							steps: active_chain.steps.length,
 						},
 					};
 				},
@@ -351,7 +351,7 @@ export function create_chain_extension(
 						return;
 					}
 					const lines = chains.map((c) => {
-						const active = c.name === activeChain?.name ? ' *' : '';
+						const active = c.name === active_chain?.name ? ' *' : '';
 						const steps = c.steps.map((s) => s.agent).join(' -> ');
 						return `${c.name}${active}: ${c.description || steps}`;
 					});
@@ -370,7 +370,7 @@ export function create_chain_extension(
 					return;
 				}
 
-				activeChain = chain;
+				active_chain = chain;
 				const flow = chain.steps.map((s) => s.agent).join(' -> ');
 				ctx.ui.notify(`Active chain: ${chain.name} (${flow})`);
 			},
@@ -381,13 +381,13 @@ export function create_chain_extension(
 		pi.on(
 			'before_agent_start',
 			async (event: { systemPrompt: string }) => {
-				if (!activeChain || chains.length === 0) return {};
+				if (!active_chain || chains.length === 0) return {};
 
-				const flow = activeChain.steps
+				const flow = active_chain.steps
 					.map((s) => s.agent)
 					.join(' -> ');
 
-				const stepList = activeChain.steps
+				const step_list = active_chain.steps
 					.map((s, i) => {
 						const def = agents.get(s.agent.toLowerCase());
 						const desc = def?.description || 'unknown';
@@ -395,10 +395,10 @@ export function create_chain_extension(
 					})
 					.join('\n');
 
-				const chainList = chains
+				const chain_list = chains
 					.map((c) => {
 						const active =
-							c.name === activeChain?.name ? ' (active)' : '';
+							c.name === active_chain?.name ? ' (active)' : '';
 						return `- ${c.name}${active}: ${c.description}`;
 					})
 					.join('\n');
@@ -413,14 +413,14 @@ export function create_chain_extension(
 
 You have a run_chain tool that executes sequential agent pipelines.
 
-### Active Chain: ${activeChain.name}
-${activeChain.description}
+### Active Chain: ${active_chain.name}
+${active_chain.description}
 Flow: ${flow}
 
-${stepList}
+${step_list}
 
 ### Available Chains
-${chainList}
+${chain_list}
 
 ### When to use run_chain
 - Non-trivial work: features, refactors, multi-file changes

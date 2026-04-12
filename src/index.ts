@@ -11,7 +11,7 @@ import { defineCommand, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMyPi } from './api.js';
+import { create_my_pi } from './api.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -94,7 +94,7 @@ const main = defineCommand({
 	},
 	async run({ args }) {
 		const cwd = process.cwd();
-		const extensionPaths = parse_extension_paths(process.argv);
+		const extension_paths = parse_extension_paths(process.argv);
 
 		// Stdin piping: read all stdin as prompt when piped
 		let prompt = args.prompt;
@@ -102,9 +102,9 @@ const main = defineCommand({
 			prompt = await read_stdin();
 		}
 
-		const runtime = await createMyPi({
+		const runtime = await create_my_pi({
 			cwd,
-			extensions: extensionPaths,
+			extensions: extension_paths,
 			mcp: !args['no-builtin'] && !args['no-mcp'],
 			skills: !args['no-builtin'] && !args['no-skills'],
 			chain: !args['no-builtin'] && !args['no-chain'],

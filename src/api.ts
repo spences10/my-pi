@@ -32,23 +32,23 @@ export interface CreateMyPiOptions {
 	model?: string;
 }
 
-export async function createMyPi(
+export async function create_my_pi(
 	options: CreateMyPiOptions = {},
 ): Promise<AgentSessionRuntime> {
 	const {
 		cwd = process.cwd(),
 		extensions = [],
-		extensionFactories: userFactories = [],
+		extensionFactories: user_factories = [],
 		mcp = true,
 		skills = true,
 		chain = true,
 		model,
 	} = options;
 
-	const resolvedExtensions = extensions.map((p) => resolve(cwd, p));
+	const resolved_extensions = extensions.map((p) => resolve(cwd, p));
 	const skills_mgr = skills ? create_skills_manager() : null;
 
-	const builtinFactories: ExtensionFactory[] = [
+	const builtin_factories: ExtensionFactory[] = [
 		...(mcp ? [create_mcp_extension(cwd)] : []),
 		...(skills && skills_mgr
 			? [create_skills_extension(skills_mgr)]
@@ -56,12 +56,12 @@ export async function createMyPi(
 		...(chain ? [create_chain_extension(cwd)] : []),
 	];
 
-	const createRuntime: CreateAgentSessionRuntimeFactory = async ({
+	const create_runtime: CreateAgentSessionRuntimeFactory = async ({
 		cwd: runtime_cwd,
 		sessionManager,
 		sessionStartEvent,
 	}) => {
-		const settingsManager = model
+		const settings_manager = model
 			? (() => {
 					const sm = SettingsManager.create(runtime_cwd);
 					sm.setDefaultModel(model);
@@ -71,10 +71,10 @@ export async function createMyPi(
 
 		const services = await createAgentSessionServices({
 			cwd: runtime_cwd,
-			...(settingsManager && { settingsManager }),
+			...(settings_manager && { settingsManager: settings_manager }),
 			resourceLoaderOptions: {
-				additionalExtensionPaths: resolvedExtensions,
-				extensionFactories: [...builtinFactories, ...userFactories],
+				additionalExtensionPaths: resolved_extensions,
+				extensionFactories: [...builtin_factories, ...user_factories],
 				skillsOverride: skills_mgr
 					? (base) => ({
 							skills: base.skills.filter((s) =>
@@ -97,7 +97,7 @@ export async function createMyPi(
 		};
 	};
 
-	return createAgentSessionRuntime(createRuntime, {
+	return createAgentSessionRuntime(create_runtime, {
 		cwd,
 		agentDir: getAgentDir(),
 		sessionManager: SessionManager.create(cwd),
