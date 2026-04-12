@@ -2,8 +2,8 @@ import {
 	type ExtensionFactory,
 	defineTool,
 } from '@mariozechner/pi-coding-agent';
-import { McpClient, type McpServerConfig } from './mcp/client.js';
-import { load_mcp_config } from './mcp/config.js';
+import { McpClient, type McpServerConfig } from '../mcp/client.js';
+import { load_mcp_config } from '../mcp/config.js';
 
 interface ServerState {
 	config: McpServerConfig;
@@ -12,12 +12,11 @@ interface ServerState {
 	enabled: boolean;
 }
 
-export function create_extension(cwd: string): ExtensionFactory {
+export function create_mcp_extension(cwd: string): ExtensionFactory {
 	return async (pi) => {
 		const servers = new Map<string, ServerState>();
 		const configs = load_mcp_config(cwd);
 
-		// Connect to each MCP server and register tools
 		for (const config of configs) {
 			try {
 				const client = new McpClient(config);
@@ -27,43 +26,33 @@ export function create_extension(cwd: string): ExtensionFactory {
 				const tool_names: string[] = [];
 
 				for (const mcp_tool of mcp_tools) {
-					const tool_name =
-						`mcp__${config.name}__${mcp_tool.name}`;
+					const tool_name = `mcp__${config.name}__${mcp_tool.name}`;
 					tool_names.push(tool_name);
 
 					pi.registerTool(
 						defineTool({
 							name: tool_name,
 							label: `${config.name}: ${mcp_tool.name}`,
-							description:
-								mcp_tool.description || mcp_tool.name,
+							description: mcp_tool.description || mcp_tool.name,
 							parameters: (mcp_tool.inputSchema || {
 								type: 'object',
 								properties: {},
-							}) as Parameters<
-								typeof defineTool
-							>[0]['parameters'],
+							}) as Parameters<typeof defineTool>[0]['parameters'],
 							execute: async (_id, params) => {
 								const result = (await client.callTool(
 									mcp_tool.name,
 									params as Record<string, unknown>,
 								)) as {
-									content?: Array<{
-										type: string;
-										text?: string;
-									}>;
+									content?: Array<{ type: string; text?: string }>;
 								};
 
 								const text =
 									result?.content
 										?.map((c) => c.text || '')
-										.join('\n') ||
-									JSON.stringify(result);
+										.join('\n') || JSON.stringify(result);
 
 								return {
-									content: [
-										{ type: 'text' as const, text },
-									],
+									content: [{ type: 'text' as const, text }],
 									details: {},
 								};
 							},
@@ -78,15 +67,11 @@ export function create_extension(cwd: string): ExtensionFactory {
 					enabled: true,
 				});
 			} catch (err) {
-				const msg =
-					err instanceof Error ? err.message : String(err);
-				console.error(
-					`MCP server ${config.name} failed: ${msg}`,
-				);
+				const msg = err instanceof Error ? err.message : String(err);
+				console.error(`MCP server ${config.name} failed: ${msg}`);
 			}
 		}
 
-		// /mcp command
 		pi.registerCommand('mcp', {
 			description: 'Manage MCP servers (list, enable, disable)',
 			getArgumentCompletions: (prefix) => {
@@ -96,10 +81,7 @@ export function create_extension(cwd: string): ExtensionFactory {
 						.filter((s) => s.startsWith(prefix))
 						.map((s) => ({ value: s, label: s }));
 				}
-				if (
-					parts[0] === 'enable' ||
-					parts[0] === 'disable'
-				) {
+				if (parts[0] === 'enable' || parts[0] === 'disable') {
 					const name_prefix = parts[1] || '';
 					return Array.from(servers.keys())
 						.filter((n) => n.startsWith(name_prefix))
@@ -121,13 +103,8 @@ export function create_extension(cwd: string): ExtensionFactory {
 							return;
 						}
 						const lines: string[] = [];
-						for (const [
-							sname,
-							state,
-						] of servers.entries()) {
-							const status = state.enabled
-								? 'enabled'
-								: 'disabled';
+						for (const [sname, state] of servers.entries()) {
+							const status = state.enabled ? 'enabled' : 'disabled';
 							lines.push(
 								`${sname} (${status}) — ${state.tool_names.length} tools`,
 							);
@@ -138,48 +115,33 @@ export function create_extension(cwd: string): ExtensionFactory {
 					case 'enable': {
 						const server = servers.get(name);
 						if (!server) {
-							ctx.ui.notify(
-								`Unknown server: ${name}`,
-								'warning',
-							);
+							ctx.ui.notify(`Unknown server: ${name}`, 'warning');
 							return;
 						}
 						if (server.enabled) {
-							ctx.ui.notify(
-								`${name} already enabled`,
-							);
+							ctx.ui.notify(`${name} already enabled`);
 							return;
 						}
 						server.enabled = true;
 						const active = pi.getActiveTools();
-						pi.setActiveTools([
-							...active,
-							...server.tool_names,
-						]);
+						pi.setActiveTools([...active, ...server.tool_names]);
 						ctx.ui.notify(`Enabled ${name}`);
 						break;
 					}
 					case 'disable': {
 						const server = servers.get(name);
 						if (!server) {
-							ctx.ui.notify(
-								`Unknown server: ${name}`,
-								'warning',
-							);
+							ctx.ui.notify(`Unknown server: ${name}`, 'warning');
 							return;
 						}
 						if (!server.enabled) {
-							ctx.ui.notify(
-								`${name} already disabled`,
-							);
+							ctx.ui.notify(`${name} already disabled`);
 							return;
 						}
 						server.enabled = false;
 						const tool_set = new Set(server.tool_names);
 						pi.setActiveTools(
-							pi
-								.getActiveTools()
-								.filter((t) => !tool_set.has(t)),
+							pi.getActiveTools().filter((t) => !tool_set.has(t)),
 						);
 						ctx.ui.notify(`Disabled ${name}`);
 						break;
@@ -193,57 +155,6 @@ export function create_extension(cwd: string): ExtensionFactory {
 			},
 		});
 
-		// /skills command
-		pi.registerCommand('skills', {
-			description: 'List loaded skills and commands',
-			getArgumentCompletions: (prefix) => {
-				return ['list', 'commands', 'tools']
-					.filter((s) => s.startsWith(prefix))
-					.map((s) => ({ value: s, label: s }));
-			},
-			handler: async (args, ctx) => {
-				const sub = args.trim() || 'list';
-
-				switch (sub) {
-					case 'list': {
-						const commands = pi.getCommands();
-						const lines = commands.map(
-							(c) =>
-								`/${c.name}${c.description ? ` — ${c.description}` : ''}`,
-						);
-						ctx.ui.notify(
-							lines.join('\n') || 'No commands loaded',
-						);
-						break;
-					}
-					case 'tools': {
-						const tools = pi.getAllTools();
-						const lines = tools.map(
-							(t) =>
-								`${t.name}${t.description ? ` — ${t.description}` : ''}`,
-						);
-						ctx.ui.notify(
-							lines.join('\n') || 'No tools loaded',
-						);
-						break;
-					}
-					case 'commands': {
-						const commands = pi.getCommands();
-						ctx.ui.notify(
-							`${commands.length} commands loaded`,
-						);
-						break;
-					}
-					default:
-						ctx.ui.notify(
-							'Usage: /skills [list|tools|commands]',
-							'warning',
-						);
-				}
-			},
-		});
-
-		// Cleanup on shutdown
 		pi.on('session_shutdown', async () => {
 			for (const server of servers.values()) {
 				await server.client.disconnect();

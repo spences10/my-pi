@@ -14,7 +14,9 @@ import { defineCommand, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { create_extension } from './extension.js';
+import { create_mcp_extension } from './extensions/mcp.js';
+import { create_skills_extension } from './extensions/skills.js';
+import { create_skills_manager } from './skills/manager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -51,13 +53,24 @@ const main = defineCommand({
 				sessionManager,
 				sessionStartEvent,
 			}) => {
+				const skills_mgr = create_skills_manager();
 				const services =
 					await createAgentSessionServices({
 						cwd: runtime_cwd,
 						resourceLoaderOptions: {
 							extensionFactories: [
-								create_extension(runtime_cwd),
+								create_mcp_extension(runtime_cwd),
+								create_skills_extension(skills_mgr),
 							],
+							skillsOverride: (base) => ({
+								skills: base.skills.filter((s) =>
+									skills_mgr.is_enabled_by_skill(
+										s.name,
+										s.filePath,
+									),
+								),
+								diagnostics: base.diagnostics,
+							}),
 						},
 					});
 
