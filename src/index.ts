@@ -1,40 +1,66 @@
 #!/usr/bin/env node
 
-import {
-	type CreateAgentSessionRuntimeFactory,
-	createAgentSessionFromServices,
-	createAgentSessionRuntime,
-	createAgentSessionServices,
-	getAgentDir,
-	InteractiveMode,
-	runPrintMode,
-	SessionManager,
-} from '@mariozechner/pi-coding-agent';
+// CLI for my-pi — composable pi coding agent
+// Extension stacking patterns inspired by https://github.com/disler/pi-vs-claude-code
+
+import { InteractiveMode, runPrintMode } from '@mariozechner/pi-coding-agent';
 import { defineCommand, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { create_mcp_extension } from './extensions/mcp.js';
-import { create_skills_extension } from './extensions/skills.js';
-import { create_skills_manager } from './skills/manager.js';
+import { createMyPi } from './api.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
 	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'),
 );
 
+// citty can't handle repeatable args, so parse -e from argv directly
+// (citty uses strict: false, so unknown flags are silently ignored)
+function parse_extension_paths(argv: string[]): string[] {
+	const paths: string[] = [];
+	for (let i = 0; i < argv.length; i++) {
+		if (
+			(argv[i] === '-e' || argv[i] === '--extension') &&
+			i + 1 < argv.length
+		) {
+			paths.push(resolve(argv[++i]));
+		}
+	}
+	return paths;
+}
+
+async function read_stdin(): Promise<string> {
+	const chunks: Buffer[] = [];
+	for await (const chunk of process.stdin) {
+		chunks.push(chunk as Buffer);
+	}
+	return Buffer.concat(chunks).toString('utf-8').trim();
+}
+
 const main = defineCommand({
 	meta: {
 		name: 'my-pi',
 		version: pkg.version,
 		description:
-			'Personal pi coding agent with MCP tool integration',
+			'Composable pi coding agent with MCP tools and extension stacking',
 	},
 	args: {
 		print: {
 			type: 'boolean',
 			alias: 'P',
 			description: 'Print mode (non-interactive, one-shot)',
+			default: false,
+		},
+		json: {
+			type: 'boolean',
+			alias: 'j',
+			description: 'Output NDJSON events (for agent consumption)',
+			default: false,
+		},
+		'no-builtin': {
+			type: 'boolean',
+			description: 'Disable built-in mcp+skills extensions',
 			default: false,
 		},
 		prompt: {
@@ -45,75 +71,56 @@ const main = defineCommand({
 	},
 	async run({ args }) {
 		const cwd = process.cwd();
-		const agentDir = getAgentDir();
+		const extensionPaths = parse_extension_paths(process.argv);
 
-		const createRuntime: CreateAgentSessionRuntimeFactory =
-			async ({
-				cwd: runtime_cwd,
-				sessionManager,
-				sessionStartEvent,
-			}) => {
-				const skills_mgr = create_skills_manager();
-				const services =
-					await createAgentSessionServices({
-						cwd: runtime_cwd,
-						resourceLoaderOptions: {
-							extensionFactories: [
-								create_mcp_extension(runtime_cwd),
-								create_skills_extension(skills_mgr),
-							],
-							skillsOverride: (base) => ({
-								skills: base.skills.filter((s) =>
-									skills_mgr.is_enabled_by_skill(
-										s.name,
-										s.filePath,
-									),
-								),
-								diagnostics: base.diagnostics,
-							}),
-						},
-					});
+		// Stdin piping: read all stdin as prompt when piped
+		let prompt = args.prompt;
+		if (!prompt && !process.stdin.isTTY) {
+			prompt = await read_stdin();
+		}
 
-				return {
-					...(await createAgentSessionFromServices({
-						services,
-						sessionManager,
-						sessionStartEvent,
-					})),
-					services,
-					diagnostics: services.diagnostics,
-				};
-			};
+		const runtime = await createMyPi({
+			cwd,
+			extensions: extensionPaths,
+			builtins: !args['no-builtin'],
+		});
 
-		const runtime = await createAgentSessionRuntime(
-			createRuntime,
-			{
-				cwd,
-				agentDir,
-				sessionManager: SessionManager.create(cwd),
-			},
-		);
-
-		if (args.print || args.prompt) {
-			await runPrintMode(runtime, {
-				mode: 'text',
-				initialMessage: args.prompt || '',
+		if (args.print || args.json || prompt) {
+			const code = await runPrintMode(runtime, {
+				mode: args.json ? 'json' : 'text',
+				initialMessage: prompt || '',
 				initialImages: [],
 				messages: [],
 			});
+			process.exit(code);
 		} else if (!process.stdout.isTTY) {
 			console.log(
-				`my-pi v${pkg.version} — pi coding agent with MCP tools\n`,
+				`my-pi v${pkg.version} — composable pi coding agent\n`,
 			);
 			console.log('Usage:');
 			console.log(
-				'  my-pi "prompt"           One-shot print mode',
+				'  my-pi "prompt"                   One-shot print mode',
 			);
 			console.log(
-				'  my-pi                    Interactive TUI mode',
+				'  my-pi                            Interactive TUI mode',
 			);
 			console.log(
-				'  my-pi -P "prompt"        Explicit print mode',
+				'  my-pi -P "prompt"                Explicit print mode',
+			);
+			console.log(
+				'  my-pi --json "prompt"            NDJSON output for agents',
+			);
+			console.log(
+				'  my-pi -e ext.ts                  Stack an extension',
+			);
+			console.log(
+				'  my-pi -e a.ts -e b.ts            Stack multiple extensions',
+			);
+			console.log(
+				'  echo "prompt" | my-pi --json     Pipe stdin as prompt',
+			);
+			console.log(
+				'  my-pi --no-builtin -e ext.ts     Skip mcp+skills builtins',
 			);
 		} else {
 			const mode = new InteractiveMode(runtime, {

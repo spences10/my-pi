@@ -18,7 +18,11 @@
 		"README.md"
 	],
 	"type": "module",
-	"main": "./dist/index.js",
+	"main": "./dist/api.js",
+	"exports": {
+		".": "./dist/api.js",
+		"./cli": "./dist/index.js"
+	},
 	"scripts": {
 		"build": "vp pack",
 		"dev": "vp pack --watch",

@@ -1,12 +1,14 @@
 # my-pi
 
-Personal [pi](https://pi.dev) coding agent wrapper with MCP tool
-integration.
+Composable [pi](https://pi.dev) coding agent for humans and agents.
 
 Built on the
 [@mariozechner/pi-coding-agent](https://github.com/badlogic/pi-mono)
-SDK. Adds MCP server support so models without built-in web search
-(like Mistral) can still use external tools.
+SDK. Adds MCP server support, extension stacking, JSON output for
+agent consumption, and a programmatic API.
+
+Extension stacking patterns inspired by
+[pi-vs-claude-code](https://github.com/disler/pi-vs-claude-code).
 
 ## Setup
 
@@ -31,7 +33,7 @@ Pi handles authentication natively via `AuthStorage`. Options
 ### Interactive mode (full TUI)
 
 ```bash
-node dist/index.js
+my-pi
 ```
 
 Pi's full terminal UI with editor, `/commands`, model switching
@@ -40,14 +42,56 @@ Pi's full terminal UI with editor, `/commands`, model switching
 ### Print mode (one-shot)
 
 ```bash
-node dist/index.js "your prompt here"
-node dist/index.js -P "explicit print mode"
+my-pi "your prompt here"
+my-pi -P "explicit print mode"
 ```
 
-### Non-TTY
+### JSON output (for agents)
 
-When run without a prompt in a non-TTY environment (e.g. piped or
-from an LLM agent), shows usage help instead of launching the TUI.
+```bash
+my-pi --json "list all TODO comments"
+echo "plan a login page" | my-pi --json
+```
+
+Outputs NDJSON events — one JSON object per line — for
+programmatic consumption by other agents or scripts.
+
+### Extension stacking
+
+```bash
+my-pi -e ./ext/damage-control.ts -e ./ext/tool-counter.ts
+my-pi --no-builtin -e ./ext/custom.ts "do something"
+```
+
+Stack arbitrary Pi extensions via `-e`. Use `--no-builtin` to
+skip the built-in MCP and skills extensions.
+
+### Stdin piping
+
+```bash
+echo "review this code" | my-pi
+cat plan.md | my-pi --json
+```
+
+When stdin is piped, it's read as the prompt and print mode
+runs automatically.
+
+### Programmatic API
+
+```ts
+import { createMyPi, runPrintMode } from 'my-pi';
+
+const runtime = await createMyPi({
+  extensions: ['./my-ext.ts'],
+  builtins: true,
+});
+await runPrintMode(runtime, {
+  mode: 'json',
+  initialMessage: 'hello',
+  initialImages: [],
+  messages: [],
+});
+```
 
 ## MCP Servers
 
@@ -119,10 +163,17 @@ In interactive mode:
 ```
 src/
   index.ts          CLI entry point (citty + pi SDK)
-  extension.ts      Pi extension (MCP + skills management)
+  api.ts            Programmatic API (createMyPi + re-exports)
+  extensions/
+    mcp.ts          MCP server integration extension
+    skills.ts       Skill discovery and toggle extension
   mcp/
     client.ts       Minimal MCP stdio client (JSON-RPC 2.0)
     config.ts       Loads and merges mcp.json configs
+  skills/
+    manager.ts      Skill enable/disable state management
+    scanner.ts      Skill discovery across sources
+    config.ts       Persistent skills config (~/.config/my-pi/)
 mcp.json            Project MCP server config
 ```
 
