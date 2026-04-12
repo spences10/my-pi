@@ -10,6 +10,7 @@ import {
 	type ExtensionFactory,
 	getAgentDir,
 	SessionManager,
+	SettingsManager,
 } from '@mariozechner/pi-coding-agent';
 import { resolve } from 'node:path';
 import { create_chain_extension } from './extensions/chain.js';
@@ -27,6 +28,8 @@ export interface CreateMyPiOptions {
 	skills?: boolean;
 	/** Enable chain extension (default true) */
 	chain?: boolean;
+	/** Override the default model (e.g. "claude-sonnet-4-5-20241022") */
+	model?: string;
 }
 
 export async function createMyPi(
@@ -39,6 +42,7 @@ export async function createMyPi(
 		mcp = true,
 		skills = true,
 		chain = true,
+		model,
 	} = options;
 
 	const resolvedExtensions = extensions.map((p) => resolve(cwd, p));
@@ -57,8 +61,17 @@ export async function createMyPi(
 		sessionManager,
 		sessionStartEvent,
 	}) => {
+		const settingsManager = model
+			? (() => {
+					const sm = SettingsManager.create(runtime_cwd);
+					sm.setDefaultModel(model);
+					return sm;
+				})()
+			: undefined;
+
 		const services = await createAgentSessionServices({
 			cwd: runtime_cwd,
+			...(settingsManager && { settingsManager }),
 			resourceLoaderOptions: {
 				additionalExtensionPaths: resolvedExtensions,
 				extensionFactories: [...builtinFactories, ...userFactories],
@@ -93,12 +106,13 @@ export async function createMyPi(
 
 export {
 	InteractiveMode,
-	runPrintMode,
+	runPrintMode
 } from '@mariozechner/pi-coding-agent';
 
 export type {
 	AgentSessionRuntime,
 	ExtensionFactory,
 	InteractiveModeOptions,
-	PrintModeOptions,
+	PrintModeOptions
 } from '@mariozechner/pi-coding-agent';
+

@@ -81,6 +81,11 @@ const main = defineCommand({
 			description: 'Disable built-in chain extension',
 			default: false,
 		},
+		model: {
+			type: 'string',
+			alias: 'm',
+			description: 'Model to use (e.g. claude-sonnet-4-5-20241022)',
+		},
 		prompt: {
 			type: 'positional',
 			description: 'Initial prompt (optional)',
@@ -103,6 +108,7 @@ const main = defineCommand({
 			mcp: !args['no-builtin'] && !args['no-mcp'],
 			skills: !args['no-builtin'] && !args['no-skills'],
 			chain: !args['no-builtin'] && !args['no-chain'],
+			model: args.model,
 		});
 
 		if (args.print || args.json || prompt) {
@@ -138,6 +144,9 @@ const main = defineCommand({
 			);
 			console.log(
 				'  echo "prompt" | my-pi --json     Pipe stdin as prompt',
+			);
+			console.log(
+				'  my-pi -m claude-haiku-4-5-20241022  Set initial model',
 			);
 			console.log(
 				'  my-pi --no-builtin -e ext.ts     Skip mcp+skills builtins',
