@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 // Test the config file format parsing directly
 // (load_mcp_config merges global ~/.pi config which is machine-specific)
@@ -18,9 +23,7 @@ interface McpConfigFile {
 	>;
 }
 
-function read_config(
-	path: string,
-): McpConfigFile['mcpServers'] {
+function read_config(path: string): McpConfigFile['mcpServers'] {
 	if (!existsSync(path)) return {};
 	const raw = readFileSync(path, 'utf-8');
 	const config = JSON.parse(raw) as McpConfigFile;
@@ -39,9 +42,7 @@ function tmp_dir(): string {
 describe('mcp config parsing', () => {
 	it('returns empty for missing file', () => {
 		const dir = tmp_dir();
-		const result = read_config(
-			join(dir, 'mcp.json'),
-		);
+		const result = read_config(join(dir, 'mcp.json'));
 		expect(Object.keys(result)).toHaveLength(0);
 	});
 
@@ -145,9 +146,7 @@ describe('mcp config parsing', () => {
 			...project_servers,
 		};
 
-		expect(merged['shared'].command).toBe(
-			'project-cmd',
-		);
+		expect(merged['shared'].command).toBe('project-cmd');
 		expect(merged['global-only'].command).toBe('g');
 		expect(merged['project-only'].command).toBe('p');
 	});

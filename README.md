@@ -158,8 +158,7 @@ In interactive mode:
 
 ## Agent Chains
 
-Define sequential agent pipelines in
-`.pi/agents/agent-chain.yaml`:
+Define sequential agent pipelines in `.pi/agents/agent-chain.yaml`:
 
 ```yaml
 scout-plan:
@@ -179,27 +178,28 @@ name: scout
 description: Codebase exploration and analysis
 tools: read,grep,find,ls
 ---
+
 You are a scout agent. Explore the codebase and report findings.
 ```
 
-The chain extension injects context into the system prompt so
-the LLM knows when and how to use `run_chain`. Use `/chain`
-to switch active chains and `/agents` to list available agents.
+The chain extension injects context into the system prompt so the LLM
+knows when and how to use `run_chain`. Use `/chain` to switch active
+chains and `/agents` to list available agents.
 
 ## Secret Redaction
 
-The filter-output extension automatically redacts secrets
-(API keys, tokens, passwords, private keys) from tool output
-before the LLM sees them. Detection patterns from
+The filter-output extension automatically redacts secrets (API keys,
+tokens, passwords, private keys) from tool output before the LLM sees
+them. Detection patterns from
 [nopeek](https://github.com/spences10/nopeek).
 
-Use `/redact-stats` to see how many secrets were caught.
-Disable with `--no-filter`.
+Use `/redact-stats` to see how many secrets were caught. Disable with
+`--no-filter`.
 
 ## Session Handoff
 
-Use `/handoff <task>` to export conversation context as a
-markdown file that can be piped into a new session:
+Use `/handoff <task>` to export conversation context as a markdown
+file that can be piped into a new session:
 
 ```bash
 # In session 1: /handoff continue the auth refactor

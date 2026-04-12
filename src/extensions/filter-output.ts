@@ -1,7 +1,7 @@
 // Filter-output extension — redact secrets from tool output
 // Patterns from https://github.com/spences10/nopeek
 
-import type { ExtensionFactory } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 
 interface SecretPattern {
 	name: string;
@@ -88,41 +88,38 @@ function redact(text: string): { redacted: string; count: number } {
 	return { redacted: result, count };
 }
 
-export function create_filter_output_extension(): ExtensionFactory {
-	return async (pi) => {
-		let totalRedacted = 0;
+// Default export for Pi Package / additionalExtensionPaths loading
+export default async function filter_output(pi: ExtensionAPI) {
+	let totalRedacted = 0;
 
-		// Intercept tool results to redact secrets before the LLM sees them
-		pi.on('tool_result', async (event) => {
-			if (!event.content) return {};
+	// Intercept tool results to redact secrets before the LLM sees them
+	pi.on('tool_result' as const, async (event: any) => {
+		if (!event.content) return;
 
-			let modified = false;
-			const newContent = event.content.map(
-				(item: { type: string; text?: string }) => {
-					if (item.type !== 'text' || !item.text) return item;
-					const { redacted, count } = redact(item.text);
-					if (count > 0) {
-						modified = true;
-						totalRedacted += count;
-					}
-					return { ...item, text: redacted };
-				},
-			);
-
-			if (modified) {
-				return { content: newContent };
-			}
-
-			return {};
-		});
-
-		pi.registerCommand('redact-stats', {
-			description: 'Show how many secrets have been redacted',
-			handler: async (_args, ctx) => {
-				ctx.ui.notify(
-					`Secrets redacted this session: ${totalRedacted}`,
-				);
+		let modified = false;
+		const newContent = event.content.map(
+			(item: { type: string; text?: string }) => {
+				if (item.type !== 'text' || !item.text) return item;
+				const { redacted, count } = redact(item.text);
+				if (count > 0) {
+					modified = true;
+					totalRedacted += count;
+				}
+				return { ...item, text: redacted };
 			},
-		});
-	};
+		);
+
+		if (modified) {
+			return { content: newContent };
+		}
+	});
+
+	pi.registerCommand('redact-stats', {
+		description: 'Show how many secrets have been redacted',
+		handler: async (_args, ctx) => {
+			ctx.ui.notify(
+				`Secrets redacted this session: ${totalRedacted}`,
+			);
+		},
+	});
 }

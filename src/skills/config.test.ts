@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
 	is_skill_enabled,
 	make_skill_key,
@@ -13,9 +13,9 @@ describe('make_skill_key', () => {
 	});
 
 	it('handles plugin source', () => {
-		expect(
-			make_skill_key('audit', 'plugin:impeccable'),
-		).toBe('audit@plugin:impeccable');
+		expect(make_skill_key('audit', 'plugin:impeccable')).toBe(
+			'audit@plugin:impeccable',
+		);
 	});
 });
 
@@ -26,9 +26,7 @@ describe('is_skill_enabled', () => {
 			enabled: { 'my-skill@local': true },
 			defaults: 'all-disabled',
 		};
-		expect(
-			is_skill_enabled(config, 'my-skill@local'),
-		).toBe(true);
+		expect(is_skill_enabled(config, 'my-skill@local')).toBe(true);
 	});
 
 	it('returns explicit disabled state', () => {
@@ -37,9 +35,7 @@ describe('is_skill_enabled', () => {
 			enabled: { 'my-skill@local': false },
 			defaults: 'all-enabled',
 		};
-		expect(
-			is_skill_enabled(config, 'my-skill@local'),
-		).toBe(false);
+		expect(is_skill_enabled(config, 'my-skill@local')).toBe(false);
 	});
 
 	it('falls back to all-enabled default', () => {
@@ -48,9 +44,7 @@ describe('is_skill_enabled', () => {
 			enabled: {},
 			defaults: 'all-enabled',
 		};
-		expect(
-			is_skill_enabled(config, 'unknown@source'),
-		).toBe(true);
+		expect(is_skill_enabled(config, 'unknown@source')).toBe(true);
 	});
 
 	it('falls back to all-disabled default', () => {
@@ -59,8 +53,6 @@ describe('is_skill_enabled', () => {
 			enabled: {},
 			defaults: 'all-disabled',
 		};
-		expect(
-			is_skill_enabled(config, 'unknown@source'),
-		).toBe(false);
+		expect(is_skill_enabled(config, 'unknown@source')).toBe(false);
 	});
 });

@@ -52,9 +52,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
 	},
 ];
 
-function redact(
-	text: string,
-): { redacted: string; count: number } {
+function redact(text: string): { redacted: string; count: number } {
 	let count = 0;
 	let result = text;
 
@@ -92,19 +90,14 @@ describe('redact', () => {
 			'ANTHROPIC_API_KEY=sk-ant-api03-abcdefghijklmnopqrstuvwxyz';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
-		expect(redacted).toContain(
-			'[REDACTED:OpenAI/Anthropic API Key]',
-		);
+		expect(redacted).toContain('[REDACTED:OpenAI/Anthropic API Key]');
 	});
 
 	it('redacts Stripe live keys', () => {
-		const input =
-			`sk_live_${'51HgT2CJa8qB1E7R9X4abcdefghijklmn'}`;
+		const input = `sk_live_${'51HgT2CJa8qB1E7R9X4abcdefghijklmn'}`;
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
-		expect(redacted).toContain(
-			'[REDACTED:Stripe Live Key]',
-		);
+		expect(redacted).toContain('[REDACTED:Stripe Live Key]');
 	});
 
 	it('redacts private key headers', () => {
@@ -115,8 +108,7 @@ describe('redact', () => {
 	});
 
 	it('redacts connection strings with passwords', () => {
-		const input =
-			'postgres://user:s3cretP@ss@localhost:5432/db';
+		const input = 'postgres://user:s3cretP@ss@localhost:5432/db';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain(
@@ -129,29 +121,21 @@ describe('redact', () => {
 			'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';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
-		expect(redacted).toContain(
-			'[REDACTED:Tavily API Key]',
-		);
+		expect(redacted).toContain('[REDACTED:Tavily API Key]');
 	});
 
 	it('redacts Firecrawl API keys', () => {
-		const input =
-			'fc-e3011a33574e44c8aa539c24218cd659';
+		const input = 'fc-e3011a33574e44c8aa539c24218cd659';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
-		expect(redacted).toContain(
-			'[REDACTED:Firecrawl API Key]',
-		);
+		expect(redacted).toContain('[REDACTED:Firecrawl API Key]');
 	});
 
 	it('redacts GitHub tokens', () => {
-		const input =
-			'ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn';
+		const input = 'ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
-		expect(redacted).toContain(
-			'[REDACTED:GitHub Token]',
-		);
+		expect(redacted).toContain('[REDACTED:GitHub Token]');
 	});
 
 	it('redacts multiple secrets in one string', () => {
@@ -163,8 +147,7 @@ describe('redact', () => {
 	});
 
 	it('leaves clean text unchanged', () => {
-		const input =
-			'This is normal output with no secrets.';
+		const input = 'This is normal output with no secrets.';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);

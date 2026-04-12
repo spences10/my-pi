@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
 	parseFrontmatter,
 	type SkillFrontmatter,
 } from '@mariozechner/pi-coding-agent';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 // ── YAML parser (extracted from chain.ts for testing) ──
 
@@ -40,9 +40,7 @@ function parse_chain_yaml(raw: string): ChainDef[] {
 			continue;
 		}
 
-		const descMatch = line.match(
-			/^\s+description:\s+(.+)$/,
-		);
+		const descMatch = line.match(/^\s+description:\s+(.+)$/);
 		if (descMatch && current && !currentStep) {
 			let desc = descMatch[1].trim();
 			if (
@@ -55,12 +53,9 @@ function parse_chain_yaml(raw: string): ChainDef[] {
 			continue;
 		}
 
-		if (line.match(/^\s+steps:\s*$/) && current)
-			continue;
+		if (line.match(/^\s+steps:\s*$/) && current) continue;
 
-		const agentMatch = line.match(
-			/^\s+-\s+agent:\s+(.+)$/,
-		);
+		const agentMatch = line.match(/^\s+-\s+agent:\s+(.+)$/);
 		if (agentMatch && current) {
 			if (currentStep) current.steps.push(currentStep);
 			currentStep = {
@@ -70,16 +65,12 @@ function parse_chain_yaml(raw: string): ChainDef[] {
 			continue;
 		}
 
-		const promptMatch = line.match(
-			/^\s+prompt:\s+(.+)$/,
-		);
+		const promptMatch = line.match(/^\s+prompt:\s+(.+)$/);
 		if (promptMatch && currentStep) {
 			let prompt = promptMatch[1].trim();
 			if (
-				(prompt.startsWith('"') &&
-					prompt.endsWith('"')) ||
-				(prompt.startsWith("'") &&
-					prompt.endsWith("'"))
+				(prompt.startsWith('"') && prompt.endsWith('"')) ||
+				(prompt.startsWith("'") && prompt.endsWith("'"))
 			) {
 				prompt = prompt.slice(1, -1);
 			}
@@ -99,12 +90,7 @@ function parse_chain_yaml(raw: string): ChainDef[] {
 describe('parse_chain_yaml', () => {
 	it('parses the project chain config', () => {
 		const raw = readFileSync(
-			join(
-				process.cwd(),
-				'.pi',
-				'agents',
-				'agent-chain.yaml',
-			),
+			join(process.cwd(), '.pi', 'agents', 'agent-chain.yaml'),
 			'utf-8',
 		);
 		const chains = parse_chain_yaml(raw);
@@ -158,9 +144,7 @@ chain-b:
       prompt: "Plan:\\n\\n$INPUT"`;
 
 		const chains = parse_chain_yaml(yaml);
-		expect(chains[0].steps[0].prompt).toBe(
-			'Plan:\n\n$INPUT',
-		);
+		expect(chains[0].steps[0].prompt).toBe('Plan:\n\n$INPUT');
 	});
 
 	it('handles single-quoted values', () => {
@@ -183,12 +167,7 @@ chain-b:
 describe('agent definition parsing', () => {
 	it('parses agent markdown frontmatter', () => {
 		const raw = readFileSync(
-			join(
-				process.cwd(),
-				'.pi',
-				'agents',
-				'scout.md',
-			),
+			join(process.cwd(), '.pi', 'agents', 'scout.md'),
 			'utf-8',
 		);
 		const { frontmatter, body } =
@@ -203,21 +182,13 @@ describe('agent definition parsing', () => {
 
 	it('parses tools from frontmatter', () => {
 		const raw = readFileSync(
-			join(
-				process.cwd(),
-				'.pi',
-				'agents',
-				'planner.md',
-			),
+			join(process.cwd(), '.pi', 'agents', 'planner.md'),
 			'utf-8',
 		);
-		const { frontmatter } =
-			parseFrontmatter<
-				SkillFrontmatter & { tools?: string }
-			>(raw);
+		const { frontmatter } = parseFrontmatter<
+			SkillFrontmatter & { tools?: string }
+		>(raw);
 
-		expect(frontmatter?.tools).toBe(
-			'read,grep,find,ls',
-		);
+		expect(frontmatter?.tools).toBe('read,grep,find,ls');
 	});
 });

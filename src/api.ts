@@ -12,14 +12,11 @@ import {
 	SessionManager,
 	SettingsManager,
 } from '@mariozechner/pi-coding-agent';
-import { resolve } from 'node:path';
-import { create_chain_extension } from './extensions/chain.js';
-import { create_filter_output_extension } from './extensions/filter-output.js';
-import { create_handoff_extension } from './extensions/handoff.js';
-import { create_mcp_extension } from './extensions/mcp.js';
-import { create_recall_extension } from './extensions/recall.js';
-import { create_skills_extension } from './extensions/skills.js';
-import { create_skills_manager } from './skills/manager.js';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ext_dir = resolve(__dirname, '..', 'src', 'extensions');
 
 export interface CreateMyPiOptions {
 	cwd?: string;
@@ -58,17 +55,15 @@ export async function create_my_pi(
 	} = options;
 
 	const resolved_extensions = extensions.map((p) => resolve(cwd, p));
-	const skills_mgr = skills ? create_skills_manager() : null;
 
-	const builtin_factories: ExtensionFactory[] = [
-		...(mcp ? [create_mcp_extension(cwd)] : []),
-		...(skills && skills_mgr
-			? [create_skills_extension(skills_mgr)]
-			: []),
-		...(chain ? [create_chain_extension(cwd)] : []),
-		...(filter_output ? [create_filter_output_extension()] : []),
-		...(handoff ? [create_handoff_extension()] : []),
-		...(recall ? [create_recall_extension()] : []),
+	// All built-in extensions loaded by path so Pi shows filenames
+	const builtin_extension_paths: string[] = [
+		...(mcp ? [resolve(ext_dir, 'mcp.ts')] : []),
+		...(skills ? [resolve(ext_dir, 'skills.ts')] : []),
+		...(chain ? [resolve(ext_dir, 'chain.ts')] : []),
+		...(filter_output ? [resolve(ext_dir, 'filter-output.ts')] : []),
+		...(handoff ? [resolve(ext_dir, 'handoff.ts')] : []),
+		...(recall ? [resolve(ext_dir, 'recall.ts')] : []),
 	];
 
 	const create_runtime: CreateAgentSessionRuntimeFactory = async ({
@@ -88,16 +83,11 @@ export async function create_my_pi(
 			cwd: runtime_cwd,
 			...(settings_manager && { settingsManager: settings_manager }),
 			resourceLoaderOptions: {
-				additionalExtensionPaths: resolved_extensions,
-				extensionFactories: [...builtin_factories, ...user_factories],
-				skillsOverride: skills_mgr
-					? (base) => ({
-							skills: base.skills.filter((s) =>
-								skills_mgr.is_enabled_by_skill(s.name, s.filePath),
-							),
-							diagnostics: base.diagnostics,
-						})
-					: undefined,
+				additionalExtensionPaths: [
+					...builtin_extension_paths,
+					...resolved_extensions,
+				],
+				extensionFactories: [...user_factories],
 			},
 		});
 
@@ -121,13 +111,12 @@ export async function create_my_pi(
 
 export {
 	InteractiveMode,
-	runPrintMode
+	runPrintMode,
 } from '@mariozechner/pi-coding-agent';
 
 export type {
 	AgentSessionRuntime,
 	ExtensionFactory,
 	InteractiveModeOptions,
-	PrintModeOptions
+	PrintModeOptions,
 } from '@mariozechner/pi-coding-agent';
-

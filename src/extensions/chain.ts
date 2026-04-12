@@ -2,7 +2,7 @@
 // Inspired by https://github.com/disler/pi-vs-claude-code/blob/main/extensions/agent-chain.ts
 
 import {
-	type ExtensionFactory,
+	type ExtensionAPI,
 	defineTool,
 	parseFrontmatter,
 } from '@mariozechner/pi-coding-agent';
@@ -199,215 +199,214 @@ function run_agent_step(
 
 // ── Extension ──────────────────────────────────
 
-export function create_chain_extension(
-	cwd: string,
-): ExtensionFactory {
-	return async (pi) => {
-		const agents = scan_agent_dirs(cwd);
-		let chains: ChainDef[] = [];
-		let active_chain: ChainDef | null = null;
+// Default export for Pi Package / additionalExtensionPaths loading
+export default async function chain(pi: ExtensionAPI) {
+	const cwd = process.cwd();
+	const agents = scan_agent_dirs(cwd);
+	let chains: ChainDef[] = [];
+	let active_chain: ChainDef | null = null;
 
-		// Load chain definitions
-		const chain_paths = [
-			join(cwd, '.pi', 'agents', 'agent-chain.yaml'),
-			join(cwd, '.pi', 'agents', 'chains.yaml'),
-			join(cwd, '.claude', 'agents', 'chains.yaml'),
-		];
+	// Load chain definitions
+	const chain_paths = [
+		join(cwd, '.pi', 'agents', 'agent-chain.yaml'),
+		join(cwd, '.pi', 'agents', 'chains.yaml'),
+		join(cwd, '.claude', 'agents', 'chains.yaml'),
+	];
 
-		for (const path of chain_paths) {
-			if (existsSync(path)) {
-				try {
-					chains = parse_chain_yaml(readFileSync(path, 'utf-8'));
-					break;
-				} catch {
-					// try next
-				}
+	for (const path of chain_paths) {
+		if (existsSync(path)) {
+			try {
+				chains = parse_chain_yaml(readFileSync(path, 'utf-8'));
+				break;
+			} catch {
+				// try next
 			}
 		}
+	}
 
-		if (chains.length > 0) {
-			active_chain = chains[0];
-		}
+	if (chains.length > 0) {
+		active_chain = chains[0];
+	}
 
-		// ── run_chain tool ─────────────────────────
+	// ── run_chain tool ─────────────────────────
 
-		pi.registerTool(
-			defineTool({
-				name: 'run_chain',
-				label: 'Run Chain',
-				description:
-					"Execute the active agent chain pipeline. Each step runs sequentially — output from one step feeds into the next as $INPUT. $ORIGINAL is always the user's initial prompt.",
-				parameters: Type.Object({
-					task: Type.String({
-						description: 'The task/prompt for the chain to process',
-					}),
+	pi.registerTool(
+		defineTool({
+			name: 'run_chain',
+			label: 'Run Chain',
+			description:
+				"Execute the active agent chain pipeline. Each step runs sequentially — output from one step feeds into the next as $INPUT. $ORIGINAL is always the user's initial prompt.",
+			parameters: Type.Object({
+				task: Type.String({
+					description: 'The task/prompt for the chain to process',
 				}),
-				execute: async (
-					_id: string,
-					params: unknown,
-				): Promise<{
-					content: Array<{ type: 'text'; text: string }>;
-					details: { chain: string; steps: number };
-				}> => {
-					const { task } = params as { task: string };
+			}),
+			execute: async (
+				_id: string,
+				params: unknown,
+			): Promise<{
+				content: Array<{ type: 'text'; text: string }>;
+				details: { chain: string; steps: number };
+			}> => {
+				const { task } = params as { task: string };
 
-					if (!active_chain) {
+				if (!active_chain) {
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: 'No chain active. Use /chain to select one.',
+							},
+						],
+						details: {
+							chain: '',
+							steps: 0,
+						},
+					};
+				}
+
+				let input = task;
+				const original = task;
+				const results: string[] = [];
+
+				for (let i = 0; i < active_chain.steps.length; i++) {
+					const step = active_chain.steps[i];
+					const agent_def = agents.get(step.agent.toLowerCase());
+
+					if (!agent_def) {
+						const msg = `Step ${i + 1}: agent "${step.agent}" not found. Available: ${Array.from(agents.keys()).join(', ')}`;
+						results.push(msg);
 						return {
-							content: [
-								{
-									type: 'text' as const,
-									text: 'No chain active. Use /chain to select one.',
-								},
-							],
+							content: [{ type: 'text' as const, text: msg }],
 							details: {
-								chain: '',
-								steps: 0,
+								chain: active_chain.name,
+								steps: i,
 							},
 						};
 					}
 
-					let input = task;
-					const original = task;
-					const results: string[] = [];
+					const resolved_prompt = step.prompt
+						.replace(/\$INPUT/g, input)
+						.replace(/\$ORIGINAL/g, original);
 
-					for (let i = 0; i < active_chain.steps.length; i++) {
-						const step = active_chain.steps[i];
-						const agent_def = agents.get(step.agent.toLowerCase());
+					const result = await run_agent_step(
+						agent_def,
+						resolved_prompt,
+					);
 
-						if (!agent_def) {
-							const msg = `Step ${i + 1}: agent "${step.agent}" not found. Available: ${Array.from(agents.keys()).join(', ')}`;
-							results.push(msg);
-							return {
-								content: [{ type: 'text' as const, text: msg }],
-								details: {
-									chain: active_chain.name,
-									steps: i,
-								},
-							};
-						}
-
-						const resolved_prompt = step.prompt
-							.replace(/\$INPUT/g, input)
-							.replace(/\$ORIGINAL/g, original);
-
-						const result = await run_agent_step(
-							agent_def,
-							resolved_prompt,
-						);
-
-						if (result.exitCode !== 0) {
-							const msg = `Step ${i + 1} (${step.agent}) failed:\n${result.output}`;
-							results.push(msg);
-							return {
-								content: [{ type: 'text' as const, text: msg }],
-								details: {
-									chain: active_chain.name,
-									steps: i + 1,
-								},
-							};
-						}
-
-						results.push(
-							`## Step ${i + 1}: ${step.agent}\n${result.output}`,
-						);
-						input = result.output;
+					if (result.exitCode !== 0) {
+						const msg = `Step ${i + 1} (${step.agent}) failed:\n${result.output}`;
+						results.push(msg);
+						return {
+							content: [{ type: 'text' as const, text: msg }],
+							details: {
+								chain: active_chain.name,
+								steps: i + 1,
+							},
+						};
 					}
 
-					const summary = results.join('\n\n---\n\n');
-					return {
-						content: [{ type: 'text' as const, text: summary }],
-						details: {
-							chain: active_chain.name,
-							steps: active_chain.steps.length,
-						},
-					};
-				},
-			}),
-		);
-
-		// ── /chain command ─────────────────────────
-
-		pi.registerCommand('chain', {
-			description: 'Switch active chain or list chains (chain list)',
-			getArgumentCompletions: (prefix) => {
-				const parts = prefix.trim().split(/\s+/);
-				if (parts.length <= 1) {
-					const subs = ['list', ...chains.map((c) => c.name)];
-					return subs
-						.filter((s) => s.startsWith(parts[0] || ''))
-						.map((s) => ({ value: s, label: s }));
+					results.push(
+						`## Step ${i + 1}: ${step.agent}\n${result.output}`,
+					);
+					input = result.output;
 				}
-				return null;
+
+				const summary = results.join('\n\n---\n\n');
+				return {
+					content: [{ type: 'text' as const, text: summary }],
+					details: {
+						chain: active_chain.name,
+						steps: active_chain.steps.length,
+					},
+				};
 			},
-			handler: async (args, ctx) => {
-				const sub = args.trim();
+		}),
+	);
 
-				if (!sub || sub === 'list') {
-					if (chains.length === 0) {
-						ctx.ui.notify(
-							'No chains found. Add chains to .pi/agents/agent-chain.yaml',
-							'warning',
-						);
-						return;
-					}
-					const lines = chains.map((c) => {
-						const active = c.name === active_chain?.name ? ' *' : '';
-						const steps = c.steps.map((s) => s.agent).join(' -> ');
-						return `${c.name}${active}: ${c.description || steps}`;
-					});
-					ctx.ui.notify(lines.join('\n'));
-					return;
-				}
+	// ── /chain command ─────────────────────────
 
-				const chain = chains.find(
-					(c) => c.name.toLowerCase() === sub.toLowerCase(),
-				);
-				if (!chain) {
+	pi.registerCommand('chain', {
+		description: 'Switch active chain or list chains (chain list)',
+		getArgumentCompletions: (prefix) => {
+			const parts = prefix.trim().split(/\s+/);
+			if (parts.length <= 1) {
+				const subs = ['list', ...chains.map((c) => c.name)];
+				return subs
+					.filter((s) => s.startsWith(parts[0] || ''))
+					.map((s) => ({ value: s, label: s }));
+			}
+			return null;
+		},
+		handler: async (args, ctx) => {
+			const sub = args.trim();
+
+			if (!sub || sub === 'list') {
+				if (chains.length === 0) {
 					ctx.ui.notify(
-						`Unknown chain: ${sub}. Use /chain list.`,
+						'No chains found. Add chains to .pi/agents/agent-chain.yaml',
 						'warning',
 					);
 					return;
 				}
+				const lines = chains.map((c) => {
+					const active = c.name === active_chain?.name ? ' *' : '';
+					const steps = c.steps.map((s) => s.agent).join(' -> ');
+					return `${c.name}${active}: ${c.description || steps}`;
+				});
+				ctx.ui.notify(lines.join('\n'));
+				return;
+			}
 
-				active_chain = chain;
-				const flow = chain.steps.map((s) => s.agent).join(' -> ');
-				ctx.ui.notify(`Active chain: ${chain.name} (${flow})`);
-			},
-		});
+			const found_chain = chains.find(
+				(c) => c.name.toLowerCase() === sub.toLowerCase(),
+			);
+			if (!found_chain) {
+				ctx.ui.notify(
+					`Unknown chain: ${sub}. Use /chain list.`,
+					'warning',
+				);
+				return;
+			}
 
-		// ── System prompt injection ────────────────
+			active_chain = found_chain;
+			const flow = found_chain.steps.map((s) => s.agent).join(' -> ');
+			ctx.ui.notify(`Active chain: ${found_chain.name} (${flow})`);
+		},
+	});
 
-		pi.on(
-			'before_agent_start',
-			async (event: { systemPrompt: string }) => {
-				if (!active_chain || chains.length === 0) return {};
+	// ── System prompt injection ────────────────
 
-				const flow = active_chain.steps
-					.map((s) => s.agent)
-					.join(' -> ');
+	pi.on(
+		'before_agent_start',
+		async (event: { systemPrompt: string }) => {
+			if (!active_chain || chains.length === 0) return {};
 
-				const step_list = active_chain.steps
-					.map((s, i) => {
-						const def = agents.get(s.agent.toLowerCase());
-						const desc = def?.description || 'unknown';
-						return `${i + 1}. **${s.agent}** — ${desc}`;
-					})
-					.join('\n');
+			const flow = active_chain.steps
+				.map((s) => s.agent)
+				.join(' -> ');
 
-				const chain_list = chains
-					.map((c) => {
-						const active =
-							c.name === active_chain?.name ? ' (active)' : '';
-						return `- ${c.name}${active}: ${c.description}`;
-					})
-					.join('\n');
+			const step_list = active_chain.steps
+				.map((s, i) => {
+					const def = agents.get(s.agent.toLowerCase());
+					const desc = def?.description || 'unknown';
+					return `${i + 1}. **${s.agent}** — ${desc}`;
+				})
+				.join('\n');
 
-				// Append chain context to the existing system prompt
-				return {
-					systemPrompt:
-						event.systemPrompt +
-						`
+			const chain_list = chains
+				.map((c) => {
+					const active =
+						c.name === active_chain?.name ? ' (active)' : '';
+					return `- ${c.name}${active}: ${c.description}`;
+				})
+				.join('\n');
+
+			// Append chain context to the existing system prompt
+			return {
+				systemPrompt:
+					event.systemPrompt +
+					`
 
 ## Agent Chains
 
@@ -433,28 +432,27 @@ ${chain_list}
 - Anything you can handle in one step
 
 Switch chains with /chain <name>.`,
-				};
-			},
-		);
+			};
+		},
+	);
 
-		// ── /agents command ────────────────────────
+	// ── /agents command ────────────────────────
 
-		pi.registerCommand('agents', {
-			description: 'List discovered agent definitions',
-			handler: async (_args, ctx) => {
-				if (agents.size === 0) {
-					ctx.ui.notify(
-						'No agents found in agents/, .pi/agents/, or .claude/agents/',
-						'warning',
-					);
-					return;
-				}
-				const lines = Array.from(agents.values()).map(
-					(a) =>
-						`${a.name}: ${a.description || '(no description)'} [${a.tools}]`,
+	pi.registerCommand('agents', {
+		description: 'List discovered agent definitions',
+		handler: async (_args, ctx) => {
+			if (agents.size === 0) {
+				ctx.ui.notify(
+					'No agents found in agents/, .pi/agents/, or .claude/agents/',
+					'warning',
 				);
-				ctx.ui.notify(lines.join('\n'));
-			},
-		});
-	};
+				return;
+			}
+			const lines = Array.from(agents.values()).map(
+				(a) =>
+					`${a.name}: ${a.description || '(no description)'} [${a.tools}]`,
+			);
+			ctx.ui.notify(lines.join('\n'));
+		},
+	});
 }
