@@ -81,6 +81,16 @@ const main = defineCommand({
 			description: 'Disable built-in chain extension',
 			default: false,
 		},
+		'no-filter': {
+			type: 'boolean',
+			description: 'Disable secret redaction in tool output',
+			default: false,
+		},
+		'no-handoff': {
+			type: 'boolean',
+			description: 'Disable handoff extension',
+			default: false,
+		},
 		model: {
 			type: 'string',
 			alias: 'm',
@@ -108,6 +118,8 @@ const main = defineCommand({
 			mcp: !args['no-builtin'] && !args['no-mcp'],
 			skills: !args['no-builtin'] && !args['no-skills'],
 			chain: !args['no-builtin'] && !args['no-chain'],
+			filter_output: !args['no-builtin'] && !args['no-filter'],
+			handoff: !args['no-builtin'] && !args['no-handoff'],
 			model: args.model,
 		});
 

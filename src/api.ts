@@ -14,6 +14,8 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import { resolve } from 'node:path';
 import { create_chain_extension } from './extensions/chain.js';
+import { create_filter_output_extension } from './extensions/filter-output.js';
+import { create_handoff_extension } from './extensions/handoff.js';
 import { create_mcp_extension } from './extensions/mcp.js';
 import { create_skills_extension } from './extensions/skills.js';
 import { create_skills_manager } from './skills/manager.js';
@@ -28,6 +30,10 @@ export interface CreateMyPiOptions {
 	skills?: boolean;
 	/** Enable chain extension (default true) */
 	chain?: boolean;
+	/** Enable filter-output extension for secret redaction (default true) */
+	filter_output?: boolean;
+	/** Enable handoff extension (default true) */
+	handoff?: boolean;
 	/** Override the default model (e.g. "claude-sonnet-4-5-20241022") */
 	model?: string;
 }
@@ -42,6 +48,8 @@ export async function create_my_pi(
 		mcp = true,
 		skills = true,
 		chain = true,
+		filter_output = true,
+		handoff = true,
 		model,
 	} = options;
 
@@ -54,6 +62,8 @@ export async function create_my_pi(
 			? [create_skills_extension(skills_mgr)]
 			: []),
 		...(chain ? [create_chain_extension(cwd)] : []),
+		...(filter_output ? [create_filter_output_extension()] : []),
+		...(handoff ? [create_handoff_extension()] : []),
 	];
 
 	const create_runtime: CreateAgentSessionRuntimeFactory = async ({
