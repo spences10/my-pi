@@ -17,6 +17,7 @@ import { create_chain_extension } from './extensions/chain.js';
 import { create_filter_output_extension } from './extensions/filter-output.js';
 import { create_handoff_extension } from './extensions/handoff.js';
 import { create_mcp_extension } from './extensions/mcp.js';
+import { create_recall_extension } from './extensions/recall.js';
 import { create_skills_extension } from './extensions/skills.js';
 import { create_skills_manager } from './skills/manager.js';
 
@@ -34,6 +35,8 @@ export interface CreateMyPiOptions {
 	filter_output?: boolean;
 	/** Enable handoff extension (default true) */
 	handoff?: boolean;
+	/** Enable recall extension for searching past sessions (default true) */
+	recall?: boolean;
 	/** Override the default model (e.g. "claude-sonnet-4-5-20241022") */
 	model?: string;
 }
@@ -50,6 +53,7 @@ export async function create_my_pi(
 		chain = true,
 		filter_output = true,
 		handoff = true,
+		recall = true,
 		model,
 	} = options;
 
@@ -64,6 +68,7 @@ export async function create_my_pi(
 		...(chain ? [create_chain_extension(cwd)] : []),
 		...(filter_output ? [create_filter_output_extension()] : []),
 		...(handoff ? [create_handoff_extension()] : []),
+		...(recall ? [create_recall_extension()] : []),
 	];
 
 	const create_runtime: CreateAgentSessionRuntimeFactory = async ({

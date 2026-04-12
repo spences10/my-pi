@@ -91,6 +91,11 @@ const main = defineCommand({
 			description: 'Disable handoff extension',
 			default: false,
 		},
+		'no-recall': {
+			type: 'boolean',
+			description: 'Disable recall extension',
+			default: false,
+		},
 		model: {
 			type: 'string',
 			alias: 'm',
@@ -120,6 +125,7 @@ const main = defineCommand({
 			chain: !args['no-builtin'] && !args['no-chain'],
 			filter_output: !args['no-builtin'] && !args['no-filter'],
 			handoff: !args['no-builtin'] && !args['no-handoff'],
+			recall: !args['no-builtin'] && !args['no-recall'],
 			model: args.model,
 		});
 
