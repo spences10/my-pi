@@ -1,7 +1,10 @@
 import { existsSync, globSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
-import { parseFrontmatter, type SkillFrontmatter } from '@mariozechner/pi-coding-agent';
+import {
+	parseFrontmatter,
+	type SkillFrontmatter,
+} from '@mariozechner/pi-coding-agent';
 
 export interface DiscoveredSkill {
 	name: string;
@@ -23,20 +26,30 @@ interface InstalledPluginsFile {
 }
 
 function read_installed_plugins(): InstalledPluginsFile | null {
-	const path = join(homedir(), '.claude', 'plugins', 'installed_plugins.json');
+	const path = join(
+		homedir(),
+		'.claude',
+		'plugins',
+		'installed_plugins.json',
+	);
 	if (!existsSync(path)) return null;
 
 	try {
-		return JSON.parse(readFileSync(path, 'utf-8')) as InstalledPluginsFile;
+		return JSON.parse(
+			readFileSync(path, 'utf-8'),
+		) as InstalledPluginsFile;
 	} catch {
 		return null;
 	}
 }
 
-function parse_skill_md(skill_path: string): { name: string; description: string } | null {
+function parse_skill_md(
+	skill_path: string,
+): { name: string; description: string } | null {
 	try {
 		const content = readFileSync(skill_path, 'utf-8');
-		const { frontmatter } = parseFrontmatter<SkillFrontmatter>(content);
+		const { frontmatter } =
+			parseFrontmatter<SkillFrontmatter>(content);
 		const description = frontmatter?.description;
 		if (!description) return null;
 
@@ -47,7 +60,10 @@ function parse_skill_md(skill_path: string): { name: string; description: string
 	}
 }
 
-function scan_dir_for_skills(dir: string, source: string): DiscoveredSkill[] {
+function scan_dir_for_skills(
+	dir: string,
+	source: string,
+): DiscoveredSkill[] {
 	if (!existsSync(dir)) return [];
 
 	const results: DiscoveredSkill[] = [];
@@ -104,12 +120,16 @@ export function scan_all_skills(): DiscoveredSkill[] {
 	if (plugins?.plugins) {
 		for (const [key, entries] of Object.entries(plugins.plugins)) {
 			const entry = entries[0]; // first scope entry
-			if (!entry?.installPath || !existsSync(entry.installPath)) continue;
+			if (!entry?.installPath || !existsSync(entry.installPath))
+				continue;
 
 			const source = `plugin:${key}`;
 
 			// Standard: {installPath}/skills/*/SKILL.md
-			for (const s of scan_dir_for_skills(join(entry.installPath, 'skills'), source)) {
+			for (const s of scan_dir_for_skills(
+				join(entry.installPath, 'skills'),
+				source,
+			)) {
 				add(s);
 			}
 
@@ -120,12 +140,20 @@ export function scan_all_skills(): DiscoveredSkill[] {
 			if (existsSync(direct)) {
 				const parsed = parse_skill_md(direct);
 				if (parsed) {
-					add({ ...parsed, skillPath: direct, baseDir: direct, source });
+					add({
+						...parsed,
+						skillPath: direct,
+						baseDir: direct,
+						source,
+					});
 				}
 			}
 
 			// Pi-specific: {installPath}/.pi/skills/*/SKILL.md
-			for (const s of scan_dir_for_skills(join(entry.installPath, '.pi', 'skills'), source)) {
+			for (const s of scan_dir_for_skills(
+				join(entry.installPath, '.pi', 'skills'),
+				source,
+			)) {
 				add(s);
 			}
 		}

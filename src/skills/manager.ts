@@ -55,13 +55,19 @@ export function create_skills_manager(): SkillsManager {
 			const discovered = get_discovered();
 			const match = discovered.find((s) => s.skillPath === filePath);
 			if (match) {
-				return is_skill_enabled(config, make_skill_key(match.name, match.source));
+				return is_skill_enabled(
+					config,
+					make_skill_key(match.name, match.source),
+				);
 			}
 			// Skill not in our discovered set (e.g. from pi's own paths)
 			// Fall back to checking by name with a generic source
 			const by_name = discovered.find((s) => s.name === name);
 			if (by_name) {
-				return is_skill_enabled(config, make_skill_key(by_name.name, by_name.source));
+				return is_skill_enabled(
+					config,
+					make_skill_key(by_name.name, by_name.source),
+				);
 			}
 			// Unknown skill — respect defaults
 			return config.defaults === 'all-enabled';
@@ -69,7 +75,9 @@ export function create_skills_manager(): SkillsManager {
 
 		get_enabled_skill_paths(): string[] {
 			return get_discovered()
-				.filter((s) => is_skill_enabled(config, make_skill_key(s.name, s.source)))
+				.filter((s) =>
+					is_skill_enabled(config, make_skill_key(s.name, s.source)),
+				)
 				.map((s) => s.baseDir);
 		},
 

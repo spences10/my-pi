@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -15,7 +21,8 @@ const DEFAULT_CONFIG: SkillsConfig = {
 };
 
 export function get_config_path(): string {
-	const xdg = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
+	const xdg =
+		process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
 	return join(xdg, 'my-pi', 'skills.json');
 }
 

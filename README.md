@@ -19,13 +19,13 @@ pnpm run build
 
 ### API Keys
 
-Pi handles authentication natively via `AuthStorage`. Options
-(in priority order):
+Pi handles authentication natively via `AuthStorage`. Options (in
+priority order):
 
 1. **`pi auth`** — interactive login, stores credentials in
    `~/.pi/agent/auth.json`
-2. **Environment variables** — `ANTHROPIC_API_KEY`,
-   `MISTRAL_API_KEY`, etc.
+2. **Environment variables** — `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`,
+   etc.
 3. **OAuth** — supported for providers that offer it
 
 ## Usage
@@ -53,8 +53,8 @@ my-pi --json "list all TODO comments"
 echo "plan a login page" | my-pi --json
 ```
 
-Outputs NDJSON events — one JSON object per line — for
-programmatic consumption by other agents or scripts.
+Outputs NDJSON events — one JSON object per line — for programmatic
+consumption by other agents or scripts.
 
 ### Extension stacking
 
@@ -63,8 +63,8 @@ my-pi -e ./ext/damage-control.ts -e ./ext/tool-counter.ts
 my-pi --no-builtin -e ./ext/custom.ts "do something"
 ```
 
-Stack arbitrary Pi extensions via `-e`. Use `--no-builtin` to
-skip the built-in MCP and skills extensions.
+Stack arbitrary Pi extensions via `-e`. Use `--no-builtin` to skip the
+built-in MCP and skills extensions.
 
 ### Stdin piping
 
@@ -73,8 +73,8 @@ echo "review this code" | my-pi
 cat plan.md | my-pi --json
 ```
 
-When stdin is piped, it's read as the prompt and print mode
-runs automatically.
+When stdin is piped, it's read as the prompt and print mode runs
+automatically.
 
 ### Programmatic API
 
@@ -82,22 +82,22 @@ runs automatically.
 import { createMyPi, runPrintMode } from 'my-pi';
 
 const runtime = await createMyPi({
-  extensions: ['./my-ext.ts'],
-  builtins: true,
+	extensions: ['./my-ext.ts'],
+	builtins: true,
 });
 await runPrintMode(runtime, {
-  mode: 'json',
-  initialMessage: 'hello',
-  initialImages: [],
-  messages: [],
+	mode: 'json',
+	initialMessage: 'hello',
+	initialImages: [],
+	messages: [],
 });
 ```
 
 ## MCP Servers
 
-MCP servers are configured via `mcp.json` files and managed as a
-pi extension. Servers are spawned on startup and their tools
-registered via `pi.registerTool()`.
+MCP servers are configured via `mcp.json` files and managed as a pi
+extension. Servers are spawned on startup and their tools registered
+via `pi.registerTool()`.
 
 ### Global config
 
@@ -105,31 +105,30 @@ registered via `pi.registerTool()`.
 
 ```json
 {
-  "mcpServers": {
-    "mcp-sqlite-tools": {
-      "command": "npx",
-      "args": ["-y", "mcp-sqlite-tools"]
-    }
-  }
+	"mcpServers": {
+		"mcp-sqlite-tools": {
+			"command": "npx",
+			"args": ["-y", "mcp-sqlite-tools"]
+		}
+	}
 }
 ```
 
 ### Project config
 
-`./mcp.json` in the project root — overrides global servers by
-name:
+`./mcp.json` in the project root — overrides global servers by name:
 
 ```json
 {
-  "mcpServers": {
-    "my-search": {
-      "command": "npx",
-      "args": ["-y", "some-mcp-server"],
-      "env": {
-        "API_KEY": "..."
-      }
-    }
-  }
+	"mcpServers": {
+		"my-search": {
+			"command": "npx",
+			"args": ["-y", "some-mcp-server"],
+			"env": {
+				"API_KEY": "..."
+			}
+		}
+	}
 }
 ```
 
@@ -154,8 +153,7 @@ In interactive mode:
 4. Calls `tools/list` to discover available tools
 5. Registers each tool via `pi.registerTool()` as
    `mcp__<server>__<tool>`
-6. `/mcp enable/disable` toggles tools via
-   `pi.setActiveTools()`
+6. `/mcp enable/disable` toggles tools via `pi.setActiveTools()`
 7. Cleanup on `session_shutdown`
 
 ## Project Structure

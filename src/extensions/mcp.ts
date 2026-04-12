@@ -44,14 +44,11 @@ export function create_mcp_extension(cwd: string): ExtensionFactory {
 					defineTool({
 						name: tool_name,
 						label: `${config.name}: ${mcp_tool.name}`,
-						description:
-							mcp_tool.description || mcp_tool.name,
+						description: mcp_tool.description || mcp_tool.name,
 						parameters: (mcp_tool.inputSchema || {
 							type: 'object',
 							properties: {},
-						}) as Parameters<
-							typeof defineTool
-						>[0]['parameters'],
+						}) as Parameters<typeof defineTool>[0]['parameters'],
 						execute: async (_id, params) => {
 							const result = (await client.callTool(
 								mcp_tool.name,
@@ -66,13 +63,10 @@ export function create_mcp_extension(cwd: string): ExtensionFactory {
 							const text =
 								result?.content
 									?.map((c) => c.text || '')
-									.join('\n') ||
-								JSON.stringify(result);
+									.join('\n') || JSON.stringify(result);
 
 							return {
-								content: [
-									{ type: 'text' as const, text },
-								],
+								content: [{ type: 'text' as const, text }],
 								details: {},
 							};
 						},

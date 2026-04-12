@@ -1,9 +1,10 @@
 import type { ExtensionFactory } from '@mariozechner/pi-coding-agent';
 import type { SkillsManager } from '../skills/manager.js';
 
-export function create_skills_extension(mgr: SkillsManager): ExtensionFactory {
+export function create_skills_extension(
+	mgr: SkillsManager,
+): ExtensionFactory {
 	return async (pi) => {
-
 		// Feed only explicitly enabled skills into pi
 		pi.on('resources_discover', () => ({
 			skillPaths: mgr.get_enabled_skill_paths(),
@@ -75,7 +76,10 @@ export function create_skills_extension(mgr: SkillsManager): ExtensionFactory {
 					}
 					case 'disable': {
 						if (!arg) {
-							ctx.ui.notify('Usage: /skills disable <key>', 'warning');
+							ctx.ui.notify(
+								'Usage: /skills disable <key>',
+								'warning',
+							);
 							return;
 						}
 						mgr.disable(arg);
@@ -95,7 +99,10 @@ export function create_skills_extension(mgr: SkillsManager): ExtensionFactory {
 					}
 					case 'search': {
 						if (!arg) {
-							ctx.ui.notify('Usage: /skills search <query>', 'warning');
+							ctx.ui.notify(
+								'Usage: /skills search <query>',
+								'warning',
+							);
 							return;
 						}
 						const results = mgr.search(arg);
@@ -107,12 +114,16 @@ export function create_skills_extension(mgr: SkillsManager): ExtensionFactory {
 							(s) =>
 								`${s.enabled ? '+' : '-'} ${s.key}\n    ${s.description.slice(0, 80)}`,
 						);
-						ctx.ui.notify(`${results.length} matches:\n  ${lines.join('\n  ')}`);
+						ctx.ui.notify(
+							`${results.length} matches:\n  ${lines.join('\n  ')}`,
+						);
 						break;
 					}
 					case 'refresh': {
 						mgr.refresh();
-						ctx.ui.notify(`Rescanned: ${mgr.discover().length} skills found`);
+						ctx.ui.notify(
+							`Rescanned: ${mgr.discover().length} skills found`,
+						);
 						break;
 					}
 					case 'defaults': {

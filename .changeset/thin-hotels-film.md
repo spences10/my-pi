@@ -1,5 +1,6 @@
 ---
-"my-pi": patch
+'my-pi': patch
 ---
 
-Refactor MCP integration as pi extension with /mcp and /skills commands.
+Refactor MCP integration as pi extension with /mcp and /skills
+commands.

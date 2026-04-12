@@ -39,6 +39,7 @@
 	"dependencies": {
 		"@mariozechner/pi-ai": "^0.66.1",
 		"@mariozechner/pi-coding-agent": "^0.66.1",
+		"@sinclair/typebox": "^0.34.49",
 		"citty": "^0.2.2"
 	},
 	"devDependencies": {

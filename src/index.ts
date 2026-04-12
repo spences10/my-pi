@@ -3,7 +3,10 @@
 // CLI for my-pi — composable pi coding agent
 // Extension stacking patterns inspired by https://github.com/disler/pi-vs-claude-code
 
-import { InteractiveMode, runPrintMode } from '@mariozechner/pi-coding-agent';
+import {
+	InteractiveMode,
+	runPrintMode,
+} from '@mariozechner/pi-coding-agent';
 import { defineCommand, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -73,6 +76,11 @@ const main = defineCommand({
 			description: 'Disable built-in skills extension',
 			default: false,
 		},
+		'no-chain': {
+			type: 'boolean',
+			description: 'Disable built-in chain extension',
+			default: false,
+		},
 		prompt: {
 			type: 'positional',
 			description: 'Initial prompt (optional)',
@@ -94,6 +102,7 @@ const main = defineCommand({
 			extensions: extensionPaths,
 			mcp: !args['no-builtin'] && !args['no-mcp'],
 			skills: !args['no-builtin'] && !args['no-skills'],
+			chain: !args['no-builtin'] && !args['no-chain'],
 		});
 
 		if (args.print || args.json || prompt) {

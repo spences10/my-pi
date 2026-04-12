@@ -12,6 +12,7 @@ import {
 	SessionManager,
 } from '@mariozechner/pi-coding-agent';
 import { resolve } from 'node:path';
+import { create_chain_extension } from './extensions/chain.js';
 import { create_mcp_extension } from './extensions/mcp.js';
 import { create_skills_extension } from './extensions/skills.js';
 import { create_skills_manager } from './skills/manager.js';
@@ -24,6 +25,8 @@ export interface CreateMyPiOptions {
 	mcp?: boolean;
 	/** Enable skills extension (default true) */
 	skills?: boolean;
+	/** Enable chain extension (default true) */
+	chain?: boolean;
 }
 
 export async function createMyPi(
@@ -35,60 +38,51 @@ export async function createMyPi(
 		extensionFactories: userFactories = [],
 		mcp = true,
 		skills = true,
+		chain = true,
 	} = options;
 
-	const resolvedExtensions = extensions.map((p) =>
-		resolve(cwd, p),
-	);
-	const skills_mgr = skills
-		? create_skills_manager()
-		: null;
+	const resolvedExtensions = extensions.map((p) => resolve(cwd, p));
+	const skills_mgr = skills ? create_skills_manager() : null;
 
 	const builtinFactories: ExtensionFactory[] = [
 		...(mcp ? [create_mcp_extension(cwd)] : []),
 		...(skills && skills_mgr
 			? [create_skills_extension(skills_mgr)]
 			: []),
+		...(chain ? [create_chain_extension(cwd)] : []),
 	];
 
-	const createRuntime: CreateAgentSessionRuntimeFactory =
-		async ({
+	const createRuntime: CreateAgentSessionRuntimeFactory = async ({
+		cwd: runtime_cwd,
+		sessionManager,
+		sessionStartEvent,
+	}) => {
+		const services = await createAgentSessionServices({
 			cwd: runtime_cwd,
-			sessionManager,
-			sessionStartEvent,
-		}) => {
-			const services = await createAgentSessionServices({
-				cwd: runtime_cwd,
-				resourceLoaderOptions: {
-					additionalExtensionPaths: resolvedExtensions,
-					extensionFactories: [
-						...builtinFactories,
-						...userFactories,
-					],
-					skillsOverride: skills_mgr
-						? (base) => ({
-								skills: base.skills.filter((s) =>
-									skills_mgr.is_enabled_by_skill(
-										s.name,
-										s.filePath,
-									),
-								),
-								diagnostics: base.diagnostics,
-							})
-						: undefined,
-				},
-			});
+			resourceLoaderOptions: {
+				additionalExtensionPaths: resolvedExtensions,
+				extensionFactories: [...builtinFactories, ...userFactories],
+				skillsOverride: skills_mgr
+					? (base) => ({
+							skills: base.skills.filter((s) =>
+								skills_mgr.is_enabled_by_skill(s.name, s.filePath),
+							),
+							diagnostics: base.diagnostics,
+						})
+					: undefined,
+			},
+		});
 
-			return {
-				...(await createAgentSessionFromServices({
-					services,
-					sessionManager,
-					sessionStartEvent,
-				})),
+		return {
+			...(await createAgentSessionFromServices({
 				services,
-				diagnostics: services.diagnostics,
-			};
+				sessionManager,
+				sessionStartEvent,
+			})),
+			services,
+			diagnostics: services.diagnostics,
 		};
+	};
 
 	return createAgentSessionRuntime(createRuntime, {
 		cwd,
@@ -98,10 +92,13 @@ export async function createMyPi(
 }
 
 export {
-	InteractiveMode, runPrintMode
+	InteractiveMode,
+	runPrintMode,
 } from '@mariozechner/pi-coding-agent';
 
 export type {
-	AgentSessionRuntime, ExtensionFactory,
-	InteractiveModeOptions, PrintModeOptions
+	AgentSessionRuntime,
+	ExtensionFactory,
+	InteractiveModeOptions,
+	PrintModeOptions,
 } from '@mariozechner/pi-coding-agent';

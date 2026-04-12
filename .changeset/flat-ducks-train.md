@@ -1,5 +1,5 @@
 ---
-"my-pi": patch
+'my-pi': patch
 ---
 
 Parallelize MCP server connections for faster startup
