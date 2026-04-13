@@ -1,5 +1,16 @@
 # my-pi
 
+## 0.0.4
+
+### Patch Changes
+
+- dd3bd52: Add interactive /extensions manager with persisted built-in
+  toggles and reload-safe extension loading.
+- 929be39: import plugin skills into pi-native storage with syncable
+  managed skill workflows
+- febdae2: Unified skills UI: single scrollable list with section
+  headers, checkbox batch-import for importable skills.
+
 ## 0.0.3
 
 ### Patch Changes

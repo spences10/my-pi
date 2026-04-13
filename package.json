@@ -1,6 +1,6 @@
 {
 	"name": "my-pi",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "Personal pi coding agent wrapper with MCP tool integration",
 	"keywords": [
 		"cli",
