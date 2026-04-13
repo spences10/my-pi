@@ -142,8 +142,10 @@ In interactive mode:
 - `/mcp list` — show connected servers and tool counts
 - `/mcp enable <server>` — enable a disabled server's tools
 - `/mcp disable <server>` — disable a server's tools
-- `/skills list` — show loaded commands
-- `/skills tools` — show all registered tools
+- `/skills` — open the interactive skills manager
+- `/skills list` — print discovered skills with enabled state
+- `/skills enable <key>` / `/skills disable <key>` — toggle a skill
+  from the command line
 
 ### How it works
 

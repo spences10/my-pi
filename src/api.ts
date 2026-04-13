@@ -1,46 +1,42 @@
 // Composable programmatic API for my-pi
-// Extension loading patterns inspired by https://github.com/disler/pi-vs-claude-code
+// Extension loading patterns inspired by pi-vs-claude-code
 
 import {
-	type AgentSessionRuntime,
-	createAgentSessionFromServices,
-	createAgentSessionRuntime,
-	type CreateAgentSessionRuntimeFactory,
-	createAgentSessionServices,
-	type ExtensionFactory,
-	getAgentDir,
+	InteractiveMode,
 	SessionManager,
 	SettingsManager,
+	createAgentSessionFromServices,
+	createAgentSessionRuntime,
+	createAgentSessionServices,
+	getAgentDir,
+	runPrintMode,
+	type ExtensionFactory,
 } from '@mariozechner/pi-coding-agent';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { create_skills_manager } from './skills/manager.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ext_dir = resolve(__dirname, '..', 'src', 'extensions');
+const ext_dir = resolve(
+	dirname(fileURLToPath(import.meta.url)),
+	'..',
+	'src',
+	'extensions',
+);
 
 export interface CreateMyPiOptions {
 	cwd?: string;
 	extensions?: string[];
 	extensionFactories?: ExtensionFactory[];
-	/** Enable MCP extension (default true) */
 	mcp?: boolean;
-	/** Enable skills extension (default true) */
 	skills?: boolean;
-	/** Enable chain extension (default true) */
 	chain?: boolean;
-	/** Enable filter-output extension for secret redaction (default true) */
 	filter_output?: boolean;
-	/** Enable handoff extension (default true) */
 	handoff?: boolean;
-	/** Enable recall extension for searching past sessions (default true) */
 	recall?: boolean;
-	/** Override the default model (e.g. "claude-sonnet-4-5-20241022") */
 	model?: string;
 }
 
-export async function create_my_pi(
-	options: CreateMyPiOptions = {},
-): Promise<AgentSessionRuntime> {
+export async function create_my_pi(options: CreateMyPiOptions = {}) {
 	const {
 		cwd = process.cwd(),
 		extensions = [],
@@ -55,9 +51,7 @@ export async function create_my_pi(
 	} = options;
 
 	const resolved_extensions = extensions.map((p) => resolve(cwd, p));
-
-	// All built-in extensions loaded by path so Pi shows filenames
-	const builtin_extension_paths: string[] = [
+	const builtin_extension_paths = [
 		...(mcp ? [resolve(ext_dir, 'mcp.ts')] : []),
 		...(skills ? [resolve(ext_dir, 'skills.ts')] : []),
 		...(chain ? [resolve(ext_dir, 'chain.ts')] : []),
@@ -65,11 +59,16 @@ export async function create_my_pi(
 		...(handoff ? [resolve(ext_dir, 'handoff.ts')] : []),
 		...(recall ? [resolve(ext_dir, 'recall.ts')] : []),
 	];
+	const skills_manager = skills ? create_skills_manager() : undefined;
 
-	const create_runtime: CreateAgentSessionRuntimeFactory = async ({
+	const create_runtime = async ({
 		cwd: runtime_cwd,
 		sessionManager,
 		sessionStartEvent,
+	}: {
+		cwd: string;
+		sessionManager: SessionManager;
+		sessionStartEvent?: unknown;
 	}) => {
 		const settings_manager = model
 			? (() => {
@@ -81,21 +80,36 @@ export async function create_my_pi(
 
 		const services = await createAgentSessionServices({
 			cwd: runtime_cwd,
-			...(settings_manager && { settingsManager: settings_manager }),
+			...(settings_manager
+				? { settingsManager: settings_manager }
+				: {}),
 			resourceLoaderOptions: {
 				additionalExtensionPaths: [
 					...builtin_extension_paths,
 					...resolved_extensions,
 				],
 				extensionFactories: [...user_factories],
-			},
+				...(skills_manager
+					? {
+							skillsOverride: (base: any) => ({
+								...base,
+								skills: base.skills.filter((skill: any) =>
+									skills_manager.is_enabled_by_skill(
+										skill.name,
+										skill.filePath,
+									),
+								),
+							}),
+						}
+					: {}),
+			} as any,
 		});
 
 		return {
 			...(await createAgentSessionFromServices({
 				services,
 				sessionManager,
-				sessionStartEvent,
+				sessionStartEvent: sessionStartEvent as any,
 			})),
 			services,
 			diagnostics: services.diagnostics,
@@ -109,10 +123,7 @@ export async function create_my_pi(
 	});
 }
 
-export {
-	InteractiveMode,
-	runPrintMode,
-} from '@mariozechner/pi-coding-agent';
+export { InteractiveMode, runPrintMode };
 
 export type {
 	AgentSessionRuntime,
