@@ -12,6 +12,8 @@ import {
 
 const ENABLED = '[x]';
 const DISABLED = '[ ]';
+const SYNC = '[~]';
+const IMPORTED_LABEL = '[=]';
 
 function sort_skills(skills: ManagedSkill[]): ManagedSkill[] {
 	return [...skills].sort((a, b) => {
@@ -23,42 +25,82 @@ function sort_skills(skills: ManagedSkill[]): ManagedSkill[] {
 	});
 }
 
-function format_skill_lines(
-	skills: ManagedSkill[],
-	options?: { heading?: string; show_enabled?: boolean },
-): string {
-	const sorted = sort_skills(skills);
-	const lines: string[] = [];
-	if (options?.heading) {
-		lines.push(options.heading, '');
-	}
-	if (options?.show_enabled ?? true) {
-		const on = sorted.filter((s) => s.enabled).length;
-		const off = sorted.length - on;
-		lines.push(
-			`${sorted.length} skills (${on} enabled, ${off} disabled)`,
-			'',
+function find_matching_imported_skill(
+	managed_skills: ManagedSkill[],
+	skill: ManagedSkill,
+): ManagedSkill | undefined {
+	const exact_match = managed_skills.find(
+		(candidate) =>
+			candidate.import_meta?.source === skill.source &&
+			(candidate.import_meta.upstream_skill_path ===
+				skill.skillPath ||
+				candidate.import_meta.upstream_base_dir === skill.baseDir),
+	);
+	if (exact_match) return exact_match;
+
+	return managed_skills.find(
+		(candidate) =>
+			candidate.import_meta?.source === skill.source &&
+			candidate.name === skill.name,
+	);
+}
+
+function get_importable_state(
+	managed_skills: ManagedSkill[],
+	skill: ManagedSkill,
+): {
+	label: string;
+	detail: string;
+	action: 'import' | 'sync' | null;
+} {
+	const imported = find_matching_imported_skill(
+		managed_skills,
+		skill,
+	);
+	if (imported?.import_meta) {
+		const version_changed = Boolean(
+			skill.plugin?.version &&
+			imported.import_meta.upstream_version &&
+			skill.plugin.version !== imported.import_meta.upstream_version,
 		);
-	}
+		const sha_changed = Boolean(
+			skill.plugin?.gitCommitSha &&
+			imported.import_meta.upstream_git_commit_sha &&
+			skill.plugin.gitCommitSha !==
+				imported.import_meta.upstream_git_commit_sha,
+		);
 
-	for (const skill of sorted) {
-		const prefix =
-			options?.show_enabled === false
-				? '-'
-				: skill.enabled
-					? ENABLED
-					: DISABLED;
-		lines.push(`${prefix} ${skill.name} (${skill.source})`);
-		lines.push(`    key: ${skill.key}`);
-		lines.push(`    ${skill.description.slice(0, 100)}`);
-		if (skill.import_meta?.upstream_version) {
-			lines.push(
-				`    upstream: ${skill.import_meta.upstream_version}`,
-			);
+		if (version_changed || sha_changed) {
+			return {
+				label: 'sync',
+				detail: 'Press Enter to sync the imported copy and reload',
+				action: 'sync',
+			};
 		}
+
+		return {
+			label: 'imported',
+			detail: `Already imported to ${imported.baseDir}`,
+			action: null,
+		};
 	}
 
-	return lines.join('\n');
+	const managed_conflict = managed_skills.find(
+		(candidate) => candidate.name === skill.name,
+	);
+	if (managed_conflict) {
+		return {
+			label: 'managed',
+			detail: `Already managed at ${managed_conflict.baseDir}`,
+			action: null,
+		};
+	}
+
+	return {
+		label: 'import',
+		detail: 'Press Enter to import into pi-native skills and reload',
+		action: 'import',
+	};
 }
 
 function to_setting_item(skill: ManagedSkill): SettingItem {
@@ -82,6 +124,52 @@ function to_setting_item(skill: ManagedSkill): SettingItem {
 	};
 }
 
+function to_importable_setting_item(
+	managed_skills: ManagedSkill[],
+	skill: ManagedSkill,
+): SettingItem {
+	const state = get_importable_state(managed_skills, skill);
+	const detail_lines = [
+		`${skill.source} • ${skill.key}`,
+		skill.description,
+		skill.baseDir,
+	];
+	if (skill.plugin?.version) {
+		detail_lines.push(
+			`plugin: ${skill.plugin.version}${skill.plugin.gitCommitSha ? ` • ${skill.plugin.gitCommitSha.slice(0, 12)}` : ''}`,
+		);
+	}
+
+	if (state.action === 'import') {
+		return {
+			id: skill.key,
+			label: skill.name,
+			description: detail_lines.join('\n'),
+			currentValue: DISABLED,
+			values: [ENABLED, DISABLED],
+		};
+	}
+
+	if (state.action === 'sync') {
+		detail_lines.push('enter to sync');
+		return {
+			id: skill.key,
+			label: skill.name,
+			description: detail_lines.join('\n'),
+			currentValue: SYNC,
+			values: [SYNC],
+		};
+	}
+
+	detail_lines.push(state.detail);
+	return {
+		id: skill.key,
+		label: skill.name,
+		description: detail_lines.join('\n'),
+		currentValue: IMPORTED_LABEL,
+	};
+}
+
 function sets_equal(
 	a: ReadonlySet<string>,
 	b: ReadonlySet<string>,
@@ -97,19 +185,7 @@ function sets_equal(
 export default async function skills(pi: ExtensionAPI) {
 	const mgr = create_skills_manager();
 
-	const subs = [
-		'list',
-		'discover',
-		'available',
-		'import',
-		'sync',
-		'enable',
-		'disable',
-		'toggle',
-		'search',
-		'refresh',
-		'defaults',
-	];
+	const subs = ['import', 'sync', 'refresh', 'defaults'];
 
 	pi.registerCommand('skills', {
 		description: 'Manage pi-native skills and import external skills',
@@ -119,17 +195,6 @@ export default async function skills(pi: ExtensionAPI) {
 				return subs
 					.filter((s) => s.startsWith(parts[0] || ''))
 					.map((s) => ({ value: s, label: s }));
-			}
-
-			if (['enable', 'disable', 'toggle'].includes(parts[0])) {
-				const q = parts.slice(1).join(' ').toLowerCase();
-				return sort_skills(mgr.discover())
-					.filter((s) => s.key.toLowerCase().includes(q))
-					.slice(0, 20)
-					.map((s) => ({
-						value: `${parts[0]} ${s.key}`,
-						label: `${s.key} ${s.enabled ? ENABLED : DISABLED}`,
-					}));
 			}
 
 			if (parts[0] === 'import') {
@@ -173,10 +238,9 @@ export default async function skills(pi: ExtensionAPI) {
 
 			if (!trimmed && ctx.hasUI) {
 				const discovered = sort_skills(mgr.discover());
-				if (discovered.length === 0) {
-					ctx.ui.notify(
-						'No managed skills found. Use /skills available to inspect importable plugin skills.',
-					);
+				const importable = sort_skills(mgr.discover_importable());
+				if (discovered.length === 0 && importable.length === 0) {
+					ctx.ui.notify('No managed or importable skills found');
 					return;
 				}
 
@@ -186,36 +250,60 @@ export default async function skills(pi: ExtensionAPI) {
 						.map((skill) => skill.key),
 				);
 				const current_enabled = new Set(initial_enabled);
+				const queued_imports = new Set<string>();
+				let reload_notice: string | null = null;
+
+				const managed_items = discovered.map(to_setting_item);
+				const importable_items = importable.map((skill) =>
+					to_importable_setting_item(discovered, skill),
+				);
+
+				const all_items: SettingItem[] = [];
+				if (managed_items.length > 0) {
+					all_items.push({
+						id: '__header_managed__',
+						label: `── Managed (${managed_items.length}) ──`,
+						description: '',
+						currentValue: '',
+					});
+					all_items.push(...managed_items);
+				}
+				if (importable_items.length > 0) {
+					all_items.push({
+						id: '__header_importable__',
+						label: `── Importable (${importable_items.length}) ──`,
+						description: '',
+						currentValue: '',
+					});
+					all_items.push(...importable_items);
+				}
+
+				const managed_keys = new Set(discovered.map((s) => s.key));
+				const importable_map = new Map(
+					importable.map((s) => [s.key, s]),
+				);
 
 				await ctx.ui.custom((tui, theme, _kb, done) => {
-					const items = discovered.map(to_setting_item);
-					const container = new Container();
-
-					container.addChild({
-						render: () => {
-							const enabled = current_enabled.size;
-							const disabled = discovered.length - enabled;
-							return [
-								theme.fg('accent', theme.bold('Skills')),
-								theme.fg(
-									'muted',
-									`${enabled} enabled • ${disabled} disabled • managed pi-native skills only`,
-								),
-								'',
-							];
-						},
-						invalidate: () => {},
-					});
-
-					const settings_list = new SettingsList(
-						items,
-						Math.min(Math.max(items.length + 4, 8), 18),
+					const list = new SettingsList(
+						all_items,
+						Math.min(Math.max(all_items.length + 4, 8), 22),
 						{
 							cursor: theme.fg('accent', '›'),
-							label: (text, selected) =>
-								selected ? theme.fg('accent', text) : text,
+							label: (text, selected) => {
+								if (text.startsWith('──') && text.endsWith('──')) {
+									return theme.fg('dim', theme.bold(text));
+								}
+								return selected ? theme.fg('accent', text) : text;
+							},
 							value: (text, selected) => {
-								const color = text === ENABLED ? 'success' : 'dim';
+								const color =
+									text === ENABLED
+										? ('success' as const)
+										: text === SYNC
+											? ('warning' as const)
+											: text === IMPORTED_LABEL
+												? ('success' as const)
+												: ('dim' as const);
 								const rendered = theme.fg(color, text);
 								return selected
 									? theme.bold(theme.fg('accent', rendered))
@@ -225,24 +313,113 @@ export default async function skills(pi: ExtensionAPI) {
 							hint: (text) => theme.fg('dim', text),
 						},
 						(id, new_value) => {
-							if (new_value === ENABLED) {
-								current_enabled.add(id);
-								mgr.enable(id);
-							} else {
-								current_enabled.delete(id);
-								mgr.disable(id);
+							if (id.startsWith('__header_')) return;
+
+							if (managed_keys.has(id)) {
+								if (new_value === ENABLED) {
+									current_enabled.add(id);
+									mgr.enable(id);
+								} else {
+									current_enabled.delete(id);
+									mgr.disable(id);
+								}
+								return;
+							}
+
+							const import_skill = importable_map.get(id);
+							if (!import_skill) return;
+
+							const state = get_importable_state(
+								discovered,
+								import_skill,
+							);
+
+							if (state.action === 'import') {
+								if (new_value === ENABLED) {
+									queued_imports.add(id);
+								} else {
+									queued_imports.delete(id);
+								}
+								return;
+							}
+
+							if (state.action === 'sync') {
+								const imported_skill = find_matching_imported_skill(
+									discovered,
+									import_skill,
+								);
+								if (!imported_skill) {
+									ctx.ui.notify(
+										`Imported copy for ${import_skill.name} was not found`,
+										'warning',
+									);
+									return;
+								}
+								try {
+									const result = mgr.sync_skill(imported_skill.key);
+									if (result.changed) {
+										reload_notice = `Synced ${import_skill.name}. Reloading...`;
+										done(undefined);
+									} else {
+										ctx.ui.notify(
+											`${import_skill.name} is already up to date.`,
+											'info',
+										);
+									}
+								} catch (error) {
+									ctx.ui.notify(
+										error instanceof Error
+											? error.message
+											: String(error),
+										'warning',
+									);
+								}
 							}
 						},
 						() => done(undefined),
 						{ enableSearch: true },
 					);
 
-					container.addChild(settings_list);
+					const container = new Container();
+
+					container.addChild({
+						render: () => {
+							const enabled = current_enabled.size;
+							const disabled = discovered.length - enabled;
+							const queued = queued_imports.size;
+							const parts = [
+								`${enabled} enabled`,
+								`${disabled} disabled`,
+							];
+							if (importable.length > 0) {
+								parts.push(`${importable.length} importable`);
+							}
+							if (queued > 0) {
+								parts.push(`${queued} queued for import`);
+							}
+							return [
+								theme.fg('accent', theme.bold('Skills')),
+								theme.fg('muted', parts.join(' • ')),
+								'',
+							];
+						},
+						invalidate: () => {},
+					});
+
+					container.addChild({
+						render(width: number) {
+							return list.render(width);
+						},
+						invalidate() {
+							list.invalidate();
+						},
+					});
+
 					container.addChild(
 						new Text(
 							theme.fg(
 								'dim',
-								'esc close • search filters • /skills available shows importable plugin skills',
+								'search filters • enter toggles • esc close',
 							),
 							0,
 							1,
@@ -257,11 +434,37 @@ export default async function skills(pi: ExtensionAPI) {
 							container.invalidate();
 						},
 						handleInput(data: string) {
-							settings_list.handleInput(data);
+							list.handleInput(data);
 							tui.requestRender();
 						},
 					};
 				});
+
+				if (queued_imports.size > 0) {
+					const imported_names: string[] = [];
+					for (const key of queued_imports) {
+						try {
+							mgr.import_skill(key);
+							imported_names.push(key);
+						} catch (error) {
+							ctx.ui.notify(
+								error instanceof Error
+									? error.message
+									: String(error),
+								'warning',
+							);
+						}
+					}
+					if (imported_names.length > 0) {
+						reload_notice = `Imported ${imported_names.length} skill(s). Reloading...`;
+					}
+				}
+
+				if (reload_notice) {
+					ctx.ui.notify(reload_notice, 'info');
+					await ctx.reload();
+					return;
+				}
 
 				if (!sets_equal(initial_enabled, current_enabled)) {
 					ctx.ui.notify(
@@ -279,34 +482,6 @@ export default async function skills(pi: ExtensionAPI) {
 			const arg = rest.join(' ');
 
 			switch (sub) {
-				case 'list':
-				case 'discover': {
-					const skills = mgr.discover();
-					if (skills.length === 0) {
-						ctx.ui.notify('No managed skills found');
-						return;
-					}
-					ctx.ui.notify(
-						format_skill_lines(skills, {
-							heading: 'Managed skills',
-						}),
-					);
-					break;
-				}
-				case 'available': {
-					const skills = mgr.discover_importable();
-					if (skills.length === 0) {
-						ctx.ui.notify('No importable external skills found');
-						return;
-					}
-					ctx.ui.notify(
-						format_skill_lines(skills, {
-							heading: 'Importable external skills',
-							show_enabled: false,
-						}),
-					);
-					break;
-				}
 				case 'import': {
 					if (!arg) {
 						ctx.ui.notify(
@@ -358,52 +533,6 @@ export default async function skills(pi: ExtensionAPI) {
 						);
 						return;
 					}
-				}
-				case 'enable': {
-					if (!arg) {
-						ctx.ui.notify('Usage: /skills enable <key>', 'warning');
-						return;
-					}
-					mgr.enable(arg);
-					ctx.ui.notify(`Enabled ${arg}. /reload to apply.`);
-					break;
-				}
-				case 'disable': {
-					if (!arg) {
-						ctx.ui.notify('Usage: /skills disable <key>', 'warning');
-						return;
-					}
-					mgr.disable(arg);
-					ctx.ui.notify(`Disabled ${arg}. /reload to apply.`);
-					break;
-				}
-				case 'toggle': {
-					if (!arg) {
-						ctx.ui.notify('Usage: /skills toggle <key>', 'warning');
-						return;
-					}
-					const state = mgr.toggle(arg);
-					ctx.ui.notify(
-						`${arg} ${state ? 'enabled' : 'disabled'}. /reload to apply.`,
-					);
-					break;
-				}
-				case 'search': {
-					if (!arg) {
-						ctx.ui.notify('Usage: /skills search <query>', 'warning');
-						return;
-					}
-					const results = mgr.search(arg);
-					if (results.length === 0) {
-						ctx.ui.notify(`No managed skills matching "${arg}"`);
-						return;
-					}
-					ctx.ui.notify(
-						format_skill_lines(results, {
-							heading: `Managed skills matching "${arg}"`,
-						}),
-					);
-					break;
 				}
 				case 'refresh': {
 					mgr.refresh();

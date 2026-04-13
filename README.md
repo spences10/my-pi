@@ -151,10 +151,13 @@ In interactive mode:
   state
 - `/extensions enable <key>` / `/extensions disable <key>` — toggle a
   built-in extension
-- `/skills` — open the interactive skills manager
-- `/skills list` — print discovered skills with enabled state
-- `/skills enable <key>` / `/skills disable <key>` — toggle a skill
-  from the command line
+- `/skills` — open the interactive skills manager (unified list with
+  managed and importable sections, checkbox batch-import)
+- `/skills import <key|name>` — import an external skill from the
+  command line
+- `/skills sync <key|name>` — sync an imported skill to its upstream
+- `/skills refresh` — rescan skill directories
+- `/skills defaults <all-enabled|all-disabled>` — set default policy
 
 ### How it works
 
