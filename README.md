@@ -70,6 +70,18 @@ Built-in extension choices can also be saved interactively with
 `/extensions`. Startup flags like `--no-recall` and `--no-skills`
 still force-disable those extensions for the current process only.
 
+### Themes
+
+`my-pi` ships a bundled theme pack from `./themes` and loads it into
+the runtime automatically. Pick a theme in `/settings`, or persist one
+via Pi settings JSON:
+
+```json
+{
+	"theme": "tokyo-night"
+}
+```
+
 ### Stdin piping
 
 ```bash

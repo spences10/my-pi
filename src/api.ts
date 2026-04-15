@@ -13,7 +13,8 @@ import {
 	type ExtensionFactory,
 	type LoadExtensionsResult,
 } from '@mariozechner/pi-coding-agent';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import chain_extension from './extensions/chain.js';
 import {
 	BUILTIN_EXTENSIONS,
@@ -53,6 +54,9 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	handoff: handoff_extension,
 	recall: recall_extension,
 };
+
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_THEME_DIR = resolve(MODULE_DIR, '..', 'themes');
 
 function get_force_disabled_builtins(
 	options: Pick<
@@ -176,6 +180,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 				: {}),
 			resourceLoaderOptions: {
 				additionalExtensionPaths: [...resolved_extensions],
+				additionalThemePaths: [PACKAGE_THEME_DIR],
 				extensionFactories: [
 					...managed_extension_factories,
 					...user_factories,

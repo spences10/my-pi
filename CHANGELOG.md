@@ -4,8 +4,8 @@
 
 ### Patch Changes
 
-- c2adc49: Fix CLI silent hangs: add --prompt flag, model validation, chain
-  timeout and model passthrough
+- c2adc49: Fix CLI silent hangs: add --prompt flag, model validation,
+  chain timeout and model passthrough
 
 ## 0.0.4
 
