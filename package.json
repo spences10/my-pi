@@ -40,16 +40,16 @@
 		"release": "pnpm run build && changeset publish"
 	},
 	"dependencies": {
-		"@mariozechner/pi-ai": "^0.67.1",
-		"@mariozechner/pi-coding-agent": "^0.67.1",
-		"@mariozechner/pi-tui": "^0.67.1",
+		"@mariozechner/pi-ai": "^0.67.2",
+		"@mariozechner/pi-coding-agent": "^0.67.2",
+		"@mariozechner/pi-tui": "^0.67.2",
 		"@sinclair/typebox": "^0.34.49",
 		"citty": "^0.2.2"
 	},
 	"devDependencies": {
 		"@changesets/cli": "^2.30.0",
 		"@types/node": "^25.6.0",
-		"vite-plus": "^0.1.16",
+		"vite-plus": "^0.1.18",
 		"vitest": "^4.1.4"
 	},
 	"engines": {
