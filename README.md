@@ -112,8 +112,9 @@ await runPrintMode(runtime, {
 ## MCP Servers
 
 MCP servers are configured via `mcp.json` files and managed as a pi
-extension. Servers are spawned on startup and their tools registered
-via `pi.registerTool()`.
+extension. Stdio servers are spawned on startup, HTTP servers are
+connected remotely, and their tools are registered via
+`pi.registerTool()`.
 
 ### Global config
 
@@ -147,6 +148,25 @@ via `pi.registerTool()`.
 	}
 }
 ```
+
+HTTP MCP servers are supported too:
+
+```json
+{
+	"mcpServers": {
+		"pm-platform": {
+			"type": "http",
+			"url": "https://project.cloudlobsters.com/api/mcp",
+			"headers": {
+				"Authorization": "Bearer ..."
+			}
+		}
+	}
+}
+```
+
+Use `"type": "http"` or `"type": "streamable-http"` for remote MCP
+servers. If `url` is present, my-pi treats the entry as HTTP.
 
 Project servers merge with global servers. If both define the same
 server name, the project config wins.
@@ -185,7 +205,7 @@ In interactive mode:
 ### How it works
 
 1. Pi extension loads `mcp.json` configs (global + project)
-2. Spawns each MCP server as a child process (stdio transport)
+2. Connects to each MCP server using stdio or HTTP transport
 3. Performs the MCP `initialize` handshake
 4. Calls `tools/list` to discover available tools
 5. Registers each tool via `pi.registerTool()` as

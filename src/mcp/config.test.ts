@@ -2,33 +2,13 @@ import { randomBytes } from 'node:crypto';
 import {
 	existsSync,
 	mkdirSync,
-	readFileSync,
+	rmSync,
 	writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-
-// Test the config file format parsing directly
-// (load_mcp_config merges global ~/.pi config which is machine-specific)
-
-interface McpConfigFile {
-	mcpServers: Record<
-		string,
-		{
-			command: string;
-			args?: string[];
-			env?: Record<string, string>;
-		}
-	>;
-}
-
-function read_config(path: string): McpConfigFile['mcpServers'] {
-	if (!existsSync(path)) return {};
-	const raw = readFileSync(path, 'utf-8');
-	const config = JSON.parse(raw) as McpConfigFile;
-	return config.mcpServers || {};
-}
+import { afterEach, describe, expect, it } from 'vitest';
+import { load_mcp_config } from './config.js';
 
 function tmp_dir(): string {
 	const dir = join(
@@ -39,115 +19,183 @@ function tmp_dir(): string {
 	return dir;
 }
 
-describe('mcp config parsing', () => {
-	it('returns empty for missing file', () => {
-		const dir = tmp_dir();
-		const result = read_config(join(dir, 'mcp.json'));
-		expect(Object.keys(result)).toHaveLength(0);
+describe('load_mcp_config', () => {
+	const dirs: string[] = [];
+	const original_home = process.env.HOME;
+
+	afterEach(() => {
+		for (const dir of dirs.splice(0)) {
+			rmSync(dir, { recursive: true, force: true });
+		}
+		if (original_home === undefined) {
+			delete process.env.HOME;
+		} else {
+			process.env.HOME = original_home;
+		}
 	});
 
-	it('parses servers with command and args', () => {
-		const dir = tmp_dir();
-		const path = join(dir, 'mcp.json');
+	it('returns empty for missing config files', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		expect(load_mcp_config(cwd)).toEqual([]);
+	});
+
+	it('parses stdio servers', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
 		writeFileSync(
-			path,
+			join(cwd, 'mcp.json'),
 			JSON.stringify({
 				mcpServers: {
-					'test-server': {
+					local: {
 						command: 'npx',
 						args: ['-y', 'some-package'],
+						env: { API_KEY: 'test123' },
 					},
 				},
 			}),
 		);
 
-		const result = read_config(path);
-		expect(result['test-server']).toBeDefined();
-		expect(result['test-server'].command).toBe('npx');
-		expect(result['test-server'].args).toEqual([
-			'-y',
-			'some-package',
+		expect(load_mcp_config(cwd)).toEqual([
+			{
+				name: 'local',
+				transport: 'stdio',
+				command: 'npx',
+				args: ['-y', 'some-package'],
+				env: { API_KEY: 'test123' },
+			},
 		]);
 	});
 
-	it('parses servers with env vars', () => {
-		const dir = tmp_dir();
-		const path = join(dir, 'mcp.json');
+	it('parses http servers with headers', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
 		writeFileSync(
-			path,
+			join(cwd, 'mcp.json'),
 			JSON.stringify({
 				mcpServers: {
-					myserver: {
-						command: 'node',
-						args: ['server.js'],
-						env: {
-							API_KEY: 'test123',
-							OTHER: 'value',
+					remote: {
+						type: 'http',
+						url: 'https://example.com/mcp',
+						headers: {
+							Authorization: 'Bearer test',
 						},
 					},
 				},
 			}),
 		);
 
-		const result = read_config(path);
-		expect(result['myserver'].env).toEqual({
-			API_KEY: 'test123',
-			OTHER: 'value',
-		});
+		expect(load_mcp_config(cwd)).toEqual([
+			{
+				name: 'remote',
+				transport: 'http',
+				url: 'https://example.com/mcp',
+				headers: { Authorization: 'Bearer test' },
+			},
+		]);
 	});
 
-	it('parses multiple servers', () => {
-		const dir = tmp_dir();
-		const path = join(dir, 'mcp.json');
+	it('lets project config override global config by name', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		const global_dir = join(home, '.pi', 'agent');
+		mkdirSync(global_dir, { recursive: true });
 		writeFileSync(
-			path,
+			join(global_dir, 'mcp.json'),
 			JSON.stringify({
 				mcpServers: {
-					server_a: { command: 'a' },
-					server_b: { command: 'b' },
-					server_c: { command: 'c' },
+					shared: { command: 'global-cmd' },
+					globalOnly: { command: 'g' },
+				},
+			}),
+		);
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					shared: {
+						type: 'http',
+						url: 'https://example.com/mcp',
+					},
+					projectOnly: { command: 'p' },
 				},
 			}),
 		);
 
-		const result = read_config(path);
-		expect(Object.keys(result)).toHaveLength(3);
+		const configs = load_mcp_config(cwd);
+		expect(configs).toEqual([
+			{
+				name: 'shared',
+				transport: 'http',
+				url: 'https://example.com/mcp',
+			},
+			{
+				name: 'globalOnly',
+				transport: 'stdio',
+				command: 'g',
+			},
+			{
+				name: 'projectOnly',
+				transport: 'stdio',
+				command: 'p',
+			},
+		]);
 	});
 
-	it('returns empty for file with no mcpServers key', () => {
-		const dir = tmp_dir();
-		const path = join(dir, 'mcp.json');
-		writeFileSync(path, JSON.stringify({ other: true }));
+	it('throws a clear error for invalid config shapes', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
 
-		const result = read_config(path);
-		expect(Object.keys(result)).toHaveLength(0);
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					broken: {
+						type: 'http',
+					},
+				},
+			}),
+		);
+
+		expect(() => load_mcp_config(cwd)).toThrow(
+			'Invalid MCP server "broken": http transport requires a url',
+		);
 	});
 
-	it('throws on invalid JSON', () => {
-		const dir = tmp_dir();
-		const path = join(dir, 'mcp.json');
-		writeFileSync(path, 'not valid json');
+	it('uses the expected global config path', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
 
-		expect(() => read_config(path)).toThrow();
-	});
+		const global_path = join(home, '.pi', 'agent', 'mcp.json');
+		mkdirSync(join(home, '.pi', 'agent'), { recursive: true });
+		writeFileSync(
+			global_path,
+			JSON.stringify({
+				mcpServers: {
+					global: { command: 'npx' },
+				},
+			}),
+		);
 
-	it('project overrides global by name via merge', () => {
-		const global_servers = {
-			shared: { command: 'global-cmd' },
-			'global-only': { command: 'g' },
-		};
-		const project_servers = {
-			shared: { command: 'project-cmd' },
-			'project-only': { command: 'p' },
-		};
-
-		const merged = {
-			...global_servers,
-			...project_servers,
-		};
-
-		expect(merged['shared'].command).toBe('project-cmd');
-		expect(merged['global-only'].command).toBe('g');
-		expect(merged['project-only'].command).toBe('p');
+		expect(existsSync(global_path)).toBe(true);
+		expect(load_mcp_config(cwd)).toEqual([
+			{ name: 'global', transport: 'stdio', command: 'npx' },
+		]);
 	});
 });
