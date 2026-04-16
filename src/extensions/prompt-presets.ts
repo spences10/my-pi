@@ -3,11 +3,14 @@ import {
 	type ExtensionAPI,
 	type ExtensionCommandContext,
 	type ExtensionContext,
+	type ReadonlyFooterDataProvider,
 } from '@mariozechner/pi-coding-agent';
 import {
 	Container,
 	SettingsList,
 	Text,
+	truncateToWidth,
+	visibleWidth,
 	type SettingItem,
 } from '@mariozechner/pi-tui';
 import {
@@ -37,9 +40,14 @@ export interface LoadedPromptPreset extends PromptPreset {
 	source: PromptPresetSource;
 }
 
-interface PromptPresetState {
+export interface PromptPresetState {
 	base_name: string | null;
 	layer_names: string[];
+}
+
+interface PersistedPromptPresetStates {
+	version: number;
+	projects: Record<string, PromptPresetState>;
 }
 
 const PRESET_STATE_TYPE = 'prompt-preset-state';
@@ -166,6 +174,10 @@ function get_project_presets_path(cwd: string): string {
 	return join(cwd, '.pi', 'presets.json');
 }
 
+function get_persisted_prompt_state_path(): string {
+	return join(getAgentDir(), 'prompt-preset-state.json');
+}
+
 function read_prompt_presets_file(path: string): PromptPresetMap {
 	if (!existsSync(path)) return {};
 
@@ -252,6 +264,115 @@ export function remove_project_prompt_preset(
 
 	save_project_prompt_presets(cwd, project_presets);
 	return { removed: true, path, remaining };
+}
+
+function normalize_prompt_preset_state(
+	input: unknown,
+): PromptPresetState | undefined {
+	if (!input || typeof input !== 'object') return undefined;
+
+	const candidate = input as {
+		base_name?: unknown;
+		layer_names?: unknown;
+	};
+	const base_name =
+		typeof candidate.base_name === 'string' &&
+		candidate.base_name.trim()
+			? candidate.base_name.trim()
+			: null;
+	const layer_names = Array.isArray(candidate.layer_names)
+		? [
+				...new Set(
+					candidate.layer_names
+						.filter(
+							(value): value is string =>
+								typeof value === 'string' && value.trim().length > 0,
+						)
+						.map((value) => value.trim()),
+				),
+			].sort()
+		: [];
+
+	return {
+		base_name,
+		layer_names,
+	};
+}
+
+function read_persisted_prompt_states(
+	path = get_persisted_prompt_state_path(),
+): PersistedPromptPresetStates {
+	if (!existsSync(path)) {
+		return { version: 1, projects: {} };
+	}
+
+	try {
+		const parsed = JSON.parse(readFileSync(path, 'utf-8')) as {
+			version?: unknown;
+			projects?: unknown;
+		};
+		const raw_projects =
+			parsed.projects && typeof parsed.projects === 'object'
+				? parsed.projects
+				: {};
+		const projects: Record<string, PromptPresetState> = {};
+		for (const [cwd, value] of Object.entries(raw_projects)) {
+			const normalized = normalize_prompt_preset_state(value);
+			if (!normalized) continue;
+			projects[cwd] = normalized;
+		}
+		return {
+			version:
+				typeof parsed.version === 'number' ? parsed.version : 1,
+			projects,
+		};
+	} catch {
+		return { version: 1, projects: {} };
+	}
+}
+
+export function load_persisted_prompt_state(
+	cwd: string,
+	path = get_persisted_prompt_state_path(),
+): PromptPresetState | undefined {
+	return read_persisted_prompt_states(path).projects[cwd];
+}
+
+export function save_persisted_prompt_state(
+	cwd: string,
+	state: PromptPresetState,
+	path = get_persisted_prompt_state_path(),
+): string {
+	const persisted = read_persisted_prompt_states(path);
+	persisted.projects[cwd] = normalize_prompt_preset_state(state) ?? {
+		base_name: null,
+		layer_names: [],
+	};
+
+	const dir = dirname(path);
+	if (!existsSync(dir)) {
+		mkdirSync(dir, { recursive: true, mode: 0o700 });
+	}
+
+	const tmp = `${path}.tmp-${Date.now()}`;
+	writeFileSync(
+		tmp,
+		JSON.stringify(
+			{
+				version: 1,
+				projects: Object.fromEntries(
+					Object.entries(persisted.projects).sort(([a], [b]) =>
+						a.localeCompare(b),
+					),
+				),
+			},
+			null,
+			'\t',
+		) + '\n',
+		{ mode: 0o600 },
+	);
+	renameSync(tmp, path);
+	return path;
 }
 
 function get_last_preset_state(
@@ -372,26 +493,277 @@ function format_active_details(
 	return parts.join('\n') || 'No preset or layers active';
 }
 
+function get_footer_prompt_status(
+	active_base_name: string | undefined,
+	active_layers: ReadonlySet<string>,
+): string | undefined {
+	if (!active_base_name && active_layers.size === 0) {
+		return undefined;
+	}
+
+	const label = active_base_name ?? 'none';
+	const layer_suffix =
+		active_layers.size > 0 ? ` +${active_layers.size}` : '';
+	return `prompt:${label}${layer_suffix}`;
+}
+
+function sanitize_status_text(text: string): string {
+	return text
+		.replace(/[\r\n\t]/g, ' ')
+		.replace(/ +/g, ' ')
+		.trim();
+}
+
+function format_token_count(count: number): string {
+	if (count < 1000) return count.toString();
+	if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
+	if (count < 1000000) return `${Math.round(count / 1000)}k`;
+	if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
+	return `${Math.round(count / 1000000)}M`;
+}
+
+function get_current_thinking_level(ctx: ExtensionContext): string {
+	const entries = ctx.sessionManager.getEntries();
+	for (let i = entries.length - 1; i >= 0; i--) {
+		const entry = entries[i] as {
+			type?: string;
+			thinkingLevel?: string;
+		};
+		if (
+			entry.type === 'thinking_level_change' &&
+			typeof entry.thinkingLevel === 'string'
+		) {
+			return entry.thinkingLevel;
+		}
+	}
+	return ctx.model?.reasoning ? 'high' : 'off';
+}
+
+function render_footer_lines(
+	ctx: ExtensionContext,
+	theme: ExtensionContext['ui']['theme'],
+	footer_data: ReadonlyFooterDataProvider,
+	width: number,
+	active_base_name: string | undefined,
+	active_layers: ReadonlySet<string>,
+): string[] {
+	let total_input = 0;
+	let total_output = 0;
+	let total_cache_read = 0;
+	let total_cache_write = 0;
+	let total_cost = 0;
+	for (const entry of ctx.sessionManager.getEntries()) {
+		if (
+			entry.type === 'message' &&
+			entry.message.role === 'assistant'
+		) {
+			total_input += entry.message.usage.input;
+			total_output += entry.message.usage.output;
+			total_cache_read += entry.message.usage.cacheRead;
+			total_cache_write += entry.message.usage.cacheWrite;
+			total_cost += entry.message.usage.cost.total;
+		}
+	}
+
+	const context_usage = ctx.getContextUsage();
+	const context_window =
+		context_usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
+	const context_percent_value = context_usage?.percent ?? 0;
+	const context_percent =
+		context_usage?.percent !== null
+			? context_percent_value.toFixed(1)
+			: '?';
+
+	let pwd = ctx.cwd;
+	const home = process.env.HOME || process.env.USERPROFILE;
+	if (home && pwd.startsWith(home)) {
+		pwd = `~${pwd.slice(home.length)}`;
+	}
+
+	const branch = footer_data.getGitBranch();
+	if (branch) {
+		pwd = `${pwd} (${branch})`;
+	}
+
+	const session_name = ctx.sessionManager.getSessionName();
+	if (session_name) {
+		pwd = `${pwd} • ${session_name}`;
+	}
+
+	const stats_parts: string[] = [];
+	if (total_input)
+		stats_parts.push(`↑${format_token_count(total_input)}`);
+	if (total_output)
+		stats_parts.push(`↓${format_token_count(total_output)}`);
+	if (total_cache_read)
+		stats_parts.push(`R${format_token_count(total_cache_read)}`);
+	if (total_cache_write)
+		stats_parts.push(`W${format_token_count(total_cache_write)}`);
+
+	const using_subscription = ctx.model
+		? ctx.modelRegistry.isUsingOAuth(ctx.model)
+		: false;
+	if (total_cost || using_subscription) {
+		stats_parts.push(
+			`$${total_cost.toFixed(3)}${using_subscription ? ' (sub)' : ''}`,
+		);
+	}
+
+	const context_percent_display =
+		context_percent === '?'
+			? `?/${format_token_count(context_window)}`
+			: `${context_percent}%/${format_token_count(context_window)}`;
+	let context_percent_str = context_percent_display;
+	if (context_percent_value > 90) {
+		context_percent_str = theme.fg('error', context_percent_display);
+	} else if (context_percent_value > 70) {
+		context_percent_str = theme.fg(
+			'warning',
+			context_percent_display,
+		);
+	}
+	stats_parts.push(context_percent_str);
+
+	let stats_left = stats_parts.join(' ');
+	let stats_left_width = visibleWidth(stats_left);
+	if (stats_left_width > width) {
+		stats_left = truncateToWidth(stats_left, width, '...');
+		stats_left_width = visibleWidth(stats_left);
+	}
+
+	const model_name = ctx.model?.id || 'no-model';
+	const thinking_level = get_current_thinking_level(ctx);
+	let right_side_without_provider = model_name;
+	if (ctx.model?.reasoning) {
+		right_side_without_provider =
+			thinking_level === 'off'
+				? `${model_name} • thinking off`
+				: `${model_name} • ${thinking_level}`;
+	}
+
+	let right_side = right_side_without_provider;
+	if (footer_data.getAvailableProviderCount() > 1 && ctx.model) {
+		right_side = `(${ctx.model.provider}) ${right_side_without_provider}`;
+		if (stats_left_width + 2 + visibleWidth(right_side) > width) {
+			right_side = right_side_without_provider;
+		}
+	}
+
+	const right_side_width = visibleWidth(right_side);
+	const total_needed = stats_left_width + 2 + right_side_width;
+	let stats_line: string;
+	if (total_needed <= width) {
+		const padding = ' '.repeat(
+			width - stats_left_width - right_side_width,
+		);
+		stats_line = stats_left + padding + right_side;
+	} else {
+		const available_for_right = width - stats_left_width - 2;
+		if (available_for_right > 0) {
+			const truncated_right = truncateToWidth(
+				right_side,
+				available_for_right,
+				'',
+			);
+			const truncated_right_width = visibleWidth(truncated_right);
+			const padding = ' '.repeat(
+				Math.max(0, width - stats_left_width - truncated_right_width),
+			);
+			stats_line = stats_left + padding + truncated_right;
+		} else {
+			stats_line = stats_left;
+		}
+	}
+
+	const dim_stats_left = theme.fg('dim', stats_left);
+	const remainder = stats_line.slice(stats_left.length);
+	const dim_remainder = theme.fg('dim', remainder);
+	const lines = [
+		truncateToWidth(
+			theme.fg('dim', pwd),
+			width,
+			theme.fg('dim', '...'),
+		),
+		dim_stats_left + dim_remainder,
+	];
+
+	const prompt_status = get_footer_prompt_status(
+		active_base_name,
+		active_layers,
+	);
+	if (prompt_status) {
+		const themed_status = theme.fg('dim', prompt_status);
+		const status_width = visibleWidth(themed_status);
+		const aligned_status =
+			status_width >= width
+				? truncateToWidth(
+						themed_status,
+						width,
+						theme.fg('dim', '...'),
+					)
+				: `${' '.repeat(width - status_width)}${themed_status}`;
+		lines.push(aligned_status);
+	}
+
+	const other_statuses = Array.from(
+		footer_data.getExtensionStatuses().entries(),
+	)
+		.filter(([key]) => key !== 'preset')
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([, text]) => sanitize_status_text(text));
+	if (other_statuses.length > 0) {
+		lines.push(
+			truncateToWidth(
+				other_statuses.join(' '),
+				width,
+				theme.fg('dim', '...'),
+			),
+		);
+	}
+
+	return lines;
+}
+
 function set_status(
 	ctx: ExtensionContext,
 	active_base_name: string | undefined,
 	active_layers: ReadonlySet<string>,
 ): void {
-	const label = active_base_name ?? 'none';
-	const layer_suffix =
-		active_layers.size > 0 ? ` +${active_layers.size}` : '';
-	ctx.ui.setStatus('preset', `prompt:${label}${layer_suffix}`);
+	ctx.ui.setStatus('preset', undefined);
+	if (!ctx.hasUI) return;
+	ctx.ui.setFooter((tui, theme, footer_data) => {
+		const unsubscribe = footer_data.onBranchChange(() =>
+			tui.requestRender(),
+		);
+		return {
+			dispose: unsubscribe,
+			invalidate() {},
+			render(width: number) {
+				return render_footer_lines(
+					ctx,
+					theme,
+					footer_data,
+					width,
+					active_base_name,
+					active_layers,
+				);
+			},
+		};
+	});
 }
 
 function persist_state(
 	pi: ExtensionAPI,
+	ctx: ExtensionContext,
 	active_base_name: string | undefined,
 	active_layers: ReadonlySet<string>,
 ): void {
-	pi.appendEntry(PRESET_STATE_TYPE, {
+	const state = {
 		base_name: active_base_name ?? null,
 		layer_names: [...active_layers].sort(),
-	});
+	};
+	pi.appendEntry(PRESET_STATE_TYPE, state);
+	save_persisted_prompt_state(ctx.cwd, state);
 }
 
 function normalize_active_state(
@@ -466,7 +838,7 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 		active_layers = new Set(next_layers);
 		set_status(ctx, active_base_name, active_layers);
 		if (options?.persist !== false) {
-			persist_state(pi, active_base_name, active_layers);
+			persist_state(pi, ctx, active_base_name, active_layers);
 		}
 		if (options?.notify) {
 			ctx.ui.notify(options.notify, 'info');
@@ -622,7 +994,7 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 		active_base_name = normalized.active_base_name;
 		active_layers = normalized.active_layers;
 		set_status(ctx, active_base_name, active_layers);
-		persist_state(pi, active_base_name, active_layers);
+		persist_state(pi, ctx, active_base_name, active_layers);
 
 		const fallback = presets[name];
 		if (mode === 'reset' && fallback) {
@@ -1060,7 +1432,9 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 			return;
 		}
 
-		const restored = get_last_preset_state(ctx);
+		const restored =
+			get_last_preset_state(ctx) ??
+			load_persisted_prompt_state(ctx.cwd);
 		if (restored) {
 			active_base_name = restored.base_name ?? undefined;
 			active_layers = new Set(restored.layer_names ?? []);
@@ -1108,5 +1482,6 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 
 	pi.on('session_shutdown', async (_event, ctx) => {
 		ctx.ui.setStatus('preset', undefined);
+		ctx.ui.setFooter(undefined);
 	});
 }

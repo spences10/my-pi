@@ -272,6 +272,9 @@ CLI layering is supported too:
 - `--system-prompt "You are terse and technical."`
 - `--append-system-prompt "Prefer one short paragraph."`
 
+Interactive `/preset` selections are also restored on later sessions
+for the same project via `~/.pi/agent/prompt-preset-state.json`.
+
 This repo also includes an example `.pi/presets.json` with sample base
 presets and layers.
 
