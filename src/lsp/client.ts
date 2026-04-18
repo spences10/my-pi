@@ -114,6 +114,7 @@ export class LspClient extends EventEmitter {
 	#initialized = false;
 	#open_docs = new Map<string, { version: number; text: string }>();
 	#diagnostics_by_uri = new Map<string, LspDiagnostic[]>();
+	#diagnostic_waiters = new Set<() => void>();
 
 	constructor(options: LspClientOptions) {
 		super();
@@ -317,10 +318,6 @@ export class LspClient extends EventEmitter {
 		return this.#diagnostics_by_uri.get(uri) ?? [];
 	}
 
-	get_all_diagnostics(): Map<string, LspDiagnostic[]> {
-		return new Map(this.#diagnostics_by_uri);
-	}
-
 	async wait_for_diagnostics(
 		uri: string,
 		timeout_ms = 1500,
@@ -329,17 +326,22 @@ export class LspClient extends EventEmitter {
 			return this.get_diagnostics(uri);
 		}
 		return new Promise((resolve) => {
-			const handler = (event_uri: string) => {
-				if (event_uri !== uri) return;
+			let active = true;
+			const cleanup = () => {
+				if (!active) return;
+				active = false;
 				this.off('diagnostics', handler);
 				clearTimeout(timer);
+				this.#diagnostic_waiters.delete(cleanup);
 				resolve(this.get_diagnostics(uri));
 			};
-			const timer = setTimeout(() => {
-				this.off('diagnostics', handler);
-				resolve(this.get_diagnostics(uri));
-			}, timeout_ms);
+			const handler = (event_uri: string) => {
+				if (event_uri !== uri) return;
+				cleanup();
+			};
+			const timer = setTimeout(cleanup, timeout_ms);
 			this.on('diagnostics', handler);
+			this.#diagnostic_waiters.add(cleanup);
 		});
 	}
 
@@ -357,6 +359,9 @@ export class LspClient extends EventEmitter {
 			pending.reject(new Error('LSP client stopped'));
 		}
 		this.#pending.clear();
+		for (const cleanup of Array.from(this.#diagnostic_waiters)) {
+			cleanup();
+		}
 		if (this.#proc) {
 			this.#proc.kill();
 			this.#proc = null;
@@ -448,9 +453,15 @@ export class LspClient extends EventEmitter {
 	}
 
 	#handle_message(message: JsonRpcMessage): void {
-		if (message.id != null && this.#pending.has(Number(message.id))) {
-			const pending = this.#pending.get(Number(message.id))!;
-			this.#pending.delete(Number(message.id));
+		const numeric_id =
+			typeof message.id === 'number'
+				? message.id
+				: typeof message.id === 'string' && /^-?\d+$/.test(message.id)
+					? Number(message.id)
+					: null;
+		if (numeric_id != null && this.#pending.has(numeric_id)) {
+			const pending = this.#pending.get(numeric_id)!;
+			this.#pending.delete(numeric_id);
 			clearTimeout(pending.timer);
 			if (message.error) {
 				pending.reject(

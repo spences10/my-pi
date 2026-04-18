@@ -71,6 +71,16 @@ function create_command_context() {
 	};
 }
 
+function create_deferred<T>() {
+	let resolve!: (value: T | PromiseLike<T>) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
 describe('lsp extension', () => {
 	it('registers the LSP tools and /lsp command', async () => {
 		const client = create_mock_client();
@@ -432,6 +442,56 @@ describe('lsp extension', () => {
 		expect(notifications.pop()?.message).toBe(
 			'Restarted typescript language server state.',
 		);
+	});
+
+	it('does not reuse a cancelled in-flight startup after restart', async () => {
+		const startup = create_deferred<void>();
+		const stop_first = vi.fn().mockResolvedValue(undefined);
+		const first_client = create_mock_client({
+			start: vi.fn(() => startup.promise),
+			stop: stop_first,
+		});
+		const second_client = create_mock_client({
+			hover: vi.fn().mockResolvedValue({ contents: 'second hover' }),
+		});
+		const create_client = vi
+			.fn()
+			.mockReturnValueOnce(first_client)
+			.mockReturnValueOnce(second_client);
+		const { pi, tools, commands } = create_test_pi();
+		const { ctx, notifications } = create_command_context();
+
+		await create_lsp_extension({
+			create_client,
+			read_file: async () => 'export const value = 1;\n',
+			cwd: () => '/repo',
+		})(pi);
+
+		const first_hover = tools.get('lsp_hover').execute('1', {
+			file: 'src/file.ts',
+			line: 0,
+			character: 0,
+		});
+
+		await commands.get('lsp').handler('restart typescript', ctx);
+		startup.resolve();
+
+		const cancelled = await first_hover;
+		expect(cancelled.content[0].text).toContain(
+			'Startup cancelled for typescript LSP in /repo',
+		);
+		expect(stop_first).toHaveBeenCalledTimes(1);
+		expect(notifications.pop()?.message).toBe(
+			'Restarted typescript language server state.',
+		);
+
+		const second_hover = await tools.get('lsp_hover').execute('2', {
+			file: 'src/file.ts',
+			line: 0,
+			character: 0,
+		});
+		expect(second_hover.content[0].text).toBe('second hover');
+		expect(create_client).toHaveBeenCalledTimes(2);
 	});
 
 	it('formats document symbols for the agent', async () => {

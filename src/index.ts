@@ -41,6 +41,38 @@ async function read_stdin(): Promise<string> {
 	return Buffer.concat(chunks).toString('utf-8').trim();
 }
 
+function print_usage(): void {
+	console.log(`my-pi v${pkg.version} — composable pi coding agent\n`);
+	console.log('Usage:');
+	console.log(
+		'  my-pi "prompt"                   One-shot print mode',
+	);
+	console.log(
+		'  my-pi                            Interactive TUI mode',
+	);
+	console.log(
+		'  my-pi -P "prompt"                Explicit print mode',
+	);
+	console.log(
+		'  my-pi --json "prompt"            NDJSON output for agents',
+	);
+	console.log(
+		'  my-pi -e ext.ts                  Stack an extension',
+	);
+	console.log(
+		'  my-pi -e a.ts -e b.ts            Stack multiple extensions',
+	);
+	console.log(
+		'  echo "prompt" | my-pi --json     Pipe stdin as prompt',
+	);
+	console.log(
+		'  my-pi -m claude-haiku-4-5-20241022  Set initial model',
+	);
+	console.log(
+		'  my-pi --no-builtin -e ext.ts     Skip all built-in extensions',
+	);
+}
+
 const main = defineCommand({
 	meta: {
 		name: 'my-pi',
@@ -157,6 +189,16 @@ const main = defineCommand({
 			process.exit(1);
 		}
 
+		if (
+			!args.print &&
+			!args.json &&
+			!prompt &&
+			!process.stdout.isTTY
+		) {
+			print_usage();
+			return;
+		}
+
 		// Startup feedback so silence = broken (issue #3)
 		if (args.print || args.json || prompt) {
 			process.stderr.write(
@@ -190,37 +232,7 @@ const main = defineCommand({
 			});
 			process.exit(code);
 		} else if (!process.stdout.isTTY) {
-			console.log(
-				`my-pi v${pkg.version} — composable pi coding agent\n`,
-			);
-			console.log('Usage:');
-			console.log(
-				'  my-pi "prompt"                   One-shot print mode',
-			);
-			console.log(
-				'  my-pi                            Interactive TUI mode',
-			);
-			console.log(
-				'  my-pi -P "prompt"                Explicit print mode',
-			);
-			console.log(
-				'  my-pi --json "prompt"            NDJSON output for agents',
-			);
-			console.log(
-				'  my-pi -e ext.ts                  Stack an extension',
-			);
-			console.log(
-				'  my-pi -e a.ts -e b.ts            Stack multiple extensions',
-			);
-			console.log(
-				'  echo "prompt" | my-pi --json     Pipe stdin as prompt',
-			);
-			console.log(
-				'  my-pi -m claude-haiku-4-5-20241022  Set initial model',
-			);
-			console.log(
-				'  my-pi --no-builtin -e ext.ts     Skip all built-in extensions',
-			);
+			print_usage();
 		} else {
 			const mode = new InteractiveMode(runtime, {
 				migratedProviders: [],

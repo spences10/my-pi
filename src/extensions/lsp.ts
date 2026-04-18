@@ -59,6 +59,20 @@ class LspToolError extends Error {
 	}
 }
 
+class LspStartupCancelledError extends Error {
+	constructor(language: string, workspace_root: string) {
+		super(
+			`Startup cancelled for ${language} LSP in ${workspace_root}`,
+		);
+		this.name = 'LspStartupCancelledError';
+	}
+}
+
+interface StartingServerState {
+	cancelled: boolean;
+	promise: Promise<ServerState | undefined>;
+}
+
 const SYMBOL_KIND_LABELS: Record<number, string> = {
 	2: 'module',
 	3: 'namespace',
@@ -122,6 +136,7 @@ export function create_lsp_extension(
 		const cwd = options.cwd?.() ?? process.cwd();
 		const clients_by_server = new Map<string, ServerState>();
 		const failed_servers = new Map<string, LspToolErrorDetails>();
+		const starting_servers = new Map<string, StartingServerState>();
 
 		const resolve_abs = (file: string): string =>
 			isAbsolute(file) ? file : resolve(cwd, file);
@@ -150,6 +165,15 @@ export function create_lsp_extension(
 						([, state]) => state.language === language,
 					)
 				: Array.from(clients_by_server.entries());
+			const starting = language
+				? Array.from(starting_servers.entries()).filter(([key]) =>
+						key.startsWith(`${language}\u0000`),
+					)
+				: Array.from(starting_servers.entries());
+			for (const [key, startup] of starting) {
+				startup.cancelled = true;
+				starting_servers.delete(key);
+			}
 			await Promise.allSettled(
 				states.map(([, state]) => state.client.stop()),
 			);
@@ -181,6 +205,8 @@ export function create_lsp_extension(
 			if (failed) {
 				throw new LspToolError(failed);
 			}
+			const in_flight = starting_servers.get(key);
+			if (in_flight) return in_flight.promise;
 
 			const server_config = get_server_config(
 				language,
@@ -188,39 +214,70 @@ export function create_lsp_extension(
 			);
 			if (!server_config) return undefined;
 			const root_uri = file_path_to_uri(workspace_root);
-			const client = create_client({
-				command: server_config.command,
-				args: server_config.args,
-				root_uri,
-				language_id_for_uri: (uri) => language_id_for_file(uri),
-			});
 
-			try {
-				await client.start();
-			} catch (error) {
-				const failure = to_lsp_tool_error(
-					file_path,
+			const startup: StartingServerState = {
+				cancelled: false,
+				promise: Promise.resolve<ServerState | undefined>(undefined),
+			};
+			const start_promise = (async () => {
+				const client = create_client({
+					command: server_config.command,
+					args: server_config.args,
+					root_uri,
+					language_id_for_uri: (uri) => language_id_for_file(uri),
+				});
+
+				try {
+					await client.start();
+				} catch (error) {
+					if (startup.cancelled) {
+						throw new LspStartupCancelledError(
+							language,
+							workspace_root,
+						);
+					}
+					const failure = to_lsp_tool_error(
+						file_path,
+						language,
+						workspace_root,
+						server_config.command,
+						server_config.install_hint,
+						error,
+					);
+					failed_servers.set(key, failure);
+					throw new LspToolError(failure);
+				}
+
+				if (startup.cancelled) {
+					await Promise.allSettled([client.stop()]);
+					throw new LspStartupCancelledError(
+						language,
+						workspace_root,
+					);
+				}
+
+				const state: ServerState = {
+					client,
 					language,
 					workspace_root,
-					server_config.command,
-					server_config.install_hint,
-					error,
-				);
-				failed_servers.set(key, failure);
-				throw new LspToolError(failure);
-			}
+					root_uri,
+					command: server_config.command,
+					install_hint: server_config.install_hint,
+				};
+				clients_by_server.set(key, state);
+				failed_servers.delete(key);
+				return state;
+			})();
 
-			const state: ServerState = {
-				client,
-				language,
-				workspace_root,
-				root_uri,
-				command: server_config.command,
-				install_hint: server_config.install_hint,
-			};
-			clients_by_server.set(key, state);
-			failed_servers.delete(key);
-			return state;
+			startup.promise = start_promise;
+			starting_servers.set(key, startup);
+			try {
+				return await start_promise;
+			} finally {
+				if (starting_servers.get(key) === startup) {
+					starting_servers.delete(key);
+				}
+			}
 		};
 
 		const open_file = async (
@@ -376,29 +433,44 @@ export function create_lsp_extension(
 					const results = await Promise.all(
 						params.files.map((file) => resolve_file_state(file)),
 					);
-					const lines: string[] = [];
+					const wait_ms = params.wait_ms ?? 1500;
+					const lines_with_stats = await Promise.all(
+						results.map(async (resolved) => {
+							if (!resolved.ok) {
+								return {
+									line: format_tool_error(resolved.error),
+									diagnostics: 0,
+									error: true,
+								};
+							}
+							const diagnostics =
+								await resolved.result.state.client.wait_for_diagnostics(
+									resolved.result.uri,
+									wait_ms,
+								);
+							return {
+								line: format_diagnostics(
+									resolved.result.abs,
+									diagnostics,
+								),
+								diagnostics: diagnostics.length,
+								error: false,
+							};
+						}),
+					);
+
 					let diagnostic_count = 0;
 					let clean_count = 0;
 					let error_count = 0;
-
-					for (const resolved of results) {
-						if (!resolved.ok) {
+					const lines: string[] = [];
+					for (const entry of lines_with_stats) {
+						lines.push(entry.line);
+						if (entry.error) {
 							error_count += 1;
-							lines.push(format_tool_error(resolved.error));
-							continue;
+						} else {
+							diagnostic_count += entry.diagnostics;
+							if (entry.diagnostics === 0) clean_count += 1;
 						}
-						const diagnostics =
-							await resolved.result.state.client.wait_for_diagnostics(
-								resolved.result.uri,
-								params.wait_ms ?? 1500,
-							);
-						diagnostic_count += diagnostics.length;
-						if (diagnostics.length === 0) {
-							clean_count += 1;
-						}
-						lines.push(
-							format_diagnostics(resolved.result.abs, diagnostics),
-						);
 					}
 
 					return make_tool_result(
