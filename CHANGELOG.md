@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.0.9
+
+### Patch Changes
+
+- 1d08004: Add Pi-native LSP tools, status commands, local server
+  resolution, document symbols, and comprehensive tests.
+
 ## 0.0.8
 
 ### Patch Changes
