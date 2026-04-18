@@ -25,6 +25,7 @@ import {
 import { create_extensions_extension } from './extensions/extensions.js';
 import filter_output_extension from './extensions/filter-output.js';
 import handoff_extension from './extensions/handoff.js';
+import lsp_extension from './extensions/lsp.js';
 import mcp_extension from './extensions/mcp.js';
 import prompt_presets_extension from './extensions/prompt-presets.js';
 import recall_extension from './extensions/recall.js';
@@ -42,6 +43,7 @@ export interface CreateMyPiOptions {
 	handoff?: boolean;
 	recall?: boolean;
 	prompt_presets?: boolean;
+	lsp?: boolean;
 	model?: string;
 	system_prompt?: string;
 	append_system_prompt?: string;
@@ -58,6 +60,7 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	handoff: handoff_extension,
 	recall: recall_extension,
 	'prompt-presets': prompt_presets_extension,
+	lsp: lsp_extension,
 };
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -73,6 +76,7 @@ function get_force_disabled_builtins(
 		| 'handoff'
 		| 'recall'
 		| 'prompt_presets'
+		| 'lsp'
 	>,
 ): ReadonlySet<BuiltinExtensionKey> {
 	const force_disabled = new Set<BuiltinExtensionKey>();
@@ -83,6 +87,7 @@ function get_force_disabled_builtins(
 	if (!options.handoff) force_disabled.add('handoff');
 	if (!options.recall) force_disabled.add('recall');
 	if (!options.prompt_presets) force_disabled.add('prompt-presets');
+	if (!options.lsp) force_disabled.add('lsp');
 	return force_disabled;
 }
 
@@ -138,6 +143,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		handoff = true,
 		recall = true,
 		prompt_presets = true,
+		lsp = true,
 		model,
 		system_prompt,
 		append_system_prompt,
@@ -152,6 +158,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		handoff,
 		recall,
 		prompt_presets,
+		lsp,
 	});
 	const managed_extension_factories: ExtensionFactory[] = [
 		create_extensions_extension({ force_disabled }),

@@ -15,7 +15,8 @@ export type BuiltinExtensionKey =
 	| 'filter-output'
 	| 'handoff'
 	| 'recall'
-	| 'prompt-presets';
+	| 'prompt-presets'
+	| 'lsp';
 
 export interface BuiltinExtensionInfo {
 	key: BuiltinExtensionKey;
@@ -96,6 +97,14 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 			'Runtime prompt preset selection and /preset command',
 		cli_flag: '--no-prompt-presets',
 		aliases: ['prompt-presets', 'preset', 'presets'],
+	},
+	{
+		key: 'lsp',
+		label: 'LSP',
+		description:
+			'Language Server Protocol tools (diagnostics, hover, definition, references)',
+		cli_flag: '--no-lsp',
+		aliases: ['lsp', 'language-server'],
 	},
 ];
 

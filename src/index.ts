@@ -101,6 +101,11 @@ const main = defineCommand({
 			description: 'Disable prompt presets extension',
 			default: false,
 		},
+		'no-lsp': {
+			type: 'boolean',
+			description: 'Disable LSP extension',
+			default: false,
+		},
 		model: {
 			type: 'string',
 			alias: 'm',
@@ -170,6 +175,7 @@ const main = defineCommand({
 			recall: !args['no-builtin'] && !args['no-recall'],
 			prompt_presets:
 				!args['no-builtin'] && !args['no-prompt-presets'],
+			lsp: !args['no-builtin'] && !args['no-lsp'],
 			model: args.model,
 			system_prompt: args['system-prompt'],
 			append_system_prompt: args['append-system-prompt'],
