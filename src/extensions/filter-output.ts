@@ -13,7 +13,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
 	{
 		name: 'AWS Secret Key',
 		pattern:
-			/(?:SecretAccessKey|aws_secret_access_key)\s*[:=]\s*[A-Za-z0-9/+=]{40}/g,
+			/\b(?:AWS_SECRET_ACCESS_KEY|aws_secret_access_key|secret_access_key|SecretAccessKey)\b\s*[:=]\s*["']?[A-Za-z0-9/+=]{40,}["']?/g,
 	},
 	{
 		name: 'Bearer Token',
@@ -38,7 +38,8 @@ const SECRET_PATTERNS: SecretPattern[] = [
 	},
 	{
 		name: 'Private Key',
-		pattern: /-----BEGIN\s+[\w\s]*PRIVATE\s+KEY-----/g,
+		pattern:
+			/-----BEGIN\s+[\w\s]*PRIVATE\s+KEY-----[\s\S]*?-----END\s+[\w\s]*PRIVATE\s+KEY-----/g,
 	},
 	{
 		name: 'Connection String with Password',
@@ -47,7 +48,12 @@ const SECRET_PATTERNS: SecretPattern[] = [
 	{
 		name: 'Generic Password Field',
 		pattern:
-			/(?:password|passwd|secret|token)\s*[:=]\s*["']?[^\s"']{8,}/gi,
+			/\b[\w-]*(?:password|passwd|secret|token|api[_-]?key)\b\s*[:=]\s*["']?[A-Za-z0-9._:/+=@!-]{8,}/gi,
+	},
+	{
+		name: 'Generic Secret Phrase',
+		pattern:
+			/\b(?:password|passwd|secret|token|api[_-]?key)\b(?:\s+(?:is|was|seen|value|header))?\s*[:=]?\s+[A-Za-z0-9._:/+=@!-]{8,}/gi,
 	},
 	{
 		name: 'Tavily API Key',

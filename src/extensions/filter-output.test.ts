@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-// Extract redact function for direct testing
-// (mirrors the logic in filter-output.ts)
 interface SecretPattern {
 	name: string;
 	pattern: RegExp;
@@ -12,7 +10,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
 	{
 		name: 'AWS Secret Key',
 		pattern:
-			/(?:SecretAccessKey|aws_secret_access_key)\s*[:=]\s*[A-Za-z0-9/+=]{40}/g,
+			/\b(?:AWS_SECRET_ACCESS_KEY|aws_secret_access_key|secret_access_key|SecretAccessKey)\b\s*[:=]\s*["']?[A-Za-z0-9/+=]{40,}["']?/g,
 	},
 	{
 		name: 'Bearer Token',
@@ -32,11 +30,22 @@ const SECRET_PATTERNS: SecretPattern[] = [
 	},
 	{
 		name: 'Private Key',
-		pattern: /-----BEGIN\s+[\w\s]*PRIVATE\s+KEY-----/g,
+		pattern:
+			/-----BEGIN\s+[\w\s]*PRIVATE\s+KEY-----[\s\S]*?-----END\s+[\w\s]*PRIVATE\s+KEY-----/g,
 	},
 	{
 		name: 'Connection String with Password',
 		pattern: /:\/\/[^:]+:[^@]+@/g,
+	},
+	{
+		name: 'Generic Password Field',
+		pattern:
+			/\b[\w-]*(?:password|passwd|secret|token|api[_-]?key)\b\s*[:=]\s*["']?[A-Za-z0-9._:/+=@!-]{8,}/gi,
+	},
+	{
+		name: 'Generic Secret Phrase',
+		pattern:
+			/\b(?:password|passwd|secret|token|api[_-]?key)\b(?:\s+(?:is|was|seen|value|header))?\s*[:=]?\s+[A-Za-z0-9._:/+=@!-]{8,}/gi,
 	},
 	{
 		name: 'Tavily API Key',
@@ -70,16 +79,38 @@ function redact(text: string): { redacted: string; count: number } {
 
 describe('redact', () => {
 	it('redacts AWS access keys', () => {
-		const input = 'key: AKIAIOSFODNN7EXAMPLE';
+		const input = 'key: AKIA1234567890CANARY';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:AWS Access Key]');
-		expect(redacted).not.toContain('AKIAIOSFODNN7EXAMPLE');
+		expect(redacted).not.toContain('AKIA1234567890CANARY');
+	});
+
+	it('redacts uppercase AWS secret env vars', () => {
+		const input =
+			'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG+bPxRfiCYCANARYKEY01';
+		const { redacted, count } = redact(input);
+		expect(count).toBe(1);
+		expect(redacted).toContain('[REDACTED:AWS Secret Key]');
+		expect(redacted).not.toContain(
+			'wJalrXUtnFEMI/K7MDENG+bPxRfiCYCANARYKEY01',
+		);
+	});
+
+	it('redacts lower-case secret_access_key assignments', () => {
+		const input =
+			'secret_access_key = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYCANARYKEY01"';
+		const { redacted, count } = redact(input);
+		expect(count).toBe(1);
+		expect(redacted).toContain('[REDACTED:AWS Secret Key]');
+		expect(redacted).not.toContain(
+			'wJalrXUtnFEMI/K7MDENG+bPxRfiCYCANARYKEY01',
+		);
 	});
 
 	it('redacts bearer tokens', () => {
 		const input =
-			'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abc123';
+			'Authorization: Bearer canaryBearerTokenValueAlphaNum1234567890ZZ';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:Bearer Token]');
@@ -87,10 +118,13 @@ describe('redact', () => {
 
 	it('redacts OpenAI/Anthropic API keys', () => {
 		const input =
-			'ANTHROPIC_API_KEY=sk-ant-api03-abcdefghijklmnopqrstuvwxyz';
+			'ANTHROPIC_API_KEY=sk-ant-api-key-example-123456789012345';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:OpenAI/Anthropic API Key]');
+		expect(redacted).not.toContain(
+			'[REDACTED:Generic Password Field]',
+		);
 	});
 
 	it('redacts Stripe live keys', () => {
@@ -100,15 +134,18 @@ describe('redact', () => {
 		expect(redacted).toContain('[REDACTED:Stripe Live Key]');
 	});
 
-	it('redacts private key headers', () => {
-		const input = '-----BEGIN RSA PRIVATE KEY-----';
+	it('redacts full private key blocks', () => {
+		const input = `-----BEGIN PRIVATE KEY-----\nQ0FOQVJZX1BSSVZBVEVfS0VZX0JMT0NLX0xJTkVfMDAx\nQ0FOQVJZX1BSSVZBVEVfS0VZX0JMT0NLX0xJTkVfMDAy\n-----END PRIVATE KEY-----`;
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:Private Key]');
+		expect(redacted).not.toContain(
+			'Q0FOQVJZX1BSSVZBVEVfS0VZX0JMT0NLX0xJTkVfMDAx',
+		);
 	});
 
 	it('redacts connection strings with passwords', () => {
-		const input = 'postgres://user:s3cretP@ss@localhost:5432/db';
+		const input = 'postgres://user:supersecretpass@localhost:5432/db';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain(
@@ -116,23 +153,45 @@ describe('redact', () => {
 		);
 	});
 
-	it('redacts Tavily API keys', () => {
+	it('redacts prefixed generic secret fields', () => {
 		const input =
-			'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';
+			'OPAQUE_SECRET=cnyr_ZmFrZVNlY3JldFZhbHVlX1JlZGFjdGlvbl9TdWl0ZV8wMDE';
+		const { redacted, count } = redact(input);
+		expect(count).toBe(1);
+		expect(redacted).toContain('[REDACTED:Generic Password Field]');
+		expect(redacted).not.toContain(
+			'cnyr_ZmFrZVNlY3JldFZhbHVlX1JlZGFjdGlvbl9TdWl0ZV8wMDE',
+		);
+	});
+
+	it('redacts freeform secret phrases in logs', () => {
+		const input =
+			'2026-04-19T09:00:02Z INFO opaque fallback secret cnyr_ZmFrZVNlY3JldFZhbHVlX1JlZGFjdGlvbl9TdWl0ZV8wMDE';
+		const { redacted, count } = redact(input);
+		expect(count).toBe(1);
+		expect(redacted).toContain('[REDACTED:Generic Secret Phrase]');
+		expect(redacted).not.toContain(
+			'cnyr_ZmFrZVNlY3JldFZhbHVlX1JlZGFjdGlvbl9TdWl0ZV8wMDE',
+		);
+	});
+
+	it('redacts Tavily API keys', () => {
+		const input = 'tvly-canary-redaction-suite-000000000000000001';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:Tavily API Key]');
 	});
 
 	it('redacts Firecrawl API keys', () => {
-		const input = 'fc-e3011a33574e44c8aa539c24218cd659';
+		const input = 'fc-e3b0c44298fc1c149afbf4c8996fb924';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:Firecrawl API Key]');
 	});
 
 	it('redacts GitHub tokens', () => {
-		const input = 'ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn';
+		const input =
+			'ghp_CanaryRedactionSuite000000000000000000000001ABCD';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:GitHub Token]');
@@ -140,10 +199,11 @@ describe('redact', () => {
 
 	it('redacts multiple secrets in one string', () => {
 		const input =
-			'aws: AKIAIOSFODNN7EXAMPLE, token: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.longtoken';
+			'aws: AKIA1234567890CANARY, SERVICE_PASSWORD=CanaryPassword-Redaction-001!';
 		const { redacted, count } = redact(input);
 		expect(count).toBe(2);
-		expect(redacted).not.toContain('AKIAIOSFODNN7EXAMPLE');
+		expect(redacted).not.toContain('AKIA1234567890CANARY');
+		expect(redacted).not.toContain('CanaryPassword-Redaction-001!');
 	});
 
 	it('leaves clean text unchanged', () => {
@@ -154,7 +214,7 @@ describe('redact', () => {
 	});
 
 	it('preserves prefix in redacted output', () => {
-		const input = 'AKIAIOSFODNN7EXAMPLE';
+		const input = 'AKIA1234567890CANARY';
 		const { redacted } = redact(input);
 		expect(redacted).toMatch(/^AKIA/);
 	});
