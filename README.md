@@ -154,9 +154,9 @@ HTTP MCP servers are supported too:
 ```json
 {
 	"mcpServers": {
-		"pm-platform": {
+		"my-http-mcp": {
 			"type": "http",
-			"url": "https://project.cloudlobsters.com/api/mcp",
+			"url": "https://myproject.com/api/mcp",
 			"headers": {
 				"Authorization": "Bearer ..."
 			}
