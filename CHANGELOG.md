@@ -1,5 +1,14 @@
 # my-pi
 
+## 0.0.12
+
+### Patch Changes
+
+- 53af638: Add Hetzner and broader secret redaction patterns, improve
+  tests, and validate against synthetic eval harness.
+- 783c8ea: Improve secret redaction for multiline keys, AWS secret
+  formats, freeform logs, and isolated eval harness.
+
 ## 0.0.11
 
 ### Patch Changes
