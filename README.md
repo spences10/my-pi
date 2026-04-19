@@ -519,7 +519,7 @@ src/
     filter-output.ts  Secret redaction in tool output
     handoff.ts        Session context export
     lsp.ts            Language server tools and /lsp command
-    otel.ts           Local telemetry extension and /telemetry command
+    telemetry.ts      Local telemetry extension and /telemetry command
     prompt-presets.ts Runtime prompt preset selection and editing
     recall.ts         Past session recall guidance
     telemetry-*.ts    Telemetry config + SQLite storage

@@ -5,7 +5,7 @@ import {
 	format_telemetry_status,
 	infer_run_outcome,
 	parse_telemetry_command,
-} from './otel.js';
+} from './telemetry.js';
 
 describe('format_telemetry_status', () => {
 	it('includes saved state, effective state, override, and db path', () => {

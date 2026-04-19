@@ -27,10 +27,10 @@ import filter_output_extension from './extensions/filter-output.js';
 import handoff_extension from './extensions/handoff.js';
 import lsp_extension from './extensions/lsp.js';
 import mcp_extension from './extensions/mcp.js';
-import { create_telemetry_extension } from './extensions/otel.js';
 import prompt_presets_extension from './extensions/prompt-presets.js';
 import recall_extension from './extensions/recall.js';
 import skills_extension from './extensions/skills.js';
+import { create_telemetry_extension } from './extensions/telemetry.js';
 import { create_skills_manager } from './skills/manager.js';
 
 export interface CreateMyPiOptions {
