@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.0.13
+
+### Patch Changes
+
+- f236fc0: Rename local telemetry extension from otel.ts to
+  telemetry.ts and update README references accordingly.
+
 ## 0.0.12
 
 ### Patch Changes
