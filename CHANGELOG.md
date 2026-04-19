@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.0.11
+
+### Patch Changes
+
+- d52e942: Add local SQLite telemetry, sandbox agent-dir overrides,
+  richer docs, and improved package metadata for eval workflows.
+
 ## 0.0.10
 
 ### Patch Changes
