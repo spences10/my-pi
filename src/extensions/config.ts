@@ -16,7 +16,8 @@ export type BuiltinExtensionKey =
 	| 'handoff'
 	| 'recall'
 	| 'prompt-presets'
-	| 'lsp';
+	| 'lsp'
+	| 'session-name';
 
 export interface BuiltinExtensionInfo {
 	key: BuiltinExtensionKey;
@@ -106,6 +107,14 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 			'Language Server Protocol tools (diagnostics, hover, definition, references)',
 		cli_flag: '--no-lsp',
 		aliases: ['lsp', 'language-server'],
+	},
+	{
+		key: 'session-name',
+		label: 'Session name',
+		description:
+			'AI-powered session auto-naming and /session-name command',
+		cli_flag: '--no-session-name',
+		aliases: ['session-name', 'session', 'auto-name'],
 	},
 ];
 

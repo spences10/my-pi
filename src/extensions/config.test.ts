@@ -26,6 +26,9 @@ describe('find_builtin_extension', () => {
 		expect(find_builtin_extension('language-server')?.key).toBe(
 			'lsp',
 		);
+		expect(find_builtin_extension('auto-name')?.key).toBe(
+			'session-name',
+		);
 	});
 });
 

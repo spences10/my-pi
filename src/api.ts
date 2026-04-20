@@ -29,6 +29,7 @@ import lsp_extension from './extensions/lsp.js';
 import mcp_extension from './extensions/mcp.js';
 import prompt_presets_extension from './extensions/prompt-presets.js';
 import recall_extension from './extensions/recall.js';
+import session_name_extension from './extensions/session-name.js';
 import skills_extension from './extensions/skills.js';
 import { create_telemetry_extension } from './extensions/telemetry.js';
 import { create_skills_manager } from './skills/manager.js';
@@ -46,6 +47,7 @@ export interface CreateMyPiOptions {
 	recall?: boolean;
 	prompt_presets?: boolean;
 	lsp?: boolean;
+	session_name?: boolean;
 	telemetry?: boolean;
 	telemetry_db_path?: string;
 	model?: string;
@@ -65,6 +67,7 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	recall: recall_extension,
 	'prompt-presets': prompt_presets_extension,
 	lsp: lsp_extension,
+	'session-name': session_name_extension,
 };
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -86,6 +89,7 @@ function get_force_disabled_builtins(
 		| 'recall'
 		| 'prompt_presets'
 		| 'lsp'
+		| 'session_name'
 	>,
 ): ReadonlySet<BuiltinExtensionKey> {
 	const force_disabled = new Set<BuiltinExtensionKey>();
@@ -97,6 +101,7 @@ function get_force_disabled_builtins(
 	if (!options.recall) force_disabled.add('recall');
 	if (!options.prompt_presets) force_disabled.add('prompt-presets');
 	if (!options.lsp) force_disabled.add('lsp');
+	if (!options.session_name) force_disabled.add('session-name');
 	return force_disabled;
 }
 
@@ -154,6 +159,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		recall = true,
 		prompt_presets = true,
 		lsp = true,
+		session_name = true,
 		telemetry,
 		telemetry_db_path,
 		model,
@@ -176,6 +182,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		recall,
 		prompt_presets,
 		lsp,
+		session_name,
 	});
 	const managed_extension_factories: ExtensionFactory[] = [
 		create_telemetry_extension({
