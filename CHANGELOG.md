@@ -1,5 +1,28 @@
 # my-pi
 
+## 0.1.0
+
+### Minor Changes
+
+- f6fa050: Upgrade the built-in handoff extension to use AI-generated
+  session transfer prompts.
+
+  The `/handoff` command now:
+  - summarizes the current branch conversation with the active model
+  - asks the user to review and edit the generated prompt
+  - creates a new session linked to the current one
+  - prefills the editor in the new session with the handoff prompt
+
+  This replaces the older file-based handoff export flow.
+
+- d11c590: Add a built-in `session-name` extension for AI-powered
+  session naming.
+  - auto-generates a session name after the first completed turn when
+    running interactively
+  - adds `/session-name` to show, set, or auto-generate the current
+    session name
+  - adds `--no-session-name` to disable the extension
+
 ## 0.0.13
 
 ### Patch Changes
