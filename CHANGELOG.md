@@ -1,5 +1,17 @@
 # my-pi
 
+## 0.1.1
+
+### Patch Changes
+
+- fa0b6ef: Add hooks-resolution extension for Claude-style PostToolUse
+  hook execution from .claude, .rulesync, and .pi configs.
+- a8d39d7: Improve /extensions DX by opening interactive toggle list
+  when enable, disable, or toggle lack keys.
+- ad647f5: Add confirm-destructive extension prompting before
+  clearing, switching, or forking sessions, with configurable built-in
+  extension toggles.
+
 ## 0.1.0
 
 ### Minor Changes
