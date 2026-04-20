@@ -32,6 +32,9 @@ describe('find_builtin_extension', () => {
 		expect(find_builtin_extension('confirm')?.key).toBe(
 			'confirm-destructive',
 		);
+		expect(find_builtin_extension('hooks')?.key).toBe(
+			'hooks-resolution',
+		);
 	});
 });
 

@@ -26,6 +26,7 @@ import confirm_destructive_extension from './extensions/confirm-destructive.js';
 import { create_extensions_extension } from './extensions/extensions.js';
 import filter_output_extension from './extensions/filter-output.js';
 import handoff_extension from './extensions/handoff.js';
+import hooks_resolution_extension from './extensions/hooks-resolution.js';
 import lsp_extension from './extensions/lsp.js';
 import mcp_extension from './extensions/mcp.js';
 import prompt_presets_extension from './extensions/prompt-presets.js';
@@ -50,6 +51,7 @@ export interface CreateMyPiOptions {
 	lsp?: boolean;
 	session_name?: boolean;
 	confirm_destructive?: boolean;
+	hooks_resolution?: boolean;
 	telemetry?: boolean;
 	telemetry_db_path?: string;
 	model?: string;
@@ -71,6 +73,7 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	lsp: lsp_extension,
 	'session-name': session_name_extension,
 	'confirm-destructive': confirm_destructive_extension,
+	'hooks-resolution': hooks_resolution_extension,
 };
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -94,6 +97,7 @@ function get_force_disabled_builtins(
 		| 'lsp'
 		| 'session_name'
 		| 'confirm_destructive'
+		| 'hooks_resolution'
 	>,
 ): ReadonlySet<BuiltinExtensionKey> {
 	const force_disabled = new Set<BuiltinExtensionKey>();
@@ -108,6 +112,8 @@ function get_force_disabled_builtins(
 	if (!options.session_name) force_disabled.add('session-name');
 	if (!options.confirm_destructive)
 		force_disabled.add('confirm-destructive');
+	if (!options.hooks_resolution)
+		force_disabled.add('hooks-resolution');
 	return force_disabled;
 }
 
@@ -167,6 +173,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		lsp = true,
 		session_name = true,
 		confirm_destructive = true,
+		hooks_resolution = true,
 		telemetry,
 		telemetry_db_path,
 		model,
@@ -191,6 +198,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		lsp,
 		session_name,
 		confirm_destructive,
+		hooks_resolution,
 	});
 	const managed_extension_factories: ExtensionFactory[] = [
 		create_telemetry_extension({

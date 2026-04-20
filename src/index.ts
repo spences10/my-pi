@@ -168,6 +168,11 @@ const main = defineCommand({
 			description: 'Disable destructive action confirmations',
 			default: false,
 		},
+		'no-hooks': {
+			type: 'boolean',
+			description: 'Disable Claude-style hook execution',
+			default: false,
+		},
 		telemetry: {
 			type: 'boolean',
 			description: 'Enable local SQLite telemetry for this process',
@@ -281,6 +286,7 @@ const main = defineCommand({
 			session_name: !args['no-builtin'] && !args['no-session-name'],
 			confirm_destructive:
 				!args['no-builtin'] && !args['no-confirm-destructive'],
+			hooks_resolution: !args['no-builtin'] && !args['no-hooks'],
 			telemetry: telemetry_override,
 			telemetry_db_path: args['telemetry-db'],
 			model: args.model,

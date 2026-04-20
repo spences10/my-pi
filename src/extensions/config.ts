@@ -18,7 +18,8 @@ export type BuiltinExtensionKey =
 	| 'prompt-presets'
 	| 'lsp'
 	| 'session-name'
-	| 'confirm-destructive';
+	| 'confirm-destructive'
+	| 'hooks-resolution';
 
 export interface BuiltinExtensionInfo {
 	key: BuiltinExtensionKey;
@@ -124,6 +125,14 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 			'Prompt before destructive session actions like clear, switch, and fork',
 		cli_flag: '--no-confirm-destructive',
 		aliases: ['confirm-destructive', 'confirm'],
+	},
+	{
+		key: 'hooks-resolution',
+		label: 'Hooks resolution',
+		description:
+			'Claude Code style PostToolUse hook compatibility from .claude, .rulesync, and .pi configs',
+		cli_flag: '--no-hooks',
+		aliases: ['hooks-resolution', 'hooks'],
 	},
 ];
 
