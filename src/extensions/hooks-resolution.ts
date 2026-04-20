@@ -12,6 +12,14 @@ import { basename, dirname, join, resolve } from 'node:path';
 
 const HOOK_TIMEOUT_MS = 10 * 60 * 1000;
 
+type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue };
+
 export type HookEventName = 'PostToolUse' | 'PostToolUseFailure';
 
 export interface ResolvedCommandHook {
@@ -102,10 +110,10 @@ export function find_project_dir(cwd: string): string {
 	return git_root ?? resolve(cwd);
 }
 
-export function read_json_file(path: string): unknown | undefined {
+export function read_json_file(path: string): JsonValue | undefined {
 	if (!is_file(path)) return undefined;
 	try {
-		return JSON.parse(readFileSync(path, 'utf8')) as unknown;
+		return JSON.parse(readFileSync(path, 'utf8')) as JsonValue;
 	} catch {
 		return undefined;
 	}
