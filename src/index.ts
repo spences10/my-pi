@@ -273,8 +273,7 @@ const main = defineCommand({
 			prompt_presets:
 				!args['no-builtin'] && !args['no-prompt-presets'],
 			lsp: !args['no-builtin'] && !args['no-lsp'],
-			session_name:
-				!args['no-builtin'] && !args['no-session-name'],
+			session_name: !args['no-builtin'] && !args['no-session-name'],
 			telemetry: telemetry_override,
 			telemetry_db_path: args['telemetry-db'],
 			model: args.model,

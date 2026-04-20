@@ -2,7 +2,10 @@
 // Adapted from Thomas Lopes' pi dotfiles
 
 import { complete, type Message } from '@mariozechner/pi-ai';
-import type { ExtensionAPI, SessionEntry } from '@mariozechner/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	SessionEntry,
+} from '@mariozechner/pi-coding-agent';
 import {
 	BorderedLoader,
 	convertToLlm,
@@ -58,7 +61,9 @@ async function generate_session_name(
 		};
 	},
 	model: NonNullable<
-		Parameters<Parameters<ExtensionAPI['registerCommand']>[1]['handler']>[1]['model']
+		Parameters<
+			Parameters<ExtensionAPI['registerCommand']>[1]['handler']
+		>[1]['model']
 	>,
 	conversation_text: string,
 	signal?: AbortSignal,
@@ -94,8 +99,7 @@ async function generate_session_name(
 	return clean_name(
 		response.content
 			.filter(
-				(c): c is { type: 'text'; text: string } =>
-					c.type === 'text',
+				(c): c is { type: 'text'; text: string } => c.type === 'text',
 			)
 			.map((c) => c.text.trim())
 			.join(' '),
