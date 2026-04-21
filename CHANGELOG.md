@@ -1,5 +1,15 @@
 # my-pi
 
+## 0.1.2
+
+### Patch Changes
+
+- b57516f: Adopt pi-coding-agent 0.68 prompt-awareness, MCP working
+  indicators, cwd-safe loading, and richer shutdown telemetry
+  metadata.
+- 649f51a: Add configurable working indicator command and align prompt
+  preset status with extension footer indicators.
+
 ## 0.1.1
 
 ### Patch Changes
