@@ -33,14 +33,14 @@ describe('working indicator config', () => {
 		}
 	});
 
-	it('defaults to spinner when missing', () => {
+	it('defaults to pi spinner when missing', () => {
 		const home = tmp_home();
 		homes.push(home);
 		process.env.HOME = home;
 
 		expect(load_working_indicator_config()).toEqual({
 			version: 1,
-			mode: 'spinner',
+			mode: 'default',
 		});
 		expect(get_working_indicator_config_path()).toBe(
 			join(home, '.pi', 'agent', 'working-indicator.json'),

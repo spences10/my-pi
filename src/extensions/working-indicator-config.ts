@@ -22,7 +22,7 @@ export interface WorkingIndicatorConfig {
 
 const DEFAULT_CONFIG: WorkingIndicatorConfig = {
 	version: 1,
-	mode: 'spinner',
+	mode: 'default',
 };
 
 export function get_working_indicator_config_path(): string {
