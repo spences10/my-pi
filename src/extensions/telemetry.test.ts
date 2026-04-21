@@ -1,11 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import {
+	describe_session_shutdown,
 	format_telemetry_query_results,
 	format_telemetry_stats,
 	format_telemetry_status,
 	infer_run_outcome,
 	parse_telemetry_command,
 } from './telemetry.js';
+
+describe('describe_session_shutdown', () => {
+	it('formats shutdown reasons without a target session', () => {
+		expect(describe_session_shutdown({ reason: 'quit' } as any)).toBe(
+			'session shutdown (quit)',
+		);
+	});
+
+	it('includes target session file when present', () => {
+		expect(
+			describe_session_shutdown({
+				reason: 'resume',
+				targetSessionFile: '/tmp/next.jsonl',
+			} as any),
+		).toBe('session shutdown (resume) → /tmp/next.jsonl');
+	});
+});
 
 describe('format_telemetry_status', () => {
 	it('includes saved state, effective state, override, and db path', () => {

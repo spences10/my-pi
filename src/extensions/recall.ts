@@ -1,12 +1,22 @@
 // Recall extension — nudge the agent to use pirecall for past session context
 // The model uses `npx pirecall` via bash directly — no custom tools needed
 
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type {
+	BeforeAgentStartEvent,
+	ExtensionAPI,
+} from '@mariozechner/pi-coding-agent';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DEFAULT_DB_PATH = join(process.env.HOME!, '.pi', 'pirecall.db');
+
+export function should_inject_recall_prompt(
+	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
+): boolean {
+	const selected_tools = event.systemPromptOptions?.selectedTools;
+	return !selected_tools || selected_tools.includes('bash');
+}
 
 function sync_recall_db_in_background(): void {
 	if (!existsSync(DEFAULT_DB_PATH)) return;
@@ -30,7 +40,8 @@ export default async function recall(pi: ExtensionAPI) {
 	// System prompt hint so the model knows pirecall exists
 	pi.on(
 		'before_agent_start',
-		async (event: { systemPrompt: string }) => {
+		async (event: BeforeAgentStartEvent) => {
+			if (!should_inject_recall_prompt(event)) return {};
 			return {
 				systemPrompt:
 					event.systemPrompt +

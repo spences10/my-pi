@@ -3,6 +3,7 @@ import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
 	ExtensionContext,
+	SessionShutdownEvent,
 } from '@mariozechner/pi-coding-agent';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -270,6 +271,15 @@ export function infer_run_outcome(event: AgentEndEvent): {
 		success: true,
 		error_message: null,
 	};
+}
+
+export function describe_session_shutdown(
+	event: Pick<SessionShutdownEvent, 'reason' | 'targetSessionFile'>,
+): string {
+	const base = `session shutdown (${event.reason})`;
+	return event.targetSessionFile
+		? `${base} → ${event.targetSessionFile}`
+		: base;
 }
 
 export function format_telemetry_status(options: {
@@ -855,13 +865,13 @@ export function create_telemetry_extension(
 			});
 		});
 
-		pi.on('session_shutdown', async () => {
+		pi.on('session_shutdown', async (event) => {
 			if (store && active_run) {
 				store.finish_run({
 					id: active_run.id,
 					ended_at: now(),
 					success: null,
-					error_message: 'session shutdown',
+					error_message: describe_session_shutdown(event),
 				});
 			}
 			close_store();

@@ -2,6 +2,7 @@
 // Inspired by https://github.com/disler/pi-vs-claude-code/blob/main/extensions/agent-chain.ts
 
 import {
+	type BeforeAgentStartEvent,
 	type ExtensionAPI,
 	defineTool,
 	parseFrontmatter,
@@ -102,6 +103,13 @@ function parse_chain_yaml(raw: string): ChainDef[] {
 	}
 
 	return chains;
+}
+
+export function should_inject_chain_prompt(
+	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
+): boolean {
+	const selected_tools = event.systemPromptOptions?.selectedTools;
+	return !selected_tools || selected_tools.includes('run_chain');
 }
 
 // ── Agent file parser ──────────────────────────
@@ -448,8 +456,9 @@ export default async function chain(pi: ExtensionAPI) {
 
 	pi.on(
 		'before_agent_start',
-		async (event: { systemPrompt: string }) => {
+		async (event: BeforeAgentStartEvent) => {
 			if (!active_chain || chains.length === 0) return {};
+			if (!should_inject_chain_prompt(event)) return {};
 
 			const flow = active_chain.steps
 				.map((s) => s.agent)

@@ -5,6 +5,7 @@ import {
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { should_inject_chain_prompt } from './chain.js';
 
 // ── YAML parser (extracted from chain.ts for testing) ──
 
@@ -161,6 +162,30 @@ chain-b:
 
 	it('returns empty array for empty input', () => {
 		expect(parse_chain_yaml('')).toHaveLength(0);
+	});
+});
+
+describe('should_inject_chain_prompt', () => {
+	it('injects when tool selection is unavailable', () => {
+		expect(
+			should_inject_chain_prompt({ systemPromptOptions: {} } as any),
+		).toBe(true);
+	});
+
+	it('injects when run_chain is active', () => {
+		expect(
+			should_inject_chain_prompt({
+				systemPromptOptions: { selectedTools: ['read', 'run_chain'] },
+			} as any),
+		).toBe(true);
+	});
+
+	it('skips injection when run_chain is unavailable', () => {
+		expect(
+			should_inject_chain_prompt({
+				systemPromptOptions: { selectedTools: ['read', 'bash'] },
+			} as any),
+		).toBe(false);
 	});
 });
 
