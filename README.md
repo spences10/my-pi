@@ -81,6 +81,12 @@ echo "plan a login page" | pnpx my-pi@latest --json
 Outputs NDJSON events — one JSON object per line — for programmatic
 consumption by other agents or scripts.
 
+In non-interactive modes (`"prompt"`, `-P`, `--json`), my-pi keeps
+headless-capable built-ins like MCP, LSP, chains, prompt presets,
+recall, hooks, and secret filtering enabled, while skipping UI-only
+built-ins like handoff, confirm-destructive, session auto-naming, and
+working-indicator customization.
+
 ### Local telemetry (SQLite)
 
 Telemetry is **disabled by default**. When enabled, my-pi records
@@ -238,6 +244,7 @@ import { create_my_pi, runPrintMode } from 'my-pi';
 const runtime = await create_my_pi({
 	agent_dir: './tmp/pi-agent',
 	extensions: ['./my-ext.ts'],
+	runtime_mode: 'json',
 	telemetry: true,
 	telemetry_db_path: './tmp/evals.db',
 });

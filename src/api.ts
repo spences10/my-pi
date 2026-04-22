@@ -37,11 +37,14 @@ import { create_telemetry_extension } from './extensions/telemetry.js';
 import working_indicator_extension from './extensions/working-indicator.js';
 import { create_skills_manager } from './skills/manager.js';
 
+export type MyPiRuntimeMode = 'interactive' | 'print' | 'json';
+
 export interface CreateMyPiOptions {
 	cwd?: string;
 	agent_dir?: string;
 	extensions?: string[];
 	extensionFactories?: ExtensionFactory[];
+	runtime_mode?: MyPiRuntimeMode;
 	mcp?: boolean;
 	skills?: boolean;
 	chain?: boolean;
@@ -87,9 +90,17 @@ function resolve_agent_dir(cwd: string, agent_dir?: string): string {
 	return agent_dir ? resolve(cwd, agent_dir) : getAgentDir();
 }
 
-function get_force_disabled_builtins(
+const NON_INTERACTIVE_UI_ONLY_BUILTINS: BuiltinExtensionKey[] = [
+	'handoff',
+	'session-name',
+	'confirm-destructive',
+	'working-indicator',
+];
+
+export function get_force_disabled_builtins(
 	options: Pick<
 		CreateMyPiOptions,
+		| 'runtime_mode'
 		| 'mcp'
 		| 'skills'
 		| 'chain'
@@ -120,6 +131,14 @@ function get_force_disabled_builtins(
 		force_disabled.add('hooks-resolution');
 	if (!options.working_indicator)
 		force_disabled.add('working-indicator');
+	if (
+		options.runtime_mode &&
+		options.runtime_mode !== 'interactive'
+	) {
+		for (const key of NON_INTERACTIVE_UI_ONLY_BUILTINS) {
+			force_disabled.add(key);
+		}
+	}
 	return force_disabled;
 }
 
@@ -169,6 +188,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		agent_dir,
 		extensions = [],
 		extensionFactories: user_factories = [],
+		runtime_mode = 'interactive',
 		mcp = true,
 		skills = true,
 		chain = true,
@@ -195,6 +215,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 
 	const resolved_extensions = extensions.map((p) => resolve(cwd, p));
 	const force_disabled = get_force_disabled_builtins({
+		runtime_mode,
 		mcp,
 		skills,
 		chain,
@@ -268,7 +289,9 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 						}
 					: {}),
 				additionalExtensionPaths: [...resolved_extensions],
-				additionalThemePaths: [PACKAGE_THEME_DIR],
+				...(runtime_mode === 'interactive'
+					? { additionalThemePaths: [PACKAGE_THEME_DIR] }
+					: {}),
 				extensionFactories: [
 					...managed_extension_factories,
 					...user_factories,

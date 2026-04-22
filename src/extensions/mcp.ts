@@ -68,6 +68,7 @@ function update_mcp_status(
 	ctx: ExtensionContext,
 	servers: ReadonlyMap<string, ServerState>,
 ): void {
+	if (!ctx.hasUI) return;
 	if (servers.size === 0) {
 		ctx.ui.setStatus('mcp', undefined);
 		return;
@@ -99,6 +100,10 @@ function set_connect_feedback(
 	ctx: ExtensionContext,
 	pending_server_count: number,
 ): () => void {
+	if (!ctx.hasUI) {
+		return () => {};
+	}
+
 	const label =
 		pending_server_count === 1
 			? 'Connecting 1 MCP server...'

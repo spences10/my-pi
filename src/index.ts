@@ -7,7 +7,7 @@ import {
 	InteractiveMode,
 	runPrintMode,
 } from '@mariozechner/pi-coding-agent';
-import { defineCommand, runMain } from 'citty';
+import { defineCommand, renderUsage, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,42 +49,50 @@ async function read_stdin(): Promise<string> {
 	return Buffer.concat(chunks).toString('utf-8').trim();
 }
 
-function print_usage(): void {
-	console.log(`my-pi v${pkg.version} — composable pi coding agent\n`);
-	console.log('Usage:');
-	console.log(
-		'  my-pi "prompt"                   One-shot print mode',
-	);
-	console.log(
-		'  my-pi                            Interactive TUI mode',
-	);
-	console.log(
-		'  my-pi -P "prompt"                Explicit print mode',
-	);
-	console.log(
-		'  my-pi --json "prompt"            NDJSON output for agents',
-	);
-	console.log(
-		'  my-pi -e ext.ts                  Stack an extension',
-	);
-	console.log(
-		'  my-pi -e a.ts -e b.ts            Stack multiple extensions',
-	);
-	console.log(
-		'  my-pi --telemetry --json "task"  Enable local SQLite telemetry',
-	);
-	console.log(
-		'  my-pi --agent-dir /tmp/pi-agent   Override auth/config/session dir',
-	);
-	console.log(
-		'  echo "prompt" | my-pi --json     Pipe stdin as prompt',
-	);
-	console.log(
-		'  my-pi -m claude-haiku-4-5-20241022  Set initial model',
-	);
-	console.log(
-		'  my-pi --no-builtin -e ext.ts     Skip all built-in extensions',
-	);
+const HELP_APPENDIX = `
+MODES
+
+  my-pi
+    Interactive TUI with slash commands, editor, and session UI.
+
+  my-pi "prompt"
+  my-pi -P "prompt"
+    One-shot print mode with plain text output.
+
+  my-pi --json "prompt"
+    Non-interactive NDJSON mode for scripts, evals, and other agents.
+
+NOTES
+
+  - In non-interactive modes, my-pi keeps headless-capable built-ins like
+    MCP, LSP, chains, prompt presets, recall, hooks, and output filtering.
+  - UI-only built-ins like handoff, confirm-destructive, session auto-naming,
+    and working-indicator customization are skipped.
+  - Repeat -e / --extension to stack multiple extensions.
+
+EXAMPLES
+
+  my-pi
+  my-pi "fix the failing test"
+  my-pi -P "summarize this repo"
+  my-pi --json "list all TODO comments"
+  echo "plan a login page" | my-pi --json
+  my-pi --telemetry --json "run eval case"
+  my-pi --telemetry --telemetry-db ./tmp/evals.db --json "run case"
+  my-pi --agent-dir /tmp/pi-agent --json "run case"
+  my-pi -e ./my-ext.ts -e ./other-ext.ts "hello"
+  my-pi -m claude-haiku-4-5-20241022 "explain this file"
+`;
+
+async function render_rich_usage(
+	cmd: any,
+	parent?: any,
+): Promise<string> {
+	return `${await (renderUsage as any)(cmd, parent)}\n${HELP_APPENDIX}`;
+}
+
+async function print_usage(cmd: any, parent?: any): Promise<void> {
+	console.log(await render_rich_usage(cmd, parent));
 }
 
 const main = defineCommand({
@@ -251,7 +259,7 @@ const main = defineCommand({
 			!prompt &&
 			!process.stdout.isTTY
 		) {
-			print_usage();
+			await print_usage(main as any);
 			return;
 		}
 
@@ -269,16 +277,26 @@ const main = defineCommand({
 			process.exit(1);
 		}
 
-		const telemetry_override = args.telemetry
-			? true
-			: args['no-telemetry']
-				? false
-				: undefined;
+		let telemetry_override: boolean | undefined;
+		if (args.telemetry) {
+			telemetry_override = true;
+		} else if (args['no-telemetry']) {
+			telemetry_override = false;
+		}
+
+		let runtime_mode: 'interactive' | 'print' | 'json' =
+			'interactive';
+		if (args.json) {
+			runtime_mode = 'json';
+		} else if (args.print || prompt) {
+			runtime_mode = 'print';
+		}
 
 		const runtime = await create_my_pi({
 			cwd,
 			agent_dir: args['agent-dir'],
 			extensions: extension_paths,
+			runtime_mode,
 			mcp: !args['no-builtin'] && !args['no-mcp'],
 			skills: !args['no-builtin'] && !args['no-skills'],
 			chain: !args['no-builtin'] && !args['no-chain'],
@@ -302,15 +320,19 @@ const main = defineCommand({
 		});
 
 		if (args.print || args.json || prompt) {
+			let output_mode: 'json' | 'text' = 'text';
+			if (args.json) {
+				output_mode = 'json';
+			}
 			const code = await runPrintMode(runtime, {
-				mode: args.json ? 'json' : 'text',
+				mode: output_mode,
 				initialMessage: prompt || '',
 				initialImages: [],
 				messages: [],
 			});
 			process.exit(code);
 		} else if (!process.stdout.isTTY) {
-			print_usage();
+			await print_usage(main as any);
 		} else {
 			const mode = new InteractiveMode(runtime, {
 				migratedProviders: [],
@@ -324,4 +346,8 @@ const main = defineCommand({
 	},
 });
 
-void runMain(main);
+void runMain(main as any, {
+	showUsage: async (cmd: any, parent: any) => {
+		await print_usage(cmd, parent);
+	},
+});

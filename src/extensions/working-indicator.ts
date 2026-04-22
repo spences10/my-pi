@@ -58,6 +58,7 @@ function apply_working_indicator(
 	ctx: ExtensionContext,
 	mode: WorkingIndicatorMode,
 ): void {
+	if (!ctx.hasUI) return;
 	ctx.ui.setWorkingIndicator(get_working_indicator(ctx, mode));
 }
 
