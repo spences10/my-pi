@@ -3,10 +3,10 @@ import {
 	type ExtensionAPI,
 	type ExtensionCommandContext,
 } from '@mariozechner/pi-coding-agent';
-import { Type } from '@sinclair/typebox';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Type } from 'typebox';
 import {
 	file_path_to_uri,
 	LspClient,

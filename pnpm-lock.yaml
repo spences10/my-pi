@@ -17,12 +17,12 @@ importers:
       '@mariozechner/pi-tui':
         specifier: ^0.70.2
         version: 0.70.2
-      '@sinclair/typebox':
-        specifier: ^0.34.49
-        version: 0.34.49
       citty:
         specifier: ^0.2.2
         version: 0.2.2
+      typebox:
+        specifier: ^1.1.31
+        version: 1.1.31
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.0
@@ -807,9 +807,6 @@ packages:
 
   '@silvia-odwyer/photon-node@0.3.4':
     resolution: {integrity: sha512-bnly4BKB3KDTFxrUIcgCLbaeVVS8lrAkri1pEzskpmxu9MdfGQTy8b8EgcD83ywD3RPMsIulY8xJH5Awa+t9fA==}
-
-  '@sinclair/typebox@0.34.49':
-    resolution: {integrity: sha512-brySQQs7Jtn0joV8Xh9ZV/hZb9Ozb0pmazDIASBkYKCjXrXU3mpcFahmK/z4YDhGkQvP9mWJbVyahdtU5wQA+A==}
 
   '@smithy/config-resolver@4.4.16':
     resolution: {integrity: sha512-GFlGPNLZKrGfqWpqVb31z7hvYCA9ZscfX1buYnvvMGcRYsQQnhH+4uN6mWWflcD5jB4OXP/LBrdpukEdjl41tg==}
@@ -3262,8 +3259,6 @@ snapshots:
   '@rolldown/pluginutils@1.0.0-rc.15': {}
 
   '@silvia-odwyer/photon-node@0.3.4': {}
-
-  '@sinclair/typebox@0.34.49': {}
 
   '@smithy/config-resolver@4.4.16':
     dependencies:

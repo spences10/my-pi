@@ -160,14 +160,17 @@ export default async function handoff(pi: ExtensionAPI) {
 
 			const new_session_result = await ctx.newSession({
 				parentSession: current_session_file,
+				withSession: async (replacement_ctx) => {
+					replacement_ctx.ui.setEditorText(edited_prompt);
+					replacement_ctx.ui.notify(
+						'Handoff ready. Submit when ready.',
+						'info',
+					);
+				},
 			});
 			if (new_session_result.cancelled) {
 				ctx.ui.notify('New session cancelled', 'info');
-				return;
 			}
-
-			ctx.ui.setEditorText(edited_prompt);
-			ctx.ui.notify('Handoff ready. Submit when ready.', 'info');
 		},
 	});
 }

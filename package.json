@@ -58,8 +58,8 @@
 		"@mariozechner/pi-ai": "^0.70.2",
 		"@mariozechner/pi-coding-agent": "^0.70.2",
 		"@mariozechner/pi-tui": "^0.70.2",
-		"@sinclair/typebox": "^0.34.49",
-		"citty": "^0.2.2"
+		"citty": "^0.2.2",
+		"typebox": "^1.1.31"
 	},
 	"devDependencies": {
 		"@changesets/cli": "^2.31.0",

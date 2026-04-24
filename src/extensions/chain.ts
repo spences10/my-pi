@@ -7,11 +7,11 @@ import {
 	defineTool,
 	parseFrontmatter,
 } from '@mariozechner/pi-coding-agent';
-import { Type } from '@sinclair/typebox';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Type } from 'typebox';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
