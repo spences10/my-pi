@@ -64,6 +64,18 @@ function count_pending_enabled_servers(
 	).length;
 }
 
+function report_mcp_failure(
+	state: ServerState,
+	ctx?: ExtensionContext,
+): void {
+	const message = `MCP server failed (${state.config.name}): ${state.error}`;
+	if (ctx?.hasUI) {
+		ctx.ui.notify(message, 'warning');
+		return;
+	}
+	console.error(message);
+}
+
 function update_mcp_status(
 	ctx: ExtensionContext,
 	servers: ReadonlyMap<string, ServerState>,
@@ -224,9 +236,7 @@ export default async function mcp(pi: ExtensionAPI) {
 					error instanceof Error ? error.message : String(error);
 				state.client = undefined;
 				await client.disconnect().catch(() => {});
-				console.error(
-					`MCP server failed (${state.config.name}): ${state.error}`,
-				);
+				report_mcp_failure(state, ctx);
 				throw error;
 			} finally {
 				state.connect_promise = undefined;
