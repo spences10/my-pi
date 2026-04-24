@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.5
+
+### Patch Changes
+
+- 997f7c2: Redact SSH config metadata in tool output to prevent host,
+  user, proxy, and path leaks.
+
 ## 0.1.4
 
 ### Patch Changes
