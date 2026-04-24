@@ -55,9 +55,9 @@
 		"postbuild": "node ./scripts/copy-telemetry-schema.mjs"
 	},
 	"dependencies": {
-		"@mariozechner/pi-ai": "^0.69.0",
-		"@mariozechner/pi-coding-agent": "^0.69.0",
-		"@mariozechner/pi-tui": "^0.69.0",
+		"@mariozechner/pi-ai": "^0.70.0",
+		"@mariozechner/pi-coding-agent": "^0.70.0",
+		"@mariozechner/pi-tui": "^0.70.0",
 		"@sinclair/typebox": "^0.34.49",
 		"citty": "^0.2.2"
 	},
@@ -70,7 +70,7 @@
 	"engines": {
 		"node": ">=22.0.0"
 	},
-	"packageManager": "pnpm@10.33.1",
+	"packageManager": "pnpm@10.33.2",
 	"pi": {
 		"themes": [
 			"./themes"
