@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.7
+
+### Patch Changes
+
+- e8bfb58: Report MCP startup failures through TUI notifications
+  instead of stderr to preserve terminal usability.
+
 ## 0.1.6
 
 ### Patch Changes
