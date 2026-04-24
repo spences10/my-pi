@@ -51,6 +51,7 @@ interface PersistedPromptPresetStates {
 }
 
 const PRESET_STATE_TYPE = 'prompt-preset-state';
+export const DEFAULT_BASE_PROMPT_PRESET_NAME = 'terse';
 const ENABLED = '[x]';
 const DISABLED = '[ ]';
 const SELECTED = '(x)';
@@ -62,7 +63,7 @@ export const DEFAULT_PROMPT_PRESETS: PromptPresetMap = {
 		kind: 'base',
 		description: 'Short, direct, no fluff',
 		instructions:
-			"Be concise and direct. Default to the shortest response that fully solves the user's request. No purple prose, no filler, no repetitive caveats. Prefer a short paragraph or a few bullets. Only include extra detail when it materially affects the decision, implementation, or next step.",
+			"Be concise and direct. Default to the shortest response that fully solves the user's request. Use at most one short paragraph or 3 bullets unless the user explicitly asks for detail. For implementation reports, include only what changed, validation, and the next step if relevant. No purple prose, no filler, no repetitive caveats.",
 	},
 	standard: {
 		kind: 'base',
@@ -1464,13 +1465,13 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 			return;
 		}
 
-		const restored =
-			get_last_preset_state(ctx) ??
-			load_persisted_prompt_state(ctx.cwd);
-		if (restored) {
-			active_base_name = restored.base_name ?? undefined;
-			active_layers = new Set(restored.layer_names ?? []);
-		}
+		const restored = get_last_preset_state(ctx) ??
+			load_persisted_prompt_state(ctx.cwd) ?? {
+				base_name: DEFAULT_BASE_PROMPT_PRESET_NAME,
+				layer_names: [],
+			};
+		active_base_name = restored.base_name ?? undefined;
+		active_layers = new Set(restored.layer_names ?? []);
 		const normalized = normalize_active_state(
 			presets,
 			active_base_name,

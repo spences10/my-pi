@@ -453,8 +453,10 @@ CLI layering is supported too:
 - `--system-prompt "You are terse and technical."`
 - `--append-system-prompt "Prefer one short paragraph."`
 
-Interactive `/preset` selections are also restored on later sessions
-for the same project via `~/.pi/agent/prompt-preset-state.json`.
+Interactive sessions default to `terse` unless a project has a saved
+selection. `/preset` selections are restored on later sessions for the
+same project via `~/.pi/agent/prompt-preset-state.json`;
+`/preset clear` persists no active preset for that project.
 
 This repo also includes an example `.pi/presets.json` with sample base
 presets and layers.

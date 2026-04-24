@@ -12,6 +12,11 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Type } from 'typebox';
+import {
+	DEFAULT_BASE_PROMPT_PRESET_NAME,
+	load_persisted_prompt_state,
+	load_prompt_presets,
+} from './prompt-presets.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -167,15 +172,51 @@ function scan_agent_dirs(cwd: string): Map<string, AgentDef> {
 
 const AGENT_STEP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
+function get_prompt_preset_system_prompt(cwd: string): string {
+	const presets = load_prompt_presets(cwd);
+	const state = load_persisted_prompt_state(cwd) ?? {
+		base_name: DEFAULT_BASE_PROMPT_PRESET_NAME,
+		layer_names: [],
+	};
+	const blocks: string[] = [];
+	const base = state.base_name ? presets[state.base_name] : undefined;
+	if (base?.instructions.trim()) {
+		blocks.push(
+			`## Active Base Prompt: ${base.name}\n${base.instructions.trim()}`,
+		);
+	}
+	for (const name of [...(state.layer_names ?? [])].sort()) {
+		const layer = presets[name];
+		if (layer?.kind !== 'layer' || !layer.instructions.trim())
+			continue;
+		blocks.push(`### ${layer.name}\n${layer.instructions.trim()}`);
+	}
+	return blocks.join('\n\n');
+}
+
 function run_agent_step(
 	agent_def: AgentDef,
 	task: string,
+	cwd: string,
 	model?: string,
 ): Promise<{ output: string; exitCode: number }> {
 	// Resolve bin path: prefer known dist location over process.argv[1]
 	// (process.argv[1] may point to a wrapper like codex, not my-pi)
 	const bin = join(__dirname, '..', 'index.js');
-	const args = ['--no-builtin', '--json', '--prompt', task];
+	const system_prompt = [
+		agent_def.systemPrompt,
+		get_prompt_preset_system_prompt(cwd),
+	]
+		.filter(Boolean)
+		.join('\n\n');
+	const args = [
+		'--no-builtin',
+		'--json',
+		'--system-prompt',
+		system_prompt,
+		'--prompt',
+		task,
+	];
 	if (model) {
 		args.push('--model', model);
 	}
@@ -196,10 +237,7 @@ function run_agent_step(
 
 		const proc = spawn(process.execPath, [bin, ...args], {
 			stdio: ['ignore', 'pipe', 'pipe'],
-			env: {
-				...process.env,
-				MY_PI_AGENT_SYSTEM_PROMPT: agent_def.systemPrompt,
-			},
+			env: process.env,
 		});
 
 		const timer = setTimeout(() => {
@@ -368,6 +406,7 @@ export default async function chain(pi: ExtensionAPI) {
 					const result = await run_agent_step(
 						agent_def,
 						resolved_prompt,
+						cwd,
 						current_model,
 					);
 
