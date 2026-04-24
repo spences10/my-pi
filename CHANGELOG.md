@@ -1,5 +1,14 @@
 # my-pi
 
+## 0.1.6
+
+### Patch Changes
+
+- 2f86b9b: Default sessions to terse and propagate prompt presets into
+  chain subagents for consistently concise responses.
+- e222c57: Migrate TypeBox imports and update handoff new-session flow
+  for Pi 0.70 compatibility.
+
 ## 0.1.5
 
 ### Patch Changes
