@@ -1,5 +1,8 @@
 # my-pi
 
+[![built with vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
+[![tested with vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
+
 Composable [pi](https://pi.dev) coding agent for humans and agents.
 
 Built on the
