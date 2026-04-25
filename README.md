@@ -342,17 +342,26 @@ In interactive mode:
 - `/skills sync <key|name>` — sync an imported skill to its upstream
 - `/skills refresh` — rescan skill directories
 - `/skills defaults <all-enabled|all-disabled>` — set default policy
-- `/preset` — open the prompt preset manager (base presets + layers)
-- `/preset <name>` — activate a base preset or toggle a layer
-- `/preset base <name>` — activate a base preset directly
-- `/preset enable <layer>` / `/preset disable <layer>` — toggle a
-  prompt layer directly
-- `/preset edit <name>` — edit or create a project-local preset in
-  `.pi/presets.json`
-- `/preset delete <name>` — delete a project-local preset
-- `/preset reset <name>` — remove a project-local override and fall
-  back to user/built-in if available
-- `/preset clear` — clear the active base preset and all layers
+- `/prompt-preset` — open the prompt preset manager (base presets +
+  layers); `/preset` is a short alias
+- `/prompt-preset help` — show examples and common prompt preset
+  commands
+- `/prompt-preset <name>` — activate a base preset or toggle a layer
+- `/prompt-preset base <name>` — activate a base preset directly
+- `/prompt-preset enable <layer>` / `/prompt-preset disable <layer>` —
+  toggle a prompt layer directly
+- `/prompt-preset edit <name>` — edit or create a project preset in
+  `.pi/presets/<name>.md`
+- `/prompt-preset edit-global <name>` — edit or create a global preset
+  in `~/.pi/agent/presets/<name>.md`
+- `/prompt-preset export-defaults` — copy built-in presets to editable
+  global Markdown files
+- `/prompt-preset export-defaults project` — copy built-in presets to
+  editable project Markdown files
+- `/prompt-preset delete <name>` — delete a project-local preset
+- `/prompt-preset reset <name>` — remove a project-local override and
+  fall back to user/built-in if available
+- `/prompt-preset clear` — clear the active base preset and all layers
 - `/chain` — inspect or switch the active agent chain
 - `/agents` — list discovered agent definitions
 - `/lsp status|list|restart` — inspect or restart language server
@@ -441,11 +450,30 @@ Preset sources are merged in this order:
 
 1. built-in defaults
 2. `~/.pi/agent/presets.json`
-3. `.pi/presets.json`
+3. `~/.pi/agent/presets/*.md`
+4. `.pi/presets.json`
+5. `.pi/presets/*.md`
 
 Project presets override global/default presets with the same name.
-Strings are treated as base presets by default. Object entries may set
-`kind: "base"` or `kind: "layer"`.
+Strings in JSON are treated as base presets by default. Object entries
+may set `kind: "base"` or `kind: "layer"`. Markdown preset files use
+the filename as the preset name and optional frontmatter:
+
+```markdown
+---
+kind: base
+description: Short, direct, no fluff
+---
+
+Be concise and direct.
+```
+
+Use `/prompt-preset export-defaults` to copy built-in presets to
+`~/.pi/agent/presets/*.md` for editing, or
+`/prompt-preset export-defaults project` to write `.pi/presets/*.md`.
+`/prompt-preset edit <name>` writes a project Markdown preset;
+`/prompt-preset edit-global <name>` writes a global one. `/preset` is
+a short alias for `/prompt-preset`.
 
 CLI layering is supported too:
 
@@ -548,7 +576,8 @@ src/
   agents/
     *.md              Agent definitions (frontmatter + system prompt)
     agent-chain.yaml  Chain pipeline definitions
-  presets.json        Optional project prompt presets
+  presets.json        Optional project prompt presets (JSON)
+  presets/*.md        Optional project prompt presets (Markdown files)
 mcp.json              Project MCP server config
 ```
 

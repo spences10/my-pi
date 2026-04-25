@@ -16,6 +16,7 @@ import {
 import {
 	existsSync,
 	mkdirSync,
+	readdirSync,
 	readFileSync,
 	renameSync,
 	unlinkSync,
@@ -175,6 +176,36 @@ function get_project_presets_path(cwd: string): string {
 	return join(cwd, '.pi', 'presets.json');
 }
 
+function get_global_presets_dir(): string {
+	return join(getAgentDir(), 'presets');
+}
+
+function get_project_presets_dir(cwd: string): string {
+	return join(cwd, '.pi', 'presets');
+}
+
+function sanitize_prompt_preset_file_name(name: string): string {
+	const sanitized = name
+		.trim()
+		.replace(/[\\/:*?"<>|]/g, '-')
+		.replace(/^\.+$/, '')
+		.replace(/^\.+/, '')
+		.replace(/\.+$/, '');
+	if (!sanitized) {
+		throw new Error(
+			'Prompt preset name must contain a file-safe character',
+		);
+	}
+	return sanitized;
+}
+
+function get_prompt_preset_file_path(
+	dir: string,
+	name: string,
+): string {
+	return join(dir, `${sanitize_prompt_preset_file_name(name)}.md`);
+}
+
 function get_persisted_prompt_state_path(): string {
 	return join(getAgentDir(), 'prompt-preset-state.json');
 }
@@ -191,6 +222,142 @@ function read_prompt_presets_file(path: string): PromptPresetMap {
 	}
 }
 
+function unquote_frontmatter_value(value: string): string {
+	const trimmed = value.trim();
+	if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+		try {
+			return JSON.parse(trimmed) as string;
+		} catch {
+			return trimmed.slice(1, -1);
+		}
+	}
+	if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+		return trimmed.slice(1, -1);
+	}
+	return trimmed;
+}
+
+function parse_prompt_preset_markdown(content: string): {
+	metadata: Record<string, string>;
+	body: string;
+} {
+	const normalized = content.replace(/\r\n/g, '\n');
+	if (!normalized.startsWith('---\n')) {
+		return { metadata: {}, body: normalized.trim() };
+	}
+
+	const lines = normalized.split('\n');
+	const end = lines.findIndex(
+		(line, index) => index > 0 && line.trim() === '---',
+	);
+	if (end === -1) {
+		return { metadata: {}, body: normalized.trim() };
+	}
+
+	const metadata: Record<string, string> = {};
+	for (const line of lines.slice(1, end)) {
+		const separator = line.indexOf(':');
+		if (separator === -1) continue;
+		const key = line.slice(0, separator).trim().toLowerCase();
+		const value = line.slice(separator + 1).trim();
+		if (!key) continue;
+		metadata[key] = unquote_frontmatter_value(value);
+	}
+
+	return {
+		metadata,
+		body: lines
+			.slice(end + 1)
+			.join('\n')
+			.trim(),
+	};
+}
+
+export function read_prompt_presets_dir(
+	path: string,
+): PromptPresetMap {
+	if (!existsSync(path)) return {};
+
+	try {
+		const presets: PromptPresetMap = {};
+		for (const entry of readdirSync(path, { withFileTypes: true })
+			.filter((item) => item.isFile() && item.name.endsWith('.md'))
+			.sort((a, b) => a.name.localeCompare(b.name))) {
+			const name = entry.name.slice(0, -3).trim();
+			if (!name) continue;
+			const { metadata, body } = parse_prompt_preset_markdown(
+				readFileSync(join(path, entry.name), 'utf-8'),
+			);
+			if (!body) continue;
+			presets[name] = {
+				kind: metadata.kind === 'layer' ? 'layer' : 'base',
+				instructions: body,
+				...(metadata.description
+					? { description: metadata.description }
+					: {}),
+			};
+		}
+		return presets;
+	} catch {
+		return {};
+	}
+}
+
+function format_prompt_preset_markdown(preset: PromptPreset): string {
+	const lines = [
+		'---',
+		`kind: ${preset.kind === 'layer' ? 'layer' : 'base'}`,
+	];
+	if (preset.description?.trim()) {
+		lines.push(
+			`description: ${JSON.stringify(preset.description.trim())}`,
+		);
+	}
+	lines.push('---', '', preset.instructions.trim(), '');
+	return lines.join('\n');
+}
+
+export function save_prompt_preset_file(
+	dir: string,
+	name: string,
+	preset: PromptPreset,
+): string {
+	if (!existsSync(dir)) {
+		mkdirSync(dir, { recursive: true, mode: 0o700 });
+	}
+
+	const path = get_prompt_preset_file_path(dir, name);
+	const tmp = `${path}.tmp-${Date.now()}`;
+	writeFileSync(tmp, format_prompt_preset_markdown(preset), {
+		mode: 0o600,
+	});
+	renameSync(tmp, path);
+	return path;
+}
+
+function save_project_prompt_preset_file(
+	cwd: string,
+	name: string,
+	preset: PromptPreset,
+): string {
+	return save_prompt_preset_file(
+		get_project_presets_dir(cwd),
+		name,
+		preset,
+	);
+}
+
+function save_global_prompt_preset_file(
+	name: string,
+	preset: PromptPreset,
+): string {
+	return save_prompt_preset_file(
+		get_global_presets_dir(),
+		name,
+		preset,
+	);
+}
+
 export function load_prompt_presets(
 	cwd: string,
 ): Record<string, LoadedPromptPreset> {
@@ -202,7 +369,15 @@ export function load_prompt_presets(
 			'user',
 		),
 		to_loaded_prompt_presets(
+			read_prompt_presets_dir(get_global_presets_dir()),
+			'user',
+		),
+		to_loaded_prompt_presets(
 			read_prompt_presets_file(get_project_presets_path(cwd)),
+			'project',
+		),
+		to_loaded_prompt_presets(
+			read_prompt_presets_dir(get_project_presets_dir(cwd)),
 			'project',
 		),
 	);
@@ -244,27 +419,40 @@ export function remove_project_prompt_preset(
 	path: string;
 	remaining: number;
 } {
-	const path = get_project_presets_path(cwd);
-	const project_presets = read_prompt_presets_file(path);
-	if (!(name in project_presets)) {
-		return {
-			removed: false,
-			path,
-			remaining: Object.keys(project_presets).length,
-		};
-	}
+	const json_path = get_project_presets_path(cwd);
+	const project_presets = read_prompt_presets_file(json_path);
+	let removed = false;
+	let removed_path = json_path;
 
-	delete project_presets[name];
-	const remaining = Object.keys(project_presets).length;
-	if (remaining === 0) {
-		if (existsSync(path)) {
-			unlinkSync(path);
+	if (name in project_presets) {
+		delete project_presets[name];
+		removed = true;
+		removed_path = json_path;
+		if (Object.keys(project_presets).length === 0) {
+			if (existsSync(json_path)) {
+				unlinkSync(json_path);
+			}
+		} else {
+			save_project_prompt_presets(cwd, project_presets);
 		}
-		return { removed: true, path, remaining };
 	}
 
-	save_project_prompt_presets(cwd, project_presets);
-	return { removed: true, path, remaining };
+	const file_path = get_prompt_preset_file_path(
+		get_project_presets_dir(cwd),
+		name,
+	);
+	if (existsSync(file_path)) {
+		unlinkSync(file_path);
+		removed = true;
+		removed_path = file_path;
+	}
+
+	const remaining =
+		Object.keys(read_prompt_presets_file(json_path)).length +
+		Object.keys(read_prompt_presets_dir(get_project_presets_dir(cwd)))
+			.length;
+
+	return { removed, path: removed_path, remaining };
 }
 
 function normalize_prompt_preset_state(
@@ -831,10 +1019,13 @@ function parse_preset_flag(flag: string): string[] {
 
 function is_subcommand(command: string): boolean {
 	return [
+		'help',
 		'list',
 		'show',
 		'clear',
 		'edit',
+		'edit-global',
+		'export-defaults',
 		'delete',
 		'reset',
 		'reload',
@@ -843,6 +1034,33 @@ function is_subcommand(command: string): boolean {
 		'disable',
 		'toggle',
 	].includes(command);
+}
+
+function format_prompt_preset_help(): string {
+	return `Prompt presets append instructions to the system prompt.
+
+Commands:
+- /prompt-preset                Open the preset picker
+- /prompt-preset show           Show the active base and layers
+- /prompt-preset <name>         Activate a base preset or toggle a layer
+- /prompt-preset base <name>    Activate a base preset
+- /prompt-preset enable <layer> Enable a layer
+- /prompt-preset disable <layer> Disable a layer
+- /prompt-preset edit <name>    Edit/create .pi/presets/<name>.md
+- /prompt-preset edit-global <name> Edit/create ~/.pi/agent/presets/<name>.md
+- /prompt-preset export-defaults Export built-ins to ~/.pi/agent/presets/*.md
+- /prompt-preset export-defaults project Export built-ins to .pi/presets/*.md
+- /prompt-preset reload         Reload presets after manual file edits
+- /prompt-preset clear          Clear active base and layers
+
+Examples:
+- /prompt-preset export-defaults
+- /prompt-preset edit-global terse
+- /prompt-preset base detailed
+- /prompt-preset enable bullets
+- /prompt-preset show
+
+Alias: /preset`;
 }
 
 export default async function prompt_presets(pi: ExtensionAPI) {
@@ -948,6 +1166,7 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 	async function edit_preset(
 		name: string,
 		ctx: ExtensionCommandContext,
+		scope: 'project' | 'global' = 'project',
 	): Promise<void> {
 		const existing = presets[name];
 		const kind_choice = await ctx.ui.select('Preset kind', [
@@ -973,16 +1192,22 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 		);
 		if (instructions === undefined) return;
 
-		save_project_prompt_presets(ctx.cwd, {
-			...read_prompt_presets_file(get_project_presets_path(ctx.cwd)),
-			[name]: {
-				kind,
-				instructions,
-				...(description.trim()
-					? { description: description.trim() }
-					: {}),
-			},
-		});
+		const saved_path =
+			scope === 'global'
+				? save_global_prompt_preset_file(name, {
+						kind,
+						instructions,
+						...(description.trim()
+							? { description: description.trim() }
+							: {}),
+					})
+				: save_project_prompt_preset_file(ctx.cwd, name, {
+						kind,
+						instructions,
+						...(description.trim()
+							? { description: description.trim() }
+							: {}),
+					});
 
 		presets = load_prompt_presets(ctx.cwd);
 		const normalized = normalize_active_state(
@@ -998,8 +1223,43 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 		} else {
 			set_layer_enabled(name, true, ctx);
 		}
+		ctx.ui.notify(`Saved preset "${name}" to ${saved_path}`, 'info');
+	}
+
+	function export_default_presets(
+		ctx: ExtensionCommandContext,
+		scope: 'project' | 'global',
+	): void {
+		const dir =
+			scope === 'global'
+				? get_global_presets_dir()
+				: get_project_presets_dir(ctx.cwd);
+		let written = 0;
+		let skipped = 0;
+		for (const [name, preset] of Object.entries(
+			DEFAULT_PROMPT_PRESETS,
+		)) {
+			const path = get_prompt_preset_file_path(dir, name);
+			if (existsSync(path)) {
+				skipped += 1;
+				continue;
+			}
+			save_prompt_preset_file(dir, name, preset);
+			written += 1;
+		}
+
+		presets = load_prompt_presets(ctx.cwd);
+		const normalized = normalize_active_state(
+			presets,
+			active_base_name,
+			active_layers,
+		);
+		active_base_name = normalized.active_base_name;
+		active_layers = normalized.active_layers;
+		set_status(ctx, active_base_name, active_layers);
+
 		ctx.ui.notify(
-			`Saved preset "${name}" to ${get_project_presets_path(ctx.cwd)}`,
+			`Exported ${written} built-in preset file(s) to ${dir}${skipped ? ` (${skipped} already existed)` : ''}`,
 			'info',
 		);
 	}
@@ -1240,8 +1500,11 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 		type: 'string',
 	});
 
-	pi.registerCommand('preset', {
-		description: 'Manage base prompt presets and prompt layers',
+	const prompt_preset_command: Parameters<
+		ExtensionAPI['registerCommand']
+	>[1] = {
+		description:
+			'Manage prompt presets and layers. Try: /prompt-preset help, /prompt-preset export-defaults, /prompt-preset edit-global terse',
 		getArgumentCompletions: (prefix) => {
 			const trimmed = prefix.trim();
 			const parts = trimmed ? trimmed.split(/\s+/) : [];
@@ -1256,10 +1519,13 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 			if (parts.length <= 1) {
 				const query = parts[0] ?? '';
 				const subcommands = [
+					'help',
 					'list',
 					'show',
 					'clear',
 					'edit',
+					'edit-global',
+					'export-defaults',
 					'delete',
 					'reset',
 					'reload',
@@ -1293,10 +1559,13 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 						label: item,
 					}));
 			}
-			if (command === 'edit') {
+			if (command === 'edit' || command === 'edit-global') {
 				return all_names
 					.filter((item) => item.startsWith(query))
-					.map((item) => ({ value: `edit ${item}`, label: item }));
+					.map((item) => ({
+						value: `${command} ${item}`,
+						label: item,
+					}));
 			}
 			if (['delete', 'reset'].includes(command)) {
 				return all_names
@@ -1326,6 +1595,9 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 			const arg = rest.join(' ').trim();
 
 			switch (first) {
+				case 'help':
+					ctx.ui.notify(format_prompt_preset_help(), 'info');
+					return;
 				case 'list':
 					ctx.ui.notify(
 						format_summary(active_base_name, active_layers, presets),
@@ -1362,14 +1634,20 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 				}
 				case 'base':
 					if (!arg) {
-						ctx.ui.notify('Usage: /preset base <name>', 'warning');
+						ctx.ui.notify(
+							'Usage: /prompt-preset base <name> (alias: /preset)',
+							'warning',
+						);
 						return;
 					}
 					activate_base(arg, ctx);
 					return;
 				case 'enable':
 					if (!arg) {
-						ctx.ui.notify('Usage: /preset enable <layer>', 'warning');
+						ctx.ui.notify(
+							'Usage: /prompt-preset enable <layer> (alias: /preset)',
+							'warning',
+						);
 						return;
 					}
 					set_layer_enabled(arg, true, ctx);
@@ -1377,7 +1655,7 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 				case 'disable':
 					if (!arg) {
 						ctx.ui.notify(
-							'Usage: /preset disable <layer>',
+							'Usage: /prompt-preset disable <layer> (alias: /preset)',
 							'warning',
 						);
 						return;
@@ -1386,28 +1664,71 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 					return;
 				case 'toggle':
 					if (!arg) {
-						ctx.ui.notify('Usage: /preset toggle <layer>', 'warning');
+						ctx.ui.notify(
+							'Usage: /prompt-preset toggle <layer> (alias: /preset)',
+							'warning',
+						);
 						return;
 					}
 					toggle_layer(arg, ctx);
 					return;
-				case 'edit':
-					if (!arg) {
-						ctx.ui.notify('Usage: /preset edit <name>', 'warning');
+				case 'edit': {
+					let scope: 'project' | 'global' = 'project';
+					let name = arg;
+					if (arg.startsWith('--global ')) {
+						scope = 'global';
+						name = arg.slice('--global '.length).trim();
+					} else if (arg.startsWith('--project ')) {
+						name = arg.slice('--project '.length).trim();
+					}
+					if (!name) {
+						ctx.ui.notify(
+							'Usage: /prompt-preset edit [--global|--project] <name> (alias: /preset)',
+							'warning',
+						);
 						return;
 					}
-					await edit_preset(arg, ctx);
+					await edit_preset(name, ctx, scope);
 					return;
+				}
+				case 'edit-global':
+					if (!arg) {
+						ctx.ui.notify(
+							'Usage: /prompt-preset edit-global <name> (alias: /preset)',
+							'warning',
+						);
+						return;
+					}
+					await edit_preset(arg, ctx, 'global');
+					return;
+				case 'export-defaults': {
+					const scope = arg || 'global';
+					if (scope !== 'global' && scope !== 'project') {
+						ctx.ui.notify(
+							'Usage: /prompt-preset export-defaults [global|project] (alias: /preset)',
+							'warning',
+						);
+						return;
+					}
+					export_default_presets(ctx, scope);
+					return;
+				}
 				case 'delete':
 					if (!arg) {
-						ctx.ui.notify('Usage: /preset delete <name>', 'warning');
+						ctx.ui.notify(
+							'Usage: /prompt-preset delete <name> (alias: /preset)',
+							'warning',
+						);
 						return;
 					}
 					remove_custom_preset(arg, ctx, 'delete');
 					return;
 				case 'reset':
 					if (!arg) {
-						ctx.ui.notify('Usage: /preset reset <name>', 'warning');
+						ctx.ui.notify(
+							'Usage: /prompt-preset reset <name> (alias: /preset)',
+							'warning',
+						);
 						return;
 					}
 					remove_custom_preset(arg, ctx, 'reset');
@@ -1425,7 +1746,7 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 			const preset = presets[trimmed];
 			if (!preset) {
 				ctx.ui.notify(
-					`Unknown preset or layer: ${trimmed}`,
+					`Unknown preset or layer: ${trimmed}. Try /prompt-preset help.`,
 					'warning',
 				);
 				return;
@@ -1436,7 +1757,15 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 				toggle_layer(preset.name, ctx);
 			}
 		},
-	});
+	};
+
+	for (const command_name of [
+		'prompt-preset',
+		'prompt-presets',
+		'preset',
+	]) {
+		pi.registerCommand(command_name, prompt_preset_command);
+	}
 
 	pi.on('session_start', async (_event, ctx) => {
 		presets = load_prompt_presets(ctx.cwd);

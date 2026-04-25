@@ -99,9 +99,9 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 		key: 'prompt-presets',
 		label: 'Prompt presets',
 		description:
-			'Runtime prompt preset selection and /preset command',
+			'Runtime prompt preset selection and /prompt-preset command',
 		cli_flag: '--no-prompt-presets',
-		aliases: ['prompt-presets', 'preset', 'presets'],
+		aliases: ['prompt-presets', 'prompt-preset', 'preset', 'presets'],
 	},
 	{
 		key: 'lsp',

@@ -89,6 +89,23 @@ EXAMPLES
   my-pi --agent-dir /tmp/pi-agent --json "run case"
   my-pi -e ./my-ext.ts -e ./other-ext.ts "hello"
   my-pi -m claude-haiku-4-5-20241022 "explain this file"
+  my-pi --preset terse,no-purple-prose "summarize this repo"
+  my-pi --system-prompt "You are a JSON classifier. Return only JSON." --json "classify this"
+
+PROMPT PRESETS
+
+  Interactive commands:
+    /prompt-preset help
+    /prompt-preset export-defaults
+    /prompt-preset edit-global terse
+    /prompt-preset base detailed
+    /prompt-preset enable bullets
+
+  Short alias: /preset
+
+  Editable preset files:
+    ~/.pi/agent/presets/*.md
+    .pi/presets/*.md
 `;
 
 async function render_rich_usage(

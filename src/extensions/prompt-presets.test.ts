@@ -10,12 +10,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
 	DEFAULT_PROMPT_PRESETS,
 	load_persisted_prompt_state,
+	load_prompt_presets,
 	merge_prompt_presets,
 	normalize_prompt_presets,
+	read_prompt_presets_dir,
 	remove_project_prompt_preset,
 	render_footer_status_line,
 	save_persisted_prompt_state,
 	save_project_prompt_presets,
+	save_prompt_preset_file,
 } from './prompt-presets.js';
 
 describe('normalize_prompt_presets', () => {
@@ -72,6 +75,74 @@ describe('merge_prompt_presets', () => {
 			instructions: 'Custom preset.',
 		});
 		expect(merged.standard).toEqual(DEFAULT_PROMPT_PRESETS.standard);
+	});
+});
+
+describe('file-backed prompt presets', () => {
+	const dirs: string[] = [];
+	afterEach(() => {
+		for (const dir of dirs.splice(0)) {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it('loads markdown presets with frontmatter from a presets directory', () => {
+		const root = mkdtempSync(join(tmpdir(), 'my-pi-file-presets-'));
+		dirs.push(root);
+
+		save_prompt_preset_file(root, 'careful', {
+			kind: 'layer',
+			description: 'Call out risk',
+			instructions: 'Mention the important caveat.',
+		});
+
+		expect(read_prompt_presets_dir(root)).toEqual({
+			careful: {
+				kind: 'layer',
+				description: 'Call out risk',
+				instructions: 'Mention the important caveat.',
+			},
+		});
+	});
+
+	it('lets project markdown preset files override built-in presets', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-file-presets-'));
+		dirs.push(cwd);
+
+		save_prompt_preset_file(join(cwd, '.pi', 'presets'), 'terse', {
+			kind: 'base',
+			description: 'Project terse',
+			instructions: 'Use the project terse style.',
+		});
+
+		expect(load_prompt_presets(cwd).terse).toMatchObject({
+			name: 'terse',
+			kind: 'base',
+			source: 'project',
+			description: 'Project terse',
+			instructions: 'Use the project terse style.',
+		});
+	});
+
+	it('removes project markdown preset files', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-file-presets-'));
+		dirs.push(cwd);
+
+		const path = save_prompt_preset_file(
+			join(cwd, '.pi', 'presets'),
+			'local',
+			{
+				kind: 'base',
+				description: 'Local base',
+				instructions: 'Use the local style.',
+			},
+		);
+
+		const result = remove_project_prompt_preset(cwd, 'local');
+		expect(result.removed).toBe(true);
+		expect(result.path).toBe(path);
+		expect(result.remaining).toBe(0);
+		expect(existsSync(path)).toBe(false);
 	});
 });
 

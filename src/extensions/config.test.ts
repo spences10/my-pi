@@ -23,6 +23,9 @@ describe('find_builtin_extension', () => {
 		expect(find_builtin_extension('preset')?.key).toBe(
 			'prompt-presets',
 		);
+		expect(find_builtin_extension('prompt-preset')?.key).toBe(
+			'prompt-presets',
+		);
 		expect(find_builtin_extension('language-server')?.key).toBe(
 			'lsp',
 		);
