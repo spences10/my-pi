@@ -21,8 +21,8 @@ importers:
         specifier: ^0.2.2
         version: 0.2.2
       typebox:
-        specifier: ^1.1.31
-        version: 1.1.31
+        specifier: ^1.1.33
+        version: 1.1.33
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.0
@@ -2129,8 +2129,8 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
-  typebox@1.1.31:
-    resolution: {integrity: sha512-bFTa/YRd11e9a+C+hBlUSmD3DnDRnkcHqaUWX4zoq3q4u5WLnuLPc7yLpO5dRO7Z9VPXcm/GzFkvrH5FkDobeg==}
+  typebox@1.1.33:
+    resolution: {integrity: sha512-+/MWwlQ1q2GSVwoxi/+u5JsHkgLQKcCN2Nsjree9c+K7GJu40qbaHrFETmfV1i9Fs1TcOVfynW+jJvIWcXtvjw==}
 
   uint8array-extras@1.5.0:
     resolution: {integrity: sha512-rvKSBiC5zqCCiDZ9kAOszZcDvdAHwwIKJG33Ykj43OKcWsnmcBRL09YTU4nOeHZ8Y2a7l1MgTd08SBe9A8Qj6A==}
@@ -2940,7 +2940,7 @@ snapshots:
   '@mariozechner/pi-agent-core@0.70.2(ws@8.20.0)(zod@4.3.6)':
     dependencies:
       '@mariozechner/pi-ai': 0.70.2(ws@8.20.0)(zod@4.3.6)
-      typebox: 1.1.31
+      typebox: 1.1.33
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -2960,7 +2960,7 @@ snapshots:
       openai: 6.26.0(ws@8.20.0)(zod@4.3.6)
       partial-json: 0.1.7
       proxy-agent: 6.5.0
-      typebox: 1.1.31
+      typebox: 1.1.33
       undici: 7.24.7
       zod-to-json-schema: 3.25.2(zod@4.3.6)
     transitivePeerDependencies:
@@ -2991,7 +2991,7 @@ snapshots:
       minimatch: 10.2.5
       proper-lockfile: 4.1.2
       strip-ansi: 7.2.0
-      typebox: 1.1.31
+      typebox: 1.1.33
       undici: 7.24.7
       uuid: 14.0.0
       yaml: 2.8.3
@@ -4604,7 +4604,7 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  typebox@1.1.31: {}
+  typebox@1.1.33: {}
 
   uint8array-extras@1.5.0: {}
 
