@@ -1,0 +1,52 @@
+{
+	"name": "@spences10/pi-confirm-destructive",
+	"version": "0.0.0",
+	"description": "Pi extension that confirms destructive actions before they run",
+	"keywords": [
+		"confirm",
+		"destructive",
+		"guard",
+		"pi",
+		"pi-package",
+		"safety"
+	],
+	"license": "MIT",
+	"author": "Scott Spence <me@scottspence.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/spences10/my-pi.git",
+		"directory": "packages/pi-confirm-destructive"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"check": "tsc --noEmit -p tsconfig.json",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	},
+	"dependencies": {
+		"@mariozechner/pi-coding-agent": "^0.70.2"
+	},
+	"devDependencies": {
+		"@types/node": "^25.6.0",
+		"typescript": "^6.0.0",
+		"vitest": "^4.1.5"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	},
+	"pi": {
+		"extensions": [
+			"./dist/index.js"
+		]
+	}
+}

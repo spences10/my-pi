@@ -13,6 +13,7 @@ import {
 	type ExtensionFactory,
 	type LoadExtensionsResult,
 } from '@mariozechner/pi-coding-agent';
+import confirm_destructive_extension from '@spences10/pi-confirm-destructive';
 import lsp_extension from '@spences10/pi-lsp';
 import mcp_extension from '@spences10/pi-mcp';
 import nopeek_extension from '@spences10/pi-nopeek';
@@ -24,7 +25,6 @@ import skills_extension, {
 import { create_telemetry_extension } from '@spences10/pi-telemetry';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import confirm_destructive_extension from './extensions/confirm-destructive/index.js';
 import hooks_resolution_extension from './extensions/hooks-resolution/index.js';
 import {
 	BUILTIN_EXTENSIONS,

@@ -507,6 +507,7 @@ pi install npm:@spences10/pi-redact
 pi install npm:@spences10/pi-telemetry
 pi install npm:@spences10/pi-mcp
 pi install npm:@spences10/pi-lsp
+pi install npm:@spences10/pi-confirm-destructive
 pi install npm:@spences10/pi-skills
 pi install npm:@spences10/pi-recall
 pi install npm:@spences10/pi-nopeek
@@ -520,6 +521,8 @@ pi install npm:@spences10/pi-nopeek
   integration and `/mcp`
 - [`@spences10/pi-lsp`](./packages/pi-lsp/README.md) — LSP-backed
   diagnostics and symbol tools
+- [`@spences10/pi-confirm-destructive`](./packages/pi-confirm-destructive/README.md)
+  — destructive action confirmations
 - [`@spences10/pi-skills`](./packages/pi-skills/README.md) — skill
   management, import, and sync
 - [`@spences10/pi-recall`](./packages/pi-recall/README.md) — pirecall
@@ -540,13 +543,13 @@ src/
     manager/               Built-in extension manager and config
     prompt-presets/        Runtime prompt preset selection and editing
     session-name/          Session auto-naming
-    confirm-destructive/   Destructive action confirmations
     hooks-resolution/      Claude-style hook resolution
 packages/
   pi-redact/               Installable Pi package for output redaction
   pi-telemetry/            Installable Pi package for SQLite telemetry
   pi-mcp/                  Installable Pi package for MCP integration
   pi-lsp/                  Installable Pi package for LSP tools
+  pi-confirm-destructive/  Installable Pi package for destructive action confirmations
   pi-skills/               Installable Pi package for skill management
   pi-recall/               Installable Pi package for pirecall reminders
   pi-nopeek/               Installable Pi package for nopeek reminders
