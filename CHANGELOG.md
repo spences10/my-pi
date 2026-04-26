@@ -1,5 +1,16 @@
 # my-pi
 
+## 0.1.10
+
+### Patch Changes
+
+- 3ef8d39: Add Omnisearch and SQLite prompt shims; refine destructive
+  confirmation for session-created files.
+- Updated dependencies [3ef8d39]
+  - @spences10/pi-confirm-destructive@0.0.2
+  - @spences10/pi-sqlite-tools@0.0.1
+  - @spences10/pi-omnisearch@0.0.1
+
 ## 0.1.9
 
 ### Patch Changes

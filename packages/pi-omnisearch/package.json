@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-omnisearch",
-	"version": "0.0.0",
+	"version": "0.0.1",
 	"description": "Pi extension that reminds the model to use mcp-omnisearch for verified web research",
 	"keywords": [
 		"mcp",

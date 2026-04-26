@@ -1,5 +1,12 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.2
+
+### Patch Changes
+
+- 3ef8d39: Add Omnisearch and SQLite prompt shims; refine destructive
+  confirmation for session-created files.
+
 ## 0.0.1
 
 ### Patch Changes
