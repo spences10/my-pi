@@ -1,5 +1,28 @@
 # my-pi
 
+## 0.1.8
+
+### Patch Changes
+
+- ada9a75: Split redaction and telemetry into installable Pi workspace
+  packages with dedicated documentation and extension manifests.
+- a6ff57b: Extract MCP, LSP, and skills into public installable Pi
+  workspace packages.
+- 148aa42: Add recall and nopeek prompt reminder packages with
+  background recall sync on session lifecycle.
+- 953f3bc: Add editable Markdown prompt presets, prompt-preset
+  aliases, help examples, and improved CLI documentation.
+- Updated dependencies [ada9a75]
+- Updated dependencies [a6ff57b]
+- Updated dependencies [148aa42]
+  - @spences10/pi-telemetry@0.0.1
+  - @spences10/pi-redact@0.0.1
+  - @spences10/pi-skills@0.0.1
+  - @spences10/pi-lsp@0.0.1
+  - @spences10/pi-mcp@0.0.1
+  - @spences10/pi-nopeek@0.0.1
+  - @spences10/pi-recall@0.0.1
+
 ## 0.1.7
 
 ### Patch Changes

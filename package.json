@@ -1,6 +1,6 @@
 {
 	"name": "my-pi",
-	"version": "0.1.7",
+	"version": "0.1.8",
 	"description": "Composable pi coding agent with MCP, LSP, agent chains, prompt presets, and local eval telemetry",
 	"keywords": [
 		"cli",
