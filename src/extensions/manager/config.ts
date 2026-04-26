@@ -14,6 +14,8 @@ export type BuiltinExtensionKey =
 	| 'filter-output'
 	| 'recall'
 	| 'nopeek'
+	| 'omnisearch'
+	| 'sqlite-tools'
 	| 'prompt-presets'
 	| 'lsp'
 	| 'session-name'
@@ -85,6 +87,21 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 			'nopeek reminder for secret-safe environment loading',
 		cli_flag: '--no-nopeek',
 		aliases: ['nopeek', 'secrets', 'secret-loading'],
+	},
+	{
+		key: 'omnisearch',
+		label: 'Omnisearch',
+		description: 'mcp-omnisearch reminder for verified web research',
+		cli_flag: '--no-omnisearch',
+		aliases: ['omnisearch', 'search', 'web-search', 'research'],
+	},
+	{
+		key: 'sqlite-tools',
+		label: 'SQLite tools',
+		description:
+			'mcp-sqlite-tools reminder for safer SQLite database work',
+		cli_flag: '--no-sqlite-tools',
+		aliases: ['sqlite-tools', 'sqlite', 'mcp-sqlite-tools'],
 	},
 	{
 		key: 'prompt-presets',

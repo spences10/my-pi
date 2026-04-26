@@ -148,6 +148,24 @@ describe('assess_tool_call', () => {
 		);
 	});
 
+	it('allows overwriting files created during the current session', () => {
+		const cwd = tmp_dir();
+		writeFileSync(join(cwd, 'draft.md'), 'first draft');
+
+		const action = assess_tool_call(
+			{
+				type: 'tool_call',
+				toolCallId: 'tool-1',
+				toolName: 'write',
+				input: { path: 'draft.md', content: 'second draft' },
+			} as any,
+			cwd,
+			new Set([join(cwd, 'draft.md')]),
+		);
+
+		expect(action).toBeUndefined();
+	});
+
 	it('allows overwriting a clean tracked file because git can restore it', () => {
 		const cwd = create_git_repo();
 

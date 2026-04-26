@@ -8,6 +8,8 @@ describe('get_force_disabled_builtins', () => {
 		filter_output: true,
 		recall: true,
 		nopeek: true,
+		omnisearch: true,
+		sqlite_tools: true,
 		prompt_presets: true,
 		lsp: true,
 		session_name: true,
@@ -49,5 +51,7 @@ describe('get_force_disabled_builtins', () => {
 		expect(disabled.has('mcp')).toBe(true);
 		expect(disabled.has('recall')).toBe(true);
 		expect(disabled.has('nopeek')).toBe(false);
+		expect(disabled.has('omnisearch')).toBe(false);
+		expect(disabled.has('sqlite-tools')).toBe(false);
 	});
 });

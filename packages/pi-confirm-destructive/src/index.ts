@@ -5,6 +5,7 @@ import type {
 	ExtensionContext,
 	ToolCallEvent,
 	ToolCallEventResult,
+	ToolResultEvent,
 	UserBashEvent,
 	UserBashEventResult,
 } from '@mariozechner/pi-coding-agent';
@@ -293,10 +294,12 @@ export function assess_bash_command(
 function assess_file_write(
 	cwd: string,
 	path: unknown,
+	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
 	if (typeof path !== 'string' || !path.trim()) return undefined;
 	const absolute = resolve(cwd, path);
 	if (!existsSync(absolute)) return undefined;
+	if (session_created_paths.has(absolute)) return undefined;
 	if (is_git_recoverable(cwd, path)) return undefined;
 
 	const reason =
@@ -315,6 +318,7 @@ function assess_file_write(
 function assess_file_edit(
 	cwd: string,
 	input: Record<string, unknown>,
+	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
 	const path =
 		typeof input.path === 'string' ? input.path : undefined;
@@ -332,6 +336,9 @@ function assess_file_edit(
 	}
 
 	if (removed_chars === 0 || removed_chars - added_chars < 200) {
+		return undefined;
+	}
+	if (path && session_created_paths.has(resolve(cwd, path))) {
 		return undefined;
 	}
 	if (path && is_git_recoverable(cwd, path)) return undefined;
@@ -370,6 +377,7 @@ function assess_custom_tool(
 export function assess_tool_call(
 	event: ToolCallEvent,
 	cwd: string,
+	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
 	if (event.toolName === 'bash') {
 		const command = (event.input as { command?: unknown }).command;
@@ -378,10 +386,14 @@ export function assess_tool_call(
 			: undefined;
 	}
 	if (event.toolName === 'write') {
-		return assess_file_write(cwd, event.input.path);
+		return assess_file_write(
+			cwd,
+			event.input.path,
+			session_created_paths,
+		);
 	}
 	if (event.toolName === 'edit') {
-		return assess_file_edit(cwd, event.input);
+		return assess_file_edit(cwd, event.input, session_created_paths);
 	}
 	return assess_custom_tool(event);
 }
@@ -423,6 +435,8 @@ function blocked_bash_result(action: DestructiveAction) {
 
 export default async function confirm_destructive(pi: ExtensionAPI) {
 	const allowed_for_session = new Set<string>();
+	const pending_created_files = new Map<string, string>();
+	const session_created_files = new Set<string>();
 
 	function is_allowed(action: DestructiveAction): boolean {
 		return allowed_for_session.has(action.allow_key);
@@ -448,7 +462,21 @@ export default async function confirm_destructive(pi: ExtensionAPI) {
 			event: ToolCallEvent,
 			ctx,
 		): Promise<ToolCallEventResult | void> => {
-			const action = assess_tool_call(event, ctx.cwd);
+			if (event.toolName === 'write') {
+				const path = event.input.path;
+				if (typeof path === 'string' && path.trim()) {
+					const absolute = resolve(ctx.cwd, path);
+					if (!existsSync(absolute)) {
+						pending_created_files.set(event.toolCallId, absolute);
+					}
+				}
+			}
+
+			const action = assess_tool_call(
+				event,
+				ctx.cwd,
+				session_created_files,
+			);
 			if (!action) return;
 
 			if (await should_allow(action, ctx)) return;
@@ -457,6 +485,18 @@ export default async function confirm_destructive(pi: ExtensionAPI) {
 				block: true,
 				reason: blocked_reason(action),
 			};
+		},
+	);
+
+	pi.on(
+		'tool_result',
+		async (event: ToolResultEvent): Promise<void> => {
+			const absolute = pending_created_files.get(event.toolCallId);
+			if (!absolute) return;
+			pending_created_files.delete(event.toolCallId);
+			if (event.toolName === 'write' && !event.isError) {
+				session_created_files.add(absolute);
+			}
 		},
 	);
 

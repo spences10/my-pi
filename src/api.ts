@@ -17,11 +17,13 @@ import confirm_destructive_extension from '@spences10/pi-confirm-destructive';
 import lsp_extension from '@spences10/pi-lsp';
 import mcp_extension from '@spences10/pi-mcp';
 import nopeek_extension from '@spences10/pi-nopeek';
+import omnisearch_extension from '@spences10/pi-omnisearch';
 import recall_extension from '@spences10/pi-recall';
 import filter_output_extension from '@spences10/pi-redact';
 import skills_extension, {
 	create_skills_manager,
 } from '@spences10/pi-skills';
+import sqlite_tools_extension from '@spences10/pi-sqlite-tools';
 import { create_telemetry_extension } from '@spences10/pi-telemetry';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,6 +51,8 @@ export interface CreateMyPiOptions {
 	filter_output?: boolean;
 	recall?: boolean;
 	nopeek?: boolean;
+	omnisearch?: boolean;
+	sqlite_tools?: boolean;
 	prompt_presets?: boolean;
 	lsp?: boolean;
 	session_name?: boolean;
@@ -70,6 +74,8 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	'filter-output': filter_output_extension,
 	recall: recall_extension,
 	nopeek: nopeek_extension,
+	omnisearch: omnisearch_extension,
+	'sqlite-tools': sqlite_tools_extension,
 	'prompt-presets': prompt_presets_extension,
 	lsp: lsp_extension,
 	'session-name': session_name_extension,
@@ -98,6 +104,8 @@ export function get_force_disabled_builtins(
 		| 'filter_output'
 		| 'recall'
 		| 'nopeek'
+		| 'omnisearch'
+		| 'sqlite_tools'
 		| 'prompt_presets'
 		| 'lsp'
 		| 'session_name'
@@ -111,6 +119,8 @@ export function get_force_disabled_builtins(
 	if (!options.filter_output) force_disabled.add('filter-output');
 	if (!options.recall) force_disabled.add('recall');
 	if (!options.nopeek) force_disabled.add('nopeek');
+	if (!options.omnisearch) force_disabled.add('omnisearch');
+	if (!options.sqlite_tools) force_disabled.add('sqlite-tools');
 	if (!options.prompt_presets) force_disabled.add('prompt-presets');
 	if (!options.lsp) force_disabled.add('lsp');
 	if (!options.session_name) force_disabled.add('session-name');
@@ -181,6 +191,8 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		filter_output = true,
 		recall = true,
 		nopeek = true,
+		omnisearch = true,
+		sqlite_tools = true,
 		prompt_presets = true,
 		lsp = true,
 		session_name = true,
@@ -206,6 +218,8 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		filter_output,
 		recall,
 		nopeek,
+		omnisearch,
+		sqlite_tools,
 		prompt_presets,
 		lsp,
 		session_name,

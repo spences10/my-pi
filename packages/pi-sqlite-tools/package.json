@@ -1,0 +1,52 @@
+{
+	"name": "@spences10/pi-sqlite-tools",
+	"version": "0.0.0",
+	"description": "Pi extension that reminds the model to prefer mcp-sqlite-tools for SQLite database work",
+	"keywords": [
+		"database",
+		"mcp",
+		"pi",
+		"pi-package",
+		"sqlite"
+	],
+	"license": "MIT",
+	"author": "Scott Spence <me@scottspence.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/spences10/my-pi.git",
+		"directory": "packages/pi-sqlite-tools"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"check": "tsc --noEmit -p tsconfig.json",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@mariozechner/pi-coding-agent": "^0.70.2"
+	},
+	"devDependencies": {
+		"@types/node": "^25.6.0",
+		"typescript": "^6.0.0",
+		"vitest": "^4.1.5"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	},
+	"pi": {
+		"extensions": [
+			"./dist/index.js"
+		]
+	}
+}

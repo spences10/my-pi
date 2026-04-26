@@ -511,6 +511,8 @@ pi install npm:@spences10/pi-confirm-destructive
 pi install npm:@spences10/pi-skills
 pi install npm:@spences10/pi-recall
 pi install npm:@spences10/pi-nopeek
+pi install npm:@spences10/pi-omnisearch
+pi install npm:@spences10/pi-sqlite-tools
 ```
 
 - [`@spences10/pi-redact`](./packages/pi-redact/README.md) — output
@@ -529,6 +531,10 @@ pi install npm:@spences10/pi-nopeek
   reminder and background sync
 - [`@spences10/pi-nopeek`](./packages/pi-nopeek/README.md) — nopeek
   reminder for secret-safe environment loading
+- [`@spences10/pi-omnisearch`](./packages/pi-omnisearch/README.md) —
+  mcp-omnisearch reminder for verified web research
+- [`@spences10/pi-sqlite-tools`](./packages/pi-sqlite-tools/README.md)
+  — mcp-sqlite-tools reminder for safer SQLite database work
 
 Each package README is the entry point for install instructions,
 commands, runtime behavior, and development notes.
@@ -553,6 +559,8 @@ packages/
   pi-skills/               Installable Pi package for skill management
   pi-recall/               Installable Pi package for pirecall reminders
   pi-nopeek/               Installable Pi package for nopeek reminders
+  pi-omnisearch/           Installable Pi package for mcp-omnisearch reminders
+  pi-sqlite-tools/         Installable Pi package for mcp-sqlite-tools reminders
 .pi/
   presets.json             Optional project prompt presets (JSON)
   presets/*.md             Optional project prompt presets (Markdown files)

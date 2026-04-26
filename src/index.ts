@@ -65,7 +65,7 @@ MODES
 NOTES
 
   - In non-interactive modes, my-pi keeps headless-capable built-ins like
-    MCP, LSP, prompt presets, recall, nopeek, hooks, and output filtering.
+    MCP, LSP, prompt presets, recall, nopeek, Omnisearch, SQLite tools, hooks, and output filtering.
   - UI-only built-ins like session auto-naming are skipped.
   - Repeat -e / --extension to stack multiple extensions.
 
@@ -172,6 +172,16 @@ const main = defineCommand({
 		'no-nopeek': {
 			type: 'boolean',
 			description: 'Disable nopeek reminder extension',
+			default: false,
+		},
+		'no-omnisearch': {
+			type: 'boolean',
+			description: 'Disable mcp-omnisearch reminder extension',
+			default: false,
+		},
+		'no-sqlite-tools': {
+			type: 'boolean',
+			description: 'Disable mcp-sqlite-tools reminder extension',
 			default: false,
 		},
 		'no-prompt-presets': {
@@ -315,6 +325,8 @@ const main = defineCommand({
 			filter_output: !args['no-builtin'] && !args['no-filter'],
 			recall: !args['no-builtin'] && !args['no-recall'],
 			nopeek: !args['no-builtin'] && !args['no-nopeek'],
+			omnisearch: !args['no-builtin'] && !args['no-omnisearch'],
+			sqlite_tools: !args['no-builtin'] && !args['no-sqlite-tools'],
 			prompt_presets:
 				!args['no-builtin'] && !args['no-prompt-presets'],
 			lsp: !args['no-builtin'] && !args['no-lsp'],

@@ -29,6 +29,9 @@ importers:
       '@spences10/pi-nopeek':
         specifier: workspace:*
         version: link:packages/pi-nopeek
+      '@spences10/pi-omnisearch':
+        specifier: workspace:*
+        version: link:packages/pi-omnisearch
       '@spences10/pi-recall':
         specifier: workspace:*
         version: link:packages/pi-recall
@@ -38,6 +41,9 @@ importers:
       '@spences10/pi-skills':
         specifier: workspace:*
         version: link:packages/pi-skills
+      '@spences10/pi-sqlite-tools':
+        specifier: workspace:*
+        version: link:packages/pi-sqlite-tools
       '@spences10/pi-telemetry':
         specifier: workspace:*
         version: link:packages/pi-telemetry
@@ -128,6 +134,22 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.3))
 
+  packages/pi-omnisearch:
+    dependencies:
+      '@mariozechner/pi-coding-agent':
+        specifier: ^0.70.2
+        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.3))
+
   packages/pi-recall:
     dependencies:
       '@mariozechner/pi-coding-agent':
@@ -171,6 +193,22 @@ importers:
       '@mariozechner/pi-tui':
         specifier: ^0.70.2
         version: 0.70.2
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.3))
+
+  packages/pi-sqlite-tools:
+    dependencies:
+      '@mariozechner/pi-coding-agent':
+        specifier: ^0.70.2
+        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
