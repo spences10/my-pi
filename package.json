@@ -45,7 +45,7 @@
 		"check": "pnpm --filter \"./packages/*\" run build && vp check && pnpm --filter \"./packages/*\" run check",
 		"check:fix": "vp check --fix",
 		"format": "vp check --fix",
-		"test": "pnpm --filter \"./packages/*\" run build && vp test && pnpm --filter \"./packages/*\" run test",
+		"test": "pnpm --filter \"./packages/*\" run build && sh -c 'if [ \"$#\" -gt 0 ]; then vp test \"$@\"; else vp test && pnpm --filter \"./packages/*\" run test; fi' --",
 		"test:watch": "vp test watch",
 		"changeset": "changeset",
 		"version": "changeset version",
