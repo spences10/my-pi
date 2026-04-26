@@ -25,7 +25,6 @@ import { create_telemetry_extension } from '@spences10/pi-telemetry';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import confirm_destructive_extension from './extensions/confirm-destructive/index.js';
-import handoff_extension from './extensions/handoff/index.js';
 import hooks_resolution_extension from './extensions/hooks-resolution/index.js';
 import {
 	BUILTIN_EXTENSIONS,
@@ -49,7 +48,6 @@ export interface CreateMyPiOptions {
 	mcp?: boolean;
 	skills?: boolean;
 	filter_output?: boolean;
-	handoff?: boolean;
 	recall?: boolean;
 	nopeek?: boolean;
 	prompt_presets?: boolean;
@@ -72,7 +70,6 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	mcp: mcp_extension,
 	skills: skills_extension,
 	'filter-output': filter_output_extension,
-	handoff: handoff_extension,
 	recall: recall_extension,
 	nopeek: nopeek_extension,
 	'prompt-presets': prompt_presets_extension,
@@ -92,7 +89,6 @@ function resolve_agent_dir(cwd: string, agent_dir?: string): string {
 }
 
 const NON_INTERACTIVE_UI_ONLY_BUILTINS: BuiltinExtensionKey[] = [
-	'handoff',
 	'session-name',
 	'working-indicator',
 ];
@@ -104,7 +100,6 @@ export function get_force_disabled_builtins(
 		| 'mcp'
 		| 'skills'
 		| 'filter_output'
-		| 'handoff'
 		| 'recall'
 		| 'nopeek'
 		| 'prompt_presets'
@@ -119,7 +114,6 @@ export function get_force_disabled_builtins(
 	if (!options.mcp) force_disabled.add('mcp');
 	if (!options.skills) force_disabled.add('skills');
 	if (!options.filter_output) force_disabled.add('filter-output');
-	if (!options.handoff) force_disabled.add('handoff');
 	if (!options.recall) force_disabled.add('recall');
 	if (!options.nopeek) force_disabled.add('nopeek');
 	if (!options.prompt_presets) force_disabled.add('prompt-presets');
@@ -192,7 +186,6 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		mcp = true,
 		skills = true,
 		filter_output = true,
-		handoff = true,
 		recall = true,
 		nopeek = true,
 		prompt_presets = true,
@@ -219,7 +212,6 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		mcp,
 		skills,
 		filter_output,
-		handoff,
 		recall,
 		nopeek,
 		prompt_presets,

@@ -66,8 +66,8 @@ NOTES
 
   - In non-interactive modes, my-pi keeps headless-capable built-ins like
     MCP, LSP, prompt presets, recall, nopeek, hooks, and output filtering.
-  - UI-only built-ins like handoff, session auto-naming, and working-indicator
-    customization are skipped.
+  - UI-only built-ins like session auto-naming and working-indicator customization
+    are skipped.
   - Repeat -e / --extension to stack multiple extensions.
 
 NESTED RUNS
@@ -163,11 +163,6 @@ const main = defineCommand({
 		'no-filter': {
 			type: 'boolean',
 			description: 'Disable secret redaction in tool output',
-			default: false,
-		},
-		'no-handoff': {
-			type: 'boolean',
-			description: 'Disable handoff extension',
 			default: false,
 		},
 		'no-recall': {
@@ -324,7 +319,6 @@ const main = defineCommand({
 			mcp: !args['no-builtin'] && !args['no-mcp'],
 			skills: !args['no-builtin'] && !args['no-skills'],
 			filter_output: !args['no-builtin'] && !args['no-filter'],
-			handoff: !args['no-builtin'] && !args['no-handoff'],
 			recall: !args['no-builtin'] && !args['no-recall'],
 			nopeek: !args['no-builtin'] && !args['no-nopeek'],
 			prompt_presets:

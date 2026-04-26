@@ -27,8 +27,8 @@ Extension stacking patterns inspired by
   per-project persistence.
 - **Secret redaction** — redact API keys and other sensitive output
   before the model sees tool results.
-- **Session handoff + recall** — export focused handoff markdown and
-  teach the model to use `pirecall` for prior-session context.
+- **Recall** — teach the model to use `pirecall` for prior-session
+  context.
 - **Local telemetry** — optional SQLite telemetry for evals, tool
   analysis, and operational debugging.
 - **Bundled themes + extension stacking** — ship defaults, then layer
@@ -84,8 +84,7 @@ consumption by other agents or scripts.
 In non-interactive modes (`"prompt"`, `-P`, `--json`), my-pi keeps
 headless-capable built-ins like MCP, LSP, prompt presets, recall,
 hooks, and secret filtering enabled, while skipping UI-only built-ins
-like handoff, session auto-naming, and working-indicator
-customization.
+like session auto-naming and working-indicator customization.
 
 ### Local telemetry (SQLite)
 
@@ -361,8 +360,6 @@ In interactive mode:
 - `/lsp status|list|restart` — inspect or restart language server
   state
 - `/redact-stats` — show how many secrets were redacted this session
-- `/handoff <task>` — export current context to a handoff markdown
-  file
 - `/telemetry status|stats|query|export|on|off|path` — inspect, query,
   export, or toggle local SQLite telemetry
 
@@ -499,17 +496,6 @@ The recall package nudges the model to use `pnpx pirecall` or
 project context would help. It also triggers `pirecall sync --json` on
 session start and shutdown when the local recall database exists.
 
-## Session Handoff
-
-Use `/handoff <task>` to export conversation context as a markdown
-file that can be piped into a new session:
-
-```bash
-# In session 1: /handoff continue the auth refactor
-# Then:
-pnpx my-pi@latest < handoff-1234567890.md
-```
-
 ## Reusable Pi packages
 
 This repo is a pnpm workspace. The `my-pi` harness depends on reusable
@@ -552,7 +538,6 @@ src/
   api.ts                   Programmatic API (create_my_pi + re-exports)
   extensions/
     manager/               Built-in extension manager and config
-    handoff/               Session context export
     prompt-presets/        Runtime prompt preset selection and editing
     session-name/          Session auto-naming
     confirm-destructive/   Destructive action confirmations

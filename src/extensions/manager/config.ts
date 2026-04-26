@@ -12,7 +12,6 @@ export type BuiltinExtensionKey =
 	| 'mcp'
 	| 'skills'
 	| 'filter-output'
-	| 'handoff'
 	| 'recall'
 	| 'nopeek'
 	| 'prompt-presets'
@@ -72,14 +71,6 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 			'filter',
 			'redaction',
 		],
-	},
-	{
-		key: 'handoff',
-		label: 'Handoff',
-		description:
-			'AI-generated session handoff with editor review and new-session prefill',
-		cli_flag: '--no-handoff',
-		aliases: ['handoff'],
 	},
 	{
 		key: 'recall',

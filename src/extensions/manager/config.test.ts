@@ -83,7 +83,7 @@ describe('resolve_builtin_extension_states', () => {
 			version: 1,
 			enabled: {
 				recall: true,
-				handoff: false,
+				'working-indicator': false,
 			},
 		};
 		const force_disabled = new Set(['recall'] as const);
@@ -99,8 +99,10 @@ describe('resolve_builtin_extension_states', () => {
 			forced_disabled: true,
 		});
 
-		const handoff = states.find((state) => state.key === 'handoff');
-		expect(handoff).toMatchObject({
+		const working_indicator = states.find(
+			(state) => state.key === 'working-indicator',
+		);
+		expect(working_indicator).toMatchObject({
 			saved_enabled: false,
 			effective_enabled: false,
 			forced_disabled: false,

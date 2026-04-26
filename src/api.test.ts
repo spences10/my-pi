@@ -6,7 +6,6 @@ describe('get_force_disabled_builtins', () => {
 		mcp: true,
 		skills: true,
 		filter_output: true,
-		handoff: true,
 		recall: true,
 		nopeek: true,
 		prompt_presets: true,
@@ -23,7 +22,6 @@ describe('get_force_disabled_builtins', () => {
 			runtime_mode: 'interactive',
 		});
 
-		expect(disabled.has('handoff')).toBe(false);
 		expect(disabled.has('session-name')).toBe(false);
 		expect(disabled.has('confirm-destructive')).toBe(false);
 		expect(disabled.has('working-indicator')).toBe(false);
@@ -35,7 +33,6 @@ describe('get_force_disabled_builtins', () => {
 			runtime_mode: 'print',
 		});
 
-		expect(disabled.has('handoff')).toBe(true);
 		expect(disabled.has('session-name')).toBe(true);
 		expect(disabled.has('confirm-destructive')).toBe(false);
 		expect(disabled.has('working-indicator')).toBe(true);
@@ -55,6 +52,5 @@ describe('get_force_disabled_builtins', () => {
 		expect(disabled.has('mcp')).toBe(true);
 		expect(disabled.has('recall')).toBe(true);
 		expect(disabled.has('nopeek')).toBe(false);
-		expect(disabled.has('handoff')).toBe(true);
 	});
 });
