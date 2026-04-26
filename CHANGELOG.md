@@ -1,5 +1,22 @@
 # my-pi
 
+## 0.1.9
+
+### Patch Changes
+
+- b8607ba: Add git-aware destructive action guard with session-level
+  allow-similar prompts and database safety detection.
+- 81b97c6: Remove fragile handoff extension and references in favor of
+  Pi’s built-in session branching.
+- d1b9fd8: Fix filtered root test runs so workspace package tests are
+  not passed invalid filters.
+- b29f667: Remove low-value working indicator extension and related
+  CLI, manager, docs, and tests.
+- f3efc44: Extract confirm destructive guard into reusable package
+  consumed by my-pi as built-in extension.
+- Updated dependencies [f3efc44]
+  - @spences10/pi-confirm-destructive@0.0.1
+
 ## 0.1.8
 
 ### Patch Changes
