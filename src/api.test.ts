@@ -13,7 +13,6 @@ describe('get_force_disabled_builtins', () => {
 		session_name: true,
 		confirm_destructive: true,
 		hooks_resolution: true,
-		working_indicator: true,
 	} as const;
 
 	it('keeps UI-only built-ins enabled in interactive mode', () => {
@@ -24,7 +23,6 @@ describe('get_force_disabled_builtins', () => {
 
 		expect(disabled.has('session-name')).toBe(false);
 		expect(disabled.has('confirm-destructive')).toBe(false);
-		expect(disabled.has('working-indicator')).toBe(false);
 	});
 
 	it('disables UI-only built-ins in print mode', () => {
@@ -35,7 +33,6 @@ describe('get_force_disabled_builtins', () => {
 
 		expect(disabled.has('session-name')).toBe(true);
 		expect(disabled.has('confirm-destructive')).toBe(false);
-		expect(disabled.has('working-indicator')).toBe(true);
 		expect(disabled.has('mcp')).toBe(false);
 		expect(disabled.has('prompt-presets')).toBe(false);
 		expect(disabled.has('lsp')).toBe(false);

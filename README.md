@@ -84,7 +84,7 @@ consumption by other agents or scripts.
 In non-interactive modes (`"prompt"`, `-P`, `--json`), my-pi keeps
 headless-capable built-ins like MCP, LSP, prompt presets, recall,
 hooks, and secret filtering enabled, while skipping UI-only built-ins
-like session auto-naming and working-indicator customization.
+like session auto-naming.
 
 ### Local telemetry (SQLite)
 
@@ -542,7 +542,6 @@ src/
     session-name/          Session auto-naming
     confirm-destructive/   Destructive action confirmations
     hooks-resolution/      Claude-style hook resolution
-    working-indicator/     Streaming indicator customization
 packages/
   pi-redact/               Installable Pi package for output redaction
   pi-telemetry/            Installable Pi package for SQLite telemetry

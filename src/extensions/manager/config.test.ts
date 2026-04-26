@@ -38,9 +38,6 @@ describe('find_builtin_extension', () => {
 		expect(find_builtin_extension('hooks')?.key).toBe(
 			'hooks-resolution',
 		);
-		expect(find_builtin_extension('spinner')?.key).toBe(
-			'working-indicator',
-		);
 	});
 });
 
@@ -83,7 +80,7 @@ describe('resolve_builtin_extension_states', () => {
 			version: 1,
 			enabled: {
 				recall: true,
-				'working-indicator': false,
+				'session-name': false,
 			},
 		};
 		const force_disabled = new Set(['recall'] as const);
@@ -99,10 +96,10 @@ describe('resolve_builtin_extension_states', () => {
 			forced_disabled: true,
 		});
 
-		const working_indicator = states.find(
-			(state) => state.key === 'working-indicator',
+		const session_name = states.find(
+			(state) => state.key === 'session-name',
 		);
-		expect(working_indicator).toMatchObject({
+		expect(session_name).toMatchObject({
 			saved_enabled: false,
 			effective_enabled: false,
 			forced_disabled: false,

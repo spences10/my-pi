@@ -35,7 +35,6 @@ import {
 import { create_extensions_extension } from './extensions/manager/index.js';
 import prompt_presets_extension from './extensions/prompt-presets/index.js';
 import session_name_extension from './extensions/session-name/index.js';
-import working_indicator_extension from './extensions/working-indicator/index.js';
 
 export type MyPiRuntimeMode = 'interactive' | 'print' | 'json';
 
@@ -55,7 +54,6 @@ export interface CreateMyPiOptions {
 	session_name?: boolean;
 	confirm_destructive?: boolean;
 	hooks_resolution?: boolean;
-	working_indicator?: boolean;
 	telemetry?: boolean;
 	telemetry_db_path?: string;
 	model?: string;
@@ -77,7 +75,6 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	'session-name': session_name_extension,
 	'confirm-destructive': confirm_destructive_extension,
 	'hooks-resolution': hooks_resolution_extension,
-	'working-indicator': working_indicator_extension,
 };
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -90,7 +87,6 @@ function resolve_agent_dir(cwd: string, agent_dir?: string): string {
 
 const NON_INTERACTIVE_UI_ONLY_BUILTINS: BuiltinExtensionKey[] = [
 	'session-name',
-	'working-indicator',
 ];
 
 export function get_force_disabled_builtins(
@@ -107,7 +103,6 @@ export function get_force_disabled_builtins(
 		| 'session_name'
 		| 'confirm_destructive'
 		| 'hooks_resolution'
-		| 'working_indicator'
 	>,
 ): ReadonlySet<BuiltinExtensionKey> {
 	const force_disabled = new Set<BuiltinExtensionKey>();
@@ -123,8 +118,6 @@ export function get_force_disabled_builtins(
 		force_disabled.add('confirm-destructive');
 	if (!options.hooks_resolution)
 		force_disabled.add('hooks-resolution');
-	if (!options.working_indicator)
-		force_disabled.add('working-indicator');
 	if (
 		options.runtime_mode &&
 		options.runtime_mode !== 'interactive'
@@ -193,7 +186,6 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		session_name = true,
 		confirm_destructive = true,
 		hooks_resolution = true,
-		working_indicator = true,
 		telemetry,
 		telemetry_db_path,
 		model,
@@ -219,7 +211,6 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		session_name,
 		confirm_destructive,
 		hooks_resolution,
-		working_indicator,
 	});
 	const managed_extension_factories: ExtensionFactory[] = [
 		create_telemetry_extension({
