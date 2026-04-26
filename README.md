@@ -554,12 +554,21 @@ published and installed into vanilla `pi` independently:
 ```bash
 pi install npm:@spences10/pi-redact
 pi install npm:@spences10/pi-telemetry
+pi install npm:@spences10/pi-mcp
+pi install npm:@spences10/pi-lsp
+pi install npm:@spences10/pi-skills
 ```
 
 - [`@spences10/pi-redact`](./packages/pi-redact/README.md) — output
   redaction and `/redact-stats`
 - [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md) —
   local SQLite telemetry and `/telemetry`
+- [`@spences10/pi-mcp`](./packages/pi-mcp/README.md) — MCP server
+  integration and `/mcp`
+- [`@spences10/pi-lsp`](./packages/pi-lsp/README.md) — LSP-backed
+  diagnostics and symbol tools
+- [`@spences10/pi-skills`](./packages/pi-skills/README.md) — skill
+  management, import, and sync
 
 Each package README is the entry point for install instructions,
 commands, runtime behavior, and development notes.
@@ -572,27 +581,20 @@ src/
   api.ts                   Programmatic API (create_my_pi + re-exports)
   extensions/
     manager/               Built-in extension manager and config
-    mcp/                   MCP server integration
-    skills/                Skill discovery and toggle
     chain/                 Agent chain pipelines
     handoff/               Session context export
-    lsp/                   Language server tools and /lsp command
     prompt-presets/        Runtime prompt preset selection and editing
     recall/                Past session recall guidance
     session-name/          Session auto-naming
     confirm-destructive/   Destructive action confirmations
     hooks-resolution/      Claude-style hook resolution
     working-indicator/     Streaming indicator customization
-  mcp/
-    client.ts              Minimal MCP stdio client (JSON-RPC 2.0)
-    config.ts              Loads and merges mcp.json configs
-  skills/
-    manager.ts             Skill enable/disable state management
-    scanner.ts             Skill discovery across sources
-    config.ts              Persistent skills config (~/.config/my-pi/)
 packages/
   pi-redact/               Installable Pi package for output redaction
   pi-telemetry/            Installable Pi package for SQLite telemetry
+  pi-mcp/                  Installable Pi package for MCP integration
+  pi-lsp/                  Installable Pi package for LSP tools
+  pi-skills/               Installable Pi package for skill management
 .pi/
   agents/
     *.md                   Agent definitions (frontmatter + system prompt)

@@ -1,20 +1,19 @@
 {
-	"name": "@spences10/pi-telemetry",
+	"name": "@spences10/pi-skills",
 	"version": "0.1.0",
-	"description": "Pi extension for local SQLite telemetry of runs, turns, tools, and provider requests",
+	"description": "Pi extension for managing and importing Agent Skills from Pi, Claude, and plugin sources",
 	"keywords": [
-		"evals",
+		"agent-skills",
 		"pi",
 		"pi-package",
-		"sqlite",
-		"telemetry"
+		"skills"
 	],
 	"license": "MIT",
 	"author": "Scott Spence <me@scottspence.com>",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/spences10/my-pi.git",
-		"directory": "packages/pi-telemetry"
+		"directory": "packages/pi-skills"
 	},
 	"files": [
 		"dist",
@@ -33,12 +32,13 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.build.json && cp src/schema.sql dist/schema.sql",
+		"build": "tsc -p tsconfig.build.json",
 		"check": "tsc --noEmit -p tsconfig.json",
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.70.2"
+		"@mariozechner/pi-coding-agent": "^0.70.2",
+		"@mariozechner/pi-tui": "^0.70.2"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",

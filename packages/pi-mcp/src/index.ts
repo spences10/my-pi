@@ -4,8 +4,8 @@ import {
 	type ExtensionContext,
 	defineTool,
 } from '@mariozechner/pi-coding-agent';
-import { McpClient, type McpServerConfig } from '../../mcp/client.js';
-import { load_mcp_config } from '../../mcp/config.js';
+import { McpClient, type McpServerConfig } from './client.js';
+import { load_mcp_config } from './config.js';
 
 interface ServerState {
 	config: McpServerConfig;

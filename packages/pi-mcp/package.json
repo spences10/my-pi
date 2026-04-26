@@ -1,20 +1,19 @@
 {
-	"name": "@spences10/pi-telemetry",
+	"name": "@spences10/pi-mcp",
 	"version": "0.1.0",
-	"description": "Pi extension for local SQLite telemetry of runs, turns, tools, and provider requests",
+	"description": "Pi extension for connecting MCP servers and exposing their tools",
 	"keywords": [
-		"evals",
+		"mcp",
+		"model-context-protocol",
 		"pi",
-		"pi-package",
-		"sqlite",
-		"telemetry"
+		"pi-package"
 	],
 	"license": "MIT",
 	"author": "Scott Spence <me@scottspence.com>",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/spences10/my-pi.git",
-		"directory": "packages/pi-telemetry"
+		"directory": "packages/pi-mcp"
 	},
 	"files": [
 		"dist",
@@ -33,7 +32,7 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.build.json && cp src/schema.sql dist/schema.sql",
+		"build": "tsc -p tsconfig.build.json",
 		"check": "tsc --noEmit -p tsconfig.json",
 		"test": "vitest run"
 	},

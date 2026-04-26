@@ -13,7 +13,12 @@ import {
 	type ExtensionFactory,
 	type LoadExtensionsResult,
 } from '@mariozechner/pi-coding-agent';
+import lsp_extension from '@spences10/pi-lsp';
+import mcp_extension from '@spences10/pi-mcp';
 import filter_output_extension from '@spences10/pi-redact';
+import skills_extension, {
+	create_skills_manager,
+} from '@spences10/pi-skills';
 import { create_telemetry_extension } from '@spences10/pi-telemetry';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +26,6 @@ import chain_extension from './extensions/chain/index.js';
 import confirm_destructive_extension from './extensions/confirm-destructive/index.js';
 import handoff_extension from './extensions/handoff/index.js';
 import hooks_resolution_extension from './extensions/hooks-resolution/index.js';
-import lsp_extension from './extensions/lsp/index.js';
 import {
 	BUILTIN_EXTENSIONS,
 	is_builtin_extension_active,
@@ -29,13 +33,10 @@ import {
 	type BuiltinExtensionKey,
 } from './extensions/manager/config.js';
 import { create_extensions_extension } from './extensions/manager/index.js';
-import mcp_extension from './extensions/mcp/index.js';
 import prompt_presets_extension from './extensions/prompt-presets/index.js';
 import recall_extension from './extensions/recall/index.js';
 import session_name_extension from './extensions/session-name/index.js';
-import skills_extension from './extensions/skills/index.js';
 import working_indicator_extension from './extensions/working-indicator/index.js';
-import { create_skills_manager } from './skills/manager.js';
 
 export type MyPiRuntimeMode = 'interactive' | 'print' | 'json';
 

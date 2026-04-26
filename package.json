@@ -29,8 +29,6 @@
 	"files": [
 		"dist",
 		"src/extensions",
-		"src/mcp",
-		"src/skills",
 		"themes",
 		"README.md"
 	],
@@ -44,10 +42,10 @@
 		"build": "pnpm --filter \"./packages/*\" run build && vp pack",
 		"dev": "vp pack --watch",
 		"start": "node ./dist/index.js",
-		"check": "vp check && pnpm --filter \"./packages/*\" run check",
+		"check": "pnpm --filter \"./packages/*\" run build && vp check && pnpm --filter \"./packages/*\" run check",
 		"check:fix": "vp check --fix",
 		"format": "vp check --fix",
-		"test": "vp test && pnpm --filter \"./packages/*\" run test",
+		"test": "pnpm --filter \"./packages/*\" run build && vp test && pnpm --filter \"./packages/*\" run test",
 		"test:watch": "vp test watch",
 		"changeset": "changeset",
 		"version": "changeset version",
@@ -57,7 +55,10 @@
 		"@mariozechner/pi-ai": "^0.70.2",
 		"@mariozechner/pi-coding-agent": "^0.70.2",
 		"@mariozechner/pi-tui": "^0.70.2",
+		"@spences10/pi-lsp": "workspace:*",
+		"@spences10/pi-mcp": "workspace:*",
 		"@spences10/pi-redact": "workspace:*",
+		"@spences10/pi-skills": "workspace:*",
 		"@spences10/pi-telemetry": "workspace:*",
 		"citty": "^0.2.2",
 		"typebox": "^1.1.33"

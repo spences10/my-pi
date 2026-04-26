@@ -8,7 +8,10 @@ import {
 import {
 	create_skills_manager,
 	type ManagedSkill,
-} from '../../skills/manager.js';
+} from './manager.js';
+
+export { create_skills_manager } from './manager.js';
+export type { ManagedSkill, SkillsManager } from './manager.js';
 
 const ENABLED = '[x]';
 const DISABLED = '[ ]';

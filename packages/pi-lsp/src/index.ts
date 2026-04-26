@@ -17,14 +17,14 @@ import {
 	type LspHover,
 	type LspLocation,
 	type LspPosition,
-} from '../../lsp/client.js';
+} from './client.js';
 import {
 	detect_language,
 	find_workspace_root,
 	get_server_config,
 	language_id_for_file,
 	list_supported_languages,
-} from '../../lsp/servers.js';
+} from './servers.js';
 
 interface ServerState {
 	client: LspClientLike;

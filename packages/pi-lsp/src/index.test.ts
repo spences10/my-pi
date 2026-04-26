@@ -8,7 +8,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LspClientStartError } from '../../lsp/client.js';
+import { LspClientStartError } from './client.js';
 import { create_lsp_extension, type LspClientLike } from './index.js';
 
 function create_mock_client(
