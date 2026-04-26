@@ -65,9 +65,9 @@ MODES
 NOTES
 
   - In non-interactive modes, my-pi keeps headless-capable built-ins like
-    MCP, LSP, chains, prompt presets, recall, nopeek, hooks, and output filtering.
-  - UI-only built-ins like handoff, confirm-destructive, session auto-naming,
-    and working-indicator customization are skipped.
+    MCP, LSP, prompt presets, recall, nopeek, hooks, and output filtering.
+  - UI-only built-ins like handoff, session auto-naming, and working-indicator
+    customization are skipped.
   - Repeat -e / --extension to stack multiple extensions.
 
 NESTED RUNS
@@ -124,7 +124,7 @@ const main = defineCommand({
 		name: 'my-pi',
 		version: pkg.version,
 		description:
-			'Composable pi coding agent with MCP, LSP, chains, presets, and local eval telemetry',
+			'Composable pi coding agent with MCP, LSP, presets, and local eval telemetry',
 	},
 	args: {
 		print: {
@@ -158,11 +158,6 @@ const main = defineCommand({
 		'no-skills': {
 			type: 'boolean',
 			description: 'Disable built-in skills extension',
-			default: false,
-		},
-		'no-chain': {
-			type: 'boolean',
-			description: 'Disable built-in chain extension',
 			default: false,
 		},
 		'no-filter': {
@@ -328,7 +323,6 @@ const main = defineCommand({
 			runtime_mode,
 			mcp: !args['no-builtin'] && !args['no-mcp'],
 			skills: !args['no-builtin'] && !args['no-skills'],
-			chain: !args['no-builtin'] && !args['no-chain'],
 			filter_output: !args['no-builtin'] && !args['no-filter'],
 			handoff: !args['no-builtin'] && !args['no-handoff'],
 			recall: !args['no-builtin'] && !args['no-recall'],

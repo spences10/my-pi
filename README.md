@@ -7,9 +7,8 @@ Composable [pi](https://pi.dev) coding agent for humans and agents.
 
 Built on the
 [@mariozechner/pi-coding-agent](https://github.com/badlogic/pi-mono)
-SDK. Adds MCP server support, extension stacking, LSP tools, agent
-chains, prompt presets, local SQLite telemetry for evals, and a
-programmatic API.
+SDK. Adds MCP server support, extension stacking, LSP tools, prompt
+presets, local SQLite telemetry for evals, and a programmatic API.
 
 Extension stacking patterns inspired by
 [pi-vs-claude-code](https://github.com/disler/pi-vs-claude-code).
@@ -22,8 +21,6 @@ Extension stacking patterns inspired by
   `mcp.json`, auto-registered as Pi tools.
 - **Built-in LSP tools** — diagnostics, hover, definitions,
   references, and document symbols via language servers.
-- **Agent chains** — sequential scout/plan style workflows defined in
-  `.pi/agents/agent-chain.yaml`.
 - **Managed skills** — discover, enable, disable, import, and sync
   Pi-native skills.
 - **Prompt presets** — base presets plus additive prompt layers with
@@ -85,10 +82,10 @@ Outputs NDJSON events — one JSON object per line — for programmatic
 consumption by other agents or scripts.
 
 In non-interactive modes (`"prompt"`, `-P`, `--json`), my-pi keeps
-headless-capable built-ins like MCP, LSP, chains, prompt presets,
-recall, hooks, and secret filtering enabled, while skipping UI-only
-built-ins like handoff, confirm-destructive, session auto-naming, and
-working-indicator customization.
+headless-capable built-ins like MCP, LSP, prompt presets, recall,
+hooks, and secret filtering enabled, while skipping UI-only built-ins
+like handoff, session auto-naming, and working-indicator
+customization.
 
 ### Local telemetry (SQLite)
 
@@ -361,8 +358,6 @@ In interactive mode:
 - `/prompt-preset reset <name>` — remove a project-local override and
   fall back to user/built-in if available
 - `/prompt-preset clear` — clear the active base preset and all layers
-- `/chain` — inspect or switch the active agent chain
-- `/agents` — list discovered agent definitions
 - `/lsp status|list|restart` — inspect or restart language server
   state
 - `/redact-stats` — show how many secrets were redacted this session
@@ -383,36 +378,6 @@ In interactive mode:
 7. Built-in extension state can be managed via `/extensions` and is
    persisted in `~/.config/my-pi/extensions.json`
 8. Cleanup on `session_shutdown`
-
-## Agent Chains
-
-Define sequential agent pipelines in `.pi/agents/agent-chain.yaml`:
-
-```yaml
-scout-plan:
-  description: 'Scout the codebase then plan implementation'
-  steps:
-    - agent: scout
-      prompt: 'Explore and analyze: $INPUT'
-    - agent: planner
-      prompt: 'Based on this analysis, create a plan:\n\n$INPUT'
-```
-
-Agent definitions live in `.pi/agents/*.md` with frontmatter:
-
-```markdown
----
-name: scout
-description: Codebase exploration and analysis
-tools: read,grep,find,ls
----
-
-You are a scout agent. Explore the codebase and report findings.
-```
-
-The chain extension injects context into the system prompt so the LLM
-knows when and how to use `run_chain`. Use `/chain` to switch active
-chains and `/agents` to list available agents.
 
 ## Secret Redaction
 
@@ -587,7 +552,6 @@ src/
   api.ts                   Programmatic API (create_my_pi + re-exports)
   extensions/
     manager/               Built-in extension manager and config
-    chain/                 Agent chain pipelines
     handoff/               Session context export
     prompt-presets/        Runtime prompt preset selection and editing
     session-name/          Session auto-naming
@@ -603,9 +567,6 @@ packages/
   pi-recall/               Installable Pi package for pirecall reminders
   pi-nopeek/               Installable Pi package for nopeek reminders
 .pi/
-  agents/
-    *.md                   Agent definitions (frontmatter + system prompt)
-    agent-chain.yaml       Chain pipeline definitions
   presets.json             Optional project prompt presets (JSON)
   presets/*.md             Optional project prompt presets (Markdown files)
 mcp.json                   Project MCP server config

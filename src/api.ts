@@ -24,7 +24,6 @@ import skills_extension, {
 import { create_telemetry_extension } from '@spences10/pi-telemetry';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import chain_extension from './extensions/chain/index.js';
 import confirm_destructive_extension from './extensions/confirm-destructive/index.js';
 import handoff_extension from './extensions/handoff/index.js';
 import hooks_resolution_extension from './extensions/hooks-resolution/index.js';
@@ -49,7 +48,6 @@ export interface CreateMyPiOptions {
 	runtime_mode?: MyPiRuntimeMode;
 	mcp?: boolean;
 	skills?: boolean;
-	chain?: boolean;
 	filter_output?: boolean;
 	handoff?: boolean;
 	recall?: boolean;
@@ -73,7 +71,6 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 > = {
 	mcp: mcp_extension,
 	skills: skills_extension,
-	chain: chain_extension,
 	'filter-output': filter_output_extension,
 	handoff: handoff_extension,
 	recall: recall_extension,
@@ -97,7 +94,6 @@ function resolve_agent_dir(cwd: string, agent_dir?: string): string {
 const NON_INTERACTIVE_UI_ONLY_BUILTINS: BuiltinExtensionKey[] = [
 	'handoff',
 	'session-name',
-	'confirm-destructive',
 	'working-indicator',
 ];
 
@@ -107,7 +103,6 @@ export function get_force_disabled_builtins(
 		| 'runtime_mode'
 		| 'mcp'
 		| 'skills'
-		| 'chain'
 		| 'filter_output'
 		| 'handoff'
 		| 'recall'
@@ -123,7 +118,6 @@ export function get_force_disabled_builtins(
 	const force_disabled = new Set<BuiltinExtensionKey>();
 	if (!options.mcp) force_disabled.add('mcp');
 	if (!options.skills) force_disabled.add('skills');
-	if (!options.chain) force_disabled.add('chain');
 	if (!options.filter_output) force_disabled.add('filter-output');
 	if (!options.handoff) force_disabled.add('handoff');
 	if (!options.recall) force_disabled.add('recall');
@@ -197,7 +191,6 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		runtime_mode = 'interactive',
 		mcp = true,
 		skills = true,
-		chain = true,
 		filter_output = true,
 		handoff = true,
 		recall = true,
@@ -225,7 +218,6 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		runtime_mode,
 		mcp,
 		skills,
-		chain,
 		filter_output,
 		handoff,
 		recall,

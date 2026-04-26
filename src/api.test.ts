@@ -5,7 +5,6 @@ describe('get_force_disabled_builtins', () => {
 	const enabled = {
 		mcp: true,
 		skills: true,
-		chain: true,
 		filter_output: true,
 		handoff: true,
 		recall: true,
@@ -38,7 +37,7 @@ describe('get_force_disabled_builtins', () => {
 
 		expect(disabled.has('handoff')).toBe(true);
 		expect(disabled.has('session-name')).toBe(true);
-		expect(disabled.has('confirm-destructive')).toBe(true);
+		expect(disabled.has('confirm-destructive')).toBe(false);
 		expect(disabled.has('working-indicator')).toBe(true);
 		expect(disabled.has('mcp')).toBe(false);
 		expect(disabled.has('prompt-presets')).toBe(false);

@@ -11,7 +11,6 @@ import { dirname, join } from 'node:path';
 export type BuiltinExtensionKey =
 	| 'mcp'
 	| 'skills'
-	| 'chain'
 	| 'filter-output'
 	| 'handoff'
 	| 'recall'
@@ -61,13 +60,6 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 		description: 'Managed pi-native skills and /skills command',
 		cli_flag: '--no-skills',
 		aliases: ['skills', 'skill'],
-	},
-	{
-		key: 'chain',
-		label: 'Chain',
-		description: 'Agent chain orchestration and /chain command',
-		cli_flag: '--no-chain',
-		aliases: ['chain', 'chains'],
 	},
 	{
 		key: 'filter-output',
@@ -132,7 +124,7 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 		key: 'confirm-destructive',
 		label: 'Confirm destructive',
 		description:
-			'Prompt before destructive session actions like clear, switch, and fork',
+			'Prompt before destructive tool calls like file deletes, overwrites, and hard resets',
 		cli_flag: '--no-confirm-destructive',
 		aliases: ['confirm-destructive', 'confirm'],
 	},
