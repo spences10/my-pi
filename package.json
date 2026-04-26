@@ -57,6 +57,8 @@
 		"@mariozechner/pi-tui": "^0.70.2",
 		"@spences10/pi-lsp": "workspace:*",
 		"@spences10/pi-mcp": "workspace:*",
+		"@spences10/pi-nopeek": "workspace:*",
+		"@spences10/pi-recall": "workspace:*",
 		"@spences10/pi-redact": "workspace:*",
 		"@spences10/pi-skills": "workspace:*",
 		"@spences10/pi-telemetry": "workspace:*",

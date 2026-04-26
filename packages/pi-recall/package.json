@@ -1,19 +1,20 @@
 {
-	"name": "@spences10/pi-lsp",
+	"name": "@spences10/pi-recall",
 	"version": "0.0.0",
-	"description": "Pi extension that exposes Language Server Protocol diagnostics, hover, definition, and reference tools",
+	"description": "Pi extension that reminds the model to use pirecall and syncs session recall data",
 	"keywords": [
-		"language-server",
-		"lsp",
 		"pi",
-		"pi-package"
+		"pi-package",
+		"pirecall",
+		"recall",
+		"sessions"
 	],
 	"license": "MIT",
 	"author": "Scott Spence <me@scottspence.com>",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/spences10/my-pi.git",
-		"directory": "packages/pi-lsp"
+		"directory": "packages/pi-recall"
 	},
 	"files": [
 		"dist",
@@ -37,8 +38,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.70.2",
-		"typebox": "^1.1.33"
+		"@mariozechner/pi-coding-agent": "^0.70.2"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",

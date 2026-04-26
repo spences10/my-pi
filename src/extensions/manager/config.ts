@@ -15,6 +15,7 @@ export type BuiltinExtensionKey =
 	| 'filter-output'
 	| 'handoff'
 	| 'recall'
+	| 'nopeek'
 	| 'prompt-presets'
 	| 'lsp'
 	| 'session-name'
@@ -91,9 +92,17 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 	{
 		key: 'recall',
 		label: 'Recall',
-		description: 'Past session recall guidance and /recall command',
+		description: 'pirecall reminder and background session sync',
 		cli_flag: '--no-recall',
-		aliases: ['recall'],
+		aliases: ['recall', 'pirecall'],
+	},
+	{
+		key: 'nopeek',
+		label: 'Nopeek',
+		description:
+			'nopeek reminder for secret-safe environment loading',
+		cli_flag: '--no-nopeek',
+		aliases: ['nopeek', 'secrets', 'secret-loading'],
 	},
 	{
 		key: 'prompt-presets',

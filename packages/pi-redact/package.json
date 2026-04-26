@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-redact",
-	"version": "0.1.0",
+	"version": "0.0.0",
 	"description": "Pi extension that redacts secrets from tool output before the model sees them",
 	"keywords": [
 		"pi",

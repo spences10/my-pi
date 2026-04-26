@@ -529,10 +529,10 @@ clients.
 
 ## Session Recall
 
-The recall extension nudges the model to use `npx pirecall` when the
-user references prior work or when historical project context would
-help. It also triggers a background `pirecall sync --json` on session
-start when the local recall database exists.
+The recall package nudges the model to use `pnpx pirecall` or
+`npx pirecall` when the user references prior work or when historical
+project context would help. It also triggers `pirecall sync --json` on
+session start and shutdown when the local recall database exists.
 
 ## Session Handoff
 
@@ -557,6 +557,8 @@ pi install npm:@spences10/pi-telemetry
 pi install npm:@spences10/pi-mcp
 pi install npm:@spences10/pi-lsp
 pi install npm:@spences10/pi-skills
+pi install npm:@spences10/pi-recall
+pi install npm:@spences10/pi-nopeek
 ```
 
 - [`@spences10/pi-redact`](./packages/pi-redact/README.md) — output
@@ -569,6 +571,10 @@ pi install npm:@spences10/pi-skills
   diagnostics and symbol tools
 - [`@spences10/pi-skills`](./packages/pi-skills/README.md) — skill
   management, import, and sync
+- [`@spences10/pi-recall`](./packages/pi-recall/README.md) — pirecall
+  reminder and background sync
+- [`@spences10/pi-nopeek`](./packages/pi-nopeek/README.md) — nopeek
+  reminder for secret-safe environment loading
 
 Each package README is the entry point for install instructions,
 commands, runtime behavior, and development notes.
@@ -584,7 +590,6 @@ src/
     chain/                 Agent chain pipelines
     handoff/               Session context export
     prompt-presets/        Runtime prompt preset selection and editing
-    recall/                Past session recall guidance
     session-name/          Session auto-naming
     confirm-destructive/   Destructive action confirmations
     hooks-resolution/      Claude-style hook resolution
@@ -595,6 +600,8 @@ packages/
   pi-mcp/                  Installable Pi package for MCP integration
   pi-lsp/                  Installable Pi package for LSP tools
   pi-skills/               Installable Pi package for skill management
+  pi-recall/               Installable Pi package for pirecall reminders
+  pi-nopeek/               Installable Pi package for nopeek reminders
 .pi/
   agents/
     *.md                   Agent definitions (frontmatter + system prompt)

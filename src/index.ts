@@ -65,7 +65,7 @@ MODES
 NOTES
 
   - In non-interactive modes, my-pi keeps headless-capable built-ins like
-    MCP, LSP, chains, prompt presets, recall, hooks, and output filtering.
+    MCP, LSP, chains, prompt presets, recall, nopeek, hooks, and output filtering.
   - UI-only built-ins like handoff, confirm-destructive, session auto-naming,
     and working-indicator customization are skipped.
   - Repeat -e / --extension to stack multiple extensions.
@@ -178,6 +178,11 @@ const main = defineCommand({
 		'no-recall': {
 			type: 'boolean',
 			description: 'Disable recall extension',
+			default: false,
+		},
+		'no-nopeek': {
+			type: 'boolean',
+			description: 'Disable nopeek reminder extension',
 			default: false,
 		},
 		'no-prompt-presets': {
@@ -327,6 +332,7 @@ const main = defineCommand({
 			filter_output: !args['no-builtin'] && !args['no-filter'],
 			handoff: !args['no-builtin'] && !args['no-handoff'],
 			recall: !args['no-builtin'] && !args['no-recall'],
+			nopeek: !args['no-builtin'] && !args['no-nopeek'],
 			prompt_presets:
 				!args['no-builtin'] && !args['no-prompt-presets'],
 			lsp: !args['no-builtin'] && !args['no-lsp'],

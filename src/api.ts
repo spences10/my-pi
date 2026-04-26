@@ -15,6 +15,8 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import lsp_extension from '@spences10/pi-lsp';
 import mcp_extension from '@spences10/pi-mcp';
+import nopeek_extension from '@spences10/pi-nopeek';
+import recall_extension from '@spences10/pi-recall';
 import filter_output_extension from '@spences10/pi-redact';
 import skills_extension, {
 	create_skills_manager,
@@ -34,7 +36,6 @@ import {
 } from './extensions/manager/config.js';
 import { create_extensions_extension } from './extensions/manager/index.js';
 import prompt_presets_extension from './extensions/prompt-presets/index.js';
-import recall_extension from './extensions/recall/index.js';
 import session_name_extension from './extensions/session-name/index.js';
 import working_indicator_extension from './extensions/working-indicator/index.js';
 
@@ -52,6 +53,7 @@ export interface CreateMyPiOptions {
 	filter_output?: boolean;
 	handoff?: boolean;
 	recall?: boolean;
+	nopeek?: boolean;
 	prompt_presets?: boolean;
 	lsp?: boolean;
 	session_name?: boolean;
@@ -75,6 +77,7 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	'filter-output': filter_output_extension,
 	handoff: handoff_extension,
 	recall: recall_extension,
+	nopeek: nopeek_extension,
 	'prompt-presets': prompt_presets_extension,
 	lsp: lsp_extension,
 	'session-name': session_name_extension,
@@ -108,6 +111,7 @@ export function get_force_disabled_builtins(
 		| 'filter_output'
 		| 'handoff'
 		| 'recall'
+		| 'nopeek'
 		| 'prompt_presets'
 		| 'lsp'
 		| 'session_name'
@@ -123,6 +127,7 @@ export function get_force_disabled_builtins(
 	if (!options.filter_output) force_disabled.add('filter-output');
 	if (!options.handoff) force_disabled.add('handoff');
 	if (!options.recall) force_disabled.add('recall');
+	if (!options.nopeek) force_disabled.add('nopeek');
 	if (!options.prompt_presets) force_disabled.add('prompt-presets');
 	if (!options.lsp) force_disabled.add('lsp');
 	if (!options.session_name) force_disabled.add('session-name');
@@ -196,6 +201,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		filter_output = true,
 		handoff = true,
 		recall = true,
+		nopeek = true,
 		prompt_presets = true,
 		lsp = true,
 		session_name = true,
@@ -223,6 +229,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		filter_output,
 		handoff,
 		recall,
+		nopeek,
 		prompt_presets,
 		lsp,
 		session_name,
