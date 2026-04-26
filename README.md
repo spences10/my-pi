@@ -160,7 +160,7 @@ Query and export helpers:
 
 Schema notes:
 
-- source of truth: `src/extensions/telemetry-schema.sql`
+- source of truth: `packages/pi-telemetry/src/schema.sql`
 - current telemetry schema version: `1`
 - schema version is tracked with `PRAGMA user_version`
 - unversioned local telemetry databases are initialized/upgraded to v1
@@ -169,7 +169,6 @@ Schema notes:
   downgrading
 - opens the database in WAL mode: `PRAGMA journal_mode = WAL`
 - waits up to 5s on lock contention: `PRAGMA busy_timeout = 5000`
-- packaged builds ship the schema as `dist/telemetry-schema.sql`
 
 CLI flags `--telemetry` and `--no-telemetry` override only the current
 process. `/telemetry on` and `/telemetry off` update the saved default
@@ -546,39 +545,61 @@ file that can be piped into a new session:
 pnpx my-pi@latest < handoff-1234567890.md
 ```
 
+## Reusable Pi packages
+
+This repo is a pnpm workspace. The `my-pi` harness depends on reusable
+Pi packages via `workspace:*`, and those packages can also be
+published and installed into vanilla `pi` independently:
+
+```bash
+pi install npm:@spences10/pi-redact
+pi install npm:@spences10/pi-telemetry
+```
+
+- [`@spences10/pi-redact`](./packages/pi-redact/README.md) — output
+  redaction and `/redact-stats`
+- [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md) —
+  local SQLite telemetry and `/telemetry`
+
+Each package README is the entry point for install instructions,
+commands, runtime behavior, and development notes.
+
 ## Project Structure
 
 ```
 src/
-  index.ts            CLI entry point (citty + pi SDK)
-  api.ts              Programmatic API (create_my_pi + re-exports)
+  index.ts                 CLI entry point (citty + pi SDK)
+  api.ts                   Programmatic API (create_my_pi + re-exports)
   extensions/
-    config.ts         Persistent built-in extension config
-    extensions.ts     Built-in extension manager (/extensions)
-    mcp.ts            MCP server integration
-    skills.ts         Skill discovery and toggle
-    chain.ts          Agent chain pipelines
-    filter-output.ts  Secret redaction in tool output
-    handoff.ts        Session context export
-    lsp.ts            Language server tools and /lsp command
-    telemetry.ts      Local telemetry extension and /telemetry command
-    prompt-presets.ts Runtime prompt preset selection and editing
-    recall.ts         Past session recall guidance
-    telemetry-*.ts    Telemetry config + SQLite storage
+    manager/               Built-in extension manager and config
+    mcp/                   MCP server integration
+    skills/                Skill discovery and toggle
+    chain/                 Agent chain pipelines
+    handoff/               Session context export
+    lsp/                   Language server tools and /lsp command
+    prompt-presets/        Runtime prompt preset selection and editing
+    recall/                Past session recall guidance
+    session-name/          Session auto-naming
+    confirm-destructive/   Destructive action confirmations
+    hooks-resolution/      Claude-style hook resolution
+    working-indicator/     Streaming indicator customization
   mcp/
-    client.ts         Minimal MCP stdio client (JSON-RPC 2.0)
-    config.ts         Loads and merges mcp.json configs
+    client.ts              Minimal MCP stdio client (JSON-RPC 2.0)
+    config.ts              Loads and merges mcp.json configs
   skills/
-    manager.ts        Skill enable/disable state management
-    scanner.ts        Skill discovery across sources
-    config.ts         Persistent skills config (~/.config/my-pi/)
+    manager.ts             Skill enable/disable state management
+    scanner.ts             Skill discovery across sources
+    config.ts              Persistent skills config (~/.config/my-pi/)
+packages/
+  pi-redact/               Installable Pi package for output redaction
+  pi-telemetry/            Installable Pi package for SQLite telemetry
 .pi/
   agents/
-    *.md              Agent definitions (frontmatter + system prompt)
-    agent-chain.yaml  Chain pipeline definitions
-  presets.json        Optional project prompt presets (JSON)
-  presets/*.md        Optional project prompt presets (Markdown files)
-mcp.json              Project MCP server config
+    *.md                   Agent definitions (frontmatter + system prompt)
+    agent-chain.yaml       Chain pipeline definitions
+  presets.json             Optional project prompt presets (JSON)
+  presets/*.md             Optional project prompt presets (Markdown files)
+mcp.json                   Project MCP server config
 ```
 
 ## Development

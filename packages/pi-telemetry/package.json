@@ -1,0 +1,53 @@
+{
+	"name": "@spences10/pi-telemetry",
+	"version": "0.1.0",
+	"description": "Pi extension for local SQLite telemetry of runs, turns, tools, and provider requests",
+	"keywords": [
+		"evals",
+		"pi",
+		"pi-package",
+		"sqlite",
+		"telemetry"
+	],
+	"license": "MIT",
+	"author": "Scott Spence <me@scottspence.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/spences10/my-pi.git",
+		"directory": "packages/pi-telemetry"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json && cp src/schema.sql dist/schema.sql",
+		"check": "tsc --noEmit -p tsconfig.json",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@mariozechner/pi-coding-agent": "^0.70.2"
+	},
+	"devDependencies": {
+		"@types/node": "^25.6.0",
+		"typescript": "^5.9.3",
+		"vitest": "^4.1.5"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	},
+	"pi": {
+		"extensions": [
+			"./dist/index.js"
+		]
+	}
+}
