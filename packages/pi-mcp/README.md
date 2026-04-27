@@ -47,6 +47,12 @@ unless `MY_PI_MCP_PROJECT_CONFIG=allow` is set. Use
 repo until its `mcp.json` hash changes, or
 `MY_PI_MCP_PROJECT_CONFIG=skip` to force-disable project MCP config.
 
+Stdio MCP servers receive a restricted child-process environment by
+default: baseline shell variables plus explicit per-server `env`
+values. Use `MY_PI_MCP_ENV_ALLOWLIST=NAME,OTHER_NAME` or the shared
+`MY_PI_CHILD_ENV_ALLOWLIST` to pass selected ambient variables
+through.
+
 Server tools are registered as Pi tools using this naming format:
 
 ```text

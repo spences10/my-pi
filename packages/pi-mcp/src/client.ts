@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { create_child_process_env } from './env.js';
 
 export interface McpStdioServerConfig {
 	name: string;
@@ -111,7 +112,7 @@ export class McpClient {
 
 		this.#proc = spawn(command, args, {
 			stdio: ['pipe', 'pipe', 'pipe'],
-			env: { ...process.env, ...env },
+			env: create_child_process_env(env),
 		});
 
 		this.#proc.stdout!.setEncoding('utf8');

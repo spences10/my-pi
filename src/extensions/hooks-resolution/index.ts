@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+import { create_child_process_env } from './env.js';
 import {
 	is_hooks_config_trusted,
 	trust_hooks_config,
@@ -447,7 +448,7 @@ export async function run_command_hook(
 		const started_at = Date.now();
 		const child = spawn('bash', ['-lc', command], {
 			cwd,
-			env: { ...process.env, CLAUDE_PROJECT_DIR: cwd },
+			env: create_child_process_env({ CLAUDE_PROJECT_DIR: cwd }),
 			stdio: ['pipe', 'pipe', 'pipe'],
 		});
 

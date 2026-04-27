@@ -330,6 +330,12 @@ allowing execution; headless sessions skip hooks unless
 Trusted hook approvals are remembered per project directory and
 hook-config hash.
 
+Hook commands receive a restricted child-process environment by
+default: baseline shell variables plus `CLAUDE_PROJECT_DIR`. Use
+`MY_PI_HOOKS_ENV_ALLOWLIST=NAME,OTHER_NAME` or the shared
+`MY_PI_CHILD_ENV_ALLOWLIST` to pass selected ambient variables
+through.
+
 ### Commands
 
 In interactive mode:

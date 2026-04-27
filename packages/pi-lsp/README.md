@@ -49,6 +49,11 @@ binary unless `MY_PI_LSP_PROJECT_BINARY=allow` or
 `MY_PI_LSP_PROJECT_BINARY=trust` is set. `/lsp status` shows the
 resolved binary path for running and idle servers.
 
+Language servers receive a restricted child-process environment by
+default. Use `MY_PI_LSP_ENV_ALLOWLIST=NAME,OTHER_NAME` or the shared
+`MY_PI_CHILD_ENV_ALLOWLIST` to pass selected ambient variables
+through.
+
 ## Tools
 
 The extension registers LSP-backed Pi tools for:

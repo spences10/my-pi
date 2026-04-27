@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { pathToFileURL } from 'node:url';
+import { create_child_process_env } from './env.js';
 
 export interface LspPosition {
 	line: number;
@@ -124,7 +125,7 @@ export class LspClient extends EventEmitter {
 	async start(): Promise<void> {
 		this.#proc = spawn(this.#options.command, this.#options.args, {
 			stdio: ['pipe', 'pipe', 'pipe'],
-			env: process.env,
+			env: create_child_process_env(),
 		});
 
 		let start_reject: ((error: Error) => void) | null = null;
