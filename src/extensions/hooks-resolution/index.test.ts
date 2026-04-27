@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	build_hook_payload,
 	create_hooks_resolution_extension,
+	get_hooks_config_info,
 	load_hooks,
 	matches_hook,
 	parse_claude_settings_hooks,
@@ -45,17 +46,19 @@ function create_test_pi() {
 
 function create_context(overrides: Partial<any> = {}) {
 	const notify = vi.fn();
+	const select = vi.fn();
 	return {
 		ctx: {
 			cwd: '/repo',
 			hasUI: true,
-			ui: { notify },
+			ui: { notify, select },
 			sessionManager: {
 				getSessionFile: vi.fn().mockReturnValue('session.jsonl'),
 			},
 			...overrides,
 		},
 		notify,
+		select,
 	};
 }
 
@@ -85,6 +88,41 @@ describe('hooks-resolution helpers', () => {
 		expect(hooks[0].event_name).toBe('PostToolUse');
 		expect(hooks[0].command).toBe('echo ok');
 		expect(hooks[0].matcher?.test('Write')).toBe(true);
+	});
+
+	it('reports hook config sources, hash, and commands', () => {
+		const dir = create_temp_dir();
+		mkdirSync(join(dir, '.git'));
+		mkdirSync(join(dir, '.claude'));
+		writeFileSync(
+			join(dir, '.claude', 'settings.json'),
+			JSON.stringify({
+				hooks: {
+					PostToolUse: [
+						{
+							matcher: 'Write',
+							hooks: [{ type: 'command', command: 'echo ok' }],
+						},
+					],
+				},
+			}),
+		);
+
+		const info = get_hooks_config_info(dir);
+
+		expect(info).toMatchObject({
+			project_dir: dir,
+			sources: [join(dir, '.claude', 'settings.json')],
+			hooks: [
+				{
+					event_name: 'PostToolUse',
+					matcher_text: 'Write',
+					command: 'echo ok',
+					source: join(dir, '.claude', 'settings.json'),
+				},
+			],
+		});
+		expect(info?.hash).toHaveLength(64);
 	});
 
 	it('loads hooks from .claude and .pi config files', () => {
@@ -174,6 +212,66 @@ describe('hooks-resolution helpers', () => {
 });
 
 describe('hooks-resolution extension', () => {
+	it('skips untrusted hook config in headless contexts', async () => {
+		const dir = create_temp_dir();
+		mkdirSync(join(dir, '.git'));
+		mkdirSync(join(dir, '.pi'));
+		writeFileSync(
+			join(dir, '.pi', 'hooks.json'),
+			JSON.stringify({
+				hooks: {
+					PostToolUse: [{ command: 'echo should-not-run' }],
+				},
+			}),
+		);
+		const warn = vi
+			.spyOn(console, 'warn')
+			.mockImplementation(() => {});
+		const { pi, events } = create_test_pi();
+		const run_command_hook = vi.fn();
+		const load_hooks_impl = vi
+			.fn<(cwd: string) => HookState>()
+			.mockReturnValue({
+				project_dir: dir,
+				hooks: [
+					{
+						event_name: 'PostToolUse',
+						command: 'echo should-not-run',
+						source: join(dir, '.pi', 'hooks.json'),
+					},
+				],
+			});
+
+		await create_hooks_resolution_extension({
+			load_hooks: load_hooks_impl,
+			run_command_hook,
+		})(pi);
+
+		const start = events.get('session_start');
+		const tool_result = events.get('tool_result');
+		const { ctx } = create_context({ cwd: dir, hasUI: false });
+
+		await start({}, ctx);
+		await tool_result(
+			{
+				toolName: 'write',
+				toolCallId: 'call-1',
+				input: {},
+				content: [{ type: 'text', text: 'done' }],
+				isError: false,
+				details: null,
+			} as any,
+			ctx,
+		);
+
+		expect(load_hooks_impl).not.toHaveBeenCalled();
+		expect(run_command_hook).not.toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining('Skipping untrusted hook config'),
+		);
+		warn.mockRestore();
+	});
+
 	it('runs matching hooks once per unique command and notifies on success', async () => {
 		const { pi, events } = create_test_pi();
 		const run_command_hook = vi

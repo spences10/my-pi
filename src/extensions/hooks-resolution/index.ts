@@ -7,10 +7,16 @@ import type {
 	ToolResultEvent,
 } from '@mariozechner/pi-coding-agent';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+import {
+	is_hooks_config_trusted,
+	trust_hooks_config,
+} from './trust.js';
 
 const HOOK_TIMEOUT_MS = 10 * 60 * 1000;
+const HOOKS_CONFIG_ENV = 'MY_PI_HOOKS_CONFIG';
 
 type JsonValue =
 	| string
@@ -33,6 +39,18 @@ export interface ResolvedCommandHook {
 export interface HookState {
 	project_dir: string;
 	hooks: ResolvedCommandHook[];
+}
+
+export interface HooksConfigInfo {
+	project_dir: string;
+	hash: string;
+	sources: string[];
+	hooks: Array<{
+		event_name: HookEventName;
+		matcher_text?: string;
+		command: string;
+		source: string;
+	}>;
 }
 
 export interface CommandRunResult {
@@ -260,56 +278,65 @@ export function parse_simple_hooks_file(
 	return hooks;
 }
 
+function hook_config_paths(project_dir: string): string[] {
+	return [
+		join(project_dir, '.claude', 'settings.json'),
+		join(project_dir, '.rulesync', 'hooks.json'),
+		join(project_dir, '.pi', 'hooks.json'),
+	];
+}
+
+function parse_hooks_config_file(
+	path: string,
+	project_dir: string,
+): ResolvedCommandHook[] {
+	const config = read_json_file(path);
+	if (config === undefined) return [];
+	if (path.endsWith(join('.claude', 'settings.json'))) {
+		return parse_claude_settings_hooks(config, path, project_dir);
+	}
+	return parse_simple_hooks_file(config, path, project_dir);
+}
+
 export function load_hooks(cwd: string): HookState {
 	const project_dir = find_project_dir(cwd);
-	const hooks: ResolvedCommandHook[] = [];
-
-	const claude_settings_path = join(
-		project_dir,
-		'.claude',
-		'settings.json',
+	const hooks = hook_config_paths(project_dir).flatMap((path) =>
+		parse_hooks_config_file(path, project_dir),
 	);
-	const rulesync_hooks_path = join(
-		project_dir,
-		'.rulesync',
-		'hooks.json',
-	);
-	const pi_hooks_path = join(project_dir, '.pi', 'hooks.json');
-
-	const claude_settings = read_json_file(claude_settings_path);
-	if (claude_settings !== undefined) {
-		hooks.push(
-			...parse_claude_settings_hooks(
-				claude_settings,
-				claude_settings_path,
-				project_dir,
-			),
-		);
-	}
-
-	const rulesync_hooks = read_json_file(rulesync_hooks_path);
-	if (rulesync_hooks !== undefined) {
-		hooks.push(
-			...parse_simple_hooks_file(
-				rulesync_hooks,
-				rulesync_hooks_path,
-				project_dir,
-			),
-		);
-	}
-
-	const pi_hooks = read_json_file(pi_hooks_path);
-	if (pi_hooks !== undefined) {
-		hooks.push(
-			...parse_simple_hooks_file(
-				pi_hooks,
-				pi_hooks_path,
-				project_dir,
-			),
-		);
-	}
 
 	return { project_dir, hooks };
+}
+
+export function get_hooks_config_info(
+	cwd: string,
+): HooksConfigInfo | undefined {
+	const project_dir = find_project_dir(cwd);
+	const sources = hook_config_paths(project_dir).filter(is_file);
+	if (sources.length === 0) return undefined;
+
+	const hash = createHash('sha256');
+	for (const source of sources) {
+		hash.update(source);
+		hash.update('\0');
+		hash.update(readFileSync(source, 'utf8'));
+		hash.update('\0');
+	}
+
+	const hooks = sources
+		.flatMap((source) => parse_hooks_config_file(source, project_dir))
+		.map((hook) => ({
+			event_name: hook.event_name,
+			matcher_text: hook.matcher_text,
+			command: hook.command,
+			source: hook.source,
+		}));
+
+	return {
+		project_dir,
+		hash: hash.digest('hex'),
+		sources,
+		hooks,
+	};
 }
 
 export function to_claude_tool_name(tool_name: string): string {
@@ -498,6 +525,86 @@ export function hook_name(command: string): string {
 	return basename(first_token);
 }
 
+type HooksConfigDecision = 'allow' | 'trust' | 'skip';
+
+function normalize_hooks_config_decision(
+	value: string | undefined,
+): HooksConfigDecision | undefined {
+	const normalized = value?.trim().toLowerCase();
+	if (!normalized) return undefined;
+	if (['1', 'true', 'yes', 'allow'].includes(normalized)) {
+		return 'allow';
+	}
+	if (normalized === 'trust') return 'trust';
+	if (['0', 'false', 'no', 'skip', 'disable'].includes(normalized)) {
+		return 'skip';
+	}
+	return undefined;
+}
+
+function format_hooks_config_prompt(info: HooksConfigInfo): string {
+	const source_lines = info.sources.map((source) => `- ${source}`);
+	const hook_lines =
+		info.hooks.length === 0
+			? ['- no valid command hooks detected']
+			: info.hooks.map((hook) => {
+					const matcher = hook.matcher_text
+						? ` matcher=${hook.matcher_text}`
+						: '';
+					return `- ${hook.event_name}${matcher}: ${hook.command}`;
+				});
+	return [
+		'Project hook config can execute shell commands after tool use. Trust these hooks?',
+		`Project: ${info.project_dir}`,
+		`SHA-256: ${info.hash}`,
+		'Sources:',
+		...source_lines,
+		'Commands:',
+		...hook_lines,
+	].join('\n');
+}
+
+async function should_load_hooks_config(
+	cwd: string,
+	ctx?: ExtensionContext,
+): Promise<boolean> {
+	const info = get_hooks_config_info(cwd);
+	if (!info) return true;
+	if (is_hooks_config_trusted(info.project_dir, info.hash))
+		return true;
+
+	const env_decision = normalize_hooks_config_decision(
+		process.env[HOOKS_CONFIG_ENV],
+	);
+	if (env_decision === 'trust') {
+		trust_hooks_config(info.project_dir, info.hash);
+		return true;
+	}
+	if (env_decision === 'allow') return true;
+	if (env_decision === 'skip') return false;
+
+	if (!ctx?.hasUI) {
+		console.warn(
+			`Skipping untrusted hook config in ${info.project_dir}. Set ${HOOKS_CONFIG_ENV}=allow to enable hooks for this run.`,
+		);
+		return false;
+	}
+
+	const choice = await ctx.ui.select(
+		format_hooks_config_prompt(info),
+		[
+			'Allow once for this session',
+			'Trust this repo until hook config changes',
+			'Skip project hooks',
+		],
+	);
+	if (choice === 'Trust this repo until hook config changes') {
+		trust_hooks_config(info.project_dir, info.hash);
+		return true;
+	}
+	return choice === 'Allow once for this session';
+}
+
 export interface HooksResolutionOptions {
 	load_hooks?: (cwd: string) => HookState;
 	run_command_hook?: (
@@ -520,12 +627,19 @@ export function create_hooks_resolution_extension(
 			hooks: [],
 		};
 
-		const refresh_hooks = (cwd: string) => {
+		const refresh_hooks = async (
+			cwd: string,
+			ctx?: ExtensionContext,
+		) => {
+			if (!(await should_load_hooks_config(cwd, ctx))) {
+				state = { project_dir: cwd, hooks: [] };
+				return;
+			}
 			state = load_hooks_impl(cwd);
 		};
 
-		pi.on('session_start', (_event, ctx) => {
-			refresh_hooks(ctx.cwd);
+		pi.on('session_start', async (_event, ctx) => {
+			await refresh_hooks(ctx.cwd, ctx);
 		});
 
 		pi.on('tool_result', async (event, ctx) => {

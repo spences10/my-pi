@@ -313,8 +313,22 @@ HTTP MCP servers are supported too:
 Use `"type": "http"` or `"type": "streamable-http"` for remote MCP
 servers. If `url` is present, my-pi treats the entry as HTTP.
 
-Project servers merge with global servers. If both define the same
-server name, the project config wins.
+Global MCP config is loaded automatically. Project-local `mcp.json` is
+untrusted by default; interactive sessions prompt before loading it
+and headless sessions skip it unless `MY_PI_MCP_PROJECT_CONFIG=allow`
+or `MY_PI_MCP_PROJECT_CONFIG=trust` is set. If both configs define the
+same server name, the trusted project config wins.
+
+### Hooks
+
+Claude-style hooks are discovered from `.claude/settings.json`,
+`.rulesync/hooks.json`, and `.pi/hooks.json`. Because hook commands
+run through `bash -lc`, project hook config is untrusted by default.
+Interactive sessions show the hook source files and commands before
+allowing execution; headless sessions skip hooks unless
+`MY_PI_HOOKS_CONFIG=allow` or `MY_PI_HOOKS_CONFIG=trust` is set.
+Trusted hook approvals are remembered per project directory and
+hook-config hash.
 
 ### Commands
 
