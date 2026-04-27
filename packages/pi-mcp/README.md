@@ -39,6 +39,14 @@ A typical project `mcp.json` looks like:
 }
 ```
 
+Global MCP config is loaded automatically. Project-local `mcp.json` is
+untrusted by default because stdio servers can spawn local commands.
+Interactive runs prompt before loading it; headless runs skip it
+unless `MY_PI_MCP_PROJECT_CONFIG=allow` is set. Use
+`MY_PI_MCP_PROJECT_CONFIG=trust` to trust and remember the current
+repo until its `mcp.json` hash changes, or
+`MY_PI_MCP_PROJECT_CONFIG=skip` to force-disable project MCP config.
+
 Server tools are registered as Pi tools using this naming format:
 
 ```text

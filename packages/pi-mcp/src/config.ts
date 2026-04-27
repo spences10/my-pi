@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +10,19 @@ import type {
 
 interface RawMcpConfigFile {
 	mcpServers: Record<string, RawMcpServerEntry>;
+}
+
+export interface LoadMcpConfigOptions {
+	include_project?: boolean;
+}
+
+export interface McpProjectConfigInfo {
+	path: string;
+	hash: string;
+	servers: Array<{
+		name: string;
+		summary: string;
+	}>;
 }
 
 type RawMcpServerEntry = {
@@ -116,11 +130,58 @@ function read_config(path: string): RawMcpConfigFile['mcpServers'] {
 	return config.mcpServers || {};
 }
 
-export function load_mcp_config(cwd: string): McpServerConfig[] {
+function project_mcp_config_path(cwd: string): string {
+	return join(cwd, 'mcp.json');
+}
+
+export function get_project_mcp_config_info(
+	cwd: string,
+): McpProjectConfigInfo | undefined {
+	const path = project_mcp_config_path(cwd);
+	if (!existsSync(path)) return undefined;
+
+	const raw = readFileSync(path, 'utf-8');
+	const hash = createHash('sha256').update(raw).digest('hex');
+	let servers: McpProjectConfigInfo['servers'] = [];
+	try {
+		const config = JSON.parse(raw) as RawMcpConfigFile;
+		servers = Object.entries(config.mcpServers || {}).map(
+			([name, server]) => ({
+				name,
+				summary: summarize_server_entry(server),
+			}),
+		);
+	} catch {
+		servers = [];
+	}
+
+	return { path, hash, servers };
+}
+
+function summarize_server_entry(server: RawMcpServerEntry): string {
+	if (typeof server.url === 'string' && server.url.trim()) {
+		return `http ${server.url.trim()}`;
+	}
+	if (typeof server.command === 'string' && server.command.trim()) {
+		const args = Array.isArray(server.args)
+			? server.args.filter((arg) => typeof arg === 'string')
+			: [];
+		return ['stdio', server.command.trim(), ...args].join(' ');
+	}
+	return 'invalid server entry';
+}
+
+export function load_mcp_config(
+	cwd: string,
+	options: LoadMcpConfigOptions = {},
+): McpServerConfig[] {
 	const global_servers = read_config(
 		join(homedir(), '.pi', 'agent', 'mcp.json'),
 	);
-	const project_servers = read_config(join(cwd, 'mcp.json'));
+	const project_servers =
+		options.include_project === false
+			? {}
+			: read_config(project_mcp_config_path(cwd));
 	const merged = { ...global_servers, ...project_servers };
 
 	return Object.entries(merged).map(([name, server]) =>

@@ -8,7 +8,10 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { load_mcp_config } from './config.js';
+import {
+	get_project_mcp_config_info,
+	load_mcp_config,
+} from './config.js';
 
 function tmp_dir(): string {
 	const dir = join(
@@ -102,6 +105,66 @@ describe('load_mcp_config', () => {
 				headers: { Authorization: 'Bearer test' },
 			},
 		]);
+	});
+
+	it('can skip project config while keeping global config', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		const global_dir = join(home, '.pi', 'agent');
+		mkdirSync(global_dir, { recursive: true });
+		writeFileSync(
+			join(global_dir, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					shared: { command: 'global-cmd' },
+				},
+			}),
+		);
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					shared: { command: 'project-cmd' },
+				},
+			}),
+		);
+
+		expect(load_mcp_config(cwd, { include_project: false })).toEqual([
+			{
+				name: 'shared',
+				transport: 'stdio',
+				command: 'global-cmd',
+			},
+		]);
+	});
+
+	it('reports project config path, hash, and server summaries', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					local: { command: 'npx', args: ['-y', 'server'] },
+					remote: { type: 'http', url: 'https://example.com/mcp' },
+				},
+			}),
+		);
+
+		expect(get_project_mcp_config_info(cwd)).toMatchObject({
+			path: join(cwd, 'mcp.json'),
+			servers: [
+				{ name: 'local', summary: 'stdio npx -y server' },
+				{ name: 'remote', summary: 'http https://example.com/mcp' },
+			],
+		});
+		expect(get_project_mcp_config_info(cwd)?.hash).toHaveLength(64);
 	});
 
 	it('lets project config override global config by name', () => {

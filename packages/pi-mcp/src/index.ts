@@ -1,12 +1,22 @@
 import {
+	defineTool,
 	type BeforeAgentStartEvent,
 	type ExtensionAPI,
 	type ExtensionContext,
-	defineTool,
 } from '@mariozechner/pi-coding-agent';
 import { McpClient, type McpServerConfig } from './client.js';
-import { load_mcp_config } from './config.js';
+import {
+	get_project_mcp_config_info,
+	load_mcp_config,
+	type McpProjectConfigInfo,
+} from './config.js';
 import { format_mcp_tool_result } from './result.js';
+import {
+	is_project_mcp_config_trusted,
+	trust_project_mcp_config,
+} from './trust.js';
+
+const PROJECT_MCP_CONFIG_ENV = 'MY_PI_MCP_PROJECT_CONFIG';
 
 interface ServerState {
 	config: McpServerConfig;
@@ -150,16 +160,115 @@ export function should_wait_for_mcp_connections(
 	);
 }
 
+type ProjectMcpConfigDecision = 'allow' | 'trust' | 'skip';
+
+function normalize_project_mcp_config_decision(
+	value: string | undefined,
+): ProjectMcpConfigDecision | undefined {
+	const normalized = value?.trim().toLowerCase();
+	if (!normalized) return undefined;
+	if (['1', 'true', 'yes', 'allow'].includes(normalized)) {
+		return 'allow';
+	}
+	if (normalized === 'trust') return 'trust';
+	if (['0', 'false', 'no', 'skip', 'disable'].includes(normalized)) {
+		return 'skip';
+	}
+	return undefined;
+}
+
+function format_project_mcp_config_prompt(
+	info: McpProjectConfigInfo,
+): string {
+	const server_lines =
+		info.servers.length === 0
+			? ['- no valid server entries detected']
+			: info.servers.map(
+					(server) => `- ${server.name}: ${server.summary}`,
+				);
+	return [
+		'Project mcp.json can spawn local commands. Trust this config?',
+		`Path: ${info.path}`,
+		`SHA-256: ${info.hash}`,
+		...server_lines,
+	].join('\n');
+}
+
+async function should_load_project_mcp_config(
+	cwd: string,
+	ctx?: ExtensionContext,
+): Promise<boolean> {
+	const info = get_project_mcp_config_info(cwd);
+	if (!info) return false;
+
+	if (is_project_mcp_config_trusted(info.path, info.hash)) {
+		return true;
+	}
+
+	const env_decision = normalize_project_mcp_config_decision(
+		process.env[PROJECT_MCP_CONFIG_ENV],
+	);
+	if (env_decision === 'trust') {
+		trust_project_mcp_config(info.path, info.hash);
+		return true;
+	}
+	if (env_decision === 'allow') return true;
+	if (env_decision === 'skip') return false;
+
+	if (!ctx?.hasUI) {
+		console.warn(
+			`Skipping untrusted project MCP config: ${info.path}. Set ${PROJECT_MCP_CONFIG_ENV}=allow to enable it for this run.`,
+		);
+		return false;
+	}
+
+	const choice = await ctx.ui.select(
+		format_project_mcp_config_prompt(info),
+		[
+			'Allow once for this session',
+			'Trust this repo until mcp.json changes',
+			'Skip project MCP config',
+		],
+	);
+
+	if (choice === 'Trust this repo until mcp.json changes') {
+		trust_project_mcp_config(info.path, info.hash);
+		return true;
+	}
+	return choice === 'Allow once for this session';
+}
+
 // Default export for Pi Package / additionalExtensionPaths loading
 export default async function mcp(pi: ExtensionAPI) {
 	let initialized_cwd: string | null = null;
+	let initialize_promise: Promise<void> | undefined;
 	let servers = new Map<string, ServerState>();
 	const registered_tool_names = new Set<string>();
 
-	const ensure_servers = (cwd: string): void => {
+	const ensure_servers = async (
+		cwd: string,
+		ctx?: ExtensionContext,
+	): Promise<void> => {
 		if (initialized_cwd !== null) return;
-		servers = create_server_states(load_mcp_config(cwd));
-		initialized_cwd = cwd;
+		if (initialize_promise) {
+			await initialize_promise;
+			return;
+		}
+		initialize_promise = (async () => {
+			const include_project = await should_load_project_mcp_config(
+				cwd,
+				ctx,
+			);
+			servers = create_server_states(
+				load_mcp_config(cwd, { include_project }),
+			);
+			initialized_cwd = cwd;
+		})();
+		try {
+			await initialize_promise;
+		} finally {
+			initialize_promise = undefined;
+		}
 	};
 
 	const connect_server = async (
@@ -266,13 +375,13 @@ export default async function mcp(pi: ExtensionAPI) {
 	};
 
 	pi.on('session_start', async (_event, ctx) => {
-		ensure_servers(ctx.cwd);
+		await ensure_servers(ctx.cwd, ctx);
 		update_mcp_status(ctx, servers);
 		void connect_all_servers({ ctx });
 	});
 
 	pi.on('before_agent_start', async (event, ctx) => {
-		ensure_servers(ctx.cwd);
+		await ensure_servers(ctx.cwd, ctx);
 		if (!should_wait_for_mcp_connections(event)) {
 			void connect_all_servers({ ctx });
 			return event;
@@ -319,7 +428,7 @@ export default async function mcp(pi: ExtensionAPI) {
 			return null;
 		},
 		handler: async (args, ctx) => {
-			ensure_servers(ctx.cwd);
+			await ensure_servers(ctx.cwd, ctx);
 			const [sub, ...rest] = args.trim().split(/\s+/);
 			const name = rest.join(' ');
 
