@@ -105,6 +105,8 @@ const LSP_TOOL_NAMES = new Set([
 	'lsp_document_symbols',
 ]);
 
+const DIAGNOSTICS_MANY_CONCURRENCY = 8;
+
 export function should_inject_lsp_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
 ): boolean {
@@ -113,6 +115,29 @@ export function should_inject_lsp_prompt(
 		!selected_tools ||
 		selected_tools.some((tool) => LSP_TOOL_NAMES.has(tool))
 	);
+}
+
+async function map_with_concurrency<T, R>(
+	items: T[],
+	concurrency: number,
+	mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+	const results: R[] = [];
+	let next_index = 0;
+	const worker_count = Math.min(concurrency, items.length);
+
+	await Promise.all(
+		Array.from({ length: worker_count }, async () => {
+			while (true) {
+				const index = next_index;
+				next_index += 1;
+				if (index >= items.length) return;
+				results[index] = await mapper(items[index], index);
+			}
+		}),
+	);
+
+	return results;
 }
 
 export interface LspClientLike {
@@ -451,12 +476,12 @@ export function create_lsp_extension(
 					),
 				}),
 				execute: async (_id, params) => {
-					const results = await Promise.all(
-						params.files.map((file) => resolve_file_state(file)),
-					);
 					const wait_ms = params.wait_ms ?? 1500;
-					const lines_with_stats = await Promise.all(
-						results.map(async (resolved) => {
+					const lines_with_stats = await map_with_concurrency(
+						params.files,
+						DIAGNOSTICS_MANY_CONCURRENCY,
+						async (file) => {
+							const resolved = await resolve_file_state(file);
 							if (!resolved.ok) {
 								return {
 									line: format_tool_error(resolved.error),
@@ -464,20 +489,37 @@ export function create_lsp_extension(
 									error: true,
 								};
 							}
-							const diagnostics =
-								await resolved.result.state.client.wait_for_diagnostics(
-									resolved.result.uri,
-									wait_ms,
-								);
-							return {
-								line: format_diagnostics(
-									resolved.result.abs,
-									diagnostics,
-								),
-								diagnostics: diagnostics.length,
-								error: false,
-							};
-						}),
+							try {
+								const diagnostics =
+									await resolved.result.state.client.wait_for_diagnostics(
+										resolved.result.uri,
+										wait_ms,
+									);
+								return {
+									line: format_diagnostics(
+										resolved.result.abs,
+										diagnostics,
+									),
+									diagnostics: diagnostics.length,
+									error: false,
+								};
+							} catch (error) {
+								return {
+									line: format_tool_error(
+										to_lsp_tool_error(
+											resolved.result.abs,
+											resolved.result.state.language,
+											resolved.result.state.workspace_root,
+											resolved.result.state.command,
+											resolved.result.state.install_hint,
+											error,
+										),
+									),
+									diagnostics: 0,
+									error: true,
+								};
+							}
+						},
 					);
 
 					let diagnostic_count = 0;
