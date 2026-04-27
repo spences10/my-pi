@@ -1,5 +1,13 @@
 # my-pi
 
+## 0.1.11
+
+### Patch Changes
+
+- Updated dependencies [381d549]
+- Updated dependencies [0ef336d]
+  - @spences10/pi-lsp@0.0.2
+
 ## 0.1.10
 
 ### Patch Changes
