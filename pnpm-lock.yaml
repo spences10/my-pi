@@ -70,8 +70,8 @@ importers:
   packages/pi-confirm-destructive:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -86,8 +86,8 @@ importers:
   packages/pi-lsp:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
       typebox:
         specifier: ^1.1.33
         version: 1.1.33
@@ -105,8 +105,8 @@ importers:
   packages/pi-mcp:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -121,8 +121,8 @@ importers:
   packages/pi-nopeek:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -137,8 +137,8 @@ importers:
   packages/pi-omnisearch:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -153,8 +153,8 @@ importers:
   packages/pi-recall:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -169,11 +169,11 @@ importers:
   packages/pi-redact:
     dependencies:
       '@mariozechner/pi-ai':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -188,11 +188,11 @@ importers:
   packages/pi-skills:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
       '@mariozechner/pi-tui':
-        specifier: ^0.70.2
-        version: 0.70.2
+        specifier: ^0.70.5
+        version: 0.70.5
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -207,8 +207,8 @@ importers:
   packages/pi-sqlite-tools:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -223,8 +223,8 @@ importers:
   packages/pi-telemetry:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.70.2
-        version: 0.70.2(ws@8.20.0)(zod@4.3.6)
+        specifier: ^0.70.5
+        version: 0.70.5(ws@8.20.0)(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -550,37 +550,19 @@ packages:
     resolution: {integrity: sha512-faGUlTcXka5l7rv0lP3K3vGW/ejRuOS24RR2aSFWREUQqzjgdsuWNo/IiPqL3kWRGt6Ahl2+qcDAwtdeWeuGUw==}
     hasBin: true
 
-  '@mariozechner/pi-agent-core@0.70.2':
-    resolution: {integrity: sha512-g1hIdKyDwmQOoBGO0R4OhpemKeMENeK0vE5FJtuQKqEcsdCAkVBgZAK6aZUARYZVxMA718JS6WPLFWoddzjD7g==}
-    engines: {node: '>=20.0.0'}
-
   '@mariozechner/pi-agent-core@0.70.5':
     resolution: {integrity: sha512-ZUnJ7fFeJog97KG8FewEyqaObY2sLWvfDurKHl9kImVEbgt3l1LJ9A5pb+4/5KXnCVsoF/Brd0h+7yBEd1Aj5g==}
     engines: {node: '>=20.0.0'}
-
-  '@mariozechner/pi-ai@0.70.2':
-    resolution: {integrity: sha512-+30LRPjXsXF+oI96DvGWMbdPGeqoLJvadh6UPev7wx2DzhC9FEqXkQcoMZ0usbCm7E9pl8ua8a9s/pQ5ikaUbg==}
-    engines: {node: '>=20.0.0'}
-    hasBin: true
 
   '@mariozechner/pi-ai@0.70.5':
     resolution: {integrity: sha512-eyeyOfu/YiqzY6q391oRYdmnPIIU1VTKAn3hWIvzqkRHkcArd41/YynG8mw6bgoLdmCnIBoY3fD6nzEHEHLIMA==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
-  '@mariozechner/pi-coding-agent@0.70.2':
-    resolution: {integrity: sha512-asfNqV89HKAmKvJ1wENBY/UQMIf77kLtkzBrvXnMQV4YbH7D/6KT+VeVzPG6zm5PAZP2UtdLY9B9Cge7IxH37w==}
-    engines: {node: '>=20.6.0'}
-    hasBin: true
-
   '@mariozechner/pi-coding-agent@0.70.5':
     resolution: {integrity: sha512-5sQjY2LQLvYfMjo4Dn6P6iy3LFm3MZYgrYmgCQSwQSUM5yqzWceidYYXS4knloW7gNkko+nnhKB2u4NF3w+dVw==}
     engines: {node: '>=20.6.0'}
     hasBin: true
-
-  '@mariozechner/pi-tui@0.70.2':
-    resolution: {integrity: sha512-PtKC0NepnrYcqMx6MXkWTrBzC9tI62KeC6w940oT46lCbfvgmfqXciR15+9BZpxxc1H4jd3CMrKsmOPVeUqZ0A==}
-    engines: {node: '>=20.0.0'}
 
   '@mariozechner/pi-tui@0.70.5':
     resolution: {integrity: sha512-5Ol9weTqpsQ85gg1C6Mo8M8o/HYz4uN7nM7QTPrw/Rm/UoFgO1/T/Irago5aGfzlIj/nmsGcqb7NlkWtT4vXUg==}
@@ -3162,45 +3144,10 @@ snapshots:
       std-env: 3.10.0
       yoctocolors: 2.1.2
 
-  '@mariozechner/pi-agent-core@0.70.2(ws@8.20.0)(zod@4.3.6)':
-    dependencies:
-      '@mariozechner/pi-ai': 0.70.5(ws@8.20.0)(zod@4.3.6)
-      typebox: 1.1.34
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
   '@mariozechner/pi-agent-core@0.70.5(ws@8.20.0)(zod@4.3.6)':
     dependencies:
       '@mariozechner/pi-ai': 0.70.5(ws@8.20.0)(zod@4.3.6)
       typebox: 1.1.34
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-ai@0.70.2(ws@8.20.0)(zod@4.3.6)':
-    dependencies:
-      '@anthropic-ai/sdk': 0.90.0(zod@4.3.6)
-      '@aws-sdk/client-bedrock-runtime': 3.1032.0
-      '@google/genai': 1.49.0
-      '@mistralai/mistralai': 2.2.0
-      chalk: 5.6.2
-      openai: 6.26.0(ws@8.20.0)(zod@4.3.6)
-      partial-json: 0.1.7
-      proxy-agent: 6.5.0
-      typebox: 1.1.34
-      undici: 7.24.7
-      zod-to-json-schema: 3.25.2(zod@4.3.6)
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -3223,40 +3170,6 @@ snapshots:
       typebox: 1.1.34
       undici: 7.24.7
       zod-to-json-schema: 3.25.2(zod@4.3.6)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.70.2(ws@8.20.0)(zod@4.3.6)':
-    dependencies:
-      '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.70.2(ws@8.20.0)(zod@4.3.6)
-      '@mariozechner/pi-ai': 0.70.5(ws@8.20.0)(zod@4.3.6)
-      '@mariozechner/pi-tui': 0.70.5
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.4
-      extract-zip: 2.0.1
-      file-type: 21.3.4
-      glob: 13.0.6
-      hosted-git-info: 9.0.2
-      ignore: 7.0.5
-      marked: 15.0.12
-      minimatch: 10.2.5
-      proper-lockfile: 4.1.2
-      strip-ansi: 7.2.0
-      typebox: 1.1.34
-      undici: 7.24.7
-      uuid: 14.0.0
-      yaml: 2.8.3
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.3
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -3299,16 +3212,6 @@ snapshots:
       - utf-8-validate
       - ws
       - zod
-
-  '@mariozechner/pi-tui@0.70.2':
-    dependencies:
-      '@types/mime-types': 2.1.4
-      chalk: 5.6.2
-      get-east-asian-width: 1.5.0
-      marked: 15.0.12
-      mime-types: 3.0.2
-    optionalDependencies:
-      koffi: 2.15.6
 
   '@mariozechner/pi-tui@0.70.5':
     dependencies:

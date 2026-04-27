@@ -71,6 +71,10 @@ Use `/mcp list` to inspect connection state and `/mcp enable` or
 - discovers tools via `tools/list`
 - registers each discovered MCP tool with Pi
 - forwards model tool calls to the MCP server
+- truncates oversized MCP tool text output to the first 50 KiB or
+  2,000 lines
+- saves truncated full output to a local `/tmp/my-pi-mcp-output-*.txt`
+  file so it can be inspected with `read` or `rg`
 - cleans up server processes on session shutdown
 
 ## Using from a custom harness
