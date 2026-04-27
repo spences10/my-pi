@@ -12,6 +12,7 @@ export interface LspServerConfig {
 	command: string;
 	args: string[];
 	install_hint?: string;
+	is_project_local?: boolean;
 }
 
 const EXTENSION_LANGUAGES: Record<string, string> = {
@@ -124,25 +125,39 @@ export function list_supported_languages(): string[] {
 	return Object.keys(LANGUAGE_SERVERS).sort();
 }
 
-export function resolve_server_command(
+export interface ResolvedServerCommand {
+	command: string;
+	is_project_local: boolean;
+}
+
+export function resolve_server_command_info(
 	command: string,
 	cwd: string = process.cwd(),
-): string {
-	if (!command) return command;
+): ResolvedServerCommand {
 	if (
+		!command ||
 		isAbsolute(command) ||
 		command.includes('/') ||
 		command.includes('\\')
 	) {
-		return command;
+		return { command, is_project_local: false };
 	}
 
 	for (const dir of ancestor_directories(cwd)) {
 		const local_bin = resolve_local_binary(dir, command);
-		if (local_bin) return local_bin;
+		if (local_bin) {
+			return { command: local_bin, is_project_local: true };
+		}
 	}
 
-	return command;
+	return { command, is_project_local: false };
+}
+
+export function resolve_server_command(
+	command: string,
+	cwd: string = process.cwd(),
+): string {
+	return resolve_server_command_info(command, cwd).command;
 }
 
 export function get_server_config(
@@ -151,9 +166,11 @@ export function get_server_config(
 ): LspServerConfig | undefined {
 	const base = LANGUAGE_SERVERS[language];
 	if (!base) return undefined;
+	const resolved = resolve_server_command_info(base.command, cwd);
 	return {
 		...base,
-		command: resolve_server_command(base.command, cwd),
+		command: resolved.command,
+		is_project_local: resolved.is_project_local,
 	};
 }
 

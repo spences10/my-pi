@@ -41,8 +41,13 @@ Supported server discovery includes:
 - Java via `jdtls`
 - Lua via `lua-language-server`
 
-Project-local binaries in `node_modules/.bin` are preferred over
-global binaries.
+Project-local binaries in `node_modules/.bin` are detected before
+global binaries, but are untrusted by default because they can execute
+repo-controlled code. Interactive sessions prompt before starting a
+project-local binary; headless sessions fall back to the global `PATH`
+binary unless `MY_PI_LSP_PROJECT_BINARY=allow` or
+`MY_PI_LSP_PROJECT_BINARY=trust` is set. `/lsp status` shows the
+resolved binary path for running and idle servers.
 
 ## Tools
 

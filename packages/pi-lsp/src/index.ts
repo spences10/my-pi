@@ -3,6 +3,7 @@ import {
 	type BeforeAgentStartEvent,
 	type ExtensionAPI,
 	type ExtensionCommandContext,
+	type ExtensionContext,
 } from '@mariozechner/pi-coding-agent';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
@@ -25,7 +26,9 @@ import {
 	get_server_config,
 	language_id_for_file,
 	list_supported_languages,
+	type LspServerConfig,
 } from './servers.js';
+import { is_lsp_binary_trusted, trust_lsp_binary } from './trust.js';
 
 interface ServerState {
 	client: LspClientLike;
@@ -106,6 +109,71 @@ const LSP_TOOL_NAMES = new Set([
 ]);
 
 const DIAGNOSTICS_MANY_CONCURRENCY = 8;
+const LSP_PROJECT_BINARY_ENV = 'MY_PI_LSP_PROJECT_BINARY';
+
+type LspProjectBinaryDecision = 'allow' | 'trust' | 'global';
+
+function normalize_lsp_project_binary_decision(
+	value: string | undefined,
+): LspProjectBinaryDecision | undefined {
+	const normalized = value?.trim().toLowerCase();
+	if (!normalized) return undefined;
+	if (['1', 'true', 'yes', 'allow'].includes(normalized)) {
+		return 'allow';
+	}
+	if (normalized === 'trust') return 'trust';
+	if (
+		['0', 'false', 'no', 'global', 'global-only'].includes(normalized)
+	) {
+		return 'global';
+	}
+	return undefined;
+}
+
+async function should_use_project_lsp_binary(
+	server_config: LspServerConfig,
+	ctx?: ExtensionContext,
+): Promise<boolean> {
+	if (!server_config.is_project_local) return true;
+	if (is_lsp_binary_trusted(server_config.command)) return true;
+
+	const env_decision = normalize_lsp_project_binary_decision(
+		process.env[LSP_PROJECT_BINARY_ENV],
+	);
+	if (env_decision === 'trust') {
+		trust_lsp_binary(server_config.command);
+		return true;
+	}
+	if (env_decision === 'allow') return true;
+	if (env_decision === 'global') return false;
+
+	if (!ctx?.hasUI) {
+		console.warn(
+			`Skipping untrusted project-local LSP binary: ${server_config.command}. Set ${LSP_PROJECT_BINARY_ENV}=allow to enable it for this run.`,
+		);
+		return false;
+	}
+
+	const choice = await ctx.ui.select(
+		[
+			'Project-local language server binaries can execute code.',
+			'Trust this LSP binary?',
+			`Language: ${server_config.language}`,
+			`Binary: ${server_config.command}`,
+		].join('\n'),
+		[
+			'Allow once for this session',
+			'Trust this binary path',
+			'Use global PATH binary instead',
+		],
+	);
+
+	if (choice === 'Trust this binary path') {
+		trust_lsp_binary(server_config.command);
+		return true;
+	}
+	return choice === 'Allow once for this session';
+}
 
 export function should_inject_lsp_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
@@ -240,6 +308,7 @@ export function create_lsp_extension(
 
 		const get_or_start_client = async (
 			file_path: string,
+			ctx?: ExtensionContext,
 		): Promise<ServerState | undefined> => {
 			const language = detect_language(file_path);
 			if (!language) return undefined;
@@ -254,11 +323,15 @@ export function create_lsp_extension(
 			const in_flight = starting_servers.get(key);
 			if (in_flight) return in_flight.promise;
 
-			const server_config = get_server_config(
-				language,
-				workspace_root,
-			);
+			let server_config = get_server_config(language, workspace_root);
 			if (!server_config) return undefined;
+			if (
+				server_config.is_project_local &&
+				!(await should_use_project_lsp_binary(server_config, ctx))
+			) {
+				server_config = get_server_config(language, '/');
+				if (!server_config) return undefined;
+			}
 			const root_uri = file_path_to_uri(workspace_root);
 
 			const startup: StartingServerState = {
@@ -338,6 +411,7 @@ export function create_lsp_extension(
 
 		const get_file_state = async (
 			file: string,
+			ctx?: ExtensionContext,
 		): Promise<
 			| {
 					abs: string;
@@ -347,16 +421,19 @@ export function create_lsp_extension(
 			| undefined
 		> => {
 			const abs = resolve_abs(file);
-			const state = await get_or_start_client(abs);
+			const state = await get_or_start_client(abs, ctx);
 			if (!state) return undefined;
 			const uri = await open_file(state, abs);
 			return { abs, uri, state };
 		};
 
-		const resolve_file_state = async (file: string) => {
+		const resolve_file_state = async (
+			file: string,
+			ctx?: ExtensionContext,
+		) => {
 			const abs = resolve_abs(file);
 			try {
-				const result = await get_file_state(abs);
+				const result = await get_file_state(abs, ctx);
 				if (!result) {
 					return {
 						ok: false as const,
@@ -392,13 +469,14 @@ export function create_lsp_extension(
 
 		const with_file_state = async (
 			file: string,
+			ctx: ExtensionContext,
 			run: (result: {
 				abs: string;
 				uri: string;
 				state: ServerState;
 			}) => Promise<string>,
 		) => {
-			const resolved = await resolve_file_state(file);
+			const resolved = await resolve_file_state(file, ctx);
 			if (!resolved.ok) {
 				return make_tool_error(resolved.error);
 			}
@@ -443,8 +521,8 @@ export function create_lsp_extension(
 						}),
 					),
 				}),
-				execute: async (_id, params) =>
-					with_file_state(params.file, async (result) => {
+				execute: async (_id, params, _signal, _on_update, ctx) =>
+					with_file_state(params.file, ctx, async (result) => {
 						const diagnostics =
 							await result.state.client.wait_for_diagnostics(
 								result.uri,
@@ -475,13 +553,13 @@ export function create_lsp_extension(
 						}),
 					),
 				}),
-				execute: async (_id, params) => {
+				execute: async (_id, params, _signal, _on_update, ctx) => {
 					const wait_ms = params.wait_ms ?? 1500;
 					const lines_with_stats = await map_with_concurrency(
 						params.files,
 						DIAGNOSTICS_MANY_CONCURRENCY,
 						async (file) => {
-							const resolved = await resolve_file_state(file);
+							const resolved = await resolve_file_state(file, ctx);
 							if (!resolved.ok) {
 								return {
 									line: format_tool_error(resolved.error),
@@ -591,8 +669,8 @@ export function create_lsp_extension(
 						}),
 					),
 				}),
-				execute: async (_id, params) =>
-					with_file_state(params.file, async (result) => {
+				execute: async (_id, params, _signal, _on_update, ctx) =>
+					with_file_state(params.file, ctx, async (result) => {
 						const symbols =
 							await result.state.client.document_symbols(result.uri);
 						const matches = find_symbol_matches(
@@ -629,8 +707,8 @@ export function create_lsp_extension(
 						description: 'Zero-based character offset.',
 					}),
 				}),
-				execute: async (_id, params) =>
-					with_file_state(params.file, async (result) => {
+				execute: async (_id, params, _signal, _on_update, ctx) =>
+					with_file_state(params.file, ctx, async (result) => {
 						const hover = await result.state.client.hover(
 							result.uri,
 							{
@@ -654,8 +732,8 @@ export function create_lsp_extension(
 					line: Type.Number(),
 					character: Type.Number(),
 				}),
-				execute: async (_id, params) =>
-					with_file_state(params.file, async (result) => {
+				execute: async (_id, params, _signal, _on_update, ctx) =>
+					with_file_state(params.file, ctx, async (result) => {
 						const locations = await result.state.client.definition(
 							result.uri,
 							{
@@ -683,8 +761,8 @@ export function create_lsp_extension(
 					character: Type.Number(),
 					include_declaration: Type.Optional(Type.Boolean()),
 				}),
-				execute: async (_id, params) =>
-					with_file_state(params.file, async (result) => {
+				execute: async (_id, params, _signal, _on_update, ctx) =>
+					with_file_state(params.file, ctx, async (result) => {
 						const locations = await result.state.client.references(
 							result.uri,
 							{
@@ -710,8 +788,8 @@ export function create_lsp_extension(
 				parameters: Type.Object({
 					file: Type.String(),
 				}),
-				execute: async (_id, params) =>
-					with_file_state(params.file, async (result) => {
+				execute: async (_id, params, _signal, _on_update, ctx) =>
+					with_file_state(params.file, ctx, async (result) => {
 						const symbols =
 							await result.state.client.document_symbols(result.uri);
 						return format_document_symbols(result.abs, symbols);

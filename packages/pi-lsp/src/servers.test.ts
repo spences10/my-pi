@@ -13,6 +13,7 @@ import {
 	get_server_config,
 	list_supported_languages,
 	resolve_server_command,
+	resolve_server_command_info,
 } from './servers.js';
 
 const dirs: string[] = [];
@@ -70,12 +71,22 @@ describe('resolve_server_command', () => {
 		expect(
 			resolve_server_command('typescript-language-server', nested),
 		).toBe(binary);
+		expect(
+			resolve_server_command_info(
+				'typescript-language-server',
+				nested,
+			),
+		).toEqual({ command: binary, is_project_local: true });
 	});
 
 	it('falls back to the bare command when no local binary exists', () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
 		dirs.push(cwd);
 		expect(resolve_server_command('gopls', cwd)).toBe('gopls');
+		expect(resolve_server_command_info('gopls', cwd)).toEqual({
+			command: 'gopls',
+			is_project_local: false,
+		});
 	});
 });
 

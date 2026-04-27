@@ -63,15 +63,19 @@ afterEach(() => {
 function create_command_context() {
 	const notifications: Array<{ message: string; level?: string }> =
 		[];
+	const selections: string[] = [];
 	return {
 		ctx: {
+			hasUI: true,
 			ui: {
 				notify(message: string, level?: string) {
 					notifications.push({ message, level });
 				},
+				select: vi.fn(async () => selections.shift()),
 			},
 		} as any,
 		notifications,
+		selections,
 	};
 }
 
@@ -214,6 +218,54 @@ describe('lsp extension', () => {
 		});
 	});
 
+	it('falls back to global LSP binary when project binary is untrusted and skipped', async () => {
+		const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
+		const file = join(root, 'src', 'main.ts');
+		dirs.push(root);
+		mkdirSync(join(root, 'src'), { recursive: true });
+		mkdirSync(join(root, 'node_modules', '.bin'), {
+			recursive: true,
+		});
+		writeFileSync(join(root, 'package.json'), '{}\n');
+		writeFileSync(file, 'export const value = 1;\n');
+		writeFileSync(
+			join(
+				root,
+				'node_modules',
+				'.bin',
+				'typescript-language-server',
+			),
+			'#!/bin/sh\n',
+			{ mode: 0o755 },
+		);
+		const create_client = vi.fn(() => create_mock_client());
+		const { pi, tools } = create_test_pi();
+		const { ctx, selections } = create_command_context();
+		selections.push('Use global PATH binary instead');
+
+		await create_lsp_extension({
+			create_client,
+			read_file: async () => 'export const value = 1;\n',
+			cwd: () => root,
+		})(pi);
+
+		await tools
+			.get('lsp_hover')
+			.execute(
+				'1',
+				{ file, line: 0, character: 0 },
+				undefined,
+				undefined,
+				ctx,
+			);
+
+		expect(create_client).toHaveBeenCalledWith(
+			expect.objectContaining({
+				command: 'typescript-language-server',
+			}),
+		);
+	});
+
 	it('uses the target file workspace root for client startup', async () => {
 		const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
 		const app = join(root, 'apps', 'website');
@@ -239,6 +291,8 @@ describe('lsp extension', () => {
 
 		const create_client = vi.fn(() => create_mock_client());
 		const { pi, tools } = create_test_pi();
+		const { ctx, selections } = create_command_context();
+		selections.push('Allow once for this session');
 
 		await create_lsp_extension({
 			create_client,
@@ -246,11 +300,17 @@ describe('lsp extension', () => {
 			cwd: () => '/repo/not-the-target',
 		})(pi);
 
-		await tools.get('lsp_hover').execute('1', {
-			file,
-			line: 0,
-			character: 0,
-		});
+		await tools.get('lsp_hover').execute(
+			'1',
+			{
+				file,
+				line: 0,
+				character: 0,
+			},
+			undefined,
+			undefined,
+			ctx,
+		);
 
 		expect(create_client).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -581,11 +641,17 @@ describe('lsp extension', () => {
 			cwd: () => '/repo',
 		})(pi);
 
-		const first_hover = tools.get('lsp_hover').execute('1', {
-			file: 'src/file.ts',
-			line: 0,
-			character: 0,
-		});
+		const first_hover = tools.get('lsp_hover').execute(
+			'1',
+			{
+				file: 'src/file.ts',
+				line: 0,
+				character: 0,
+			},
+			undefined,
+			undefined,
+			ctx,
+		);
 
 		await commands.get('lsp').handler('restart typescript', ctx);
 		startup.resolve();
@@ -599,11 +665,17 @@ describe('lsp extension', () => {
 			'Restarted typescript language server state.',
 		);
 
-		const second_hover = await tools.get('lsp_hover').execute('2', {
-			file: 'src/file.ts',
-			line: 0,
-			character: 0,
-		});
+		const second_hover = await tools.get('lsp_hover').execute(
+			'2',
+			{
+				file: 'src/file.ts',
+				line: 0,
+				character: 0,
+			},
+			undefined,
+			undefined,
+			ctx,
+		);
 		expect(second_hover.content[0].text).toBe('second hover');
 		expect(create_client).toHaveBeenCalledTimes(2);
 	});
