@@ -6,6 +6,7 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import { McpClient, type McpServerConfig } from './client.js';
 import { load_mcp_config } from './config.js';
+import { format_mcp_tool_result } from './result.js';
 
 interface ServerState {
 	config: McpServerConfig;
@@ -211,14 +212,13 @@ export default async function mcp(pi: ExtensionAPI) {
 									}>;
 								};
 
-								const text =
-									result?.content
-										?.map((c) => c.text || '')
-										.join('\n') || JSON.stringify(result);
+								const formatted = format_mcp_tool_result(result);
 
 								return {
-									content: [{ type: 'text' as const, text }],
-									details: {},
+									content: [
+										{ type: 'text' as const, text: formatted.text },
+									],
+									details: formatted.details,
 								};
 							},
 						}),
