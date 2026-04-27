@@ -57,6 +57,13 @@ The extension registers LSP-backed Pi tools for:
 These tools let the model inspect types, find usages, and catch
 diagnostics without guessing from text search alone.
 
+## Model reminder
+
+When LSP tools are active, the extension injects a small system prompt
+reminder telling the model to use LSP for focused diagnostics, type
+and symbol questions, definitions, references, and validation before
+reporting completion.
+
 ## Commands
 
 ```text

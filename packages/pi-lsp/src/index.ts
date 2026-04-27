@@ -1,5 +1,6 @@
 import {
 	defineTool,
+	type BeforeAgentStartEvent,
 	type ExtensionAPI,
 	type ExtensionCommandContext,
 } from '@mariozechner/pi-coding-agent';
@@ -93,6 +94,26 @@ const SYMBOL_KIND_NAMES = Object.values(SYMBOL_KIND_LABELS);
 const SYMBOL_KIND_SCHEMA = Type.Union(
 	SYMBOL_KIND_NAMES.map((name) => Type.Literal(name)),
 );
+
+const LSP_TOOL_NAMES = new Set([
+	'lsp_diagnostics',
+	'lsp_diagnostics_many',
+	'lsp_find_symbol',
+	'lsp_hover',
+	'lsp_definition',
+	'lsp_references',
+	'lsp_document_symbols',
+]);
+
+export function should_inject_lsp_prompt(
+	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
+): boolean {
+	const selected_tools = event.systemPromptOptions?.selectedTools;
+	return (
+		!selected_tools ||
+		selected_tools.some((tool) => LSP_TOOL_NAMES.has(tool))
+	);
+}
 
 export interface LspClientLike {
 	start(): Promise<void>;
@@ -654,6 +675,28 @@ export function create_lsp_extension(
 						return format_document_symbols(result.abs, symbols);
 					}),
 			}),
+		);
+
+		pi.on(
+			'before_agent_start',
+			async (event: BeforeAgentStartEvent) => {
+				if (!should_inject_lsp_prompt(event)) return {};
+				return {
+					systemPrompt:
+						event.systemPrompt +
+						`
+
+## Language server support via LSP tools
+
+You have access to Language Server Protocol tools for diagnostics, hover/type information, definitions, references, and document symbols. Use them when:
+- Debugging TypeScript, JavaScript, Svelte, or other language-server-supported errors
+- Checking types, symbol definitions, or API documentation from code
+- Finding references more precisely than text search
+- Validating focused code changes before reporting completion
+
+Prefer LSP diagnostics over guessing from build output when a file-level check is enough. Use text search for broad discovery, then LSP tools for precise type and symbol questions.`,
+				};
+			},
 		);
 
 		pi.registerCommand('lsp', {
