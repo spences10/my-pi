@@ -10,7 +10,13 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import {
+	dirname,
+	isAbsolute,
+	join,
+	relative,
+	resolve,
+} from 'node:path';
 import {
 	IMPORT_METADATA_FILE,
 	type DiscoveredSkill,
@@ -82,6 +88,55 @@ function write_metadata(
 	);
 }
 
+function has_control_character(value: string): boolean {
+	return Array.from(value).some((char) => {
+		const code = char.codePointAt(0) ?? 0;
+		return code < 0x20 || code === 0x7f;
+	});
+}
+
+export function validate_imported_skill_name(name: string): string {
+	if (!name.trim()) {
+		throw new Error('Skill name must not be empty');
+	}
+	if (name !== name.trim()) {
+		throw new Error(
+			`Invalid skill name "${name}": leading or trailing whitespace is not allowed`,
+		);
+	}
+	if (
+		name === '.' ||
+		name === '..' ||
+		isAbsolute(name) ||
+		/[\\/]/.test(name) ||
+		has_control_character(name)
+	) {
+		throw new Error(
+			`Invalid skill name "${name}": must be a single safe path segment`,
+		);
+	}
+	return name;
+}
+
+function resolve_managed_skill_dir(
+	managed_root: string,
+	name: string,
+): string {
+	const safe_name = validate_imported_skill_name(name);
+	const skill_dir = resolve(managed_root, safe_name);
+	const relative_path = relative(managed_root, skill_dir);
+	if (
+		!relative_path ||
+		relative_path.startsWith('..') ||
+		isAbsolute(relative_path)
+	) {
+		throw new Error(
+			`Invalid skill name "${name}": destination escapes managed skills directory`,
+		);
+	}
+	return skill_dir;
+}
+
 function replace_directory(
 	source_dir: string,
 	dest_dir: string,
@@ -123,7 +178,10 @@ export function import_external_skill(
 	const managed_root = get_managed_skills_dir();
 	ensure_dir(managed_root);
 
-	const skill_dir = join(managed_root, skill.name);
+	const skill_dir = resolve_managed_skill_dir(
+		managed_root,
+		skill.name,
+	);
 	const existing = existsSync(skill_dir);
 	if (existing) {
 		const existing_stat = statSync(skill_dir);

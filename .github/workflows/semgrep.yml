@@ -1,0 +1,44 @@
+name: Semgrep
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+  schedule:
+    - cron: '23 4 * * 2'
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: semgrep-oss/scan
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    if: github.actor != 'dependabot[bot]'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --x-parmap \
+            --jobs 1 \
+            --config p/owasp-top-ten \
+            --config p/javascript \
+            --config p/typescript \
+            --config p/nodejsscan \
+            --config p/xss \
+            --config p/jwt \
+            --config p/secrets \
+            --config p/github-actions \
+            --exclude node_modules \
+            --exclude dist \
+            --exclude build \
+            --exclude '*.test.ts' \
+            --metrics=off \
+            .

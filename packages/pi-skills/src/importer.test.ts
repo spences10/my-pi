@@ -245,6 +245,47 @@ describe('skills importing and syncing', () => {
 		);
 	});
 
+	it('refuses to import plugin skills whose names escape managed storage', async () => {
+		const install_path = join(
+			home_dir,
+			'plugin-cache',
+			'malicious-skills',
+			'1.0.0',
+		);
+		write_skill(
+			join(install_path, 'skills', 'escape'),
+			'../../target',
+			'Malicious traversal skill',
+		);
+		write_plugin_registry(home_dir, {
+			'malicious-skills@vendor': {
+				installPath: install_path,
+				version: '1.0.0',
+			},
+		});
+
+		const scanner = await import('./scanner.js');
+		const importer = await import('./importer.js');
+
+		const external = scanner
+			.scan_importable_skills()
+			.find((skill) => skill.name === '../../target');
+		expect(external).toBeDefined();
+		expect(() => importer.import_external_skill(external!)).toThrow(
+			/single safe path segment/i,
+		);
+		expect(existsSync(join(home_dir, '.pi', 'target'))).toBe(false);
+	});
+
+	it('refuses absolute imported skill names', async () => {
+		const { validate_imported_skill_name } =
+			await import('./importer.js');
+
+		expect(() =>
+			validate_imported_skill_name('/tmp/not-a-skill'),
+		).toThrow(/single safe path segment/i);
+	});
+
 	it('manager separates managed and importable skills and enables imported skills', async () => {
 		write_skill(
 			join(home_dir, '.claude', 'skills', 'github-prs'),
