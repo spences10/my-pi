@@ -1,5 +1,12 @@
 # @spences10/pi-mcp
 
+## 0.0.3
+
+### Patch Changes
+
+- e84f2a4: Adds MCP metadata trust handling, suppressing untrusted
+  descriptions and schema prose against prompt injection risk.
+
 ## 0.0.2
 
 ### Patch Changes

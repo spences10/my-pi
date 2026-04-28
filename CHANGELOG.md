@@ -1,5 +1,16 @@
 # my-pi
 
+## 0.1.13
+
+### Patch Changes
+
+- 61ff14d: Add untrusted repo safe mode for conservative project MCP,
+  hooks, LSP, presets, skills, and child environment defaults.
+- Updated dependencies [e84f2a4]
+- Updated dependencies [07b0470]
+  - @spences10/pi-mcp@0.0.3
+  - @spences10/pi-confirm-destructive@0.0.3
+
 ## 0.1.12
 
 ### Patch Changes

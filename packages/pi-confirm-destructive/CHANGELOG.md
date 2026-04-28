@@ -1,5 +1,12 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.3
+
+### Patch Changes
+
+- 07b0470: Avoids unnecessary destructive confirmations when deleting
+  agent-created files or my-pi temp workspaces during cleanup tasks.
+
 ## 0.0.2
 
 ### Patch Changes
