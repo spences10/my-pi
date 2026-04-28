@@ -1,5 +1,14 @@
 # my-pi
 
+## 0.1.14
+
+### Patch Changes
+
+- 6dde715: Harden skill import paths and add Semgrep security scanning
+  workflow badge.
+- Updated dependencies [6dde715]
+  - @spences10/pi-skills@0.0.2
+
 ## 0.1.13
 
 ### Patch Changes
