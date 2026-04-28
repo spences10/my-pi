@@ -1,5 +1,14 @@
 # @spences10/pi-lsp
 
+## 0.0.3
+
+### Patch Changes
+
+- cf0d023: Restrict child process environment passthrough for MCP,
+  LSP, and hook command execution safely by default.
+- 0a72284: Gate project-local LSP binaries behind trust prompts before
+  starting language servers.
+
 ## 0.0.2
 
 ### Patch Changes

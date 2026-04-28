@@ -1,5 +1,20 @@
 # my-pi
 
+## 0.1.12
+
+### Patch Changes
+
+- b29f211: Gate Claude-style hook execution behind trust prompts
+  before running project-defined shell commands after tool use.
+- cf0d023: Restrict child process environment passthrough for MCP,
+  LSP, and hook command execution safely by default.
+- Updated dependencies [edc9723]
+- Updated dependencies [cf0d023]
+- Updated dependencies [0a72284]
+- Updated dependencies [4f16b43]
+  - @spences10/pi-mcp@0.0.2
+  - @spences10/pi-lsp@0.0.3
+
 ## 0.1.11
 
 ### Patch Changes
