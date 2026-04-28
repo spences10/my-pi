@@ -14,6 +14,7 @@ interface RawMcpConfigFile {
 
 export interface LoadMcpConfigOptions {
 	include_project?: boolean;
+	project_metadata_trusted?: boolean;
 }
 
 export interface McpProjectConfigInfo {
@@ -60,6 +61,7 @@ function is_string_record(
 function parse_server(
 	name: string,
 	entry: RawMcpServerEntry,
+	metadata_trusted = true,
 ): McpServerConfig {
 	const type =
 		typeof entry.type === 'string'
@@ -91,6 +93,9 @@ function parse_server(
 			transport: 'http',
 			url: entry.url.trim(),
 			...(headers ? { headers } : {}),
+			...(metadata_trusted
+				? {}
+				: { metadata_trusted: false as const }),
 		};
 		return config;
 	}
@@ -119,6 +124,7 @@ function parse_server(
 		command: entry.command.trim(),
 		...(args ? { args } : {}),
 		...(env ? { env } : {}),
+		...(metadata_trusted ? {} : { metadata_trusted: false as const }),
 	};
 	return config;
 }
@@ -182,9 +188,20 @@ export function load_mcp_config(
 		options.include_project === false
 			? {}
 			: read_config(project_mcp_config_path(cwd));
-	const merged = { ...global_servers, ...project_servers };
+	const merged_names = new Set([
+		...Object.keys(global_servers),
+		...Object.keys(project_servers),
+	]);
 
-	return Object.entries(merged).map(([name, server]) =>
-		parse_server(name, server),
-	);
+	return Array.from(merged_names).map((name) => {
+		const project_server = project_servers[name];
+		if (project_server) {
+			return parse_server(
+				name,
+				project_server,
+				options.project_metadata_trusted !== false,
+			);
+		}
+		return parse_server(name, global_servers[name]);
+	});
 }

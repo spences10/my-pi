@@ -141,6 +141,48 @@ describe('load_mcp_config', () => {
 		]);
 	});
 
+	it('marks project MCP metadata untrusted when allowed once', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		const global_dir = join(home, '.pi', 'agent');
+		mkdirSync(global_dir, { recursive: true });
+		writeFileSync(
+			join(global_dir, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					global: { command: 'global-cmd' },
+				},
+			}),
+		);
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					project: { command: 'project-cmd' },
+				},
+			}),
+		);
+
+		expect(
+			load_mcp_config(cwd, { project_metadata_trusted: false }),
+		).toEqual([
+			{
+				name: 'global',
+				transport: 'stdio',
+				command: 'global-cmd',
+			},
+			{
+				name: 'project',
+				transport: 'stdio',
+				command: 'project-cmd',
+				metadata_trusted: false,
+			},
+		]);
+	});
+
 	it('reports project config path, hash, and server summaries', () => {
 		const home = tmp_dir();
 		const cwd = tmp_dir();

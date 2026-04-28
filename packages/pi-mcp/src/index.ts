@@ -10,6 +10,7 @@ import {
 	load_mcp_config,
 	type McpProjectConfigInfo,
 } from './config.js';
+import { create_mcp_tool_registration_metadata } from './metadata.js';
 import { format_mcp_tool_result } from './result.js';
 import {
 	is_project_mcp_config_trusted,
@@ -162,6 +163,11 @@ export function should_wait_for_mcp_connections(
 
 type ProjectMcpConfigDecision = 'allow' | 'trust' | 'skip';
 
+interface ProjectMcpConfigLoadDecision {
+	include_project: boolean;
+	metadata_trusted: boolean;
+}
+
 function normalize_project_mcp_config_decision(
 	value: string | undefined,
 ): ProjectMcpConfigDecision | undefined {
@@ -194,15 +200,16 @@ function format_project_mcp_config_prompt(
 	].join('\n');
 }
 
-async function should_load_project_mcp_config(
+async function get_project_mcp_config_load_decision(
 	cwd: string,
 	ctx?: ExtensionContext,
-): Promise<boolean> {
+): Promise<ProjectMcpConfigLoadDecision> {
+	const skipped = { include_project: false, metadata_trusted: false };
 	const info = get_project_mcp_config_info(cwd);
-	if (!info) return false;
+	if (!info) return skipped;
 
 	if (is_project_mcp_config_trusted(info.path, info.hash)) {
-		return true;
+		return { include_project: true, metadata_trusted: true };
 	}
 
 	const env_decision = normalize_project_mcp_config_decision(
@@ -210,16 +217,18 @@ async function should_load_project_mcp_config(
 	);
 	if (env_decision === 'trust') {
 		trust_project_mcp_config(info.path, info.hash);
-		return true;
+		return { include_project: true, metadata_trusted: true };
 	}
-	if (env_decision === 'allow') return true;
-	if (env_decision === 'skip') return false;
+	if (env_decision === 'allow') {
+		return { include_project: true, metadata_trusted: false };
+	}
+	if (env_decision === 'skip') return skipped;
 
 	if (!ctx?.hasUI) {
 		console.warn(
 			`Skipping untrusted project MCP config: ${info.path}. Set ${PROJECT_MCP_CONFIG_ENV}=allow to enable it for this run.`,
 		);
-		return false;
+		return skipped;
 	}
 
 	const choice = await ctx.ui.select(
@@ -233,9 +242,12 @@ async function should_load_project_mcp_config(
 
 	if (choice === 'Trust this repo until mcp.json changes') {
 		trust_project_mcp_config(info.path, info.hash);
-		return true;
+		return { include_project: true, metadata_trusted: true };
 	}
-	return choice === 'Allow once for this session';
+	if (choice === 'Allow once for this session') {
+		return { include_project: true, metadata_trusted: false };
+	}
+	return skipped;
 }
 
 // Default export for Pi Package / additionalExtensionPaths loading
@@ -255,12 +267,13 @@ export default async function mcp(pi: ExtensionAPI) {
 			return;
 		}
 		initialize_promise = (async () => {
-			const include_project = await should_load_project_mcp_config(
-				cwd,
-				ctx,
-			);
+			const project_decision =
+				await get_project_mcp_config_load_decision(cwd, ctx);
 			servers = create_server_states(
-				load_mcp_config(cwd, { include_project }),
+				load_mcp_config(cwd, {
+					include_project: project_decision.include_project,
+					project_metadata_trusted: project_decision.metadata_trusted,
+				}),
 			);
 			initialized_cwd = cwd;
 		})();
@@ -301,15 +314,19 @@ export default async function mcp(pi: ExtensionAPI) {
 					if (registered_tool_names.has(tool_name)) continue;
 					registered_tool_names.add(tool_name);
 
+					const metadata = create_mcp_tool_registration_metadata(
+						state.config,
+						mcp_tool,
+					);
+
 					pi.registerTool(
 						defineTool({
 							name: tool_name,
-							label: `${state.config.name}: ${mcp_tool.name}`,
-							description: mcp_tool.description || mcp_tool.name,
-							parameters: (mcp_tool.inputSchema || {
-								type: 'object',
-								properties: {},
-							}) as Parameters<typeof defineTool>[0]['parameters'],
+							label: metadata.label,
+							description: metadata.description,
+							parameters: metadata.parameters as Parameters<
+								typeof defineTool
+							>[0]['parameters'],
 							execute: async (_id, params) => {
 								const result = (await state.client!.callTool(
 									mcp_tool.name,
@@ -440,8 +457,12 @@ export default async function mcp(pi: ExtensionAPI) {
 					}
 					const lines: string[] = [];
 					for (const [sname, state] of servers.entries()) {
+						const trust_note =
+							state.config.metadata_trusted === false
+								? ' — untrusted metadata suppressed'
+								: '';
 						lines.push(
-							`${sname} (${format_server_status(state)}) — ${state.tool_names.length} tools${state.error ? ` — ${state.error}` : ''}`,
+							`${sname} (${format_server_status(state)}) — ${state.tool_names.length} tools${trust_note}${state.error ? ` — ${state.error}` : ''}`,
 						);
 					}
 					update_mcp_status(ctx, servers);

@@ -1,7 +1,16 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { create_child_process_env } from './env.js';
 
-export interface McpStdioServerConfig {
+interface McpServerTrustMetadata {
+	/**
+	 * False when the server came from a project mcp.json that was allowed for
+	 * this session but not trusted. Tool descriptions and schema prose from
+	 * such servers must not be exposed to the model.
+	 */
+	metadata_trusted?: false;
+}
+
+export interface McpStdioServerConfig extends McpServerTrustMetadata {
 	name: string;
 	transport: 'stdio';
 	command: string;
@@ -9,7 +18,7 @@ export interface McpStdioServerConfig {
 	env?: Record<string, string>;
 }
 
-export interface McpHttpServerConfig {
+export interface McpHttpServerConfig extends McpServerTrustMetadata {
 	name: string;
 	transport: 'http';
 	url: string;

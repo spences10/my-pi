@@ -42,9 +42,11 @@ A typical project `mcp.json` looks like:
 Global MCP config is loaded automatically. Project-local `mcp.json` is
 untrusted by default because stdio servers can spawn local commands.
 Interactive runs prompt before loading it; headless runs skip it
-unless `MY_PI_MCP_PROJECT_CONFIG=allow` is set. Use
+unless `MY_PI_MCP_PROJECT_CONFIG=allow` is set. Allow-once mode loads
+project MCP tools but suppresses rich tool descriptions and schema
+prose so untrusted server metadata cannot act as prompt injection. Use
 `MY_PI_MCP_PROJECT_CONFIG=trust` to trust and remember the current
-repo until its `mcp.json` hash changes, or
+repo until its `mcp.json` hash changes and expose full metadata, or
 `MY_PI_MCP_PROJECT_CONFIG=skip` to force-disable project MCP config.
 
 Stdio MCP servers receive a restricted child-process environment by
