@@ -146,7 +146,9 @@ describe('file-backed prompt presets', () => {
 		const preset = load_prompt_presets(cwd).terse;
 		expect(preset.name).toBe('terse');
 		expect(preset.source).not.toBe('project');
-		expect(preset.instructions).not.toBe('Use the project terse style.');
+		expect(preset.instructions).not.toBe(
+			'Use the project terse style.',
+		);
 	});
 
 	it('removes project markdown preset files', () => {

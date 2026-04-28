@@ -201,8 +201,8 @@ pnpx my-pi@latest --untrusted --telemetry --json "run eval case"
 ### Untrusted repo safe mode
 
 Use `--untrusted` in unknown repositories, evals, or sandboxes. It
-keeps built-ins available but starts with conservative project-resource
-defaults:
+keeps built-ins available but starts with conservative
+project-resource defaults:
 
 - skips project-local MCP config (`MY_PI_MCP_PROJECT_CONFIG=skip`)
 - skips Claude-style project hooks (`MY_PI_HOOKS_CONFIG=skip`)
