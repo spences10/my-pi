@@ -27,6 +27,8 @@ import { dirname, join } from 'node:path';
 export type PromptPresetKind = 'base' | 'layer';
 export type PromptPresetSource = 'builtin' | 'user' | 'project';
 
+const PROJECT_PROMPT_PRESETS_ENV = 'MY_PI_PROMPT_PRESETS_PROJECT';
+
 export interface PromptPreset {
 	kind?: PromptPresetKind;
 	description?: string;
@@ -358,6 +360,15 @@ function save_global_prompt_preset_file(
 	);
 }
 
+function should_load_project_prompt_presets(): boolean {
+	const normalized = process.env[PROJECT_PROMPT_PRESETS_ENV]
+		?.trim()
+		.toLowerCase();
+	return !['0', 'false', 'no', 'skip', 'disable'].includes(
+		normalized ?? '',
+	);
+}
+
 export function load_prompt_presets(
 	cwd: string,
 ): Record<string, LoadedPromptPreset> {
@@ -372,14 +383,18 @@ export function load_prompt_presets(
 			read_prompt_presets_dir(get_global_presets_dir()),
 			'user',
 		),
-		to_loaded_prompt_presets(
-			read_prompt_presets_file(get_project_presets_path(cwd)),
-			'project',
-		),
-		to_loaded_prompt_presets(
-			read_prompt_presets_dir(get_project_presets_dir(cwd)),
-			'project',
-		),
+		...(should_load_project_prompt_presets()
+			? [
+					to_loaded_prompt_presets(
+						read_prompt_presets_file(get_project_presets_path(cwd)),
+						'project',
+					),
+					to_loaded_prompt_presets(
+						read_prompt_presets_dir(get_project_presets_dir(cwd)),
+						'project',
+					),
+				]
+			: []),
 	);
 }
 

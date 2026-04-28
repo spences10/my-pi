@@ -25,7 +25,7 @@ import skills_extension, {
 } from '@spences10/pi-skills';
 import sqlite_tools_extension from '@spences10/pi-sqlite-tools';
 import { create_telemetry_extension } from '@spences10/pi-telemetry';
-import { dirname, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import hooks_resolution_extension from './extensions/hooks-resolution/index.js';
 import {
@@ -63,6 +63,7 @@ export interface CreateMyPiOptions {
 	model?: string;
 	system_prompt?: string;
 	append_system_prompt?: string;
+	untrusted_repo?: boolean;
 }
 
 const BUILTIN_EXTENSION_FACTORIES: Record<
@@ -86,6 +87,62 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_THEME_DIR = resolve(MODULE_DIR, '..', 'themes');
 const PI_AGENT_DIR_ENV = 'PI_CODING_AGENT_DIR';
+
+const UNTRUSTED_REPO_ENV_DEFAULTS: Record<string, string> = {
+	MY_PI_MCP_PROJECT_CONFIG: 'skip',
+	MY_PI_HOOKS_CONFIG: 'skip',
+	MY_PI_LSP_PROJECT_BINARY: 'global',
+	MY_PI_PROMPT_PRESETS_PROJECT: 'skip',
+	MY_PI_PROJECT_SKILLS: 'skip',
+	MY_PI_CHILD_ENV_ALLOWLIST: '',
+	MY_PI_MCP_ENV_ALLOWLIST: '',
+	MY_PI_HOOKS_ENV_ALLOWLIST: '',
+};
+
+export function apply_untrusted_repo_defaults(
+	env: NodeJS.ProcessEnv = process.env,
+): string[] {
+	const applied: string[] = [];
+	for (const [key, value] of Object.entries(
+		UNTRUSTED_REPO_ENV_DEFAULTS,
+	)) {
+		if (env[key] !== undefined) continue;
+		env[key] = value;
+		applied.push(key);
+	}
+	return applied;
+}
+
+function is_resource_enabled(value: string | undefined): boolean {
+	const normalized = value?.trim().toLowerCase();
+	if (!normalized) return true;
+	if (['0', 'false', 'no', 'skip', 'disable'].includes(normalized)) {
+		return false;
+	}
+	return true;
+}
+
+export function is_project_local_skill_path(
+	cwd: string,
+	file_path: string | undefined,
+): boolean {
+	if (!file_path) return false;
+	const absolute = resolve(cwd, file_path);
+	const relative_path = relative(cwd, absolute);
+	if (
+		!relative_path ||
+		relative_path.startsWith('..') ||
+		isAbsolute(relative_path)
+	) {
+		return false;
+	}
+	const parts = relative_path.split(/[\\/]+/);
+	return parts.some(
+		(part, index) =>
+			(part === '.pi' || part === '.claude') &&
+			parts[index + 1] === 'skills',
+	);
+}
 
 function resolve_agent_dir(cwd: string, agent_dir?: string): string {
 	return agent_dir ? resolve(cwd, agent_dir) : getAgentDir();
@@ -203,7 +260,12 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		model,
 		system_prompt,
 		append_system_prompt,
+		untrusted_repo = false,
 	} = options;
+
+	if (untrusted_repo) {
+		apply_untrusted_repo_defaults();
+	}
 
 	const effective_agent_dir = resolve_agent_dir(cwd, agent_dir);
 	if (agent_dir) {
@@ -308,15 +370,27 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 						return base;
 					}
 
+					const include_project_skills = is_resource_enabled(
+						process.env.MY_PI_PROJECT_SKILLS,
+					);
 					const skills_manager = create_skills_manager();
 					return {
 						...base,
-						skills: base.skills.filter((skill: any) =>
-							skills_manager.is_enabled_by_skill(
+						skills: base.skills.filter((skill: any) => {
+							if (
+								!include_project_skills &&
+								is_project_local_skill_path(
+									runtime_cwd,
+									skill.filePath,
+								)
+							) {
+								return false;
+							}
+							return skills_manager.is_enabled_by_skill(
 								skill.name,
 								skill.filePath,
-							),
-						),
+							);
+						}),
 					};
 				},
 			} as any,

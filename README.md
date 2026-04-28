@@ -195,8 +195,28 @@ A practical sandbox command looks like:
 ```bash
 PI_CODING_AGENT_DIR=/work/pi-agent \
 ANTHROPIC_API_KEY=... \
-pnpx my-pi@latest --telemetry --json "run eval case"
+pnpx my-pi@latest --untrusted --telemetry --json "run eval case"
 ```
+
+### Untrusted repo safe mode
+
+Use `--untrusted` in unknown repositories, evals, or sandboxes. It
+keeps built-ins available but starts with conservative project-resource
+defaults:
+
+- skips project-local MCP config (`MY_PI_MCP_PROJECT_CONFIG=skip`)
+- skips Claude-style project hooks (`MY_PI_HOOKS_CONFIG=skip`)
+- uses global LSP binaries instead of project-local binaries
+  (`MY_PI_LSP_PROJECT_BINARY=global`)
+- skips project prompt presets (`MY_PI_PROMPT_PRESETS_PROJECT=skip`)
+- skips project-local `.pi/skills` and `.claude/skills`
+  (`MY_PI_PROJECT_SKILLS=skip`)
+- clears optional child-process env allowlists unless they were set
+  explicitly
+
+Set the listed environment variables to `allow` or `trust` where
+supported to re-enable one feature intentionally while staying in safe
+mode.
 
 ### Extension stacking
 

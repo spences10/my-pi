@@ -73,7 +73,7 @@ NESTED RUNS
 
   - Child runs inherit cwd and environment unless you isolate them explicitly.
   - Use --agent-dir to isolate auth, config, sessions, and telemetry state.
-  - For safer evals, consider --no-mcp and --no-hooks plus an explicit
+  - For safer evals or unknown repos, use --untrusted plus an explicit
     --system-prompt.
 
 EXAMPLES
@@ -85,7 +85,7 @@ EXAMPLES
   echo "plan a login page" | my-pi --json
   my-pi --telemetry --json "run eval case"
   my-pi --telemetry --telemetry-db ./tmp/evals.db --json "run case"
-  my-pi --agent-dir /tmp/pi-agent --json "run case"
+  my-pi --untrusted --agent-dir /tmp/pi-agent --json "run case"
   my-pi -e ./my-ext.ts -e ./other-ext.ts "hello"
   my-pi -m claude-haiku-4-5-20241022 "explain this file"
   my-pi --preset terse,no-purple-prose "summarize this repo"
@@ -147,6 +147,12 @@ const main = defineCommand({
 		'no-builtin': {
 			type: 'boolean',
 			description: 'Disable all built-in extensions',
+			default: false,
+		},
+		untrusted: {
+			type: 'boolean',
+			description:
+				'Safe mode for unknown repos: skip project MCP, hooks, project prompt presets, project skills, and project LSP binaries unless explicitly re-enabled',
 			default: false,
 		},
 		'no-mcp': {
@@ -339,6 +345,7 @@ const main = defineCommand({
 			model: args.model,
 			system_prompt: args['system-prompt'],
 			append_system_prompt: args['append-system-prompt'],
+			untrusted_repo: args.untrusted,
 		});
 
 		if (args.print || args.json || prompt) {

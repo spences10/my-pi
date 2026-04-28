@@ -80,9 +80,17 @@ describe('merge_prompt_presets', () => {
 
 describe('file-backed prompt presets', () => {
 	const dirs: string[] = [];
+	const original_project_presets =
+		process.env.MY_PI_PROMPT_PRESETS_PROJECT;
 	afterEach(() => {
 		for (const dir of dirs.splice(0)) {
 			rmSync(dir, { recursive: true, force: true });
+		}
+		if (original_project_presets === undefined) {
+			delete process.env.MY_PI_PROMPT_PRESETS_PROJECT;
+		} else {
+			process.env.MY_PI_PROMPT_PRESETS_PROJECT =
+				original_project_presets;
 		}
 	});
 
@@ -122,6 +130,23 @@ describe('file-backed prompt presets', () => {
 			description: 'Project terse',
 			instructions: 'Use the project terse style.',
 		});
+	});
+
+	it('can skip project prompt presets for untrusted repo mode', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-file-presets-'));
+		dirs.push(cwd);
+		process.env.MY_PI_PROMPT_PRESETS_PROJECT = 'skip';
+
+		save_prompt_preset_file(join(cwd, '.pi', 'presets'), 'terse', {
+			kind: 'base',
+			description: 'Project terse',
+			instructions: 'Use the project terse style.',
+		});
+
+		const preset = load_prompt_presets(cwd).terse;
+		expect(preset.name).toBe('terse');
+		expect(preset.source).not.toBe('project');
+		expect(preset.instructions).not.toBe('Use the project terse style.');
 	});
 
 	it('removes project markdown preset files', () => {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { get_force_disabled_builtins } from './api.js';
+import {
+	apply_untrusted_repo_defaults,
+	get_force_disabled_builtins,
+	is_project_local_skill_path,
+} from './api.js';
 
 describe('get_force_disabled_builtins', () => {
 	const enabled = {
@@ -53,5 +57,62 @@ describe('get_force_disabled_builtins', () => {
 		expect(disabled.has('nopeek')).toBe(false);
 		expect(disabled.has('omnisearch')).toBe(false);
 		expect(disabled.has('sqlite-tools')).toBe(false);
+	});
+});
+
+describe('apply_untrusted_repo_defaults', () => {
+	it('sets conservative project-resource defaults without overriding explicit enables', () => {
+		const env: NodeJS.ProcessEnv = {
+			MY_PI_MCP_PROJECT_CONFIG: 'allow',
+		};
+
+		expect(apply_untrusted_repo_defaults(env)).toEqual([
+			'MY_PI_HOOKS_CONFIG',
+			'MY_PI_LSP_PROJECT_BINARY',
+			'MY_PI_PROMPT_PRESETS_PROJECT',
+			'MY_PI_PROJECT_SKILLS',
+			'MY_PI_CHILD_ENV_ALLOWLIST',
+			'MY_PI_MCP_ENV_ALLOWLIST',
+			'MY_PI_HOOKS_ENV_ALLOWLIST',
+		]);
+		expect(env).toMatchObject({
+			MY_PI_MCP_PROJECT_CONFIG: 'allow',
+			MY_PI_HOOKS_CONFIG: 'skip',
+			MY_PI_LSP_PROJECT_BINARY: 'global',
+			MY_PI_PROMPT_PRESETS_PROJECT: 'skip',
+			MY_PI_PROJECT_SKILLS: 'skip',
+			MY_PI_CHILD_ENV_ALLOWLIST: '',
+			MY_PI_MCP_ENV_ALLOWLIST: '',
+			MY_PI_HOOKS_ENV_ALLOWLIST: '',
+		});
+	});
+});
+
+describe('is_project_local_skill_path', () => {
+	it('detects project-local .pi and .claude skills only', () => {
+		expect(
+			is_project_local_skill_path(
+				'/repo',
+				'/repo/.pi/skills/local/SKILL.md',
+			),
+		).toBe(true);
+		expect(
+			is_project_local_skill_path(
+				'/repo',
+				'/repo/.claude/skills/local/SKILL.md',
+			),
+		).toBe(true);
+		expect(
+			is_project_local_skill_path(
+				'/repo',
+				'/home/scott/.pi/agent/skills/global/SKILL.md',
+			),
+		).toBe(false);
+		expect(
+			is_project_local_skill_path(
+				'/repo',
+				'/repo/packages/pi-skills/src/SKILL.md',
+			),
+		).toBe(false);
 	});
 });
