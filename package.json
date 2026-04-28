@@ -78,6 +78,14 @@
 		"node": ">=22.0.0"
 	},
 	"packageManager": "pnpm@10.33.2",
+	"pnpm": {
+		"overrides": {
+			"basic-ftp": "5.3.1",
+			"fast-xml-parser": "5.7.2",
+			"postcss": "8.5.12",
+			"protobufjs": "7.5.5"
+		}
+	},
 	"pi": {
 		"themes": [
 			"./themes"
