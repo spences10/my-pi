@@ -106,6 +106,35 @@ describe('assess_bash_command', () => {
 		);
 	});
 
+	it('allows deleting files created during the current session', () => {
+		const cwd = create_git_repo();
+		writeFileSync(join(cwd, 'draft.md'), 'temporary');
+
+		expect(
+			assess_bash_command(
+				'rm draft.md',
+				cwd,
+				new Set([join(cwd, 'draft.md')]),
+			),
+		).toBeUndefined();
+	});
+
+	it('allows deleting my-pi temp workspaces', () => {
+		const path = join(tmpdir(), 'my-pi-audit-check');
+
+		expect(
+			assess_bash_command(`rm -rf ${path}`, process.cwd()),
+		).toBeUndefined();
+	});
+
+	it('still detects deleting arbitrary temp directories', () => {
+		const path = join(tmpdir(), 'customer-export');
+
+		expect(
+			assess_bash_command(`rm -rf ${path}`, process.cwd())?.reason,
+		).toBe('Deletes files outside git recovery');
+	});
+
 	it('detects deleting tracked files with uncommitted changes', () => {
 		const cwd = create_git_repo();
 		writeFileSync(join(cwd, 'tracked.md'), 'changed');
@@ -408,6 +437,47 @@ describe('confirm-destructive extension', () => {
 				toolCallId: 'tool-1',
 				toolName: 'bash',
 				input: { command: 'pnpm test' },
+			},
+			ctx,
+		);
+
+		expect(select).not.toHaveBeenCalled();
+		expect(result).toBeUndefined();
+	});
+
+	it('does not prompt when deleting a file created by the agent', async () => {
+		const cwd = tmp_dir();
+		const { pi, events } = create_test_pi();
+		await confirm_destructive(pi);
+
+		const tool_call = events.get('tool_call');
+		const tool_result = events.get('tool_result');
+		const { ctx, select } = create_context({ cwd });
+
+		await tool_call(
+			{
+				type: 'tool_call',
+				toolCallId: 'write-1',
+				toolName: 'write',
+				input: { path: 'draft.md', content: 'temporary' },
+			},
+			ctx,
+		);
+		writeFileSync(join(cwd, 'draft.md'), 'temporary');
+		await tool_result({
+			type: 'tool_result',
+			toolCallId: 'write-1',
+			toolName: 'write',
+			isError: false,
+			result: undefined,
+		});
+
+		const result = await tool_call(
+			{
+				type: 'tool_call',
+				toolCallId: 'bash-1',
+				toolName: 'bash',
+				input: { command: 'rm draft.md' },
 			},
 			ctx,
 		);

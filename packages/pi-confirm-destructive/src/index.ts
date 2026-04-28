@@ -11,7 +11,8 @@ import type {
 } from '@mariozechner/pi-coding-agent';
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 export interface DestructiveAction {
 	title: string;
@@ -134,6 +135,21 @@ function is_git_recoverable(cwd: string, path: string): boolean {
 	return get_git_recoverability(cwd, path) === 'tracked-clean';
 }
 
+function is_path_within(parent: string, child: string): boolean {
+	const rel = relative(parent, child);
+	return Boolean(rel) && !rel.startsWith('..') && !isAbsolute(rel);
+}
+
+function is_agent_temp_path(path: string): boolean {
+	const temp_root = resolve(tmpdir());
+	const absolute = resolve(path);
+	if (!is_path_within(temp_root, absolute)) return false;
+	const first_segment = relative(temp_root, absolute).split(
+		/[\\/]+/,
+	)[0];
+	return /^my-pi-(audit|sandbox|temp|tmp|work)-/.test(first_segment);
+}
+
 function parse_shell_words(command: string): string[] {
 	const words: string[] = [];
 	const pattern = /"((?:\\.|[^"])*)"|'([^']*)'|(\S+)/g;
@@ -187,6 +203,7 @@ function describe_path_risk(cwd: string, paths: string[]): string {
 function assess_rm_command(
 	command: string,
 	cwd: string,
+	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
 	if (
 		!/(^|[;&|]\s*)(sudo\s+)?(rm|rmdir|unlink|shred)\b/.test(command)
@@ -195,12 +212,21 @@ function assess_rm_command(
 	}
 
 	const paths = extract_command_paths(command, 'rm');
-	if (
-		paths &&
-		paths.length > 0 &&
-		paths.every((path) => is_git_recoverable(cwd, path))
-	) {
-		return undefined;
+	if (paths && paths.length > 0) {
+		if (
+			paths.every((path) => {
+				const absolute = resolve(cwd, path);
+				return (
+					session_created_paths.has(absolute) ||
+					is_agent_temp_path(absolute)
+				);
+			})
+		) {
+			return undefined;
+		}
+		if (paths.every((path) => is_git_recoverable(cwd, path))) {
+			return undefined;
+		}
 	}
 
 	const reason = paths?.length
@@ -268,12 +294,13 @@ function assess_git_reset_hard(
 export function assess_bash_command(
 	command: string,
 	cwd = process.cwd(),
+	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
 	const normalized = command.trim();
 	if (!normalized) return undefined;
 
 	const specific =
-		assess_rm_command(normalized, cwd) ??
+		assess_rm_command(normalized, cwd, session_created_paths) ??
 		assess_git_rm_command(normalized, cwd) ??
 		assess_git_reset_hard(normalized, cwd);
 	if (specific) return specific;
@@ -382,7 +409,7 @@ export function assess_tool_call(
 	if (event.toolName === 'bash') {
 		const command = (event.input as { command?: unknown }).command;
 		return typeof command === 'string'
-			? assess_bash_command(command, cwd)
+			? assess_bash_command(command, cwd, session_created_paths)
 			: undefined;
 	}
 	if (event.toolName === 'write') {
@@ -506,7 +533,11 @@ export default async function confirm_destructive(pi: ExtensionAPI) {
 			event: UserBashEvent,
 			ctx,
 		): Promise<UserBashEventResult | void> => {
-			const action = assess_bash_command(event.command, event.cwd);
+			const action = assess_bash_command(
+				event.command,
+				event.cwd,
+				session_created_files,
+			);
 			if (!action) return;
 
 			if (await should_allow(action, ctx)) return;
