@@ -1,4 +1,12 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
-	"extends": ["config:recommended"]
+	"extends": ["config:recommended"],
+	"packageRules": [
+		{
+			"description": "Do not open PRs for temporary security pins in pnpm.overrides",
+			"matchManagers": ["npm"],
+			"matchDepTypes": ["pnpm.overrides"],
+			"enabled": false
+		}
+	]
 }
