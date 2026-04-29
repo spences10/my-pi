@@ -51,8 +51,16 @@ priority order):
 1. **`pi auth`** — interactive login, stores credentials in
    `~/.pi/agent/auth.json`
 2. **Environment variables** — `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`,
-   etc.
+   `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, etc.
 3. **OAuth** — supported for providers that offer it
+
+Cloudflare Workers AI model IDs contain slashes. Pass the provider and
+model together when needed:
+
+```bash
+CLOUDFLARE_API_KEY=... CLOUDFLARE_ACCOUNT_ID=... \
+  pnpx my-pi@latest -m cloudflare-workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast "summarize this repo"
+```
 
 ## Usage
 
@@ -198,6 +206,10 @@ A practical sandbox command looks like:
 PI_CODING_AGENT_DIR=/work/pi-agent \
 ANTHROPIC_API_KEY=... \
 pnpx my-pi@latest --untrusted --telemetry --json "run eval case"
+
+# Cloudflare Workers AI needs both values:
+CLOUDFLARE_API_KEY=... CLOUDFLARE_ACCOUNT_ID=... \
+pnpx my-pi@latest -m cloudflare-workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast --json "run eval case"
 ```
 
 ### Untrusted repo safe mode

@@ -88,6 +88,7 @@ EXAMPLES
   my-pi --untrusted --agent-dir /tmp/pi-agent --json "run case"
   my-pi -e ./my-ext.ts -e ./other-ext.ts "hello"
   my-pi -m claude-haiku-4-5-20241022 "explain this file"
+  my-pi -m cloudflare-workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast "explain this file"
   my-pi --preset terse,no-purple-prose "summarize this repo"
   my-pi --system-prompt "You are a JSON classifier. Return only JSON." --json "classify this"
 
@@ -235,7 +236,7 @@ const main = defineCommand({
 			type: 'string',
 			alias: 'm',
 			description:
-				'Model to use (e.g. claude-sonnet-4-5-20241022, gpt-5.4)',
+				'Model to use (e.g. claude-sonnet-4-5-20241022, gpt-5.4, cloudflare-workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast)',
 		},
 		'system-prompt': {
 			type: 'string',
@@ -269,17 +270,6 @@ const main = defineCommand({
 		}
 		if (!prompt && !process.stdin.isTTY) {
 			prompt = await read_stdin();
-		}
-
-		// Model validation (issue #5)
-		if (args.model && /[/\\]/.test(args.model)) {
-			console.error(
-				`Error: Invalid model "${args.model}". Use bare model names without provider prefixes.`,
-			);
-			console.error(
-				`  Examples: claude-sonnet-4-5-20241022, gpt-5.4, mistral-large`,
-			);
-			process.exit(1);
 		}
 
 		if (
