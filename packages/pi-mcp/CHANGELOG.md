@@ -1,5 +1,16 @@
 # @spences10/pi-mcp
 
+## 0.0.6
+
+### Patch Changes
+
+- 627f483: Standardize package READMEs with npm badges, Vite+/Vitest
+  messaging, installation, and development docs.
+- 6a85bee: Add shared child-process environment helper and prevent
+  team-mode teammates inheriting full parent env secrets.
+- Updated dependencies [6a85bee]
+  - @spences10/pi-child-env@0.1.0
+
 ## 0.0.5
 
 ### Patch Changes

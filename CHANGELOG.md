@@ -1,5 +1,26 @@
 # my-pi
 
+## 0.1.18
+
+### Patch Changes
+
+- 6a85bee: Add shared child-process environment helper and prevent
+  team-mode teammates inheriting full parent env secrets.
+- Updated dependencies [627f483]
+- Updated dependencies [6a85bee]
+  - @spences10/pi-confirm-destructive@0.0.5
+  - @spences10/pi-sqlite-tools@0.0.3
+  - @spences10/pi-omnisearch@0.0.3
+  - @spences10/pi-team-mode@0.0.2
+  - @spences10/pi-telemetry@0.0.3
+  - @spences10/pi-nopeek@0.0.3
+  - @spences10/pi-recall@0.0.3
+  - @spences10/pi-redact@0.0.3
+  - @spences10/pi-skills@0.0.4
+  - @spences10/pi-lsp@0.0.5
+  - @spences10/pi-mcp@0.0.6
+  - @spences10/pi-child-env@0.1.0
+
 ## 0.1.17
 
 ### Patch Changes

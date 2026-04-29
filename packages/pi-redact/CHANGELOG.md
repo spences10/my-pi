@@ -1,5 +1,12 @@
 # @spences10/pi-redact
 
+## 0.0.3
+
+### Patch Changes
+
+- 627f483: Standardize package READMEs with npm badges, Vite+/Vitest
+  messaging, installation, and development docs.
+
 ## 0.0.2
 
 ### Patch Changes

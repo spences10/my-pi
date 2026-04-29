@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-sqlite-tools",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Pi extension that reminds the model to prefer mcp-sqlite-tools for SQLite database work",
 	"keywords": [
 		"database",
