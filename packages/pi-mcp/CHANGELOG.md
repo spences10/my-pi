@@ -1,5 +1,12 @@
 # @spences10/pi-mcp
 
+## 0.0.5
+
+### Patch Changes
+
+- 30aad75: Add packaged team mode with RPC teammates, mailboxes,
+  background orchestration, locking, and stale process detection.
+
 ## 0.0.4
 
 ### Patch Changes
