@@ -1,12 +1,15 @@
 # @spences10/pi-sqlite-tools
 
-Pi extension that reminds the model to prefer `mcp-sqlite-tools` for
-SQLite database work instead of raw `sqlite3` shell commands.
+[![npm version](https://img.shields.io/npm/v/@spences10/pi-sqlite-tools?color=CB3837&logo=npm)](https://www.npmjs.com/package/@spences10/pi-sqlite-tools)
+[![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
+[![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 
-This package does **not** start the MCP server and does **not**
-duplicate its tools. `mcp-sqlite-tools` remains the source of truth;
-this extension only injects workflow guidance when SQLite MCP tools
-are available.
+Pi extension that reminds the model to prefer `mcp-sqlite-tools` for
+SQLite database work instead of raw `sqlite3` shell commands. It does
+not start or duplicate the MCP server; it only injects workflow
+guidance when SQLite MCP tools are available.
+
+Maintained in the `my-pi` Vite+ workspace and tested with Vitest.
 
 ## Installation
 

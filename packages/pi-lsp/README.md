@@ -1,12 +1,15 @@
 # @spences10/pi-lsp
 
-[![built with vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
-[![tested with vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
+[![npm version](https://img.shields.io/npm/v/@spences10/pi-lsp?color=CB3837&logo=npm)](https://www.npmjs.com/package/@spences10/pi-lsp)
+[![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
+[![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 
-Pi extension that exposes Language Server Protocol diagnostics and
-symbol tools to the model.
+Pi extension that exposes Language Server Protocol diagnostics, hover,
+definitions, references, and document symbols to the model.
 
-## Install
+Maintained in the `my-pi` Vite+ workspace and tested with Vitest.
+
+## Installation
 
 ```bash
 pi install npm:@spences10/pi-lsp

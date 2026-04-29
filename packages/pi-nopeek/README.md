@@ -1,17 +1,15 @@
 # @spences10/pi-nopeek
 
-[![built with vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
-[![tested with vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
+[![npm version](https://img.shields.io/npm/v/@spences10/pi-nopeek?color=CB3837&logo=npm)](https://www.npmjs.com/package/@spences10/pi-nopeek)
+[![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
+[![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 
 Pi extension that reminds the model to use `nopeek` for secret-safe
 environment loading.
 
-This package intentionally does **not** duplicate `nopeek` as custom
-Pi tools. `nopeek` remains the source of truth; this extension only
-injects a system reminder so the model chooses the CLI instead of
-reading secret files into context.
+Maintained in the `my-pi` Vite+ workspace and tested with Vitest.
 
-## Install
+## Installation
 
 ```bash
 pi install npm:@spences10/pi-nopeek

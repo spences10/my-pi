@@ -29,6 +29,7 @@
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.build.json",
+		"check": "tsc --noEmit -p tsconfig.json",
 		"test": "vitest run"
 	},
 	"dependencies": {
