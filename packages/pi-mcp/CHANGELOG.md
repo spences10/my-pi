@@ -1,5 +1,12 @@
 # @spences10/pi-mcp
 
+## 0.0.4
+
+### Patch Changes
+
+- 5c37302: Align workspace Pi dependencies and group Renovate updates
+  to prevent duplicate extension API types.
+
 ## 0.0.3
 
 ### Patch Changes

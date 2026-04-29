@@ -1,5 +1,25 @@
 # my-pi
 
+## 0.1.15
+
+### Patch Changes
+
+- Allow slash-containing provider/model references such as Cloudflare
+  Workers AI model IDs in `--model`.
+- 5c37302: Align workspace Pi dependencies and group Renovate updates
+  to prevent duplicate extension API types.
+- Updated dependencies [5c37302]
+  - @spences10/pi-confirm-destructive@0.0.4
+  - @spences10/pi-sqlite-tools@0.0.2
+  - @spences10/pi-omnisearch@0.0.2
+  - @spences10/pi-telemetry@0.0.2
+  - @spences10/pi-nopeek@0.0.2
+  - @spences10/pi-recall@0.0.2
+  - @spences10/pi-redact@0.0.2
+  - @spences10/pi-skills@0.0.3
+  - @spences10/pi-lsp@0.0.4
+  - @spences10/pi-mcp@0.0.4
+
 ## 0.1.14
 
 ### Patch Changes
