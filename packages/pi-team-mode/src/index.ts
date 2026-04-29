@@ -1,6 +1,7 @@
 import { StringEnum } from '@mariozechner/pi-ai';
 import {
 	getAgentDir,
+	type BeforeAgentStartEvent,
 	type ExtensionAPI,
 	type ExtensionCommandContext,
 	type ExtensionContext,
@@ -107,6 +108,46 @@ function get_latest_team_for_cwd(
 	cwd: string,
 ): TeamConfig | undefined {
 	return store.list_teams().find((team) => team.cwd === cwd);
+}
+
+export function should_inject_team_prompt(
+	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
+): boolean {
+	const selected_tools = event.systemPromptOptions?.selectedTools;
+	return !selected_tools || selected_tools.includes('team');
+}
+
+function append_team_system_prompt(
+	base_prompt: string,
+	options: {
+		activeTeamId?: string;
+		ownMember: string;
+		ownRole: string;
+	},
+): string {
+	const role_text =
+		options.ownRole === 'teammate' ? 'teammate' : 'team lead';
+	const active_context = options.activeTeamId
+		? `You are ${role_text} \`${options.ownMember}\` in team \`${options.activeTeamId}\`.`
+		: 'No team is active yet. Create one with the `team` tool when the user asks for parallel/background teammate work.';
+
+	return (
+		base_prompt +
+		`
+
+## Experimental Team Mode
+
+${active_context}
+Use the \`team\` tool as the source of truth for team coordination.
+
+Rules:
+- The team lead should create tasks, spawn members, message teammates, and inspect status through the \`team\` tool.
+- Teammates should read messages, claim exactly one ready task, work it, update the task with status/result, then go idle.
+- Do not create nested teams from a teammate session.
+- Use urgent steer/follow-up messaging for coordination instead of assuming shared context.
+- Use real RPC teammates via member_spawn for background work; use fake_teammate_step only for local tests/evals.
+- Prefer separate git worktrees or read-only/research tasks for teammates that may touch files.`
+	);
 }
 
 function require_arg(
@@ -518,25 +559,13 @@ export default async function team_mode(pi: ExtensionAPI) {
 	});
 
 	pi.on('before_agent_start', async (event) => {
-		if (!active_team_id) return {};
-		const role_text =
-			own_role === 'teammate' ? 'teammate' : 'team lead';
+		if (!should_inject_team_prompt(event)) return {};
 		return {
-			systemPrompt:
-				event.systemPrompt +
-				`
-
-## Experimental Team Mode
-
-You are ${role_text} \`${own_member}\` in team \`${active_team_id}\`.
-Use the \`team\` tool as the source of truth for team coordination.
-
-Rules:
-- The team lead should create tasks, spawn members, message teammates, and inspect status through the \`team\` tool.
-- Teammates should read messages, claim exactly one ready task, work it, update the task with status/result, then go idle.
-- Do not create nested teams from a teammate session.
-- Use urgent steer/follow-up messaging for coordination instead of assuming shared context.
-- This extension is experimental; if real teammate spawning is unavailable, use fake_teammate_step only for local tests/evals.`,
+			systemPrompt: append_team_system_prompt(event.systemPrompt, {
+				activeTeamId: active_team_id,
+				ownMember: own_member,
+				ownRole: own_role,
+			}),
 		};
 	});
 
