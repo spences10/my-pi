@@ -43,6 +43,11 @@ Team state is stored under:
 
 Set `MY_PI_TEAM_MODE_ROOT` to use a different storage directory.
 
+Team mode shows a compact footer status by default. Use `/team ui off`
+to hide it for the current session, `/team ui full` to show the
+below-editor widget, or set `MY_PI_TEAM_UI=off|compact|auto|full`. Use
+`/team clear` to detach the current session from the active team UI.
+
 RPC teammate processes receive a minimal child-process environment by
 default, not the full parent `process.env`. Use
 `MY_PI_TEAM_MODE_ENV_ALLOWLIST=NAME,OTHER_NAME` or the shared

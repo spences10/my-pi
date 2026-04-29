@@ -3,9 +3,9 @@
 Shared safe environment builder for Pi child processes.
 
 By default it passes only a minimal non-secret baseline (`PATH`,
-locale, terminal, temp, home/user, color, and `LC_*` vars). Secrets
-and provider credentials are not inherited unless explicitly
-allowlisted.
+`PI_CODING_AGENT_DIR`, locale, terminal, temp, home/user, color, and
+`LC_*` vars). Secrets and provider credentials are not inherited
+unless explicitly allowlisted.
 
 ## Usage
 

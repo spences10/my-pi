@@ -17,6 +17,7 @@ const BASE_CHILD_ENV_KEYS = new Set([
 	'LOGNAME',
 	'NO_COLOR',
 	'PATH',
+	'PI_CODING_AGENT_DIR',
 	'SHELL',
 	'TEMP',
 	'TERM',

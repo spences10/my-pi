@@ -1,5 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import { should_inject_team_prompt } from './index.js';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+	get_team_ui_mode,
+	should_inject_team_prompt,
+} from './index.js';
+
+const original_team_ui = process.env.MY_PI_TEAM_UI;
+
+afterEach(() => {
+	if (original_team_ui === undefined)
+		delete process.env.MY_PI_TEAM_UI;
+	else process.env.MY_PI_TEAM_UI = original_team_ui;
+});
 
 describe('team prompt shim', () => {
 	it('injects when selected tools are unavailable', () => {
@@ -22,5 +33,21 @@ describe('team prompt shim', () => {
 				systemPromptOptions: { selectedTools: ['bash'] } as any,
 			}),
 		).toBe(false);
+	});
+});
+
+describe('team UI mode', () => {
+	it('defaults to compact footer-only UI', () => {
+		delete process.env.MY_PI_TEAM_UI;
+
+		expect(get_team_ui_mode()).toBe('compact');
+	});
+
+	it('supports hiding and full widget aliases', () => {
+		process.env.MY_PI_TEAM_UI = 'off';
+		expect(get_team_ui_mode()).toBe('off');
+
+		process.env.MY_PI_TEAM_UI = 'widget';
+		expect(get_team_ui_mode()).toBe('full');
 	});
 });

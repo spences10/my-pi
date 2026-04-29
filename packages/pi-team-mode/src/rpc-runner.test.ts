@@ -13,6 +13,7 @@ describe('create_rpc_teammate_env', () => {
 			{
 				PATH: '/bin',
 				HOME: '/home/test',
+				PI_CODING_AGENT_DIR: '/tmp/pi-agent',
 				ANTHROPIC_API_KEY: 'secret',
 				DATABASE_URL: 'postgres://secret',
 			},
@@ -21,6 +22,7 @@ describe('create_rpc_teammate_env', () => {
 		expect(env).toMatchObject({
 			PATH: '/bin',
 			HOME: '/home/test',
+			PI_CODING_AGENT_DIR: '/tmp/pi-agent',
 			MY_PI_TEAM_MODE_ROOT: '/tmp/team-root',
 			MY_PI_ACTIVE_TEAM_ID: 'team-1',
 			MY_PI_TEAM_MEMBER: 'alice',

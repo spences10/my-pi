@@ -94,4 +94,29 @@ describe('TeamStore', () => {
 			store.list_messages(team.id, 'alice')[0].readAt,
 		).toBeTruthy();
 	});
+
+	it('blocks in-progress tasks when a teammate process is stale', () => {
+		const team = store.create_team({ cwd: '/repo' });
+		store.upsert_member(team.id, {
+			name: 'alice',
+			status: 'running',
+			pid: 999999999,
+		});
+		const task = store.create_task(team.id, {
+			title: 'Review',
+			assignee: 'alice',
+		});
+
+		store.refresh_member_process_statuses(team.id);
+
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({ status: 'offline' });
+		expect(store.load_task(team.id, task.id)).toMatchObject({
+			status: 'blocked',
+			result: 'Blocked because teammate alice went offline.',
+		});
+	});
 });

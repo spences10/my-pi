@@ -384,6 +384,18 @@ export class TeamStore {
 						name: member.name,
 						status: 'offline',
 					});
+					for (const task of this.list_tasks(team_id)) {
+						if (
+							task.status !== 'in_progress' ||
+							task.assignee !== member.name
+						) {
+							continue;
+						}
+						this.update_task_unlocked(team_id, task.id, {
+							status: 'blocked',
+							result: `Blocked because teammate ${member.name} went offline.`,
+						});
+					}
 				}
 			}
 			return this.list_members(team_id);

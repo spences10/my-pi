@@ -9,6 +9,7 @@ describe('create_child_process_env', () => {
 				HOME: '/home/test',
 				LANG: 'en_GB.UTF-8',
 				LC_ALL: 'en_GB.UTF-8',
+				PI_CODING_AGENT_DIR: '/tmp/pi-agent',
 				ANTHROPIC_API_KEY: 'secret',
 				OPENAI_API_KEY: 'secret',
 				AWS_SECRET_ACCESS_KEY: 'secret',
@@ -21,6 +22,7 @@ describe('create_child_process_env', () => {
 			HOME: '/home/test',
 			LANG: 'en_GB.UTF-8',
 			LC_ALL: 'en_GB.UTF-8',
+			PI_CODING_AGENT_DIR: '/tmp/pi-agent',
 		});
 		expect(env.ANTHROPIC_API_KEY).toBeUndefined();
 		expect(env.OPENAI_API_KEY).toBeUndefined();

@@ -25,11 +25,16 @@ const TEAM_MEMBER_ENV = 'MY_PI_TEAM_MEMBER';
 const TEAM_ROLE_ENV = 'MY_PI_TEAM_ROLE';
 const EXTENSION_PATH_ENV = 'MY_PI_TEAM_EXTENSION_PATH';
 const AUTO_INJECT_ENV = 'MY_PI_TEAM_AUTO_INJECT_MESSAGES';
+const TEAM_UI_ENV = 'MY_PI_TEAM_UI';
 const STATUS_KEY = 'team';
+
+type TeamUiMode = 'auto' | 'compact' | 'full' | 'off';
 
 const TeamAction = StringEnum([
 	'team_create',
 	'team_status',
+	'team_clear',
+	'team_ui',
 	'member_upsert',
 	'member_spawn',
 	'member_prompt',
@@ -82,6 +87,9 @@ const TeamToolParams = Type.Object({
 	timeoutMs: Type.Optional(Type.Number()),
 	complete: Type.Optional(Type.Boolean()),
 	shutdownOnMessage: Type.Optional(Type.Boolean()),
+	mode: Type.Optional(
+		StringEnum(['auto', 'compact', 'full', 'off'] as const),
+	),
 });
 
 type TeamToolParams = Static<typeof TeamToolParams>;
@@ -101,6 +109,17 @@ function get_extension_path(): string {
 function should_auto_inject_messages(): boolean {
 	const value = process.env[AUTO_INJECT_ENV]?.trim().toLowerCase();
 	return !value || !['0', 'false', 'no', 'off'].includes(value);
+}
+
+export function get_team_ui_mode(): TeamUiMode {
+	const value = process.env[TEAM_UI_ENV]?.trim().toLowerCase();
+	if (!value) return 'compact';
+	if (['0', 'false', 'no', 'off', 'hide'].includes(value))
+		return 'off';
+	if (['full', 'widget', 'on', 'true', '1'].includes(value))
+		return 'full';
+	if (['auto'].includes(value)) return 'auto';
+	return 'compact';
 }
 
 function get_latest_team_for_cwd(
@@ -174,6 +193,16 @@ function format_task_status(status: TeamTaskStatus): string {
 	}
 }
 
+function summarize_result(
+	result: string | undefined,
+): string | undefined {
+	const summary = result?.trim().split(/\r?\n/, 1)[0]?.trim();
+	if (!summary) return undefined;
+	return summary.length > 140
+		? `${summary.slice(0, 137)}...`
+		: summary;
+}
+
 function format_status(status: TeamStatus): string {
 	const lines = [
 		`Team ${status.team.name} (${status.team.id})`,
@@ -197,6 +226,8 @@ function format_status(status: TeamStatus): string {
 			lines.push(
 				`${format_task_status(task.status)} #${task.id}${owner}${deps} ${task.title}`,
 			);
+			const result = summarize_result(task.result);
+			if (result) lines.push(`  ↳ ${result}`);
 		}
 	}
 	return lines.join('\n');
@@ -239,23 +270,73 @@ function parse_task_add(text: string): {
 	return { assignee: match[1], title: match[2].trim() };
 }
 
+function themed(
+	ctx: ExtensionContext,
+	color: 'accent' | 'dim' | 'muted' | 'warning',
+	text: string,
+): string {
+	try {
+		return ctx.ui.theme.fg(color, text);
+	} catch {
+		return text;
+	}
+}
+
+function format_team_footer_status(status: TeamStatus): string {
+	const fragments = [`team:${status.team.name}`];
+	if (status.counts.in_progress > 0)
+		fragments.push(`${status.counts.in_progress} running`);
+	if (status.counts.blocked > 0)
+		fragments.push(`${status.counts.blocked} blocked`);
+	if (status.counts.pending > 0)
+		fragments.push(`${status.counts.pending} pending`);
+	fragments.push(
+		`${status.counts.completed}/${status.tasks.length} done`,
+	);
+	return fragments.join(' · ');
+}
+
 function set_team_ui(
 	ctx: ExtensionContext,
 	store: TeamStore,
 	team_id: string | undefined,
 ): void {
-	if (!ctx.hasUI || !team_id) return;
+	if (!ctx.hasUI) return;
+	if (!team_id || get_team_ui_mode() === 'off') {
+		ctx.ui.setStatus(STATUS_KEY, undefined);
+		ctx.ui.setWidget(STATUS_KEY, undefined);
+		return;
+	}
 	try {
 		const status = store.get_status(team_id);
-		ctx.ui.setStatus(
-			STATUS_KEY,
-			`team:${status.team.name} ${status.counts.completed}/${status.tasks.length} done`,
-		);
+		const footer = format_team_footer_status(status);
+		ctx.ui.setStatus(STATUS_KEY, themed(ctx, 'dim', footer));
+
+		const mode = get_team_ui_mode();
+		const should_show_widget =
+			mode === 'full' ||
+			(mode === 'auto' &&
+				(status.counts.pending > 0 ||
+					status.counts.in_progress > 0 ||
+					status.counts.blocked > 0));
+		if (!should_show_widget) {
+			ctx.ui.setWidget(STATUS_KEY, undefined);
+			return;
+		}
+
 		ctx.ui.setWidget(
 			STATUS_KEY,
 			[
-				`Team ${status.team.name}: ${status.members.length} member(s), ${status.tasks.length} task(s)`,
-				`${status.counts.pending} pending • ${status.counts.in_progress} running • ${status.counts.blocked} blocked • ${status.counts.completed} done`,
+				themed(
+					ctx,
+					'dim',
+					`Team ${status.team.name}: ${status.members.length} member(s), ${status.tasks.length} task(s)`,
+				),
+				themed(
+					ctx,
+					'dim',
+					`${status.counts.pending} pending • ${status.counts.in_progress} running • ${status.counts.blocked} blocked • ${status.counts.completed} done`,
+				),
 			],
 			{ placement: 'belowEditor' },
 		);
@@ -299,6 +380,27 @@ async function handle_team_command(
 			case 'id': {
 				const team_id = current_team_id();
 				ctx.ui.notify(`${team_id}\n${store.team_dir(team_id)}`);
+				break;
+			}
+			case 'ui': {
+				const mode = rest_text.trim().toLowerCase();
+				if (!mode) {
+					ctx.ui.notify(`Team UI mode: ${get_team_ui_mode()}`);
+					break;
+				}
+				if (!['auto', 'compact', 'full', 'off'].includes(mode)) {
+					throw new Error('Usage: /team ui auto|compact|full|off');
+				}
+				process.env[TEAM_UI_ENV] = mode;
+				set_team_ui(ctx, store, get_active_team_id());
+				ctx.ui.notify(`Team UI mode: ${mode}`);
+				break;
+			}
+			case 'clear':
+			case 'close': {
+				set_active_team_id(undefined);
+				set_team_ui(ctx, store, undefined);
+				ctx.ui.notify('Cleared active team UI');
 				break;
 			}
 			case 'status':
@@ -470,7 +572,7 @@ async function handle_team_command(
 			}
 			default:
 				ctx.ui.notify(
-					'Team commands: /team create [name], /team status, /team spawn <member> [prompt], /team send <member> <prompt>, /team steer <member> <prompt>, /team wait <member>, /team shutdown <member>, /team task add [name:] <title>, /team dm <member> <msg>, /team inbox [member], /team fake <member>',
+					'Team commands: /team create [name], /team status, /team ui auto|compact|full|off, /team clear, /team spawn <member> [prompt], /team send <member> <prompt>, /team steer <member> <prompt>, /team wait <member>, /team shutdown <member>, /team task add [name:] <title>, /team dm <member> <msg>, /team inbox [member], /team fake <member>',
 					'warning',
 				);
 		}
@@ -487,6 +589,8 @@ export default async function team_mode(pi: ExtensionAPI) {
 	const runners = new Map<string, RpcTeammate>();
 	let active_team_id: string | undefined;
 	let mailbox_timer: NodeJS.Timeout | undefined;
+	let observed_team_id: string | undefined;
+	let observed_completed_task_ids = new Set<string>();
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'lead';
 	const own_role = process.env[TEAM_ROLE_ENV] || 'lead';
 
@@ -496,9 +600,48 @@ export default async function team_mode(pi: ExtensionAPI) {
 		mailbox_timer = undefined;
 	}
 
-	function poll_mailbox(): void {
-		if (!active_team_id || !should_auto_inject_messages()) return;
+	function reset_completed_task_observer(
+		team_id: string | undefined,
+	): void {
+		observed_team_id = team_id;
+		observed_completed_task_ids = new Set(
+			team_id
+				? store
+						.list_tasks(team_id)
+						.filter((task) => task.status === 'completed')
+						.map((task) => task.id)
+				: [],
+		);
+	}
+
+	function poll_team_activity(ctx: ExtensionContext): void {
+		if (!active_team_id) {
+			set_team_ui(ctx, store, undefined);
+			return;
+		}
 		try {
+			if (observed_team_id !== active_team_id) {
+				reset_completed_task_observer(active_team_id);
+			}
+			const status = store.get_status(active_team_id);
+			set_team_ui(ctx, store, active_team_id);
+			if (own_role !== 'teammate') {
+				for (const task of status.tasks) {
+					if (
+						task.status !== 'completed' ||
+						observed_completed_task_ids.has(task.id)
+					) {
+						continue;
+					}
+					observed_completed_task_ids.add(task.id);
+					const result = summarize_result(task.result);
+					ctx.ui.notify(
+						`Team task #${task.id} completed${task.assignee ? ` by ${task.assignee}` : ''}: ${task.title}${result ? ` — ${result}` : ''}`,
+						'info',
+					);
+				}
+			}
+			if (!should_auto_inject_messages()) return;
 			const unread = store
 				.list_messages(active_team_id, own_member)
 				.filter((message) => !message.readAt);
@@ -514,17 +657,16 @@ export default async function team_mode(pi: ExtensionAPI) {
 				{ deliverAs: 'followUp', triggerTurn: true },
 			);
 		} catch (error) {
-			store.append_event(active_team_id, 'mailbox_poll_error', {
+			store.append_event(active_team_id, 'team_activity_poll_error', {
 				member: own_member,
 				error: error instanceof Error ? error.message : String(error),
 			});
 		}
 	}
 
-	function start_mailbox_watcher(): void {
+	function start_mailbox_watcher(ctx: ExtensionContext): void {
 		stop_mailbox_watcher();
-		if (!should_auto_inject_messages()) return;
-		mailbox_timer = setInterval(poll_mailbox, 1000);
+		mailbox_timer = setInterval(() => poll_team_activity(ctx), 1000);
 		mailbox_timer.unref();
 	}
 
@@ -541,9 +683,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 				pid: process.pid,
 			});
 		}
+		reset_completed_task_observer(active_team_id);
 		set_team_ui(ctx, store, active_team_id);
-		start_mailbox_watcher();
-		poll_mailbox();
+		start_mailbox_watcher(ctx);
+		poll_team_activity(ctx);
 	});
 
 	pi.on('session_shutdown', async (_event, ctx) => {
@@ -577,6 +720,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'create',
 				'id',
 				'status',
+				'ui auto',
+				'ui compact',
+				'ui full',
+				'ui off',
+				'clear',
 				'member add',
 				'task add',
 				'task list',
@@ -604,6 +752,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				() => active_team_id,
 				(team_id) => {
 					active_team_id = team_id;
+					reset_completed_task_observer(team_id);
 				},
 			),
 	});
@@ -644,6 +793,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 						name: params.name,
 					});
 					active_team_id = team.id;
+					reset_completed_task_observer(team.id);
 					set_team_ui(ctx, store, team.id);
 					return {
 						content: [
@@ -663,6 +813,34 @@ export default async function team_mode(pi: ExtensionAPI) {
 							{ type: 'text' as const, text: format_status(status) },
 						],
 						details: status,
+					};
+				}
+				case 'team_clear': {
+					active_team_id = undefined;
+					reset_completed_task_observer(undefined);
+					set_team_ui(ctx, store, undefined);
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: 'Cleared active team UI',
+							},
+						],
+						details: { activeTeamId: null },
+					};
+				}
+				case 'team_ui': {
+					const mode = params.mode ?? get_team_ui_mode();
+					process.env[TEAM_UI_ENV] = mode;
+					set_team_ui(ctx, store, active_team_id);
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: `Team UI mode: ${mode}`,
+							},
+						],
+						details: { mode },
 					};
 				}
 				case 'member_upsert': {

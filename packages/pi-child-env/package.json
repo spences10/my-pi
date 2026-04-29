@@ -15,6 +15,11 @@
 		"url": "git+https://github.com/scottspence/my-pi.git",
 		"directory": "packages/pi-child-env"
 	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
