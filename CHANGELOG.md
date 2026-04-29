@@ -1,11 +1,17 @@
 # my-pi
 
+## 0.1.16
+
+### Patch Changes
+
+- 1660b22: Allow slash-containing Cloudflare Workers AI provider/model
+  references and document required environment variables for my-pi
+  usage.
+
 ## 0.1.15
 
 ### Patch Changes
 
-- Allow slash-containing provider/model references such as Cloudflare
-  Workers AI model IDs in `--model`.
 - 5c37302: Align workspace Pi dependencies and group Renovate updates
   to prevent duplicate extension API types.
 - Updated dependencies [5c37302]
