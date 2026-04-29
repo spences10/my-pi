@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-child-env",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Shared safe environment builder for Pi child processes",
 	"keywords": [
 		"env",

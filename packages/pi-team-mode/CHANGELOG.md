@@ -1,5 +1,14 @@
 # @spences10/pi-team-mode
 
+## 0.0.3
+
+### Patch Changes
+
+- 8076ac6: Polish team-mode UI controls and preserve Pi agent dir in
+  child environments.
+- Updated dependencies [8076ac6]
+  - @spences10/pi-child-env@0.1.1
+
 ## 0.0.2
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @spences10/pi-mcp
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [8076ac6]
+  - @spences10/pi-child-env@0.1.1
+
 ## 0.0.6
 
 ### Patch Changes
