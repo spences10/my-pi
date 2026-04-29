@@ -55,6 +55,7 @@
 		"@mariozechner/pi-ai": "^0.70.6",
 		"@mariozechner/pi-coding-agent": "^0.70.6",
 		"@mariozechner/pi-tui": "^0.70.6",
+		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-confirm-destructive": "workspace:*",
 		"@spences10/pi-lsp": "workspace:*",
 		"@spences10/pi-mcp": "workspace:*",

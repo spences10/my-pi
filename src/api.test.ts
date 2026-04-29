@@ -74,7 +74,9 @@ describe('apply_untrusted_repo_defaults', () => {
 			'MY_PI_PROJECT_SKILLS',
 			'MY_PI_CHILD_ENV_ALLOWLIST',
 			'MY_PI_MCP_ENV_ALLOWLIST',
+			'MY_PI_LSP_ENV_ALLOWLIST',
 			'MY_PI_HOOKS_ENV_ALLOWLIST',
+			'MY_PI_TEAM_MODE_ENV_ALLOWLIST',
 		]);
 		expect(env).toMatchObject({
 			MY_PI_MCP_PROJECT_CONFIG: 'allow',
@@ -84,7 +86,9 @@ describe('apply_untrusted_repo_defaults', () => {
 			MY_PI_PROJECT_SKILLS: 'skip',
 			MY_PI_CHILD_ENV_ALLOWLIST: '',
 			MY_PI_MCP_ENV_ALLOWLIST: '',
+			MY_PI_LSP_ENV_ALLOWLIST: '',
 			MY_PI_HOOKS_ENV_ALLOWLIST: '',
+			MY_PI_TEAM_MODE_ENV_ALLOWLIST: '',
 		});
 	});
 });

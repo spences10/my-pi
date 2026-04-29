@@ -1,3 +1,4 @@
+import { create_child_process_env } from '@spences10/pi-child-env';
 import {
 	spawn,
 	type ChildProcessWithoutNullStreams,
@@ -47,6 +48,25 @@ function resolve_rpc_command(override: string | undefined): {
 		};
 	}
 	return { command: 'pi', prefixArgs: [] };
+}
+
+export function create_rpc_teammate_env(
+	options: Pick<RpcTeammateOptions, 'teamRoot' | 'extensionPath'>,
+	teamId: string,
+	member: string,
+	source_env: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+	return create_child_process_env({
+		profile: 'team-mode',
+		source_env,
+		explicit_env: {
+			MY_PI_TEAM_MODE_ROOT: options.teamRoot,
+			MY_PI_ACTIVE_TEAM_ID: teamId,
+			MY_PI_TEAM_MEMBER: member,
+			MY_PI_TEAM_ROLE: 'teammate',
+			MY_PI_TEAM_EXTENSION_PATH: options.extensionPath,
+		},
+	});
 }
 
 export class RpcTeammate {
@@ -111,14 +131,11 @@ export class RpcTeammate {
 			cwd: this.cwd,
 			shell: false,
 			stdio: ['pipe', 'pipe', 'pipe'],
-			env: {
-				...process.env,
-				MY_PI_TEAM_MODE_ROOT: this.options.teamRoot,
-				MY_PI_ACTIVE_TEAM_ID: this.teamId,
-				MY_PI_TEAM_MEMBER: this.member,
-				MY_PI_TEAM_ROLE: 'teammate',
-				MY_PI_TEAM_EXTENSION_PATH: this.options.extensionPath,
-			},
+			env: create_rpc_teammate_env(
+				this.options,
+				this.teamId,
+				this.member,
+			),
 		});
 
 		this.proc = proc;

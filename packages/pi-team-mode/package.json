@@ -30,11 +30,12 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.build.json",
 		"check": "tsc --noEmit -p tsconfig.json",
-		"test": "vitest run"
+		"test": "pnpm --filter @spences10/pi-child-env run build && vitest run"
 	},
 	"dependencies": {
 		"@mariozechner/pi-ai": "^0.70.6",
 		"@mariozechner/pi-coding-agent": "^0.70.6",
+		"@spences10/pi-child-env": "workspace:*",
 		"typebox": "^1.1.34"
 	},
 	"devDependencies": {

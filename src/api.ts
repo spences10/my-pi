@@ -105,7 +105,9 @@ const UNTRUSTED_REPO_ENV_DEFAULTS: Record<string, string> = {
 	MY_PI_PROJECT_SKILLS: 'skip',
 	MY_PI_CHILD_ENV_ALLOWLIST: '',
 	MY_PI_MCP_ENV_ALLOWLIST: '',
+	MY_PI_LSP_ENV_ALLOWLIST: '',
 	MY_PI_HOOKS_ENV_ALLOWLIST: '',
+	MY_PI_TEAM_MODE_ENV_ALLOWLIST: '',
 };
 
 export function apply_untrusted_repo_defaults(

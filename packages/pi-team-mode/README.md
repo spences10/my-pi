@@ -43,6 +43,12 @@ Team state is stored under:
 
 Set `MY_PI_TEAM_MODE_ROOT` to use a different storage directory.
 
+RPC teammate processes receive a minimal child-process environment by
+default, not the full parent `process.env`. Use
+`MY_PI_TEAM_MODE_ENV_ALLOWLIST=NAME,OTHER_NAME` or the shared
+`MY_PI_CHILD_ENV_ALLOWLIST` to pass selected ambient variables (for
+example, provider credentials) to spawned teammates.
+
 ## Commands
 
 ```text
