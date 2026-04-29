@@ -3,6 +3,13 @@
 	"extends": ["config:recommended"],
 	"packageRules": [
 		{
+			"description": "Keep Pi packages aligned across workspace packages",
+			"matchManagers": ["npm"],
+			"matchPackageNames": ["/^@mariozechner\\//"],
+			"groupName": "Pi packages",
+			"groupSlug": "mariozechner-pi"
+		},
+		{
 			"description": "Do not open PRs for temporary security pins in pnpm.overrides",
 			"matchManagers": ["npm"],
 			"matchDepTypes": ["pnpm.overrides"],
