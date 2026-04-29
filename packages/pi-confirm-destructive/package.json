@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-confirm-destructive",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "Pi extension that confirms destructive actions before they run",
 	"keywords": [
 		"confirm",

@@ -3,6 +3,7 @@ import {
 	apply_untrusted_repo_defaults,
 	get_force_disabled_builtins,
 	is_project_local_skill_path,
+	resolve_model_reference,
 } from './api.js';
 
 describe('get_force_disabled_builtins', () => {
@@ -85,6 +86,35 @@ describe('apply_untrusted_repo_defaults', () => {
 			MY_PI_MCP_ENV_ALLOWLIST: '',
 			MY_PI_HOOKS_ENV_ALLOWLIST: '',
 		});
+	});
+});
+
+describe('resolve_model_reference', () => {
+	const cloudflare_model = {
+		provider: 'cloudflare-workers-ai',
+		id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+	};
+	const openrouter_model = {
+		provider: 'openrouter',
+		id: 'openai/gpt-4o:extended',
+	};
+	const registry = {
+		getAll: () => [cloudflare_model, openrouter_model] as any,
+	};
+
+	it('resolves provider/model references whose model IDs contain slashes', () => {
+		expect(
+			resolve_model_reference(
+				'cloudflare-workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+				registry,
+			),
+		).toBe(cloudflare_model);
+	});
+
+	it('falls back to raw slash-containing model IDs', () => {
+		expect(
+			resolve_model_reference('openai/gpt-4o:extended', registry),
+		).toBe(openrouter_model);
 	});
 });
 

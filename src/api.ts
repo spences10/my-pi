@@ -1,10 +1,10 @@
 // Composable programmatic API for my-pi
 // Extension loading patterns inspired by pi-vs-claude-code
 
+import type { Api, Model } from '@mariozechner/pi-ai';
 import {
 	InteractiveMode,
 	SessionManager,
-	SettingsManager,
 	createAgentSessionFromServices,
 	createAgentSessionRuntime,
 	createAgentSessionServices,
@@ -151,6 +151,44 @@ function resolve_agent_dir(cwd: string, agent_dir?: string): string {
 const NON_INTERACTIVE_UI_ONLY_BUILTINS: BuiltinExtensionKey[] = [
 	'session-name',
 ];
+
+interface ModelRegistryLike {
+	getAll(): Model<Api>[];
+}
+
+export function resolve_model_reference(
+	model_reference: string | undefined,
+	model_registry: ModelRegistryLike,
+): Model<Api> | undefined {
+	if (!model_reference) return undefined;
+	const models = model_registry.getAll();
+	const lower_reference = model_reference.toLowerCase();
+	const slash_index = model_reference.indexOf('/');
+
+	if (slash_index !== -1) {
+		const maybe_provider = model_reference.slice(0, slash_index);
+		const model_id = model_reference.slice(slash_index + 1);
+		const provider = models.find(
+			(model) =>
+				model.provider.toLowerCase() === maybe_provider.toLowerCase(),
+		)?.provider;
+
+		if (provider) {
+			const provider_match = models.find(
+				(model) =>
+					model.provider === provider &&
+					model.id.toLowerCase() === model_id.toLowerCase(),
+			);
+			if (provider_match) return provider_match;
+		}
+	}
+
+	return models.find((model) => {
+		const id = model.id.toLowerCase();
+		const full_id = `${model.provider}/${model.id}`.toLowerCase();
+		return id === lower_reference || full_id === lower_reference;
+	});
+}
 
 export function get_force_disabled_builtins(
 	options: Pick<
@@ -316,23 +354,9 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		sessionManager: SessionManager;
 		sessionStartEvent?: unknown;
 	}) => {
-		const settings_manager = model
-			? (() => {
-					const sm = SettingsManager.create(
-						runtime_cwd,
-						effective_agent_dir,
-					);
-					sm.setDefaultModel(model);
-					return sm;
-				})()
-			: undefined;
-
 		const services = await createAgentSessionServices({
 			cwd: runtime_cwd,
 			agentDir: effective_agent_dir,
-			...(settings_manager
-				? { settingsManager: settings_manager }
-				: {}),
 			resourceLoaderOptions: {
 				...(system_prompt !== undefined
 					? {
@@ -396,11 +420,17 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 			} as any,
 		});
 
+		const requested_model = resolve_model_reference(
+			model,
+			services.modelRegistry,
+		);
+
 		return {
 			...(await createAgentSessionFromServices({
 				services,
 				sessionManager,
 				sessionStartEvent: sessionStartEvent as any,
+				...(requested_model ? { model: requested_model } : {}),
 			})),
 			services,
 			diagnostics: services.diagnostics,
