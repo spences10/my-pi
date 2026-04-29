@@ -10,6 +10,7 @@ import {
 	createAgentSessionServices,
 	getAgentDir,
 	runPrintMode,
+	runRpcMode,
 	type ExtensionFactory,
 	type LoadExtensionsResult,
 } from '@mariozechner/pi-coding-agent';
@@ -24,6 +25,7 @@ import skills_extension, {
 	create_skills_manager,
 } from '@spences10/pi-skills';
 import sqlite_tools_extension from '@spences10/pi-sqlite-tools';
+import team_mode_extension from '@spences10/pi-team-mode';
 import { create_telemetry_extension } from '@spences10/pi-telemetry';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,7 +40,11 @@ import { create_extensions_extension } from './extensions/manager/index.js';
 import prompt_presets_extension from './extensions/prompt-presets/index.js';
 import session_name_extension from './extensions/session-name/index.js';
 
-export type MyPiRuntimeMode = 'interactive' | 'print' | 'json';
+export type MyPiRuntimeMode =
+	| 'interactive'
+	| 'print'
+	| 'json'
+	| 'rpc';
 
 export interface CreateMyPiOptions {
 	cwd?: string;
@@ -58,9 +64,11 @@ export interface CreateMyPiOptions {
 	session_name?: boolean;
 	confirm_destructive?: boolean;
 	hooks_resolution?: boolean;
+	team_mode?: boolean;
 	telemetry?: boolean;
 	telemetry_db_path?: string;
 	model?: string;
+	session_dir?: string;
 	system_prompt?: string;
 	append_system_prompt?: string;
 	untrusted_repo?: boolean;
@@ -82,6 +90,7 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	'session-name': session_name_extension,
 	'confirm-destructive': confirm_destructive_extension,
 	'hooks-resolution': hooks_resolution_extension,
+	'team-mode': team_mode_extension,
 };
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -206,6 +215,7 @@ export function get_force_disabled_builtins(
 		| 'session_name'
 		| 'confirm_destructive'
 		| 'hooks_resolution'
+		| 'team_mode'
 	>,
 ): ReadonlySet<BuiltinExtensionKey> {
 	const force_disabled = new Set<BuiltinExtensionKey>();
@@ -223,6 +233,7 @@ export function get_force_disabled_builtins(
 		force_disabled.add('confirm-destructive');
 	if (!options.hooks_resolution)
 		force_disabled.add('hooks-resolution');
+	if (!options.team_mode) force_disabled.add('team-mode');
 	if (
 		options.runtime_mode &&
 		options.runtime_mode !== 'interactive'
@@ -293,9 +304,11 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		session_name = true,
 		confirm_destructive = true,
 		hooks_resolution = true,
+		team_mode = true,
 		telemetry,
 		telemetry_db_path,
 		model,
+		session_dir,
 		system_prompt,
 		append_system_prompt,
 		untrusted_repo = false,
@@ -325,6 +338,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		session_name,
 		confirm_destructive,
 		hooks_resolution,
+		team_mode,
 	});
 	const managed_extension_factories: ExtensionFactory[] = [
 		create_telemetry_extension({
@@ -440,11 +454,14 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 	return createAgentSessionRuntime(create_runtime, {
 		cwd,
 		agentDir: effective_agent_dir,
-		sessionManager: SessionManager.create(cwd),
+		sessionManager: SessionManager.create(
+			cwd,
+			session_dir ? resolve(cwd, session_dir) : undefined,
+		),
 	});
 }
 
-export { InteractiveMode, runPrintMode };
+export { InteractiveMode, runPrintMode, runRpcMode };
 
 export type {
 	AgentSessionRuntime,

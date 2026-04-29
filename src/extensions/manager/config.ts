@@ -20,7 +20,8 @@ export type BuiltinExtensionKey =
 	| 'lsp'
 	| 'session-name'
 	| 'confirm-destructive'
-	| 'hooks-resolution';
+	| 'hooks-resolution'
+	| 'team-mode';
 
 export interface BuiltinExtensionInfo {
 	key: BuiltinExtensionKey;
@@ -142,6 +143,14 @@ export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
 			'Claude Code style PostToolUse hook compatibility from .claude, .rulesync, and .pi configs',
 		cli_flag: '--no-hooks',
 		aliases: ['hooks-resolution', 'hooks'],
+	},
+	{
+		key: 'team-mode',
+		label: 'Team mode',
+		description:
+			'Experimental orchestrator/team mode with RPC teammates, tasks, and mailboxes',
+		cli_flag: '--no-team-mode',
+		aliases: ['team-mode', 'team', 'teammates'],
 	},
 ];
 

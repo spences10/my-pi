@@ -88,6 +88,18 @@ function report_mcp_failure(
 	console.error(message);
 }
 
+function themed(
+	ctx: ExtensionContext,
+	color: 'accent' | 'dim' | 'muted',
+	text: string,
+): string {
+	try {
+		return ctx.ui.theme.fg(color, text);
+	} catch {
+		return text;
+	}
+}
+
 function update_mcp_status(
 	ctx: ExtensionContext,
 	servers: ReadonlyMap<string, ServerState>,
@@ -114,10 +126,7 @@ function update_mcp_status(
 	if (connecting > 0) fragments.push(`${connecting} connecting`);
 	if (failed > 0) fragments.push(`${failed} failed`);
 
-	ctx.ui.setStatus(
-		'mcp',
-		ctx.ui.theme.fg('dim', fragments.join(' · ')),
-	);
+	ctx.ui.setStatus('mcp', themed(ctx, 'dim', fragments.join(' · ')));
 }
 
 function set_connect_feedback(
@@ -136,14 +145,14 @@ function set_connect_feedback(
 	ctx.ui.setWorkingMessage(label);
 	ctx.ui.setWorkingIndicator({
 		frames: [
-			ctx.ui.theme.fg('dim', '·'),
-			ctx.ui.theme.fg('muted', '•'),
-			ctx.ui.theme.fg('accent', '●'),
-			ctx.ui.theme.fg('muted', '•'),
+			themed(ctx, 'dim', '·'),
+			themed(ctx, 'muted', '•'),
+			themed(ctx, 'accent', '●'),
+			themed(ctx, 'muted', '•'),
 		],
 		intervalMs: 120,
 	});
-	ctx.ui.setStatus('mcp', ctx.ui.theme.fg('dim', label));
+	ctx.ui.setStatus('mcp', themed(ctx, 'dim', label));
 
 	return () => {
 		ctx.ui.setWorkingMessage();

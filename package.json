@@ -64,6 +64,7 @@
 		"@spences10/pi-redact": "workspace:*",
 		"@spences10/pi-skills": "workspace:*",
 		"@spences10/pi-sqlite-tools": "workspace:*",
+		"@spences10/pi-team-mode": "workspace:*",
 		"@spences10/pi-telemetry": "workspace:*",
 		"citty": "^0.2.2",
 		"typebox": "^1.1.34"

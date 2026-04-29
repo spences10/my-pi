@@ -96,6 +96,26 @@ headless-capable built-ins like MCP, LSP, prompt presets, recall,
 hooks, and secret filtering enabled, while skipping UI-only built-ins
 like session auto-naming.
 
+### RPC and team mode
+
+```bash
+pnpx my-pi@latest --mode rpc
+```
+
+RPC mode speaks Pi's JSONL protocol over stdin/stdout. The built-in
+team mode extension adds `/team` for local orchestration:
+
+```text
+/team create demo
+/team spawn alice "claim one task and report back"
+/team task add alice: inspect the failing test
+/team dm alice status?
+/team status
+```
+
+Team state is stored under `~/.pi/agent/teams-local` by default, or
+`MY_PI_TEAM_MODE_ROOT` when set.
+
 ### Local telemetry (SQLite)
 
 Telemetry is **disabled by default**. When enabled, my-pi records
@@ -567,6 +587,7 @@ pi install npm:@spences10/pi-recall
 pi install npm:@spences10/pi-nopeek
 pi install npm:@spences10/pi-omnisearch
 pi install npm:@spences10/pi-sqlite-tools
+pi install npm:@spences10/pi-team-mode
 ```
 
 - [`@spences10/pi-redact`](./packages/pi-redact/README.md) — output
@@ -589,6 +610,9 @@ pi install npm:@spences10/pi-sqlite-tools
   mcp-omnisearch reminder for verified web research
 - [`@spences10/pi-sqlite-tools`](./packages/pi-sqlite-tools/README.md)
   — mcp-sqlite-tools reminder for safer SQLite database work
+- [`@spences10/pi-team-mode`](./packages/pi-team-mode/README.md) —
+  local orchestrator/team mode with RPC teammates, tasks, and
+  mailboxes
 
 Each package README is the entry point for install instructions,
 commands, runtime behavior, and development notes.

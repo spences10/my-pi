@@ -6,6 +6,7 @@
 import {
 	InteractiveMode,
 	runPrintMode,
+	runRpcMode,
 } from '@mariozechner/pi-coding-agent';
 import { defineCommand, renderUsage, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
@@ -61,6 +62,9 @@ MODES
 
   my-pi --json "prompt"
     Non-interactive NDJSON mode for scripts, evals, and other agents.
+
+  my-pi --mode rpc
+    RPC mode over stdin/stdout JSONL for orchestrators and teammate sessions.
 
 NOTES
 
@@ -139,11 +143,22 @@ const main = defineCommand({
 				'Override Pi auth/config/session directory for this process',
 			required: false,
 		},
+		'session-dir': {
+			type: 'string',
+			description:
+				'Override Pi session storage directory for this process',
+			required: false,
+		},
 		json: {
 			type: 'boolean',
 			alias: 'j',
 			description: 'Output NDJSON events (for agent consumption)',
 			default: false,
+		},
+		mode: {
+			type: 'string',
+			description: 'Runtime mode: interactive, print, json, or rpc',
+			required: false,
 		},
 		'no-builtin': {
 			type: 'boolean',
@@ -216,6 +231,11 @@ const main = defineCommand({
 			description: 'Disable Claude-style hook execution',
 			default: false,
 		},
+		'no-team-mode': {
+			type: 'boolean',
+			description: 'Disable experimental team mode extension',
+			default: false,
+		},
 		telemetry: {
 			type: 'boolean',
 			description: 'Enable local SQLite telemetry for this process',
@@ -259,6 +279,27 @@ const main = defineCommand({
 		const cwd = process.cwd();
 		const extension_paths = parse_extension_paths(process.argv);
 
+		let runtime_mode: 'interactive' | 'print' | 'json' | 'rpc' =
+			'interactive';
+		if (args.mode) {
+			const requested = String(args.mode).trim().toLowerCase();
+			if (
+				!['interactive', 'print', 'json', 'rpc'].includes(requested)
+			) {
+				console.error(
+					'Error: --mode must be one of interactive, print, json, rpc.',
+				);
+				process.exit(1);
+			}
+			runtime_mode = requested as
+				| 'interactive'
+				| 'print'
+				| 'json'
+				| 'rpc';
+		}
+		if (args.json) runtime_mode = 'json';
+		else if (args.print) runtime_mode = 'print';
+
 		// Resolve prompt: named --prompt flag > positional > stdin
 		let prompt = args.prompt;
 		if (!prompt) {
@@ -268,13 +309,16 @@ const main = defineCommand({
 				prompt = positionals[0];
 			}
 		}
-		if (!prompt && !process.stdin.isTTY) {
+		if (!prompt && !process.stdin.isTTY && runtime_mode !== 'rpc') {
 			prompt = await read_stdin();
 		}
+		if (prompt && runtime_mode === 'interactive')
+			runtime_mode = 'print';
 
 		if (
 			!args.print &&
 			!args.json &&
+			runtime_mode !== 'rpc' &&
 			!prompt &&
 			!process.stdout.isTTY
 		) {
@@ -283,7 +327,7 @@ const main = defineCommand({
 		}
 
 		// Startup feedback so silence = broken (issue #3)
-		if (args.print || args.json || prompt) {
+		if (runtime_mode !== 'interactive') {
 			process.stderr.write(
 				`my-pi: connecting to ${args.model || 'default model'}...\n`,
 			);
@@ -303,17 +347,10 @@ const main = defineCommand({
 			telemetry_override = false;
 		}
 
-		let runtime_mode: 'interactive' | 'print' | 'json' =
-			'interactive';
-		if (args.json) {
-			runtime_mode = 'json';
-		} else if (args.print || prompt) {
-			runtime_mode = 'print';
-		}
-
 		const runtime = await create_my_pi({
 			cwd,
 			agent_dir: args['agent-dir'],
+			session_dir: args['session-dir'],
 			extensions: extension_paths,
 			runtime_mode,
 			mcp: !args['no-builtin'] && !args['no-mcp'],
@@ -330,6 +367,7 @@ const main = defineCommand({
 			confirm_destructive:
 				!args['no-builtin'] && !args['no-confirm-destructive'],
 			hooks_resolution: !args['no-builtin'] && !args['no-hooks'],
+			team_mode: !args['no-builtin'] && !args['no-team-mode'],
 			telemetry: telemetry_override,
 			telemetry_db_path: args['telemetry-db'],
 			model: args.model,
@@ -338,7 +376,9 @@ const main = defineCommand({
 			untrusted_repo: args.untrusted,
 		});
 
-		if (args.print || args.json || prompt) {
+		if (runtime_mode === 'rpc') {
+			await runRpcMode(runtime);
+		} else if (args.print || args.json || prompt) {
 			let output_mode: 'json' | 'text' = 'text';
 			if (args.json) {
 				output_mode = 'json';
