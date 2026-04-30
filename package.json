@@ -28,7 +28,6 @@
 	"files": [
 		"dist",
 		"src/extensions",
-		"themes",
 		"README.md"
 	],
 	"type": "module",
@@ -67,6 +66,7 @@
 		"@spences10/pi-sqlite-tools": "workspace:*",
 		"@spences10/pi-team-mode": "workspace:*",
 		"@spences10/pi-telemetry": "workspace:*",
+		"@spences10/pi-themes": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*",
 		"citty": "^0.2.2",
 		"typebox": "^1.1.35"

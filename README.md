@@ -276,9 +276,10 @@ still force-disable those extensions for the current process only.
 
 ### Themes
 
-`my-pi` ships a bundled theme pack from `./themes` and loads it into
-the runtime automatically. Pick a theme in `/settings`, or persist one
-via Pi settings JSON:
+`my-pi` bundles `@spences10/pi-themes` and loads that theme pack into
+the runtime automatically. Vanilla Pi users can install it separately
+with `pi install npm:@spences10/pi-themes`. Pick a theme in
+`/settings`, or persist one via Pi settings JSON:
 
 ```json
 {
@@ -582,7 +583,11 @@ session start and shutdown when the local recall database exists.
 
 This repo is a pnpm workspace. The `my-pi` harness depends on reusable
 Pi packages via `workspace:*`, and those packages can also be
-published and installed into vanilla `pi` independently:
+published and installed into vanilla `pi` independently. Shared helper
+packages such as `@spences10/pi-child-env`,
+`@spences10/pi-project-trust`, and `@spences10/pi-tui-modal` are
+published only as dependencies and are not Pi packages to install via
+`pi install`.
 
 ```bash
 pi install npm:@spences10/pi-redact
@@ -596,6 +601,7 @@ pi install npm:@spences10/pi-nopeek
 pi install npm:@spences10/pi-omnisearch
 pi install npm:@spences10/pi-sqlite-tools
 pi install npm:@spences10/pi-team-mode
+pi install npm:@spences10/pi-themes
 ```
 
 - [`@spences10/pi-redact`](./packages/pi-redact/README.md) — output
@@ -621,6 +627,8 @@ pi install npm:@spences10/pi-team-mode
 - [`@spences10/pi-team-mode`](./packages/pi-team-mode/README.md) —
   local orchestrator/team mode with RPC teammates, tasks, and
   mailboxes
+- [`@spences10/pi-themes`](./packages/pi-themes/README.md) — bundled
+  theme pack for Pi
 
 Each package README is the entry point for install instructions,
 commands, runtime behavior, and development notes.
@@ -647,6 +655,11 @@ packages/
   pi-nopeek/               Installable Pi package for nopeek reminders
   pi-omnisearch/           Installable Pi package for mcp-omnisearch reminders
   pi-sqlite-tools/         Installable Pi package for mcp-sqlite-tools reminders
+  pi-team-mode/            Installable Pi package for team orchestration
+  pi-themes/               Installable Pi theme pack
+  pi-child-env/            Shared support package, not a Pi package
+  pi-project-trust/        Shared support package, not a Pi package
+  pi-tui-modal/            Shared support package, not a Pi package
 .pi/
   presets.json             Optional project prompt presets (JSON)
   presets/*.md             Optional project prompt presets (Markdown files)

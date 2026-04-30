@@ -28,8 +28,8 @@ import skills_extension, {
 import sqlite_tools_extension from '@spences10/pi-sqlite-tools';
 import team_mode_extension from '@spences10/pi-team-mode';
 import { create_telemetry_extension } from '@spences10/pi-telemetry';
+import { createRequire } from 'node:module';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import hooks_resolution_extension from './extensions/hooks-resolution/index.js';
 import {
 	BUILTIN_EXTENSIONS,
@@ -94,8 +94,11 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	'team-mode': team_mode_extension,
 };
 
-const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
-const PACKAGE_THEME_DIR = resolve(MODULE_DIR, '..', 'themes');
+const require = createRequire(import.meta.url);
+const PACKAGE_THEME_DIR = resolve(
+	dirname(require.resolve('@spences10/pi-themes/package.json')),
+	'themes',
+);
 const PI_AGENT_DIR_ENV = 'PI_CODING_AGENT_DIR';
 
 const UNTRUSTED_CHILD_ENV_DEFAULTS: Record<string, string> = {
