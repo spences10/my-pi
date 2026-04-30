@@ -918,8 +918,8 @@ async function handle_team_command(
 					body: message_parts.join(' '),
 				});
 				const runner = runners.get(message.to);
-				if (runner?.isRunning) {
-					await runner.followUp(message.body);
+				if (runner?.is_running) {
+					await runner.follow_up(message.body);
 					store.mark_messages_read(current_team_id(), message.to);
 				}
 				ctx.ui.notify(`Sent ${message.id} to ${message.to}`);
@@ -940,20 +940,21 @@ async function handle_team_command(
 				const team_id = current_team_id();
 				const current_model = (ctx as ExtensionContext).model;
 				const existing = runners.get(name);
-				if (existing?.isRunning) {
+				if (existing?.is_running) {
 					throw new Error(
 						`Teammate ${name} is already running. Use /team shutdown ${name} first.`,
 					);
 				}
 				const runner = new RpcTeammate(store, {
-					teamId: team_id,
+					team_id,
 					member: name,
 					cwd: ctx.cwd,
-					teamRoot: get_team_root(),
-					extensionPath: get_extension_path(),
+					team_root: get_team_root(),
+					extension_path: get_extension_path(),
 					model: current_model
 						? `${current_model.provider}/${current_model.id}`
 						: undefined,
+					on_exit: (member) => runners.delete(member),
 				});
 				runners.set(name, runner);
 				try {
@@ -974,7 +975,7 @@ async function handle_team_command(
 				const [member, ...message_parts] = rest;
 				const name = require_arg(member, 'member');
 				const runner = runners.get(name);
-				if (!runner?.isRunning)
+				if (!runner?.is_running)
 					throw new Error(`No running teammate: ${name}`);
 				await runner.prompt(message_parts.join(' '));
 				ctx.ui.notify(`Sent prompt to ${name}`);
@@ -984,7 +985,7 @@ async function handle_team_command(
 				const [member, ...message_parts] = rest;
 				const name = require_arg(member, 'member');
 				const runner = runners.get(name);
-				if (!runner?.isRunning)
+				if (!runner?.is_running)
 					throw new Error(`No running teammate: ${name}`);
 				await runner.steer(message_parts.join(' '));
 				ctx.ui.notify(`Steered ${name}`);
@@ -994,7 +995,7 @@ async function handle_team_command(
 				const [member, ...reason_parts] = rest;
 				const name = require_arg(member, 'member');
 				const runner = runners.get(name);
-				if (runner?.isRunning)
+				if (runner?.is_running)
 					await runner.shutdown(reason_parts.join(' ') || undefined);
 				runners.delete(name);
 				store.upsert_member(current_team_id(), {
@@ -1009,7 +1010,7 @@ async function handle_team_command(
 				const [member] = rest;
 				const name = require_arg(member, 'member');
 				const runner = runners.get(name);
-				if (runner?.isRunning) await runner.waitForIdle();
+				if (runner?.is_running) await runner.wait_for_idle();
 				set_team_ui(ctx, store, get_active_team_id());
 				ctx.ui.notify(
 					format_status(store.get_status(current_team_id())),
@@ -1429,23 +1430,24 @@ export default async function team_mode(pi: ExtensionAPI) {
 						'member',
 					);
 					const existing = runners.get(member_name);
-					if (existing?.isRunning) {
+					if (existing?.is_running) {
 						throw new Error(
 							`Teammate ${member_name} is already running. Shut it down before spawning another session with the same name.`,
 						);
 					}
 					const runner = new RpcTeammate(store, {
-						teamId: require_team_id(),
+						team_id: require_team_id(),
 						member: member_name,
 						cwd: ctx.cwd,
-						teamRoot: get_team_root(),
-						extensionPath: get_extension_path(),
+						team_root: get_team_root(),
+						extension_path: get_extension_path(),
 						model:
 							params.model ??
 							(ctx.model
 								? `${ctx.model.provider}/${ctx.model.id}`
 								: undefined),
 						thinking: params.thinking,
+						on_exit: (member) => runners.delete(member),
 					});
 					runners.set(member_name, runner);
 					try {
@@ -1479,7 +1481,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 						'member',
 					);
 					const runner = runners.get(member_name);
-					if (!runner?.isRunning)
+					if (!runner?.is_running)
 						throw new Error(`No running teammate: ${member_name}`);
 					const text = require_arg(
 						params.message ?? params.initialPrompt,
@@ -1488,7 +1490,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					if (params.action === 'member_steer')
 						await runner.steer(text);
 					else if (params.action === 'member_follow_up')
-						await runner.followUp(text);
+						await runner.follow_up(text);
 					else await runner.prompt(text);
 					return {
 						content: [
@@ -1506,7 +1508,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 						'member',
 					);
 					const runner = runners.get(member_name);
-					if (runner?.isRunning)
+					if (runner?.is_running)
 						await runner.shutdown(params.message);
 					runners.delete(member_name);
 					const member = store.upsert_member(require_team_id(), {
@@ -1533,7 +1535,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 						details: {
 							...status,
 							runningMembers: [...runners.entries()]
-								.filter(([, runner]) => runner.isRunning)
+								.filter(([, runner]) => runner.is_running)
 								.map(([name, runner]) => ({ name, pid: runner.pid })),
 						},
 					};
@@ -1544,7 +1546,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 						'member',
 					);
 					const runner = runners.get(member_name);
-					if (!runner?.isRunning) {
+					if (!runner?.is_running) {
 						return {
 							content: [
 								{
@@ -1555,7 +1557,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 							details: { member: member_name, running: false },
 						};
 					}
-					await runner.waitForIdle(params.timeoutMs ?? 120_000);
+					await runner.wait_for_idle(params.timeoutMs ?? 120_000);
 					const status = store.get_status(require_team_id());
 					set_team_ui(ctx, store, team_id);
 					return {
@@ -1662,10 +1664,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 						urgent: params.urgent,
 					});
 					const runner = runners.get(message.to);
-					if (runner?.isRunning) {
+					if (runner?.is_running) {
 						const injected = `<teammate-message from="${message.from}" urgent="${message.urgent}">\n${message.body}\n</teammate-message>`;
 						if (message.urgent) await runner.steer(injected);
-						else await runner.followUp(injected);
+						else await runner.follow_up(injected);
 						store.mark_messages_read(require_team_id(), message.to);
 					}
 					return {

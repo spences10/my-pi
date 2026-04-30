@@ -1,4 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import {
+	chmodSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -24,8 +29,8 @@ describe('create_rpc_teammate_env', () => {
 	it('keeps team vars and strips ambient secrets by default', () => {
 		const env = create_rpc_teammate_env(
 			{
-				teamRoot: '/tmp/team-root',
-				extensionPath: '/tmp/team-extension.js',
+				team_root: '/tmp/team-root',
+				extension_path: '/tmp/team-extension.js',
 			},
 			'team-1',
 			'alice',
@@ -55,8 +60,8 @@ describe('create_rpc_teammate_env', () => {
 	it('allows provider credentials only through team-mode allowlist', () => {
 		const env = create_rpc_teammate_env(
 			{
-				teamRoot: '/tmp/team-root',
-				extensionPath: '/tmp/team-extension.js',
+				team_root: '/tmp/team-root',
+				extension_path: '/tmp/team-extension.js',
 			},
 			'team-1',
 			'alice',
@@ -74,8 +79,8 @@ describe('create_rpc_teammate_env', () => {
 		expect(() =>
 			create_rpc_teammate_env(
 				{
-					teamRoot: '/tmp/team-root',
-					extensionPath: '/tmp/team-extension.js',
+					team_root: '/tmp/team-root',
+					extension_path: '/tmp/team-extension.js',
 				},
 				'team-1',
 				'../alice',
@@ -85,19 +90,52 @@ describe('create_rpc_teammate_env', () => {
 	});
 });
 
+function write_fake_rpc_child(
+	options: { hang_get_state?: boolean } = {},
+): string {
+	const path = join(root, 'fake-pi.js');
+	writeFileSync(
+		path,
+		`#!/usr/bin/env node
+const readline = require('node:readline');
+const hang_get_state = ${JSON.stringify(options.hang_get_state ?? false)};
+function send(value) { process.stdout.write(JSON.stringify(value) + '\\n'); }
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+  const msg = JSON.parse(line);
+  if (msg.type === 'get_state') {
+    if (!hang_get_state) send({ type: 'response', id: msg.id, success: true, data: { sessionFile: '/tmp/fake-session.jsonl' } });
+  } else if (msg.type === 'set_session_name') {
+    send({ type: 'response', id: msg.id, success: true });
+  } else if (msg.type === 'prompt') {
+    send({ type: 'response', id: msg.id, success: true });
+    send({ type: 'agent_start' });
+    setTimeout(() => send({ type: 'message_end', message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] } }), 5);
+    setTimeout(() => send({ type: 'agent_end' }), 10);
+  } else if (msg.type === 'follow_up' || msg.type === 'steer' || msg.type === 'abort') {
+    send({ type: 'response', id: msg.id, success: true });
+  }
+});
+process.on('SIGTERM', () => process.exit(0));
+`,
+	);
+	chmodSync(path, 0o755);
+	return path;
+}
+
 describe('RpcTeammate lifecycle', () => {
 	it('waits for a busy teammate until agent_end arrives', async () => {
 		const team = store.create_team({ cwd: '/repo', name: 'demo' });
 		const runner = new RpcTeammate(store, {
-			teamId: team.id,
+			team_id: team.id,
 			member: 'alice',
 			cwd: '/repo',
-			teamRoot: root,
-			extensionPath: '/tmp/team-extension.js',
+			team_root: root,
+			extension_path: '/tmp/team-extension.js',
 		});
 
 		(runner as any).mark_busy();
-		const wait = runner.waitForIdle(1_000);
+		const wait = runner.wait_for_idle(1_000);
 		setTimeout(() => {
 			(runner as any).handle_event({ type: 'agent_end' });
 		}, 0);
@@ -113,11 +151,11 @@ describe('RpcTeammate lifecycle', () => {
 	it('marks a busy teammate blocked when an RPC request fails', () => {
 		const team = store.create_team({ cwd: '/repo', name: 'demo' });
 		const runner = new RpcTeammate(store, {
-			teamId: team.id,
+			team_id: team.id,
 			member: 'alice',
 			cwd: '/repo',
-			teamRoot: root,
-			extensionPath: '/tmp/team-extension.js',
+			team_root: root,
+			extension_path: '/tmp/team-extension.js',
 		});
 
 		(runner as any).mark_busy();
@@ -128,5 +166,80 @@ describe('RpcTeammate lifecycle', () => {
 				.list_members(team.id)
 				.find((member) => member.name === 'alice'),
 		).toMatchObject({ status: 'blocked' });
+	});
+
+	it('drives a real RPC child through start, prompt, wait, and shutdown', async () => {
+		const fake_pi = write_fake_rpc_child();
+		const team = store.create_team({ cwd: root, name: 'demo' });
+		const exits: string[] = [];
+		const runner = new RpcTeammate(store, {
+			team_id: team.id,
+			member: 'alice',
+			cwd: root,
+			team_root: root,
+			extension_path: join(root, 'team-extension.js'),
+			pi_command: fake_pi,
+			on_exit: (member) => exits.push(member),
+		});
+
+		await runner.start();
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({
+			status: 'idle',
+			sessionFile: '/tmp/fake-session.jsonl',
+		});
+
+		await runner.prompt('do work');
+		await runner.wait_for_idle(1_000);
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({ status: 'idle' });
+
+		await runner.shutdown('test done');
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(exits).toContain('alice');
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({ status: 'offline' });
+	});
+
+	it('cleans up a real RPC child when startup handshake times out', async () => {
+		const fake_pi = write_fake_rpc_child({ hang_get_state: true });
+		const team = store.create_team({ cwd: root, name: 'demo' });
+		const exits: string[] = [];
+		const runner = new RpcTeammate(store, {
+			team_id: team.id,
+			member: 'alice',
+			cwd: root,
+			team_root: root,
+			extension_path: join(root, 'team-extension.js'),
+			pi_command: fake_pi,
+			on_exit: (member) => exits.push(member),
+		});
+		const request = (runner as any).request.bind(runner);
+		(runner as any).request = (
+			command: Record<string, unknown>,
+			timeout_ms: number,
+		) =>
+			request(
+				command,
+				command.type === 'get_state' ? 25 : timeout_ms,
+			);
+
+		await expect(runner.start()).rejects.toThrow(/timed out/);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(exits).toContain('alice');
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({ status: 'offline' });
 	});
 });
