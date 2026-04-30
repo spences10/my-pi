@@ -247,7 +247,7 @@ describe('TeamStore', () => {
 		).toBe(true);
 	});
 
-	it('persists mailbox messages and marks them read', () => {
+	it('tracks mailbox delivery, read, and acknowledgement separately', () => {
 		const team = store.create_team({ cwd: '/repo' });
 		const message = store.send_message(team.id, {
 			from: 'lead',
@@ -260,11 +260,45 @@ describe('TeamStore', () => {
 			{ id: message.id, from: 'lead', body: 'hello', urgent: true },
 		]);
 
-		const read = store.mark_messages_read(team.id, 'alice');
+		const delivered = store.mark_messages_delivered(
+			team.id,
+			'alice',
+			[message.id],
+		);
+		expect(delivered[0].delivered_at).toBeTruthy();
+		expect(delivered[0].read_at).toBeUndefined();
+		expect(delivered[0].acknowledged_at).toBeUndefined();
+
+		const read = store.mark_messages_read(team.id, 'alice', [
+			message.id,
+		]);
 		expect(read[0].read_at).toBeTruthy();
-		expect(
-			store.list_messages(team.id, 'alice')[0].read_at,
-		).toBeTruthy();
+		expect(read[0].acknowledged_at).toBeUndefined();
+
+		const acknowledged = store.acknowledge_messages(
+			team.id,
+			'alice',
+			[message.id],
+		);
+		expect(acknowledged[0].acknowledged_at).toBeTruthy();
+	});
+
+	it('can restore delivered but unacknowledged messages to unread', () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const message = store.send_message(team.id, {
+			from: 'lead',
+			to: 'alice',
+			body: 'hello',
+		});
+		store.mark_messages_delivered(team.id, 'alice', [message.id]);
+
+		const restored = store.clear_unacknowledged_deliveries(
+			team.id,
+			'alice',
+		);
+
+		expect(restored[0].delivered_at).toBeUndefined();
+		expect(restored[0].read_at).toBeUndefined();
 	});
 
 	it('persists teammate workspace metadata', () => {

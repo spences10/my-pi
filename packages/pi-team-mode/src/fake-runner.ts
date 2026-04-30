@@ -32,7 +32,7 @@ export function fake_teammate_step(
 	options: FakeTeammateStepOptions = {},
 ): FakeTeammateStepResult {
 	store.upsert_member(team_id, { name: member, status: 'running' });
-	const messages = store.mark_messages_read(team_id, member);
+	const messages = store.acknowledge_messages(team_id, member);
 	const should_shutdown =
 		options.shutdownOnMessage === true && wants_shutdown(messages);
 

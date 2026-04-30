@@ -463,6 +463,7 @@ export class RpcTeammate {
 			error instanceof Error ? error.message : String(error);
 		this.status = 'idle';
 		this.resolve_idle_waiters();
+		this.clear_unacknowledged_deliveries();
 		this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: 'blocked',
@@ -479,11 +480,23 @@ export class RpcTeammate {
 		this.status = 'offline';
 		this.resolve_idle_waiters();
 		this.reject_all(error);
+		this.clear_unacknowledged_deliveries();
 		this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: 'offline',
 		});
 		this.options.on_exit?.(this.member);
+	}
+
+	private clear_unacknowledged_deliveries(): void {
+		try {
+			this.store.clear_unacknowledged_deliveries(
+				this.team_id,
+				this.member,
+			);
+		} catch {
+			// Best-effort recovery only; never mask the original runner state change.
+		}
 	}
 
 	private touch_member(): void {

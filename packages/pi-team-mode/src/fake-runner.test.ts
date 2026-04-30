@@ -80,9 +80,10 @@ describe('fake teammate runner', () => {
 		expect(result.messages[0]).toMatchObject({
 			urgent: true,
 			read_at: expect.any(String),
+			acknowledged_at: expect.any(String),
 		});
 		expect(
-			store.list_messages(team.id, 'alice')[0].read_at,
+			store.list_messages(team.id, 'alice')[0].acknowledged_at,
 		).toBeTruthy();
 	});
 

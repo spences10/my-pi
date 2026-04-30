@@ -95,6 +95,7 @@ describe('create_rpc_teammate_env', () => {
 function write_fake_rpc_child(
 	options: {
 		hang_get_state?: boolean;
+		exit_after_follow_up?: boolean;
 		file_name?: string;
 		argv_path?: string;
 	} = {},
@@ -106,6 +107,7 @@ function write_fake_rpc_child(
 const fs = require('node:fs');
 const readline = require('node:readline');
 const hang_get_state = ${JSON.stringify(options.hang_get_state ?? false)};
+const exit_after_follow_up = ${JSON.stringify(options.exit_after_follow_up ?? false)};
 const argv_path = ${JSON.stringify(options.argv_path)};
 if (argv_path) fs.writeFileSync(argv_path, JSON.stringify(process.argv.slice(2)));
 function send(value) { process.stdout.write(JSON.stringify(value) + '\\n'); }
@@ -123,6 +125,7 @@ rl.on('line', (line) => {
     setTimeout(() => send({ type: 'agent_end' }), 10);
   } else if (msg.type === 'follow_up' || msg.type === 'steer' || msg.type === 'abort') {
     send({ type: 'response', id: msg.id, success: true });
+    if (msg.type === 'follow_up' && exit_after_follow_up) setTimeout(() => process.exit(1), 5);
   }
 });
 process.on('SIGTERM', () => process.exit(0));
@@ -301,6 +304,38 @@ describe('RpcTeammate lifecycle', () => {
 				.list_members(team.id)
 				.find((member) => member.name === 'alice'),
 		).toMatchObject({ status: 'offline' });
+	});
+
+	it('restores delivered mailbox messages when a child exits before acknowledging them', async () => {
+		const fake_pi = write_fake_rpc_child({
+			exit_after_follow_up: true,
+		});
+		const team = store.create_team({ cwd: root, name: 'demo' });
+		const runner = new RpcTeammate(store, {
+			team_id: team.id,
+			member: 'alice',
+			cwd: root,
+			team_root: root,
+			extension_path: join(root, 'team-extension.js'),
+			pi_command: fake_pi,
+		});
+		const message = store.send_message(team.id, {
+			from: 'lead',
+			to: 'alice',
+			body: 'hello',
+		});
+
+		await runner.start();
+		store.mark_messages_delivered(team.id, 'alice', [message.id]);
+		await runner.follow_up('hello');
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(
+			store.list_messages(team.id, 'alice')[0].delivered_at,
+		).toBeUndefined();
+		expect(
+			store.list_messages(team.id, 'alice')[0].acknowledged_at,
+		).toBeUndefined();
 	});
 
 	it('cleans up a real RPC child when startup handshake times out', async () => {

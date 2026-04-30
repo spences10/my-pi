@@ -67,6 +67,7 @@ const TeamAction = StringEnum([
 	'message_send',
 	'message_list',
 	'message_read',
+	'message_ack',
 ] as const);
 
 const TeamToolParams = Type.Object({
@@ -203,7 +204,7 @@ Use the \`team\` tool as the source of truth for team coordination.
 
 Rules:
 - The team lead should create tasks, spawn members, message teammates, and inspect status through the \`team\` tool.
-- Teammates should read messages, claim exactly one ready task, work it, update the task with status/result, then go idle.
+- Teammates should read messages, acknowledge processed mailbox messages with message_read, claim exactly one ready task, work it, update the task with status/result, then go idle.
 - Do not create nested teams from a teammate session.
 - Use urgent steer/follow-up messaging for coordination instead of assuming shared context.
 - Use real RPC teammates via member_spawn for background work.
@@ -401,9 +402,15 @@ function format_messages(messages: TeamMessage[]): string {
 	if (messages.length === 0) return 'No messages yet.';
 	return messages
 		.map((message) => {
-			const unread = message.read_at ? '' : ' unread';
 			const urgent = message.urgent ? ' urgent' : '';
-			return `- ${message.id}${urgent}${unread} from ${message.from}: ${message.body}`;
+			const state = message.acknowledged_at
+				? 'acknowledged'
+				: message.read_at
+					? 'read'
+					: message.delivered_at
+						? 'delivered'
+						: 'unread';
+			return `- ${message.id}${urgent} ${state} from ${message.from}: ${message.body}`;
 		})
 		.join('\n');
 }
@@ -421,8 +428,25 @@ function format_injected_messages(
 		}),
 		'',
 		'Use the team tool to update tasks or reply if action is needed.',
+		'After handling these messages, acknowledge them with team action message_read for your member.',
 	];
 	return lines.join('\n');
+}
+
+function format_rpc_message(message: TeamMessage): string {
+	return `<teammate-message id="${message.id}" from="${message.from}" urgent="${message.urgent}">\n${message.body}\n</teammate-message>\nAfter handling this message, acknowledge it with team action message_read for your member.`;
+}
+
+async function deliver_message_to_runner(
+	store: TeamStore,
+	team_id: string,
+	runner: RpcTeammate,
+	message: TeamMessage,
+): Promise<void> {
+	const injected = format_rpc_message(message);
+	if (message.urgent) await runner.steer(injected);
+	else await runner.follow_up(injected);
+	store.mark_messages_delivered(team_id, message.to, [message.id]);
 }
 
 function parse_task_add(text: string): {
@@ -1182,10 +1206,15 @@ async function handle_team_command(
 					to: require_arg(to, 'recipient'),
 					body: message_parts.join(' '),
 				});
+				const team_id = current_team_id();
 				const runner = runners.get(message.to);
 				if (runner?.is_running) {
-					await runner.follow_up(message.body);
-					store.mark_messages_read(current_team_id(), message.to);
+					await deliver_message_to_runner(
+						store,
+						team_id,
+						runner,
+						message,
+					);
 				}
 				ctx.ui.notify(`Sent ${message.id} to ${message.to}`);
 				break;
@@ -1429,7 +1458,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 			if (!should_auto_inject_messages()) return;
 			const unread = store
 				.list_messages(active_team_id, own_member)
-				.filter((message) => !message.read_at);
+				.filter(
+					(message) =>
+						!message.acknowledged_at && !message.delivered_at,
+				);
 			if (unread.length === 0) return;
 			pi.sendMessage(
 				{
@@ -1440,7 +1472,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 				},
 				{ deliverAs: 'followUp', triggerTurn: true },
 			);
-			store.mark_messages_read(active_team_id, own_member);
+			store.mark_messages_delivered(
+				active_team_id,
+				own_member,
+				unread.map((message) => message.id),
+			);
 		} catch (error) {
 			try {
 				store.load_team(active_team_id);
@@ -1472,6 +1508,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 		if (active_team_id) {
 			try {
 				store.load_team(active_team_id);
+				store.clear_unacknowledged_deliveries(
+					active_team_id,
+					own_member,
+				);
 				store.upsert_member(active_team_id, {
 					name: own_member,
 					role: own_role === 'teammate' ? 'teammate' : 'lead',
@@ -1494,6 +1534,16 @@ export default async function team_mode(pi: ExtensionAPI) {
 			await runner
 				.shutdown('leader session shutting down')
 				.catch(() => undefined);
+		}
+		if (active_team_id) {
+			try {
+				store.clear_unacknowledged_deliveries(
+					active_team_id,
+					own_member,
+				);
+			} catch {
+				// Ignore shutdown cleanup failures.
+			}
 		}
 		runners.clear();
 		stop_mailbox_watcher();
@@ -1975,7 +2025,8 @@ export default async function team_mode(pi: ExtensionAPI) {
 					};
 				}
 				case 'message_send': {
-					const message = store.send_message(require_team_id(), {
+					const active = require_team_id();
+					const message = store.send_message(active, {
 						from: params.from ?? own_member,
 						to: require_arg(params.to, 'to'),
 						body: require_arg(params.message, 'message'),
@@ -1983,10 +2034,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 					});
 					const runner = runners.get(message.to);
 					if (runner?.is_running) {
-						const injected = `<teammate-message from="${message.from}" urgent="${message.urgent}">\n${message.body}\n</teammate-message>`;
-						if (message.urgent) await runner.steer(injected);
-						else await runner.follow_up(injected);
-						store.mark_messages_read(require_team_id(), message.to);
+						await deliver_message_to_runner(
+							store,
+							active,
+							runner,
+							message,
+						);
 					}
 					return {
 						content: [
@@ -2013,8 +2066,9 @@ export default async function team_mode(pi: ExtensionAPI) {
 						details: { messages },
 					};
 				}
-				case 'message_read': {
-					const messages = store.mark_messages_read(
+				case 'message_read':
+				case 'message_ack': {
+					const messages = store.acknowledge_messages(
 						require_team_id(),
 						require_arg(params.member ?? params.to, 'member'),
 					);

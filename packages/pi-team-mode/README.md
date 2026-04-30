@@ -91,6 +91,13 @@ IDs: letters, numbers, dots, underscores, and hyphens only. This
 avoids ambiguous local state paths like `alice/dev` and `alice-dev`
 resolving to the same mailbox/member file.
 
+Mailbox messages track delivery separately from acknowledgement.
+Sending to a running RPC teammate marks the message delivered only
+after the RPC queue accepts it; teammates should call `message_read`
+after processing the injected mailbox message. If the teammate exits
+before acknowledging, the message is restored for redelivery on the
+next session.
+
 ## Commands
 
 ```text
@@ -140,6 +147,8 @@ orchestration. Important actions include:
   fields)
 - `message_send`
 - `message_list`
+- `message_read` / `message_ack` to acknowledge processed mailbox
+  messages
 
 Real work should use `member_spawn`. The fake teammate runner is kept
 out of the tool API and is only available to local test harnesses.

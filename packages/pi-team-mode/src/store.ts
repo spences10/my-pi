@@ -71,7 +71,9 @@ export interface TeamMessage {
 	body: string;
 	urgent: boolean;
 	created_at: string;
+	delivered_at?: string;
 	read_at?: string;
+	acknowledged_at?: string;
 }
 
 export interface TeamEvent {
@@ -824,16 +826,91 @@ export class TeamStore {
 		);
 	}
 
-	mark_messages_read(team_id: string, member: string): TeamMessage[] {
+	mark_messages_delivered(
+		team_id: string,
+		member: string,
+		message_ids?: string[],
+	): TeamMessage[] {
+		return this.update_messages(
+			team_id,
+			member,
+			message_ids,
+			(message, timestamp) => {
+				if (!message.delivered_at) message.delivered_at = timestamp;
+			},
+		);
+	}
+
+	mark_messages_read(
+		team_id: string,
+		member: string,
+		message_ids?: string[],
+	): TeamMessage[] {
+		return this.update_messages(
+			team_id,
+			member,
+			message_ids,
+			(message, timestamp) => {
+				if (!message.delivered_at) message.delivered_at = timestamp;
+				if (!message.read_at) message.read_at = timestamp;
+			},
+		);
+	}
+
+	acknowledge_messages(
+		team_id: string,
+		member: string,
+		message_ids?: string[],
+	): TeamMessage[] {
+		return this.update_messages(
+			team_id,
+			member,
+			message_ids,
+			(message, timestamp) => {
+				if (!message.delivered_at) message.delivered_at = timestamp;
+				if (!message.read_at) message.read_at = timestamp;
+				if (!message.acknowledged_at)
+					message.acknowledged_at = timestamp;
+			},
+		);
+	}
+
+	clear_unacknowledged_deliveries(
+		team_id: string,
+		member: string,
+	): TeamMessage[] {
+		return this.update_messages(
+			team_id,
+			member,
+			undefined,
+			(message) => {
+				if (message.acknowledged_at || !message.delivered_at) return;
+				delete message.delivered_at;
+			},
+		);
+	}
+
+	private update_messages(
+		team_id: string,
+		member: string,
+		message_ids: string[] | undefined,
+		update: (message: TeamMessage, timestamp: string) => void,
+	): TeamMessage[] {
 		return this.with_team_lock(team_id, () => {
-			const messages = this.list_messages(team_id, member);
+			const normalized_member = require_member_name(member);
+			const id_filter = message_ids
+				? new Set(message_ids.map((id) => safe_segment(id)))
+				: undefined;
+			const messages = this.list_messages(team_id, normalized_member);
 			const timestamp = now();
 			for (const message of messages) {
-				if (message.read_at) continue;
-				message.read_at = timestamp;
+				if (id_filter && !id_filter.has(message.id)) continue;
+				const before = JSON.stringify(message);
+				update(message, timestamp);
+				if (JSON.stringify(message) === before) continue;
 				write_json(
 					join(
-						this.mailbox_dir(team_id, member),
+						this.mailbox_dir(team_id, normalized_member),
 						`${message.id}.json`,
 					),
 					message,
