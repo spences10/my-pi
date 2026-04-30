@@ -1,5 +1,14 @@
 # @spences10/pi-mcp
 
+## 0.0.8
+
+### Patch Changes
+
+- c41b71a: Centralize project trust policy across MCP, LSP, hooks, and
+  untrusted mode with shared package.
+- Updated dependencies [c41b71a]
+  - @spences10/pi-project-trust@0.0.2
+
 ## 0.0.7
 
 ### Patch Changes

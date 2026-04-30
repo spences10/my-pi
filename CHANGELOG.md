@@ -1,5 +1,20 @@
 # my-pi
 
+## 0.1.20
+
+### Patch Changes
+
+- c41b71a: Centralize project trust policy across MCP, LSP, hooks, and
+  untrusted mode with shared package.
+- bc797e2: Stop advertising `my-pi` as an installable Pi package;
+  document CLI usage instead.
+- Updated dependencies [c41b71a]
+- Updated dependencies [4a48fcc]
+  - @spences10/pi-project-trust@0.0.2
+  - @spences10/pi-lsp@0.0.7
+  - @spences10/pi-mcp@0.0.8
+  - @spences10/pi-team-mode@0.0.4
+
 ## 0.1.19
 
 ### Patch Changes

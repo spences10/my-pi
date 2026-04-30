@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-lsp",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"description": "Pi extension that exposes Language Server Protocol diagnostics, hover, definition, and reference tools",
 	"keywords": [
 		"language-server",

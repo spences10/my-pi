@@ -1,5 +1,13 @@
 # @spences10/pi-team-mode
 
+## 0.0.4
+
+### Patch Changes
+
+- 4a48fcc: Polish team UI startup behavior, status controls,
+  completion notifications, stale task handling, and child-env
+  packaging.
+
 ## 0.0.3
 
 ### Patch Changes
