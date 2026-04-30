@@ -10,8 +10,12 @@ import {
 	Container,
 	Text,
 	type SelectItem,
+	type SettingItem,
 } from '@mariozechner/pi-tui';
-import { show_picker_modal } from '@spences10/pi-tui-modal';
+import {
+	show_picker_modal,
+	show_settings_modal,
+} from '@spences10/pi-tui-modal';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Type, type Static } from 'typebox';
@@ -644,6 +648,184 @@ function set_team_ui(
 	}
 }
 
+const TEAM_UI_MODE_VALUES: TeamUiMode[] = [
+	'compact',
+	'auto',
+	'full',
+	'off',
+];
+const TEAM_UI_STYLE_VALUES: TeamUiStyle[] = [
+	'plain',
+	'badge',
+	'color',
+];
+
+async function show_team_ui_modal(
+	ctx: ExtensionCommandContext,
+	store: TeamStore,
+	team_id: string | undefined,
+): Promise<void> {
+	const items: SettingItem[] = [
+		{
+			id: 'mode',
+			label: 'Status UI',
+			currentValue: get_team_ui_mode(),
+			values: TEAM_UI_MODE_VALUES,
+			description:
+				'compact keeps team mode in the footer, auto/full show the richer widget when there is useful detail, and off hides team UI for this session.',
+		},
+		{
+			id: 'style',
+			label: 'Visual style',
+			currentValue: get_team_ui_style(),
+			values: TEAM_UI_STYLE_VALUES,
+			description:
+				'plain is quiet, badge adds semantic icons, and color adds stronger status emphasis.',
+		},
+	];
+
+	await show_settings_modal(ctx, {
+		title: 'Team UI',
+		subtitle: () =>
+			team_id
+				? `Active team ${team_id} • ${format_status_counts(store.get_status(team_id))}`
+				: 'No active team • settings apply to this session',
+		items,
+		metadata: (item) => item?.description,
+		footer:
+			'enter/space cycles values • changes apply immediately • esc close',
+		on_change: (id, new_value) => {
+			if (id === 'mode') process.env[TEAM_UI_ENV] = new_value;
+			if (id === 'style') process.env[TEAM_UI_STYLE_ENV] = new_value;
+			set_team_ui(ctx, store, team_id);
+		},
+	});
+}
+
+async function show_team_home_modal(
+	ctx: ExtensionCommandContext,
+	store: TeamStore,
+	active_team_id: string | undefined,
+): Promise<string | undefined> {
+	const statuses = get_team_statuses(store);
+	const active_status = statuses.find(
+		(status) => status.team.id === active_team_id,
+	);
+	const latest = get_latest_team_for_cwd(store, ctx.cwd);
+	const items: SelectItem[] = [];
+
+	if (active_status) {
+		items.push(
+			{
+				value: 'status',
+				label: 'Show status',
+				description: format_status_counts(active_status),
+			},
+			{
+				value: 'task',
+				label: 'Browse tasks',
+				description:
+					active_status.tasks.length > 0
+						? `${active_status.tasks.length} tasks in this team`
+						: 'No tasks yet',
+			},
+			{
+				value: 'switch',
+				label: 'Switch team',
+				description: 'Pick another saved team',
+			},
+			{
+				value: 'ui',
+				label: 'Team UI settings',
+				description: `Mode ${get_team_ui_mode()} • style ${get_team_ui_style()}`,
+			},
+			{
+				value: 'id',
+				label: 'Show team id/path',
+				description: active_status.team.id,
+			},
+			{
+				value: 'clear',
+				label: 'Detach team UI',
+				description: 'Keep state on disk but clear this session view',
+			},
+		);
+	} else {
+		items.push({
+			value: 'create',
+			label: 'Create team',
+			description: 'Start a new local team for this repo',
+		});
+		if (latest) {
+			items.push({
+				value: 'resume',
+				label: 'Resume latest team',
+				description: `${latest.name} (${latest.id})`,
+			});
+		}
+		if (statuses.length > 0) {
+			items.push({
+				value: 'switch',
+				label: 'Switch team',
+				description: `${statuses.length} saved teams`,
+			});
+		}
+		items.push({
+			value: 'ui',
+			label: 'Team UI settings',
+			description: `Mode ${get_team_ui_mode()} • style ${get_team_ui_style()}`,
+		});
+	}
+
+	if (statuses.length > 0) {
+		items.push({
+			value: 'teams',
+			label: 'List all teams',
+			description: `${statuses.length} teams stored locally`,
+		});
+	}
+
+	return await show_picker_modal(ctx, {
+		title: 'Team mode',
+		subtitle: active_status
+			? `Active: ${active_status.team.name} • ${format_status_counts(active_status)}`
+			: 'No active team',
+		items,
+		max_visible: Math.min(Math.max(items.length, 6), 10),
+		footer: 'enter runs action • esc cancel',
+	});
+}
+
+async function show_team_task_picker(
+	ctx: ExtensionCommandContext,
+	status: TeamStatus,
+): Promise<string | undefined> {
+	const items: SelectItem[] = status.tasks.map((task) => ({
+		value: task.id,
+		label: `#${task.id} ${task.title}`,
+		description: [
+			format_task_status(task.status),
+			task.status,
+			task.assignee ? `@${task.assignee}` : 'unassigned',
+			task.dependsOn.length
+				? `waits for #${task.dependsOn.join(', #')}`
+				: undefined,
+			summarize_result(task.result),
+		]
+			.filter(Boolean)
+			.join(' • '),
+	}));
+
+	return await show_picker_modal(ctx, {
+		title: 'Team tasks',
+		subtitle: `${status.team.name} • ${format_status_counts(status)}`,
+		items,
+		max_visible: Math.min(Math.max(items.length, 8), 14),
+		empty_message: 'No team tasks yet',
+		footer: 'enter shows task detail • esc cancel',
+	});
+}
+
 async function handle_team_command(
 	args: string,
 	ctx: ExtensionCommandContext,
@@ -653,6 +835,23 @@ async function handle_team_command(
 	set_active_team_id: (team_id: string | undefined) => void,
 ): Promise<void> {
 	const trimmed = args.trim();
+	if (!trimmed && ctx.hasUI) {
+		const selected = await show_team_home_modal(
+			ctx,
+			store,
+			get_active_team_id(),
+		);
+		if (!selected) return;
+		return handle_team_command(
+			selected,
+			ctx,
+			store,
+			runners,
+			get_active_team_id,
+			set_active_team_id,
+		);
+	}
+
 	const [sub = 'status', ...rest] = trimmed.split(/\s+/);
 	const rest_text = rest.join(' ').trim();
 
@@ -686,9 +885,17 @@ async function handle_team_command(
 				const [ui_arg, style_arg] = rest;
 				const mode = rest_text.trim().toLowerCase();
 				if (!mode) {
-					ctx.ui.notify(
-						`Team UI mode: ${get_team_ui_mode()}, style: ${get_team_ui_style()}`,
-					);
+					if (ctx.hasUI) {
+						await show_team_ui_modal(
+							ctx,
+							store,
+							get_active_team_id(),
+						);
+					} else {
+						ctx.ui.notify(
+							`Team UI mode: ${get_team_ui_mode()}, style: ${get_team_ui_style()}`,
+						);
+					}
 					break;
 				}
 				if (ui_arg === 'style') {
@@ -779,7 +986,17 @@ async function handle_team_command(
 					set_team_ui(ctx, store, team_id);
 					ctx.ui.notify(`Created task #${task.id}: ${task.title}`);
 				} else if (action === 'list' || !action) {
-					ctx.ui.notify(format_status(store.get_status(team_id)));
+					const status = store.get_status(team_id);
+					if (ctx.hasUI && status.tasks.length > 0) {
+						const task_id = await show_team_task_picker(ctx, status);
+						if (task_id) {
+							ctx.ui.notify(
+								format_task_detail(store.load_task(team_id, task_id)),
+							);
+						}
+					} else {
+						ctx.ui.notify(format_status(status));
+					}
 				} else if (action === 'show' || action === 'get') {
 					ctx.ui.notify(
 						format_task_detail(
