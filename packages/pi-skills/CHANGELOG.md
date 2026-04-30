@@ -1,5 +1,18 @@
 # @spences10/pi-skills
 
+## 0.0.5
+
+### Patch Changes
+
+- f6871b6: Show inline skill descriptions in modal rows while
+  preserving selected item metadata details panel.
+- c4356b9: Cap visible skill modal rows so selected item metadata
+  remains visible below large lists.
+- ab5ee75: Add shared padded TUI modals and replace bracket status
+  labels with clearer terminal glyphs.
+- Updated dependencies [f6871b6]
+  - @spences10/pi-tui-modal@0.0.2
+
 ## 0.0.4
 
 ### Patch Changes

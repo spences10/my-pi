@@ -1,5 +1,46 @@
 # my-pi
 
+## 0.1.22
+
+### Patch Changes
+
+- ca28246: Publish themes separately and remove installable Pi package
+  metadata from shared helper packages.
+- ab5ee75: Add shared padded TUI modals and replace bracket status
+  labels with clearer terminal glyphs.
+- 34d64ec: Add reusable teammate profiles with model, prompt, tool,
+  skill limits, and project trust controls.
+- de8ba83: Add MCP server TUI modal for searchable enable/disable
+  toggles with persisted config state.
+- 847bfd9: Add MCP backup, restore, and profile commands for reusable
+  server configuration management.
+- Updated dependencies [ca28246]
+- Updated dependencies [f6871b6]
+- Updated dependencies [c4356b9]
+- Updated dependencies [ab5ee75]
+- Updated dependencies [145df7f]
+- Updated dependencies [e205248]
+- Updated dependencies [3b910ce]
+- Updated dependencies [0d9edc9]
+- Updated dependencies [028813b]
+- Updated dependencies [903653e]
+- Updated dependencies [bccf934]
+- Updated dependencies [52d224e]
+- Updated dependencies [34d64ec]
+- Updated dependencies [de8ba83]
+- Updated dependencies [847bfd9]
+- Updated dependencies [ce770c8]
+- Updated dependencies [20c3a45]
+- Updated dependencies [c1d5c27]
+  - @spences10/pi-child-env@0.1.2
+  - @spences10/pi-themes@0.0.2
+  - @spences10/pi-tui-modal@0.0.2
+  - @spences10/pi-skills@0.0.5
+  - @spences10/pi-team-mode@0.0.6
+  - @spences10/pi-project-trust@0.0.3
+  - @spences10/pi-mcp@0.0.9
+  - @spences10/pi-lsp@0.0.8
+
 ## 0.1.21
 
 ### Patch Changes

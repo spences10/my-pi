@@ -1,5 +1,14 @@
 # @spences10/pi-lsp
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [ca28246]
+- Updated dependencies [34d64ec]
+  - @spences10/pi-child-env@0.1.2
+  - @spences10/pi-project-trust@0.0.3
+
 ## 0.0.7
 
 ### Patch Changes

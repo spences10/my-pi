@@ -1,5 +1,12 @@
 # @spences10/pi-child-env
 
+## 0.1.2
+
+### Patch Changes
+
+- ca28246: Publish themes separately and remove installable Pi package
+  metadata from shared helper packages.
+
 ## 0.1.1
 
 ### Patch Changes

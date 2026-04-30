@@ -1,5 +1,20 @@
 # @spences10/pi-mcp
 
+## 0.0.9
+
+### Patch Changes
+
+- de8ba83: Add MCP server TUI modal for searchable enable/disable
+  toggles with persisted config state.
+- 847bfd9: Add MCP backup, restore, and profile commands for reusable
+  server configuration management.
+- Updated dependencies [ca28246]
+- Updated dependencies [f6871b6]
+- Updated dependencies [34d64ec]
+  - @spences10/pi-child-env@0.1.2
+  - @spences10/pi-tui-modal@0.0.2
+  - @spences10/pi-project-trust@0.0.3
+
 ## 0.0.8
 
 ### Patch Changes
