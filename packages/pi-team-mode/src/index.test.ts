@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -125,6 +126,74 @@ describe('nested team spawn guard', () => {
 				/Only team leads can spawn teammates/,
 			);
 		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('orphaned teammate recovery', () => {
+	it('terminates a live persisted teammate pid after lead restart', async () => {
+		const root = mkdtempSync(join(tmpdir(), 'my-pi-team-orphan-'));
+		const child = spawn(
+			process.execPath,
+			['-e', 'setInterval(() => {}, 1000)'],
+			{ stdio: 'ignore' },
+		);
+		try {
+			const store = new TeamStore(root);
+			const team = store.create_team({ cwd: '/repo' });
+			store.upsert_member(team.id, {
+				name: 'alice',
+				role: 'teammate',
+				status: 'idle',
+				pid: child.pid,
+			});
+			const notifications: string[] = [];
+
+			expect(store.get_status(team.id).members).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						name: 'alice',
+						status: 'running_orphaned',
+					}),
+				]),
+			);
+
+			await handle_team_command(
+				'shutdown alice',
+				{
+					cwd: '/repo',
+					hasUI: false,
+					ui: {
+						notify: (message: string) => notifications.push(message),
+					},
+				} as any,
+				store,
+				new Map(),
+				() => team.id,
+				() => undefined,
+				'lead',
+			);
+
+			expect(notifications.join('\n')).toMatch(
+				/Terminated orphaned teammate alice/,
+			);
+			expect(store.list_members(team.id)).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						name: 'alice',
+						status: 'offline',
+					}),
+				]),
+			);
+		} finally {
+			if (child.pid) {
+				try {
+					process.kill(child.pid, 'SIGKILL');
+				} catch {
+					// Already stopped by the command under test.
+				}
+			}
 			rmSync(root, { recursive: true, force: true });
 		}
 	});

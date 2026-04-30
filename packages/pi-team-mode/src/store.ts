@@ -14,6 +14,8 @@ export type TeamMemberRole = 'lead' | 'teammate';
 export type TeamMemberStatus =
 	| 'idle'
 	| 'running'
+	| 'running_attached'
+	| 'running_orphaned'
 	| 'blocked'
 	| 'offline';
 export type TeamTaskStatus =
@@ -246,7 +248,14 @@ function validate_member(member: TeamMember): void {
 		throw new Error(`Invalid member role: ${member.role}`);
 	}
 	if (
-		!['idle', 'running', 'blocked', 'offline'].includes(member.status)
+		![
+			'idle',
+			'running',
+			'running_attached',
+			'running_orphaned',
+			'blocked',
+			'offline',
+		].includes(member.status)
 	) {
 		throw new Error(`Invalid member status: ${member.status}`);
 	}
@@ -560,31 +569,52 @@ export class TeamStore {
 		);
 	}
 
-	refresh_member_process_statuses(team_id: string): TeamMember[] {
+	refresh_member_process_statuses(
+		team_id: string,
+		attached_members: ReadonlySet<string> = new Set(),
+	): TeamMember[] {
 		return this.with_team_lock(team_id, () => {
 			const members = this.list_members(team_id);
 			for (const member of members) {
-				if (
-					member.pid &&
-					member.status !== 'offline' &&
-					!is_pid_alive(member.pid)
-				) {
-					this.upsert_member_unlocked(team_id, {
-						name: member.name,
-						status: 'offline',
-					});
-					for (const task of this.list_tasks(team_id)) {
-						if (
-							task.status !== 'in_progress' ||
-							task.assignee !== member.name
-						) {
-							continue;
-						}
-						this.update_task_unlocked(team_id, task.id, {
-							status: 'blocked',
-							result: `Blocked because teammate ${member.name} went offline.`,
+				if (!member.pid || member.status === 'offline') continue;
+
+				if (is_pid_alive(member.pid)) {
+					if (member.role !== 'teammate') continue;
+					const attached = attached_members.has(member.name);
+					const should_mark_attached =
+						attached &&
+						(member.status === 'running' ||
+							member.status === 'running_attached' ||
+							member.status === 'running_orphaned');
+					const next_status = attached
+						? should_mark_attached
+							? 'running_attached'
+							: member.status
+						: 'running_orphaned';
+					if (next_status !== member.status) {
+						this.upsert_member_unlocked(team_id, {
+							name: member.name,
+							status: next_status,
 						});
 					}
+					continue;
+				}
+
+				this.upsert_member_unlocked(team_id, {
+					name: member.name,
+					status: 'offline',
+				});
+				for (const task of this.list_tasks(team_id)) {
+					if (
+						task.status !== 'in_progress' ||
+						task.assignee !== member.name
+					) {
+						continue;
+					}
+					this.update_task_unlocked(team_id, task.id, {
+						status: 'blocked',
+						result: `Blocked because teammate ${member.name} went offline.`,
+					});
 				}
 			}
 			return this.list_members(team_id);
@@ -924,8 +954,11 @@ export class TeamStore {
 		});
 	}
 
-	get_status(team_id: string): TeamStatus {
-		this.refresh_member_process_statuses(team_id);
+	get_status(
+		team_id: string,
+		attached_members: ReadonlySet<string> = new Set(),
+	): TeamStatus {
+		this.refresh_member_process_statuses(team_id, attached_members);
 		const team = this.load_team(team_id);
 		const members = this.list_members(team_id);
 		const tasks = this.list_tasks(team_id);

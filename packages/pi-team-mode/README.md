@@ -79,12 +79,19 @@ mode:
 
 The `team` tool exposes the same controls via `member_spawn` with
 `workspace_mode: "worktree"`, `mutating: true`, and optional `branch`
-or `worktree_path`. Team status shows each member's workspace path and
-branch. Shared-cwd mutating spawns are refused when another active
-mutating teammate is already using that cwd unless `force`/`--force`
-is set. Worktrees are created under `MY_PI_TEAM_MODE_ROOT/worktrees`
-by default and are never deleted during shutdown; dirty worktrees are
-preserved until you clean them up explicitly with git.
+or `worktree_path`. Team status shows each member's workspace path,
+branch, and control state (`running (attached)` vs
+`running orphaned`). Shared-cwd mutating spawns are refused when
+another active mutating teammate is already using that cwd unless
+`force`/`--force` is set. Worktrees are created under
+`MY_PI_TEAM_MODE_ROOT/worktrees` by default and are never deleted
+during shutdown; dirty worktrees are preserved until you clean them up
+explicitly with git.
+
+If a lead process restarts while teammate child processes are still
+alive, `/team status` marks those persisted PIDs as orphaned. Use
+`/team shutdown <member>` or `member_shutdown` to safely terminate a
+known orphaned teammate process and clean up its member state.
 
 Teammate names, assignees, senders, and recipients must be stable file
 IDs: letters, numbers, dots, underscores, and hyphens only. This

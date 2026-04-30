@@ -346,6 +346,46 @@ describe('TeamStore', () => {
 		});
 	});
 
+	it('marks live persisted teammate processes as orphaned after restart', () => {
+		const team = store.create_team({ cwd: '/repo' });
+		store.upsert_member(team.id, {
+			name: 'alice',
+			role: 'teammate',
+			status: 'idle',
+			pid: process.pid,
+		});
+
+		expect(store.get_status(team.id).members).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					name: 'alice',
+					status: 'running_orphaned',
+				}),
+			]),
+		);
+	});
+
+	it('keeps attached running teammates distinct from orphaned processes', () => {
+		const team = store.create_team({ cwd: '/repo' });
+		store.upsert_member(team.id, {
+			name: 'alice',
+			role: 'teammate',
+			status: 'running',
+			pid: process.pid,
+		});
+
+		expect(
+			store.get_status(team.id, new Set(['alice'])).members,
+		).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					name: 'alice',
+					status: 'running_attached',
+				}),
+			]),
+		);
+	});
+
 	it('blocks in-progress tasks when a teammate process is stale', () => {
 		const team = store.create_team({ cwd: '/repo' });
 		store.upsert_member(team.id, {

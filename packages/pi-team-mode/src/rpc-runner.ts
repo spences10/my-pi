@@ -453,7 +453,7 @@ export class RpcTeammate {
 		this.status = 'running';
 		this.store.upsert_member(this.team_id, {
 			name: this.member,
-			status: 'running',
+			status: 'running_attached',
 		});
 	}
 
