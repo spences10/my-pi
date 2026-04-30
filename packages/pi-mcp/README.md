@@ -74,17 +74,26 @@ mcp__sqlite__execute_read_query
 ## Commands
 
 ```text
-/mcp                # open the TUI server manager
-/mcp manage         # same as /mcp
+/mcp                         # open the TUI server manager
+/mcp manage                  # same as /mcp
 /mcp list
 /mcp enable <server>
 /mcp disable <server>
+/mcp backup                  # backup global + project MCP config
+/mcp restore [backup-file]   # restore from picker or filename/path
+/mcp profile list
+/mcp profile save [name]
+/mcp profile load [name] [global|project]
+/mcp profiles                # picker for profile load
 ```
 
 Use `/mcp` to open a searchable modal for enabling/disabling servers.
 Toggles update the current session and persist a `disabled`/`enabled`
-flag in the winning `mcp.json` entry. `/mcp list`, `/mcp enable`, and
-`/mcp disable` remain available for command-style control.
+flag in the winning `mcp.json` entry. Backups are written under
+`~/.pi/agent/mcp-backups/` and restore global/project MCP config
+exactly as captured. Profiles are saved under
+`~/.pi/agent/mcp-profiles/` as reusable merged server sets that can be
+loaded into global or project MCP config.
 
 ## What it does
 

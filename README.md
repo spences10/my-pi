@@ -385,6 +385,8 @@ same server name, the trusted project config wins.
 Use `/mcp` in interactive mode to open the searchable MCP server
 modal. Enter/Space toggles servers on or off, updates the active tool
 set, and persists the choice as `disabled`/`enabled` in `mcp.json`.
+Use `/mcp backup`, `/mcp restore`, and `/mcp profile ...` to back up,
+restore, save, and load reusable MCP server sets.
 
 ### Hooks
 

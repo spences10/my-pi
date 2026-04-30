@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import {
 	existsSync,
 	mkdirSync,
+	readFileSync,
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
@@ -9,8 +10,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+	create_mcp_config_backup,
 	get_project_mcp_config_info,
+	list_mcp_config_backups,
+	list_mcp_profiles,
 	load_mcp_config,
+	load_mcp_profile,
+	restore_mcp_config_backup,
+	save_mcp_profile,
 	set_mcp_server_enabled,
 } from './config.js';
 
@@ -295,6 +302,75 @@ describe('load_mcp_config', () => {
 				transport: 'stdio',
 				command: 'p',
 			},
+		]);
+	});
+
+	it('backs up and restores global and project MCP configs', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		const global_path = join(home, '.pi', 'agent', 'mcp.json');
+		mkdirSync(join(home, '.pi', 'agent'), { recursive: true });
+		writeFileSync(
+			global_path,
+			JSON.stringify({ mcpServers: { global: { command: 'g' } } }),
+		);
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({ mcpServers: { project: { command: 'p' } } }),
+		);
+
+		const backup = create_mcp_config_backup(cwd);
+		expect(backup.global_server_count).toBe(1);
+		expect(backup.project_server_count).toBe(1);
+		expect(list_mcp_config_backups()).toHaveLength(1);
+
+		writeFileSync(
+			global_path,
+			JSON.stringify({ mcpServers: { changed: { command: 'c' } } }),
+		);
+		rmSync(join(cwd, 'mcp.json'));
+
+		restore_mcp_config_backup(cwd, backup.path);
+
+		expect(load_mcp_config(cwd)).toEqual([
+			{ name: 'global', transport: 'stdio', command: 'g' },
+			{ name: 'project', transport: 'stdio', command: 'p' },
+		]);
+	});
+
+	it('saves and loads MCP profiles into the selected scope', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		const global_path = join(home, '.pi', 'agent', 'mcp.json');
+		mkdirSync(join(home, '.pi', 'agent'), { recursive: true });
+		writeFileSync(
+			global_path,
+			JSON.stringify({ mcpServers: { global: { command: 'g' } } }),
+		);
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({ mcpServers: { project: { command: 'p' } } }),
+		);
+
+		const profile = save_mcp_profile(cwd, 'work');
+		expect(profile.server_count).toBe(2);
+		expect(list_mcp_profiles()).toMatchObject([
+			{ name: 'work', server_count: 2 },
+		]);
+
+		writeFileSync(global_path, JSON.stringify({ mcpServers: {} }));
+		load_mcp_profile(cwd, 'work', 'global');
+
+		const restored = JSON.parse(readFileSync(global_path, 'utf-8'));
+		expect(Object.keys(restored.mcpServers)).toEqual([
+			'global',
+			'project',
 		]);
 	});
 
