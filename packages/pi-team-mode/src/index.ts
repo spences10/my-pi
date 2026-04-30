@@ -8,14 +8,19 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import {
 	Container,
+	Key,
+	matchesKey,
 	Text,
+	truncateToWidth,
 	type SelectItem,
 	type SettingItem,
 } from '@mariozechner/pi-tui';
 import {
+	show_modal,
 	show_picker_modal,
 	show_settings_modal,
 } from '@spences10/pi-tui-modal';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Type, type Static } from 'typebox';
@@ -440,6 +445,260 @@ function format_messages(messages: TeamMessage[]): string {
 			return `- ${message.id}${urgent} ${state} from ${message.from}: ${message.body}`;
 		})
 		.join('\n');
+}
+
+interface SessionUsageSummary {
+	session_file: string;
+	model?: string;
+	assistant_messages: number;
+	total_tokens: number;
+	total_cost: number;
+}
+
+function number_value(value: unknown): number {
+	return typeof value === 'number' && Number.isFinite(value)
+		? value
+		: 0;
+}
+
+function format_tokens(tokens: number): string {
+	if (tokens >= 1_000_000)
+		return `${(tokens / 1_000_000).toFixed(1)}m`;
+	if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k`;
+	return String(tokens);
+}
+
+function format_cost(cost: number): string {
+	if (cost <= 0) return '$0.00';
+	return `$${cost.toFixed(cost < 0.01 ? 4 : 2)}`;
+}
+
+function read_session_usage(
+	session_file: string | undefined,
+): SessionUsageSummary | undefined {
+	if (!session_file || !existsSync(session_file)) return undefined;
+	try {
+		const summary: SessionUsageSummary = {
+			session_file,
+			assistant_messages: 0,
+			total_tokens: 0,
+			total_cost: 0,
+		};
+		for (const line of readFileSync(session_file, 'utf8').split(
+			/\r?\n/,
+		)) {
+			if (!line.trim()) continue;
+			const entry = JSON.parse(line) as {
+				type?: string;
+				message?: {
+					role?: string;
+					model?: string;
+					usage?: {
+						input?: number;
+						output?: number;
+						cacheRead?: number;
+						cacheWrite?: number;
+						totalTokens?: number;
+						cost?: {
+							input?: number;
+							output?: number;
+							cacheRead?: number;
+							cacheWrite?: number;
+							total?: number;
+						};
+					};
+				};
+			};
+			if (
+				entry.type !== 'message' ||
+				entry.message?.role !== 'assistant'
+			) {
+				continue;
+			}
+			summary.assistant_messages += 1;
+			if (entry.message.model) summary.model = entry.message.model;
+			const usage = entry.message.usage;
+			if (!usage) continue;
+			summary.total_tokens +=
+				number_value(usage.totalTokens) ||
+				number_value(usage.input) +
+					number_value(usage.output) +
+					number_value(usage.cacheRead) +
+					number_value(usage.cacheWrite);
+			const cost = usage.cost;
+			summary.total_cost += cost
+				? number_value(cost.total) ||
+					number_value(cost.input) +
+						number_value(cost.output) +
+						number_value(cost.cacheRead) +
+						number_value(cost.cacheWrite)
+				: 0;
+		}
+		return summary;
+	} catch {
+		return undefined;
+	}
+}
+
+function collect_team_mailboxes(
+	store: TeamStore,
+	status: TeamStatus,
+): Record<string, TeamMessage[]> {
+	const names = new Set(status.members.map((member) => member.name));
+	for (const task of status.tasks) {
+		if (task.assignee) names.add(task.assignee);
+	}
+	return Object.fromEntries(
+		[...names].sort().map((name) => {
+			try {
+				return [name, store.list_messages(status.team.id, name)];
+			} catch {
+				return [name, []];
+			}
+		}),
+	);
+}
+
+function collect_session_usage(
+	members: TeamMember[],
+): Record<string, SessionUsageSummary> {
+	return Object.fromEntries(
+		members.flatMap((member) => {
+			const usage = read_session_usage(member.session_file);
+			return usage ? [[member.name, usage]] : [];
+		}),
+	);
+}
+
+function format_member_dashboard_line(
+	member: TeamMember,
+	usage: SessionUsageSummary | undefined,
+): string {
+	const details = [member.role, format_member_status(member)];
+	const model = member.model ?? usage?.model;
+	if (model) details.push(`model ${model}`);
+	if (member.pid) details.push(`pid ${member.pid}`);
+	if (member.session_file)
+		details.push(`transcript ${member.session_file}`);
+	if (usage) {
+		details.push(`${format_tokens(usage.total_tokens)} tokens`);
+		details.push(format_cost(usage.total_cost));
+	}
+	return `- ${member.name}: ${details.join(' · ')}`;
+}
+
+function format_mailbox_dashboard_line(
+	name: string,
+	messages: TeamMessage[],
+): string {
+	if (messages.length === 0) return `- ${name}: no messages`;
+	const unread = messages.filter(
+		(message) => !message.read_at,
+	).length;
+	const unacknowledged = messages.filter(
+		(message) => !message.acknowledged_at,
+	).length;
+	const urgent = messages.filter(
+		(message) => message.urgent && !message.acknowledged_at,
+	).length;
+	return `- ${name}: ${unacknowledged} unacknowledged · ${unread} unread${urgent ? ` · ${urgent} urgent` : ''}`;
+}
+
+function push_dashboard_task_group(
+	lines: string[],
+	label: string,
+	tasks: TeamStatus['tasks'],
+): void {
+	lines.push('', `${label} (${tasks.length})`);
+	if (tasks.length === 0) {
+		lines.push('  none');
+		return;
+	}
+	for (const task of tasks) {
+		lines.push(`  ${format_task_line(task)}`);
+		const result = summarize_result(task.result);
+		if (result) lines.push(`    ↳ ${result}`);
+	}
+}
+
+export function format_completed_task_results(
+	status: TeamStatus,
+): string {
+	const completed = status.tasks.filter(
+		(task) => task.status === 'completed',
+	);
+	if (completed.length === 0) {
+		return `No completed team task results for ${status.team.name}.`;
+	}
+	const lines = [
+		`Completed task results for ${status.team.name} (${status.team.id})`,
+	];
+	for (const task of completed) {
+		lines.push(
+			'',
+			`#${task.id}${task.assignee ? ` @${task.assignee}` : ''} ${task.title}`,
+			task.result?.trim() || '(no result recorded)',
+		);
+	}
+	return lines.join('\n');
+}
+
+export function format_team_dashboard(
+	status: TeamStatus,
+	options: {
+		team_dir?: string;
+		mailboxes?: Record<string, TeamMessage[]>;
+		session_usage?: Record<string, SessionUsageSummary>;
+	} = {},
+): string {
+	const lines = [
+		`Team dashboard: ${status.team.name} (${status.team.id})`,
+		`Repo: ${status.team.cwd}`,
+		...(options.team_dir ? [`State: ${options.team_dir}`] : []),
+		format_status_counts(status),
+	];
+	lines.push('', 'Members');
+	if (status.members.length === 0) lines.push('  none');
+	for (const member of status.members) {
+		lines.push(
+			format_member_dashboard_line(
+				member,
+				options.session_usage?.[member.name],
+			),
+		);
+	}
+
+	push_dashboard_task_group(
+		lines,
+		'Needs attention',
+		status.tasks.filter((task) => task.status === 'blocked'),
+	);
+	push_dashboard_task_group(
+		lines,
+		'Running',
+		status.tasks.filter((task) => task.status === 'in_progress'),
+	);
+	push_dashboard_task_group(
+		lines,
+		'Queued',
+		status.tasks.filter((task) => task.status === 'pending'),
+	);
+	push_dashboard_task_group(
+		lines,
+		'Completed work',
+		status.tasks.filter((task) => task.status === 'completed'),
+	);
+
+	lines.push('', 'Mailboxes');
+	const mailboxes = options.mailboxes ?? {};
+	const names = Object.keys(mailboxes).sort();
+	if (names.length === 0) lines.push('  none');
+	for (const name of names) {
+		lines.push(
+			format_mailbox_dashboard_line(name, mailboxes[name] ?? []),
+		);
+	}
+	return lines.join('\n');
 }
 
 function format_injected_messages(
@@ -1004,6 +1263,17 @@ async function show_team_home_modal(
 	if (active_status) {
 		items.push(
 			{
+				value: 'dashboard',
+				label: 'Open dashboard',
+				description:
+					'Members, tasks, mailboxes, transcripts, and usage',
+			},
+			{
+				value: 'results',
+				label: 'Summarize completed results',
+				description: `${active_status.counts.completed} completed task(s)`,
+			},
+			{
 				value: 'status',
 				label: 'Show status',
 				description: format_status_counts(active_status),
@@ -1111,6 +1381,58 @@ async function show_team_task_picker(
 		empty_message: 'No team tasks yet',
 		footer: 'enter shows task detail • esc cancel',
 	});
+}
+
+async function show_team_dashboard_modal(
+	ctx: ExtensionCommandContext,
+	store: TeamStore,
+	status: TeamStatus,
+): Promise<'close' | 'results'> {
+	const dashboard = format_team_dashboard(status, {
+		team_dir: store.team_dir(status.team.id),
+		mailboxes: collect_team_mailboxes(store, status),
+		session_usage: collect_session_usage(status.members),
+	});
+
+	return await show_modal<'close' | 'results'>(
+		ctx,
+		{
+			title: 'Team dashboard',
+			subtitle: `${status.team.name} • ${format_status_counts(status)}`,
+			footer: 'enter/s summarize completed results • q/esc close',
+			overlay_options: { width: '90%', minWidth: 72 },
+		},
+		({ done }, theme) => ({
+			render: (width: number) =>
+				dashboard.split('\n').map((line) => {
+					const styled = /^[A-Z][^:]+$/.test(line)
+						? theme.fg('accent', theme.bold(line))
+						: line;
+					return truncateToWidth(styled, width);
+				}),
+			invalidate: () => undefined,
+			handleInput: (data: string) => {
+				if (matchesKey(data, Key.enter) || data === 's') {
+					done('results');
+				} else if (matchesKey(data, Key.escape) || data === 'q') {
+					done('close');
+				}
+			},
+		}),
+	);
+}
+
+function present_completed_task_results(
+	ctx: ExtensionCommandContext,
+	status: TeamStatus,
+): void {
+	const text = format_completed_task_results(status);
+	if (ctx.hasUI && typeof ctx.ui.setEditorText === 'function') {
+		ctx.ui.setEditorText(text);
+		ctx.ui.notify('Inserted completed team results into the editor.');
+		return;
+	}
+	ctx.ui.notify(text);
 }
 
 export async function handle_team_command(
@@ -1246,6 +1568,41 @@ export async function handle_team_command(
 				set_team_ui(ctx, store, team_id, runners);
 				ctx.ui.notify(
 					format_status(get_team_status(store, team_id, runners)),
+				);
+				break;
+			}
+			case 'dashboard':
+			case 'dash': {
+				const team_id = current_team_id();
+				const status = get_team_status(store, team_id, runners);
+				set_team_ui(ctx, store, team_id, runners);
+				if (ctx.hasUI) {
+					const action = await show_team_dashboard_modal(
+						ctx,
+						store,
+						status,
+					);
+					if (action === 'results') {
+						present_completed_task_results(ctx, status);
+					}
+				} else {
+					ctx.ui.notify(
+						format_team_dashboard(status, {
+							team_dir: store.team_dir(team_id),
+							mailboxes: collect_team_mailboxes(store, status),
+							session_usage: collect_session_usage(status.members),
+						}),
+					);
+				}
+				break;
+			}
+			case 'results':
+			case 'summary':
+			case 'summarize': {
+				const team_id = current_team_id();
+				present_completed_task_results(
+					ctx,
+					get_team_status(store, team_id, runners),
 				);
 				break;
 			}
@@ -1566,6 +1923,8 @@ export async function handle_team_command(
 						'Team commands:',
 						'/team create [name] — start a team for this repo',
 						'/team status — show members and task progress',
+						'/team dashboard — inspect members, tasks, mailboxes, transcripts, and usage',
+						'/team results — collect completed task results into one summary',
 						'/team spawn <member> [--worktree] [--mutating] [--branch name] [prompt] — start a teammate',
 						'/team task add [member:] <title> — queue work',
 						'/team task show <id> — show full task details/result',
@@ -1773,6 +2132,8 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'create',
 				'id',
 				'status',
+				'dashboard',
+				'results',
 				'resume',
 				'teams',
 				'switch',

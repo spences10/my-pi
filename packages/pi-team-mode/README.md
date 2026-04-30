@@ -149,6 +149,8 @@ next session.
 /team task unassign 1
 /team dm alice status?
 /team status
+/team dashboard
+/team results
 /team teams
 /team switch
 /team ui style badge
@@ -157,9 +159,12 @@ next session.
 ```
 
 Use `/team status` as the source of truth for member state, task
-state, and mailbox activity. Assigned tasks stay queued until the
-assigned teammate claims them, so the status view reflects actual work
-in progress. Use `/team task block|cancel <id> [reason]`,
+state, and mailbox activity. Use `/team dashboard` for a compact modal
+with members, task groups, mailboxes, transcript paths, and available
+usage totals. Use `/team results` to join completed task results into
+a single summary. Assigned tasks stay queued until the assigned
+teammate claims them, so the status view reflects actual work in
+progress. Use `/team task block|cancel <id> [reason]`,
 `/team task reopen <id>`, and `/team task assign|unassign` for manual
 lifecycle corrections. Assigning a task changes ownership only; it
 does not reopen blocked or cancelled work.

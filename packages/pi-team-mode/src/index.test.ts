@@ -1,10 +1,12 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	find_shared_mutating_conflict,
+	format_completed_task_results,
+	format_team_dashboard,
 	get_team_ui_mode,
 	get_team_ui_style,
 	handle_team_command,
@@ -231,6 +233,104 @@ describe('shared mutating workspace guard', () => {
 				'charlie',
 			),
 		).toMatchObject({ name: 'alice' });
+	});
+});
+
+describe('team dashboard', () => {
+	it('formats members, task groups, mailboxes, transcripts, and usage', async () => {
+		const root = mkdtempSync(join(tmpdir(), 'my-pi-team-dashboard-'));
+		try {
+			const store = new TeamStore(root);
+			const team = store.create_team({ cwd: '/repo' });
+			const session_file = join(root, 'alice-session.jsonl');
+			writeFileSync(
+				session_file,
+				[
+					JSON.stringify({ type: 'session', version: 3 }),
+					JSON.stringify({
+						type: 'message',
+						message: {
+							role: 'assistant',
+							model: 'claude-test',
+							usage: {
+								totalTokens: 1200,
+								cost: { total: 0.034 },
+							},
+						},
+					}),
+				].join('\n'),
+			);
+			store.upsert_member(team.id, {
+				name: 'alice',
+				role: 'teammate',
+				status: 'idle',
+				model: 'anthropic/claude-test',
+				pid: 123,
+				session_file,
+			});
+			store.create_task(team.id, {
+				title: 'Blocked thing',
+				assignee: 'alice',
+				status: 'blocked',
+			});
+			const done = store.create_task(team.id, {
+				title: 'Finished thing',
+				assignee: 'alice',
+			});
+			store.update_task(team.id, done.id, {
+				status: 'completed',
+				result: 'Implemented the thing.\nMore detail.',
+			});
+			store.send_message(team.id, {
+				from: 'lead',
+				to: 'alice',
+				body: 'Please check in',
+				urgent: true,
+			});
+
+			const notifications: string[] = [];
+			await handle_team_command(
+				'dashboard',
+				{
+					cwd: '/repo',
+					hasUI: false,
+					ui: {
+						notify: (message: string) => notifications.push(message),
+					},
+				} as any,
+				store,
+				new Map(),
+				() => team.id,
+				() => undefined,
+				'lead',
+			);
+
+			const dashboard = notifications.join('\n');
+			expect(dashboard).toContain('Team dashboard:');
+			expect(dashboard).toContain(`transcript ${session_file}`);
+			expect(dashboard).toContain('1.2k tokens');
+			expect(dashboard).toContain('$0.03');
+			expect(dashboard).toContain('Needs attention (1)');
+			expect(dashboard).toContain('Completed work (1)');
+			expect(dashboard).toContain(
+				'alice: 1 unacknowledged · 1 unread · 1 urgent',
+			);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it('joins completed task results into a copyable summary', () => {
+		const status = test_status(1);
+		status.tasks[0]!.assignee = 'alice';
+		status.tasks[0]!.result = 'Done cleanly.';
+
+		expect(format_completed_task_results(status)).toContain(
+			'#1 @alice Task 1\nDone cleanly.',
+		);
+		expect(format_team_dashboard(status)).toContain(
+			'Completed work (1)',
+		);
 	});
 });
 
