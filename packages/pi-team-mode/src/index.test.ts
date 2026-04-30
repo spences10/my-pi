@@ -144,7 +144,7 @@ describe('orphaned teammate recovery', () => {
 		try {
 			const store = new TeamStore(root);
 			const team = store.create_team({ cwd: '/repo' });
-			store.upsert_member(team.id, {
+			await store.upsert_member(team.id, {
 				name: 'alice',
 				role: 'teammate',
 				status: 'idle',
@@ -152,7 +152,7 @@ describe('orphaned teammate recovery', () => {
 			});
 			const notifications: string[] = [];
 
-			expect(store.get_status(team.id).members).toEqual(
+			expect((await store.get_status(team.id)).members).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({
 						name: 'alice',
@@ -260,7 +260,7 @@ describe('team dashboard', () => {
 					}),
 				].join('\n'),
 			);
-			store.upsert_member(team.id, {
+			await store.upsert_member(team.id, {
 				name: 'alice',
 				role: 'teammate',
 				status: 'idle',
@@ -268,20 +268,20 @@ describe('team dashboard', () => {
 				pid: 123,
 				session_file,
 			});
-			store.create_task(team.id, {
+			await store.create_task(team.id, {
 				title: 'Blocked thing',
 				assignee: 'alice',
 				status: 'blocked',
 			});
-			const done = store.create_task(team.id, {
+			const done = await store.create_task(team.id, {
 				title: 'Finished thing',
 				assignee: 'alice',
 			});
-			store.update_task(team.id, done.id, {
+			await store.update_task(team.id, done.id, {
 				status: 'completed',
 				result: 'Implemented the thing.\nMore detail.',
 			});
-			store.send_message(team.id, {
+			await store.send_message(team.id, {
 				from: 'lead',
 				to: 'alice',
 				body: 'Please check in',

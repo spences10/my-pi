@@ -311,10 +311,8 @@ function validate_message(message: TeamMessage): void {
 	}
 }
 
-function sleep_sync(ms: number): void {
-	const buffer = new SharedArrayBuffer(4);
-	const view = new Int32Array(buffer);
-	Atomics.wait(view, 0, 0, ms);
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function is_pid_alive(pid: number | undefined): boolean {
@@ -367,7 +365,10 @@ export class TeamStore {
 		return join(this.team_dir(team_id), '.lock');
 	}
 
-	private with_team_lock<T>(team_id: string, fn: () => T): T {
+	private async with_team_lock<T>(
+		team_id: string,
+		fn: () => T | Promise<T>,
+	): Promise<T> {
 		const lock = this.lock_dir(team_id);
 		let acquired = false;
 		for (let attempt = 0; attempt < 250; attempt += 1) {
@@ -392,13 +393,13 @@ export class TeamStore {
 					rmSync(lock, { recursive: true, force: true });
 					continue;
 				}
-				sleep_sync(10);
+				await delay(10);
 			}
 		}
 		if (!acquired)
 			throw new Error(`Timed out locking team ${team_id}`);
 		try {
-			return fn();
+			return await fn();
 		} finally {
 			rmSync(lock, { recursive: true, force: true });
 		}
@@ -449,7 +450,7 @@ export class TeamStore {
 		mkdirSync(this.tasks_dir(id), { recursive: true, mode: 0o700 });
 		write_json(this.config_path(id), team);
 		this.append_event(id, 'team_created', { team });
-		this.upsert_member(id, {
+		this.upsert_member_unlocked(id, {
 			name: input.lead_name ?? 'lead',
 			role: 'lead',
 			status: 'idle',
@@ -557,10 +558,10 @@ export class TeamStore {
 		return member;
 	}
 
-	upsert_member(
+	async upsert_member(
 		team_id: string,
 		input: UpsertMemberInput,
-	): TeamMember {
+	): Promise<TeamMember> {
 		return this.with_team_lock(team_id, () =>
 			this.upsert_member_unlocked(team_id, input),
 		);
@@ -574,10 +575,10 @@ export class TeamStore {
 		);
 	}
 
-	refresh_member_process_statuses(
+	async refresh_member_process_statuses(
 		team_id: string,
 		attached_members: ReadonlySet<string> = new Set(),
-	): TeamMember[] {
+	): Promise<TeamMember[]> {
 		return this.with_team_lock(team_id, () => {
 			const members = this.list_members(team_id);
 			for (const member of members) {
@@ -626,7 +627,10 @@ export class TeamStore {
 		});
 	}
 
-	create_task(team_id: string, input: CreateTaskInput): TeamTask {
+	async create_task(
+		team_id: string,
+		input: CreateTaskInput,
+	): Promise<TeamTask> {
 		return this.with_team_lock(team_id, () => {
 			const title = input.title.trim();
 			if (!title) throw new Error('Task title is required');
@@ -777,11 +781,11 @@ export class TeamStore {
 		return task;
 	}
 
-	update_task(
+	async update_task(
 		team_id: string,
 		task_id: string,
 		input: UpdateTaskInput,
-	): TeamTask {
+	): Promise<TeamTask> {
 		return this.with_team_lock(team_id, () =>
 			this.update_task_unlocked(team_id, task_id, input),
 		);
@@ -797,10 +801,10 @@ export class TeamStore {
 		);
 	}
 
-	claim_next_task(
+	async claim_next_task(
 		team_id: string,
 		assignee: string,
-	): TeamTask | undefined {
+	): Promise<TeamTask | undefined> {
 		return this.with_team_lock(team_id, () => {
 			const normalized_assignee = require_member_name(
 				assignee,
@@ -828,10 +832,10 @@ export class TeamStore {
 		});
 	}
 
-	send_message(
+	async send_message(
 		team_id: string,
 		input: SendMessageInput,
-	): TeamMessage {
+	): Promise<TeamMessage> {
 		return this.with_team_lock(team_id, () => {
 			if (!input.body.trim())
 				throw new Error('Message body is required');
@@ -865,11 +869,11 @@ export class TeamStore {
 		);
 	}
 
-	mark_messages_delivered(
+	async mark_messages_delivered(
 		team_id: string,
 		member: string,
 		message_ids?: string[],
-	): TeamMessage[] {
+	): Promise<TeamMessage[]> {
 		return this.update_messages(
 			team_id,
 			member,
@@ -880,11 +884,11 @@ export class TeamStore {
 		);
 	}
 
-	mark_messages_read(
+	async mark_messages_read(
 		team_id: string,
 		member: string,
 		message_ids?: string[],
-	): TeamMessage[] {
+	): Promise<TeamMessage[]> {
 		return this.update_messages(
 			team_id,
 			member,
@@ -896,11 +900,11 @@ export class TeamStore {
 		);
 	}
 
-	acknowledge_messages(
+	async acknowledge_messages(
 		team_id: string,
 		member: string,
 		message_ids?: string[],
-	): TeamMessage[] {
+	): Promise<TeamMessage[]> {
 		return this.update_messages(
 			team_id,
 			member,
@@ -914,10 +918,10 @@ export class TeamStore {
 		);
 	}
 
-	clear_unacknowledged_deliveries(
+	async clear_unacknowledged_deliveries(
 		team_id: string,
 		member: string,
-	): TeamMessage[] {
+	): Promise<TeamMessage[]> {
 		return this.update_messages(
 			team_id,
 			member,
@@ -929,12 +933,12 @@ export class TeamStore {
 		);
 	}
 
-	private update_messages(
+	private async update_messages(
 		team_id: string,
 		member: string,
 		message_ids: string[] | undefined,
 		update: (message: TeamMessage, timestamp: string) => void,
-	): TeamMessage[] {
+	): Promise<TeamMessage[]> {
 		return this.with_team_lock(team_id, () => {
 			const normalized_member = require_member_name(member);
 			const id_filter = message_ids
@@ -959,11 +963,14 @@ export class TeamStore {
 		});
 	}
 
-	get_status(
+	async get_status(
 		team_id: string,
 		attached_members: ReadonlySet<string> = new Set(),
-	): TeamStatus {
-		this.refresh_member_process_statuses(team_id, attached_members);
+	): Promise<TeamStatus> {
+		await this.refresh_member_process_statuses(
+			team_id,
+			attached_members,
+		);
 		const team = this.load_team(team_id);
 		const members = this.list_members(team_id);
 		const tasks = this.list_tasks(team_id);

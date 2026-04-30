@@ -218,7 +218,7 @@ export class RpcTeammate {
 
 		this.proc = proc;
 		this.closed = false;
-		this.store.upsert_member(this.team_id, {
+		await this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: 'idle',
 			cwd: this.cwd,
@@ -239,10 +239,10 @@ export class RpcTeammate {
 			});
 		});
 		proc.on('error', (error) => {
-			this.mark_offline(error);
+			void this.mark_offline(error);
 		});
 		proc.on('close', (code, signal) => {
-			this.mark_offline(
+			void this.mark_offline(
 				new Error(
 					`RPC teammate exited (${code ?? signal ?? 'unknown'})`,
 				),
@@ -259,7 +259,7 @@ export class RpcTeammate {
 			const session_file =
 				state?.data?.sessionFile ?? state?.data?.session_file;
 			if (session_file) {
-				this.store.upsert_member(this.team_id, {
+				await this.store.upsert_member(this.team_id, {
 					name: this.member,
 					status: 'idle',
 					session_file,
@@ -271,7 +271,7 @@ export class RpcTeammate {
 			setTimeout(() => {
 				if (!proc.killed) proc.kill('SIGKILL');
 			}, 3000).unref();
-			this.mark_offline(
+			await this.mark_offline(
 				error instanceof Error ? error : new Error(String(error)),
 			);
 			this.store.append_event(this.team_id, 'member_start_failed', {
@@ -290,31 +290,31 @@ export class RpcTeammate {
 	}
 
 	async prompt(message: string): Promise<void> {
-		this.mark_busy();
+		await this.mark_busy();
 		try {
 			await this.request({ type: 'prompt', message }, 10_000);
 		} catch (error) {
-			this.mark_blocked(error);
+			await this.mark_blocked(error);
 			throw error;
 		}
 	}
 
 	async follow_up(message: string): Promise<void> {
-		this.mark_busy();
+		await this.mark_busy();
 		try {
 			await this.request({ type: 'follow_up', message }, 10_000);
 		} catch (error) {
-			this.mark_blocked(error);
+			await this.mark_blocked(error);
 			throw error;
 		}
 	}
 
 	async steer(message: string): Promise<void> {
-		this.mark_busy();
+		await this.mark_busy();
 		try {
 			await this.request({ type: 'steer', message }, 10_000);
 		} catch (error) {
-			this.mark_blocked(error);
+			await this.mark_blocked(error);
 			throw error;
 		}
 	}
@@ -353,7 +353,7 @@ export class RpcTeammate {
 		).catch(() => undefined);
 		this.proc.kill('SIGTERM');
 		this.status = 'offline';
-		this.store.upsert_member(this.team_id, {
+		await this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: 'offline',
 		});
@@ -444,7 +444,7 @@ export class RpcTeammate {
 			return;
 		}
 
-		this.handle_event(event);
+		void this.handle_event(event);
 	}
 
 	private handle_extension_ui_request(event: any): void {
@@ -464,23 +464,23 @@ export class RpcTeammate {
 		}
 	}
 
-	private mark_busy(): void {
+	private async mark_busy(): Promise<void> {
 		if (this.closed) return;
 		this.status = 'running';
-		this.store.upsert_member(this.team_id, {
+		await this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: 'running_attached',
 		});
 	}
 
-	private mark_blocked(error: unknown): void {
+	private async mark_blocked(error: unknown): Promise<void> {
 		if (this.closed) return;
 		const message =
 			error instanceof Error ? error.message : String(error);
 		this.status = 'idle';
 		this.resolve_idle_waiters();
-		this.clear_unacknowledged_deliveries();
-		this.store.upsert_member(this.team_id, {
+		await this.clear_unacknowledged_deliveries();
+		await this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: 'blocked',
 		});
@@ -490,23 +490,23 @@ export class RpcTeammate {
 		});
 	}
 
-	private mark_offline(error: Error): void {
+	private async mark_offline(error: Error): Promise<void> {
 		if (this.closed) return;
 		this.closed = true;
 		this.status = 'offline';
 		this.resolve_idle_waiters();
 		this.reject_all(error);
-		this.clear_unacknowledged_deliveries();
-		this.store.upsert_member(this.team_id, {
+		await this.clear_unacknowledged_deliveries();
+		await this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: 'offline',
 		});
 		this.options.on_exit?.(this.member);
 	}
 
-	private clear_unacknowledged_deliveries(): void {
+	private async clear_unacknowledged_deliveries(): Promise<void> {
 		try {
-			this.store.clear_unacknowledged_deliveries(
+			await this.store.clear_unacknowledged_deliveries(
 				this.team_id,
 				this.member,
 			);
@@ -515,27 +515,27 @@ export class RpcTeammate {
 		}
 	}
 
-	private touch_member(): void {
+	private async touch_member(): Promise<void> {
 		if (this.closed) return;
-		this.store.upsert_member(this.team_id, {
+		await this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: this.status,
 		});
 	}
 
-	private handle_event(event: any): void {
+	private async handle_event(event: any): Promise<void> {
 		if (event.type === 'agent_start') {
-			this.mark_busy();
+			await this.mark_busy();
 		} else if (event.type === 'agent_end') {
 			this.status = 'idle';
-			this.store.upsert_member(this.team_id, {
+			await this.store.upsert_member(this.team_id, {
 				name: this.member,
 				status: 'idle',
 			});
 			const waiters = this.idle_waiters.splice(0);
 			for (const waiter of waiters) waiter();
 		} else if (event.type === 'tool_execution_start') {
-			this.mark_busy();
+			await this.mark_busy();
 		}
 
 		if (
@@ -545,7 +545,7 @@ export class RpcTeammate {
 			event.type === 'tool_execution_end' ||
 			event.type === 'message_end'
 		) {
-			this.touch_member();
+			await this.touch_member();
 			this.store.append_event(this.team_id, 'member_rpc_event', {
 				member: this.member,
 				event,

@@ -201,7 +201,7 @@ describe('RpcTeammate lifecycle', () => {
 			extension_path: '/tmp/team-extension.js',
 		});
 
-		(runner as any).mark_busy();
+		await (runner as any).mark_busy();
 		const wait = runner.wait_for_idle(1_000);
 		setTimeout(() => {
 			(runner as any).handle_event({ type: 'agent_end' });
@@ -215,7 +215,7 @@ describe('RpcTeammate lifecycle', () => {
 		).toMatchObject({ status: 'idle' });
 	});
 
-	it('marks a busy teammate blocked when an RPC request fails', () => {
+	it('marks a busy teammate blocked when an RPC request fails', async () => {
 		const team = store.create_team({ cwd: '/repo', name: 'demo' });
 		const runner = new RpcTeammate(store, {
 			team_id: team.id,
@@ -225,8 +225,10 @@ describe('RpcTeammate lifecycle', () => {
 			extension_path: '/tmp/team-extension.js',
 		});
 
-		(runner as any).mark_busy();
-		(runner as any).mark_blocked(new Error('RPC request timed out'));
+		await (runner as any).mark_busy();
+		await (runner as any).mark_blocked(
+			new Error('RPC request timed out'),
+		);
 
 		expect(
 			store
@@ -328,14 +330,16 @@ describe('RpcTeammate lifecycle', () => {
 			extension_path: join(root, 'team-extension.js'),
 			pi_command: fake_pi,
 		});
-		const message = store.send_message(team.id, {
+		const message = await store.send_message(team.id, {
 			from: 'lead',
 			to: 'alice',
 			body: 'hello',
 		});
 
 		await runner.start();
-		store.mark_messages_delivered(team.id, 'alice', [message.id]);
+		await store.mark_messages_delivered(team.id, 'alice', [
+			message.id,
+		]);
 		await runner.follow_up('hello');
 		await new Promise((resolve) => setTimeout(resolve, 50));
 

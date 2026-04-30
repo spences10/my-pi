@@ -733,7 +733,9 @@ async function deliver_message_to_runner(
 	const injected = format_rpc_message(message);
 	if (message.urgent) await runner.steer(injected);
 	else await runner.follow_up(injected);
-	store.mark_messages_delivered(team_id, message.to, [message.id]);
+	await store.mark_messages_delivered(team_id, message.to, [
+		message.id,
+	]);
 }
 
 function is_pid_alive(pid: number | undefined): boolean {
@@ -764,7 +766,7 @@ async function shutdown_orphaned_member(
 	member_name: string,
 	timeout_ms = 3_000,
 ): Promise<TeamMember> {
-	store.refresh_member_process_statuses(team_id);
+	await store.refresh_member_process_statuses(team_id);
 	const member = store
 		.list_members(team_id)
 		.find((item) => item.name === member_name);
@@ -780,7 +782,7 @@ async function shutdown_orphaned_member(
 		);
 	}
 	if (!is_pid_alive(member.pid)) {
-		store.refresh_member_process_statuses(team_id);
+		await store.refresh_member_process_statuses(team_id);
 		return store
 			.list_members(team_id)
 			.find((item) => item.name === member_name)!;
@@ -791,7 +793,7 @@ async function shutdown_orphaned_member(
 		process.kill(member.pid, 'SIGKILL');
 		await wait_for_pid_exit(member.pid, 1_000);
 	}
-	store.refresh_member_process_statuses(team_id);
+	await store.refresh_member_process_statuses(team_id);
 	store.append_event(team_id, 'member_orphan_shutdown', {
 		member: member_name,
 		pid: member.pid,
@@ -807,13 +809,13 @@ async function wait_for_orphaned_member(
 	member_name: string,
 	timeout_ms: number,
 ): Promise<TeamMember> {
-	store.refresh_member_process_statuses(team_id);
+	await store.refresh_member_process_statuses(team_id);
 	const member = store
 		.list_members(team_id)
 		.find((item) => item.name === member_name);
 	if (!member) throw new Error(`Unknown teammate: ${member_name}`);
 	if (!member.pid || !is_pid_alive(member.pid)) {
-		store.refresh_member_process_statuses(team_id);
+		await store.refresh_member_process_statuses(team_id);
 		return store
 			.list_members(team_id)
 			.find((item) => item.name === member_name)!;
@@ -823,7 +825,7 @@ async function wait_for_orphaned_member(
 			`Timed out waiting for orphaned teammate ${member_name} to exit`,
 		);
 	}
-	store.refresh_member_process_statuses(team_id);
+	await store.refresh_member_process_statuses(team_id);
 	return store
 		.list_members(team_id)
 		.find((item) => item.name === member_name)!;
@@ -915,17 +917,20 @@ export function find_shared_mutating_conflict(
 	);
 }
 
-function require_no_shared_mutating_conflict(
+async function require_no_shared_mutating_conflict(
 	store: TeamStore,
 	team_id: string,
 	cwd: string,
 	member_name: string,
 	force = false,
 	attached_members: ReadonlySet<string> = new Set(),
-): void {
+): Promise<void> {
 	if (force) return;
 	const conflict = find_shared_mutating_conflict(
-		store.refresh_member_process_statuses(team_id, attached_members),
+		await store.refresh_member_process_statuses(
+			team_id,
+			attached_members,
+		),
 		cwd,
 		member_name,
 	);
@@ -1099,22 +1104,24 @@ function attached_member_names(
 	);
 }
 
-function get_team_status(
+async function get_team_status(
 	store: TeamStore,
 	team_id: string,
 	runners: Map<string, RpcTeammate>,
-): TeamStatus {
+): Promise<TeamStatus> {
 	return store.get_status(team_id, attached_member_names(runners));
 }
 
-function get_team_statuses(
+async function get_team_statuses(
 	store: TeamStore,
 	runners: Map<string, RpcTeammate> = new Map(),
-): TeamStatus[] {
+): Promise<TeamStatus[]> {
 	const attached = attached_member_names(runners);
-	return store
-		.list_teams()
-		.map((team) => store.get_status(team.id, attached));
+	return Promise.all(
+		store
+			.list_teams()
+			.map((team) => store.get_status(team.id, attached)),
+	);
 }
 
 async function show_team_switcher(
@@ -1122,7 +1129,7 @@ async function show_team_switcher(
 	store: TeamStore,
 	active_team_id: string | undefined,
 ): Promise<string | undefined> {
-	const statuses = get_team_statuses(store);
+	const statuses = await get_team_statuses(store);
 	if (statuses.length === 0) {
 		ctx.ui.notify(
 			'No teams yet. Create one with /team create [name].',
@@ -1177,41 +1184,43 @@ function set_team_ui(
 		ctx.ui.setWidget(STATUS_KEY, undefined);
 		return;
 	}
-	try {
-		const status = get_team_status(store, team_id, runners);
-		const style = get_team_ui_style();
-		const mode = get_team_ui_mode();
-		const show_widget = should_show_team_widget(status, mode);
-		const footer =
-			mode === 'full' && show_widget
-				? `team:${status.team.name}`
-				: format_team_footer_status(status, style);
-		ctx.ui.setStatus(STATUS_KEY, themed(ctx, 'dim', footer));
+	void (async () => {
+		try {
+			const status = await get_team_status(store, team_id, runners);
+			const style = get_team_ui_style();
+			const mode = get_team_ui_mode();
+			const show_widget = should_show_team_widget(status, mode);
+			const footer =
+				mode === 'full' && show_widget
+					? `team:${status.team.name}`
+					: format_team_footer_status(status, style);
+			ctx.ui.setStatus(STATUS_KEY, themed(ctx, 'dim', footer));
 
-		if (!show_widget) {
+			if (!show_widget) {
+				ctx.ui.setWidget(STATUS_KEY, undefined);
+				return;
+			}
+
+			ctx.ui.setWidget(
+				STATUS_KEY,
+				(_tui, theme) => {
+					const container = new Container();
+					const [header, counts] = render_team_widget_lines(
+						theme,
+						status,
+						style,
+					);
+					container.addChild(new Text(header, 0, 0));
+					container.addChild(new Text(counts, 0, 0));
+					return container;
+				},
+				{ placement: 'belowEditor' },
+			);
+		} catch {
+			ctx.ui.setStatus(STATUS_KEY, undefined);
 			ctx.ui.setWidget(STATUS_KEY, undefined);
-			return;
 		}
-
-		ctx.ui.setWidget(
-			STATUS_KEY,
-			(_tui, theme) => {
-				const container = new Container();
-				const [header, counts] = render_team_widget_lines(
-					theme,
-					status,
-					style,
-				);
-				container.addChild(new Text(header, 0, 0));
-				container.addChild(new Text(counts, 0, 0));
-				return container;
-			},
-			{ placement: 'belowEditor' },
-		);
-	} catch {
-		ctx.ui.setStatus(STATUS_KEY, undefined);
-		ctx.ui.setWidget(STATUS_KEY, undefined);
-	}
+	})();
 }
 
 const TEAM_UI_MODE_VALUES: TeamUiMode[] = [
@@ -1250,11 +1259,14 @@ async function show_team_ui_modal(
 		},
 	];
 
+	const current_status = team_id
+		? await store.get_status(team_id)
+		: undefined;
 	await show_settings_modal(ctx, {
 		title: 'Team UI',
 		subtitle: () =>
-			team_id
-				? `Active team ${team_id} • ${format_status_counts(store.get_status(team_id))}`
+			current_status
+				? `Active team ${team_id} • ${format_status_counts(current_status)}`
 				: 'No active team • settings apply to this session',
 		items,
 		metadata: (item) => item?.description,
@@ -1273,7 +1285,7 @@ async function show_team_home_modal(
 	store: TeamStore,
 	active_team_id: string | undefined,
 ): Promise<string | undefined> {
-	const statuses = get_team_statuses(store);
+	const statuses = await get_team_statuses(store);
 	const active_status = statuses.find(
 		(status) => status.team.id === active_team_id,
 	);
@@ -1582,7 +1594,7 @@ export async function handle_team_command(
 						);
 					}
 				} else {
-					const statuses = get_team_statuses(store, runners);
+					const statuses = await get_team_statuses(store, runners);
 					ctx.ui.notify(
 						format_teams_list(statuses, get_active_team_id()),
 					);
@@ -1612,7 +1624,7 @@ export async function handle_team_command(
 			case 'status':
 			case 'list': {
 				const team_id = current_team_id();
-				const status = get_team_status(store, team_id, runners);
+				const status = await get_team_status(store, team_id, runners);
 				set_team_ui(ctx, store, team_id, runners);
 				const text = format_status(status);
 				if (ctx.hasUI) {
@@ -1629,7 +1641,7 @@ export async function handle_team_command(
 			case 'dashboard':
 			case 'dash': {
 				const team_id = current_team_id();
-				const status = get_team_status(store, team_id, runners);
+				const status = await get_team_status(store, team_id, runners);
 				set_team_ui(ctx, store, team_id, runners);
 				if (ctx.hasUI) {
 					const action = await show_team_dashboard_modal(
@@ -1657,7 +1669,7 @@ export async function handle_team_command(
 				const team_id = current_team_id();
 				present_completed_task_results(
 					ctx,
-					get_team_status(store, team_id, runners),
+					await get_team_status(store, team_id, runners),
 				);
 				break;
 			}
@@ -1673,7 +1685,7 @@ export async function handle_team_command(
 				const [action, name] = rest;
 				if (action !== 'add')
 					throw new Error('Usage: /team member add <name>');
-				const member = store.upsert_member(current_team_id(), {
+				const member = await store.upsert_member(current_team_id(), {
 					name: require_arg(name, 'member name'),
 				});
 				set_team_ui(ctx, store, get_active_team_id(), runners);
@@ -1685,11 +1697,11 @@ export async function handle_team_command(
 				const team_id = current_team_id();
 				if (action === 'add') {
 					const parsed = parse_task_add(rest.slice(1).join(' '));
-					const task = store.create_task(team_id, parsed);
+					const task = await store.create_task(team_id, parsed);
 					set_team_ui(ctx, store, team_id, runners);
 					ctx.ui.notify(`Created task #${task.id}: ${task.title}`);
 				} else if (action === 'list' || !action) {
-					let status = get_team_status(store, team_id, runners);
+					let status = await get_team_status(store, team_id, runners);
 					if (ctx.hasUI && status.tasks.length > 0) {
 						while (true) {
 							const task_id = await show_team_task_picker(
@@ -1704,7 +1716,7 @@ export async function handle_team_command(
 									store.load_task(team_id, task_id),
 								),
 							});
-							status = get_team_status(store, team_id, runners);
+							status = await get_team_status(store, team_id, runners);
 						}
 					} else if (ctx.hasUI) {
 						await show_team_text_modal(ctx, {
@@ -1729,7 +1741,7 @@ export async function handle_team_command(
 						ctx.ui.notify(text);
 					}
 				} else if (action === 'done') {
-					const task = store.update_task(
+					const task = await store.update_task(
 						team_id,
 						require_arg(id, 'task id'),
 						{
@@ -1740,7 +1752,7 @@ export async function handle_team_command(
 					set_team_ui(ctx, store, team_id, runners);
 					ctx.ui.notify(`Completed task #${task.id}`);
 				} else if (action === 'block') {
-					const task = store.update_task(
+					const task = await store.update_task(
 						team_id,
 						require_arg(id, 'task id'),
 						{
@@ -1751,7 +1763,7 @@ export async function handle_team_command(
 					set_team_ui(ctx, store, team_id, runners);
 					ctx.ui.notify(`Blocked task #${task.id}`);
 				} else if (action === 'cancel') {
-					const task = store.update_task(
+					const task = await store.update_task(
 						team_id,
 						require_arg(id, 'task id'),
 						{
@@ -1762,7 +1774,7 @@ export async function handle_team_command(
 					set_team_ui(ctx, store, team_id, runners);
 					ctx.ui.notify(`Cancelled task #${task.id}`);
 				} else if (action === 'reopen') {
-					const task = store.update_task(
+					const task = await store.update_task(
 						team_id,
 						require_arg(id, 'task id'),
 						{ status: 'pending', result: null },
@@ -1770,7 +1782,7 @@ export async function handle_team_command(
 					set_team_ui(ctx, store, team_id, runners);
 					ctx.ui.notify(`Reopened task #${task.id}`);
 				} else if (action === 'assign') {
-					const task = store.update_task(
+					const task = await store.update_task(
 						team_id,
 						require_arg(id, 'task id'),
 						{ assignee: require_arg(tail[0], 'assignee') },
@@ -1780,7 +1792,7 @@ export async function handle_team_command(
 						`Assigned task #${task.id} to ${task.assignee}`,
 					);
 				} else if (action === 'unassign') {
-					const task = store.update_task(
+					const task = await store.update_task(
 						team_id,
 						require_arg(id, 'task id'),
 						{ assignee: null },
@@ -1789,7 +1801,7 @@ export async function handle_team_command(
 					ctx.ui.notify(`Unassigned task #${task.id}`);
 				} else if (action === 'claim') {
 					const assignee = require_arg(id, 'assignee');
-					const task = store.claim_next_task(team_id, assignee);
+					const task = await store.claim_next_task(team_id, assignee);
 					set_team_ui(ctx, store, team_id, runners);
 					ctx.ui.notify(
 						task
@@ -1805,7 +1817,7 @@ export async function handle_team_command(
 			}
 			case 'dm': {
 				const [to, ...message_parts] = rest;
-				const message = store.send_message(current_team_id(), {
+				const message = await store.send_message(current_team_id(), {
 					from: 'lead',
 					to: require_arg(to, 'recipient'),
 					body: message_parts.join(' '),
@@ -1864,7 +1876,7 @@ export async function handle_team_command(
 					request.mutating &&
 					workspace.workspace_mode === 'shared'
 				) {
-					require_no_shared_mutating_conflict(
+					await require_no_shared_mutating_conflict(
 						store,
 						team_id,
 						workspace.cwd,
@@ -1940,7 +1952,7 @@ export async function handle_team_command(
 				if (runner?.is_running) {
 					await runner.shutdown(reason_parts.join(' ') || undefined);
 					runners.delete(name);
-					store.upsert_member(current_team_id(), {
+					await store.upsert_member(current_team_id(), {
 						name,
 						status: 'offline',
 					});
@@ -1971,7 +1983,7 @@ export async function handle_team_command(
 						120_000,
 					);
 				set_team_ui(ctx, store, get_active_team_id(), runners);
-				const status = get_team_status(
+				const status = await get_team_status(
 					store,
 					current_team_id(),
 					runners,
@@ -1995,7 +2007,7 @@ export async function handle_team_command(
 					);
 				}
 				const [member = 'alice', ...flags] = rest;
-				const result = fake_teammate_step(
+				const result = await fake_teammate_step(
 					store,
 					current_team_id(),
 					member,
@@ -2073,7 +2085,9 @@ export default async function team_mode(pi: ExtensionAPI) {
 		);
 	}
 
-	function poll_team_activity(ctx: ExtensionContext): void {
+	async function poll_team_activity(
+		ctx: ExtensionContext,
+	): Promise<void> {
 		if (!active_team_id) {
 			set_team_ui(ctx, store, undefined, runners);
 			return;
@@ -2082,7 +2096,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 			if (observed_team_id !== active_team_id) {
 				reset_completed_task_observer(active_team_id);
 			}
-			const status = get_team_status(store, active_team_id, runners);
+			const status = await get_team_status(
+				store,
+				active_team_id,
+				runners,
+			);
 			set_team_ui(ctx, store, active_team_id, runners);
 			if (own_role !== 'teammate') {
 				for (const task of status.tasks) {
@@ -2127,7 +2145,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				},
 				{ deliverAs: 'followUp', triggerTurn: true },
 			);
-			store.mark_messages_delivered(
+			await store.mark_messages_delivered(
 				active_team_id,
 				own_member,
 				unread.map((message) => message.id),
@@ -2154,7 +2172,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 
 	function start_mailbox_watcher(ctx: ExtensionContext): void {
 		stop_mailbox_watcher();
-		mailbox_timer = setInterval(() => poll_team_activity(ctx), 1000);
+		mailbox_timer = setInterval(
+			() => void poll_team_activity(ctx),
+			1000,
+		);
 		mailbox_timer.unref();
 	}
 
@@ -2163,11 +2184,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 		if (active_team_id) {
 			try {
 				store.load_team(active_team_id);
-				store.clear_unacknowledged_deliveries(
+				await store.clear_unacknowledged_deliveries(
 					active_team_id,
 					own_member,
 				);
-				store.upsert_member(active_team_id, {
+				await store.upsert_member(active_team_id, {
 					name: own_member,
 					role: own_role === 'teammate' ? 'teammate' : 'lead',
 					status: 'idle',
@@ -2181,7 +2202,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 		reset_completed_task_observer(active_team_id);
 		set_team_ui(ctx, store, active_team_id, runners);
 		start_mailbox_watcher(ctx);
-		poll_team_activity(ctx);
+		void poll_team_activity(ctx);
 	});
 
 	pi.on('session_shutdown', async (_event, ctx) => {
@@ -2192,7 +2213,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 		}
 		if (active_team_id) {
 			try {
-				store.clear_unacknowledged_deliveries(
+				await store.clear_unacknowledged_deliveries(
 					active_team_id,
 					own_member,
 				);
@@ -2329,7 +2350,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					};
 				}
 				case 'team_list': {
-					const statuses = get_team_statuses(store, runners);
+					const statuses = await get_team_statuses(store, runners);
 					return {
 						content: [
 							{
@@ -2357,7 +2378,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 								details: { active_team_id: null, latest_team: null },
 							};
 						}
-						const status = get_team_status(store, latest.id, runners);
+						const status = await get_team_status(
+							store,
+							latest.id,
+							runners,
+						);
 						return {
 							content: [
 								{
@@ -2368,7 +2393,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 							details: { ...status, active_team_id: null },
 						};
 					}
-					const status = get_team_status(store, team_id, runners);
+					const status = await get_team_status(
+						store,
+						team_id,
+						runners,
+					);
 					set_team_ui(ctx, store, status.team.id, runners);
 					return {
 						content: [
@@ -2408,11 +2437,17 @@ export default async function team_mode(pi: ExtensionAPI) {
 					};
 				}
 				case 'member_upsert': {
-					const member = store.upsert_member(require_team_id(), {
-						name: require_arg(params.member ?? params.name, 'member'),
-						role: params.role,
-						status: params.status,
-					});
+					const member = await store.upsert_member(
+						require_team_id(),
+						{
+							name: require_arg(
+								params.member ?? params.name,
+								'member',
+							),
+							role: params.role,
+							status: params.status,
+						},
+					);
 					set_team_ui(ctx, store, team_id, runners);
 					return {
 						content: [
@@ -2454,7 +2489,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 						params.mutating &&
 						workspace.workspace_mode === 'shared'
 					) {
-						require_no_shared_mutating_conflict(
+						await require_no_shared_mutating_conflict(
 							store,
 							id,
 							workspace.cwd,
@@ -2553,7 +2588,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					if (runner?.is_running) {
 						await runner.shutdown(params.message);
 						runners.delete(member_name);
-						member = store.upsert_member(require_team_id(), {
+						member = await store.upsert_member(require_team_id(), {
 							name: member_name,
 							status: 'offline',
 						});
@@ -2579,7 +2614,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					};
 				}
 				case 'member_status': {
-					const status = get_team_status(
+					const status = await get_team_status(
 						store,
 						require_team_id(),
 						runners,
@@ -2612,7 +2647,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 							params.timeout_ms ?? 120_000,
 						);
 					}
-					const status = get_team_status(
+					const status = await get_team_status(
 						store,
 						require_team_id(),
 						runners,
@@ -2626,7 +2661,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					};
 				}
 				case 'task_create': {
-					const task = store.create_task(require_team_id(), {
+					const task = await store.create_task(require_team_id(), {
 						title: require_arg(params.title, 'title'),
 						description: params.description,
 						assignee: params.assignee,
@@ -2650,7 +2685,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 							{
 								type: 'text' as const,
 								text: format_status(
-									get_team_status(store, require_team_id(), runners),
+									await get_team_status(
+										store,
+										require_team_id(),
+										runners,
+									),
 								),
 							},
 						],
@@ -2673,7 +2712,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					};
 				}
 				case 'task_update': {
-					const task = store.update_task(
+					const task = await store.update_task(
 						require_team_id(),
 						require_arg(params.task_id, 'task_id'),
 						{
@@ -2699,7 +2738,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					};
 				}
 				case 'task_claim_next': {
-					const task = store.claim_next_task(
+					const task = await store.claim_next_task(
 						require_team_id(),
 						require_arg(params.assignee ?? params.member, 'assignee'),
 					);
@@ -2718,7 +2757,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				}
 				case 'message_send': {
 					const active = require_team_id();
-					const message = store.send_message(active, {
+					const message = await store.send_message(active, {
 						from: params.from ?? own_member,
 						to: require_arg(params.to, 'to'),
 						body: require_arg(params.message, 'message'),
@@ -2760,7 +2799,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				}
 				case 'message_read':
 				case 'message_ack': {
-					const messages = store.acknowledge_messages(
+					const messages = await store.acknowledge_messages(
 						require_team_id(),
 						require_arg(params.member ?? params.to, 'member'),
 					);

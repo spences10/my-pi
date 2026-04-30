@@ -25,19 +25,25 @@ function wants_shutdown(messages: TeamMessage[]): boolean {
 	);
 }
 
-export function fake_teammate_step(
+export async function fake_teammate_step(
 	store: TeamStore,
 	team_id: string,
 	member: string,
 	options: FakeTeammateStepOptions = {},
-): FakeTeammateStepResult {
-	store.upsert_member(team_id, { name: member, status: 'running' });
-	const messages = store.acknowledge_messages(team_id, member);
+): Promise<FakeTeammateStepResult> {
+	await store.upsert_member(team_id, {
+		name: member,
+		status: 'running',
+	});
+	const messages = await store.acknowledge_messages(team_id, member);
 	const should_shutdown =
 		options.shutdownOnMessage === true && wants_shutdown(messages);
 
 	if (should_shutdown) {
-		store.upsert_member(team_id, { name: member, status: 'offline' });
+		await store.upsert_member(team_id, {
+			name: member,
+			status: 'offline',
+		});
 		return {
 			member,
 			messages,
@@ -52,10 +58,14 @@ export function fake_teammate_step(
 			(task) =>
 				task.assignee === member && task.status === 'in_progress',
 		);
-	const task = current_task ?? store.claim_next_task(team_id, member);
+	const task =
+		current_task ?? (await store.claim_next_task(team_id, member));
 
 	if (!task) {
-		store.upsert_member(team_id, { name: member, status: 'idle' });
+		await store.upsert_member(team_id, {
+			name: member,
+			status: 'idle',
+		});
 		return {
 			member,
 			messages,
@@ -65,7 +75,10 @@ export function fake_teammate_step(
 	}
 
 	if (options.complete === false) {
-		store.upsert_member(team_id, { name: member, status: 'running' });
+		await store.upsert_member(team_id, {
+			name: member,
+			status: 'running',
+		});
 		return {
 			member,
 			messages,
@@ -75,13 +88,16 @@ export function fake_teammate_step(
 		};
 	}
 
-	const completed = store.update_task(team_id, task.id, {
+	const completed = await store.update_task(team_id, task.id, {
 		status: 'completed',
 		result:
 			options.result ??
 			`Fake teammate ${member} completed: ${task.title}`,
 	});
-	store.upsert_member(team_id, { name: member, status: 'idle' });
+	await store.upsert_member(team_id, {
+		name: member,
+		status: 'idle',
+	});
 	return {
 		member,
 		messages,
@@ -92,16 +108,16 @@ export function fake_teammate_step(
 	};
 }
 
-export function fake_teammate_run_until_idle(
+export async function fake_teammate_run_until_idle(
 	store: TeamStore,
 	team_id: string,
 	member: string,
 	options: FakeTeammateStepOptions & { maxSteps?: number } = {},
-): FakeTeammateStepResult[] {
+): Promise<FakeTeammateStepResult[]> {
 	const max_steps = options.maxSteps ?? 20;
 	const results: FakeTeammateStepResult[] = [];
 	for (let i = 0; i < max_steps; i++) {
-		const result = fake_teammate_step(
+		const result = await fake_teammate_step(
 			store,
 			team_id,
 			member,

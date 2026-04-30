@@ -262,7 +262,7 @@ describe('team mode RPC integration', () => {
 	it('covers commands, mailbox visibility, nested-spawn blocking, and orphan recovery through a real RPC child', async () => {
 		require_built_cli();
 		const team = store.create_team({ cwd: root, name: 'e2e' });
-		store.send_message(team.id, {
+		await store.send_message(team.id, {
 			from: 'lead',
 			to: 'alice',
 			body: 'hello from lead',
@@ -311,7 +311,7 @@ describe('team mode RPC integration', () => {
 					),
 			);
 
-			expect(store.get_status(team.id).members).toEqual(
+			expect((await store.get_status(team.id)).members).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({
 						name: 'alice',

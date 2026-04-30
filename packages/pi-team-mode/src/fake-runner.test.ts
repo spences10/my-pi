@@ -21,12 +21,12 @@ afterEach(() => {
 });
 
 describe('fake teammate runner', () => {
-	it('claims and completes the next ready task', () => {
+	it('claims and completes the next ready task', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		store.upsert_member(team.id, { name: 'alice' });
-		store.create_task(team.id, { title: 'Inspect store' });
+		await store.upsert_member(team.id, { name: 'alice' });
+		await store.create_task(team.id, { title: 'Inspect store' });
 
-		const result = fake_teammate_step(store, team.id, 'alice');
+		const result = await fake_teammate_step(store, team.id, 'alice');
 
 		expect(result.summary).toContain('completed #1');
 		expect(store.load_task(team.id, '1')).toMatchObject({
@@ -42,15 +42,15 @@ describe('fake teammate runner', () => {
 		});
 	});
 
-	it('walks dependency chains as tasks unblock', () => {
+	it('walks dependency chains as tasks unblock', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		const first = store.create_task(team.id, { title: 'A' });
-		store.create_task(team.id, {
+		const first = await store.create_task(team.id, { title: 'A' });
+		await store.create_task(team.id, {
 			title: 'B',
 			depends_on: [first.id],
 		});
 
-		const results = fake_teammate_run_until_idle(
+		const results = await fake_teammate_run_until_idle(
 			store,
 			team.id,
 			'alice',
@@ -61,20 +61,22 @@ describe('fake teammate runner', () => {
 				.map((result) => result.completed?.title)
 				.filter(Boolean),
 		).toEqual(['A', 'B']);
-		expect(store.get_status(team.id).counts.completed).toBe(2);
+		expect((await store.get_status(team.id)).counts.completed).toBe(
+			2,
+		);
 	});
 
-	it('reads mailbox messages before working', () => {
+	it('reads mailbox messages before working', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		store.create_task(team.id, { title: 'A' });
-		store.send_message(team.id, {
+		await store.create_task(team.id, { title: 'A' });
+		await store.send_message(team.id, {
 			from: 'lead',
 			to: 'alice',
 			body: 'start here',
 			urgent: true,
 		});
 
-		const result = fake_teammate_step(store, team.id, 'alice');
+		const result = await fake_teammate_step(store, team.id, 'alice');
 
 		expect(result.messages).toHaveLength(1);
 		expect(result.messages[0]).toMatchObject({
@@ -87,16 +89,16 @@ describe('fake teammate runner', () => {
 		).toBeTruthy();
 	});
 
-	it('can shut down from a message without claiming new work', () => {
+	it('can shut down from a message without claiming new work', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		store.create_task(team.id, { title: 'Do not start' });
-		store.send_message(team.id, {
+		await store.create_task(team.id, { title: 'Do not start' });
+		await store.send_message(team.id, {
 			from: 'lead',
 			to: 'alice',
 			body: 'shutdown please',
 		});
 
-		const result = fake_teammate_step(store, team.id, 'alice', {
+		const result = await fake_teammate_step(store, team.id, 'alice', {
 			shutdownOnMessage: true,
 		});
 

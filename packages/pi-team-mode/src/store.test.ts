@@ -22,8 +22,8 @@ afterEach(() => {
 	rmSync(root, { recursive: true, force: true });
 });
 
-describe('TeamStore', () => {
-	it('creates a durable team with a lead member', () => {
+describe('TeamStore', async () => {
+	it('creates a durable team with a lead member', async () => {
 		const team = store.create_team({ cwd: '/repo', name: 'demo' });
 
 		expect(team.name).toBe('demo');
@@ -36,7 +36,7 @@ describe('TeamStore', () => {
 		]);
 	});
 
-	it('lists legacy teams without updated_at metadata', () => {
+	it('lists legacy teams without updated_at metadata', async () => {
 		const created_at = '2026-04-30T00:00:00.000Z';
 		const team_dir = join(root, 'legacy-team');
 		mkdirSync(team_dir, { recursive: true });
@@ -57,10 +57,12 @@ describe('TeamStore', () => {
 		]);
 	});
 
-	it('creates, updates, and counts tasks', () => {
+	it('creates, updates, and counts tasks', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		const first = store.create_task(team.id, { title: 'Research' });
-		const second = store.create_task(team.id, {
+		const first = await store.create_task(team.id, {
+			title: 'Research',
+		});
+		const second = await store.create_task(team.id, {
 			title: 'Implement',
 			depends_on: [first.id],
 		});
@@ -68,7 +70,7 @@ describe('TeamStore', () => {
 		expect(store.is_task_ready(team.id, first)).toBe(true);
 		expect(store.is_task_ready(team.id, second)).toBe(false);
 
-		store.update_task(team.id, first.id, {
+		await store.update_task(team.id, first.id, {
 			status: 'completed',
 			result: 'done',
 		});
@@ -79,32 +81,36 @@ describe('TeamStore', () => {
 			),
 		).toBe(true);
 
-		const status = store.get_status(team.id);
+		const status = await store.get_status(team.id);
 		expect(status.counts.completed).toBe(1);
 		expect(status.counts.pending).toBe(1);
 	});
 
-	it('claims the next unblocked task', () => {
+	it('claims the next unblocked task', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		const blocked_by = store.create_task(team.id, { title: 'A' });
-		store.create_task(team.id, {
+		const blocked_by = await store.create_task(team.id, {
+			title: 'A',
+		});
+		await store.create_task(team.id, {
 			title: 'B',
 			depends_on: [blocked_by.id],
 		});
 
-		const claimed = store.claim_next_task(team.id, 'alice');
+		const claimed = await store.claim_next_task(team.id, 'alice');
 
 		expect(claimed).toMatchObject({
 			title: 'A',
 			status: 'in_progress',
 			assignee: 'alice',
 		});
-		expect(store.claim_next_task(team.id, 'bob')).toBeUndefined();
+		expect(
+			await store.claim_next_task(team.id, 'bob'),
+		).toBeUndefined();
 	});
 
-	it('keeps assigned tasks queued until their assignee claims them', () => {
+	it('keeps assigned tasks queued until their assignee claims them', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		const task = store.create_task(team.id, {
+		const task = await store.create_task(team.id, {
 			title: 'Assigned work',
 			assignee: 'alice',
 		});
@@ -113,57 +119,61 @@ describe('TeamStore', () => {
 			assignee: 'alice',
 			status: 'pending',
 		});
-		expect(store.claim_next_task(team.id, 'bob')).toBeUndefined();
-		expect(store.claim_next_task(team.id, 'alice')).toMatchObject({
+		expect(
+			await store.claim_next_task(team.id, 'bob'),
+		).toBeUndefined();
+		expect(
+			await store.claim_next_task(team.id, 'alice'),
+		).toMatchObject({
 			id: task.id,
 			status: 'in_progress',
 			assignee: 'alice',
 		});
 	});
 
-	it('rejects ambiguous member and assignee names', () => {
+	it('rejects ambiguous member and assignee names', async () => {
 		const team = store.create_team({ cwd: '/repo' });
 
-		expect(() =>
+		await expect(
 			store.upsert_member(team.id, { name: 'alice/dev' }),
-		).toThrow(/letters, numbers/);
-		expect(() =>
+		).rejects.toThrow(/letters, numbers/);
+		await expect(
 			store.create_task(team.id, {
 				title: 'Assigned work',
 				assignee: 'alice dev',
 			}),
-		).toThrow(/assignee/);
-		expect(() =>
+		).rejects.toThrow(/assignee/);
+		await expect(
 			store.send_message(team.id, {
 				from: 'lead',
 				to: 'alice/dev',
 				body: 'hello',
 			}),
-		).toThrow(/to/);
+		).rejects.toThrow(/to/);
 	});
 
-	it('validates task dependencies and rejects cycles', () => {
+	it('validates task dependencies and rejects cycles', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		const first = store.create_task(team.id, { title: 'A' });
-		const second = store.create_task(team.id, {
+		const first = await store.create_task(team.id, { title: 'A' });
+		const second = await store.create_task(team.id, {
 			title: 'B',
 			depends_on: [first.id],
 		});
 
-		expect(() =>
+		await expect(
 			store.create_task(team.id, {
 				title: 'Missing dep',
 				depends_on: ['999'],
 			}),
-		).toThrow(/Unknown dependency/);
-		expect(() =>
+		).rejects.toThrow(/Unknown dependency/);
+		await expect(
 			store.update_task(team.id, first.id, {
 				depends_on: [second.id],
 			}),
-		).toThrow(/cycle/);
+		).rejects.toThrow(/cycle/);
 	});
 
-	it('recovers stale locks left by dead processes', () => {
+	it('recovers stale locks left by dead processes', async () => {
 		const team = store.create_team({ cwd: '/repo' });
 		const lock = join(store.team_dir(team.id), '.lock');
 		mkdirSync(lock, { recursive: true });
@@ -175,15 +185,45 @@ describe('TeamStore', () => {
 			}),
 		);
 
-		expect(() =>
+		await expect(
 			store.create_task(team.id, { title: 'After stale lock' }),
-		).not.toThrow();
+		).resolves.toBeTruthy();
 		expect(store.list_tasks(team.id)).toHaveLength(1);
 	});
 
-	it('quarantines malformed persisted task files during lists', () => {
+	it('keeps the event loop responsive while waiting for a contended lock', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		const good = store.create_task(team.id, { title: 'Good' });
+		const lock = join(store.team_dir(team.id), '.lock');
+		mkdirSync(lock, { recursive: true });
+		writeFileSync(
+			join(lock, 'owner.json'),
+			JSON.stringify({
+				pid: process.pid,
+				created_at: new Date().toISOString(),
+			}),
+		);
+		let ticks = 0;
+		const timer = setInterval(() => {
+			ticks += 1;
+		}, 1);
+		setTimeout(
+			() => rmSync(lock, { recursive: true, force: true }),
+			25,
+		);
+
+		try {
+			await store.create_task(team.id, { title: 'After contention' });
+		} finally {
+			clearInterval(timer);
+		}
+
+		expect(ticks).toBeGreaterThan(0);
+		expect(store.list_tasks(team.id)).toHaveLength(1);
+	});
+
+	it('quarantines malformed persisted task files during lists', async () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const good = await store.create_task(team.id, { title: 'Good' });
 		writeFileSync(
 			join(store.tasks_dir(team.id), 'bad-json.json'),
 			'{',
@@ -221,9 +261,9 @@ describe('TeamStore', () => {
 		).toHaveLength(3);
 	});
 
-	it('quarantines malformed persisted members and messages during lists', () => {
+	it('quarantines malformed persisted members and messages during lists', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		store.upsert_member(team.id, { name: 'alice' });
+		await store.upsert_member(team.id, { name: 'alice' });
 		writeFileSync(
 			join(store.members_dir(team.id), 'bad-member.json'),
 			JSON.stringify({
@@ -235,7 +275,7 @@ describe('TeamStore', () => {
 				updated_at: new Date().toISOString(),
 			}),
 		);
-		store.send_message(team.id, {
+		await store.send_message(team.id, {
 			from: 'lead',
 			to: 'alice',
 			body: 'hello',
@@ -268,9 +308,9 @@ describe('TeamStore', () => {
 		).toBe(true);
 	});
 
-	it('tracks mailbox delivery, read, and acknowledgement separately', () => {
+	it('tracks mailbox delivery, read, and acknowledgement separately', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		const message = store.send_message(team.id, {
+		const message = await store.send_message(team.id, {
 			from: 'lead',
 			to: 'alice',
 			body: 'hello',
@@ -281,7 +321,7 @@ describe('TeamStore', () => {
 			{ id: message.id, from: 'lead', body: 'hello', urgent: true },
 		]);
 
-		const delivered = store.mark_messages_delivered(
+		const delivered = await store.mark_messages_delivered(
 			team.id,
 			'alice',
 			[message.id],
@@ -290,13 +330,13 @@ describe('TeamStore', () => {
 		expect(delivered[0].read_at).toBeUndefined();
 		expect(delivered[0].acknowledged_at).toBeUndefined();
 
-		const read = store.mark_messages_read(team.id, 'alice', [
+		const read = await store.mark_messages_read(team.id, 'alice', [
 			message.id,
 		]);
 		expect(read[0].read_at).toBeTruthy();
 		expect(read[0].acknowledged_at).toBeUndefined();
 
-		const acknowledged = store.acknowledge_messages(
+		const acknowledged = await store.acknowledge_messages(
 			team.id,
 			'alice',
 			[message.id],
@@ -304,16 +344,18 @@ describe('TeamStore', () => {
 		expect(acknowledged[0].acknowledged_at).toBeTruthy();
 	});
 
-	it('can restore delivered but unacknowledged messages to unread', () => {
+	it('can restore delivered but unacknowledged messages to unread', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		const message = store.send_message(team.id, {
+		const message = await store.send_message(team.id, {
 			from: 'lead',
 			to: 'alice',
 			body: 'hello',
 		});
-		store.mark_messages_delivered(team.id, 'alice', [message.id]);
+		await store.mark_messages_delivered(team.id, 'alice', [
+			message.id,
+		]);
 
-		const restored = store.clear_unacknowledged_deliveries(
+		const restored = await store.clear_unacknowledged_deliveries(
 			team.id,
 			'alice',
 		);
@@ -322,10 +364,10 @@ describe('TeamStore', () => {
 		expect(restored[0].read_at).toBeUndefined();
 	});
 
-	it('persists teammate workspace metadata', () => {
+	it('persists teammate workspace metadata', async () => {
 		const team = store.create_team({ cwd: '/repo' });
 
-		store.upsert_member(team.id, {
+		await store.upsert_member(team.id, {
 			name: 'alice',
 			cwd: '/repo/.worktrees/alice',
 			workspace_mode: 'worktree',
@@ -346,16 +388,16 @@ describe('TeamStore', () => {
 		});
 	});
 
-	it('marks live persisted teammate processes as orphaned after restart', () => {
+	it('marks live persisted teammate processes as orphaned after restart', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		store.upsert_member(team.id, {
+		await store.upsert_member(team.id, {
 			name: 'alice',
 			role: 'teammate',
 			status: 'idle',
 			pid: process.pid,
 		});
 
-		expect(store.get_status(team.id).members).toEqual(
+		expect((await store.get_status(team.id)).members).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
 					name: 'alice',
@@ -365,9 +407,9 @@ describe('TeamStore', () => {
 		);
 	});
 
-	it('keeps attached running teammates distinct from orphaned processes', () => {
+	it('keeps attached running teammates distinct from orphaned processes', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		store.upsert_member(team.id, {
+		await store.upsert_member(team.id, {
 			name: 'alice',
 			role: 'teammate',
 			status: 'running',
@@ -375,7 +417,7 @@ describe('TeamStore', () => {
 		});
 
 		expect(
-			store.get_status(team.id, new Set(['alice'])).members,
+			(await store.get_status(team.id, new Set(['alice']))).members,
 		).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
@@ -386,20 +428,20 @@ describe('TeamStore', () => {
 		);
 	});
 
-	it('blocks in-progress tasks when a teammate process is stale', () => {
+	it('blocks in-progress tasks when a teammate process is stale', async () => {
 		const team = store.create_team({ cwd: '/repo' });
-		store.upsert_member(team.id, {
+		await store.upsert_member(team.id, {
 			name: 'alice',
 			status: 'running',
 			pid: 999999999,
 		});
-		const task = store.create_task(team.id, {
+		const task = await store.create_task(team.id, {
 			title: 'Review',
 			assignee: 'alice',
 			status: 'in_progress',
 		});
 
-		store.refresh_member_process_statuses(team.id);
+		await store.refresh_member_process_statuses(team.id);
 
 		expect(
 			store
