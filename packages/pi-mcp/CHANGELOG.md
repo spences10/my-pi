@@ -1,5 +1,14 @@
 # @spences10/pi-mcp
 
+## 0.0.10
+
+### Patch Changes
+
+- bb2c70e: Add modal-first menu navigation with scrollable detail
+  views for team and MCP extensions
+- Updated dependencies [bb2c70e]
+  - @spences10/pi-tui-modal@0.0.3
+
 ## 0.0.9
 
 ### Patch Changes

@@ -1,5 +1,16 @@
 # @spences10/pi-team-mode
 
+## 0.0.7
+
+### Patch Changes
+
+- bb2c70e: Add modal-first menu navigation with scrollable detail
+  views for team and MCP extensions
+- e114ba3: Replace blocking team-store lock waits with async polling,
+  preserving stale recovery and event-loop responsiveness coverage
+- Updated dependencies [bb2c70e]
+  - @spences10/pi-tui-modal@0.0.3
+
 ## 0.0.6
 
 ### Patch Changes

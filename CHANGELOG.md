@@ -1,5 +1,16 @@
 # my-pi
 
+## 0.1.23
+
+### Patch Changes
+
+- Updated dependencies [bb2c70e]
+- Updated dependencies [e114ba3]
+  - @spences10/pi-team-mode@0.0.7
+  - @spences10/pi-tui-modal@0.0.3
+  - @spences10/pi-mcp@0.0.10
+  - @spences10/pi-skills@0.0.6
+
 ## 0.1.22
 
 ### Patch Changes

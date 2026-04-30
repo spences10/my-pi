@@ -1,5 +1,12 @@
 # @spences10/pi-skills
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [bb2c70e]
+  - @spences10/pi-tui-modal@0.0.3
+
 ## 0.0.5
 
 ### Patch Changes
