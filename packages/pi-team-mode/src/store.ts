@@ -170,6 +170,29 @@ function read_json<T>(path: string): T {
 	return JSON.parse(readFileSync(path, 'utf-8')) as T;
 }
 
+function quarantine_invalid_json(path: string): void {
+	const target = `${path}.invalid-${Date.now()}-${random_suffix()}`;
+	try {
+		renameSync(path, target);
+	} catch {
+		rmSync(path, { force: true });
+	}
+}
+
+function read_listed_json<T>(
+	path: string,
+	validate?: (value: T) => void,
+): T | undefined {
+	try {
+		const value = read_json<T>(path);
+		validate?.(value);
+		return value;
+	} catch {
+		quarantine_invalid_json(path);
+		return undefined;
+	}
+}
+
 function write_json(path: string, value: unknown): void {
 	mkdirSync(resolve(path, '..'), { recursive: true, mode: 0o700 });
 	const tmp = `${path}.tmp-${process.pid}-${Date.now()}-${random_suffix()}`;
@@ -179,12 +202,21 @@ function write_json(path: string, value: unknown): void {
 	renameSync(tmp, path);
 }
 
-function list_json_files<T>(dir: string): T[] {
+function list_json_files<T>(
+	dir: string,
+	validate?: (value: T) => void,
+): T[] {
 	if (!existsSync(dir)) return [];
 	return readdirSync(dir, { withFileTypes: true })
 		.filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
 		.sort((a, b) => a.name.localeCompare(b.name))
-		.map((entry) => read_json<T>(join(dir, entry.name)));
+		.flatMap((entry) => {
+			const value = read_listed_json<T>(
+				join(dir, entry.name),
+				validate,
+			);
+			return value ? [value] : [];
+		});
 }
 
 function normalize_unique_ids(
@@ -195,6 +227,58 @@ function normalize_unique_ids(
 			(values ?? []).map((value) => value.trim()).filter(Boolean),
 		),
 	].sort();
+}
+
+function validate_member(member: TeamMember): void {
+	require_member_name(member.name);
+	if (!['lead', 'teammate'].includes(member.role)) {
+		throw new Error(`Invalid member role: ${member.role}`);
+	}
+	if (
+		!['idle', 'running', 'blocked', 'offline'].includes(member.status)
+	) {
+		throw new Error(`Invalid member status: ${member.status}`);
+	}
+}
+
+function validate_task(task: TeamTask): void {
+	if (safe_segment(task.id) !== task.id) {
+		throw new Error(`Invalid task id: ${task.id}`);
+	}
+	if (!task.title?.trim()) throw new Error('Task title is required');
+	if (
+		![
+			'pending',
+			'in_progress',
+			'blocked',
+			'completed',
+			'cancelled',
+		].includes(task.status)
+	) {
+		throw new Error(`Invalid task status: ${task.status}`);
+	}
+	if (task.assignee) require_member_name(task.assignee, 'assignee');
+	if (!Array.isArray(task.dependsOn)) {
+		throw new Error('Task dependsOn must be an array');
+	}
+	for (const dep_id of task.dependsOn) {
+		if (safe_segment(dep_id) !== dep_id) {
+			throw new Error(`Invalid dependency task id: ${dep_id}`);
+		}
+	}
+}
+
+function validate_message(message: TeamMessage): void {
+	if (safe_segment(message.id) !== message.id) {
+		throw new Error(`Invalid message id: ${message.id}`);
+	}
+	require_member_name(message.from, 'from');
+	require_member_name(message.to, 'to');
+	if (!message.body?.trim())
+		throw new Error('Message body is required');
+	if (typeof message.urgent !== 'boolean') {
+		throw new Error('Message urgent must be boolean');
+	}
 }
 
 function sleep_sync(ms: number): void {
@@ -350,7 +434,10 @@ export class TeamStore {
 			.filter((entry) => entry.isDirectory())
 			.map((entry) => join(this.root, entry.name, 'config.json'))
 			.filter((path) => existsSync(path))
-			.map((path) => read_json<TeamConfig>(path))
+			.flatMap((path) => {
+				const team = read_listed_json<TeamConfig>(path);
+				return team ? [team] : [];
+			})
 			.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 	}
 
@@ -423,7 +510,10 @@ export class TeamStore {
 
 	list_members(team_id: string): TeamMember[] {
 		this.load_team(team_id);
-		return list_json_files<TeamMember>(this.members_dir(team_id));
+		return list_json_files<TeamMember>(
+			this.members_dir(team_id),
+			validate_member,
+		);
 	}
 
 	refresh_member_process_statuses(team_id: string): TeamMember[] {
@@ -496,9 +586,10 @@ export class TeamStore {
 
 	list_tasks(team_id: string): TeamTask[] {
 		this.load_team(team_id);
-		return list_json_files<TeamTask>(this.tasks_dir(team_id)).sort(
-			(a, b) => Number(a.id) - Number(b.id),
-		);
+		return list_json_files<TeamTask>(
+			this.tasks_dir(team_id),
+			validate_task,
+		).sort((a, b) => Number(a.id) - Number(b.id));
 	}
 
 	load_task(team_id: string, task_id: string): TeamTask {
@@ -691,6 +782,7 @@ export class TeamStore {
 		this.load_team(team_id);
 		return list_json_files<TeamMessage>(
 			this.mailbox_dir(team_id, require_member_name(member)),
+			validate_message,
 		);
 	}
 

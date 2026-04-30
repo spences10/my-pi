@@ -81,6 +81,11 @@ resolving to the same mailbox/member file.
 /team spawn alice "claim one task and report back"
 /team task add alice: inspect the failing test
 /team task show 1
+/team task block 1 waiting on CI logs
+/team task cancel 1 duplicate work
+/team task reopen 1
+/team task assign 1 bob
+/team task unassign 1
 /team dm alice status?
 /team status
 /team teams
@@ -93,7 +98,10 @@ resolving to the same mailbox/member file.
 Use `/team status` as the source of truth for member state, task
 state, and mailbox activity. Assigned tasks stay queued until the
 assigned teammate claims them, so the status view reflects actual work
-in progress.
+in progress. Use `/team task block|cancel <id> [reason]`,
+`/team task reopen <id>`, and `/team task assign|unassign` for manual
+lifecycle corrections. Assigning a task changes ownership only; it
+does not reopen blocked or cancelled work.
 
 ## Tool API
 
@@ -110,7 +118,8 @@ orchestration. Important actions include:
 - `task_create`
 - `task_get`
 - `task_claim_next`
-- `task_update`
+- `task_update` (`clearAssignee` and `clearResult` clear optional
+  fields)
 - `message_send`
 - `message_list`
 

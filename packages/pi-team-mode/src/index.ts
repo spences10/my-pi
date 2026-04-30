@@ -85,8 +85,10 @@ const TeamToolParams = Type.Object({
 		] as const),
 	),
 	assignee: Type.Optional(Type.String()),
+	clearAssignee: Type.Optional(Type.Boolean()),
 	dependsOn: Type.Optional(Type.Array(Type.String())),
 	result: Type.Optional(Type.String()),
+	clearResult: Type.Optional(Type.Boolean()),
 	from: Type.Optional(Type.String()),
 	to: Type.Optional(Type.String()),
 	message: Type.Optional(Type.String()),
@@ -844,6 +846,54 @@ async function handle_team_command(
 					);
 					set_team_ui(ctx, store, team_id);
 					ctx.ui.notify(`Completed task #${task.id}`);
+				} else if (action === 'block') {
+					const task = store.update_task(
+						team_id,
+						require_arg(id, 'task id'),
+						{
+							status: 'blocked',
+							result: tail.join(' ') || null,
+						},
+					);
+					set_team_ui(ctx, store, team_id);
+					ctx.ui.notify(`Blocked task #${task.id}`);
+				} else if (action === 'cancel') {
+					const task = store.update_task(
+						team_id,
+						require_arg(id, 'task id'),
+						{
+							status: 'cancelled',
+							result: tail.join(' ') || null,
+						},
+					);
+					set_team_ui(ctx, store, team_id);
+					ctx.ui.notify(`Cancelled task #${task.id}`);
+				} else if (action === 'reopen') {
+					const task = store.update_task(
+						team_id,
+						require_arg(id, 'task id'),
+						{ status: 'pending', result: null },
+					);
+					set_team_ui(ctx, store, team_id);
+					ctx.ui.notify(`Reopened task #${task.id}`);
+				} else if (action === 'assign') {
+					const task = store.update_task(
+						team_id,
+						require_arg(id, 'task id'),
+						{ assignee: require_arg(tail[0], 'assignee') },
+					);
+					set_team_ui(ctx, store, team_id);
+					ctx.ui.notify(
+						`Assigned task #${task.id} to ${task.assignee}`,
+					);
+				} else if (action === 'unassign') {
+					const task = store.update_task(
+						team_id,
+						require_arg(id, 'task id'),
+						{ assignee: null },
+					);
+					set_team_ui(ctx, store, team_id);
+					ctx.ui.notify(`Unassigned task #${task.id}`);
 				} else if (action === 'claim') {
 					const assignee = require_arg(id, 'assignee');
 					const task = store.claim_next_task(team_id, assignee);
@@ -855,7 +905,7 @@ async function handle_team_command(
 					);
 				} else {
 					throw new Error(
-						'Usage: /team task add|list|show|done|claim ...',
+						'Usage: /team task add|list|show|done|block <id> [reason]|cancel <id> [reason]|reopen <id>|assign <id> <member>|unassign <id>|claim ...',
 					);
 				}
 				break;
@@ -997,6 +1047,9 @@ async function handle_team_command(
 						'/team spawn <member> [prompt] — start a teammate',
 						'/team task add [member:] <title> — queue work',
 						'/team task show <id> — show full task details/result',
+						'/team task block|cancel <id> [reason] — mark blocked/cancelled and replace the result note',
+						'/team task reopen <id> — move back to pending and clear the result note',
+						'/team task assign <id> <member> / unassign <id> — change owner without changing status',
 						'/team dm <member> <message> — send a mailbox message',
 						'/team wait|shutdown <member> — control a teammate',
 						'/team teams|switch|resume|clear — manage active team UI',
@@ -1019,6 +1072,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 	let mailbox_timer: NodeJS.Timeout | undefined;
 	let observed_team_id: string | undefined;
 	let observed_completed_task_ids = new Set<string>();
+	let observed_blocked_task_ids = new Set<string>();
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'lead';
 	const own_role = process.env[TEAM_ROLE_ENV] || 'lead';
 
@@ -1032,13 +1086,16 @@ export default async function team_mode(pi: ExtensionAPI) {
 		team_id: string | undefined,
 	): void {
 		observed_team_id = team_id;
+		const tasks = team_id ? store.list_tasks(team_id) : [];
 		observed_completed_task_ids = new Set(
-			team_id
-				? store
-						.list_tasks(team_id)
-						.filter((task) => task.status === 'completed')
-						.map((task) => task.id)
-				: [],
+			tasks
+				.filter((task) => task.status === 'completed')
+				.map((task) => task.id),
+		);
+		observed_blocked_task_ids = new Set(
+			tasks
+				.filter((task) => task.status === 'blocked')
+				.map((task) => task.id),
 		);
 	}
 
@@ -1056,17 +1113,27 @@ export default async function team_mode(pi: ExtensionAPI) {
 			if (own_role !== 'teammate') {
 				for (const task of status.tasks) {
 					if (
-						task.status !== 'completed' ||
-						observed_completed_task_ids.has(task.id)
+						task.status === 'completed' &&
+						!observed_completed_task_ids.has(task.id)
 					) {
-						continue;
+						observed_completed_task_ids.add(task.id);
+						const result = summarize_result(task.result);
+						ctx.ui.notify(
+							`Team task #${task.id} completed${task.assignee ? ` by ${task.assignee}` : ''}: ${task.title}${result ? ` — ${result}` : ''}`,
+							'info',
+						);
 					}
-					observed_completed_task_ids.add(task.id);
-					const result = summarize_result(task.result);
-					ctx.ui.notify(
-						`Team task #${task.id} completed${task.assignee ? ` by ${task.assignee}` : ''}: ${task.title}${result ? ` — ${result}` : ''}`,
-						'info',
-					);
+					if (
+						task.status === 'blocked' &&
+						!observed_blocked_task_ids.has(task.id)
+					) {
+						observed_blocked_task_ids.add(task.id);
+						const result = summarize_result(task.result);
+						ctx.ui.notify(
+							`Team task #${task.id} blocked${task.assignee ? ` for ${task.assignee}` : ''}: ${task.title}${result ? ` — ${result}` : ''}`,
+							'warning',
+						);
+					}
 				}
 			}
 			if (!should_auto_inject_messages()) return;
@@ -1179,6 +1246,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'task list',
 				'task show',
 				'task done',
+				'task block',
+				'task cancel',
+				'task reopen',
+				'task assign',
+				'task unassign',
 				'task claim',
 				'dm',
 				'inbox',
@@ -1548,9 +1620,9 @@ export default async function team_mode(pi: ExtensionAPI) {
 							title: params.title,
 							description: params.description,
 							status: params.taskStatus,
-							assignee: params.assignee,
+							assignee: params.clearAssignee ? null : params.assignee,
 							dependsOn: params.dependsOn,
-							result: params.result,
+							result: params.clearResult ? null : params.result,
 						},
 					);
 					set_team_ui(ctx, store, team_id);

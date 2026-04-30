@@ -1,6 +1,7 @@
 import {
 	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
@@ -157,6 +158,93 @@ describe('TeamStore', () => {
 			store.create_task(team.id, { title: 'After stale lock' }),
 		).not.toThrow();
 		expect(store.list_tasks(team.id)).toHaveLength(1);
+	});
+
+	it('quarantines malformed persisted task files during lists', () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const good = store.create_task(team.id, { title: 'Good' });
+		writeFileSync(
+			join(store.tasks_dir(team.id), 'bad-json.json'),
+			'{',
+		);
+		writeFileSync(
+			join(store.tasks_dir(team.id), 'bad-status.json'),
+			JSON.stringify({
+				id: 'bad-status',
+				title: 'Bad status',
+				status: 'wat',
+				dependsOn: [],
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			}),
+		);
+		writeFileSync(
+			join(store.tasks_dir(team.id), 'bad-id.json'),
+			JSON.stringify({
+				id: '../bad',
+				title: 'Bad id',
+				status: 'pending',
+				dependsOn: [],
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			}),
+		);
+
+		expect(store.list_tasks(team.id)).toMatchObject([
+			{ id: good.id },
+		]);
+		expect(
+			readdirSync(store.tasks_dir(team.id)).filter((name) =>
+				name.includes('.invalid-'),
+			),
+		).toHaveLength(3);
+	});
+
+	it('quarantines malformed persisted members and messages during lists', () => {
+		const team = store.create_team({ cwd: '/repo' });
+		store.upsert_member(team.id, { name: 'alice' });
+		writeFileSync(
+			join(store.members_dir(team.id), 'bad-member.json'),
+			JSON.stringify({
+				name: 'bad/member',
+				role: 'teammate',
+				status: 'idle',
+				lastSeenAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			}),
+		);
+		store.send_message(team.id, {
+			from: 'lead',
+			to: 'alice',
+			body: 'hello',
+		});
+		writeFileSync(
+			join(store.mailbox_dir(team.id, 'alice'), 'bad-message.json'),
+			JSON.stringify({
+				id: '../bad',
+				from: 'lead',
+				to: 'alice',
+				body: 'bad',
+				urgent: false,
+				createdAt: new Date().toISOString(),
+			}),
+		);
+
+		expect(
+			store.list_members(team.id).map((member) => member.name),
+		).toEqual(['alice', 'lead']);
+		expect(store.list_messages(team.id, 'alice')).toHaveLength(1);
+		expect(
+			readdirSync(store.members_dir(team.id)).some((name) =>
+				name.includes('.invalid-'),
+			),
+		).toBe(true);
+		expect(
+			readdirSync(store.mailbox_dir(team.id, 'alice')).some((name) =>
+				name.includes('.invalid-'),
+			),
+		).toBe(true);
 	});
 
 	it('persists mailbox messages and marks them read', () => {
