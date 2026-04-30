@@ -1,5 +1,14 @@
 # @spences10/pi-team-mode
 
+## 0.0.5
+
+### Patch Changes
+
+- c7bed23: Improve team UI density, switching, styling, and reduce
+  redundant full-mode footer status.
+- 77e89a8: Stabilize team mode: task claiming, stale-lock recovery,
+  fake-tool gating, RPC waits, UX/docs.
+
 ## 0.0.4
 
 ### Patch Changes

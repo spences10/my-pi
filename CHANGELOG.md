@@ -1,5 +1,13 @@
 # my-pi
 
+## 0.1.21
+
+### Patch Changes
+
+- Updated dependencies [c7bed23]
+- Updated dependencies [77e89a8]
+  - @spences10/pi-team-mode@0.0.5
+
 ## 0.1.20
 
 ### Patch Changes
