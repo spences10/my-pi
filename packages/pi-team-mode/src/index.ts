@@ -19,6 +19,7 @@ import {
 	show_modal,
 	show_picker_modal,
 	show_settings_modal,
+	show_text_modal,
 } from '@spences10/pi-tui-modal';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -1132,16 +1133,35 @@ async function show_team_switcher(
 	const items: SelectItem[] = statuses.map((status) => ({
 		value: status.team.id,
 		label: `${status.team.id === active_team_id ? '● ' : ''}${status.team.name}`,
-		description: `${status.counts.blocked} attention, ${status.counts.in_progress} running, ${status.counts.pending} queued, ${status.counts.completed}/${status.tasks.length} done`,
+		description: `${format_status_counts(status)} • ${status.team.cwd}`,
 	}));
 	const active_index = statuses.findIndex(
 		(status) => status.team.id === active_team_id,
 	);
 
 	return await show_picker_modal(ctx, {
-		title: 'Switch team',
+		title: 'Teams',
+		subtitle: `${statuses.length} saved team(s)`,
 		items,
 		initial_index: active_index >= 0 ? active_index : undefined,
+		footer: 'enter switches team • esc back',
+	});
+}
+
+async function show_team_text_modal(
+	ctx: ExtensionCommandContext,
+	options: {
+		title: string;
+		subtitle?: string;
+		text: string;
+	},
+): Promise<void> {
+	await show_text_modal(ctx, {
+		title: options.title,
+		subtitle: options.subtitle,
+		text: options.text,
+		max_visible_lines: 20,
+		overlay_options: { width: '90%', minWidth: 72 },
 	});
 }
 
@@ -1446,21 +1466,23 @@ export async function handle_team_command(
 ): Promise<void> {
 	const trimmed = args.trim();
 	if (!trimmed && ctx.hasUI) {
-		const selected = await show_team_home_modal(
-			ctx,
-			store,
-			get_active_team_id(),
-		);
-		if (!selected) return;
-		return handle_team_command(
-			selected,
-			ctx,
-			store,
-			runners,
-			get_active_team_id,
-			set_active_team_id,
-			own_role,
-		);
+		while (true) {
+			const selected = await show_team_home_modal(
+				ctx,
+				store,
+				get_active_team_id(),
+			);
+			if (!selected) return;
+			await handle_team_command(
+				selected,
+				ctx,
+				store,
+				runners,
+				get_active_team_id,
+				set_active_team_id,
+				own_role,
+			);
+		}
 	}
 
 	const [sub = 'status', ...rest] = trimmed.split(/\s+/);
@@ -1489,7 +1511,16 @@ export async function handle_team_command(
 			}
 			case 'id': {
 				const team_id = current_team_id();
-				ctx.ui.notify(`${team_id}\n${store.team_dir(team_id)}`);
+				const text = `${team_id}\n${store.team_dir(team_id)}`;
+				if (ctx.hasUI) {
+					await show_team_text_modal(ctx, {
+						title: 'Team id/path',
+						subtitle: team_id,
+						text,
+					});
+				} else {
+					ctx.ui.notify(text);
+				}
 				break;
 			}
 			case 'ui': {
@@ -1536,10 +1567,26 @@ export async function handle_team_command(
 				break;
 			}
 			case 'teams': {
-				const statuses = get_team_statuses(store, runners);
-				ctx.ui.notify(
-					format_teams_list(statuses, get_active_team_id()),
-				);
+				if (ctx.hasUI) {
+					const team_id = await show_team_switcher(
+						ctx,
+						store,
+						get_active_team_id(),
+					);
+					if (team_id) {
+						set_active_team_id(team_id);
+						set_team_ui(ctx, store, team_id, runners);
+						const team = store.load_team(team_id);
+						ctx.ui.notify(
+							`Switched to team ${team.name} (${team.id})`,
+						);
+					}
+				} else {
+					const statuses = get_team_statuses(store, runners);
+					ctx.ui.notify(
+						format_teams_list(statuses, get_active_team_id()),
+					);
+				}
 				break;
 			}
 			case 'switch': {
@@ -1565,10 +1612,18 @@ export async function handle_team_command(
 			case 'status':
 			case 'list': {
 				const team_id = current_team_id();
+				const status = get_team_status(store, team_id, runners);
 				set_team_ui(ctx, store, team_id, runners);
-				ctx.ui.notify(
-					format_status(get_team_status(store, team_id, runners)),
-				);
+				const text = format_status(status);
+				if (ctx.hasUI) {
+					await show_team_text_modal(ctx, {
+						title: 'Team status',
+						subtitle: `${status.team.name} • ${format_status_counts(status)}`,
+						text,
+					});
+				} else {
+					ctx.ui.notify(text);
+				}
 				break;
 			}
 			case 'dashboard':
@@ -1634,23 +1689,45 @@ export async function handle_team_command(
 					set_team_ui(ctx, store, team_id, runners);
 					ctx.ui.notify(`Created task #${task.id}: ${task.title}`);
 				} else if (action === 'list' || !action) {
-					const status = get_team_status(store, team_id, runners);
+					let status = get_team_status(store, team_id, runners);
 					if (ctx.hasUI && status.tasks.length > 0) {
-						const task_id = await show_team_task_picker(ctx, status);
-						if (task_id) {
-							ctx.ui.notify(
-								format_task_detail(store.load_task(team_id, task_id)),
+						while (true) {
+							const task_id = await show_team_task_picker(
+								ctx,
+								status,
 							);
+							if (!task_id) break;
+							await show_team_text_modal(ctx, {
+								title: `Task #${task_id}`,
+								subtitle: status.team.name,
+								text: format_task_detail(
+									store.load_task(team_id, task_id),
+								),
+							});
+							status = get_team_status(store, team_id, runners);
 						}
+					} else if (ctx.hasUI) {
+						await show_team_text_modal(ctx, {
+							title: 'Team tasks',
+							subtitle: `${status.team.name} • ${format_status_counts(status)}`,
+							text: format_status(status),
+						});
 					} else {
 						ctx.ui.notify(format_status(status));
 					}
 				} else if (action === 'show' || action === 'get') {
-					ctx.ui.notify(
-						format_task_detail(
-							store.load_task(team_id, require_arg(id, 'task id')),
-						),
+					const task_id = require_arg(id, 'task id');
+					const text = format_task_detail(
+						store.load_task(team_id, task_id),
 					);
+					if (ctx.hasUI) {
+						await show_team_text_modal(ctx, {
+							title: `Task #${task_id}`,
+							text,
+						});
+					} else {
+						ctx.ui.notify(text);
+					}
 				} else if (action === 'done') {
 					const task = store.update_task(
 						team_id,
@@ -1748,11 +1825,17 @@ export async function handle_team_command(
 			}
 			case 'inbox': {
 				const member = rest_text || 'lead';
-				ctx.ui.notify(
-					format_messages(
-						store.list_messages(current_team_id(), member),
-					),
+				const text = format_messages(
+					store.list_messages(current_team_id(), member),
 				);
+				if (ctx.hasUI) {
+					await show_team_text_modal(ctx, {
+						title: `${member} inbox`,
+						text,
+					});
+				} else {
+					ctx.ui.notify(text);
+				}
 				break;
 			}
 			case 'spawn': {
@@ -1888,11 +1971,21 @@ export async function handle_team_command(
 						120_000,
 					);
 				set_team_ui(ctx, store, get_active_team_id(), runners);
-				ctx.ui.notify(
-					format_status(
-						get_team_status(store, current_team_id(), runners),
-					),
+				const status = get_team_status(
+					store,
+					current_team_id(),
+					runners,
 				);
+				const text = format_status(status);
+				if (ctx.hasUI) {
+					await show_team_text_modal(ctx, {
+						title: 'Team status',
+						subtitle: `${status.team.name} • ${format_status_counts(status)}`,
+						text,
+					});
+				} else {
+					ctx.ui.notify(text);
+				}
 				break;
 			}
 			case 'fake': {

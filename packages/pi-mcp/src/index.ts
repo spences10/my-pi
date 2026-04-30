@@ -12,6 +12,7 @@ import {
 import {
 	show_picker_modal,
 	show_settings_modal,
+	show_text_modal,
 } from '@spences10/pi-tui-modal';
 import { McpClient, type McpServerConfig } from './client.js';
 import {
@@ -444,6 +445,80 @@ export default async function mcp(pi: ExtensionAPI) {
 		return server;
 	};
 
+	const format_mcp_server_list = (): string => {
+		if (servers.size === 0) return 'No MCP servers configured';
+		const lines: string[] = [];
+		for (const [sname, state] of servers.entries()) {
+			const trust_note =
+				state.config.metadata_trusted === false
+					? ' — untrusted metadata suppressed'
+					: '';
+			lines.push(
+				`${sname} (${format_server_status(state)}) — ${state.tool_names.length} tools${trust_note}${state.error ? ` — ${state.error}` : ''}`,
+			);
+		}
+		return lines.join('\n');
+	};
+
+	const show_mcp_home_modal = async (
+		ctx: ExtensionCommandContext,
+	): Promise<string | undefined> =>
+		await show_picker_modal(ctx, {
+			title: 'MCP',
+			subtitle: `${servers.size} configured server(s)`,
+			items: [
+				{
+					value: 'manage',
+					label: 'Manage servers',
+					description: 'Enable, disable, inspect status and tools',
+				},
+				{
+					value: 'list',
+					label: 'List servers',
+					description: 'Read-only status summary',
+				},
+				{
+					value: 'backup',
+					label: 'Create backup',
+					description: 'Snapshot global and project MCP config',
+				},
+				{
+					value: 'restore',
+					label: 'Restore backup',
+					description: 'Pick a saved MCP config backup',
+				},
+				{
+					value: 'profile load',
+					label: 'Load profile',
+					description: 'Apply a saved MCP server profile',
+				},
+				{
+					value: 'profile save',
+					label: 'Save profile',
+					description: 'Save current config as a named profile',
+				},
+				{
+					value: 'profile list',
+					label: 'List profiles',
+					description: 'Show saved MCP profiles',
+				},
+			],
+			footer: 'enter opens • esc close/back',
+		});
+
+	const show_mcp_text_modal = async (
+		ctx: ExtensionCommandContext,
+		title: string,
+		text: string,
+	): Promise<void> => {
+		await show_text_modal(ctx, {
+			title,
+			text,
+			max_visible_lines: 20,
+			overlay_options: { width: '90%', minWidth: 72 },
+		});
+	};
+
 	const show_mcp_server_modal = async (
 		ctx: ExtensionCommandContext,
 	): Promise<boolean> => {
@@ -585,14 +660,15 @@ export default async function mcp(pi: ExtensionAPI) {
 				ctx.ui.notify('No MCP profiles saved');
 				return;
 			}
-			ctx.ui.notify(
-				profiles
-					.map(
-						(profile) =>
-							`${profile.name} — ${profile.server_count} servers`,
-					)
-					.join('\n'),
-			);
+			const text = profiles
+				.map(
+					(profile) =>
+						`${profile.name} — ${profile.server_count} servers`,
+				)
+				.join('\n');
+			if (ctx.hasUI)
+				await show_mcp_text_modal(ctx, 'MCP profiles', text);
+			else ctx.ui.notify(text);
 			return;
 		}
 
@@ -741,6 +817,34 @@ export default async function mcp(pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			await ensure_servers(ctx.cwd, ctx);
 			const parts = args.trim().split(/\s+/).filter(Boolean);
+			if (parts.length === 0 && ctx.hasUI) {
+				while (true) {
+					const selected = await show_mcp_home_modal(ctx);
+					if (!selected) return;
+					if (selected === 'manage') {
+						await show_mcp_server_modal(ctx);
+					} else if (selected === 'list') {
+						update_mcp_status(ctx, servers);
+						await show_mcp_text_modal(
+							ctx,
+							'MCP servers',
+							format_mcp_server_list(),
+						);
+					} else if (selected === 'backup') {
+						await handle_mcp_backup(ctx);
+					} else if (selected === 'restore') {
+						await handle_mcp_restore(ctx);
+						return;
+					} else if (selected.startsWith('profile ')) {
+						await handle_mcp_profile(
+							ctx,
+							selected.split(/\s+/).slice(1),
+						);
+						if (selected === 'profile load') return;
+					}
+					await ensure_servers(ctx.cwd, ctx);
+				}
+			}
 			const [sub, ...rest] = parts;
 			const name = rest.join(' ');
 
@@ -771,22 +875,11 @@ export default async function mcp(pi: ExtensionAPI) {
 					break;
 				}
 				case 'list': {
-					if (servers.size === 0) {
-						ctx.ui.notify('No MCP servers configured');
-						return;
-					}
-					const lines: string[] = [];
-					for (const [sname, state] of servers.entries()) {
-						const trust_note =
-							state.config.metadata_trusted === false
-								? ' — untrusted metadata suppressed'
-								: '';
-						lines.push(
-							`${sname} (${format_server_status(state)}) — ${state.tool_names.length} tools${trust_note}${state.error ? ` — ${state.error}` : ''}`,
-						);
-					}
+					const text = format_mcp_server_list();
 					update_mcp_status(ctx, servers);
-					ctx.ui.notify(lines.join('\n'));
+					if (ctx.hasUI)
+						await show_mcp_text_modal(ctx, 'MCP servers', text);
+					else ctx.ui.notify(text);
 					break;
 				}
 				case 'enable': {

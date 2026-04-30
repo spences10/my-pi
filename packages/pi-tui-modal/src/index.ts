@@ -8,6 +8,8 @@ import {
 	fuzzyFilter,
 	getKeybindings,
 	Input,
+	Key,
+	matchesKey,
 	SelectList,
 	SettingsList,
 	Text,
@@ -77,6 +79,11 @@ export interface SettingsModalOptions {
 	metadata?: ModalMetadata;
 	on_change: (id: string, new_value: string) => boolean | void;
 	on_cancel?: () => void;
+}
+
+export interface TextModalOptions extends ModalOptions {
+	text: ModalText;
+	max_visible_lines?: number;
 }
 
 const default_overlay_options: OverlayOptions = {
@@ -167,6 +174,81 @@ function make_settings_theme(theme: ModalTheme): SettingsListTheme {
 		description: (text) => theme.fg('muted', text),
 		hint: (text) => theme.fg('dim', text),
 	};
+}
+
+class TextModalBody implements ModalBody {
+	private offset = 0;
+	private wrapped_lines: string[] = [];
+
+	constructor(
+		private readonly text: ModalText,
+		private readonly max_visible_lines: number,
+		private readonly theme: ModalTheme,
+		private readonly on_cancel: () => void,
+	) {}
+
+	render(width: number): string[] {
+		this.wrapped_lines = normalize_text(this.text).flatMap((block) =>
+			block
+				.split('\n')
+				.flatMap((line) =>
+					line.length === 0 ? [''] : wrapTextWithAnsi(line, width),
+				),
+		);
+		const max_offset = Math.max(
+			0,
+			this.wrapped_lines.length - this.max_visible_lines,
+		);
+		this.offset = Math.max(0, Math.min(this.offset, max_offset));
+		const end = Math.min(
+			this.offset + this.max_visible_lines,
+			this.wrapped_lines.length,
+		);
+		const visible = this.wrapped_lines
+			.slice(this.offset, end)
+			.map((line) => truncateToWidth(line, width));
+		if (this.wrapped_lines.length > this.max_visible_lines) {
+			visible.push(
+				this.theme.fg(
+					'dim',
+					truncateToWidth(
+						`(${this.offset + 1}-${end}/${this.wrapped_lines.length})`,
+						width,
+					),
+				),
+			);
+		}
+		return visible;
+	}
+
+	invalidate(): void {
+		// No cached rendering.
+	}
+
+	handleInput(data: string): void {
+		const keybindings = getKeybindings();
+		const max_offset = Math.max(
+			0,
+			this.wrapped_lines.length - this.max_visible_lines,
+		);
+		if (keybindings.matches(data, 'tui.select.up') || data === 'k') {
+			this.offset = Math.max(0, this.offset - 1);
+		} else if (
+			keybindings.matches(data, 'tui.select.down') ||
+			data === 'j'
+		) {
+			this.offset = Math.min(max_offset, this.offset + 1);
+		} else if (matchesKey(data, Key.home)) {
+			this.offset = 0;
+		} else if (matchesKey(data, Key.end)) {
+			this.offset = max_offset;
+		} else if (
+			keybindings.matches(data, 'tui.select.cancel') ||
+			data === 'q'
+		) {
+			this.on_cancel();
+		}
+	}
 }
 
 class DetailedSettingsList implements ModalBody {
@@ -485,6 +567,28 @@ export async function show_picker_modal(
 			select_list.onCancel = () => done(undefined);
 			return select_list;
 		},
+	);
+}
+
+export async function show_text_modal(
+	ctx: ExtensionCommandContext,
+	options: TextModalOptions,
+): Promise<void> {
+	await show_modal<void>(
+		ctx,
+		{
+			title: options.title,
+			subtitle: options.subtitle,
+			footer: options.footer ?? '↑↓ scroll • esc back',
+			overlay_options: options.overlay_options,
+		},
+		({ done }, theme) =>
+			new TextModalBody(
+				options.text,
+				options.max_visible_lines ?? 18,
+				theme,
+				() => done(),
+			),
 	);
 }
 
