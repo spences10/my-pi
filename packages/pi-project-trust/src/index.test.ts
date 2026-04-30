@@ -110,6 +110,7 @@ describe('apply_project_trust_untrusted_defaults', () => {
 			'MY_PI_LSP_PROJECT_BINARY',
 			'MY_PI_PROMPT_PRESETS_PROJECT',
 			'MY_PI_PROJECT_SKILLS',
+			'MY_PI_TEAM_PROFILES_PROJECT',
 		]);
 		expect(env).toMatchObject({
 			MY_PI_MCP_PROJECT_CONFIG: 'allow',
@@ -117,6 +118,7 @@ describe('apply_project_trust_untrusted_defaults', () => {
 			MY_PI_LSP_PROJECT_BINARY: 'global',
 			MY_PI_PROMPT_PRESETS_PROJECT: 'skip',
 			MY_PI_PROJECT_SKILLS: 'skip',
+			MY_PI_TEAM_PROFILES_PROJECT: 'skip',
 		});
 	});
 });

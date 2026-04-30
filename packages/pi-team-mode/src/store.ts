@@ -42,6 +42,7 @@ export interface TeamMember {
 	status: TeamMemberStatus;
 	cwd?: string;
 	model?: string;
+	profile?: string;
 	session_file?: string;
 	pid?: number;
 	workspace_mode?: TeamWorkspaceMode;
@@ -97,6 +98,7 @@ export interface UpsertMemberInput {
 	status?: TeamMemberStatus;
 	cwd?: string;
 	model?: string;
+	profile?: string;
 	session_file?: string;
 	pid?: number;
 	workspace_mode?: TeamWorkspaceMode;
@@ -520,6 +522,9 @@ export class TeamStore {
 				: {}),
 			...((input.model ?? existing?.model)
 				? { model: input.model ?? existing?.model }
+				: {}),
+			...((input.profile ?? existing?.profile)
+				? { profile: input.profile ?? existing?.profile }
 				: {}),
 			...((input.session_file ?? existing?.session_file)
 				? {

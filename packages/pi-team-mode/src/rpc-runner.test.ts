@@ -142,6 +142,9 @@ describe('build_rpc_teammate_args', () => {
 				extension_path: '/tmp/team-extension.js',
 				model: 'anthropic/claude-sonnet-4-5',
 				thinking: 'high',
+				system_prompt: 'Use the reviewer profile.',
+				tools: ['read', 'bash'],
+				skills: ['research'],
 			},
 			'/tmp/team-session',
 			{
@@ -163,6 +166,12 @@ describe('build_rpc_teammate_args', () => {
 			'anthropic/claude-sonnet-4-5',
 			'--thinking',
 			'high',
+			'--append-system-prompt',
+			'Use the reviewer profile.',
+			'--tools',
+			'read,bash',
+			'--skill',
+			'research',
 		]);
 		expect(
 			args.filter((arg) => arg === '--no-team-mode'),

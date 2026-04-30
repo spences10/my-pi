@@ -99,6 +99,7 @@ export const PROJECT_TRUST_UNTRUSTED_DEFAULTS: Record<
 	MY_PI_LSP_PROJECT_BINARY: 'global',
 	MY_PI_PROMPT_PRESETS_PROJECT: 'skip',
 	MY_PI_PROJECT_SKILLS: 'skip',
+	MY_PI_TEAM_PROFILES_PROJECT: 'skip',
 };
 
 const ALLOW_VALUES = new Set(['1', 'true', 'yes', 'allow']);

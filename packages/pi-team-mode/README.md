@@ -93,6 +93,36 @@ alive, `/team status` marks those persisted PIDs as orphaned. Use
 `/team shutdown <member>` or `member_shutdown` to safely terminate a
 known orphaned teammate process and clean up its member state.
 
+Reusable teammate profiles are JSON files loaded from:
+
+```text
+~/.pi/agent/team-profiles/*.json
+.pi/team-profiles/*.json
+```
+
+Project profiles override user profiles by name. In untrusted mode,
+project profiles are skipped by default via
+`MY_PI_TEAM_PROFILES_PROJECT=skip`; set it to `allow` to opt in for a
+trusted repo. Profile fields include `description`, `model`,
+`thinking`, `system_prompt`, `prompt`, `tools`, and `skills`:
+
+```json
+{
+	"description": "Read-only code reviewer",
+	"model": "anthropic/claude-sonnet-4-5",
+	"thinking": "high",
+	"system_prompt": "Review for correctness and security only.",
+	"prompt": "Review the assigned task and report findings.",
+	"tools": ["read", "bash"],
+	"skills": ["research"]
+}
+```
+
+Use a profile with `/team spawn alice --profile reviewer` or the
+`member_spawn` tool parameter `profile`/`agent`. Explicit
+`member_spawn` `model`, `thinking`, and `initial_prompt` override the
+profile defaults.
+
 Teammate names, assignees, senders, and recipients must be stable file
 IDs: letters, numbers, dots, underscores, and hyphens only. This
 avoids ambiguous local state paths like `alice/dev` and `alice-dev`
@@ -141,8 +171,9 @@ orchestration. Important actions include:
 
 - `team_create`
 - `team_list`
-- `member_spawn` (`workspace_mode: "worktree"`, `mutating: true`,
-  optional `branch`/`worktree_path` for isolated coding work)
+- `member_spawn` (`profile`/`agent`, `workspace_mode: "worktree"`,
+  `mutating: true`, optional `branch`/`worktree_path` for isolated
+  coding work)
 - `member_prompt`
 - `member_follow_up`
 - `member_steer`

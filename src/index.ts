@@ -27,7 +27,7 @@ const pkg = JSON.parse(
 	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'),
 );
 
-// citty can't handle repeatable args, so parse -e from argv directly
+// citty can't handle repeatable args, so parse repeatable flags from argv directly
 // (citty uses strict: false, so unknown flags are silently ignored)
 function parse_extension_paths(argv: string[]): string[] {
 	const paths: string[] = [];
@@ -40,6 +40,33 @@ function parse_extension_paths(argv: string[]): string[] {
 		}
 	}
 	return paths;
+}
+
+function parse_tool_allowlist(argv: string[]): string[] | undefined {
+	for (let i = 0; i < argv.length; i++) {
+		if (
+			(argv[i] === '--tools' || argv[i] === '-t') &&
+			i + 1 < argv.length
+		) {
+			const tools = argv[++i]
+				.split(',')
+				.map((tool) => tool.trim())
+				.filter(Boolean);
+			return tools.length ? tools : undefined;
+		}
+	}
+	return undefined;
+}
+
+function parse_skill_allowlist(argv: string[]): string[] | undefined {
+	const skills: string[] = [];
+	for (let i = 0; i < argv.length; i++) {
+		if (argv[i] === '--skill' && i + 1 < argv.length) {
+			skills.push(argv[++i].trim());
+		}
+	}
+	const unique = [...new Set(skills.filter(Boolean))];
+	return unique.length ? unique : undefined;
 }
 
 async function read_stdin(): Promise<string> {
@@ -258,6 +285,18 @@ const main = defineCommand({
 			description:
 				'Model to use (e.g. claude-sonnet-4-5-20241022, gpt-5.4, cloudflare-workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast)',
 		},
+		tools: {
+			type: 'string',
+			alias: 't',
+			description:
+				'Comma-separated allowlist of tool names to enable',
+			required: false,
+		},
+		skill: {
+			type: 'string',
+			description: 'Skill name to allow; repeatable in argv parsing',
+			required: false,
+		},
 		'system-prompt': {
 			type: 'string',
 			description: 'Replace the base system prompt',
@@ -278,6 +317,8 @@ const main = defineCommand({
 	async run({ args }) {
 		const cwd = process.cwd();
 		const extension_paths = parse_extension_paths(process.argv);
+		const selected_tools = parse_tool_allowlist(process.argv);
+		const selected_skills = parse_skill_allowlist(process.argv);
 
 		let runtime_mode: 'interactive' | 'print' | 'json' | 'rpc' =
 			'interactive';
@@ -371,6 +412,8 @@ const main = defineCommand({
 			telemetry: telemetry_override,
 			telemetry_db_path: args['telemetry-db'],
 			model: args.model,
+			selected_tools,
+			selected_skills,
 			system_prompt: args['system-prompt'],
 			append_system_prompt: args['append-system-prompt'],
 			untrusted_repo: args.untrusted,

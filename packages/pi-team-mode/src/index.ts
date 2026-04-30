@@ -20,6 +20,10 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Type, type Static } from 'typebox';
 import { fake_teammate_step } from './fake-runner.js';
+import {
+	resolve_teammate_profile,
+	type TeammateProfile,
+} from './profiles.js';
 import { RpcTeammate } from './rpc-runner.js';
 import {
 	TeamStore,
@@ -110,6 +114,8 @@ const TeamToolParams = Type.Object({
 	initial_prompt: Type.Optional(Type.String()),
 	model: Type.Optional(Type.String()),
 	thinking: Type.Optional(Type.String()),
+	profile: Type.Optional(Type.String()),
+	agent: Type.Optional(Type.String()),
 	workspace_mode: Type.Optional(
 		StringEnum(['shared', 'worktree'] as const),
 	),
@@ -302,6 +308,7 @@ function format_member_status(
 	} else if (member.cwd) {
 		details.push(`shared cwd ${member.cwd}`);
 	}
+	if (member.profile) details.push(`profile ${member.profile}`);
 	if (member.mutating) details.push('mutating');
 	const suffix = details.length ? `; ${details.join('; ')}` : '';
 	switch (member.status) {
@@ -562,6 +569,23 @@ async function wait_for_orphaned_member(
 		.find((item) => item.name === member_name)!;
 }
 
+function teammate_profile(
+	cwd: string,
+	name: string | undefined,
+): TeammateProfile | undefined {
+	return resolve_teammate_profile(
+		{ cwd, agent_dir: getAgentDir() },
+		name,
+	);
+}
+
+function profile_prompt(
+	profile: TeammateProfile | undefined,
+	explicit_prompt: string | undefined,
+): string {
+	return explicit_prompt?.trim() || profile?.prompt || '';
+}
+
 function parse_task_add(text: string): {
 	assignee?: string;
 	title: string;
@@ -577,6 +601,7 @@ interface SpawnRequest {
 	workspace_mode?: TeamWorkspaceMode;
 	branch?: string;
 	worktree_path?: string;
+	profile?: string;
 	mutating?: boolean;
 	force?: boolean;
 }
@@ -602,6 +627,8 @@ function parse_spawn_request(args: string[]): SpawnRequest {
 				rest[++index],
 				'worktree path',
 			);
+		} else if (token === '--profile' || token === '--agent') {
+			request.profile = require_arg(rest[++index], 'profile');
 		} else {
 			prompt_parts.push(token, ...rest.slice(index + 1));
 			break;
@@ -1374,6 +1401,7 @@ export async function handle_team_command(
 			case 'spawn': {
 				require_lead_for_teammate_spawn(own_role);
 				const request = parse_spawn_request(rest);
+				const profile = teammate_profile(ctx.cwd, request.profile);
 				const name = request.member;
 				const team_id = current_team_id();
 				const current_model = (ctx as ExtensionContext).model;
@@ -1411,9 +1439,16 @@ export async function handle_team_command(
 					cwd: workspace.cwd,
 					team_root: get_team_root(),
 					extension_path: get_extension_path(),
-					model: current_model
-						? `${current_model.provider}/${current_model.id}`
-						: undefined,
+					model:
+						profile?.model ??
+						(current_model
+							? `${current_model.provider}/${current_model.id}`
+							: undefined),
+					thinking: profile?.thinking,
+					system_prompt: profile?.system_prompt,
+					tools: profile?.tools,
+					skills: profile?.skills,
+					profile: profile?.name,
 					workspace_mode: workspace.workspace_mode,
 					worktree_path: workspace.worktree_path,
 					branch: workspace.branch,
@@ -1427,10 +1462,14 @@ export async function handle_team_command(
 					runners.delete(name);
 					throw error;
 				}
-				if (request.prompt) await runner.prompt(request.prompt);
+				const initial_prompt = profile_prompt(
+					profile,
+					request.prompt,
+				);
+				if (initial_prompt) await runner.prompt(initial_prompt);
 				set_team_ui(ctx, store, team_id, runners);
 				ctx.ui.notify(
-					`Spawned teammate ${name}${request.prompt ? ' and sent prompt' : ''}`,
+					`Spawned teammate ${name}${initial_prompt ? ' and sent prompt' : ''}`,
 				);
 				break;
 			}
@@ -1937,6 +1976,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 						params.member ?? params.name,
 						'member',
 					);
+					const profile = teammate_profile(
+						ctx.cwd,
+						params.profile ?? params.agent,
+					);
 					const id = require_team_id();
 					const existing = runners.get(member_name);
 					if (existing?.is_running) {
@@ -1974,10 +2017,15 @@ export default async function team_mode(pi: ExtensionAPI) {
 						extension_path: get_extension_path(),
 						model:
 							params.model ??
+							profile?.model ??
 							(ctx.model
 								? `${ctx.model.provider}/${ctx.model.id}`
 								: undefined),
-						thinking: params.thinking,
+						thinking: params.thinking ?? profile?.thinking,
+						system_prompt: profile?.system_prompt,
+						tools: profile?.tools,
+						skills: profile?.skills,
+						profile: profile?.name,
 						workspace_mode: workspace.workspace_mode,
 						worktree_path: workspace.worktree_path,
 						branch: workspace.branch,
@@ -1991,8 +2039,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 						runners.delete(member_name);
 						throw error;
 					}
-					if (params.initial_prompt)
-						await runner.prompt(params.initial_prompt);
+					const initial_prompt = profile_prompt(
+						profile,
+						params.initial_prompt,
+					);
+					if (initial_prompt) await runner.prompt(initial_prompt);
 					set_team_ui(ctx, store, team_id, runners);
 					return {
 						content: [

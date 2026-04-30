@@ -69,6 +69,8 @@ export interface CreateMyPiOptions {
 	telemetry?: boolean;
 	telemetry_db_path?: string;
 	model?: string;
+	selected_tools?: string[];
+	selected_skills?: string[];
 	session_dir?: string;
 	system_prompt?: string;
 	append_system_prompt?: string;
@@ -309,6 +311,8 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		telemetry,
 		telemetry_db_path,
 		model,
+		selected_tools,
+		selected_skills,
 		session_dir,
 		system_prompt,
 		append_system_prompt,
@@ -413,6 +417,9 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 						process.env.MY_PI_PROJECT_SKILLS,
 					);
 					const skills_manager = create_skills_manager();
+					const selected_skill_names = selected_skills?.length
+						? new Set(selected_skills)
+						: undefined;
 					return {
 						...base,
 						skills: base.skills.filter((skill: any) => {
@@ -422,6 +429,12 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 									runtime_cwd,
 									skill.filePath,
 								)
+							) {
+								return false;
+							}
+							if (
+								selected_skill_names &&
+								!selected_skill_names.has(skill.name)
 							) {
 								return false;
 							}
@@ -446,6 +459,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 				sessionManager,
 				sessionStartEvent: sessionStartEvent as any,
 				...(requested_model ? { model: requested_model } : {}),
+				...(selected_tools?.length ? { tools: selected_tools } : {}),
 			})),
 			services,
 			diagnostics: services.diagnostics,

@@ -16,6 +16,10 @@ export interface RpcTeammateOptions {
 	extension_path: string;
 	model?: string;
 	thinking?: string;
+	system_prompt?: string;
+	tools?: string[];
+	skills?: string[];
+	profile?: string;
 	workspace_mode?: TeamWorkspaceMode;
 	worktree_path?: string;
 	branch?: string;
@@ -96,7 +100,12 @@ function resolve_rpc_command(
 export function build_rpc_teammate_args(
 	options: Pick<
 		RpcTeammateOptions,
-		'extension_path' | 'model' | 'thinking'
+		| 'extension_path'
+		| 'model'
+		| 'thinking'
+		| 'system_prompt'
+		| 'tools'
+		| 'skills'
 	>,
 	session_dir: string,
 	command: Pick<
@@ -115,6 +124,12 @@ export function build_rpc_teammate_args(
 	args.push('-e', options.extension_path);
 	if (options.model) args.push('--model', options.model);
 	if (options.thinking) args.push('--thinking', options.thinking);
+	if (options.system_prompt)
+		args.push('--append-system-prompt', options.system_prompt);
+	if (options.tools?.length)
+		args.push('--tools', options.tools.join(','));
+	for (const skill of options.skills ?? [])
+		args.push('--skill', skill);
 	return args;
 }
 
@@ -209,6 +224,7 @@ export class RpcTeammate {
 			cwd: this.cwd,
 			model: this.options.model,
 			pid: proc.pid,
+			profile: this.options.profile,
 			workspace_mode: this.options.workspace_mode,
 			worktree_path: this.options.worktree_path,
 			branch: this.options.branch,
