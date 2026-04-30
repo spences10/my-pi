@@ -9,7 +9,6 @@
 		"lsp",
 		"mcp",
 		"pi",
-		"pi-package",
 		"sqlite",
 		"telemetry"
 	],
@@ -88,10 +87,5 @@
 			"postcss": "8.5.12",
 			"protobufjs": "7.5.5"
 		}
-	},
-	"pi": {
-		"themes": [
-			"./themes"
-		]
 	}
 }

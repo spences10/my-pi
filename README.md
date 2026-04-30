@@ -15,6 +15,14 @@ presets, local SQLite telemetry for evals, and a programmatic API.
 Extension stacking patterns inspired by
 [pi-vs-claude-code](https://github.com/disler/pi-vs-claude-code).
 
+## Not a Pi package
+
+Do not install this with `pi install npm:my-pi`.
+
+`my-pi` is Scott's custom Pi distribution/CLI. Install the individual
+`@spences10/pi-*` packages as Pi packages instead, or run `my-pi`
+directly as its own CLI.
+
 ## Features
 
 - **Pi-native CLI + SDK wrapper** — interactive TUI, print mode, JSON
