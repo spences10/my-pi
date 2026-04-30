@@ -277,6 +277,13 @@ export default async function skills(pi: ExtensionAPI) {
 					all_items.push(...importable_items);
 				}
 
+				const metadata_by_id = new Map(
+					all_items.map((item) => [item.id, item.description ?? '']),
+				);
+				for (const item of all_items) {
+					if (!item.id.startsWith('__header_')) item.description = '';
+				}
+
 				const managed_keys = new Set(discovered.map((s) => s.key));
 				const importable_map = new Map(
 					importable.map((s) => [s.key, s]),
@@ -306,6 +313,12 @@ export default async function skills(pi: ExtensionAPI) {
 						22,
 					),
 					enable_search: true,
+					detail: (item) =>
+						metadata_by_id.get(item.id)?.split('\n')[1],
+					metadata: (item) =>
+						item
+							? metadata_by_id.get(item.id)?.split('\n')
+							: undefined,
 					on_change: (id, new_value) => {
 						if (id.startsWith('__header_')) return;
 
