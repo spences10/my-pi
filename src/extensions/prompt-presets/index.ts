@@ -6,13 +6,11 @@ import {
 	type ReadonlyFooterDataProvider,
 } from '@mariozechner/pi-coding-agent';
 import {
-	Container,
-	SettingsList,
-	Text,
 	truncateToWidth,
 	visibleWidth,
 	type SettingItem,
 } from '@mariozechner/pi-tui';
+import { show_settings_modal } from '@spences10/pi-tui-modal';
 import {
 	existsSync,
 	mkdirSync,
@@ -55,10 +53,10 @@ interface PersistedPromptPresetStates {
 
 const PRESET_STATE_TYPE = 'prompt-preset-state';
 export const DEFAULT_BASE_PROMPT_PRESET_NAME = 'terse';
-const ENABLED = '[x]';
-const DISABLED = '[ ]';
-const SELECTED = '(x)';
-const UNSELECTED = '( )';
+const ENABLED = '● enabled';
+const DISABLED = '○ disabled';
+const SELECTED = '● selected';
+const UNSELECTED = '○';
 const NONE_BASE_ID = '__base_none__';
 
 export const DEFAULT_PROMPT_PRESETS: PromptPresetMap = {
@@ -1404,99 +1402,34 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 
 		sync_values();
 
-		await ctx.ui.custom((tui, theme, _kb, done) => {
-			const list = new SettingsList(
-				items,
-				Math.min(Math.max(items.length + 4, 8), 24),
-				{
-					cursor: theme.fg('accent', '›'),
-					label: (text, selected) => {
-						if (text.startsWith('──') && text.endsWith('──')) {
-							return theme.fg('dim', theme.bold(text));
-						}
-						return selected ? theme.fg('accent', text) : text;
-					},
-					value: (text, selected) => {
-						const color =
-							text === ENABLED || text === SELECTED
-								? ('success' as const)
-								: ('dim' as const);
-						const rendered = theme.fg(color, text);
-						return selected
-							? theme.bold(theme.fg('accent', rendered))
-							: rendered;
-					},
-					description: (text) => theme.fg('muted', text),
-					hint: (text) => theme.fg('dim', text),
-				},
-				(id, new_value) => {
-					if (id.startsWith('__header_')) return;
+		await show_settings_modal(ctx, {
+			title: 'Prompt presets',
+			subtitle: () =>
+				`base: ${selected_base ?? '(none)'} • ${enabled_layers.size} layer(s) enabled`,
+			items,
+			max_visible: Math.min(Math.max(items.length + 4, 8), 24),
+			enable_search: true,
+			on_change: (id, new_value) => {
+				if (id.startsWith('__header_')) return;
 
-					if (base_ids.has(id)) {
-						selected_base =
-							new_value === SELECTED && id !== NONE_BASE_ID
-								? id
-								: undefined;
-						sync_values();
-						return;
+				if (base_ids.has(id)) {
+					selected_base =
+						new_value === SELECTED && id !== NONE_BASE_ID
+							? id
+							: undefined;
+					sync_values();
+					return;
+				}
+
+				if (layer_ids.has(id)) {
+					if (new_value === ENABLED) {
+						enabled_layers.add(id);
+					} else {
+						enabled_layers.delete(id);
 					}
-
-					if (layer_ids.has(id)) {
-						if (new_value === ENABLED) {
-							enabled_layers.add(id);
-						} else {
-							enabled_layers.delete(id);
-						}
-						sync_values();
-					}
-				},
-				() => done(undefined),
-				{ enableSearch: true },
-			);
-
-			const container = new Container();
-			container.addChild({
-				render: () => [
-					theme.fg('accent', theme.bold('Prompt presets')),
-					theme.fg(
-						'muted',
-						`base: ${selected_base ?? '(none)'} • ${enabled_layers.size} layer(s) enabled`,
-					),
-					'',
-				],
-				invalidate: () => {},
-			});
-			container.addChild({
-				render(width: number) {
-					return list.render(width);
-				},
-				invalidate() {
-					list.invalidate();
-				},
-			});
-			container.addChild(
-				new Text(
-					theme.fg(
-						'dim',
-						'search filters • enter toggles • esc close',
-					),
-					0,
-					1,
-				),
-			);
-
-			return {
-				render(width: number) {
-					return container.render(width);
-				},
-				invalidate() {
-					container.invalidate();
-				},
-				handleInput(data: string) {
-					list.handleInput(data);
-					tui.requestRender();
-				},
-			};
+					sync_values();
+				}
+			},
 		});
 
 		if (

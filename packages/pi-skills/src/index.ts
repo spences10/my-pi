@@ -1,10 +1,6 @@
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
-import {
-	Container,
-	SettingsList,
-	Text,
-	type SettingItem,
-} from '@mariozechner/pi-tui';
+import { type SettingItem } from '@mariozechner/pi-tui';
+import { show_settings_modal } from '@spences10/pi-tui-modal';
 import {
 	create_skills_manager,
 	type ManagedSkill,
@@ -13,10 +9,10 @@ import {
 export { create_skills_manager } from './manager.js';
 export type { ManagedSkill, SkillsManager } from './manager.js';
 
-const ENABLED = '[x]';
-const DISABLED = '[ ]';
-const SYNC = '[~]';
-const IMPORTED_LABEL = '[=]';
+const ENABLED = '● enabled';
+const DISABLED = '○ disabled';
+const SYNC = '↻ sync';
+const IMPORTED_LABEL = '✓ imported';
 
 function sort_skills(skills: ManagedSkill[]): ManagedSkill[] {
 	return [...skills].sort((a, b) => {
@@ -286,161 +282,95 @@ export default async function skills(pi: ExtensionAPI) {
 					importable.map((s) => [s.key, s]),
 				);
 
-				await ctx.ui.custom((tui, theme, _kb, done) => {
-					const list = new SettingsList(
-						all_items,
-						Math.min(Math.max(all_items.length + 4, 8), 22),
-						{
-							cursor: theme.fg('accent', '›'),
-							label: (text, selected) => {
-								if (text.startsWith('──') && text.endsWith('──')) {
-									return theme.fg('dim', theme.bold(text));
-								}
-								return selected ? theme.fg('accent', text) : text;
-							},
-							value: (text, selected) => {
-								const color =
-									text === ENABLED
-										? ('success' as const)
-										: text === SYNC
-											? ('warning' as const)
-											: text === IMPORTED_LABEL
-												? ('success' as const)
-												: ('dim' as const);
-								const rendered = theme.fg(color, text);
-								return selected
-									? theme.bold(theme.fg('accent', rendered))
-									: rendered;
-							},
-							description: (text) => theme.fg('muted', text),
-							hint: (text) => theme.fg('dim', text),
-						},
-						(id, new_value) => {
-							if (id.startsWith('__header_')) return;
+				await show_settings_modal(ctx, {
+					title: 'Skills',
+					subtitle: () => {
+						const enabled = current_enabled.size;
+						const disabled = discovered.length - enabled;
+						const queued = queued_imports.size;
+						const parts = [
+							`${enabled} enabled`,
+							`${disabled} disabled`,
+						];
+						if (importable.length > 0) {
+							parts.push(`${importable.length} importable`);
+						}
+						if (queued > 0) {
+							parts.push(`${queued} queued for import`);
+						}
+						return parts.join(' • ');
+					},
+					items: all_items,
+					max_visible: Math.min(
+						Math.max(all_items.length + 4, 8),
+						22,
+					),
+					enable_search: true,
+					on_change: (id, new_value) => {
+						if (id.startsWith('__header_')) return;
 
-							if (managed_keys.has(id)) {
-								if (new_value === ENABLED) {
-									current_enabled.add(id);
-									mgr.enable(id);
-								} else {
-									current_enabled.delete(id);
-									mgr.disable(id);
-								}
-								return;
+						if (managed_keys.has(id)) {
+							if (new_value === ENABLED) {
+								current_enabled.add(id);
+								mgr.enable(id);
+							} else {
+								current_enabled.delete(id);
+								mgr.disable(id);
 							}
+							return;
+						}
 
-							const import_skill = importable_map.get(id);
-							if (!import_skill) return;
+						const import_skill = importable_map.get(id);
+						if (!import_skill) return;
 
-							const state = get_importable_state(
+						const state = get_importable_state(
+							discovered,
+							import_skill,
+						);
+
+						if (state.action === 'import') {
+							if (new_value === ENABLED) {
+								queued_imports.add(id);
+							} else {
+								queued_imports.delete(id);
+							}
+							return;
+						}
+
+						if (state.action === 'sync') {
+							const imported_skill = find_matching_imported_skill(
 								discovered,
 								import_skill,
 							);
-
-							if (state.action === 'import') {
-								if (new_value === ENABLED) {
-									queued_imports.add(id);
-								} else {
-									queued_imports.delete(id);
-								}
+							if (!imported_skill) {
+								ctx.ui.notify(
+									`Imported copy for ${import_skill.name} was not found`,
+									'warning',
+								);
 								return;
 							}
 
-							if (state.action === 'sync') {
-								const imported_skill = find_matching_imported_skill(
-									discovered,
-									import_skill,
+							try {
+								const result = mgr.sync_skill(imported_skill.key);
+								if (result.changed) {
+									reload_notice = `Synced ${import_skill.name}. Reloading...`;
+									return true;
+								} else {
+									ctx.ui.notify(
+										`${import_skill.name} is already up to date.`,
+										'info',
+									);
+								}
+							} catch (error) {
+								ctx.ui.notify(
+									error instanceof Error
+										? error.message
+										: String(error),
+									'warning',
 								);
-								if (!imported_skill) {
-									ctx.ui.notify(
-										`Imported copy for ${import_skill.name} was not found`,
-										'warning',
-									);
-									return;
-								}
-								try {
-									const result = mgr.sync_skill(imported_skill.key);
-									if (result.changed) {
-										reload_notice = `Synced ${import_skill.name}. Reloading...`;
-										done(undefined);
-									} else {
-										ctx.ui.notify(
-											`${import_skill.name} is already up to date.`,
-											'info',
-										);
-									}
-								} catch (error) {
-									ctx.ui.notify(
-										error instanceof Error
-											? error.message
-											: String(error),
-										'warning',
-									);
-								}
 							}
-						},
-						() => done(undefined),
-						{ enableSearch: true },
-					);
-
-					const container = new Container();
-
-					container.addChild({
-						render: () => {
-							const enabled = current_enabled.size;
-							const disabled = discovered.length - enabled;
-							const queued = queued_imports.size;
-							const parts = [
-								`${enabled} enabled`,
-								`${disabled} disabled`,
-							];
-							if (importable.length > 0) {
-								parts.push(`${importable.length} importable`);
-							}
-							if (queued > 0) {
-								parts.push(`${queued} queued for import`);
-							}
-							return [
-								theme.fg('accent', theme.bold('Skills')),
-								theme.fg('muted', parts.join(' • ')),
-								'',
-							];
-						},
-						invalidate: () => {},
-					});
-
-					container.addChild({
-						render(width: number) {
-							return list.render(width);
-						},
-						invalidate() {
-							list.invalidate();
-						},
-					});
-
-					container.addChild(
-						new Text(
-							theme.fg(
-								'dim',
-								'search filters • enter toggles • esc close',
-							),
-							0,
-							1,
-						),
-					);
-
-					return {
-						render(width: number) {
-							return container.render(width);
-						},
-						invalidate() {
-							container.invalidate();
-						},
-						handleInput(data: string) {
-							list.handleInput(data);
-							tui.requestRender();
-						},
-					};
+						}
+					},
 				});
 
 				if (queued_imports.size > 0) {

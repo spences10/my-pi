@@ -2,12 +2,8 @@ import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
 } from '@mariozechner/pi-coding-agent';
-import {
-	Container,
-	SettingsList,
-	Text,
-	type SettingItem,
-} from '@mariozechner/pi-tui';
+import { type SettingItem } from '@mariozechner/pi-tui';
+import { show_settings_modal } from '@spences10/pi-tui-modal';
 import {
 	BUILTIN_EXTENSIONS,
 	find_builtin_extension,
@@ -18,8 +14,8 @@ import {
 	type BuiltinExtensionState,
 } from './config.js';
 
-const ENABLED = '[x]';
-const DISABLED = '[ ]';
+const ENABLED = '● enabled';
+const DISABLED = '○ disabled';
 
 export interface ExtensionsManagerOptions {
 	force_disabled?: Iterable<BuiltinExtensionKey>;
@@ -152,85 +148,32 @@ export function create_extensions_extension(
 		);
 		const current_enabled = new Set(initial_enabled);
 
-		await ctx.ui.custom((tui, theme, _kb, done) => {
-			const items = states.map(to_setting_item);
-			const container = new Container();
-
-			container.addChild({
-				render: () => {
-					const saved_enabled = current_enabled.size;
-					const saved_disabled = states.length - saved_enabled;
-					const enabled_now = [...current_enabled].filter(
-						(key) => !force_disabled.has(key as BuiltinExtensionKey),
-					).length;
-					const disabled_now = states.length - enabled_now;
-					return [
-						theme.fg('accent', theme.bold('Built-in extensions')),
-						theme.fg(
-							'muted',
-							`${saved_enabled} saved enabled • ${saved_disabled} saved disabled • ${enabled_now} enabled now • ${disabled_now} disabled now`,
-						),
-						'',
-					];
-				},
-				invalidate: () => {},
-			});
-
-			const settings_list = new SettingsList(
-				items,
-				Math.min(Math.max(items.length + 4, 8), 16),
-				{
-					cursor: theme.fg('accent', '›'),
-					label: (text, selected) =>
-						selected ? theme.fg('accent', text) : text,
-					value: (text, selected) => {
-						const color = text === ENABLED ? 'success' : 'dim';
-						const rendered = theme.fg(color, text);
-						return selected
-							? theme.bold(theme.fg('accent', rendered))
-							: rendered;
-					},
-					description: (text) => theme.fg('muted', text),
-					hint: (text) => theme.fg('dim', text),
-				},
-				(id, new_value) => {
-					const key = id as BuiltinExtensionKey;
-					const enabled = new_value === ENABLED;
-					if (enabled) {
-						current_enabled.add(key);
-					} else {
-						current_enabled.delete(key);
-					}
-					save_extension_enabled(key, enabled);
-				},
-				() => done(undefined),
-				{ enableSearch: true },
-			);
-
-			container.addChild(settings_list);
-			container.addChild(
-				new Text(
-					theme.fg(
-						'dim',
-						'esc close • search filters • changes save immediately • CLI --no-* flags still win in this process',
-					),
-					0,
-					1,
-				),
-			);
-
-			return {
-				render(width: number) {
-					return container.render(width);
-				},
-				invalidate() {
-					container.invalidate();
-				},
-				handleInput(data: string) {
-					settings_list.handleInput(data);
-					tui.requestRender();
-				},
-			};
+		const items = states.map(to_setting_item);
+		await show_settings_modal(ctx, {
+			title: 'Built-in extensions',
+			subtitle: () => {
+				const saved_enabled = current_enabled.size;
+				const saved_disabled = states.length - saved_enabled;
+				const enabled_now = [...current_enabled].filter(
+					(key) => !force_disabled.has(key as BuiltinExtensionKey),
+				).length;
+				const disabled_now = states.length - enabled_now;
+				return `${saved_enabled} saved enabled • ${saved_disabled} saved disabled • ${enabled_now} enabled now • ${disabled_now} disabled now`;
+			},
+			items,
+			enable_search: true,
+			footer:
+				'esc close • search filters • changes save immediately • CLI --no-* flags still win in this process',
+			on_change: (id, new_value) => {
+				const key = id as BuiltinExtensionKey;
+				const enabled = new_value === ENABLED;
+				if (enabled) {
+					current_enabled.add(key);
+				} else {
+					current_enabled.delete(key);
+				}
+				save_extension_enabled(key, enabled);
+			},
 		});
 
 		if (!sets_equal(initial_enabled, current_enabled)) {

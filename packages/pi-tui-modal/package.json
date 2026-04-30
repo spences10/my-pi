@@ -1,19 +1,19 @@
 {
-	"name": "@spences10/pi-skills",
-	"version": "0.0.4",
-	"description": "Pi extension for managing and importing Agent Skills from Pi, Claude, and plugin sources",
+	"name": "@spences10/pi-tui-modal",
+	"version": "0.0.1",
+	"description": "Shared Pi TUI modal helpers for picker and settings overlays",
 	"keywords": [
-		"agent-skills",
+		"modal",
 		"pi",
-		"pi-package",
-		"skills"
+		"picker",
+		"tui"
 	],
 	"license": "MIT",
 	"author": "Scott Spence <me@scottspence.com>",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/spences10/my-pi.git",
-		"directory": "packages/pi-skills"
+		"directory": "packages/pi-tui-modal"
 	},
 	"files": [
 		"dist",
@@ -28,18 +28,13 @@
 			"default": "./dist/index.js"
 		}
 	},
-	"publishConfig": {
-		"access": "public"
-	},
 	"scripts": {
 		"build": "tsc -p tsconfig.build.json",
-		"check": "tsc --noEmit -p tsconfig.json",
-		"test": "vitest run"
+		"check": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
 		"@mariozechner/pi-coding-agent": "^0.70.6",
-		"@mariozechner/pi-tui": "^0.70.6",
-		"@spences10/pi-tui-modal": "workspace:*"
+		"@mariozechner/pi-tui": "^0.70.6"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",
@@ -48,10 +43,5 @@
 	},
 	"engines": {
 		"node": ">=22.0.0"
-	},
-	"pi": {
-		"extensions": [
-			"./dist/index.js"
-		]
 	}
 }

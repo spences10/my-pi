@@ -1,6 +1,5 @@
 import { StringEnum } from '@mariozechner/pi-ai';
 import {
-	DynamicBorder,
 	getAgentDir,
 	type BeforeAgentStartEvent,
 	type ExtensionAPI,
@@ -9,10 +8,10 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import {
 	Container,
-	SelectList,
 	Text,
 	type SelectItem,
 } from '@mariozechner/pi-tui';
+import { show_picker_modal } from '@spences10/pi-tui-modal';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Type, type Static } from 'typebox';
@@ -590,59 +589,11 @@ async function show_team_switcher(
 		(status) => status.team.id === active_team_id,
 	);
 
-	return await ctx.ui.custom<string | undefined>(
-		(tui, theme, _kb, done) => {
-			const container = new Container();
-			container.addChild(
-				new DynamicBorder((s: string) => theme.fg('accent', s)),
-			);
-			container.addChild(
-				new Text(theme.fg('accent', theme.bold('Switch team')), 1, 0),
-			);
-			const select_list = new SelectList(
-				items,
-				Math.min(items.length, 12),
-				{
-					selectedPrefix: (text) => theme.fg('accent', text),
-					selectedText: (text) => theme.fg('accent', text),
-					description: (text) => theme.fg('muted', text),
-					scrollInfo: (text) => theme.fg('dim', text),
-					noMatch: (text) => theme.fg('warning', text),
-				},
-			);
-			if (active_index >= 0)
-				select_list.setSelectedIndex(active_index);
-			select_list.onSelect = (item) => done(item.value);
-			select_list.onCancel = () => done(undefined);
-			container.addChild(select_list);
-			container.addChild(
-				new Text(
-					theme.fg('dim', '↑↓ navigate • enter select • esc cancel'),
-					1,
-					0,
-				),
-			);
-			container.addChild(
-				new DynamicBorder((s: string) => theme.fg('accent', s)),
-			);
-			return {
-				render: (width: number) => container.render(width),
-				invalidate: () => container.invalidate(),
-				handleInput: (data: string) => {
-					select_list.handleInput(data);
-					tui.requestRender();
-				},
-			};
-		},
-		{
-			overlay: true,
-			overlayOptions: {
-				width: '80%',
-				minWidth: 60,
-				maxHeight: '80%',
-			},
-		},
-	);
+	return await show_picker_modal(ctx, {
+		title: 'Switch team',
+		items,
+		initial_index: active_index >= 0 ? active_index : undefined,
+	});
 }
 
 function set_team_ui(

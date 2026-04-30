@@ -36,6 +36,7 @@
 		"@mariozechner/pi-ai": "^0.70.6",
 		"@mariozechner/pi-coding-agent": "^0.70.6",
 		"@spences10/pi-child-env": "workspace:*",
+		"@spences10/pi-tui-modal": "workspace:*",
 		"typebox": "^1.1.34"
 	},
 	"devDependencies": {
