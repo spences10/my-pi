@@ -143,6 +143,29 @@ function safe_segment(value: string): string {
 	return sanitized;
 }
 
+function normalize_member_name(
+	value: string | undefined,
+	field = 'member',
+): string | undefined {
+	const trimmed = value?.trim();
+	if (!trimmed) return undefined;
+	if (safe_segment(trimmed) !== trimmed) {
+		throw new Error(
+			`${field} must contain only letters, numbers, dots, underscores, and hyphens`,
+		);
+	}
+	return trimmed;
+}
+
+function require_member_name(
+	value: string,
+	field = 'member',
+): string {
+	const normalized = normalize_member_name(value, field);
+	if (!normalized) throw new Error(`${field} is required`);
+	return normalized;
+}
+
 function read_json<T>(path: string): T {
 	return JSON.parse(readFileSync(path, 'utf-8')) as T;
 }
@@ -283,7 +306,7 @@ export class TeamStore {
 		return join(
 			this.team_dir(team_id),
 			'mailboxes',
-			safe_segment(member),
+			require_member_name(member),
 		);
 	}
 
@@ -354,15 +377,13 @@ export class TeamStore {
 	): TeamMember {
 		this.load_team(team_id);
 		const timestamp = now();
-		const path = join(
-			this.members_dir(team_id),
-			`${safe_segment(input.name)}.json`,
-		);
+		const name = require_member_name(input.name);
+		const path = join(this.members_dir(team_id), `${name}.json`);
 		const existing = existsSync(path)
 			? read_json<TeamMember>(path)
 			: undefined;
 		const member: TeamMember = {
-			name: input.name,
+			name,
 			role: input.role ?? existing?.role ?? 'teammate',
 			status: input.status ?? existing?.status ?? 'idle',
 			...((input.cwd ?? existing?.cwd)
@@ -443,6 +464,15 @@ export class TeamStore {
 			const team = this.load_team(team_id);
 			const timestamp = now();
 			const id = String(team.nextTaskId);
+			const depends_on = this.validate_task_dependencies(
+				team_id,
+				id,
+				input.dependsOn,
+			);
+			const assignee = normalize_member_name(
+				input.assignee,
+				'assignee',
+			);
 			team.nextTaskId += 1;
 			team.updatedAt = timestamp;
 			const task: TeamTask = {
@@ -452,8 +482,8 @@ export class TeamStore {
 					? { description: input.description.trim() }
 					: {}),
 				status: input.status ?? 'pending',
-				...(input.assignee ? { assignee: input.assignee } : {}),
-				dependsOn: normalize_unique_ids(input.dependsOn),
+				...(assignee ? { assignee } : {}),
+				dependsOn: depends_on,
 				createdAt: timestamp,
 				updatedAt: timestamp,
 			};
@@ -477,6 +507,49 @@ export class TeamStore {
 		if (!existsSync(path))
 			throw new Error(`Unknown task: ${task_id}`);
 		return read_json<TeamTask>(path);
+	}
+
+	private validate_task_dependencies(
+		team_id: string,
+		task_id: string,
+		depends_on: string[] | undefined,
+	): string[] {
+		const normalized = normalize_unique_ids(depends_on);
+		if (normalized.includes(task_id)) {
+			throw new Error(`Task #${task_id} cannot depend on itself`);
+		}
+
+		const tasks = new Map(
+			this.list_tasks(team_id).map((task) => [task.id, task]),
+		);
+		for (const dep_id of normalized) {
+			if (!tasks.has(dep_id)) {
+				throw new Error(`Unknown dependency task: ${dep_id}`);
+			}
+		}
+
+		const reaches_task = (
+			current_id: string,
+			seen = new Set<string>(),
+		): boolean => {
+			if (current_id === task_id) return true;
+			if (seen.has(current_id)) return false;
+			seen.add(current_id);
+			const current = tasks.get(current_id);
+			if (!current) return false;
+			return current.dependsOn.some((dep_id) =>
+				reaches_task(dep_id, seen),
+			);
+		};
+
+		for (const dep_id of normalized) {
+			if (reaches_task(dep_id)) {
+				throw new Error(
+					`Task dependency cycle detected for #${task_id}`,
+				);
+			}
+		}
+		return normalized;
 	}
 
 	private update_task_unlocked(
@@ -506,10 +579,18 @@ export class TeamStore {
 		if (input.assignee !== undefined) {
 			if (input.assignee === null || !input.assignee.trim())
 				delete task.assignee;
-			else task.assignee = input.assignee.trim();
+			else
+				task.assignee = require_member_name(
+					input.assignee,
+					'assignee',
+				);
 		}
 		if (input.dependsOn !== undefined) {
-			task.dependsOn = normalize_unique_ids(input.dependsOn);
+			task.dependsOn = this.validate_task_dependencies(
+				team_id,
+				task.id,
+				input.dependsOn,
+			);
 		}
 		if (input.result !== undefined) {
 			if (input.result === null || !input.result.trim())
@@ -551,23 +632,28 @@ export class TeamStore {
 		assignee: string,
 	): TeamTask | undefined {
 		return this.with_team_lock(team_id, () => {
+			const normalized_assignee = require_member_name(
+				assignee,
+				'assignee',
+			);
 			const tasks = this.list_tasks(team_id);
 			const by_id = new Map(tasks.map((task) => [task.id, task]));
 			const candidates = tasks.filter(
 				(task) =>
 					task.status === 'pending' &&
-					(!task.assignee || task.assignee === assignee) &&
+					(!task.assignee || task.assignee === normalized_assignee) &&
 					task.dependsOn.every(
 						(dep_id) => by_id.get(dep_id)?.status === 'completed',
 					),
 			);
 			const ready =
-				candidates.find((task) => task.assignee === assignee) ??
-				candidates[0];
+				candidates.find(
+					(task) => task.assignee === normalized_assignee,
+				) ?? candidates[0];
 			if (!ready) return undefined;
 			return this.update_task_unlocked(team_id, ready.id, {
 				status: 'in_progress',
-				assignee,
+				assignee: normalized_assignee,
 			});
 		});
 	}
@@ -581,19 +667,18 @@ export class TeamStore {
 				throw new Error('Message body is required');
 			this.load_team(team_id);
 			const timestamp = now();
+			const from = require_member_name(input.from, 'from');
+			const to = require_member_name(input.to, 'to');
 			const message: TeamMessage = {
 				id: `${Date.now().toString(36)}-${random_suffix()}`,
-				from: input.from,
-				to: input.to,
+				from,
+				to,
 				body: input.body.trim(),
 				urgent: input.urgent ?? false,
 				createdAt: timestamp,
 			};
 			write_json(
-				join(
-					this.mailbox_dir(team_id, input.to),
-					`${message.id}.json`,
-				),
+				join(this.mailbox_dir(team_id, to), `${message.id}.json`),
 				message,
 			);
 			this.touch_team_unlocked(team_id);
@@ -605,7 +690,7 @@ export class TeamStore {
 	list_messages(team_id: string, member: string): TeamMessage[] {
 		this.load_team(team_id);
 		return list_json_files<TeamMessage>(
-			this.mailbox_dir(team_id, member),
+			this.mailbox_dir(team_id, require_member_name(member)),
 		);
 	}
 

@@ -99,6 +99,48 @@ describe('TeamStore', () => {
 		});
 	});
 
+	it('rejects ambiguous member and assignee names', () => {
+		const team = store.create_team({ cwd: '/repo' });
+
+		expect(() =>
+			store.upsert_member(team.id, { name: 'alice/dev' }),
+		).toThrow(/letters, numbers/);
+		expect(() =>
+			store.create_task(team.id, {
+				title: 'Assigned work',
+				assignee: 'alice dev',
+			}),
+		).toThrow(/assignee/);
+		expect(() =>
+			store.send_message(team.id, {
+				from: 'lead',
+				to: 'alice/dev',
+				body: 'hello',
+			}),
+		).toThrow(/to/);
+	});
+
+	it('validates task dependencies and rejects cycles', () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const first = store.create_task(team.id, { title: 'A' });
+		const second = store.create_task(team.id, {
+			title: 'B',
+			dependsOn: [first.id],
+		});
+
+		expect(() =>
+			store.create_task(team.id, {
+				title: 'Missing dep',
+				dependsOn: ['999'],
+			}),
+		).toThrow(/Unknown dependency/);
+		expect(() =>
+			store.update_task(team.id, first.id, {
+				dependsOn: [second.id],
+			}),
+		).toThrow(/cycle/);
+	});
+
 	it('recovers stale locks left by dead processes', () => {
 		const team = store.create_team({ cwd: '/repo' });
 		const lock = join(store.team_dir(team.id), '.lock');

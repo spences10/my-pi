@@ -55,6 +55,7 @@ const TeamAction = StringEnum([
 	'member_wait',
 	'task_create',
 	'task_list',
+	'task_get',
 	'task_update',
 	'task_claim_next',
 	'message_send',
@@ -278,6 +279,15 @@ function format_task_line(task: TeamStatus['tasks'][number]): string {
 		? ` waits for #${task.dependsOn.join(', #')}`
 		: '';
 	return `${format_task_status(task.status)} #${task.id}${owner}${deps} ${task.title}`;
+}
+
+function format_task_detail(
+	task: TeamStatus['tasks'][number],
+): string {
+	const lines = [format_task_line(task)];
+	if (task.description) lines.push('', task.description);
+	if (task.result) lines.push('', 'Result', task.result);
+	return lines.join('\n');
 }
 
 function push_task_group(
@@ -817,6 +827,12 @@ async function handle_team_command(
 					ctx.ui.notify(`Created task #${task.id}: ${task.title}`);
 				} else if (action === 'list' || !action) {
 					ctx.ui.notify(format_status(store.get_status(team_id)));
+				} else if (action === 'show' || action === 'get') {
+					ctx.ui.notify(
+						format_task_detail(
+							store.load_task(team_id, require_arg(id, 'task id')),
+						),
+					);
 				} else if (action === 'done') {
 					const task = store.update_task(
 						team_id,
@@ -839,7 +855,7 @@ async function handle_team_command(
 					);
 				} else {
 					throw new Error(
-						'Usage: /team task add|list|done|claim ...',
+						'Usage: /team task add|list|show|done|claim ...',
 					);
 				}
 				break;
@@ -873,6 +889,12 @@ async function handle_team_command(
 				const name = require_arg(member, 'member');
 				const team_id = current_team_id();
 				const current_model = (ctx as ExtensionContext).model;
+				const existing = runners.get(name);
+				if (existing?.isRunning) {
+					throw new Error(
+						`Teammate ${name} is already running. Use /team shutdown ${name} first.`,
+					);
+				}
 				const runner = new RpcTeammate(store, {
 					teamId: team_id,
 					member: name,
@@ -884,7 +906,12 @@ async function handle_team_command(
 						: undefined,
 				});
 				runners.set(name, runner);
-				await runner.start();
+				try {
+					await runner.start();
+				} catch (error) {
+					runners.delete(name);
+					throw error;
+				}
 				const prompt = prompt_parts.join(' ').trim();
 				if (prompt) await runner.prompt(prompt);
 				set_team_ui(ctx, store, team_id);
@@ -969,6 +996,7 @@ async function handle_team_command(
 						'/team status — show members and task progress',
 						'/team spawn <member> [prompt] — start a teammate',
 						'/team task add [member:] <title> — queue work',
+						'/team task show <id> — show full task details/result',
 						'/team dm <member> <message> — send a mailbox message',
 						'/team wait|shutdown <member> — control a teammate',
 						'/team teams|switch|resume|clear — manage active team UI',
@@ -1046,7 +1074,6 @@ export default async function team_mode(pi: ExtensionAPI) {
 				.list_messages(active_team_id, own_member)
 				.filter((message) => !message.readAt);
 			if (unread.length === 0) return;
-			store.mark_messages_read(active_team_id, own_member);
 			pi.sendMessage(
 				{
 					customType: 'team-message',
@@ -1056,6 +1083,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				},
 				{ deliverAs: 'followUp', triggerTurn: true },
 			);
+			store.mark_messages_read(active_team_id, own_member);
 		} catch (error) {
 			try {
 				store.load_team(active_team_id);
@@ -1149,6 +1177,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'member add',
 				'task add',
 				'task list',
+				'task show',
 				'task done',
 				'task claim',
 				'dm',
@@ -1327,6 +1356,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 						params.member ?? params.name,
 						'member',
 					);
+					const existing = runners.get(member_name);
+					if (existing?.isRunning) {
+						throw new Error(
+							`Teammate ${member_name} is already running. Shut it down before spawning another session with the same name.`,
+						);
+					}
 					const runner = new RpcTeammate(store, {
 						teamId: require_team_id(),
 						member: member_name,
@@ -1341,7 +1376,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 						thinking: params.thinking,
 					});
 					runners.set(member_name, runner);
-					await runner.start();
+					try {
+						await runner.start();
+					} catch (error) {
+						runners.delete(member_name);
+						throw error;
+					}
 					if (params.initialPrompt)
 						await runner.prompt(params.initialPrompt);
 					set_team_ui(ctx, store, team_id);
@@ -1483,6 +1523,21 @@ export default async function team_mode(pi: ExtensionAPI) {
 							},
 						],
 						details: { tasks },
+					};
+				}
+				case 'task_get': {
+					const task = store.load_task(
+						require_team_id(),
+						require_arg(params.taskId, 'taskId'),
+					);
+					return {
+						content: [
+							{
+								type: 'text' as const,
+								text: format_task_detail(task),
+							},
+						],
+						details: { task },
 					};
 				}
 				case 'task_update': {

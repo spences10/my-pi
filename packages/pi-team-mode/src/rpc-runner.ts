@@ -35,6 +35,21 @@ function json_line(value: unknown): string {
 	return `${JSON.stringify(value)}\n`;
 }
 
+function normalize_member_name(value: string): string {
+	const trimmed = value.trim();
+	if (
+		!trimmed ||
+		trimmed === '.' ||
+		trimmed === '..' ||
+		!/^[a-zA-Z0-9_.-]+$/.test(trimmed)
+	) {
+		throw new Error(
+			'member must contain only letters, numbers, dots, underscores, and hyphens',
+		);
+	}
+	return trimmed;
+}
+
 function resolve_rpc_command(override: string | undefined): {
 	command: string;
 	prefixArgs: string[];
@@ -56,13 +71,14 @@ export function create_rpc_teammate_env(
 	member: string,
 	source_env: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
+	const normalized_member = normalize_member_name(member);
 	return create_child_process_env({
 		profile: 'team-mode',
 		source_env,
 		explicit_env: {
 			MY_PI_TEAM_MODE_ROOT: options.teamRoot,
 			MY_PI_ACTIVE_TEAM_ID: teamId,
-			MY_PI_TEAM_MEMBER: member,
+			MY_PI_TEAM_MEMBER: normalized_member,
 			MY_PI_TEAM_ROLE: 'teammate',
 			MY_PI_TEAM_EXTENSION_PATH: options.extensionPath,
 		},
@@ -87,7 +103,7 @@ export class RpcTeammate {
 		this.store = store;
 		this.options = options;
 		this.teamId = options.teamId;
-		this.member = options.member;
+		this.member = normalize_member_name(options.member);
 		this.cwd = options.cwd;
 	}
 
@@ -185,14 +201,35 @@ export class RpcTeammate {
 			});
 		});
 
-		const state = await this.request({ type: 'get_state' }, 15_000);
-		if (state?.data?.sessionFile) {
+		try {
+			const state = await this.request({ type: 'get_state' }, 15_000);
+			if (state?.data?.sessionFile) {
+				this.store.upsert_member(this.teamId, {
+					name: this.member,
+					status: 'idle',
+					sessionFile: state.data.sessionFile,
+					pid: proc.pid,
+				});
+			}
+		} catch (error) {
+			this.closed = true;
+			this.status = 'offline';
+			proc.kill('SIGTERM');
+			setTimeout(() => {
+				if (!proc.killed) proc.kill('SIGKILL');
+			}, 3000).unref();
+			this.reject_all(
+				error instanceof Error ? error : new Error(String(error)),
+			);
 			this.store.upsert_member(this.teamId, {
 				name: this.member,
-				status: 'idle',
-				sessionFile: state.data.sessionFile,
-				pid: proc.pid,
+				status: 'offline',
 			});
+			this.store.append_event(this.teamId, 'member_start_failed', {
+				member: this.member,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			throw error;
 		}
 		await this.request(
 			{
@@ -205,17 +242,32 @@ export class RpcTeammate {
 
 	async prompt(message: string): Promise<void> {
 		this.mark_busy();
-		await this.request({ type: 'prompt', message }, 10_000);
+		try {
+			await this.request({ type: 'prompt', message }, 10_000);
+		} catch (error) {
+			this.mark_blocked(error);
+			throw error;
+		}
 	}
 
 	async followUp(message: string): Promise<void> {
 		this.mark_busy();
-		await this.request({ type: 'follow_up', message }, 10_000);
+		try {
+			await this.request({ type: 'follow_up', message }, 10_000);
+		} catch (error) {
+			this.mark_blocked(error);
+			throw error;
+		}
 	}
 
 	async steer(message: string): Promise<void> {
 		this.mark_busy();
-		await this.request({ type: 'steer', message }, 10_000);
+		try {
+			await this.request({ type: 'steer', message }, 10_000);
+		} catch (error) {
+			this.mark_blocked(error);
+			throw error;
+		}
 	}
 
 	async abort(): Promise<void> {
@@ -359,6 +411,22 @@ export class RpcTeammate {
 		this.store.upsert_member(this.teamId, {
 			name: this.member,
 			status: 'running',
+		});
+	}
+
+	private mark_blocked(error: unknown): void {
+		if (this.closed) return;
+		const message =
+			error instanceof Error ? error.message : String(error);
+		this.status = 'idle';
+		this.resolve_idle_waiters();
+		this.store.upsert_member(this.teamId, {
+			name: this.member,
+			status: 'blocked',
+		});
+		this.store.append_event(this.teamId, 'member_rpc_error', {
+			member: this.member,
+			error: message,
 		});
 	}
 

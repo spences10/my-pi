@@ -69,6 +69,20 @@ describe('create_rpc_teammate_env', () => {
 
 		expect(env.ANTHROPIC_API_KEY).toBe('secret');
 	});
+
+	it('rejects unsafe teammate names before they reach env or paths', () => {
+		expect(() =>
+			create_rpc_teammate_env(
+				{
+					teamRoot: '/tmp/team-root',
+					extensionPath: '/tmp/team-extension.js',
+				},
+				'team-1',
+				'../alice',
+				{ PATH: '/bin' },
+			),
+		).toThrow(/member must contain/);
+	});
 });
 
 describe('RpcTeammate lifecycle', () => {
@@ -94,5 +108,25 @@ describe('RpcTeammate lifecycle', () => {
 				.list_members(team.id)
 				.find((member) => member.name === 'alice'),
 		).toMatchObject({ status: 'idle' });
+	});
+
+	it('marks a busy teammate blocked when an RPC request fails', () => {
+		const team = store.create_team({ cwd: '/repo', name: 'demo' });
+		const runner = new RpcTeammate(store, {
+			teamId: team.id,
+			member: 'alice',
+			cwd: '/repo',
+			teamRoot: root,
+			extensionPath: '/tmp/team-extension.js',
+		});
+
+		(runner as any).mark_busy();
+		(runner as any).mark_blocked(new Error('RPC request timed out'));
+
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({ status: 'blocked' });
 	});
 });

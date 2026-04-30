@@ -36,6 +36,7 @@ This package adds local multi-agent coordination to Pi:
 - persist team state locally for the current project
 - recover cleanly from stale local locks and orphaned teammate
   processes
+- reject ambiguous teammate names and invalid task dependency graphs
 
 Team state is stored under:
 
@@ -62,12 +63,24 @@ default, not the full parent `process.env`. Use
 `MY_PI_CHILD_ENV_ALLOWLIST` to pass selected ambient variables (for
 example, provider credentials) to spawned teammates.
 
+Headless RPC teammates auto-cancel extension UI prompts (`confirm`,
+`select`, `input`, and `editor`) because there is no human inside the
+child session. Design teammate prompts so they can proceed without
+interactive confirmation, or steer them from the lead session when a
+decision is needed.
+
+Teammate names, assignees, senders, and recipients must be stable file
+IDs: letters, numbers, dots, underscores, and hyphens only. This
+avoids ambiguous local state paths like `alice/dev` and `alice-dev`
+resolving to the same mailbox/member file.
+
 ## Commands
 
 ```text
 /team create demo
 /team spawn alice "claim one task and report back"
 /team task add alice: inspect the failing test
+/team task show 1
 /team dm alice status?
 /team status
 /team teams
@@ -95,6 +108,7 @@ orchestration. Important actions include:
 - `member_steer`
 - `member_wait`
 - `task_create`
+- `task_get`
 - `task_claim_next`
 - `task_update`
 - `message_send`
