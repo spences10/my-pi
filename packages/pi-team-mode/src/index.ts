@@ -410,6 +410,14 @@ async function handle_team_command(
 				ctx.ui.notify(format_status(store.get_status(team_id)));
 				break;
 			}
+			case 'resume': {
+				const team = get_latest_team_for_cwd(store, ctx.cwd);
+				if (!team) throw new Error('No previous team for this cwd.');
+				set_active_team_id(team.id);
+				set_team_ui(ctx, store, team.id);
+				ctx.ui.notify(`Resumed team ${team.name} (${team.id})`);
+				break;
+			}
 			case 'member': {
 				const [action, name] = rest;
 				if (action !== 'add')
@@ -671,9 +679,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 	}
 
 	pi.on('session_start', async (_event, ctx) => {
-		active_team_id =
-			process.env[ACTIVE_TEAM_ENV] ||
-			get_latest_team_for_cwd(store, ctx.cwd)?.id;
+		active_team_id = process.env[ACTIVE_TEAM_ENV];
 		if (active_team_id) {
 			store.upsert_member(active_team_id, {
 				name: own_member,
@@ -720,6 +726,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'create',
 				'id',
 				'status',
+				'resume',
 				'ui auto',
 				'ui compact',
 				'ui full',
@@ -806,7 +813,31 @@ export default async function team_mode(pi: ExtensionAPI) {
 					};
 				}
 				case 'team_status': {
-					const status = store.get_status(require_team_id());
+					if (!team_id) {
+						const latest = get_latest_team_for_cwd(store, ctx.cwd);
+						if (!latest) {
+							return {
+								content: [
+									{
+										type: 'text' as const,
+										text: 'No active team. Use action team_create first.',
+									},
+								],
+								details: { activeTeamId: null, latestTeam: null },
+							};
+						}
+						const status = store.get_status(latest.id);
+						return {
+							content: [
+								{
+									type: 'text' as const,
+									text: format_status(status),
+								},
+							],
+							details: { ...status, activeTeamId: null },
+						};
+					}
+					const status = store.get_status(team_id);
 					set_team_ui(ctx, store, status.team.id);
 					return {
 						content: [
