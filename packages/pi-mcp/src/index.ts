@@ -2,16 +2,19 @@ import {
 	defineTool,
 	type BeforeAgentStartEvent,
 	type ExtensionAPI,
+	type ExtensionCommandContext,
 	type ExtensionContext,
 } from '@mariozechner/pi-coding-agent';
 import {
 	resolve_project_trust,
 	type ProjectTrustSubject,
 } from '@spences10/pi-project-trust';
+import { show_settings_modal } from '@spences10/pi-tui-modal';
 import { McpClient, type McpServerConfig } from './client.js';
 import {
 	get_project_mcp_config_info,
 	load_mcp_config,
+	set_mcp_server_enabled,
 	type McpProjectConfigInfo,
 } from './config.js';
 import { create_mcp_tool_registration_metadata } from './metadata.js';
@@ -23,6 +26,8 @@ import {
 } from './trust.js';
 
 const PROJECT_MCP_CONFIG_ENV = 'MY_PI_MCP_PROJECT_CONFIG';
+const ENABLED = '● enabled';
+const DISABLED = '○ disabled';
 
 interface ServerState {
 	config: McpServerConfig;
@@ -43,7 +48,7 @@ function create_server_states(
 			{
 				config,
 				tool_names: [],
-				enabled: true,
+				enabled: config.disabled !== true,
 				status: 'disconnected' as const,
 			},
 		]),
@@ -71,6 +76,30 @@ function format_server_status(state: ServerState): string {
 		default:
 			return state.enabled ? 'not connected yet' : 'disabled';
 	}
+}
+
+function redact_url(value: string): string {
+	try {
+		const url = new URL(value);
+		if (url.username) url.username = '***';
+		if (url.password) url.password = '***';
+		for (const key of url.searchParams.keys()) {
+			if (/token|key|secret|password|auth/i.test(key)) {
+				url.searchParams.set(key, '***');
+			}
+		}
+		return url.toString();
+	} catch {
+		return value.replace(
+			/(token|key|secret|password|auth)=([^\s&]+)/gi,
+			'$1=***',
+		);
+	}
+}
+
+function format_server_target(config: McpServerConfig): string {
+	if (config.transport === 'http') return redact_url(config.url);
+	return [config.command, ...(config.args ?? [])].join(' ');
 }
 
 function count_pending_enabled_servers(
@@ -373,6 +402,101 @@ export default async function mcp(pi: ExtensionAPI) {
 		if (options.ctx) update_mcp_status(options.ctx, servers);
 	};
 
+	const set_server_enabled = (
+		name: string,
+		enabled: boolean,
+		ctx: ExtensionCommandContext,
+	): ServerState | undefined => {
+		const server = servers.get(name);
+		if (!server) return undefined;
+		server.enabled = enabled;
+		server.config.disabled = !enabled;
+		set_mcp_server_enabled(ctx.cwd, name, enabled);
+		if (!enabled) {
+			remove_server_tools_from_active(pi, server.tool_names);
+			update_mcp_status(ctx, servers);
+			return server;
+		}
+		if (server.status === 'connected') {
+			const active = pi.getActiveTools();
+			pi.setActiveTools([
+				...new Set([...active, ...server.tool_names]),
+			]);
+			update_mcp_status(ctx, servers);
+			return server;
+		}
+		if (server.status === 'failed') {
+			server.status = 'disconnected';
+			server.error = undefined;
+		}
+		update_mcp_status(ctx, servers);
+		void connect_server(server, ctx);
+		return server;
+	};
+
+	const show_mcp_server_modal = async (
+		ctx: ExtensionCommandContext,
+	): Promise<boolean> => {
+		if (!ctx.hasUI) return false;
+		if (servers.size === 0) {
+			ctx.ui.notify('No MCP servers configured');
+			return true;
+		}
+
+		const items = Array.from(servers.values()).map((state) => ({
+			id: state.config.name,
+			label: state.config.name,
+			currentValue: state.enabled ? ENABLED : DISABLED,
+			values: [ENABLED, DISABLED],
+			description: format_server_target(state.config),
+		}));
+
+		await show_settings_modal(ctx, {
+			title: 'MCP servers',
+			subtitle: () => {
+				const states = Array.from(servers.values());
+				const enabled = states.filter(
+					(state) => state.enabled,
+				).length;
+				const connected = states.filter(
+					(state) => state.enabled && state.status === 'connected',
+				).length;
+				const failed = states.filter(
+					(state) => state.enabled && state.status === 'failed',
+				).length;
+				return `${enabled}/${states.length} enabled • ${connected} connected${failed ? ` • ${failed} failed` : ''}`;
+			},
+			items,
+			enable_search: true,
+			detail: (item) => {
+				const server = servers.get(item.id);
+				if (!server) return undefined;
+				return `${format_server_status(server)} • ${server.tool_names.length} tools • ${server.config.transport}`;
+			},
+			metadata: (item) => {
+				if (!item) return undefined;
+				const server = servers.get(item.id);
+				if (!server) return undefined;
+				return [
+					`Target: ${format_server_target(server.config)}`,
+					`Status: ${format_server_status(server)}`,
+					`Tools: ${server.tool_names.length}`,
+					server.config.metadata_trusted === false
+						? 'Metadata: untrusted metadata suppressed'
+						: 'Metadata: trusted',
+					...(server.error ? [`Error: ${server.error}`] : []),
+				];
+			},
+			footer:
+				'enter/space toggles • search filters • changes save to mcp.json • esc close',
+			on_change: (id, new_value) => {
+				set_server_enabled(id, new_value === ENABLED, ctx);
+			},
+		});
+
+		return true;
+	};
+
 	pi.on('session_start', async (_event, ctx) => {
 		await ensure_servers(ctx.cwd, ctx);
 		update_mcp_status(ctx, servers);
@@ -407,11 +531,11 @@ export default async function mcp(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand('mcp', {
-		description: 'Manage MCP servers (list, enable, disable)',
+		description: 'Manage MCP servers (modal, list, enable, disable)',
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.split(' ');
 			if (parts.length <= 1) {
-				return ['list', 'enable', 'disable']
+				return ['manage', 'list', 'enable', 'disable']
 					.filter((s) => s.startsWith(prefix))
 					.map((s) => ({ value: s, label: s }));
 			}
@@ -431,7 +555,16 @@ export default async function mcp(pi: ExtensionAPI) {
 			const [sub, ...rest] = args.trim().split(/\s+/);
 			const name = rest.join(' ');
 
-			switch (sub || 'list') {
+			switch (sub || 'manage') {
+				case 'manage':
+				case 'toggle': {
+					if (await show_mcp_server_modal(ctx)) return;
+					ctx.ui.notify(
+						'MCP modal requires interactive mode',
+						'warning',
+					);
+					break;
+				}
 				case 'list': {
 					if (servers.size === 0) {
 						ctx.ui.notify('No MCP servers configured');
@@ -461,24 +594,11 @@ export default async function mcp(pi: ExtensionAPI) {
 						ctx.ui.notify(`${name} already enabled`);
 						return;
 					}
-					server.enabled = true;
-					if (server.status === 'connected') {
-						const active = pi.getActiveTools();
-						pi.setActiveTools([
-							...new Set([...active, ...server.tool_names]),
-						]);
-						update_mcp_status(ctx, servers);
-						ctx.ui.notify(`Enabled ${name}`);
-						return;
-					}
-					if (server.status === 'failed') {
-						server.status = 'disconnected';
-						server.error = undefined;
-					}
-					update_mcp_status(ctx, servers);
-					void connect_server(server, ctx);
+					set_server_enabled(name, true, ctx);
 					ctx.ui.notify(
-						`Enabling ${name} and connecting in background`,
+						server.status === 'connected'
+							? `Enabled ${name}`
+							: `Enabling ${name} and connecting in background`,
 					);
 					break;
 				}
@@ -492,15 +612,13 @@ export default async function mcp(pi: ExtensionAPI) {
 						ctx.ui.notify(`${name} already disabled`);
 						return;
 					}
-					server.enabled = false;
-					remove_server_tools_from_active(pi, server.tool_names);
-					update_mcp_status(ctx, servers);
+					set_server_enabled(name, false, ctx);
 					ctx.ui.notify(`Disabled ${name}`);
 					break;
 				}
 				default:
 					ctx.ui.notify(
-						`Unknown subcommand: ${sub}. Use list, enable, or disable.`,
+						`Unknown subcommand: ${sub}. Use manage, list, enable, or disable.`,
 						'warning',
 					);
 			}

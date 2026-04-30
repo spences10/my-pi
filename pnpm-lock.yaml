@@ -152,6 +152,9 @@ importers:
       '@spences10/pi-project-trust':
         specifier: workspace:*
         version: link:../pi-project-trust
+      '@spences10/pi-tui-modal':
+        specifier: workspace:*
+        version: link:../pi-tui-modal
     devDependencies:
       '@types/node':
         specifier: ^25.6.0

@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
 	get_project_mcp_config_info,
 	load_mcp_config,
+	set_mcp_server_enabled,
 } from './config.js';
 
 function tmp_dir(): string {
@@ -103,6 +104,44 @@ describe('load_mcp_config', () => {
 				transport: 'http',
 				url: 'https://example.com/mcp',
 				headers: { Authorization: 'Bearer test' },
+			},
+		]);
+	});
+
+	it('parses disabled flags and can persist toggles', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					local: {
+						command: 'npx',
+						disabled: true,
+					},
+				},
+			}),
+		);
+
+		expect(load_mcp_config(cwd)).toEqual([
+			{
+				name: 'local',
+				transport: 'stdio',
+				command: 'npx',
+				disabled: true,
+			},
+		]);
+
+		expect(set_mcp_server_enabled(cwd, 'local', true)).toBe(true);
+		expect(load_mcp_config(cwd)).toEqual([
+			{
+				name: 'local',
+				transport: 'stdio',
+				command: 'npx',
+				disabled: false,
 			},
 		]);
 	});

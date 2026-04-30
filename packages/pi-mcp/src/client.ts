@@ -8,6 +8,8 @@ interface McpServerTrustMetadata {
 	 * such servers must not be exposed to the model.
 	 */
 	metadata_trusted?: false;
+	/** Disabled in MCP config. Kept visible so `/mcp` can re-enable it. */
+	disabled?: boolean;
 }
 
 export interface McpStdioServerConfig extends McpServerTrustMetadata {

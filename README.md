@@ -382,6 +382,10 @@ and headless sessions skip it unless `MY_PI_MCP_PROJECT_CONFIG=allow`
 or `MY_PI_MCP_PROJECT_CONFIG=trust` is set. If both configs define the
 same server name, the trusted project config wins.
 
+Use `/mcp` in interactive mode to open the searchable MCP server
+modal. Enter/Space toggles servers on or off, updates the active tool
+set, and persists the choice as `disabled`/`enabled` in `mcp.json`.
+
 ### Hooks
 
 Claude-style hooks are discovered from `.claude/settings.json`,

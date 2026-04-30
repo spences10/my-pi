@@ -39,7 +39,8 @@
 	"dependencies": {
 		"@mariozechner/pi-coding-agent": "^0.70.6",
 		"@spences10/pi-child-env": "workspace:*",
-		"@spences10/pi-project-trust": "workspace:*"
+		"@spences10/pi-project-trust": "workspace:*",
+		"@spences10/pi-tui-modal": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",

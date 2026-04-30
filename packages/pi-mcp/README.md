@@ -74,13 +74,17 @@ mcp__sqlite__execute_read_query
 ## Commands
 
 ```text
+/mcp                # open the TUI server manager
+/mcp manage         # same as /mcp
 /mcp list
 /mcp enable <server>
 /mcp disable <server>
 ```
 
-Use `/mcp list` to inspect connection state and `/mcp enable` or
-`/mcp disable` to toggle a server's registered tools during a session.
+Use `/mcp` to open a searchable modal for enabling/disabling servers.
+Toggles update the current session and persist a `disabled`/`enabled`
+flag in the winning `mcp.json` entry. `/mcp list`, `/mcp enable`, and
+`/mcp disable` remain available for command-style control.
 
 ## What it does
 

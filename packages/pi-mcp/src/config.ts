@@ -1,7 +1,13 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type {
 	McpHttpServerConfig,
 	McpServerConfig,
@@ -33,6 +39,8 @@ type RawMcpServerEntry = {
 	env?: unknown;
 	url?: unknown;
 	headers?: unknown;
+	disabled?: unknown;
+	enabled?: unknown;
 };
 
 function is_string_record(
@@ -67,6 +75,12 @@ function parse_server(
 		typeof entry.type === 'string'
 			? entry.type.trim().toLowerCase()
 			: '';
+	const disabled =
+		typeof entry.disabled === 'boolean'
+			? entry.disabled
+			: typeof entry.enabled === 'boolean'
+				? !entry.enabled
+				: undefined;
 
 	if (type && !['stdio', 'http', 'streamable-http'].includes(type)) {
 		throw new Error(
@@ -93,6 +107,7 @@ function parse_server(
 			transport: 'http',
 			url: entry.url.trim(),
 			...(headers ? { headers } : {}),
+			...(disabled !== undefined ? { disabled } : {}),
 			...(metadata_trusted
 				? {}
 				: { metadata_trusted: false as const }),
@@ -124,20 +139,32 @@ function parse_server(
 		command: entry.command.trim(),
 		...(args ? { args } : {}),
 		...(env ? { env } : {}),
+		...(disabled !== undefined ? { disabled } : {}),
 		...(metadata_trusted ? {} : { metadata_trusted: false as const }),
 	};
 	return config;
 }
 
-function read_config(path: string): RawMcpConfigFile['mcpServers'] {
-	if (!existsSync(path)) return {};
+function read_config_file(path: string): RawMcpConfigFile {
+	if (!existsSync(path)) return { mcpServers: {} };
 	const raw = readFileSync(path, 'utf-8');
-	const config = JSON.parse(raw) as RawMcpConfigFile;
-	return config.mcpServers || {};
+	const config = JSON.parse(raw) as Partial<RawMcpConfigFile>;
+	return {
+		...config,
+		mcpServers: config.mcpServers || {},
+	};
+}
+
+function read_config(path: string): RawMcpConfigFile['mcpServers'] {
+	return read_config_file(path).mcpServers;
 }
 
 function project_mcp_config_path(cwd: string): string {
 	return join(cwd, 'mcp.json');
+}
+
+function global_mcp_config_path(): string {
+	return join(homedir(), '.pi', 'agent', 'mcp.json');
 }
 
 export function get_project_mcp_config_info(
@@ -181,9 +208,7 @@ export function load_mcp_config(
 	cwd: string,
 	options: LoadMcpConfigOptions = {},
 ): McpServerConfig[] {
-	const global_servers = read_config(
-		join(homedir(), '.pi', 'agent', 'mcp.json'),
-	);
+	const global_servers = read_config(global_mcp_config_path());
 	const project_servers =
 		options.include_project === false
 			? {}
@@ -204,4 +229,46 @@ export function load_mcp_config(
 		}
 		return parse_server(name, global_servers[name]);
 	});
+}
+
+function find_server_config_path(
+	cwd: string,
+	name: string,
+): string | undefined {
+	const project_path = project_mcp_config_path(cwd);
+	if (read_config(project_path)[name]) return project_path;
+	const global_path = global_mcp_config_path();
+	if (read_config(global_path)[name]) return global_path;
+	return undefined;
+}
+
+export function set_mcp_server_enabled(
+	cwd: string,
+	name: string,
+	enabled: boolean,
+): boolean {
+	const path = find_server_config_path(cwd, name);
+	if (!path) return false;
+
+	const config = read_config_file(path) as RawMcpConfigFile &
+		Record<string, unknown>;
+	const server = config.mcpServers[name];
+	if (!server) return false;
+
+	if (typeof server.enabled === 'boolean') {
+		server.enabled = enabled;
+		delete server.disabled;
+	} else {
+		server.disabled = !enabled;
+	}
+
+	mkdirSync(dirname(path), { recursive: true });
+	const tmp_path = join(dirname(path), `.${Date.now()}.tmp`);
+	writeFileSync(
+		tmp_path,
+		`${JSON.stringify(config, null, 2)}\n`,
+		'utf-8',
+	);
+	renameSync(tmp_path, path);
+	return true;
 }
