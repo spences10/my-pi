@@ -36,6 +36,27 @@ describe('TeamStore', () => {
 		]);
 	});
 
+	it('lists legacy teams without updated_at metadata', () => {
+		const created_at = '2026-04-30T00:00:00.000Z';
+		const team_dir = join(root, 'legacy-team');
+		mkdirSync(team_dir, { recursive: true });
+		writeFileSync(
+			join(team_dir, 'config.json'),
+			JSON.stringify({
+				version: 1,
+				id: 'legacy-team',
+				name: 'legacy',
+				cwd: '/repo',
+				created_at,
+				next_task_id: 1,
+			}),
+		);
+
+		expect(store.list_teams()).toMatchObject([
+			{ id: 'legacy-team', created_at },
+		]);
+	});
+
 	it('creates, updates, and counts tasks', () => {
 		const team = store.create_team({ cwd: '/repo' });
 		const first = store.create_task(team.id, { title: 'Research' });

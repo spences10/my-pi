@@ -457,7 +457,11 @@ export class TeamStore {
 				const team = read_listed_json<TeamConfig>(path);
 				return team ? [team] : [];
 			})
-			.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+			.sort((a, b) =>
+				(b.updated_at ?? b.created_at ?? '').localeCompare(
+					a.updated_at ?? a.created_at ?? '',
+				),
+			);
 	}
 
 	load_team(team_id: string): TeamConfig {

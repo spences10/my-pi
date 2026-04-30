@@ -179,6 +179,15 @@ export function should_inject_team_prompt(
 	return !selected_tools || selected_tools.includes('team');
 }
 
+export function require_lead_for_teammate_spawn(
+	own_role: string | undefined,
+): void {
+	if (own_role?.trim().toLowerCase() !== 'teammate') return;
+	throw new Error(
+		'Only team leads can spawn teammates. Teammate sessions cannot create nested teams.',
+	);
+}
+
 function append_team_system_prompt(
 	base_prompt: string,
 	options: {
@@ -205,9 +214,9 @@ Use the \`team\` tool as the source of truth for team coordination.
 Rules:
 - The team lead should create tasks, spawn members, message teammates, and inspect status through the \`team\` tool.
 - Teammates should read messages, acknowledge processed mailbox messages with message_read, claim exactly one ready task, work it, update the task with status/result, then go idle.
-- Do not create nested teams from a teammate session.
+- Do not create nested teams from a teammate session; teammate sessions cannot use member_spawn or /team spawn.
 - Use urgent steer/follow-up messaging for coordination instead of assuming shared context.
-- Use real RPC teammates via member_spawn for background work.
+- Team leads should use real RPC teammates via member_spawn for background work.
 - For mutating implementation work, prefer member_spawn with workspace_mode=worktree and mutating=true (or /team spawn --worktree --mutating) so teammates do not share the leader cwd.
 - Shared-cwd mutating teammates may be refused when another mutating teammate is already active in that cwd.`
 	);
@@ -947,13 +956,14 @@ async function show_team_task_picker(
 	});
 }
 
-async function handle_team_command(
+export async function handle_team_command(
 	args: string,
 	ctx: ExtensionCommandContext,
 	store: TeamStore,
 	runners: Map<string, RpcTeammate>,
 	get_active_team_id: () => string | undefined,
 	set_active_team_id: (team_id: string | undefined) => void,
+	own_role = 'lead',
 ): Promise<void> {
 	const trimmed = args.trim();
 	if (!trimmed && ctx.hasUI) {
@@ -970,6 +980,7 @@ async function handle_team_command(
 			runners,
 			get_active_team_id,
 			set_active_team_id,
+			own_role,
 		);
 	}
 
@@ -1229,6 +1240,7 @@ async function handle_team_command(
 				break;
 			}
 			case 'spawn': {
+				require_lead_for_teammate_spawn(own_role);
 				const request = parse_spawn_request(rest);
 				const name = request.member;
 				const team_id = current_team_id();
@@ -1594,8 +1606,9 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'task claim',
 				'dm',
 				'inbox',
-				'spawn',
-				'spawn alice --worktree --mutating',
+				...(own_role === 'teammate'
+					? []
+					: ['spawn', 'spawn alice --worktree --mutating']),
 				'send',
 				'steer',
 				'wait',
@@ -1617,6 +1630,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					active_team_id = team_id;
 					reset_completed_task_observer(team_id);
 				},
+				own_role,
 			),
 	});
 
@@ -1629,6 +1643,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 			'Manage team-mode members, tasks, messages, and RPC teammate sessions',
 		promptGuidelines: [
 			'Use team to create and update teammate-mode tasks instead of ad-hoc markdown todo lists when the user asks to coordinate a team.',
+			'Only team leads may use member_spawn. Teammate sessions must not spawn nested teammates.',
 			'Use team member_spawn to start real RPC teammates, then assign tasks and inspect status with team_status.',
 			'Use team_status as the source of truth for member state, task progress, and blocked work.',
 		],
@@ -1765,6 +1780,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					};
 				}
 				case 'member_spawn': {
+					require_lead_for_teammate_spawn(own_role);
 					const member_name = require_arg(
 						params.member ?? params.name,
 						'member',

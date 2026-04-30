@@ -150,8 +150,10 @@ orchestration. Important actions include:
 - `message_read` / `message_ack` to acknowledge processed mailbox
   messages
 
-Real work should use `member_spawn`. The fake teammate runner is kept
-out of the tool API and is only available to local test harnesses.
+Real work should use `member_spawn` from a lead session. Teammate-role
+sessions reject `member_spawn` and `/team spawn` so nested teams
+cannot be created accidentally. The fake teammate runner is kept out
+of the tool API and is only available to local test harnesses.
 
 ## Using from a custom harness
 

@@ -1,12 +1,17 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	find_shared_mutating_conflict,
 	get_team_ui_mode,
 	get_team_ui_style,
+	handle_team_command,
+	require_lead_for_teammate_spawn,
 	should_inject_team_prompt,
 	should_show_team_widget,
 } from './index.js';
-import type { TeamStatus } from './store.js';
+import { TeamStore, type TeamStatus } from './store.js';
 
 const original_team_ui = process.env.MY_PI_TEAM_UI;
 const original_team_ui_style = process.env.MY_PI_TEAM_UI_STYLE;
@@ -78,6 +83,52 @@ function test_status(
 		},
 	};
 }
+
+describe('nested team spawn guard', () => {
+	it('rejects teammate-role spawn attempts with a clear error', () => {
+		expect(() => require_lead_for_teammate_spawn('teammate')).toThrow(
+			/Only team leads can spawn teammates/,
+		);
+	});
+
+	it('allows lead and unset roles to spawn teammates', () => {
+		expect(() =>
+			require_lead_for_teammate_spawn('lead'),
+		).not.toThrow();
+		expect(() =>
+			require_lead_for_teammate_spawn(undefined),
+		).not.toThrow();
+	});
+
+	it('rejects /team spawn from teammate-role command sessions', async () => {
+		const root = mkdtempSync(join(tmpdir(), 'my-pi-team-index-'));
+		try {
+			const store = new TeamStore(root);
+			const notifications: string[] = [];
+			await handle_team_command(
+				'spawn bob',
+				{
+					cwd: '/repo',
+					hasUI: false,
+					ui: {
+						notify: (message: string) => notifications.push(message),
+					},
+				} as any,
+				store,
+				new Map(),
+				() => 'team-1',
+				() => undefined,
+				'teammate',
+			);
+
+			expect(notifications.join('\n')).toMatch(
+				/Only team leads can spawn teammates/,
+			);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+});
 
 describe('shared mutating workspace guard', () => {
 	it('finds active mutating teammates in the same shared cwd', () => {
