@@ -44,10 +44,14 @@ Team state is stored under:
 Set `MY_PI_TEAM_MODE_ROOT` to use a different storage directory.
 
 Team mode does not auto-attach old teams on startup. Use
-`/team resume` to attach the latest team for the current repo. Active
-teams show a compact footer status by default. Use `/team ui off` to
-hide it for the current session, `/team ui full` to show the
-below-editor widget, or set `MY_PI_TEAM_UI=off|compact|auto|full`. Use
+`/team resume` to attach the latest team for the current repo. Use
+`/team teams` to list all local teams and `/team switch` to pick one
+from the TUI. Active teams show a compact footer status by default.
+Use `/team ui off` to hide it for the current session, `/team ui full`
+to show the below-editor widget when the team has useful detail, or
+set `MY_PI_TEAM_UI=off|compact|auto|full`. Use
+`/team ui style plain|badge|color` or
+`MY_PI_TEAM_UI_STYLE=plain|badge|color` to tune visual emphasis. Use
 `/team clear` to detach the current session from the active team UI.
 
 RPC teammate processes receive a minimal child-process environment by
@@ -64,6 +68,9 @@ example, provider credentials) to spawned teammates.
 /team task add alice: inspect the failing test
 /team dm alice status?
 /team status
+/team teams
+/team switch
+/team ui style badge
 /team resume
 /team clear
 ```
@@ -77,6 +84,7 @@ The extension also registers the `team` tool for agent-driven
 orchestration. Important actions include:
 
 - `team_create`
+- `team_list`
 - `member_spawn`
 - `member_prompt`
 - `member_follow_up`
