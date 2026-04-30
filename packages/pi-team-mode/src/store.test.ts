@@ -41,7 +41,7 @@ describe('TeamStore', () => {
 		const first = store.create_task(team.id, { title: 'Research' });
 		const second = store.create_task(team.id, {
 			title: 'Implement',
-			dependsOn: [first.id],
+			depends_on: [first.id],
 		});
 
 		expect(store.is_task_ready(team.id, first)).toBe(true);
@@ -68,7 +68,7 @@ describe('TeamStore', () => {
 		const blocked_by = store.create_task(team.id, { title: 'A' });
 		store.create_task(team.id, {
 			title: 'B',
-			dependsOn: [blocked_by.id],
+			depends_on: [blocked_by.id],
 		});
 
 		const claimed = store.claim_next_task(team.id, 'alice');
@@ -126,18 +126,18 @@ describe('TeamStore', () => {
 		const first = store.create_task(team.id, { title: 'A' });
 		const second = store.create_task(team.id, {
 			title: 'B',
-			dependsOn: [first.id],
+			depends_on: [first.id],
 		});
 
 		expect(() =>
 			store.create_task(team.id, {
 				title: 'Missing dep',
-				dependsOn: ['999'],
+				depends_on: ['999'],
 			}),
 		).toThrow(/Unknown dependency/);
 		expect(() =>
 			store.update_task(team.id, first.id, {
-				dependsOn: [second.id],
+				depends_on: [second.id],
 			}),
 		).toThrow(/cycle/);
 	});
@@ -150,7 +150,7 @@ describe('TeamStore', () => {
 			join(lock, 'owner.json'),
 			JSON.stringify({
 				pid: 999999999,
-				createdAt: new Date().toISOString(),
+				created_at: new Date().toISOString(),
 			}),
 		);
 
@@ -173,9 +173,9 @@ describe('TeamStore', () => {
 				id: 'bad-status',
 				title: 'Bad status',
 				status: 'wat',
-				dependsOn: [],
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
+				depends_on: [],
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
 			}),
 		);
 		writeFileSync(
@@ -184,9 +184,9 @@ describe('TeamStore', () => {
 				id: '../bad',
 				title: 'Bad id',
 				status: 'pending',
-				dependsOn: [],
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
+				depends_on: [],
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
 			}),
 		);
 
@@ -209,9 +209,9 @@ describe('TeamStore', () => {
 				name: 'bad/member',
 				role: 'teammate',
 				status: 'idle',
-				lastSeenAt: new Date().toISOString(),
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
+				last_seen_at: new Date().toISOString(),
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
 			}),
 		);
 		store.send_message(team.id, {
@@ -227,7 +227,7 @@ describe('TeamStore', () => {
 				to: 'alice',
 				body: 'bad',
 				urgent: false,
-				createdAt: new Date().toISOString(),
+				created_at: new Date().toISOString(),
 			}),
 		);
 
@@ -261,10 +261,34 @@ describe('TeamStore', () => {
 		]);
 
 		const read = store.mark_messages_read(team.id, 'alice');
-		expect(read[0].readAt).toBeTruthy();
+		expect(read[0].read_at).toBeTruthy();
 		expect(
-			store.list_messages(team.id, 'alice')[0].readAt,
+			store.list_messages(team.id, 'alice')[0].read_at,
 		).toBeTruthy();
+	});
+
+	it('persists teammate workspace metadata', () => {
+		const team = store.create_team({ cwd: '/repo' });
+
+		store.upsert_member(team.id, {
+			name: 'alice',
+			cwd: '/repo/.worktrees/alice',
+			workspace_mode: 'worktree',
+			worktree_path: '/repo/.worktrees/alice',
+			branch: 'team/alice',
+			mutating: true,
+		});
+
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({
+			workspace_mode: 'worktree',
+			worktree_path: '/repo/.worktrees/alice',
+			branch: 'team/alice',
+			mutating: true,
+		});
 	});
 
 	it('blocks in-progress tasks when a teammate process is stale', () => {

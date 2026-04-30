@@ -282,7 +282,7 @@ describe('RpcTeammate lifecycle', () => {
 				.find((member) => member.name === 'alice'),
 		).toMatchObject({
 			status: 'idle',
-			sessionFile: '/tmp/fake-session.jsonl',
+			session_file: '/tmp/fake-session.jsonl',
 		});
 
 		await runner.prompt('do work');

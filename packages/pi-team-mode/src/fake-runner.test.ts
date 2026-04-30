@@ -45,7 +45,10 @@ describe('fake teammate runner', () => {
 	it('walks dependency chains as tasks unblock', () => {
 		const team = store.create_team({ cwd: '/repo' });
 		const first = store.create_task(team.id, { title: 'A' });
-		store.create_task(team.id, { title: 'B', dependsOn: [first.id] });
+		store.create_task(team.id, {
+			title: 'B',
+			depends_on: [first.id],
+		});
 
 		const results = fake_teammate_run_until_idle(
 			store,
@@ -76,10 +79,10 @@ describe('fake teammate runner', () => {
 		expect(result.messages).toHaveLength(1);
 		expect(result.messages[0]).toMatchObject({
 			urgent: true,
-			readAt: expect.any(String),
+			read_at: expect.any(String),
 		});
 		expect(
-			store.list_messages(team.id, 'alice')[0].readAt,
+			store.list_messages(team.id, 'alice')[0].read_at,
 		).toBeTruthy();
 	});
 

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+	find_shared_mutating_conflict,
 	get_team_ui_mode,
 	get_team_ui_style,
 	should_inject_team_prompt,
@@ -54,18 +55,18 @@ function test_status(
 			id: 'team-1',
 			name: 'team',
 			cwd: process.cwd(),
-			createdAt: '2026-04-30T00:00:00.000Z',
-			updatedAt: '2026-04-30T00:00:00.000Z',
-			nextTaskId: 1,
+			created_at: '2026-04-30T00:00:00.000Z',
+			updated_at: '2026-04-30T00:00:00.000Z',
+			next_task_id: 1,
 		},
 		members: [],
 		tasks: Array.from({ length: task_count }, (_, index) => ({
 			id: String(index + 1),
 			title: `Task ${index + 1}`,
 			status: 'completed',
-			dependsOn: [],
-			createdAt: '2026-04-30T00:00:00.000Z',
-			updatedAt: '2026-04-30T00:00:00.000Z',
+			depends_on: [],
+			created_at: '2026-04-30T00:00:00.000Z',
+			updated_at: '2026-04-30T00:00:00.000Z',
 		})),
 		counts: {
 			pending: 0,
@@ -77,6 +78,41 @@ function test_status(
 		},
 	};
 }
+
+describe('shared mutating workspace guard', () => {
+	it('finds active mutating teammates in the same shared cwd', () => {
+		expect(
+			find_shared_mutating_conflict(
+				[
+					{
+						name: 'alice',
+						role: 'teammate',
+						status: 'running',
+						cwd: '/repo',
+						workspace_mode: 'shared',
+						mutating: true,
+						last_seen_at: '2026-04-30T00:00:00.000Z',
+						created_at: '2026-04-30T00:00:00.000Z',
+						updated_at: '2026-04-30T00:00:00.000Z',
+					},
+					{
+						name: 'bob',
+						role: 'teammate',
+						status: 'running',
+						cwd: '/repo/.worktrees/bob',
+						workspace_mode: 'worktree',
+						mutating: true,
+						last_seen_at: '2026-04-30T00:00:00.000Z',
+						created_at: '2026-04-30T00:00:00.000Z',
+						updated_at: '2026-04-30T00:00:00.000Z',
+					},
+				],
+				'/repo/',
+				'charlie',
+			),
+		).toMatchObject({ name: 'alice' });
+	});
+});
 
 describe('team UI mode', () => {
 	it('defaults to compact footer-only UI', () => {
@@ -125,9 +161,9 @@ describe('team UI mode', () => {
 			name: 'alice',
 			role: 'teammate',
 			status: 'running',
-			lastSeenAt: '2026-04-30T00:00:00.000Z',
-			createdAt: '2026-04-30T00:00:00.000Z',
-			updatedAt: '2026-04-30T00:00:00.000Z',
+			last_seen_at: '2026-04-30T00:00:00.000Z',
+			created_at: '2026-04-30T00:00:00.000Z',
+			updated_at: '2026-04-30T00:00:00.000Z',
 		});
 		expect(should_show_team_widget(status, 'full')).toBe(true);
 	});

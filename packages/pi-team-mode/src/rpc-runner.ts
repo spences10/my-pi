@@ -6,7 +6,7 @@ import {
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
-import { TeamStore } from './store.js';
+import { TeamStore, type TeamWorkspaceMode } from './store.js';
 
 export interface RpcTeammateOptions {
 	team_id: string;
@@ -16,6 +16,10 @@ export interface RpcTeammateOptions {
 	extension_path: string;
 	model?: string;
 	thinking?: string;
+	workspace_mode?: TeamWorkspaceMode;
+	worktree_path?: string;
+	branch?: string;
+	mutating?: boolean;
 	pi_command?: string;
 	on_exit?: (member: string) => void;
 }
@@ -205,6 +209,10 @@ export class RpcTeammate {
 			cwd: this.cwd,
 			model: this.options.model,
 			pid: proc.pid,
+			workspace_mode: this.options.workspace_mode,
+			worktree_path: this.options.worktree_path,
+			branch: this.options.branch,
+			mutating: this.options.mutating,
 		});
 
 		proc.stdout.on('data', (chunk) => this.handle_stdout(chunk));
@@ -232,11 +240,13 @@ export class RpcTeammate {
 
 		try {
 			const state = await this.request({ type: 'get_state' }, 15_000);
-			if (state?.data?.sessionFile) {
+			const session_file =
+				state?.data?.sessionFile ?? state?.data?.session_file;
+			if (session_file) {
 				this.store.upsert_member(this.team_id, {
 					name: this.member,
 					status: 'idle',
-					sessionFile: state.data.sessionFile,
+					session_file,
 					pid: proc.pid,
 				});
 			}

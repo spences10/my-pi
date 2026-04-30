@@ -16,7 +16,7 @@ import {
 	show_picker_modal,
 	show_settings_modal,
 } from '@spences10/pi-tui-modal';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Type, type Static } from 'typebox';
 import { fake_teammate_step } from './fake-runner.js';
@@ -24,10 +24,13 @@ import { RpcTeammate } from './rpc-runner.js';
 import {
 	TeamStore,
 	type TeamConfig,
+	type TeamMember,
 	type TeamMessage,
 	type TeamStatus,
 	type TeamTaskStatus,
+	type TeamWorkspaceMode,
 } from './store.js';
+import { prepare_teammate_workspace } from './workspace.js';
 
 const TEAM_ROOT_ENV = 'MY_PI_TEAM_MODE_ROOT';
 const ACTIVE_TEAM_ENV = 'MY_PI_ACTIVE_TEAM_ID';
@@ -68,7 +71,7 @@ const TeamAction = StringEnum([
 
 const TeamToolParams = Type.Object({
 	action: TeamAction,
-	teamId: Type.Optional(Type.String()),
+	team_id: Type.Optional(Type.String()),
 	name: Type.Optional(Type.String()),
 	member: Type.Optional(Type.String()),
 	role: Type.Optional(StringEnum(['lead', 'teammate'] as const)),
@@ -77,8 +80,8 @@ const TeamToolParams = Type.Object({
 	),
 	title: Type.Optional(Type.String()),
 	description: Type.Optional(Type.String()),
-	taskId: Type.Optional(Type.String()),
-	taskStatus: Type.Optional(
+	task_id: Type.Optional(Type.String()),
+	task_status: Type.Optional(
 		StringEnum([
 			'pending',
 			'in_progress',
@@ -88,18 +91,25 @@ const TeamToolParams = Type.Object({
 		] as const),
 	),
 	assignee: Type.Optional(Type.String()),
-	clearAssignee: Type.Optional(Type.Boolean()),
-	dependsOn: Type.Optional(Type.Array(Type.String())),
+	clear_assignee: Type.Optional(Type.Boolean()),
+	depends_on: Type.Optional(Type.Array(Type.String())),
 	result: Type.Optional(Type.String()),
-	clearResult: Type.Optional(Type.Boolean()),
+	clear_result: Type.Optional(Type.Boolean()),
 	from: Type.Optional(Type.String()),
 	to: Type.Optional(Type.String()),
 	message: Type.Optional(Type.String()),
 	urgent: Type.Optional(Type.Boolean()),
-	initialPrompt: Type.Optional(Type.String()),
+	initial_prompt: Type.Optional(Type.String()),
 	model: Type.Optional(Type.String()),
 	thinking: Type.Optional(Type.String()),
-	timeoutMs: Type.Optional(Type.Number()),
+	workspace_mode: Type.Optional(
+		StringEnum(['shared', 'worktree'] as const),
+	),
+	branch: Type.Optional(Type.String()),
+	worktree_path: Type.Optional(Type.String()),
+	mutating: Type.Optional(Type.Boolean()),
+	force: Type.Optional(Type.Boolean()),
+	timeout_ms: Type.Optional(Type.Number()),
 	mode: Type.Optional(
 		StringEnum(['auto', 'compact', 'full', 'off'] as const),
 	),
@@ -171,15 +181,15 @@ export function should_inject_team_prompt(
 function append_team_system_prompt(
 	base_prompt: string,
 	options: {
-		activeTeamId?: string;
+		active_team_id?: string;
 		ownMember: string;
 		ownRole: string;
 	},
 ): string {
 	const role_text =
 		options.ownRole === 'teammate' ? 'teammate' : 'team lead';
-	const active_context = options.activeTeamId
-		? `You are ${role_text} \`${options.ownMember}\` in team \`${options.activeTeamId}\`.`
+	const active_context = options.active_team_id
+		? `You are ${role_text} \`${options.ownMember}\` in team \`${options.active_team_id}\`.`
 		: 'No team is active yet. Create one with the `team` tool when the user asks for parallel/background teammate work.';
 
 	return (
@@ -197,7 +207,8 @@ Rules:
 - Do not create nested teams from a teammate session.
 - Use urgent steer/follow-up messaging for coordination instead of assuming shared context.
 - Use real RPC teammates via member_spawn for background work.
-- Prefer separate git worktrees or read-only/research tasks for teammates that may touch files.`
+- For mutating implementation work, prefer member_spawn with workspace_mode=worktree and mutating=true (or /team spawn --worktree --mutating) so teammates do not share the leader cwd.
+- Shared-cwd mutating teammates may be refused when another mutating teammate is already active in that cwd.`
 	);
 }
 
@@ -266,22 +277,32 @@ function format_status_counts(status: TeamStatus): string {
 function format_member_status(
 	member: TeamStatus['members'][number],
 ): string {
+	const details: string[] = [];
+	if (member.workspace_mode === 'worktree') {
+		details.push(
+			`worktree${member.branch ? ` ${member.branch}` : ''}${member.worktree_path ? ` at ${member.worktree_path}` : ''}`,
+		);
+	} else if (member.cwd) {
+		details.push(`shared cwd ${member.cwd}`);
+	}
+	if (member.mutating) details.push('mutating');
+	const suffix = details.length ? `; ${details.join('; ')}` : '';
 	switch (member.status) {
 		case 'idle':
-			return 'idle';
+			return `idle${suffix}`;
 		case 'running':
-			return 'running';
+			return `running${suffix}`;
 		case 'blocked':
-			return 'needs attention';
+			return `needs attention${suffix}`;
 		case 'offline':
-			return 'offline (not controllable from this session)';
+			return `offline (not controllable from this session)${suffix}`;
 	}
 }
 
 function format_task_line(task: TeamStatus['tasks'][number]): string {
 	const owner = task.assignee ? ` @${task.assignee}` : '';
-	const deps = task.dependsOn.length
-		? ` waits for #${task.dependsOn.join(', #')}`
+	const deps = task.depends_on.length
+		? ` waits for #${task.depends_on.join(', #')}`
 		: '';
 	return `${format_task_status(task.status)} #${task.id}${owner}${deps} ${task.title}`;
 }
@@ -380,7 +401,7 @@ function format_messages(messages: TeamMessage[]): string {
 	if (messages.length === 0) return 'No messages yet.';
 	return messages
 		.map((message) => {
-			const unread = message.readAt ? '' : ' unread';
+			const unread = message.read_at ? '' : ' unread';
 			const urgent = message.urgent ? ' urgent' : '';
 			return `- ${message.id}${urgent}${unread} from ${message.from}: ${message.body}`;
 		})
@@ -411,6 +432,82 @@ function parse_task_add(text: string): {
 	const match = text.match(/^([a-zA-Z0-9_.-]+):\s*(.+)$/);
 	if (!match) return { title: text.trim() };
 	return { assignee: match[1], title: match[2].trim() };
+}
+
+interface SpawnRequest {
+	member: string;
+	prompt: string;
+	workspace_mode?: TeamWorkspaceMode;
+	branch?: string;
+	worktree_path?: string;
+	mutating?: boolean;
+	force?: boolean;
+}
+
+function parse_spawn_request(args: string[]): SpawnRequest {
+	const [member, ...rest] = args;
+	const request: SpawnRequest = {
+		member: require_arg(member, 'member'),
+		prompt: '',
+	};
+	const prompt_parts: string[] = [];
+	for (let index = 0; index < rest.length; index += 1) {
+		const token = rest[index];
+		if (token === '--worktree') request.workspace_mode = 'worktree';
+		else if (token === '--shared') request.workspace_mode = 'shared';
+		else if (token === '--mutating') request.mutating = true;
+		else if (token === '--read-only') request.mutating = false;
+		else if (token === '--force') request.force = true;
+		else if (token === '--branch') {
+			request.branch = require_arg(rest[++index], 'branch');
+		} else if (token === '--worktree-path') {
+			request.worktree_path = require_arg(
+				rest[++index],
+				'worktree path',
+			);
+		} else {
+			prompt_parts.push(token, ...rest.slice(index + 1));
+			break;
+		}
+	}
+	request.prompt = prompt_parts.join(' ').trim();
+	return request;
+}
+
+export function find_shared_mutating_conflict(
+	members: TeamMember[],
+	cwd: string,
+	member_name: string,
+): TeamMember | undefined {
+	const resolved_cwd = resolve(cwd);
+	return members.find(
+		(member) =>
+			member.name !== member_name &&
+			member.status !== 'offline' &&
+			member.mutating === true &&
+			member.workspace_mode !== 'worktree' &&
+			member.cwd &&
+			resolve(member.cwd) === resolved_cwd,
+	);
+}
+
+function require_no_shared_mutating_conflict(
+	store: TeamStore,
+	team_id: string,
+	cwd: string,
+	member_name: string,
+	force = false,
+): void {
+	if (force) return;
+	const conflict = find_shared_mutating_conflict(
+		store.refresh_member_process_statuses(team_id),
+		cwd,
+		member_name,
+	);
+	if (!conflict) return;
+	throw new Error(
+		`Refusing to spawn mutating teammate ${member_name} in shared cwd because ${conflict.name} is already using ${cwd}. Use workspace_mode=worktree or --worktree for write isolation.`,
+	);
 }
 
 function themed(
@@ -807,8 +904,8 @@ async function show_team_task_picker(
 			format_task_status(task.status),
 			task.status,
 			task.assignee ? `@${task.assignee}` : 'unassigned',
-			task.dependsOn.length
-				? `waits for #${task.dependsOn.join(', #')}`
+			task.depends_on.length
+				? `waits for #${task.depends_on.join(', #')}`
 				: undefined,
 			summarize_result(task.result),
 		]
@@ -1103,8 +1200,8 @@ async function handle_team_command(
 				break;
 			}
 			case 'spawn': {
-				const [member, ...prompt_parts] = rest;
-				const name = require_arg(member, 'member');
+				const request = parse_spawn_request(rest);
+				const name = request.member;
 				const team_id = current_team_id();
 				const current_model = (ctx as ExtensionContext).model;
 				const existing = runners.get(name);
@@ -1113,15 +1210,40 @@ async function handle_team_command(
 						`Teammate ${name} is already running. Use /team shutdown ${name} first.`,
 					);
 				}
+				const workspace = prepare_teammate_workspace({
+					team_id,
+					member: name,
+					repo_cwd: ctx.cwd,
+					team_root: get_team_root(),
+					mode: request.workspace_mode,
+					branch: request.branch,
+					worktree_path: request.worktree_path,
+				});
+				if (
+					request.mutating &&
+					workspace.workspace_mode === 'shared'
+				) {
+					require_no_shared_mutating_conflict(
+						store,
+						team_id,
+						workspace.cwd,
+						name,
+						request.force,
+					);
+				}
 				const runner = new RpcTeammate(store, {
 					team_id,
 					member: name,
-					cwd: ctx.cwd,
+					cwd: workspace.cwd,
 					team_root: get_team_root(),
 					extension_path: get_extension_path(),
 					model: current_model
 						? `${current_model.provider}/${current_model.id}`
 						: undefined,
+					workspace_mode: workspace.workspace_mode,
+					worktree_path: workspace.worktree_path,
+					branch: workspace.branch,
+					mutating: request.mutating ?? false,
 					on_exit: (member) => runners.delete(member),
 				});
 				runners.set(name, runner);
@@ -1131,11 +1253,10 @@ async function handle_team_command(
 					runners.delete(name);
 					throw error;
 				}
-				const prompt = prompt_parts.join(' ').trim();
-				if (prompt) await runner.prompt(prompt);
+				if (request.prompt) await runner.prompt(request.prompt);
 				set_team_ui(ctx, store, team_id);
 				ctx.ui.notify(
-					`Spawned teammate ${name}${prompt ? ' and sent prompt' : ''}`,
+					`Spawned teammate ${name}${request.prompt ? ' and sent prompt' : ''}`,
 				);
 				break;
 			}
@@ -1213,7 +1334,7 @@ async function handle_team_command(
 						'Team commands:',
 						'/team create [name] — start a team for this repo',
 						'/team status — show members and task progress',
-						'/team spawn <member> [prompt] — start a teammate',
+						'/team spawn <member> [--worktree] [--mutating] [--branch name] [prompt] — start a teammate',
 						'/team task add [member:] <title> — queue work',
 						'/team task show <id> — show full task details/result',
 						'/team task block|cancel <id> [reason] — mark blocked/cancelled and replace the result note',
@@ -1308,14 +1429,14 @@ export default async function team_mode(pi: ExtensionAPI) {
 			if (!should_auto_inject_messages()) return;
 			const unread = store
 				.list_messages(active_team_id, own_member)
-				.filter((message) => !message.readAt);
+				.filter((message) => !message.read_at);
 			if (unread.length === 0) return;
 			pi.sendMessage(
 				{
 					customType: 'team-message',
 					content: format_injected_messages(own_member, unread),
 					display: true,
-					details: { teamId: active_team_id, messages: unread },
+					details: { team_id: active_team_id, messages: unread },
 				},
 				{ deliverAs: 'followUp', triggerTurn: true },
 			);
@@ -1384,7 +1505,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 		if (!should_inject_team_prompt(event)) return {};
 		return {
 			systemPrompt: append_team_system_prompt(event.systemPrompt, {
-				activeTeamId: active_team_id,
+				active_team_id: active_team_id,
 				ownMember: own_member,
 				ownRole: own_role,
 			}),
@@ -1424,6 +1545,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'dm',
 				'inbox',
 				'spawn',
+				'spawn alice --worktree --mutating',
 				'send',
 				'steer',
 				'wait',
@@ -1468,7 +1590,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 			_onUpdate,
 			ctx,
 		) {
-			const team_id = params.teamId ?? active_team_id;
+			const team_id = params.team_id ?? active_team_id;
 			const require_team_id = () => {
 				if (!team_id)
 					throw new Error(
@@ -1506,7 +1628,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 							},
 						],
 						details: {
-							activeTeamId: active_team_id ?? null,
+							active_team_id: active_team_id ?? null,
 							teams: statuses,
 						},
 					};
@@ -1522,7 +1644,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 										text: 'No active team. Use action team_create first.',
 									},
 								],
-								details: { activeTeamId: null, latestTeam: null },
+								details: { active_team_id: null, latest_team: null },
 							};
 						}
 						const status = store.get_status(latest.id);
@@ -1533,7 +1655,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 									text: format_status(status),
 								},
 							],
-							details: { ...status, activeTeamId: null },
+							details: { ...status, active_team_id: null },
 						};
 					}
 					const status = store.get_status(team_id);
@@ -1556,7 +1678,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 								text: 'Cleared active team UI',
 							},
 						],
-						details: { activeTeamId: null },
+						details: { active_team_id: null },
 					};
 				}
 				case 'team_ui': {
@@ -1597,16 +1719,38 @@ export default async function team_mode(pi: ExtensionAPI) {
 						params.member ?? params.name,
 						'member',
 					);
+					const id = require_team_id();
 					const existing = runners.get(member_name);
 					if (existing?.is_running) {
 						throw new Error(
 							`Teammate ${member_name} is already running. Shut it down before spawning another session with the same name.`,
 						);
 					}
-					const runner = new RpcTeammate(store, {
-						team_id: require_team_id(),
+					const workspace = prepare_teammate_workspace({
+						team_id: id,
 						member: member_name,
-						cwd: ctx.cwd,
+						repo_cwd: ctx.cwd,
+						team_root: get_team_root(),
+						mode: params.workspace_mode,
+						branch: params.branch,
+						worktree_path: params.worktree_path,
+					});
+					if (
+						params.mutating &&
+						workspace.workspace_mode === 'shared'
+					) {
+						require_no_shared_mutating_conflict(
+							store,
+							id,
+							workspace.cwd,
+							member_name,
+							params.force,
+						);
+					}
+					const runner = new RpcTeammate(store, {
+						team_id: id,
+						member: member_name,
+						cwd: workspace.cwd,
 						team_root: get_team_root(),
 						extension_path: get_extension_path(),
 						model:
@@ -1615,6 +1759,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 								? `${ctx.model.provider}/${ctx.model.id}`
 								: undefined),
 						thinking: params.thinking,
+						workspace_mode: workspace.workspace_mode,
+						worktree_path: workspace.worktree_path,
+						branch: workspace.branch,
+						mutating: params.mutating ?? false,
 						on_exit: (member) => runners.delete(member),
 					});
 					runners.set(member_name, runner);
@@ -1624,8 +1772,8 @@ export default async function team_mode(pi: ExtensionAPI) {
 						runners.delete(member_name);
 						throw error;
 					}
-					if (params.initialPrompt)
-						await runner.prompt(params.initialPrompt);
+					if (params.initial_prompt)
+						await runner.prompt(params.initial_prompt);
 					set_team_ui(ctx, store, team_id);
 					return {
 						content: [
@@ -1652,7 +1800,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 					if (!runner?.is_running)
 						throw new Error(`No running teammate: ${member_name}`);
 					const text = require_arg(
-						params.message ?? params.initialPrompt,
+						params.message ?? params.initial_prompt,
 						'message',
 					);
 					if (params.action === 'member_steer')
@@ -1702,7 +1850,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 						],
 						details: {
 							...status,
-							runningMembers: [...runners.entries()]
+							running_members: [...runners.entries()]
 								.filter(([, runner]) => runner.is_running)
 								.map(([name, runner]) => ({ name, pid: runner.pid })),
 						},
@@ -1725,7 +1873,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 							details: { member: member_name, running: false },
 						};
 					}
-					await runner.wait_for_idle(params.timeoutMs ?? 120_000);
+					await runner.wait_for_idle(params.timeout_ms ?? 120_000);
 					const status = store.get_status(require_team_id());
 					set_team_ui(ctx, store, team_id);
 					return {
@@ -1740,7 +1888,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 						title: require_arg(params.title, 'title'),
 						description: params.description,
 						assignee: params.assignee,
-						dependsOn: params.dependsOn,
+						depends_on: params.depends_on,
 					});
 					set_team_ui(ctx, store, team_id);
 					return {
@@ -1770,7 +1918,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				case 'task_get': {
 					const task = store.load_task(
 						require_team_id(),
-						require_arg(params.taskId, 'taskId'),
+						require_arg(params.task_id, 'task_id'),
 					);
 					return {
 						content: [
@@ -1785,14 +1933,16 @@ export default async function team_mode(pi: ExtensionAPI) {
 				case 'task_update': {
 					const task = store.update_task(
 						require_team_id(),
-						require_arg(params.taskId, 'taskId'),
+						require_arg(params.task_id, 'task_id'),
 						{
 							title: params.title,
 							description: params.description,
-							status: params.taskStatus,
-							assignee: params.clearAssignee ? null : params.assignee,
-							dependsOn: params.dependsOn,
-							result: params.clearResult ? null : params.result,
+							status: params.task_status,
+							assignee: params.clear_assignee
+								? null
+								: params.assignee,
+							depends_on: params.depends_on,
+							result: params.clear_result ? null : params.result,
 						},
 					);
 					set_team_ui(ctx, store, team_id);

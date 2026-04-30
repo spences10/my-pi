@@ -22,15 +22,16 @@ export type TeamTaskStatus =
 	| 'blocked'
 	| 'completed'
 	| 'cancelled';
+export type TeamWorkspaceMode = 'shared' | 'worktree';
 
 export interface TeamConfig {
 	version: 1;
 	id: string;
 	name: string;
 	cwd: string;
-	createdAt: string;
-	updatedAt: string;
-	nextTaskId: number;
+	created_at: string;
+	updated_at: string;
+	next_task_id: number;
 }
 
 export interface TeamMember {
@@ -39,11 +40,15 @@ export interface TeamMember {
 	status: TeamMemberStatus;
 	cwd?: string;
 	model?: string;
-	sessionFile?: string;
+	session_file?: string;
 	pid?: number;
-	lastSeenAt: string;
-	createdAt: string;
-	updatedAt: string;
+	workspace_mode?: TeamWorkspaceMode;
+	worktree_path?: string;
+	branch?: string;
+	mutating?: boolean;
+	last_seen_at: string;
+	created_at: string;
+	updated_at: string;
 }
 
 export interface TeamTask {
@@ -52,11 +57,11 @@ export interface TeamTask {
 	description?: string;
 	status: TeamTaskStatus;
 	assignee?: string;
-	dependsOn: string[];
+	depends_on: string[];
 	result?: string;
-	createdAt: string;
-	updatedAt: string;
-	completedAt?: string;
+	created_at: string;
+	updated_at: string;
+	completed_at?: string;
 }
 
 export interface TeamMessage {
@@ -65,21 +70,21 @@ export interface TeamMessage {
 	to: string;
 	body: string;
 	urgent: boolean;
-	createdAt: string;
-	readAt?: string;
+	created_at: string;
+	read_at?: string;
 }
 
 export interface TeamEvent {
 	id: string;
 	type: string;
-	createdAt: string;
+	created_at: string;
 	data: unknown;
 }
 
 export interface CreateTeamInput {
 	name?: string;
 	cwd: string;
-	leadName?: string;
+	lead_name?: string;
 }
 
 export interface UpsertMemberInput {
@@ -88,15 +93,19 @@ export interface UpsertMemberInput {
 	status?: TeamMemberStatus;
 	cwd?: string;
 	model?: string;
-	sessionFile?: string;
+	session_file?: string;
 	pid?: number;
+	workspace_mode?: TeamWorkspaceMode;
+	worktree_path?: string;
+	branch?: string;
+	mutating?: boolean;
 }
 
 export interface CreateTaskInput {
 	title: string;
 	description?: string;
 	assignee?: string;
-	dependsOn?: string[];
+	depends_on?: string[];
 	status?: TeamTaskStatus;
 }
 
@@ -105,7 +114,7 @@ export interface UpdateTaskInput {
 	description?: string | null;
 	status?: TeamTaskStatus;
 	assignee?: string | null;
-	dependsOn?: string[];
+	depends_on?: string[];
 	result?: string | null;
 }
 
@@ -239,6 +248,14 @@ function validate_member(member: TeamMember): void {
 	) {
 		throw new Error(`Invalid member status: ${member.status}`);
 	}
+	if (
+		member.workspace_mode &&
+		!['shared', 'worktree'].includes(member.workspace_mode)
+	) {
+		throw new Error(
+			`Invalid member workspace mode: ${member.workspace_mode}`,
+		);
+	}
 }
 
 function validate_task(task: TeamTask): void {
@@ -258,10 +275,10 @@ function validate_task(task: TeamTask): void {
 		throw new Error(`Invalid task status: ${task.status}`);
 	}
 	if (task.assignee) require_member_name(task.assignee, 'assignee');
-	if (!Array.isArray(task.dependsOn)) {
-		throw new Error('Task dependsOn must be an array');
+	if (!Array.isArray(task.depends_on)) {
+		throw new Error('Task depends_on must be an array');
 	}
-	for (const dep_id of task.dependsOn) {
+	for (const dep_id of task.depends_on) {
 		if (safe_segment(dep_id) !== dep_id) {
 			throw new Error(`Invalid dependency task id: ${dep_id}`);
 		}
@@ -301,7 +318,7 @@ const LOCK_STALE_AFTER_MS = 30_000;
 
 interface TeamLockInfo {
 	pid: number;
-	createdAt: string;
+	created_at: string;
 }
 
 function read_lock_info(lock: string): TeamLockInfo | undefined {
@@ -345,7 +362,7 @@ export class TeamStore {
 				mkdirSync(lock, { mode: 0o700 });
 				write_json(join(lock, 'owner.json'), {
 					pid: process.pid,
-					createdAt: now(),
+					created_at: now(),
 				});
 				acquired = true;
 				break;
@@ -409,9 +426,9 @@ export class TeamStore {
 			id,
 			name: base_name,
 			cwd: resolve(input.cwd),
-			createdAt: timestamp,
-			updatedAt: timestamp,
-			nextTaskId: 1,
+			created_at: timestamp,
+			updated_at: timestamp,
+			next_task_id: 1,
 		};
 
 		mkdirSync(this.team_dir(id), { recursive: true, mode: 0o700 });
@@ -420,7 +437,7 @@ export class TeamStore {
 		write_json(this.config_path(id), team);
 		this.append_event(id, 'team_created', { team });
 		this.upsert_member(id, {
-			name: input.leadName ?? 'lead',
+			name: input.lead_name ?? 'lead',
 			role: 'lead',
 			status: 'idle',
 			cwd: team.cwd,
@@ -438,7 +455,7 @@ export class TeamStore {
 				const team = read_listed_json<TeamConfig>(path);
 				return team ? [team] : [];
 			})
-			.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+			.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 	}
 
 	load_team(team_id: string): TeamConfig {
@@ -454,7 +471,7 @@ export class TeamStore {
 
 	private touch_team_unlocked(team_id: string): void {
 		const team = this.load_team(team_id);
-		team.updatedAt = now();
+		team.updated_at = now();
 		this.save_team(team);
 	}
 
@@ -469,6 +486,16 @@ export class TeamStore {
 		const existing = existsSync(path)
 			? read_json<TeamMember>(path)
 			: undefined;
+		const workspace_mode =
+			input.workspace_mode ?? existing?.workspace_mode;
+		const worktree_path =
+			workspace_mode === 'worktree'
+				? (input.worktree_path ?? existing?.worktree_path)
+				: undefined;
+		const branch =
+			workspace_mode === 'worktree'
+				? (input.branch ?? existing?.branch)
+				: undefined;
 		const member: TeamMember = {
 			name,
 			role: input.role ?? existing?.role ?? 'teammate',
@@ -479,15 +506,26 @@ export class TeamStore {
 			...((input.model ?? existing?.model)
 				? { model: input.model ?? existing?.model }
 				: {}),
-			...((input.sessionFile ?? existing?.sessionFile)
-				? { sessionFile: input.sessionFile ?? existing?.sessionFile }
+			...((input.session_file ?? existing?.session_file)
+				? {
+						session_file:
+							input.session_file ?? existing?.session_file,
+					}
 				: {}),
 			...((input.pid ?? existing?.pid)
 				? { pid: input.pid ?? existing?.pid }
 				: {}),
-			lastSeenAt: timestamp,
-			createdAt: existing?.createdAt ?? timestamp,
-			updatedAt: timestamp,
+			...(workspace_mode ? { workspace_mode: workspace_mode } : {}),
+			...(worktree_path ? { worktree_path: worktree_path } : {}),
+			...(branch ? { branch } : {}),
+			...(input.mutating !== undefined
+				? { mutating: input.mutating }
+				: existing?.mutating
+					? { mutating: existing.mutating }
+					: {}),
+			last_seen_at: timestamp,
+			created_at: existing?.created_at ?? timestamp,
+			updated_at: timestamp,
 		};
 		write_json(path, member);
 		this.touch_team_unlocked(team_id);
@@ -553,18 +591,18 @@ export class TeamStore {
 			if (!title) throw new Error('Task title is required');
 			const team = this.load_team(team_id);
 			const timestamp = now();
-			const id = String(team.nextTaskId);
+			const id = String(team.next_task_id);
 			const depends_on = this.validate_task_dependencies(
 				team_id,
 				id,
-				input.dependsOn,
+				input.depends_on,
 			);
 			const assignee = normalize_member_name(
 				input.assignee,
 				'assignee',
 			);
-			team.nextTaskId += 1;
-			team.updatedAt = timestamp;
+			team.next_task_id += 1;
+			team.updated_at = timestamp;
 			const task: TeamTask = {
 				id,
 				title,
@@ -573,9 +611,9 @@ export class TeamStore {
 					: {}),
 				status: input.status ?? 'pending',
 				...(assignee ? { assignee } : {}),
-				dependsOn: depends_on,
-				createdAt: timestamp,
-				updatedAt: timestamp,
+				depends_on: depends_on,
+				created_at: timestamp,
+				updated_at: timestamp,
 			};
 			write_json(join(this.tasks_dir(team_id), `${id}.json`), task);
 			this.save_team(team);
@@ -628,7 +666,7 @@ export class TeamStore {
 			seen.add(current_id);
 			const current = tasks.get(current_id);
 			if (!current) return false;
-			return current.dependsOn.some((dep_id) =>
+			return current.depends_on.some((dep_id) =>
 				reaches_task(dep_id, seen),
 			);
 		};
@@ -664,8 +702,8 @@ export class TeamStore {
 		}
 		if (input.status !== undefined) {
 			task.status = input.status;
-			if (input.status === 'completed') task.completedAt = timestamp;
-			else delete task.completedAt;
+			if (input.status === 'completed') task.completed_at = timestamp;
+			else delete task.completed_at;
 		}
 		if (input.assignee !== undefined) {
 			if (input.assignee === null || !input.assignee.trim())
@@ -676,11 +714,11 @@ export class TeamStore {
 					'assignee',
 				);
 		}
-		if (input.dependsOn !== undefined) {
-			task.dependsOn = this.validate_task_dependencies(
+		if (input.depends_on !== undefined) {
+			task.depends_on = this.validate_task_dependencies(
 				team_id,
 				task.id,
-				input.dependsOn,
+				input.depends_on,
 			);
 		}
 		if (input.result !== undefined) {
@@ -688,7 +726,7 @@ export class TeamStore {
 				delete task.result;
 			else task.result = input.result.trim();
 		}
-		task.updatedAt = timestamp;
+		task.updated_at = timestamp;
 		write_json(
 			join(this.tasks_dir(team_id), `${safe_segment(task_id)}.json`),
 			task,
@@ -713,7 +751,7 @@ export class TeamStore {
 		const tasks = new Map(
 			this.list_tasks(team_id).map((item) => [item.id, item]),
 		);
-		return task.dependsOn.every(
+		return task.depends_on.every(
 			(dep_id) => tasks.get(dep_id)?.status === 'completed',
 		);
 	}
@@ -733,7 +771,7 @@ export class TeamStore {
 				(task) =>
 					task.status === 'pending' &&
 					(!task.assignee || task.assignee === normalized_assignee) &&
-					task.dependsOn.every(
+					task.depends_on.every(
 						(dep_id) => by_id.get(dep_id)?.status === 'completed',
 					),
 			);
@@ -766,7 +804,7 @@ export class TeamStore {
 				to,
 				body: input.body.trim(),
 				urgent: input.urgent ?? false,
-				createdAt: timestamp,
+				created_at: timestamp,
 			};
 			write_json(
 				join(this.mailbox_dir(team_id, to), `${message.id}.json`),
@@ -791,8 +829,8 @@ export class TeamStore {
 			const messages = this.list_messages(team_id, member);
 			const timestamp = now();
 			for (const message of messages) {
-				if (message.readAt) continue;
-				message.readAt = timestamp;
+				if (message.read_at) continue;
+				message.read_at = timestamp;
 				write_json(
 					join(
 						this.mailbox_dir(team_id, member),
@@ -829,7 +867,7 @@ export class TeamStore {
 		const event: TeamEvent = {
 			id: `${Date.now().toString(36)}-${random_suffix()}`,
 			type,
-			createdAt: now(),
+			created_at: now(),
 			data,
 		};
 		mkdirSync(this.team_dir(team_id), {

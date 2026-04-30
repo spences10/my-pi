@@ -69,6 +69,23 @@ child session. Design teammate prompts so they can proceed without
 interactive confirmation, or steer them from the lead session when a
 decision is needed.
 
+For read-only research, spawning teammates in the shared cwd is fine.
+For implementation work that writes files, use per-member worktree
+mode:
+
+```text
+/team spawn alice --worktree --mutating --branch team/alice "claim one coding task"
+```
+
+The `team` tool exposes the same controls via `member_spawn` with
+`workspace_mode: "worktree"`, `mutating: true`, and optional `branch`
+or `worktree_path`. Team status shows each member's workspace path and
+branch. Shared-cwd mutating spawns are refused when another active
+mutating teammate is already using that cwd unless `force`/`--force`
+is set. Worktrees are created under `MY_PI_TEAM_MODE_ROOT/worktrees`
+by default and are never deleted during shutdown; dirty worktrees are
+preserved until you clean them up explicitly with git.
+
 Teammate names, assignees, senders, and recipients must be stable file
 IDs: letters, numbers, dots, underscores, and hyphens only. This
 avoids ambiguous local state paths like `alice/dev` and `alice-dev`
@@ -110,7 +127,8 @@ orchestration. Important actions include:
 
 - `team_create`
 - `team_list`
-- `member_spawn`
+- `member_spawn` (`workspace_mode: "worktree"`, `mutating: true`,
+  optional `branch`/`worktree_path` for isolated coding work)
 - `member_prompt`
 - `member_follow_up`
 - `member_steer`
@@ -118,7 +136,7 @@ orchestration. Important actions include:
 - `task_create`
 - `task_get`
 - `task_claim_next`
-- `task_update` (`clearAssignee` and `clearResult` clear optional
+- `task_update` (`clear_assignee` and `clear_result` clear optional
   fields)
 - `message_send`
 - `message_list`
