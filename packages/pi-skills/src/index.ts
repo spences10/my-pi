@@ -310,11 +310,9 @@ export default async function skills(pi: ExtensionAPI) {
 					items: all_items,
 					max_visible: Math.min(
 						Math.max(all_items.length + 4, 8),
-						22,
+						12,
 					),
 					enable_search: true,
-					detail: (item) =>
-						metadata_by_id.get(item.id)?.split('\n')[1],
 					metadata: (item) =>
 						item
 							? metadata_by_id.get(item.id)?.split('\n')
