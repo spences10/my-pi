@@ -1,4 +1,9 @@
-import { readFileSync, rmSync } from 'node:fs';
+import {
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -35,5 +40,25 @@ describe('LSP binary trust', () => {
 			false,
 		);
 		expect(readFileSync(store, 'utf8')).toContain('trusted_at');
+	});
+
+	it('recognizes legacy path-only trust store entries', () => {
+		const store = trust_store_path();
+		const binary_path = '/repo/node_modules/.bin/svelteserver';
+		mkdirSync(join(store, '..'), { recursive: true });
+		writeFileSync(
+			store,
+			JSON.stringify({
+				[binary_path]: {
+					binary_path,
+					trusted_at: '2026-04-30T00:00:00.000Z',
+				},
+			}),
+		);
+
+		expect(is_lsp_binary_trusted(binary_path, store)).toBe(true);
+		expect(is_lsp_binary_trusted(`${binary_path}-other`, store)).toBe(
+			false,
+		);
 	});
 });

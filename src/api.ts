@@ -19,6 +19,7 @@ import lsp_extension from '@spences10/pi-lsp';
 import mcp_extension from '@spences10/pi-mcp';
 import nopeek_extension from '@spences10/pi-nopeek';
 import omnisearch_extension from '@spences10/pi-omnisearch';
+import { apply_project_trust_untrusted_defaults } from '@spences10/pi-project-trust';
 import recall_extension from '@spences10/pi-recall';
 import filter_output_extension from '@spences10/pi-redact';
 import skills_extension, {
@@ -97,12 +98,7 @@ const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_THEME_DIR = resolve(MODULE_DIR, '..', 'themes');
 const PI_AGENT_DIR_ENV = 'PI_CODING_AGENT_DIR';
 
-const UNTRUSTED_REPO_ENV_DEFAULTS: Record<string, string> = {
-	MY_PI_MCP_PROJECT_CONFIG: 'skip',
-	MY_PI_HOOKS_CONFIG: 'skip',
-	MY_PI_LSP_PROJECT_BINARY: 'global',
-	MY_PI_PROMPT_PRESETS_PROJECT: 'skip',
-	MY_PI_PROJECT_SKILLS: 'skip',
+const UNTRUSTED_CHILD_ENV_DEFAULTS: Record<string, string> = {
 	MY_PI_CHILD_ENV_ALLOWLIST: '',
 	MY_PI_MCP_ENV_ALLOWLIST: '',
 	MY_PI_LSP_ENV_ALLOWLIST: '',
@@ -113,9 +109,9 @@ const UNTRUSTED_REPO_ENV_DEFAULTS: Record<string, string> = {
 export function apply_untrusted_repo_defaults(
 	env: NodeJS.ProcessEnv = process.env,
 ): string[] {
-	const applied: string[] = [];
+	const applied = apply_project_trust_untrusted_defaults(env);
 	for (const [key, value] of Object.entries(
-		UNTRUSTED_REPO_ENV_DEFAULTS,
+		UNTRUSTED_CHILD_ENV_DEFAULTS,
 	)) {
 		if (env[key] !== undefined) continue;
 		env[key] = value;

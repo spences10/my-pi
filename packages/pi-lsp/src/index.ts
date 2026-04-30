@@ -5,6 +5,7 @@ import {
 	type ExtensionCommandContext,
 	type ExtensionContext,
 } from '@mariozechner/pi-coding-agent';
+import { resolve_project_trust } from '@spences10/pi-project-trust';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,7 +29,11 @@ import {
 	list_supported_languages,
 	type LspServerConfig,
 } from './servers.js';
-import { is_lsp_binary_trusted, trust_lsp_binary } from './trust.js';
+import {
+	create_lsp_binary_trust_subject,
+	default_lsp_trust_store_path,
+	is_lsp_binary_trusted,
+} from './trust.js';
 
 interface ServerState {
 	client: LspClientLike;
@@ -111,25 +116,6 @@ const LSP_TOOL_NAMES = new Set([
 const DIAGNOSTICS_MANY_CONCURRENCY = 8;
 const LSP_PROJECT_BINARY_ENV = 'MY_PI_LSP_PROJECT_BINARY';
 
-type LspProjectBinaryDecision = 'allow' | 'trust' | 'global';
-
-function normalize_lsp_project_binary_decision(
-	value: string | undefined,
-): LspProjectBinaryDecision | undefined {
-	const normalized = value?.trim().toLowerCase();
-	if (!normalized) return undefined;
-	if (['1', 'true', 'yes', 'allow'].includes(normalized)) {
-		return 'allow';
-	}
-	if (normalized === 'trust') return 'trust';
-	if (
-		['0', 'false', 'no', 'global', 'global-only'].includes(normalized)
-	) {
-		return 'global';
-	}
-	return undefined;
-}
-
 async function should_use_project_lsp_binary(
 	server_config: LspServerConfig,
 	ctx?: ExtensionContext,
@@ -137,42 +123,31 @@ async function should_use_project_lsp_binary(
 	if (!server_config.is_project_local) return true;
 	if (is_lsp_binary_trusted(server_config.command)) return true;
 
-	const env_decision = normalize_lsp_project_binary_decision(
-		process.env[LSP_PROJECT_BINARY_ENV],
-	);
-	if (env_decision === 'trust') {
-		trust_lsp_binary(server_config.command);
-		return true;
-	}
-	if (env_decision === 'allow') return true;
-	if (env_decision === 'global') return false;
-
-	if (!ctx?.hasUI) {
-		console.warn(
-			`Skipping untrusted project-local LSP binary: ${server_config.command}. Set ${LSP_PROJECT_BINARY_ENV}=allow to enable it for this run.`,
-		);
-		return false;
-	}
-
-	const choice = await ctx.ui.select(
-		[
-			'Project-local language server binaries can execute code.',
-			'Trust this LSP binary?',
+	const subject = {
+		...create_lsp_binary_trust_subject(server_config.command),
+		prompt_title:
+			'Project-local language server binaries can execute code.\nTrust this LSP binary?',
+		summary_lines: [
 			`Language: ${server_config.language}`,
 			`Binary: ${server_config.command}`,
-		].join('\n'),
-		[
-			'Allow once for this session',
-			'Trust this binary path',
-			'Use global PATH binary instead',
 		],
-	);
+		headless_warning: `Skipping untrusted project-local LSP binary: ${server_config.command}. Set ${LSP_PROJECT_BINARY_ENV}=allow to enable it for this run.`,
+	};
+	const decision = await resolve_project_trust(subject, {
+		env: process.env,
+		has_ui: ctx?.hasUI,
+		select: ctx?.hasUI
+			? async (message, choices) =>
+					(await ctx.ui.select(message, choices)) ?? ''
+			: undefined,
+		warn: console.warn,
+		trust_store_path: default_lsp_trust_store_path(),
+	});
 
-	if (choice === 'Trust this binary path') {
-		trust_lsp_binary(server_config.command);
-		return true;
-	}
-	return choice === 'Allow once for this session';
+	return (
+		decision.action === 'allow-once' ||
+		decision.action === 'trust-persisted'
+	);
 }
 
 export function should_inject_lsp_prompt(

@@ -61,6 +61,7 @@
 		"@spences10/pi-mcp": "workspace:*",
 		"@spences10/pi-nopeek": "workspace:*",
 		"@spences10/pi-omnisearch": "workspace:*",
+		"@spences10/pi-project-trust": "workspace:*",
 		"@spences10/pi-recall": "workspace:*",
 		"@spences10/pi-redact": "workspace:*",
 		"@spences10/pi-skills": "workspace:*",

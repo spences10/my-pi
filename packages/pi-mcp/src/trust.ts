@@ -1,22 +1,31 @@
 import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	writeFileSync,
-} from 'node:fs';
+	is_project_subject_trusted,
+	read_project_trust_store,
+	trust_project_subject,
+	type ProjectTrustSubject,
+} from '@spences10/pi-project-trust';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
-interface TrustedMcpProjectEntry {
-	path: string;
-	hash: string;
-	trusted_at: string;
-}
-
-type TrustedMcpProjects = Record<string, TrustedMcpProjectEntry>;
+const MCP_PROJECT_CONFIG_ENV = 'MY_PI_MCP_PROJECT_CONFIG';
 
 export function default_mcp_trust_store_path(): string {
 	return join(homedir(), '.pi', 'agent', 'trusted-mcp-projects.json');
+}
+
+export function create_mcp_project_trust_subject(
+	path: string,
+	hash: string,
+): ProjectTrustSubject {
+	return {
+		kind: 'mcp-config',
+		id: path,
+		hash,
+		store_key: path,
+		env_key: MCP_PROJECT_CONFIG_ENV,
+		prompt_title:
+			'Project mcp.json can spawn local commands. Trust this config?',
+	};
 }
 
 export function is_project_mcp_config_trusted(
@@ -24,9 +33,14 @@ export function is_project_mcp_config_trusted(
 	hash: string,
 	trust_store_path = default_mcp_trust_store_path(),
 ): boolean {
-	const trusted_projects = read_trusted_projects(trust_store_path);
-	const entry = trusted_projects[path];
-	return entry?.hash === hash;
+	const subject = create_mcp_project_trust_subject(path, hash);
+	if (is_project_subject_trusted(subject, trust_store_path))
+		return true;
+
+	const legacy_entry = read_project_trust_store(trust_store_path)[
+		path
+	] as { path?: string; hash?: string } | undefined;
+	return legacy_entry?.path === path && legacy_entry.hash === hash;
 }
 
 export function trust_project_mcp_config(
@@ -34,29 +48,8 @@ export function trust_project_mcp_config(
 	hash: string,
 	trust_store_path = default_mcp_trust_store_path(),
 ): void {
-	const trusted_projects = read_trusted_projects(trust_store_path);
-	trusted_projects[path] = {
-		path,
-		hash,
-		trusted_at: new Date().toISOString(),
-	};
-	mkdirSync(dirname(trust_store_path), { recursive: true });
-	writeFileSync(
+	trust_project_subject(
+		create_mcp_project_trust_subject(path, hash),
 		trust_store_path,
-		JSON.stringify(trusted_projects, null, '\t') + '\n',
-		{ encoding: 'utf8', mode: 0o600 },
 	);
-}
-
-function read_trusted_projects(
-	trust_store_path: string,
-): TrustedMcpProjects {
-	if (!existsSync(trust_store_path)) return {};
-	try {
-		const raw = readFileSync(trust_store_path, 'utf-8');
-		const parsed = JSON.parse(raw) as TrustedMcpProjects;
-		return parsed && typeof parsed === 'object' ? parsed : {};
-	} catch {
-		return {};
-	}
 }

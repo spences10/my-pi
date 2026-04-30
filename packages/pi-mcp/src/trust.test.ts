@@ -1,4 +1,4 @@
-import { readFileSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -41,6 +41,30 @@ describe('project MCP config trust', () => {
 		expect(is_project_mcp_config_trusted(path, 'hash-b', store)).toBe(
 			false,
 		);
-		expect(readFileSync(store, 'utf8')).toContain('trusted_at');
+		const stored = readFileSync(store, 'utf8');
+		expect(stored).toContain('trusted_at');
+		expect(stored).toContain('mcp-config');
+	});
+
+	it('recognizes legacy MCP trust-store entries during migration', () => {
+		const store = trust_store_path();
+		const path = '/repo/mcp.json';
+		writeFileSync(
+			store,
+			JSON.stringify({
+				[path]: {
+					path,
+					hash: 'hash-a',
+					trusted_at: '2026-04-30T00:00:00.000Z',
+				},
+			}),
+		);
+
+		expect(is_project_mcp_config_trusted(path, 'hash-a', store)).toBe(
+			true,
+		);
+		expect(is_project_mcp_config_trusted(path, 'hash-b', store)).toBe(
+			false,
+		);
 	});
 });

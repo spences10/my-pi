@@ -4,6 +4,10 @@ import {
 	type ExtensionAPI,
 	type ExtensionContext,
 } from '@mariozechner/pi-coding-agent';
+import {
+	resolve_project_trust,
+	type ProjectTrustSubject,
+} from '@spences10/pi-project-trust';
 import { McpClient, type McpServerConfig } from './client.js';
 import {
 	get_project_mcp_config_info,
@@ -13,8 +17,9 @@ import {
 import { create_mcp_tool_registration_metadata } from './metadata.js';
 import { format_mcp_tool_result } from './result.js';
 import {
+	create_mcp_project_trust_subject,
+	default_mcp_trust_store_path,
 	is_project_mcp_config_trusted,
-	trust_project_mcp_config,
 } from './trust.js';
 
 const PROJECT_MCP_CONFIG_ENV = 'MY_PI_MCP_PROJECT_CONFIG';
@@ -170,43 +175,30 @@ export function should_wait_for_mcp_connections(
 	);
 }
 
-type ProjectMcpConfigDecision = 'allow' | 'trust' | 'skip';
-
 interface ProjectMcpConfigLoadDecision {
 	include_project: boolean;
 	metadata_trusted: boolean;
 }
 
-function normalize_project_mcp_config_decision(
-	value: string | undefined,
-): ProjectMcpConfigDecision | undefined {
-	const normalized = value?.trim().toLowerCase();
-	if (!normalized) return undefined;
-	if (['1', 'true', 'yes', 'allow'].includes(normalized)) {
-		return 'allow';
-	}
-	if (normalized === 'trust') return 'trust';
-	if (['0', 'false', 'no', 'skip', 'disable'].includes(normalized)) {
-		return 'skip';
-	}
-	return undefined;
-}
-
-function format_project_mcp_config_prompt(
+function create_project_mcp_trust_subject(
 	info: McpProjectConfigInfo,
-): string {
+): ProjectTrustSubject {
 	const server_lines =
 		info.servers.length === 0
 			? ['- no valid server entries detected']
 			: info.servers.map(
 					(server) => `- ${server.name}: ${server.summary}`,
 				);
-	return [
-		'Project mcp.json can spawn local commands. Trust this config?',
-		`Path: ${info.path}`,
-		`SHA-256: ${info.hash}`,
-		...server_lines,
-	].join('\n');
+	return {
+		...create_mcp_project_trust_subject(info.path, info.hash),
+		summary_lines: server_lines,
+		choices: {
+			allow_once: 'Allow once for this session',
+			trust: 'Trust this repo until mcp.json changes',
+			skip: 'Skip project MCP config',
+		},
+		headless_warning: `Skipping untrusted project MCP config: ${info.path}. Set ${PROJECT_MCP_CONFIG_ENV}=allow to enable it for this run.`,
+	};
 }
 
 async function get_project_mcp_config_load_decision(
@@ -216,47 +208,28 @@ async function get_project_mcp_config_load_decision(
 	const skipped = { include_project: false, metadata_trusted: false };
 	const info = get_project_mcp_config_info(cwd);
 	if (!info) return skipped;
-
 	if (is_project_mcp_config_trusted(info.path, info.hash)) {
 		return { include_project: true, metadata_trusted: true };
 	}
 
-	const env_decision = normalize_project_mcp_config_decision(
-		process.env[PROJECT_MCP_CONFIG_ENV],
-	);
-	if (env_decision === 'trust') {
-		trust_project_mcp_config(info.path, info.hash);
-		return { include_project: true, metadata_trusted: true };
-	}
-	if (env_decision === 'allow') {
-		return { include_project: true, metadata_trusted: false };
-	}
-	if (env_decision === 'skip') return skipped;
-
-	if (!ctx?.hasUI) {
-		console.warn(
-			`Skipping untrusted project MCP config: ${info.path}. Set ${PROJECT_MCP_CONFIG_ENV}=allow to enable it for this run.`,
-		);
-		return skipped;
-	}
-
-	const choice = await ctx.ui.select(
-		format_project_mcp_config_prompt(info),
-		[
-			'Allow once for this session',
-			'Trust this repo until mcp.json changes',
-			'Skip project MCP config',
-		],
+	const decision = await resolve_project_trust(
+		create_project_mcp_trust_subject(info),
+		{
+			has_ui: ctx?.hasUI,
+			select: ctx?.hasUI
+				? async (message, choices) =>
+						(await ctx.ui.select(message, choices)) ?? choices[2]
+				: undefined,
+			warn: console.warn,
+			trust_store_path: default_mcp_trust_store_path(),
+		},
 	);
 
-	if (choice === 'Trust this repo until mcp.json changes') {
-		trust_project_mcp_config(info.path, info.hash);
-		return { include_project: true, metadata_trusted: true };
-	}
-	if (choice === 'Allow once for this session') {
-		return { include_project: true, metadata_trusted: false };
-	}
-	return skipped;
+	if (decision.action === 'skip') return skipped;
+	return {
+		include_project: true,
+		metadata_trusted: decision.metadata_trusted,
+	};
 }
 
 // Default export for Pi Package / additionalExtensionPaths loading

@@ -272,6 +272,42 @@ describe('hooks-resolution extension', () => {
 		warn.mockRestore();
 	});
 
+	it('loads untrusted hook config once when env allows it', async () => {
+		const previous = process.env.MY_PI_HOOKS_CONFIG;
+		process.env.MY_PI_HOOKS_CONFIG = 'allow';
+		try {
+			const dir = create_temp_dir();
+			mkdirSync(join(dir, '.git'));
+			mkdirSync(join(dir, '.pi'));
+			writeFileSync(
+				join(dir, '.pi', 'hooks.json'),
+				JSON.stringify({
+					hooks: {
+						PostToolUse: [{ command: 'echo allowed' }],
+					},
+				}),
+			);
+			const { pi, events } = create_test_pi();
+			const load_hooks_impl = vi
+				.fn<(cwd: string) => HookState>()
+				.mockReturnValue({ project_dir: dir, hooks: [] });
+
+			await create_hooks_resolution_extension({
+				load_hooks: load_hooks_impl,
+			})(pi);
+
+			const start = events.get('session_start');
+			const { ctx } = create_context({ cwd: dir, hasUI: false });
+			await start({}, ctx);
+
+			expect(load_hooks_impl).toHaveBeenCalledWith(dir);
+		} finally {
+			if (previous === undefined)
+				delete process.env.MY_PI_HOOKS_CONFIG;
+			else process.env.MY_PI_HOOKS_CONFIG = previous;
+		}
+	});
+
 	it('runs matching hooks once per unique command and notifies on success', async () => {
 		const { pi, events } = create_test_pi();
 		const run_command_hook = vi

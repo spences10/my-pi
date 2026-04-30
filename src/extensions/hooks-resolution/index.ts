@@ -6,14 +6,18 @@ import type {
 	ExtensionFactory,
 	ToolResultEvent,
 } from '@mariozechner/pi-coding-agent';
+import {
+	resolve_project_trust,
+	type ProjectTrustSubject,
+} from '@spences10/pi-project-trust';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { create_child_process_env } from './env.js';
 import {
+	default_hooks_trust_store_path,
 	is_hooks_config_trusted,
-	trust_hooks_config,
 } from './trust.js';
 
 const HOOK_TIMEOUT_MS = 10 * 60 * 1000;
@@ -526,24 +530,9 @@ export function hook_name(command: string): string {
 	return basename(first_token);
 }
 
-type HooksConfigDecision = 'allow' | 'trust' | 'skip';
-
-function normalize_hooks_config_decision(
-	value: string | undefined,
-): HooksConfigDecision | undefined {
-	const normalized = value?.trim().toLowerCase();
-	if (!normalized) return undefined;
-	if (['1', 'true', 'yes', 'allow'].includes(normalized)) {
-		return 'allow';
-	}
-	if (normalized === 'trust') return 'trust';
-	if (['0', 'false', 'no', 'skip', 'disable'].includes(normalized)) {
-		return 'skip';
-	}
-	return undefined;
-}
-
-function format_hooks_config_prompt(info: HooksConfigInfo): string {
+function create_hooks_trust_subject(
+	info: HooksConfigInfo,
+): ProjectTrustSubject {
 	const source_lines = info.sources.map((source) => `- ${source}`);
 	const hook_lines =
 		info.hooks.length === 0
@@ -554,15 +543,27 @@ function format_hooks_config_prompt(info: HooksConfigInfo): string {
 						: '';
 					return `- ${hook.event_name}${matcher}: ${hook.command}`;
 				});
-	return [
-		'Project hook config can execute shell commands after tool use. Trust these hooks?',
-		`Project: ${info.project_dir}`,
-		`SHA-256: ${info.hash}`,
-		'Sources:',
-		...source_lines,
-		'Commands:',
-		...hook_lines,
-	].join('\n');
+	return {
+		kind: 'hooks-config',
+		id: info.project_dir,
+		store_key: info.project_dir,
+		hash: info.hash,
+		env_key: HOOKS_CONFIG_ENV,
+		prompt_title:
+			'Project hook config can execute shell commands after tool use. Trust these hooks?',
+		summary_lines: [
+			'Sources:',
+			...source_lines,
+			'Commands:',
+			...hook_lines,
+		],
+		choices: {
+			allow_once: 'Allow once for this session',
+			trust: 'Trust this repo until hook config changes',
+			skip: 'Skip project hooks',
+		},
+		headless_warning: `Skipping untrusted hook config in ${info.project_dir}. Set ${HOOKS_CONFIG_ENV}=allow to enable hooks for this run.`,
+	};
 }
 
 async function should_load_hooks_config(
@@ -574,36 +575,27 @@ async function should_load_hooks_config(
 	if (is_hooks_config_trusted(info.project_dir, info.hash))
 		return true;
 
-	const env_decision = normalize_hooks_config_decision(
-		process.env[HOOKS_CONFIG_ENV],
+	const decision = await resolve_project_trust(
+		create_hooks_trust_subject(info),
+		{
+			has_ui: ctx?.hasUI,
+			select: ctx?.hasUI
+				? async (
+						message: string,
+						choices: string[],
+					): Promise<string> => {
+						const selected = await ctx.ui.select(message, choices);
+						return selected ?? '';
+					}
+				: undefined,
+			env: process.env,
+			trust_store_path: default_hooks_trust_store_path(),
+		},
 	);
-	if (env_decision === 'trust') {
-		trust_hooks_config(info.project_dir, info.hash);
-		return true;
-	}
-	if (env_decision === 'allow') return true;
-	if (env_decision === 'skip') return false;
-
-	if (!ctx?.hasUI) {
-		console.warn(
-			`Skipping untrusted hook config in ${info.project_dir}. Set ${HOOKS_CONFIG_ENV}=allow to enable hooks for this run.`,
-		);
-		return false;
-	}
-
-	const choice = await ctx.ui.select(
-		format_hooks_config_prompt(info),
-		[
-			'Allow once for this session',
-			'Trust this repo until hook config changes',
-			'Skip project hooks',
-		],
+	return (
+		decision.action === 'allow-once' ||
+		decision.action === 'trust-persisted'
 	);
-	if (choice === 'Trust this repo until hook config changes') {
-		trust_hooks_config(info.project_dir, info.hash);
-		return true;
-	}
-	return choice === 'Allow once for this session';
 }
 
 export interface HooksResolutionOptions {
