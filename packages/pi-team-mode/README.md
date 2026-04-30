@@ -135,7 +135,12 @@ import teamMode from '@spences10/pi-team-mode';
 ```
 
 `my-pi` imports this package directly and enables it as the built-in
-team mode extension.
+team mode extension. When `my-pi` spawns a teammate it starts the
+child with `--no-team-mode -e <team-extension>`, so the child loads
+exactly one team-mode extension. Custom harnesses that already bundle
+team mode should use the same pattern: disable the bundled copy when
+also passing this package through `-e`, or avoid `-e` and rely only on
+the bundled factory.
 
 ## Development
 

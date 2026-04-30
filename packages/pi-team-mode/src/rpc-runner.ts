@@ -51,19 +51,67 @@ function normalize_member_name(value: string): string {
 	return trimmed;
 }
 
-function resolve_rpc_command(override: string | undefined): {
+interface RpcCommand {
 	command: string;
 	prefix_args: string[];
-} {
-	if (override?.trim())
-		return { command: override.trim(), prefix_args: [] };
+	disable_builtin_team_mode: boolean;
+}
+
+function is_my_pi_command(value: string): boolean {
+	const name = value.split(/[\\/]/).pop()?.toLowerCase();
+	return ['my-pi', 'my-pi.js', 'my-pi.cmd', 'my-pi.ps1'].includes(
+		name ?? '',
+	);
+}
+
+function resolve_rpc_command(
+	override: string | undefined,
+): RpcCommand {
+	if (override?.trim()) {
+		const command = override.trim();
+		return {
+			command,
+			prefix_args: [],
+			disable_builtin_team_mode: is_my_pi_command(command),
+		};
+	}
 	if (process.argv[1]) {
 		return {
 			command: process.execPath,
 			prefix_args: [process.argv[1]],
+			disable_builtin_team_mode: true,
 		};
 	}
-	return { command: 'pi', prefix_args: [] };
+	return {
+		command: 'pi',
+		prefix_args: [],
+		disable_builtin_team_mode: false,
+	};
+}
+
+export function build_rpc_teammate_args(
+	options: Pick<
+		RpcTeammateOptions,
+		'extension_path' | 'model' | 'thinking'
+	>,
+	session_dir: string,
+	command: Pick<
+		RpcCommand,
+		'prefix_args' | 'disable_builtin_team_mode'
+	>,
+): string[] {
+	const args = [
+		...command.prefix_args,
+		'--mode',
+		'rpc',
+		'--session-dir',
+		session_dir,
+	];
+	if (command.disable_builtin_team_mode) args.push('--no-team-mode');
+	args.push('-e', options.extension_path);
+	if (options.model) args.push('--model', options.model);
+	if (options.thinking) args.push('--thinking', options.thinking);
+	return args;
 }
 
 export function create_rpc_teammate_env(
@@ -128,21 +176,15 @@ export class RpcTeammate {
 			recursive: true,
 		});
 
-		const { command, prefix_args } = resolve_rpc_command(
+		const command_info = resolve_rpc_command(
 			this.options.pi_command ?? process.env.MY_PI_TEAM_PI_COMMAND,
 		);
-		const args = [
-			...prefix_args,
-			'--mode',
-			'rpc',
-			'--session-dir',
+		const args = build_rpc_teammate_args(
+			this.options,
 			session_dir,
-			'-e',
-			this.options.extension_path,
-		];
-		if (this.options.model) args.push('--model', this.options.model);
-		if (this.options.thinking)
-			args.push('--thinking', this.options.thinking);
+			command_info,
+		);
+		const { command } = command_info;
 
 		const proc = spawn(command, args, {
 			cwd: this.cwd,

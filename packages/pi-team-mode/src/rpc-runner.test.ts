@@ -1,6 +1,7 @@
 import {
 	chmodSync,
 	mkdtempSync,
+	readFileSync,
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
@@ -9,6 +10,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	RpcTeammate,
+	build_rpc_teammate_args,
 	create_rpc_teammate_env,
 } from './rpc-runner.js';
 import { TeamStore } from './store.js';
@@ -91,14 +93,21 @@ describe('create_rpc_teammate_env', () => {
 });
 
 function write_fake_rpc_child(
-	options: { hang_get_state?: boolean } = {},
+	options: {
+		hang_get_state?: boolean;
+		file_name?: string;
+		argv_path?: string;
+	} = {},
 ): string {
-	const path = join(root, 'fake-pi.js');
+	const path = join(root, options.file_name ?? 'fake-pi.js');
 	writeFileSync(
 		path,
 		`#!/usr/bin/env node
+const fs = require('node:fs');
 const readline = require('node:readline');
 const hang_get_state = ${JSON.stringify(options.hang_get_state ?? false)};
+const argv_path = ${JSON.stringify(options.argv_path)};
+if (argv_path) fs.writeFileSync(argv_path, JSON.stringify(process.argv.slice(2)));
 function send(value) { process.stdout.write(JSON.stringify(value) + '\\n'); }
 const rl = readline.createInterface({ input: process.stdin });
 rl.on('line', (line) => {
@@ -122,6 +131,52 @@ process.on('SIGTERM', () => process.exit(0));
 	chmodSync(path, 0o755);
 	return path;
 }
+
+describe('build_rpc_teammate_args', () => {
+	it('disables built-in my-pi team mode when injecting the team extension explicitly', () => {
+		const args = build_rpc_teammate_args(
+			{
+				extension_path: '/tmp/team-extension.js',
+				model: 'anthropic/claude-sonnet-4-5',
+				thinking: 'high',
+			},
+			'/tmp/team-session',
+			{
+				prefix_args: ['/repo/dist/index.js'],
+				disable_builtin_team_mode: true,
+			},
+		);
+
+		expect(args).toEqual([
+			'/repo/dist/index.js',
+			'--mode',
+			'rpc',
+			'--session-dir',
+			'/tmp/team-session',
+			'--no-team-mode',
+			'-e',
+			'/tmp/team-extension.js',
+			'--model',
+			'anthropic/claude-sonnet-4-5',
+			'--thinking',
+			'high',
+		]);
+		expect(
+			args.filter((arg) => arg === '--no-team-mode'),
+		).toHaveLength(1);
+	});
+
+	it('does not add my-pi-only flags for third-party RPC harness commands', () => {
+		const args = build_rpc_teammate_args(
+			{ extension_path: '/tmp/team-extension.js' },
+			'/tmp/team-session',
+			{ prefix_args: [], disable_builtin_team_mode: false },
+		);
+
+		expect(args).not.toContain('--no-team-mode');
+		expect(args).toContain('-e');
+	});
+});
 
 describe('RpcTeammate lifecycle', () => {
 	it('waits for a busy teammate until agent_end arrives', async () => {
@@ -166,6 +221,44 @@ describe('RpcTeammate lifecycle', () => {
 				.list_members(team.id)
 				.find((member) => member.name === 'alice'),
 		).toMatchObject({ status: 'blocked' });
+	});
+
+	it('starts a my-pi-compatible child with built-in team mode disabled', async () => {
+		const argv_path = join(root, 'child-argv.json');
+		const fake_pi = write_fake_rpc_child({
+			file_name: 'my-pi',
+			argv_path,
+		});
+		const team = store.create_team({ cwd: root, name: 'demo' });
+		const exits: string[] = [];
+		const runner = new RpcTeammate(store, {
+			team_id: team.id,
+			member: 'alice',
+			cwd: root,
+			team_root: root,
+			extension_path: join(root, 'team-extension.js'),
+			pi_command: fake_pi,
+			on_exit: (member) => exits.push(member),
+		});
+
+		await runner.start();
+		const args = JSON.parse(readFileSync(argv_path, 'utf-8'));
+		expect(args).toEqual(
+			expect.arrayContaining([
+				'--mode',
+				'rpc',
+				'--no-team-mode',
+				'-e',
+				join(root, 'team-extension.js'),
+			]),
+		);
+		expect(
+			args.filter((arg: string) => arg === '--no-team-mode'),
+		).toHaveLength(1);
+
+		await runner.shutdown('test done');
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(exits).toContain('alice');
 	});
 
 	it('drives a real RPC child through start, prompt, wait, and shutdown', async () => {
