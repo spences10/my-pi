@@ -1,4 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import {
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -75,6 +80,43 @@ describe('TeamStore', () => {
 		expect(store.claim_next_task(team.id, 'bob')).toBeUndefined();
 	});
 
+	it('keeps assigned tasks queued until their assignee claims them', () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const task = store.create_task(team.id, {
+			title: 'Assigned work',
+			assignee: 'alice',
+		});
+
+		expect(task).toMatchObject({
+			assignee: 'alice',
+			status: 'pending',
+		});
+		expect(store.claim_next_task(team.id, 'bob')).toBeUndefined();
+		expect(store.claim_next_task(team.id, 'alice')).toMatchObject({
+			id: task.id,
+			status: 'in_progress',
+			assignee: 'alice',
+		});
+	});
+
+	it('recovers stale locks left by dead processes', () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const lock = join(store.team_dir(team.id), '.lock');
+		mkdirSync(lock, { recursive: true });
+		writeFileSync(
+			join(lock, 'owner.json'),
+			JSON.stringify({
+				pid: 999999999,
+				createdAt: new Date().toISOString(),
+			}),
+		);
+
+		expect(() =>
+			store.create_task(team.id, { title: 'After stale lock' }),
+		).not.toThrow();
+		expect(store.list_tasks(team.id)).toHaveLength(1);
+	});
+
 	it('persists mailbox messages and marks them read', () => {
 		const team = store.create_team({ cwd: '/repo' });
 		const message = store.send_message(team.id, {
@@ -105,6 +147,7 @@ describe('TeamStore', () => {
 		const task = store.create_task(team.id, {
 			title: 'Review',
 			assignee: 'alice',
+			status: 'in_progress',
 		});
 
 		store.refresh_member_process_statuses(team.id);

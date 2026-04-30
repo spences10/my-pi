@@ -60,7 +60,6 @@ const TeamAction = StringEnum([
 	'message_send',
 	'message_list',
 	'message_read',
-	'fake_teammate_step',
 ] as const);
 
 const TeamToolParams = Type.Object({
@@ -95,8 +94,6 @@ const TeamToolParams = Type.Object({
 	model: Type.Optional(Type.String()),
 	thinking: Type.Optional(Type.String()),
 	timeoutMs: Type.Optional(Type.Number()),
-	complete: Type.Optional(Type.Boolean()),
-	shutdownOnMessage: Type.Optional(Type.Boolean()),
 	mode: Type.Optional(
 		StringEnum(['auto', 'compact', 'full', 'off'] as const),
 	),
@@ -122,6 +119,12 @@ function get_extension_path(): string {
 function should_auto_inject_messages(): boolean {
 	const value = process.env[AUTO_INJECT_ENV]?.trim().toLowerCase();
 	return !value || !['0', 'false', 'no', 'off'].includes(value);
+}
+
+function should_enable_fake_teammate_command(): boolean {
+	const value =
+		process.env.MY_PI_TEAM_ENABLE_FAKE?.trim().toLowerCase();
+	return ['1', 'true', 'yes', 'on'].includes(value ?? '');
 }
 
 export function get_team_ui_mode(): TeamUiMode {
@@ -177,7 +180,7 @@ function append_team_system_prompt(
 		base_prompt +
 		`
 
-## Experimental Team Mode
+## Team Mode
 
 ${active_context}
 Use the \`team\` tool as the source of truth for team coordination.
@@ -187,7 +190,7 @@ Rules:
 - Teammates should read messages, claim exactly one ready task, work it, update the task with status/result, then go idle.
 - Do not create nested teams from a teammate session.
 - Use urgent steer/follow-up messaging for coordination instead of assuming shared context.
-- Use real RPC teammates via member_spawn for background work; use fake_teammate_step only for local tests/evals.
+- Use real RPC teammates via member_spawn for background work.
 - Prefer separate git worktrees or read-only/research tasks for teammates that may touch files.`
 	);
 }
@@ -226,8 +229,69 @@ function summarize_result(
 		: summary;
 }
 
+function count_label(
+	count: number,
+	singular: string,
+	plural = `${singular}s`,
+): string {
+	return `${count} ${count === 1 ? singular : plural}`;
+}
+
 function format_status_counts(status: TeamStatus): string {
-	return `${status.members.length} member(s), ${status.tasks.length} task(s): ${status.counts.pending} pending, ${status.counts.in_progress} running, ${status.counts.blocked} blocked, ${status.counts.completed} done`;
+	const parts = [
+		count_label(status.members.length, 'member'),
+		count_label(status.tasks.length, 'task'),
+	];
+	if (status.counts.blocked > 0)
+		parts.push(`${status.counts.blocked} needs attention`);
+	if (status.counts.in_progress > 0)
+		parts.push(`${status.counts.in_progress} running`);
+	if (status.counts.pending > 0)
+		parts.push(`${status.counts.pending} queued`);
+	if (status.tasks.length > 0)
+		parts.push(
+			`${status.counts.completed}/${status.tasks.length} done`,
+		);
+	if (status.counts.cancelled > 0)
+		parts.push(`${status.counts.cancelled} cancelled`);
+	return parts.join(' · ');
+}
+
+function format_member_status(
+	member: TeamStatus['members'][number],
+): string {
+	switch (member.status) {
+		case 'idle':
+			return 'idle';
+		case 'running':
+			return 'running';
+		case 'blocked':
+			return 'needs attention';
+		case 'offline':
+			return 'offline (not controllable from this session)';
+	}
+}
+
+function format_task_line(task: TeamStatus['tasks'][number]): string {
+	const owner = task.assignee ? ` @${task.assignee}` : '';
+	const deps = task.dependsOn.length
+		? ` waits for #${task.dependsOn.join(', #')}`
+		: '';
+	return `${format_task_status(task.status)} #${task.id}${owner}${deps} ${task.title}`;
+}
+
+function push_task_group(
+	lines: string[],
+	label: string,
+	tasks: TeamStatus['tasks'],
+): void {
+	if (tasks.length === 0) return;
+	lines.push('', label);
+	for (const task of tasks) {
+		lines.push(format_task_line(task));
+		const result = summarize_result(task.result);
+		if (result) lines.push(`  ↳ ${result}`);
+	}
 }
 
 function format_status(status: TeamStatus): string {
@@ -236,27 +300,46 @@ function format_status(status: TeamStatus): string {
 		format_status_counts(status),
 	];
 	if (status.members.length > 0) {
-		lines.push('', 'Members:');
+		lines.push('', 'Members');
 		for (const member of status.members) {
 			lines.push(
-				`- ${member.name} (${member.role}) ${member.status}`,
+				`- ${member.name} (${member.role}) — ${format_member_status(member)}`,
 			);
 		}
 	}
-	if (status.tasks.length > 0) {
-		lines.push('', 'Tasks:');
-		for (const task of status.tasks) {
-			const owner = task.assignee ? ` @${task.assignee}` : '';
-			const deps = task.dependsOn.length
-				? ` deps:${task.dependsOn.join(',')}`
-				: '';
-			lines.push(
-				`${format_task_status(task.status)} #${task.id}${owner}${deps} ${task.title}`,
-			);
-			const result = summarize_result(task.result);
-			if (result) lines.push(`  ↳ ${result}`);
-		}
+	if (status.tasks.length === 0) {
+		lines.push(
+			'',
+			'No tasks yet. Add one with /team task add [member:] <title>.',
+		);
+		return lines.join('\n');
 	}
+
+	push_task_group(
+		lines,
+		'Needs attention',
+		status.tasks.filter((task) => task.status === 'blocked'),
+	);
+	push_task_group(
+		lines,
+		'Running',
+		status.tasks.filter((task) => task.status === 'in_progress'),
+	);
+	push_task_group(
+		lines,
+		'Queued',
+		status.tasks.filter((task) => task.status === 'pending'),
+	);
+	push_task_group(
+		lines,
+		'Done',
+		status.tasks.filter((task) => task.status === 'completed'),
+	);
+	push_task_group(
+		lines,
+		'Cancelled',
+		status.tasks.filter((task) => task.status === 'cancelled'),
+	);
 	return lines.join('\n');
 }
 
@@ -264,7 +347,8 @@ function format_teams_list(
 	statuses: TeamStatus[],
 	active_team_id: string | undefined,
 ): string {
-	if (statuses.length === 0) return 'No teams';
+	if (statuses.length === 0)
+		return 'No teams yet. Create one with /team create [name].';
 	const home = process.env.HOME || process.env.USERPROFILE;
 	return statuses
 		.map((status) => {
@@ -278,7 +362,7 @@ function format_teams_list(
 }
 
 function format_messages(messages: TeamMessage[]): string {
-	if (messages.length === 0) return 'No messages';
+	if (messages.length === 0) return 'No messages yet.';
 	return messages
 		.map((message) => {
 			const unread = message.readAt ? '' : ' unread';
@@ -331,6 +415,13 @@ function format_team_footer_status(
 	style: TeamUiStyle,
 ): string {
 	const fragments = [`team:${status.team.name}`];
+	if (status.counts.blocked > 0) {
+		fragments.push(
+			style === 'badge'
+				? `! ${status.counts.blocked} attention`
+				: `${status.counts.blocked} attention`,
+		);
+	}
 	if (status.counts.in_progress > 0) {
 		fragments.push(
 			style === 'badge'
@@ -338,25 +429,22 @@ function format_team_footer_status(
 				: `${status.counts.in_progress} running`,
 		);
 	}
-	if (status.counts.blocked > 0) {
-		fragments.push(
-			style === 'badge'
-				? `! ${status.counts.blocked} blocked`
-				: `${status.counts.blocked} blocked`,
-		);
-	}
 	if (status.counts.pending > 0) {
 		fragments.push(
 			style === 'badge'
-				? `○ ${status.counts.pending} pending`
-				: `${status.counts.pending} pending`,
+				? `○ ${status.counts.pending} queued`
+				: `${status.counts.pending} queued`,
 		);
 	}
-	fragments.push(
-		style === 'badge'
-			? `✓ ${status.counts.completed}/${status.tasks.length} done`
-			: `${status.counts.completed}/${status.tasks.length} done`,
-	);
+	if (status.tasks.length === 0) {
+		fragments.push('no tasks');
+	} else {
+		fragments.push(
+			style === 'badge'
+				? `✓ ${status.counts.completed}/${status.tasks.length} done`
+				: `${status.counts.completed}/${status.tasks.length} done`,
+		);
+	}
 	return fragments.join(' · ');
 }
 
@@ -368,12 +456,12 @@ function format_team_widget_lines(
 	if (style !== 'badge') {
 		return [
 			header,
-			`${status.counts.pending} pending • ${status.counts.in_progress} running • ${status.counts.blocked} blocked • ${status.counts.completed} done`,
+			`${status.counts.blocked} attention • ${status.counts.in_progress} running • ${status.counts.pending} queued • ${status.counts.completed} done`,
 		];
 	}
 	return [
 		header,
-		`○ ${status.counts.pending} pending • ◐ ${status.counts.in_progress} running • ! ${status.counts.blocked} blocked • ✓ ${status.counts.completed} done`,
+		`! ${status.counts.blocked} attention • ◐ ${status.counts.in_progress} running • ○ ${status.counts.pending} queued • ✓ ${status.counts.completed} done`,
 	];
 }
 
@@ -415,9 +503,9 @@ function render_team_widget_lines(
 			color_team_count(
 				theme,
 				style,
-				'pending',
-				`${status.counts.pending} pending`,
-				status.counts.pending > 0,
+				'blocked',
+				`${status.counts.blocked} attention`,
+				status.counts.blocked > 0,
 			),
 			color_team_count(
 				theme,
@@ -429,9 +517,9 @@ function render_team_widget_lines(
 			color_team_count(
 				theme,
 				style,
-				'blocked',
-				`${status.counts.blocked} blocked`,
-				status.counts.blocked > 0,
+				'pending',
+				`${status.counts.pending} queued`,
+				status.counts.pending > 0,
 			),
 			color_team_count(
 				theme,
@@ -475,14 +563,16 @@ async function show_team_switcher(
 ): Promise<string | undefined> {
 	const statuses = get_team_statuses(store);
 	if (statuses.length === 0) {
-		ctx.ui.notify('No teams');
+		ctx.ui.notify(
+			'No teams yet. Create one with /team create [name].',
+		);
 		return undefined;
 	}
 
 	const items: SelectItem[] = statuses.map((status) => ({
 		value: status.team.id,
 		label: `${status.team.id === active_team_id ? '● ' : ''}${status.team.name}`,
-		description: `${status.counts.in_progress} running, ${status.counts.pending} pending, ${status.counts.blocked} blocked, ${status.counts.completed}/${status.tasks.length} done`,
+		description: `${status.counts.blocked} attention, ${status.counts.in_progress} running, ${status.counts.pending} queued, ${status.counts.completed}/${status.tasks.length} done`,
 	}));
 	const active_index = statuses.findIndex(
 		(status) => status.team.id === active_team_id,
@@ -606,7 +696,9 @@ async function handle_team_command(
 	function current_team_id(): string {
 		const team_id = get_active_team_id();
 		if (!team_id)
-			throw new Error('No active team. Use /team create [name].');
+			throw new Error(
+				'No active team. Use /team create [name] or /team resume.',
+			);
 		return team_id;
 	}
 
@@ -848,6 +940,11 @@ async function handle_team_command(
 				break;
 			}
 			case 'fake': {
+				if (!should_enable_fake_teammate_command()) {
+					throw new Error(
+						'Fake teammate runner is disabled. Set MY_PI_TEAM_ENABLE_FAKE=1 for local tests.',
+					);
+				}
 				const [member = 'alice', ...flags] = rest;
 				const result = fake_teammate_step(
 					store,
@@ -866,7 +963,16 @@ async function handle_team_command(
 			}
 			default:
 				ctx.ui.notify(
-					'Team commands: /team create [name], /team status, /team teams, /team switch, /team ui auto|compact|full|off, /team ui style plain|badge|color, /team clear, /team spawn <member> [prompt], /team send <member> <prompt>, /team steer <member> <prompt>, /team wait <member>, /team shutdown <member>, /team task add [name:] <title>, /team dm <member> <msg>, /team inbox [member], /team fake <member>',
+					[
+						'Team commands:',
+						'/team create [name] — start a team for this repo',
+						'/team status — show members and task progress',
+						'/team spawn <member> [prompt] — start a teammate',
+						'/team task add [member:] <title> — queue work',
+						'/team dm <member> <message> — send a mailbox message',
+						'/team wait|shutdown <member> — control a teammate',
+						'/team teams|switch|resume|clear — manage active team UI',
+					].join('\n'),
 					'warning',
 				);
 		}
@@ -951,10 +1057,22 @@ export default async function team_mode(pi: ExtensionAPI) {
 				{ deliverAs: 'followUp', triggerTurn: true },
 			);
 		} catch (error) {
-			store.append_event(active_team_id, 'team_activity_poll_error', {
-				member: own_member,
-				error: error instanceof Error ? error.message : String(error),
-			});
+			try {
+				store.load_team(active_team_id);
+				store.append_event(
+					active_team_id,
+					'team_activity_poll_error',
+					{
+						member: own_member,
+						error:
+							error instanceof Error ? error.message : String(error),
+					},
+				);
+			} catch {
+				active_team_id = undefined;
+				reset_completed_task_observer(undefined);
+				set_team_ui(ctx, store, undefined);
+			}
 		}
 	}
 
@@ -967,13 +1085,18 @@ export default async function team_mode(pi: ExtensionAPI) {
 	pi.on('session_start', async (_event, ctx) => {
 		active_team_id = process.env[ACTIVE_TEAM_ENV];
 		if (active_team_id) {
-			store.upsert_member(active_team_id, {
-				name: own_member,
-				role: own_role === 'teammate' ? 'teammate' : 'lead',
-				status: 'idle',
-				cwd: ctx.cwd,
-				pid: process.pid,
-			});
+			try {
+				store.load_team(active_team_id);
+				store.upsert_member(active_team_id, {
+					name: own_member,
+					role: own_role === 'teammate' ? 'teammate' : 'lead',
+					status: 'idle',
+					cwd: ctx.cwd,
+					pid: process.pid,
+				});
+			} catch {
+				active_team_id = undefined;
+			}
 		}
 		reset_completed_task_observer(active_team_id);
 		set_team_ui(ctx, store, active_team_id);
@@ -1006,7 +1129,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 
 	pi.registerCommand('team', {
 		description:
-			'Local experimental teammate-mode store and task board',
+			'Local teammate coordination with tasks, mailboxes, and RPC sessions',
 		getArgumentCompletions: (prefix) => {
 			const subs = [
 				'create',
@@ -1035,8 +1158,8 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'steer',
 				'wait',
 				'shutdown',
-				'fake',
 			];
+			if (should_enable_fake_teammate_command()) subs.push('fake');
 			return subs
 				.filter((sub) => sub.startsWith(prefix.trim()))
 				.map((sub) => ({ value: sub, label: sub }));
@@ -1059,13 +1182,13 @@ export default async function team_mode(pi: ExtensionAPI) {
 		name: 'team',
 		label: 'Team',
 		description:
-			'Manage experimental teammate mode: teams, RPC teammates, tasks, and mailboxes. Real spawning is available through member_spawn; fake_teammate_step is for local tests only.',
+			'Manage teammate coordination: teams, RPC teammates, tasks, and mailboxes. Real spawning is available through member_spawn.',
 		promptSnippet:
 			'Manage team-mode members, tasks, messages, and RPC teammate sessions',
 		promptGuidelines: [
 			'Use team to create and update teammate-mode tasks instead of ad-hoc markdown todo lists when the user asks to coordinate a team.',
 			'Use team member_spawn to start real RPC teammates, then assign tasks and inspect status with team_status.',
-			'Use team action fake_teammate_step only for local testing/evaluation, not as a real teammate.',
+			'Use team_status as the source of truth for member state, task progress, and blocked work.',
 		],
 		parameters: TeamToolParams,
 		async execute(
@@ -1456,25 +1579,6 @@ export default async function team_mode(pi: ExtensionAPI) {
 							},
 						],
 						details: { messages },
-					};
-				}
-				case 'fake_teammate_step': {
-					const result = fake_teammate_step(
-						store,
-						require_team_id(),
-						require_arg(params.member ?? params.name, 'member'),
-						{
-							complete: params.complete,
-							shutdownOnMessage: params.shutdownOnMessage,
-							result: params.result,
-						},
-					);
-					set_team_ui(ctx, store, team_id);
-					return {
-						content: [
-							{ type: 'text' as const, text: result.summary },
-						],
-						details: result,
 					};
 				}
 			}

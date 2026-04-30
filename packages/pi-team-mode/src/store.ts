@@ -5,6 +5,7 @@ import {
 	readFileSync,
 	renameSync,
 	rmSync,
+	statSync,
 	writeFileSync,
 } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
@@ -189,6 +190,31 @@ function is_pid_alive(pid: number | undefined): boolean {
 	}
 }
 
+const LOCK_STALE_AFTER_MS = 30_000;
+
+interface TeamLockInfo {
+	pid: number;
+	createdAt: string;
+}
+
+function read_lock_info(lock: string): TeamLockInfo | undefined {
+	try {
+		return read_json<TeamLockInfo>(join(lock, 'owner.json'));
+	} catch {
+		return undefined;
+	}
+}
+
+function is_lock_stale(lock: string): boolean {
+	const info = read_lock_info(lock);
+	if (info?.pid) return !is_pid_alive(info.pid);
+	try {
+		return Date.now() - statSync(lock).mtimeMs > LOCK_STALE_AFTER_MS;
+	} catch {
+		return false;
+	}
+}
+
 export class TeamStore {
 	readonly root: string;
 
@@ -210,6 +236,10 @@ export class TeamStore {
 		for (let attempt = 0; attempt < 250; attempt += 1) {
 			try {
 				mkdirSync(lock, { mode: 0o700 });
+				write_json(join(lock, 'owner.json'), {
+					pid: process.pid,
+					createdAt: now(),
+				});
 				acquired = true;
 				break;
 			} catch (error) {
@@ -220,6 +250,10 @@ export class TeamStore {
 					error.code !== 'EEXIST'
 				) {
 					throw error;
+				}
+				if (is_lock_stale(lock)) {
+					rmSync(lock, { recursive: true, force: true });
+					continue;
 				}
 				sleep_sync(10);
 			}
@@ -417,9 +451,7 @@ export class TeamStore {
 				...(input.description?.trim()
 					? { description: input.description.trim() }
 					: {}),
-				status:
-					input.status ??
-					(input.assignee ? 'in_progress' : 'pending'),
+				status: input.status ?? 'pending',
 				...(input.assignee ? { assignee: input.assignee } : {}),
 				dependsOn: normalize_unique_ids(input.dependsOn),
 				createdAt: timestamp,
@@ -521,13 +553,17 @@ export class TeamStore {
 		return this.with_team_lock(team_id, () => {
 			const tasks = this.list_tasks(team_id);
 			const by_id = new Map(tasks.map((task) => [task.id, task]));
-			const ready = tasks.find(
+			const candidates = tasks.filter(
 				(task) =>
 					task.status === 'pending' &&
+					(!task.assignee || task.assignee === assignee) &&
 					task.dependsOn.every(
 						(dep_id) => by_id.get(dep_id)?.status === 'completed',
 					),
 			);
+			const ready =
+				candidates.find((task) => task.assignee === assignee) ??
+				candidates[0];
 			if (!ready) return undefined;
 			return this.update_task_unlocked(team_id, ready.id, {
 				status: 'in_progress',

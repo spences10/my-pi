@@ -204,14 +204,17 @@ export class RpcTeammate {
 	}
 
 	async prompt(message: string): Promise<void> {
+		this.mark_busy();
 		await this.request({ type: 'prompt', message }, 10_000);
 	}
 
 	async followUp(message: string): Promise<void> {
+		this.mark_busy();
 		await this.request({ type: 'follow_up', message }, 10_000);
 	}
 
 	async steer(message: string): Promise<void> {
+		this.mark_busy();
 		await this.request({ type: 'steer', message }, 10_000);
 	}
 
@@ -350,13 +353,18 @@ export class RpcTeammate {
 		}
 	}
 
+	private mark_busy(): void {
+		if (this.closed) return;
+		this.status = 'running';
+		this.store.upsert_member(this.teamId, {
+			name: this.member,
+			status: 'running',
+		});
+	}
+
 	private handle_event(event: any): void {
 		if (event.type === 'agent_start') {
-			this.status = 'running';
-			this.store.upsert_member(this.teamId, {
-				name: this.member,
-				status: 'running',
-			});
+			this.mark_busy();
 		} else if (event.type === 'agent_end') {
 			this.status = 'idle';
 			this.store.upsert_member(this.teamId, {
@@ -366,11 +374,7 @@ export class RpcTeammate {
 			const waiters = this.idleWaiters.splice(0);
 			for (const waiter of waiters) waiter();
 		} else if (event.type === 'tool_execution_start') {
-			this.status = 'running';
-			this.store.upsert_member(this.teamId, {
-				name: this.member,
-				status: 'running',
-			});
+			this.mark_busy();
 		}
 
 		if (

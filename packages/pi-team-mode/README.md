@@ -26,14 +26,16 @@ pi -e ./packages/pi-team-mode
 
 ## What it does
 
-This package adds local multi-agent coordination primitives to Pi:
+This package adds local multi-agent coordination to Pi:
 
 - create and inspect teams
 - spawn real RPC teammate sessions
-- assign, claim, and update tasks
+- queue, claim, and update tasks
 - send mailbox-backed direct messages
 - steer, follow up with, wait for, or shut down teammates
 - persist team state locally for the current project
+- recover cleanly from stale local locks and orphaned teammate
+  processes
 
 Team state is stored under:
 
@@ -76,7 +78,9 @@ example, provider credentials) to spawned teammates.
 ```
 
 Use `/team status` as the source of truth for member state, task
-state, and mailbox activity.
+state, and mailbox activity. Assigned tasks stay queued until the
+assigned teammate claims them, so the status view reflects actual work
+in progress.
 
 ## Tool API
 
@@ -96,8 +100,8 @@ orchestration. Important actions include:
 - `message_send`
 - `message_list`
 
-`fake_teammate_step` exists only for local tests and evals; real work
-should use `member_spawn`.
+Real work should use `member_spawn`. The fake teammate runner is kept
+out of the tool API and is only available to local test harnesses.
 
 ## Using from a custom harness
 

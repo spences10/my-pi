@@ -1,5 +1,24 @@
-import { describe, expect, it } from 'vitest';
-import { create_rpc_teammate_env } from './rpc-runner.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	RpcTeammate,
+	create_rpc_teammate_env,
+} from './rpc-runner.js';
+import { TeamStore } from './store.js';
+
+let root: string;
+let store: TeamStore;
+
+beforeEach(() => {
+	root = mkdtempSync(join(tmpdir(), 'my-pi-team-rpc-'));
+	store = new TeamStore(root);
+});
+
+afterEach(() => {
+	rmSync(root, { recursive: true, force: true });
+});
 
 describe('create_rpc_teammate_env', () => {
 	it('keeps team vars and strips ambient secrets by default', () => {
@@ -49,5 +68,31 @@ describe('create_rpc_teammate_env', () => {
 		);
 
 		expect(env.ANTHROPIC_API_KEY).toBe('secret');
+	});
+});
+
+describe('RpcTeammate lifecycle', () => {
+	it('waits for a busy teammate until agent_end arrives', async () => {
+		const team = store.create_team({ cwd: '/repo', name: 'demo' });
+		const runner = new RpcTeammate(store, {
+			teamId: team.id,
+			member: 'alice',
+			cwd: '/repo',
+			teamRoot: root,
+			extensionPath: '/tmp/team-extension.js',
+		});
+
+		(runner as any).mark_busy();
+		const wait = runner.waitForIdle(1_000);
+		setTimeout(() => {
+			(runner as any).handle_event({ type: 'agent_end' });
+		}, 0);
+
+		await expect(wait).resolves.toBeUndefined();
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({ status: 'idle' });
 	});
 });
