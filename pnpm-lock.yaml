@@ -76,7 +76,7 @@ importers:
         version: 0.2.2
       typebox:
         specifier: ^1.1.36
-        version: 1.1.36
+        version: 1.1.37
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.0
@@ -129,7 +129,7 @@ importers:
         version: link:../pi-redact
       typebox:
         specifier: ^1.1.36
-        version: 1.1.36
+        version: 1.1.37
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -157,7 +157,7 @@ importers:
         version: link:../pi-tui-modal
       typebox:
         specifier: ^1.1.36
-        version: 1.1.36
+        version: 1.1.37
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -333,7 +333,7 @@ importers:
         version: link:../pi-tui-modal
       typebox:
         specifier: ^1.1.36
-        version: 1.1.36
+        version: 1.1.37
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -2496,8 +2496,8 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
-  typebox@1.1.36:
-    resolution: {integrity: sha512-aGbdGqjFiCYy7XAe4+KUz53N2fB2ngumD1nImL2n6Hv0Tf8+bqx8k1DP+dOu3mLg3hOHbdl9K+2i7jomfYDk9A==}
+  typebox@1.1.37:
+    resolution: {integrity: sha512-jb7jp6KvOvvy5sd+11AfJ0/e0F0AS9RcOXd55oGi2ZnRHIGmFvrTaNF+ZidRmGBmmNTkM5KKl0Z37KzxJ+owEQ==}
 
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
@@ -3357,7 +3357,7 @@ snapshots:
   '@mariozechner/pi-agent-core@0.71.1(ws@8.20.0)(zod@4.4.1)':
     dependencies:
       '@mariozechner/pi-ai': 0.71.1(ws@8.20.0)(zod@4.4.1)
-      typebox: 1.1.36
+      typebox: 1.1.37
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -3377,7 +3377,7 @@ snapshots:
       openai: 6.26.0(ws@8.20.0)(zod@4.4.1)
       partial-json: 0.1.7
       proxy-agent: 6.5.0
-      typebox: 1.1.36
+      typebox: 1.1.37
       undici: 7.25.0
       zod-to-json-schema: 3.25.2(zod@4.4.1)
     transitivePeerDependencies:
@@ -3408,7 +3408,7 @@ snapshots:
       minimatch: 10.2.5
       proper-lockfile: 4.1.2
       strip-ansi: 7.2.0
-      typebox: 1.1.36
+      typebox: 1.1.37
       undici: 7.25.0
       uuid: 14.0.0
       yaml: 2.8.3
@@ -5025,7 +5025,7 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  typebox@1.1.36: {}
+  typebox@1.1.37: {}
 
   typescript@6.0.3: {}
 
