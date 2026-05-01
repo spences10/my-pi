@@ -173,7 +173,7 @@ redelivery on the next session.
 /team dashboard
 /team results
 /team teams
-/team switch
+/team switch [team-id-or-name]
 /team ui style badge
 /team resume
 /team clear

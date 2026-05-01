@@ -218,6 +218,96 @@ describe('nested team spawn guard', () => {
 	});
 });
 
+describe('team switch command', () => {
+	it('lists teams instead of opening a modal when no UI is available', async () => {
+		const root = mkdtempSync(join(tmpdir(), 'my-pi-team-switch-'));
+		try {
+			const store = new TeamStore(root);
+			const team = store.create_team({ cwd: '/repo', name: 'Alpha' });
+			const notifications: string[] = [];
+			let active_team_id = team.id;
+
+			await handle_team_command(
+				'switch',
+				{
+					cwd: '/repo',
+					hasUI: false,
+					ui: {
+						notify: (message: string) => notifications.push(message),
+					},
+				} as any,
+				store,
+				new Map(),
+				() => active_team_id,
+				(team_id) => {
+					active_team_id = team_id ?? '';
+				},
+				'lead',
+			);
+
+			expect(notifications.join('\n')).toContain('Alpha');
+			expect(active_team_id).toBe(team.id);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it('switches directly by team id or unique name', async () => {
+		const root = mkdtempSync(join(tmpdir(), 'my-pi-team-switch-'));
+		try {
+			const store = new TeamStore(root);
+			const first = store.create_team({
+				cwd: '/repo',
+				name: 'Alpha',
+			});
+			const second = store.create_team({
+				cwd: '/repo',
+				name: 'Beta',
+			});
+			const notifications: string[] = [];
+			let active_team_id = first.id;
+			const ctx = {
+				cwd: '/repo',
+				hasUI: false,
+				ui: {
+					notify: (message: string) => notifications.push(message),
+				},
+			} as any;
+
+			await handle_team_command(
+				'switch Beta',
+				ctx,
+				store,
+				new Map(),
+				() => active_team_id,
+				(team_id) => {
+					active_team_id = team_id ?? '';
+				},
+				'lead',
+			);
+			expect(active_team_id).toBe(second.id);
+
+			await handle_team_command(
+				`switch ${first.id}`,
+				ctx,
+				store,
+				new Map(),
+				() => active_team_id,
+				(team_id) => {
+					active_team_id = team_id ?? '';
+				},
+				'lead',
+			);
+			expect(active_team_id).toBe(first.id);
+			expect(notifications.join('\n')).toContain(
+				'Switched to team Beta',
+			);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+});
+
 describe('mailbox commands', () => {
 	it('marks selected messages read and acknowledged without acking the whole inbox', async () => {
 		const root = mkdtempSync(join(tmpdir(), 'my-pi-team-mailbox-'));

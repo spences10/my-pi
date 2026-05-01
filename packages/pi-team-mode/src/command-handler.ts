@@ -85,6 +85,27 @@ function get_latest_team_for_cwd(
 	return store.list_teams().find((team) => team.cwd === cwd);
 }
 
+function find_team_switch_target(
+	store: TeamStore,
+	target: string,
+): TeamConfig {
+	const trimmed = target.trim();
+	const teams = store.list_teams();
+	const by_id = teams.find((team) => team.id === trimmed);
+	if (by_id) return by_id;
+
+	const name_matches = teams.filter(
+		(team) => team.name.toLowerCase() === trimmed.toLowerCase(),
+	);
+	if (name_matches.length === 1) return name_matches[0]!;
+	if (name_matches.length > 1) {
+		throw new Error(
+			`Multiple teams are named ${trimmed}; use the team id instead.`,
+		);
+	}
+	throw new Error(`Unknown team: ${trimmed}`);
+}
+
 export function should_inject_team_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
 ): boolean {
@@ -994,15 +1015,25 @@ export async function handle_team_command(
 				break;
 			}
 			case 'switch': {
-				const team_id = await show_team_switcher(
-					ctx,
-					store,
-					get_active_team_id(),
-				);
-				if (!team_id) break;
-				set_active_team_id(team_id);
-				set_team_ui(ctx, store, team_id, runners);
-				const team = store.load_team(team_id);
+				const target = rest_text
+					? find_team_switch_target(store, rest_text).id
+					: has_modal_ui(ctx)
+						? await show_team_switcher(
+								ctx,
+								store,
+								get_active_team_id(),
+							)
+						: undefined;
+				if (!target) {
+					const statuses = await get_team_statuses(store, runners);
+					ctx.ui.notify(
+						format_teams_list(statuses, get_active_team_id()),
+					);
+					break;
+				}
+				set_active_team_id(target);
+				set_team_ui(ctx, store, target, runners);
+				const team = store.load_team(target);
 				ctx.ui.notify(`Switched to team ${team.name} (${team.id})`);
 				break;
 			}
