@@ -1,4 +1,10 @@
 import { format_rpc_message } from './formatting.js';
+import {
+	default_process_identity_verifier,
+	is_pid_alive,
+	verify_process_identity,
+	type ProcessIdentityVerifier,
+} from './process-identity.js';
 import type { RpcTeammate } from './rpc-runner.js';
 import {
 	TeamStore,
@@ -21,26 +27,40 @@ export async function deliver_message_to_runner(
 	]);
 }
 
-export function is_pid_alive(pid: number | undefined): boolean {
-	if (!pid || pid <= 0) return false;
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch {
-		return false;
-	}
-}
+export { is_pid_alive };
 
 async function wait_for_pid_exit(
 	pid: number,
 	timeout_ms: number,
+	verifier: ProcessIdentityVerifier,
 ): Promise<boolean> {
 	const deadline = Date.now() + timeout_ms;
 	while (Date.now() < deadline) {
-		if (!is_pid_alive(pid)) return true;
+		if (!verifier.is_alive(pid)) return true;
 		await new Promise((resolve) => setTimeout(resolve, 50));
 	}
-	return !is_pid_alive(pid);
+	return !verifier.is_alive(pid);
+}
+
+function verified_orphan_pid(
+	member: TeamMember,
+	verifier: ProcessIdentityVerifier,
+): number {
+	if (!member.pid || member.pid === process.pid) {
+		throw new Error(
+			`No safe orphaned teammate process to control: ${member.name}`,
+		);
+	}
+	const identity = verify_process_identity(
+		member.process_identity,
+		verifier,
+	);
+	if (!identity.ok) {
+		throw new Error(
+			`Refusing to control orphaned teammate ${member.name}: ${identity.reason}`,
+		);
+	}
+	return member.pid;
 }
 
 export async function shutdown_orphaned_member(
@@ -48,6 +68,7 @@ export async function shutdown_orphaned_member(
 	team_id: string,
 	member_name: string,
 	timeout_ms = 3_000,
+	verifier: ProcessIdentityVerifier = default_process_identity_verifier,
 ): Promise<TeamMember> {
 	await store.refresh_member_process_statuses(team_id);
 	const member = store
@@ -59,22 +80,18 @@ export async function shutdown_orphaned_member(
 			`Refusing to terminate non-teammate member: ${member_name}`,
 		);
 	}
-	if (!member.pid || member.pid === process.pid) {
-		throw new Error(
-			`No safe orphaned teammate process to terminate: ${member_name}`,
-		);
-	}
-	if (!is_pid_alive(member.pid)) {
+	if (!member.pid || !verifier.is_alive(member.pid)) {
 		await store.refresh_member_process_statuses(team_id);
 		return store
 			.list_members(team_id)
 			.find((item) => item.name === member_name)!;
 	}
+	const pid = verified_orphan_pid(member, verifier);
 
-	process.kill(member.pid, 'SIGTERM');
-	if (!(await wait_for_pid_exit(member.pid, timeout_ms))) {
-		process.kill(member.pid, 'SIGKILL');
-		await wait_for_pid_exit(member.pid, 1_000);
+	verifier.kill(pid, 'SIGTERM');
+	if (!(await wait_for_pid_exit(pid, timeout_ms, verifier))) {
+		verifier.kill(pid, 'SIGKILL');
+		await wait_for_pid_exit(pid, 1_000, verifier);
 	}
 	await store.refresh_member_process_statuses(team_id);
 	store.append_event(team_id, 'member_orphan_shutdown', {
@@ -91,19 +108,21 @@ export async function wait_for_orphaned_member(
 	team_id: string,
 	member_name: string,
 	timeout_ms: number,
+	verifier: ProcessIdentityVerifier = default_process_identity_verifier,
 ): Promise<TeamMember> {
 	await store.refresh_member_process_statuses(team_id);
 	const member = store
 		.list_members(team_id)
 		.find((item) => item.name === member_name);
 	if (!member) throw new Error(`Unknown teammate: ${member_name}`);
-	if (!member.pid || !is_pid_alive(member.pid)) {
+	if (!member.pid || !verifier.is_alive(member.pid)) {
 		await store.refresh_member_process_statuses(team_id);
 		return store
 			.list_members(team_id)
 			.find((item) => item.name === member_name)!;
 	}
-	if (!(await wait_for_pid_exit(member.pid, timeout_ms))) {
+	const pid = verified_orphan_pid(member, verifier);
+	if (!(await wait_for_pid_exit(pid, timeout_ms, verifier))) {
 		throw new Error(
 			`Timed out waiting for orphaned teammate ${member_name} to exit`,
 		);

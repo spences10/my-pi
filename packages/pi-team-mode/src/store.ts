@@ -9,6 +9,7 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
+import type { TeamProcessIdentity } from './process-identity.js';
 
 export type TeamMemberRole = 'lead' | 'teammate';
 export type TeamMemberStatus =
@@ -45,6 +46,7 @@ export interface TeamMember {
 	profile?: string;
 	session_file?: string;
 	pid?: number;
+	process_identity?: TeamProcessIdentity;
 	workspace_mode?: TeamWorkspaceMode;
 	worktree_path?: string;
 	branch?: string;
@@ -101,6 +103,7 @@ export interface UpsertMemberInput {
 	profile?: string;
 	session_file?: string;
 	pid?: number;
+	process_identity?: TeamProcessIdentity;
 	workspace_mode?: TeamWorkspaceMode;
 	worktree_path?: string;
 	branch?: string;
@@ -535,6 +538,12 @@ export class TeamStore {
 				: {}),
 			...((input.pid ?? existing?.pid)
 				? { pid: input.pid ?? existing?.pid }
+				: {}),
+			...((input.process_identity ?? existing?.process_identity)
+				? {
+						process_identity:
+							input.process_identity ?? existing?.process_identity,
+					}
 				: {}),
 			...(workspace_mode ? { workspace_mode: workspace_mode } : {}),
 			...(worktree_path ? { worktree_path: worktree_path } : {}),

@@ -91,7 +91,14 @@ explicitly with git.
 If a lead process restarts while teammate child processes are still
 alive, `/team status` marks those persisted PIDs as orphaned. Use
 `/team shutdown <member>` or `member_shutdown` to safely terminate a
-known orphaned teammate process and clean up its member state.
+known orphaned teammate process and clean up its member state. Before
+signalling an orphan, team mode verifies the persisted process
+identity (PID plus process start identity and command/session markers
+where the platform exposes them) to avoid PID-reuse kills. Linux uses
+`/proc` start ticks, command line, and cwd. Other platforms fall back
+to `ps` start time and command line when available. If the platform
+cannot provide enough identity to verify the process, orphan
+shutdown/wait is refused and you must clean up manually.
 
 Reusable teammate profiles are JSON files loaded from:
 

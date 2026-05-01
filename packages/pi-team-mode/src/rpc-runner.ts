@@ -6,6 +6,7 @@ import {
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
+import { capture_process_identity } from './process-identity.js';
 import { TeamStore, type TeamWorkspaceMode } from './store.js';
 
 export interface RpcTeammateOptions {
@@ -218,12 +219,19 @@ export class RpcTeammate {
 
 		this.proc = proc;
 		this.closed = false;
+		const process_identity = proc.pid
+			? capture_process_identity(proc.pid, {
+					session_dir,
+					marker: '--session-dir',
+				})
+			: undefined;
 		await this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: 'idle',
 			cwd: this.cwd,
 			model: this.options.model,
 			pid: proc.pid,
+			process_identity,
 			profile: this.options.profile,
 			workspace_mode: this.options.workspace_mode,
 			worktree_path: this.options.worktree_path,
@@ -264,6 +272,7 @@ export class RpcTeammate {
 					status: 'idle',
 					session_file,
 					pid: proc.pid,
+					process_identity,
 				});
 			}
 		} catch (error) {

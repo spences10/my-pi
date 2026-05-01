@@ -16,6 +16,7 @@ import {
 	should_show_team_widget,
 	validate_team_tool_params,
 } from './index.js';
+import { capture_process_identity } from './process-identity.js';
 import { TeamStore, type TeamStatus } from './store.js';
 
 const original_team_ui = process.env.MY_PI_TEAM_UI;
@@ -221,6 +222,9 @@ describe('orphaned teammate recovery', () => {
 				role: 'teammate',
 				status: 'idle',
 				pid: child.pid,
+				process_identity: child.pid
+					? capture_process_identity(child.pid)
+					: undefined,
 			});
 			const notifications: string[] = [];
 

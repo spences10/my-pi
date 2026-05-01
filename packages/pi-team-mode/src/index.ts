@@ -20,6 +20,7 @@ import {
 	format_completed_task_results,
 	format_team_dashboard,
 } from './formatting.js';
+import { capture_process_identity } from './process-identity.js';
 import { RpcTeammate } from './rpc-runner.js';
 import { TeamStore } from './store.js';
 import {
@@ -87,6 +88,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 					status: 'idle',
 					cwd: ctx.cwd,
 					pid: process.pid,
+					process_identity:
+						own_role === 'teammate'
+							? capture_process_identity(process.pid, {
+									marker: '--session-dir',
+								})
+							: undefined,
 				});
 			} catch {
 				active_team_id = undefined;
