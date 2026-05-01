@@ -20,6 +20,11 @@ export interface PreparedTeammateWorkspace {
 	worktree_path?: string;
 }
 
+interface GitWorktree {
+	path: string;
+	branch?: string;
+}
+
 function safe_ref_segment(value: string): string {
 	return value
 		.trim()
@@ -74,11 +79,63 @@ function is_git_worktree(path: string): boolean {
 	}
 }
 
+function normalize_branch_ref(value: string): string {
+	return value.replace(/^refs\/heads\//, '');
+}
+
+function list_git_worktrees(repo: string): GitWorktree[] {
+	const output = git(repo, ['worktree', 'list', '--porcelain']);
+	const worktrees: GitWorktree[] = [];
+	let current: GitWorktree | undefined;
+	for (const line of output.split('\n')) {
+		if (line.startsWith('worktree ')) {
+			current = { path: resolve(line.slice('worktree '.length)) };
+			worktrees.push(current);
+		} else if (current && line.startsWith('branch ')) {
+			current.branch = normalize_branch_ref(
+				line.slice('branch '.length),
+			);
+		}
+	}
+	return worktrees;
+}
+
+function validate_worktree_reuse(
+	repo: string,
+	path: string,
+	branch: string,
+): void {
+	const resolved_path = resolve(path);
+	const worktrees = list_git_worktrees(repo);
+	const same_path = worktrees.find(
+		(worktree) => resolve(worktree.path) === resolved_path,
+	);
+	const same_branch = worktrees.find(
+		(worktree) =>
+			worktree.branch === branch &&
+			resolve(worktree.path) !== resolved_path,
+	);
+
+	if (same_branch) {
+		throw new Error(
+			`Worktree branch ${branch} is already checked out at ${same_branch.path}. Choose a different branch for this teammate.`,
+		);
+	}
+
+	if (same_path?.branch && same_path.branch !== branch) {
+		throw new Error(
+			`Worktree path ${resolved_path} is already attached to branch ${same_path.branch}; requested ${branch}. Choose a different worktree path or branch.`,
+		);
+	}
+}
+
 function create_or_reuse_worktree(
 	repo: string,
 	path: string,
 	branch: string,
 ): void {
+	validate_worktree_reuse(repo, path, branch);
+
 	if (existsSync(path)) {
 		if (!is_git_worktree(path)) {
 			throw new Error(

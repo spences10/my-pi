@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import {
 	existsSync,
+	mkdirSync,
 	mkdtempSync,
 	rmSync,
 	writeFileSync,
@@ -81,5 +82,69 @@ describe('prepare_teammate_workspace', () => {
 
 		expect(reused.cwd).toBe(workspace.cwd);
 		expect(existsSync(join(workspace.cwd, 'dirty.txt'))).toBe(true);
+	});
+
+	it('refuses to reuse a branch checked out by another worktree', () => {
+		prepare_teammate_workspace({
+			team_id: 'team-1',
+			member: 'alice',
+			repo_cwd: repo,
+			team_root,
+			mode: 'worktree',
+			branch: 'team/shared',
+		});
+
+		expect(() =>
+			prepare_teammate_workspace({
+				team_id: 'team-1',
+				member: 'bob',
+				repo_cwd: repo,
+				team_root,
+				mode: 'worktree',
+				branch: 'team/shared',
+			}),
+		).toThrow(/already checked out/);
+	});
+
+	it('refuses to reuse a worktree path with a different branch', () => {
+		const path = join(team_root, 'explicit', 'shared-path');
+		prepare_teammate_workspace({
+			team_id: 'team-1',
+			member: 'alice',
+			repo_cwd: repo,
+			team_root,
+			mode: 'worktree',
+			branch: 'team/alice',
+			worktree_path: path,
+		});
+
+		expect(() =>
+			prepare_teammate_workspace({
+				team_id: 'team-1',
+				member: 'bob',
+				repo_cwd: repo,
+				team_root,
+				mode: 'worktree',
+				branch: 'team/bob',
+				worktree_path: path,
+			}),
+		).toThrow(/already attached to branch team\/alice/);
+	});
+
+	it('refuses an existing non-git worktree path', () => {
+		const path = join(team_root, 'not-git');
+		mkdirSync(path, { recursive: true });
+
+		expect(() =>
+			prepare_teammate_workspace({
+				team_id: 'team-1',
+				member: 'alice',
+				repo_cwd: repo,
+				team_root,
+				mode: 'worktree',
+				branch: 'team/alice',
+				worktree_path: path,
+			}),
+		).toThrow(/not a git worktree/);
 	});
 });

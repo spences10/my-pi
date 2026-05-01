@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	find_shared_mutating_conflict,
+	find_worktree_assignment_conflict,
 	format_completed_task_results,
 	format_team_dashboard,
 	get_team_ui_mode,
@@ -269,6 +270,89 @@ describe('orphaned teammate recovery', () => {
 			}
 			rmSync(root, { recursive: true, force: true });
 		}
+	});
+});
+
+describe('worktree assignment guard', () => {
+	it('finds active teammates using the same worktree path', () => {
+		expect(
+			find_worktree_assignment_conflict(
+				[
+					{
+						name: 'alice',
+						role: 'teammate',
+						status: 'idle',
+						cwd: '/repo/.worktrees/alice',
+						workspace_mode: 'worktree',
+						worktree_path: '/repo/.worktrees/alice',
+						branch: 'team/alice',
+						last_seen_at: '2026-04-30T00:00:00.000Z',
+						created_at: '2026-04-30T00:00:00.000Z',
+						updated_at: '2026-04-30T00:00:00.000Z',
+					},
+				],
+				{
+					cwd: '/repo/.worktrees/alice',
+					workspace_mode: 'worktree',
+					worktree_path: '/repo/.worktrees/alice',
+					branch: 'team/bob',
+				},
+			),
+		).toMatchObject({ name: 'alice' });
+	});
+
+	it('finds active teammates using the same worktree branch', () => {
+		expect(
+			find_worktree_assignment_conflict(
+				[
+					{
+						name: 'alice',
+						role: 'teammate',
+						status: 'running',
+						cwd: '/repo/.worktrees/alice',
+						workspace_mode: 'worktree',
+						worktree_path: '/repo/.worktrees/alice',
+						branch: 'team/shared',
+						last_seen_at: '2026-04-30T00:00:00.000Z',
+						created_at: '2026-04-30T00:00:00.000Z',
+						updated_at: '2026-04-30T00:00:00.000Z',
+					},
+				],
+				{
+					cwd: '/repo/.worktrees/bob',
+					workspace_mode: 'worktree',
+					worktree_path: '/repo/.worktrees/bob',
+					branch: 'team/shared',
+				},
+			),
+		).toMatchObject({ name: 'alice' });
+	});
+
+	it('ignores offline worktree assignments', () => {
+		expect(
+			find_worktree_assignment_conflict(
+				[
+					{
+						name: 'alice',
+						role: 'teammate',
+						status: 'offline',
+						cwd: '/repo/.worktrees/alice',
+						workspace_mode: 'worktree',
+						worktree_path: '/repo/.worktrees/alice',
+						branch: 'team/alice',
+						last_seen_at: '2026-04-30T00:00:00.000Z',
+						created_at: '2026-04-30T00:00:00.000Z',
+						updated_at: '2026-04-30T00:00:00.000Z',
+					},
+				],
+				{
+					cwd: '/repo/.worktrees/alice',
+					workspace_mode: 'worktree',
+					worktree_path: '/repo/.worktrees/alice',
+					branch: 'team/alice',
+				},
+			),
+		).toBeUndefined();
 	});
 });
 
