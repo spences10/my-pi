@@ -297,6 +297,9 @@ importers:
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:../pi-child-env
+      '@spences10/pi-redact':
+        specifier: workspace:*
+        version: link:../pi-redact
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal

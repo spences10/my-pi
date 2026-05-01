@@ -27,14 +27,20 @@
 	},
 	"files": [
 		"dist",
-		"src/extensions",
 		"README.md"
 	],
 	"type": "module",
 	"main": "./dist/api.js",
+	"types": "./dist/api.d.ts",
 	"exports": {
-		".": "./dist/api.js",
-		"./cli": "./dist/index.js"
+		".": {
+			"types": "./dist/api.d.ts",
+			"import": "./dist/api.js"
+		},
+		"./cli": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
 	},
 	"scripts": {
 		"build": "pnpm --filter \"./packages/*\" run build && vp pack",

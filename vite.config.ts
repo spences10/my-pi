@@ -5,8 +5,8 @@ export default defineConfig({
 		entry: ['src/index.ts', 'src/api.ts'],
 		format: ['esm'],
 		sourcemap: true,
-		dts: false,
 		outExtensions: () => ({ js: '.js' }),
+		dts: true,
 	},
 	test: {
 		include: ['src/**/*.test.ts'],

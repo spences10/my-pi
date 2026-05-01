@@ -2,6 +2,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readdirSync,
+	readFileSync,
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
@@ -435,6 +436,25 @@ describe('TeamStore', async () => {
 		).toMatchObject({
 			acknowledged_at: expect.any(String),
 		});
+	});
+
+	it('redacts and bounds persisted event data', async () => {
+		const team = store.create_team({ cwd: '/repo' });
+		store.append_event(team.id, 'member_stderr', {
+			text: `token = ghp_${'a'.repeat(40)}\n${'x'.repeat(9000)}`,
+		});
+
+		const lines = readFileSync(store.events_path(team.id), 'utf8')
+			.trim()
+			.split('\n');
+		const event = JSON.parse(lines.at(-1)!) as {
+			data: { text: string };
+		};
+
+		expect(event.data.text).toContain('[REDACTED:');
+		expect(event.data.text).not.toContain(`ghp_${'a'.repeat(40)}`);
+		expect(event.data.text).toContain('[truncated');
+		expect(event.data.text.length).toBeLessThan(8100);
 	});
 
 	it('persists teammate workspace metadata', async () => {

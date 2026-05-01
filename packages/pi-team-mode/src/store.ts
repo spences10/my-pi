@@ -1,3 +1,4 @@
+import { redact_text } from '@spences10/pi-redact';
 import {
 	existsSync,
 	mkdirSync,
@@ -141,8 +142,26 @@ export interface TeamStatus {
 	counts: Record<TeamTaskStatus, number>;
 }
 
+const MAX_EVENT_STRING_LENGTH = 8000;
+
 function now(): string {
 	return new Date().toISOString();
+}
+
+function sanitize_event_data(value: unknown): unknown {
+	if (typeof value === 'string') {
+		const redacted = redact_text(value).redacted;
+		if (redacted.length <= MAX_EVENT_STRING_LENGTH) return redacted;
+		return `${redacted.slice(0, MAX_EVENT_STRING_LENGTH)}… [truncated ${redacted.length - MAX_EVENT_STRING_LENGTH} chars]`;
+	}
+	if (Array.isArray(value)) return value.map(sanitize_event_data);
+	if (!value || typeof value !== 'object') return value;
+	return Object.fromEntries(
+		Object.entries(value).map(([key, entry]) => [
+			key,
+			sanitize_event_data(entry),
+		]),
+	);
 }
 
 function random_suffix(): string {
@@ -1003,7 +1022,7 @@ export class TeamStore {
 			id: `${Date.now().toString(36)}-${random_suffix()}`,
 			type,
 			created_at: now(),
-			data,
+			data: sanitize_event_data(data),
 		};
 		mkdirSync(this.team_dir(team_id), {
 			recursive: true,
