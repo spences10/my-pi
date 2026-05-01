@@ -203,6 +203,12 @@ async function show_skills_home_modal(
 				description: 'Enable, disable, import, and sync skills',
 			},
 			{
+				value: 'browse',
+				label: 'Browse details',
+				description:
+					'Open read-only detail views for discovered skills',
+			},
+			{
 				value: 'import',
 				label: 'Import skill',
 				description: 'Copy an external skill into Pi-native storage',
@@ -392,6 +398,105 @@ async function show_skills_manager_modal(
 	return false;
 }
 
+function skill_status(skill: ManagedSkill): string {
+	if (skill.kind === 'external') return 'importable';
+	return skill.enabled ? 'enabled' : 'disabled';
+}
+
+function format_skill_detail(skill: ManagedSkill): string {
+	const lines = [
+		`# ${skill.name}`,
+		'',
+		`Status: ${skill_status(skill)}`,
+		`Source: ${skill.source}`,
+		`Key: ${skill.key}`,
+		`Kind: ${skill.kind}`,
+		'',
+		skill.description,
+		'',
+		`Base directory: ${skill.baseDir}`,
+		`Skill file: ${skill.skillPath}`,
+	];
+
+	if (skill.plugin) {
+		lines.push(
+			'',
+			'Plugin',
+			`- ID: ${skill.plugin.pluginId}`,
+			`- Version: ${skill.plugin.version}`,
+			`- Install path: ${skill.plugin.installPath}`,
+		);
+		if (skill.plugin.gitCommitSha) {
+			lines.push(`- Commit: ${skill.plugin.gitCommitSha}`);
+		}
+	}
+
+	if (skill.import_meta) {
+		lines.push(
+			'',
+			'Import metadata',
+			`- Upstream source: ${skill.import_meta.source}`,
+			`- Imported at: ${skill.import_meta.imported_at}`,
+			`- Last synced at: ${skill.import_meta.last_synced_at}`,
+			`- Upstream path: ${skill.import_meta.upstream_skill_path}`,
+		);
+		if (skill.import_meta.upstream_version) {
+			lines.push(
+				`- Upstream version: ${skill.import_meta.upstream_version}`,
+			);
+		}
+		if (skill.import_meta.upstream_git_commit_sha) {
+			lines.push(
+				`- Upstream commit: ${skill.import_meta.upstream_git_commit_sha}`,
+			);
+		}
+	}
+
+	return lines.join('\n');
+}
+
+function format_skill_list(skills: ManagedSkill[]): string {
+	if (skills.length === 0) return 'No skills found.';
+	return sort_skills(skills)
+		.map(
+			(skill) =>
+				`${skill_status(skill).padEnd(10)} ${skill.name} (${skill.key})`,
+		)
+		.join('\n');
+}
+
+function find_skill(
+	skills: ManagedSkill[],
+	key_or_name: string,
+): ManagedSkill {
+	const query = key_or_name.trim();
+	const exact_key = skills.find((skill) => skill.key === query);
+	if (exact_key) return exact_key;
+
+	const exact_name = skills.filter((skill) => skill.name === query);
+	if (exact_name.length === 1) return exact_name[0]!;
+	if (exact_name.length > 1) {
+		throw new Error(
+			`Multiple skills named ${query}. Use an exact key instead.`,
+		);
+	}
+
+	const lower = query.toLowerCase();
+	const fuzzy = skills.filter(
+		(skill) =>
+			skill.key.toLowerCase() === lower ||
+			skill.name.toLowerCase() === lower,
+	);
+	if (fuzzy.length === 1) return fuzzy[0]!;
+	if (fuzzy.length > 1) {
+		throw new Error(
+			`Multiple skills matched ${query}. Use an exact key instead.`,
+		);
+	}
+
+	throw new Error(`Unknown skill: ${query}`);
+}
+
 async function pick_skill(
 	ctx: ExtensionCommandContext,
 	options: {
@@ -407,10 +512,41 @@ async function pick_skill(
 		items: options.skills.map((skill) => ({
 			value: skill.key,
 			label: skill.name,
-			description: `${skill.source} • ${skill.key}`,
+			description: `${skill_status(skill)} • ${skill.source} • ${skill.key}`,
 		})),
 		empty_message: options.empty_message,
 	});
+}
+
+async function show_skill_detail_modal(
+	ctx: ExtensionCommandContext,
+	skill: ManagedSkill,
+): Promise<void> {
+	await show_text_modal(ctx, {
+		title: skill.name,
+		subtitle: `${skill_status(skill)} • ${skill.source}`,
+		text: format_skill_detail(skill),
+	});
+}
+
+async function show_skill_list_modal(
+	ctx: ExtensionCommandContext,
+	mgr: SkillsManager,
+): Promise<void> {
+	while (true) {
+		const skills = sort_skills([
+			...mgr.discover(),
+			...mgr.discover_importable(),
+		]);
+		const key = await pick_skill(ctx, {
+			title: 'Browse skills',
+			subtitle: `${mgr.discover().length} managed • ${mgr.discover_importable().length} importable`,
+			skills,
+			empty_message: 'No skills found',
+		});
+		if (!key) return;
+		await show_skill_detail_modal(ctx, find_skill(skills, key));
+	}
 }
 
 async function show_refresh_summary(
@@ -456,16 +592,42 @@ async function show_defaults_modal(
 export default async function skills(pi: ExtensionAPI) {
 	const mgr = create_skills_manager();
 
-	const subs = ['import', 'sync', 'refresh', 'defaults'];
+	const subs = [
+		'list',
+		'show',
+		'import',
+		'sync',
+		'refresh',
+		'defaults',
+	];
 
 	pi.registerCommand('skills', {
 		description: 'Manage pi-native skills and import external skills',
 		getArgumentCompletions: (prefix) => {
-			const parts = prefix.trim().split(/\s+/);
-			if (parts.length <= 1) {
+			const parts = prefix.trimStart().split(/\s+/);
+			const has_trailing_space = /\s$/.test(prefix);
+			if (parts.length <= 1 && !has_trailing_space) {
 				return subs
 					.filter((s) => s.startsWith(parts[0] || ''))
 					.map((s) => ({ value: s, label: s }));
+			}
+
+			if (parts[0] === 'show') {
+				const q = parts.slice(1).join(' ').toLowerCase();
+				return sort_skills([
+					...mgr.discover(),
+					...mgr.discover_importable(),
+				])
+					.filter(
+						(s) =>
+							s.key.toLowerCase().includes(q) ||
+							s.name.toLowerCase().includes(q),
+					)
+					.slice(0, 20)
+					.map((s) => ({
+						value: `${parts[0]} ${s.key}`,
+						label: s.key,
+					}));
 			}
 
 			if (parts[0] === 'import') {
@@ -520,6 +682,8 @@ export default async function skills(pi: ExtensionAPI) {
 
 					if (selected === 'manage') {
 						if (await show_skills_manager_modal(ctx, mgr)) return;
+					} else if (selected === 'browse') {
+						await show_skill_list_modal(ctx, mgr);
 					} else if (selected === 'import') {
 						const key = await pick_skill(ctx, {
 							title: 'Import skill',
@@ -589,6 +753,56 @@ export default async function skills(pi: ExtensionAPI) {
 			const arg = rest.join(' ');
 
 			switch (sub) {
+				case 'list': {
+					const skills = [
+						...mgr.discover(),
+						...mgr.discover_importable(),
+					];
+					if (ctx.hasUI) {
+						await show_skill_list_modal(ctx, mgr);
+					} else {
+						ctx.ui.notify(format_skill_list(skills));
+					}
+					break;
+				}
+				case 'show': {
+					const skills = [
+						...mgr.discover(),
+						...mgr.discover_importable(),
+					];
+					let target = arg;
+					if (!target && ctx.hasUI) {
+						target =
+							(await pick_skill(ctx, {
+								title: 'Show skill details',
+								subtitle: 'Open a read-only skill detail view',
+								skills: sort_skills(skills),
+								empty_message: 'No skills found',
+							})) ?? '';
+						if (!target) return;
+					}
+					if (!target) {
+						ctx.ui.notify(
+							'Usage: /skills show <key|name>',
+							'warning',
+						);
+						return;
+					}
+					try {
+						const skill = find_skill(skills, target);
+						if (ctx.hasUI) {
+							await show_skill_detail_modal(ctx, skill);
+						} else {
+							ctx.ui.notify(format_skill_detail(skill));
+						}
+					} catch (error) {
+						ctx.ui.notify(
+							error instanceof Error ? error.message : String(error),
+							'warning',
+						);
+					}
+					break;
+				}
 				case 'import': {
 					let target = arg;
 					if (!target && ctx.hasUI) {
@@ -651,14 +865,21 @@ export default async function skills(pi: ExtensionAPI) {
 					}
 					try {
 						const result = mgr.sync_skill(target);
-						ctx.ui.notify(
-							result.changed
-								? `Synced ${target}. Reloading...`
-								: `${target} is already up to date.`,
-							'info',
-						);
 						if (result.changed) {
+							ctx.ui.notify(`Synced ${target}. Reloading...`, 'info');
 							await ctx.reload();
+							return;
+						}
+						if (ctx.hasUI) {
+							await show_text_modal(ctx, {
+								title: 'Skill already up to date',
+								text: `${target} is already up to date.`,
+							});
+						} else {
+							ctx.ui.notify(
+								`${target} is already up to date.`,
+								'info',
+							);
 						}
 						return;
 					} catch (error) {
