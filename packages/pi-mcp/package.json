@@ -37,14 +37,14 @@
 		"test": "pnpm --filter @spences10/pi-child-env run build && pnpm --filter @spences10/pi-project-trust run build && vitest run"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.70.6",
+		"@mariozechner/pi-coding-agent": "^0.71.0",
 		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-project-trust": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",
-		"typescript": "^6.0.0",
+		"typescript": "^6.0.3",
 		"vitest": "^4.1.5"
 	},
 	"engines": {

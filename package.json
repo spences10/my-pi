@@ -50,9 +50,9 @@
 		"release": "pnpm run build && changeset publish"
 	},
 	"dependencies": {
-		"@mariozechner/pi-ai": "^0.70.6",
-		"@mariozechner/pi-coding-agent": "^0.70.6",
-		"@mariozechner/pi-tui": "^0.70.6",
+		"@mariozechner/pi-ai": "^0.71.0",
+		"@mariozechner/pi-coding-agent": "^0.71.0",
+		"@mariozechner/pi-tui": "^0.71.0",
 		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-confirm-destructive": "workspace:*",
 		"@spences10/pi-lsp": "workspace:*",
@@ -69,7 +69,7 @@
 		"@spences10/pi-themes": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*",
 		"citty": "^0.2.2",
-		"typebox": "^1.1.35"
+		"typebox": "^1.1.36"
 	},
 	"devDependencies": {
 		"@changesets/cli": "^2.31.0",

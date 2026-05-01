@@ -33,12 +33,12 @@
 		"check": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.70.6",
-		"@mariozechner/pi-tui": "^0.70.6"
+		"@mariozechner/pi-coding-agent": "^0.71.0",
+		"@mariozechner/pi-tui": "^0.71.0"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",
-		"typescript": "^6.0.0",
+		"typescript": "^6.0.3",
 		"vitest": "^4.1.5"
 	},
 	"engines": {
