@@ -507,10 +507,15 @@ export class RpcTeammate {
 		this.reject_all(error);
 		await this.clear_unacknowledged_deliveries();
 		await this.block_in_progress_tasks();
-		await this.store.upsert_member(this.team_id, {
-			name: this.member,
-			status: 'offline',
-		});
+		try {
+			await this.store.upsert_member(this.team_id, {
+				name: this.member,
+				status: 'offline',
+			});
+		} catch {
+			// The team store may have been removed during test or explicit
+			// cleanup while the child process was still closing.
+		}
 		this.options.on_exit?.(this.member);
 	}
 
