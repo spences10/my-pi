@@ -29,7 +29,8 @@ pi -e ./packages/pi-skills
 Pi already has native skill discovery. This package adds a management
 layer for mixed skill ecosystems:
 
-- discovers Pi-native skills in `~/.pi/agent/skills`
+- discovers Pi-native skills in `$PI_CODING_AGENT_DIR/skills`
+  (default: `~/.pi/agent/skills`)
 - discovers user-local Claude skills in `~/.claude/skills`
 - discovers skills bundled inside installed Claude plugins
 - imports plugin skills into Pi-native skill storage
@@ -39,8 +40,12 @@ layer for mixed skill ecosystems:
 Imported skills are copied into:
 
 ```text
-~/.pi/agent/skills/<skill-name>
+$PI_CODING_AGENT_DIR/skills/<skill-name>
 ```
+
+The `~/.claude` locations are intentional upstream discovery sources,
+not Pi-managed state. Use `--no-skills` or `--untrusted` when sandbox
+runs must not read user-local Claude skills/plugins.
 
 Import metadata is stored beside each imported skill so sync can
 detect local edits and upstream changes.

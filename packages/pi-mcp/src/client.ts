@@ -10,6 +10,8 @@ interface McpServerTrustMetadata {
 	metadata_trusted?: false;
 	/** Disabled in MCP config. Kept visible so `/mcp` can re-enable it. */
 	disabled?: boolean;
+	/** Request timeout in milliseconds. Primarily used by tests. */
+	request_timeout_ms?: number;
 }
 
 export interface McpStdioServerConfig extends McpServerTrustMetadata {
@@ -64,6 +66,7 @@ export class McpClient {
 	>();
 	#buffer = '';
 	#sessionId?: string;
+	#closedError?: Error;
 
 	constructor(config: McpServerConfig) {
 		this.#config = config;
@@ -116,6 +119,7 @@ export class McpClient {
 
 	async #connect_stdio(): Promise<void> {
 		const {
+			name,
 			command,
 			args = [],
 			env,
@@ -124,6 +128,21 @@ export class McpClient {
 		this.#proc = spawn(command, args, {
 			stdio: ['pipe', 'pipe', 'pipe'],
 			env: create_child_process_env(env),
+		});
+
+		this.#proc.on('error', (error) => {
+			this.#close_stdio(
+				new Error(
+					`MCP server ${name} failed to start: ${error.message}`,
+				),
+			);
+		});
+		this.#proc.on('exit', (code, signal) => {
+			this.#close_stdio(
+				new Error(
+					`MCP server ${name} exited before responding (${code ?? signal ?? 'unknown'})`,
+				),
+			);
 		});
 
 		this.#proc.stdout!.setEncoding('utf8');
@@ -144,6 +163,8 @@ export class McpClient {
 	}
 
 	#request(method: string, params: unknown): Promise<unknown> {
+		if (this.#closedError) return Promise.reject(this.#closedError);
+
 		return new Promise((resolve, reject) => {
 			const id = this.#nextId++;
 			this.#pending.set(id, { resolve, reject });
@@ -161,8 +182,17 @@ export class McpClient {
 					this.#pending.delete(id);
 					reject(new Error(`MCP request ${method} timed out`));
 				}
-			}, 30_000);
+			}, this.#config.request_timeout_ms ?? 30_000);
 		});
+	}
+
+	#close_stdio(error: Error): void {
+		if (this.#closedError) return;
+		this.#closedError = error;
+		for (const [id, pending] of this.#pending) {
+			this.#pending.delete(id);
+			pending.reject(error);
+		}
 	}
 
 	async #send(msg: JsonRpcRequest): Promise<void> {

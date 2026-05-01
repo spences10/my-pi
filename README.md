@@ -227,6 +227,21 @@ The agent directory holds Pi-managed state such as:
 - `sessions/`
 - `telemetry.db`
 - `telemetry.json`
+- `mcp.json`, MCP backups, and MCP profiles
+- project trust stores for MCP, hooks, LSP binaries, and project
+  resources
+- imported Pi-native skills under `skills/`
+
+Intentional exceptions: my-pi still reads user-local Claude
+skill/plugin sources from `~/.claude` when the skills extension is
+enabled. Those are upstream sources for discovery/import, not
+Pi-managed state. Use `--no-skills` or `--untrusted` for hermetic
+sandbox runs.
+
+During runtime startup my-pi temporarily exposes the effective agent
+directory through `PI_CODING_AGENT_DIR` for built-in extension
+compatibility. SDK-created runtimes restore values they changed when
+`runtime.dispose()` completes.
 
 A practical sandbox command looks like:
 

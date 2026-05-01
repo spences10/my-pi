@@ -3,6 +3,7 @@ import {
 	type IncomingMessage,
 	type ServerResponse,
 } from 'node:http';
+import { execPath } from 'node:process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { McpClient } from './client.js';
 
@@ -28,6 +29,50 @@ function write_sse(res: ServerResponse, message: unknown) {
 	res.write(`data: ${JSON.stringify(message)}\n\n`);
 	res.end();
 }
+
+describe('McpClient stdio transport failures', () => {
+	it('fails quickly when the server binary cannot be spawned', async () => {
+		const client = new McpClient({
+			name: 'missing',
+			transport: 'stdio',
+			command: '__my_pi_missing_mcp_binary__',
+			request_timeout_ms: 100,
+		});
+
+		await expect(client.connect()).rejects.toThrow(
+			/MCP server missing failed to start|MCP server not connected/,
+		);
+	});
+
+	it('fails when a stdio server exits before responding', async () => {
+		const client = new McpClient({
+			name: 'bad-output',
+			transport: 'stdio',
+			command: execPath,
+			args: ['-e', 'console.log("not json");'],
+			request_timeout_ms: 1_000,
+		});
+
+		await expect(client.connect()).rejects.toThrow(
+			/MCP server bad-output exited before responding/,
+		);
+	});
+
+	it('times out when a stdio server never responds', async () => {
+		const client = new McpClient({
+			name: 'silent',
+			transport: 'stdio',
+			command: execPath,
+			args: ['-e', 'setTimeout(() => {}, 10_000);'],
+			request_timeout_ms: 50,
+		});
+
+		await expect(client.connect()).rejects.toThrow(
+			/MCP request initialize timed out/,
+		);
+		await client.disconnect();
+	});
+});
 
 describe('McpClient http transport', () => {
 	const servers: Array<{ close: () => Promise<void> }> = [];

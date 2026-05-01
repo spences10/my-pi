@@ -19,13 +19,9 @@ import {
 	parse_thinking_level,
 	parse_tool_allowlist,
 } from './cli-args.js';
+import { install_sqlite_warning_filter } from './warnings.js';
 
-// Suppress node:sqlite ExperimentalWarning without removing host listeners.
-process.on('warning', (warning) => {
-	if (warning.name !== 'ExperimentalWarning') {
-		console.warn(warning);
-	}
-});
+install_sqlite_warning_filter();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
