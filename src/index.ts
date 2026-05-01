@@ -20,8 +20,7 @@ import {
 	parse_tool_allowlist,
 } from './cli-args.js';
 
-// Suppress node:sqlite ExperimentalWarning
-process.removeAllListeners('warning');
+// Suppress node:sqlite ExperimentalWarning without removing host listeners.
 process.on('warning', (warning) => {
 	if (warning.name !== 'ExperimentalWarning') {
 		console.warn(warning);

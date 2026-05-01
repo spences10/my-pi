@@ -106,13 +106,16 @@ const ALLOW_VALUES = new Set(['1', 'true', 'yes', 'allow']);
 const SKIP_VALUES = new Set(['0', 'false', 'no', 'skip', 'disable']);
 const GLOBAL_FALLBACK_VALUES = new Set(['global', 'global-only']);
 
+function get_agent_dir(): string {
+	const configured = process.env.PI_CODING_AGENT_DIR;
+	if (configured?.startsWith('~/')) {
+		return join(homedir(), configured.slice(2));
+	}
+	return configured || join(homedir(), '.pi', 'agent');
+}
+
 export function default_project_trust_store_path(): string {
-	return join(
-		homedir(),
-		'.pi',
-		'agent',
-		'trusted-project-resources.json',
-	);
+	return join(get_agent_dir(), 'trusted-project-resources.json');
 }
 
 export function apply_project_trust_untrusted_defaults(

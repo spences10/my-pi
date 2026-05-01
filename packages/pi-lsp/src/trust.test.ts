@@ -7,9 +7,14 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { is_lsp_binary_trusted, trust_lsp_binary } from './trust.js';
+import {
+	default_lsp_trust_store_path,
+	is_lsp_binary_trusted,
+	trust_lsp_binary,
+} from './trust.js';
 
 const files: string[] = [];
+const original_agent_dir = process.env.PI_CODING_AGENT_DIR;
 
 function trust_store_path(): string {
 	const path = join(
@@ -22,9 +27,22 @@ function trust_store_path(): string {
 
 describe('LSP binary trust', () => {
 	afterEach(() => {
+		if (original_agent_dir === undefined) {
+			delete process.env.PI_CODING_AGENT_DIR;
+		} else {
+			process.env.PI_CODING_AGENT_DIR = original_agent_dir;
+		}
 		for (const file of files.splice(0)) {
 			rmSync(file, { force: true });
 		}
+	});
+
+	it('uses PI_CODING_AGENT_DIR for the default trust store', () => {
+		process.env.PI_CODING_AGENT_DIR = '/tmp/my-pi-lsp-agent';
+
+		expect(default_lsp_trust_store_path()).toBe(
+			'/tmp/my-pi-lsp-agent/trusted-lsp-binaries.json',
+		);
 	});
 
 	it('trusts a project-local language server binary by path', () => {

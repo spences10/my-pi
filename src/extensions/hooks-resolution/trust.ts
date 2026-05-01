@@ -1,16 +1,16 @@
+import { getAgentDir } from '@mariozechner/pi-coding-agent';
 import {
 	is_project_subject_trusted,
 	read_project_trust_store,
 	trust_project_subject,
 	type ProjectTrustSubject,
 } from '@spences10/pi-project-trust';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 const HOOKS_CONFIG_ENV = 'MY_PI_HOOKS_CONFIG';
 
 export function default_hooks_trust_store_path(): string {
-	return join(homedir(), '.pi', 'agent', 'trusted-hooks.json');
+	return join(getAgentDir(), 'trusted-hooks.json');
 }
 
 export function create_hooks_config_trust_subject(

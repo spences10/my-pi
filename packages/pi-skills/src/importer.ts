@@ -1,3 +1,4 @@
+import { getAgentDir } from '@mariozechner/pi-coding-agent';
 import { createHash } from 'node:crypto';
 import {
 	cpSync,
@@ -9,7 +10,6 @@ import {
 	statSync,
 	writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import {
 	dirname,
 	isAbsolute,
@@ -26,7 +26,7 @@ import {
 const IMPORT_METADATA_VERSION = 1;
 
 function get_managed_skills_dir(): string {
-	return join(homedir(), '.pi', 'agent', 'skills');
+	return join(getAgentDir(), 'skills');
 }
 
 function ensure_dir(path: string): void {

@@ -110,6 +110,47 @@ const PACKAGE_THEME_DIR = resolve(
 const PI_AGENT_DIR_ENV = 'PI_CODING_AGENT_DIR';
 const MY_PI_RUNTIME_MODE_ENV = 'MY_PI_RUNTIME_MODE';
 
+type EnvSnapshot = Map<string, string | undefined>;
+
+function snapshot_env(
+	env: NodeJS.ProcessEnv,
+	keys: Iterable<string>,
+): EnvSnapshot {
+	return new Map(Array.from(keys, (key) => [key, env[key]]));
+}
+
+function restore_env(
+	env: NodeJS.ProcessEnv,
+	snapshot: EnvSnapshot,
+): void {
+	for (const [key, value] of snapshot) {
+		if (value === undefined) delete env[key];
+		else env[key] = value;
+	}
+}
+
+function wrap_runtime_env_restore<
+	T extends { dispose(): Promise<void> },
+>(runtime: T, restore: () => void): T {
+	const dispose = runtime.dispose.bind(runtime);
+	let restored = false;
+	const restore_once = () => {
+		if (restored) return;
+		restored = true;
+		restore();
+	};
+
+	runtime.dispose = (async () => {
+		try {
+			await dispose();
+		} finally {
+			restore_once();
+		}
+	}) as T['dispose'];
+
+	return runtime;
+}
+
 const UNTRUSTED_CHILD_ENV_DEFAULTS: Record<string, string> = {
 	MY_PI_CHILD_ENV_ALLOWLIST: '',
 	MY_PI_MCP_ENV_ALLOWLIST: '',
@@ -327,8 +368,23 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		untrusted_repo = false,
 	} = options;
 
+	const env_keys_to_restore = new Set<string>([
+		MY_PI_RUNTIME_MODE_ENV,
+	]);
+	if (agent_dir) env_keys_to_restore.add(PI_AGENT_DIR_ENV);
+	const env_snapshot = snapshot_env(process.env, env_keys_to_restore);
+	let restore_runtime_env = () =>
+		restore_env(process.env, env_snapshot);
+
 	if (untrusted_repo) {
-		apply_untrusted_repo_defaults();
+		const applied = apply_untrusted_repo_defaults();
+		if (applied.length) {
+			const restore_previous = restore_runtime_env;
+			restore_runtime_env = () => {
+				for (const key of applied) delete process.env[key];
+				restore_previous();
+			};
+		}
 	}
 
 	const effective_agent_dir = resolve_agent_dir(cwd, agent_dir);
@@ -476,14 +532,22 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		};
 	};
 
-	return createAgentSessionRuntime(create_runtime, {
-		cwd,
-		agentDir: effective_agent_dir,
-		sessionManager: SessionManager.create(
-			cwd,
-			session_dir ? resolve(cwd, session_dir) : undefined,
-		),
-	});
+	try {
+		return wrap_runtime_env_restore(
+			await createAgentSessionRuntime(create_runtime, {
+				cwd,
+				agentDir: effective_agent_dir,
+				sessionManager: SessionManager.create(
+					cwd,
+					session_dir ? resolve(cwd, session_dir) : undefined,
+				),
+			}),
+			restore_runtime_env,
+		);
+	} catch (error) {
+		restore_runtime_env();
+		throw error;
+	}
 }
 
 export { InteractiveMode, runPrintMode, runRpcMode };

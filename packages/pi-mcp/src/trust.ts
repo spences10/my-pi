@@ -1,16 +1,16 @@
+import { getAgentDir } from '@mariozechner/pi-coding-agent';
 import {
 	is_project_subject_trusted,
 	read_project_trust_store,
 	trust_project_subject,
 	type ProjectTrustSubject,
 } from '@spences10/pi-project-trust';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 const MCP_PROJECT_CONFIG_ENV = 'MY_PI_MCP_PROJECT_CONFIG';
 
 export function default_mcp_trust_store_path(): string {
-	return join(homedir(), '.pi', 'agent', 'trusted-mcp-projects.json');
+	return join(getAgentDir(), 'trusted-mcp-projects.json');
 }
 
 export function create_mcp_project_trust_subject(

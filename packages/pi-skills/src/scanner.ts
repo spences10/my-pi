@@ -1,4 +1,5 @@
 import {
+	getAgentDir,
 	parseFrontmatter,
 	type SkillFrontmatter,
 } from '@mariozechner/pi-coding-agent';
@@ -196,7 +197,7 @@ export function scan_managed_skills(): DiscoveredSkill[] {
 	}
 
 	for (const skill of scan_dir_for_skills(
-		join(homedir(), '.pi', 'agent', 'skills'),
+		join(getAgentDir(), 'skills'),
 		{
 			source: 'pi-native',
 			kind: 'managed',

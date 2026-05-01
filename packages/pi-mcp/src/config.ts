@@ -1,3 +1,4 @@
+import { getAgentDir } from '@mariozechner/pi-coding-agent';
 import { createHash } from 'node:crypto';
 import {
 	existsSync,
@@ -8,7 +9,6 @@ import {
 	rmSync,
 	writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type {
 	McpHttpServerConfig,
@@ -215,15 +215,15 @@ function project_mcp_config_path(cwd: string): string {
 }
 
 function global_mcp_config_path(): string {
-	return join(homedir(), '.pi', 'agent', 'mcp.json');
+	return join(getAgentDir(), 'mcp.json');
 }
 
 function mcp_backups_dir(): string {
-	return join(homedir(), '.pi', 'agent', 'mcp-backups');
+	return join(getAgentDir(), 'mcp-backups');
 }
 
 function mcp_profiles_dir(): string {
-	return join(homedir(), '.pi', 'agent', 'mcp-profiles');
+	return join(getAgentDir(), 'mcp-profiles');
 }
 
 function timestamp_for_filename(date = new Date()): string {

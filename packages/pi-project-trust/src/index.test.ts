@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	apply_project_trust_untrusted_defaults,
+	default_project_trust_store_path,
 	is_project_subject_trusted,
 	normalize_project_trust_env_decision,
 	read_project_trust_store,
@@ -19,6 +20,7 @@ import {
 } from './index.js';
 
 const files: string[] = [];
+const original_agent_dir = process.env.PI_CODING_AGENT_DIR;
 
 function trust_store_path(): string {
 	const path = join(
@@ -46,6 +48,11 @@ function subject(
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	if (original_agent_dir === undefined) {
+		delete process.env.PI_CODING_AGENT_DIR;
+	} else {
+		process.env.PI_CODING_AGENT_DIR = original_agent_dir;
+	}
 	for (const file of files.splice(0)) {
 		rmSync(file, { force: true });
 		rmSync(dirname(file), { force: true, recursive: true });
@@ -124,6 +131,14 @@ describe('apply_project_trust_untrusted_defaults', () => {
 });
 
 describe('project trust store helpers', () => {
+	it('uses PI_CODING_AGENT_DIR for the default trust store', () => {
+		process.env.PI_CODING_AGENT_DIR = '/tmp/my-pi-agent-dir';
+
+		expect(default_project_trust_store_path()).toBe(
+			'/tmp/my-pi-agent-dir/trusted-project-resources.json',
+		);
+	});
+
 	it('persists hash-based trust and invalidates changed hashes', () => {
 		const store = trust_store_path();
 		const trusted = subject();

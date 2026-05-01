@@ -82,11 +82,13 @@ describe('skills importing and syncing', () => {
 	let home_dir: string;
 	let original_home: string | undefined;
 	let original_xdg: string | undefined;
+	let original_agent_dir: string | undefined;
 
 	beforeEach(() => {
 		home_dir = tmp_test_dir();
 		original_home = process.env.HOME;
 		original_xdg = process.env.XDG_CONFIG_HOME;
+		original_agent_dir = process.env.PI_CODING_AGENT_DIR;
 		process.env.HOME = home_dir;
 		process.env.XDG_CONFIG_HOME = join(home_dir, '.config');
 		vi.resetModules();
@@ -103,7 +105,51 @@ describe('skills importing and syncing', () => {
 		} else {
 			process.env.XDG_CONFIG_HOME = original_xdg;
 		}
+		if (original_agent_dir === undefined) {
+			delete process.env.PI_CODING_AGENT_DIR;
+		} else {
+			process.env.PI_CODING_AGENT_DIR = original_agent_dir;
+		}
 		rmSync(home_dir, { recursive: true, force: true });
+	});
+
+	it('imports pi-native skills under PI_CODING_AGENT_DIR when set', async () => {
+		const agent_dir = join(home_dir, 'isolated-agent');
+		process.env.PI_CODING_AGENT_DIR = agent_dir;
+		const install_path = join(
+			home_dir,
+			'plugin-cache',
+			'isolated',
+			'1.0.0',
+		);
+		write_skill(
+			join(install_path, 'skills', 'isolated'),
+			'isolated',
+			'Use isolated agent dir',
+		);
+		write_plugin_registry(home_dir, {
+			'isolated@vendor': {
+				installPath: install_path,
+				version: '1.0.0',
+			},
+		});
+
+		const { scan_importable_skills } = await import('./scanner.js');
+		const { import_external_skill } = await import('./importer.js');
+		const skill = scan_importable_skills().find(
+			(skill) => skill.name === 'isolated',
+		);
+
+		const result = import_external_skill(skill!);
+
+		expect(result.skillDir).toBe(
+			join(agent_dir, 'skills', 'isolated'),
+		);
+		expect(
+			existsSync(
+				join(home_dir, '.pi', 'agent', 'skills', 'isolated'),
+			),
+		).toBe(false);
 	});
 
 	it('imports an external plugin skill into pi-native storage with tracking metadata', async () => {

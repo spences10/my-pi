@@ -33,6 +33,7 @@ function tmp_dir(): string {
 describe('load_mcp_config', () => {
 	const dirs: string[] = [];
 	const original_home = process.env.HOME;
+	const original_agent_dir = process.env.PI_CODING_AGENT_DIR;
 
 	afterEach(() => {
 		for (const dir of dirs.splice(0)) {
@@ -43,6 +44,42 @@ describe('load_mcp_config', () => {
 		} else {
 			process.env.HOME = original_home;
 		}
+		if (original_agent_dir === undefined) {
+			delete process.env.PI_CODING_AGENT_DIR;
+		} else {
+			process.env.PI_CODING_AGENT_DIR = original_agent_dir;
+		}
+	});
+
+	it('uses PI_CODING_AGENT_DIR for global config files', () => {
+		const agent_dir = tmp_dir();
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(agent_dir, home, cwd);
+		process.env.HOME = home;
+		process.env.PI_CODING_AGENT_DIR = agent_dir;
+
+		writeFileSync(
+			join(agent_dir, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					global: { command: 'global-cmd' },
+				},
+			}),
+		);
+		mkdirSync(join(home, '.pi', 'agent'), { recursive: true });
+		writeFileSync(
+			join(home, '.pi', 'agent', 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					wrong: { command: 'wrong-cmd' },
+				},
+			}),
+		);
+
+		expect(load_mcp_config(cwd)).toMatchObject([
+			{ name: 'global', command: 'global-cmd' },
+		]);
 	});
 
 	it('returns empty for missing config files', () => {
