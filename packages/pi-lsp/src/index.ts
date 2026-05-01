@@ -6,6 +6,10 @@ import {
 	type ExtensionContext,
 } from '@mariozechner/pi-coding-agent';
 import { resolve_project_trust } from '@spences10/pi-project-trust';
+import {
+	show_picker_modal,
+	show_text_modal,
+} from '@spences10/pi-tui-modal';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -850,12 +854,44 @@ async function handle_lsp_command(
 	clear_language_state: (language?: string) => Promise<void>,
 ): Promise<void> {
 	const parts = args.trim() ? args.trim().split(/\s+/, 2) : [];
+	if (parts.length === 0 && has_modal_ui(ctx)) {
+		while (true) {
+			const selected = await show_lsp_home_modal(
+				ctx,
+				cwd,
+				clients_by_server,
+				failed_servers,
+			);
+			if (!selected) return;
+			if (selected === 'restart') {
+				await handle_lsp_restart_modal(ctx, clear_language_state);
+				continue;
+			}
+			await show_lsp_text_modal(
+				ctx,
+				selected === 'running'
+					? 'Running LSP servers'
+					: selected === 'failed'
+						? 'Failed LSP servers'
+						: 'LSP status',
+				format_lsp_view(
+					selected,
+					cwd,
+					clients_by_server,
+					failed_servers,
+				),
+			);
+		}
+	}
+
 	const [subcommand = 'status', target] = parts;
 
 	switch (subcommand) {
 		case 'status':
 		case 'list':
-			ctx.ui.notify(
+			await present_lsp_text(
+				ctx,
+				'LSP status',
 				format_status_lines(
 					cwd,
 					clients_by_server,
@@ -864,6 +900,10 @@ async function handle_lsp_command(
 			);
 			return;
 		case 'restart': {
+			if (!target && has_modal_ui(ctx)) {
+				await handle_lsp_restart_modal(ctx, clear_language_state);
+				return;
+			}
 			if (!target || target === 'all') {
 				await clear_language_state();
 				ctx.ui.notify('Restarted all language server state.');
@@ -886,6 +926,162 @@ async function handle_lsp_command(
 				'warning',
 			);
 	}
+}
+
+function has_modal_ui(ctx: ExtensionCommandContext): boolean {
+	return ctx.hasUI && typeof ctx.ui.custom === 'function';
+}
+
+async function present_lsp_text(
+	ctx: ExtensionCommandContext,
+	title: string,
+	text: string,
+): Promise<void> {
+	if (has_modal_ui(ctx)) {
+		await show_lsp_text_modal(ctx, title, text);
+		return;
+	}
+	ctx.ui.notify(text);
+}
+
+async function show_lsp_home_modal(
+	ctx: ExtensionCommandContext,
+	cwd: string,
+	clients_by_server: Map<string, ServerState>,
+	failed_servers: Map<string, LspToolErrorDetails>,
+): Promise<string | undefined> {
+	const running_count = clients_by_server.size;
+	const failed_count = failed_servers.size;
+	return await show_picker_modal(ctx, {
+		title: 'Language servers',
+		subtitle: `${running_count} running • ${failed_count} failed • ${list_supported_languages().length} supported`,
+		items: [
+			{
+				value: 'status',
+				label: 'Status',
+				description: `All configured language servers for ${cwd}`,
+			},
+			{
+				value: 'running',
+				label: 'Running servers',
+				description: `${running_count} active workspace server(s)`,
+			},
+			{
+				value: 'failed',
+				label: 'Failed servers',
+				description: `${failed_count} failed server(s)`,
+			},
+			{
+				value: 'restart',
+				label: 'Restart server',
+				description: 'Pick all servers or a supported language',
+			},
+		],
+		footer: 'enter opens • esc close/back',
+	});
+}
+
+async function show_lsp_text_modal(
+	ctx: ExtensionCommandContext,
+	title: string,
+	text: string,
+): Promise<void> {
+	await show_text_modal(ctx, {
+		title,
+		text,
+		max_visible_lines: 20,
+		overlay_options: { width: '90%', minWidth: 72 },
+	});
+}
+
+async function handle_lsp_restart_modal(
+	ctx: ExtensionCommandContext,
+	clear_language_state: (language?: string) => Promise<void>,
+): Promise<void> {
+	const selected = await show_picker_modal(ctx, {
+		title: 'Restart LSP server',
+		subtitle: 'Clear cached language server state',
+		items: [
+			{
+				value: 'all',
+				label: 'All servers',
+				description: 'Stop every running language server',
+			},
+			...list_supported_languages().map((language) => ({
+				value: language,
+				label: language,
+				description: `Restart ${language} language server state`,
+			})),
+		],
+		footer: 'enter restarts • esc back',
+	});
+	if (!selected) return;
+	if (selected === 'all') {
+		await clear_language_state();
+		ctx.ui.notify('Restarted all language server state.');
+		return;
+	}
+	await clear_language_state(selected);
+	ctx.ui.notify(`Restarted ${selected} language server state.`);
+}
+
+function format_lsp_view(
+	view: string,
+	cwd: string,
+	clients_by_server: Map<string, ServerState>,
+	failed_servers: Map<string, LspToolErrorDetails>,
+): string {
+	if (view === 'running') {
+		const lines = format_running_server_lines(clients_by_server);
+		return lines.length > 0
+			? lines.join('\n')
+			: 'No running language servers.';
+	}
+	if (view === 'failed') {
+		const lines = format_failed_server_lines(failed_servers);
+		return lines.length > 0
+			? lines.join('\n')
+			: 'No failed language servers.';
+	}
+	return format_status_lines(
+		cwd,
+		clients_by_server,
+		failed_servers,
+	).join('\n');
+}
+
+function format_running_server_lines(
+	clients_by_server: Map<string, ServerState>,
+): string[] {
+	return Array.from(clients_by_server.values())
+		.sort(
+			(a, b) =>
+				a.language.localeCompare(b.language) ||
+				a.workspace_root.localeCompare(b.workspace_root),
+		)
+		.map(
+			(state) =>
+				`${state.language}: running (ready=${state.client.is_ready()}) — ${state.command} [workspace ${state.workspace_root}]`,
+		);
+}
+
+function format_failed_server_lines(
+	failed_servers: Map<string, LspToolErrorDetails>,
+): string[] {
+	return Array.from(failed_servers.values())
+		.sort(
+			(a, b) =>
+				(a.language ?? '').localeCompare(b.language ?? '') ||
+				(a.workspace_root ?? '').localeCompare(
+					b.workspace_root ?? '',
+				),
+		)
+		.map((failure) => {
+			const workspace = failure.workspace_root
+				? ` [workspace ${failure.workspace_root}]`
+				: '';
+			return `${failure.language ?? 'unknown'}: failed — ${failure.message}${workspace}`;
+		});
 }
 
 function format_status_lines(

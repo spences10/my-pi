@@ -40,6 +40,7 @@
 		"@mariozechner/pi-coding-agent": "^0.71.0",
 		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-project-trust": "workspace:*",
+		"@spences10/pi-tui-modal": "workspace:*",
 		"typebox": "^1.1.36"
 	},
 	"devDependencies": {

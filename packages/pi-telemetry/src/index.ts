@@ -5,6 +5,10 @@ import type {
 	ExtensionContext,
 	SessionShutdownEvent,
 } from '@mariozechner/pi-coding-agent';
+import {
+	show_picker_modal,
+	show_text_modal,
+} from '@spences10/pi-tui-modal';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -570,6 +574,210 @@ export function create_telemetry_extension(
 			}
 		}
 
+		function has_modal_ui(ctx: ExtensionCommandContext): boolean {
+			return ctx.hasUI && typeof ctx.ui.custom === 'function';
+		}
+
+		async function show_telemetry_text_modal(
+			ctx: ExtensionCommandContext,
+			title: string,
+			text: string,
+		): Promise<void> {
+			await show_text_modal(ctx, {
+				title,
+				text,
+				max_visible_lines: 20,
+				overlay_options: { width: '90%', minWidth: 72 },
+			});
+		}
+
+		async function show_telemetry_home_modal(
+			ctx: ExtensionCommandContext,
+		): Promise<string | undefined> {
+			return await show_picker_modal(ctx, {
+				title: 'Telemetry',
+				subtitle: `${effective_enabled ? 'enabled' : 'disabled'} • ${db_path}`,
+				items: [
+					{
+						value: 'status',
+						label: 'Status',
+						description:
+							'Effective state, saved default, override, and database path',
+					},
+					{
+						value: 'stats',
+						label: 'Stats',
+						description:
+							'Aggregate runs, turns, tools, and database size',
+					},
+					{
+						value: 'query',
+						label: 'Query runs',
+						description: `Latest ${DEFAULT_QUERY_LIMIT} runs`,
+					},
+					{
+						value: 'export',
+						label: 'Export runs',
+						description: 'Write latest matching runs to JSON',
+					},
+					{
+						value: 'on',
+						label: 'Enable',
+						description: 'Save telemetry enabled as default',
+					},
+					{
+						value: 'off',
+						label: 'Disable',
+						description: 'Save telemetry disabled as default',
+					},
+				],
+				footer: 'enter runs action • esc close/back',
+			});
+		}
+
+		async function open_readonly_store(
+			ctx: ExtensionCommandContext,
+		): Promise<{
+			active_store: TelemetryStore;
+			should_close_after: boolean;
+		} | null> {
+			if (!existsSync(db_path)) {
+				await show_telemetry_text_modal(
+					ctx,
+					'Telemetry',
+					`No telemetry database at ${db_path}`,
+				);
+				return null;
+			}
+			const active_store = store ?? (await load_store(db_path));
+			return {
+				active_store,
+				should_close_after: active_store !== store,
+			};
+		}
+
+		async function handle_telemetry_home_action(
+			ctx: ExtensionCommandContext,
+			action: string,
+		): Promise<void> {
+			if (action === 'status') {
+				await show_telemetry_text_modal(
+					ctx,
+					'Telemetry status',
+					format_telemetry_status({
+						saved_enabled: config.enabled,
+						effective_enabled,
+						override: options.enabled,
+						db_path,
+					}),
+				);
+				return;
+			}
+
+			if (action === 'stats') {
+				const opened = await open_readonly_store(ctx);
+				if (!opened) return;
+				try {
+					await show_telemetry_text_modal(
+						ctx,
+						'Telemetry stats',
+						format_telemetry_stats({
+							db_path,
+							stats: opened.active_store.get_stats(),
+						}),
+					);
+				} finally {
+					if (opened.should_close_after) opened.active_store.close();
+				}
+				return;
+			}
+
+			if (action === 'query' || action === 'export') {
+				const opened = await open_readonly_store(ctx);
+				if (!opened) return;
+				try {
+					const filters: TelemetryQueryFilters = {
+						limit: DEFAULT_QUERY_LIMIT,
+					};
+					const runs = opened.active_store.query_runs(filters);
+					if (action === 'query') {
+						await show_telemetry_text_modal(
+							ctx,
+							'Telemetry runs',
+							format_telemetry_query_results({
+								db_path,
+								filters,
+								runs,
+							}),
+						);
+						return;
+					}
+
+					const export_path = get_default_telemetry_export_path(cwd);
+					const confirmed = await ctx.ui.confirm(
+						'Export telemetry runs?',
+						`Write ${runs.length} run${runs.length === 1 ? '' : 's'} to ${export_path}`,
+					);
+					if (!confirmed) return;
+					mkdirSync(dirname(export_path), { recursive: true });
+					writeFileSync(
+						export_path,
+						JSON.stringify(
+							{
+								exported_at: new Date().toISOString(),
+								db_path,
+								schema_version:
+									opened.active_store.get_stats().schema_version,
+								filters,
+								runs,
+							},
+							null,
+							2,
+						),
+						'utf-8',
+					);
+					ctx.ui.notify(
+						`Exported ${runs.length} telemetry run${runs.length === 1 ? '' : 's'} to ${export_path}`,
+						'info',
+					);
+				} finally {
+					if (opened.should_close_after) opened.active_store.close();
+				}
+				return;
+			}
+
+			const next_enabled = action === 'on';
+			const confirmed = await ctx.ui.confirm(
+				`${next_enabled ? 'Enable' : 'Disable'} telemetry?`,
+				`Save telemetry ${next_enabled ? 'enabled' : 'disabled'} as the default for future sessions.`,
+			);
+			if (!confirmed) return;
+			config = { ...config, enabled: next_enabled };
+			save_telemetry_config(config);
+			if (options.enabled !== undefined) {
+				ctx.ui.notify(
+					[
+						`Saved default telemetry ${next_enabled ? 'enabled' : 'disabled'}.`,
+						`Current process still uses ${options.enabled ? '--telemetry' : '--no-telemetry'}.`,
+					].join(' '),
+					'info',
+				);
+				return;
+			}
+			effective_enabled = next_enabled;
+			if (effective_enabled) {
+				await ensure_store();
+				ctx.ui.notify(
+					`Telemetry enabled. Writing to ${db_path}`,
+					'info',
+				);
+				return;
+			}
+			finish_active_run_on_disable('telemetry disabled');
+			close_store();
+			ctx.ui.notify('Telemetry disabled.', 'info');
+		}
+
 		pi.registerCommand('telemetry', {
 			description:
 				'Manage local SQLite telemetry for evals and debugging',
@@ -581,6 +789,14 @@ export function create_telemetry_extension(
 				).map((command) => ({ value: command, label: command }));
 			},
 			handler: async (args, ctx) => {
+				if (!args.trim() && has_modal_ui(ctx)) {
+					while (true) {
+						const selected = await show_telemetry_home_modal(ctx);
+						if (!selected) return;
+						await handle_telemetry_home_action(ctx, selected);
+					}
+				}
+
 				const parsed = parse_telemetry_command(args);
 				const subcommand = parsed.subcommand;
 				if (!COMMANDS.includes(subcommand)) {
