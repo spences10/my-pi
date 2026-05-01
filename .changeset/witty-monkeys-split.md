@@ -2,5 +2,7 @@
 '@spences10/pi-team-mode': patch
 ---
 
-Extract team command parsing, team tool parameter validation, and
-workspace assignment guards from the team-mode extension bootstrap.
+Split team-mode bootstrap into focused command handling, tool
+execution, activity polling, UI status, formatting, config, runner
+orchestration, team tool parameter validation, and workspace guard
+modules.
