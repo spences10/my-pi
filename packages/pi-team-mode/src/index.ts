@@ -16,6 +16,8 @@ import {
 	type SettingItem,
 } from '@mariozechner/pi-tui';
 import {
+	show_confirm_modal,
+	show_input_modal,
 	show_modal,
 	show_picker_modal,
 	show_settings_modal,
@@ -1305,6 +1307,16 @@ async function show_team_home_modal(
 					'Members, tasks, mailboxes, transcripts, and usage',
 			},
 			{
+				value: 'task add',
+				label: 'Create task',
+				description: 'Queue work with an optional assignee',
+			},
+			{
+				value: 'member add',
+				label: 'Add member',
+				description: 'Register a teammate name before assigning work',
+			},
+			{
 				value: 'results',
 				label: 'Summarize completed results',
 				description: `${active_status.counts.completed} completed task(s)`,
@@ -1321,6 +1333,14 @@ async function show_team_home_modal(
 					active_status.tasks.length > 0
 						? `${active_status.tasks.length} tasks in this team`
 						: 'No tasks yet',
+			},
+			{
+				value: 'members',
+				label: 'Teammate actions',
+				description:
+					active_status.members.length > 0
+						? `${active_status.members.length} members available`
+						: 'No members yet',
 			},
 			{
 				value: 'switch',
@@ -1415,8 +1435,429 @@ async function show_team_task_picker(
 		items,
 		max_visible: Math.min(Math.max(items.length, 8), 14),
 		empty_message: 'No team tasks yet',
-		footer: 'enter shows task detail • esc cancel',
+		footer: 'enter manages task • esc back',
 	});
+}
+
+type TeamTaskModalAction =
+	| 'show'
+	| 'done'
+	| 'block'
+	| 'cancel'
+	| 'reopen'
+	| 'assign'
+	| 'unassign';
+
+async function show_team_task_action_modal(
+	ctx: ExtensionCommandContext,
+	status: TeamStatus,
+	task: TeamStatus['tasks'][number],
+): Promise<TeamTaskModalAction | undefined> {
+	const items: SelectItem[] = [
+		{
+			value: 'show',
+			label: 'Show details',
+			description: 'Read the task description and result note',
+		},
+	];
+
+	if (task.status !== 'completed') {
+		items.push({
+			value: 'done',
+			label: 'Mark completed',
+			description: 'Optionally add a result note',
+		});
+	}
+	if (task.status !== 'blocked') {
+		items.push({
+			value: 'block',
+			label: 'Mark blocked',
+			description: 'Add a blocker note',
+		});
+	}
+	if (task.status !== 'cancelled') {
+		items.push({
+			value: 'cancel',
+			label: 'Cancel task',
+			description: 'Optionally add a cancellation reason',
+		});
+	}
+	if (task.status !== 'pending') {
+		items.push({
+			value: 'reopen',
+			label: 'Reopen task',
+			description: 'Move back to pending and clear the result note',
+		});
+	}
+	if (status.members.length > 0) {
+		items.push({
+			value: 'assign',
+			label: 'Assign member',
+			description: 'Choose a teammate for this task',
+		});
+	}
+	if (task.assignee) {
+		items.push({
+			value: 'unassign',
+			label: 'Unassign',
+			description: `Remove ${task.assignee} from this task`,
+		});
+	}
+
+	const selected = await show_picker_modal(ctx, {
+		title: `Task #${task.id}`,
+		subtitle: `${task.status} • ${task.assignee ? `@${task.assignee}` : 'unassigned'}`,
+		items,
+		footer: 'enter runs action • esc back',
+	});
+	return selected as TeamTaskModalAction | undefined;
+}
+
+async function show_team_member_picker(
+	ctx: ExtensionCommandContext,
+	status: TeamStatus,
+	options: { title: string; subtitle?: string },
+): Promise<string | undefined> {
+	return await show_picker_modal(ctx, {
+		title: options.title,
+		subtitle: options.subtitle,
+		items: status.members.map((member) => ({
+			value: member.name,
+			label: member.name,
+			description: `${member.role} • ${format_member_status(member)}`,
+		})),
+		empty_message: 'No members yet. Add one first.',
+	});
+}
+
+async function prompt_team_name(
+	ctx: ExtensionCommandContext,
+): Promise<string | undefined> {
+	return await show_input_modal(ctx, {
+		title: 'Create team',
+		label: 'Team name (optional)',
+		allow_empty: true,
+	});
+}
+
+async function prompt_member_name(
+	ctx: ExtensionCommandContext,
+): Promise<string | undefined> {
+	return await show_input_modal(ctx, {
+		title: 'Add member',
+		label: 'Member name',
+	});
+}
+
+async function prompt_task_note(
+	ctx: ExtensionCommandContext,
+	options: { title: string; label: string },
+): Promise<string | undefined> {
+	return await show_input_modal(ctx, {
+		title: options.title,
+		label: options.label,
+		allow_empty: true,
+	});
+}
+
+async function prompt_task_create(
+	ctx: ExtensionCommandContext,
+	status: TeamStatus,
+): Promise<{ title: string; assignee?: string } | undefined> {
+	const title = await show_input_modal(ctx, {
+		title: 'Create task',
+		label: 'Task title',
+	});
+	if (!title) return undefined;
+	if (status.members.length === 0) return { title };
+
+	const assignee = await show_picker_modal(ctx, {
+		title: 'Assign task',
+		subtitle: title,
+		items: [
+			{
+				value: '__unassigned__',
+				label: 'Leave unassigned',
+				description: 'Queue the task without an owner',
+			},
+			...status.members.map((member) => ({
+				value: member.name,
+				label: member.name,
+				description: `${member.role} • ${format_member_status(member)}`,
+			})),
+		],
+		footer: 'enter selects • esc leaves unassigned',
+	});
+	return {
+		title,
+		assignee:
+			assignee && assignee !== '__unassigned__'
+				? assignee
+				: undefined,
+	};
+}
+
+type TeamMemberModalAction =
+	| 'dm'
+	| 'send'
+	| 'steer'
+	| 'wait'
+	| 'shutdown';
+
+async function show_team_member_action_modal(
+	ctx: ExtensionCommandContext,
+	member: TeamStatus['members'][number],
+	runner: RpcTeammate | undefined,
+): Promise<TeamMemberModalAction | undefined> {
+	const is_running = runner?.is_running;
+	const is_orphaned = member.status === 'running_orphaned';
+	const items: SelectItem[] = [
+		{
+			value: 'dm',
+			label: 'Send mailbox DM',
+			description: 'Leave a persistent team message',
+		},
+	];
+	if (is_running) {
+		items.push(
+			{
+				value: 'send',
+				label: 'Send prompt',
+				description: 'Send a normal prompt to the running teammate',
+			},
+			{
+				value: 'steer',
+				label: 'Steer current turn',
+				description: 'Queue guidance for the current teammate turn',
+			},
+		);
+	}
+	if (is_running || is_orphaned) {
+		items.push(
+			{
+				value: 'wait',
+				label: 'Wait for idle/offline',
+				description: 'Block until the teammate stops running',
+			},
+			{
+				value: 'shutdown',
+				label: 'Shutdown teammate',
+				description: 'Ask attached runner to stop or terminate safe orphan',
+			},
+		);
+	}
+
+	const selected = await show_picker_modal(ctx, {
+		title: member.name,
+		subtitle: `${member.role} • ${format_member_status(member)}`,
+		items,
+		footer: 'enter runs action • esc back',
+	});
+	return selected as TeamMemberModalAction | undefined;
+}
+
+async function show_team_member_actions_modal(
+	ctx: ExtensionCommandContext,
+	store: TeamStore,
+	team_id: string,
+	runners: Map<string, RpcTeammate>,
+): Promise<void> {
+	while (true) {
+		const status = await get_team_status(store, team_id, runners);
+		const member_name = await show_team_member_picker(ctx, status, {
+			title: 'Teammate actions',
+			subtitle: `${status.team.name} • ${status.members.length} member(s)`,
+		});
+		if (!member_name) return;
+		const member = status.members.find(
+			(item) => item.name === member_name,
+		);
+		if (!member) continue;
+		const action = await show_team_member_action_modal(
+			ctx,
+			member,
+			runners.get(member.name),
+		);
+		if (!action) continue;
+		await run_member_modal_action(
+			ctx,
+			store,
+			team_id,
+			runners,
+			member.name,
+			action,
+		);
+	}
+}
+
+async function run_member_modal_action(
+	ctx: ExtensionCommandContext,
+	store: TeamStore,
+	team_id: string,
+	runners: Map<string, RpcTeammate>,
+	member_name: string,
+	action: TeamMemberModalAction,
+): Promise<void> {
+	if (action === 'dm') {
+		const body = await show_input_modal(ctx, {
+			title: `DM ${member_name}`,
+			label: 'Message',
+		});
+		if (!body) return;
+		const message = await store.send_message(team_id, {
+			from: 'lead',
+			to: member_name,
+			body,
+		});
+		const runner = runners.get(message.to);
+		if (runner?.is_running) {
+			await deliver_message_to_runner(store, team_id, runner, message);
+		}
+		ctx.ui.notify(`Sent ${message.id} to ${message.to}`);
+		return;
+	}
+
+	if (action === 'send' || action === 'steer') {
+		const prompt = await show_input_modal(ctx, {
+			title:
+				action === 'send'
+					? `Send prompt to ${member_name}`
+					: `Steer ${member_name}`,
+			label: action === 'send' ? 'Prompt' : 'Steering message',
+		});
+		if (!prompt) return;
+		const runner = runners.get(member_name);
+		if (!runner?.is_running)
+			throw new Error(`No running teammate: ${member_name}`);
+		if (action === 'send') await runner.prompt(prompt);
+		else await runner.steer(prompt);
+		ctx.ui.notify(
+			action === 'send'
+				? `Sent prompt to ${member_name}`
+				: `Steered ${member_name}`,
+		);
+		return;
+	}
+
+	if (action === 'wait') {
+		const runner = runners.get(member_name);
+		if (runner?.is_running) await runner.wait_for_idle();
+		else await wait_for_orphaned_member(store, team_id, member_name, 120_000);
+		ctx.ui.notify(`${member_name} is no longer running`);
+		return;
+	}
+
+	const confirmed = await show_confirm_modal(ctx, {
+		title: `Shutdown ${member_name}?`,
+		message: 'Attached runners are asked to stop; safe orphaned teammate processes are terminated.',
+		confirm_label: 'Shutdown',
+	});
+	if (!confirmed) return;
+	const runner = runners.get(member_name);
+	if (runner?.is_running) {
+		await runner.shutdown('leader requested shutdown');
+		runners.delete(member_name);
+		await store.upsert_member(team_id, {
+			name: member_name,
+			status: 'offline',
+		});
+		ctx.ui.notify(`Shutdown requested for ${member_name}`);
+	} else {
+		const member = await shutdown_orphaned_member(
+			store,
+			team_id,
+			member_name,
+		);
+		ctx.ui.notify(
+			`Terminated orphaned teammate ${member_name}; status ${member.status}`,
+		);
+	}
+}
+
+async function run_task_modal_action(
+	ctx: ExtensionCommandContext,
+	store: TeamStore,
+	team_id: string,
+	status: TeamStatus,
+	task_id: string,
+	action: TeamTaskModalAction,
+): Promise<void> {
+	const task = store.load_task(team_id, task_id);
+	if (action === 'show') {
+		await show_team_text_modal(ctx, {
+			title: `Task #${task_id}`,
+			subtitle: status.team.name,
+			text: format_task_detail(task),
+		});
+		return;
+	}
+
+	if (action === 'assign') {
+		const assignee = await show_team_member_picker(ctx, status, {
+			title: `Assign task #${task_id}`,
+			subtitle: task.title,
+		});
+		if (!assignee) return;
+		await store.update_task(team_id, task_id, { assignee });
+		ctx.ui.notify(`Assigned task #${task_id} to ${assignee}`);
+		return;
+	}
+
+	if (action === 'unassign') {
+		const confirmed = await show_confirm_modal(ctx, {
+			title: `Unassign task #${task_id}?`,
+			message: task.assignee
+				? `Remove ${task.assignee} from ${task.title}?`
+				: `Task #${task_id} is already unassigned.`,
+			confirm_label: 'Unassign',
+		});
+		if (!confirmed) return;
+		await store.update_task(team_id, task_id, { assignee: null });
+		ctx.ui.notify(`Unassigned task #${task_id}`);
+		return;
+	}
+
+	if (action === 'reopen') {
+		const confirmed = await show_confirm_modal(ctx, {
+			title: `Reopen task #${task_id}?`,
+			message: `Move ${task.title} back to pending and clear the result note?`,
+			confirm_label: 'Reopen',
+		});
+		if (!confirmed) return;
+		await store.update_task(team_id, task_id, {
+			status: 'pending',
+			result: null,
+		});
+		ctx.ui.notify(`Reopened task #${task_id}`);
+		return;
+	}
+
+	const note = await prompt_task_note(ctx, {
+		title:
+			action === 'done'
+				? `Complete task #${task_id}`
+				: action === 'block'
+					? `Block task #${task_id}`
+					: `Cancel task #${task_id}`,
+		label:
+			action === 'done'
+				? 'Result note (optional)'
+				: action === 'block'
+					? 'Blocker reason (optional)'
+					: 'Cancellation reason (optional)',
+	});
+	if (note === undefined) return;
+	const next_status =
+		action === 'done'
+			? 'completed'
+			: action === 'block'
+				? 'blocked'
+				: 'cancelled';
+	await store.update_task(team_id, task_id, {
+		status: next_status,
+		result: note || null,
+	});
+	ctx.ui.notify(`Updated task #${task_id} to ${next_status}`);
 }
 
 async function show_team_dashboard_modal(
@@ -1519,9 +1960,15 @@ export async function handle_team_command(
 	try {
 		switch (sub) {
 			case 'create': {
+				let name = rest_text;
+				if (!name && has_modal_ui(ctx)) {
+					const input = await prompt_team_name(ctx);
+					if (input === undefined) break;
+					name = input;
+				}
 				const team = store.create_team({
 					cwd: ctx.cwd,
-					name: rest_text || undefined,
+					name: name || undefined,
 				});
 				set_active_team_id(team.id);
 				set_team_ui(ctx, store, team.id, runners);
@@ -1688,12 +2135,28 @@ export async function handle_team_command(
 				ctx.ui.notify(`Resumed team ${team.name} (${team.id})`);
 				break;
 			}
+			case 'members': {
+				const team_id = current_team_id();
+				await show_team_member_actions_modal(
+					ctx,
+					store,
+					team_id,
+					runners,
+				);
+				set_team_ui(ctx, store, team_id, runners);
+				break;
+			}
 			case 'member': {
 				const [action, name] = rest;
 				if (action !== 'add')
 					throw new Error('Usage: /team member add <name>');
+				let member_name: string | undefined = name;
+				if (!member_name && has_modal_ui(ctx)) {
+					member_name = await prompt_member_name(ctx);
+					if (!member_name) break;
+				}
 				const member = await store.upsert_member(current_team_id(), {
-					name: require_arg(name, 'member name'),
+					name: require_arg(member_name, 'member name'),
 				});
 				set_team_ui(ctx, store, get_active_team_id(), runners);
 				ctx.ui.notify(`Member ${member.name} ready`);
@@ -1703,7 +2166,16 @@ export async function handle_team_command(
 				const [action, id, ...tail] = rest;
 				const team_id = current_team_id();
 				if (action === 'add') {
-					const parsed = parse_task_add(rest.slice(1).join(' '));
+					const text = rest.slice(1).join(' ');
+					const parsed = text
+						? parse_task_add(text)
+						: has_modal_ui(ctx)
+							? await prompt_task_create(
+									ctx,
+									await get_team_status(store, team_id, runners),
+								)
+							: parse_task_add(text);
+					if (!parsed) break;
 					const task = await store.create_task(team_id, parsed);
 					set_team_ui(ctx, store, team_id, runners);
 					ctx.ui.notify(`Created task #${task.id}: ${task.title}`);
@@ -1716,13 +2188,22 @@ export async function handle_team_command(
 								status,
 							);
 							if (!task_id) break;
-							await show_team_text_modal(ctx, {
-								title: `Task #${task_id}`,
-								subtitle: status.team.name,
-								text: format_task_detail(
-									store.load_task(team_id, task_id),
-								),
-							});
+							const action = await show_team_task_action_modal(
+								ctx,
+								status,
+								store.load_task(team_id, task_id),
+							);
+							if (action) {
+								await run_task_modal_action(
+									ctx,
+									store,
+									team_id,
+									status,
+									task_id,
+									action,
+								);
+								set_team_ui(ctx, store, team_id, runners);
+							}
 							status = await get_team_status(store, team_id, runners);
 						}
 					} else if (has_modal_ui(ctx)) {
