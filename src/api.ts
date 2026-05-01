@@ -11,6 +11,7 @@ import {
 	getAgentDir,
 	runPrintMode,
 	runRpcMode,
+	type CreateAgentSessionFromServicesOptions,
 	type ExtensionFactory,
 	type LoadExtensionsResult,
 } from '@mariozechner/pi-coding-agent';
@@ -47,6 +48,10 @@ export type MyPiRuntimeMode =
 	| 'json'
 	| 'rpc';
 
+export type MyPiThinkingLevel = NonNullable<
+	CreateAgentSessionFromServicesOptions['thinkingLevel']
+>;
+
 export interface CreateMyPiOptions {
 	cwd?: string;
 	agent_dir?: string;
@@ -69,6 +74,7 @@ export interface CreateMyPiOptions {
 	telemetry?: boolean;
 	telemetry_db_path?: string;
 	model?: string;
+	thinking?: MyPiThinkingLevel;
 	selected_tools?: string[];
 	selected_skills?: string[];
 	session_dir?: string;
@@ -312,6 +318,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		telemetry,
 		telemetry_db_path,
 		model,
+		thinking,
 		selected_tools,
 		selected_skills,
 		session_dir,
@@ -461,6 +468,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 				sessionManager,
 				sessionStartEvent: sessionStartEvent as any,
 				...(requested_model ? { model: requested_model } : {}),
+				...(thinking ? { thinkingLevel: thinking } : {}),
 				...(selected_tools?.length ? { tools: selected_tools } : {}),
 			})),
 			services,

@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import { fileURLToPath } from 'node:url';
 import { TeamActivityPoller } from './activity-poller.js';
 import {
 	append_team_system_prompt,
@@ -11,6 +12,7 @@ import {
 	ACTIVE_TEAM_ENV,
 	get_extension_path,
 	get_team_root,
+	set_current_extension_path,
 	should_auto_inject_messages,
 	should_enable_fake_teammate_command,
 	TEAM_MEMBER_ENV,
@@ -56,6 +58,7 @@ export {
 };
 
 export default async function team_mode(pi: ExtensionAPI) {
+	set_current_extension_path(fileURLToPath(import.meta.url));
 	const store = new TeamStore(get_team_root());
 	const runners = new Map<string, RpcTeammate>();
 	let active_team_id: string | undefined;

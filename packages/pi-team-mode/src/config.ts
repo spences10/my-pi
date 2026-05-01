@@ -9,6 +9,12 @@ export const TEAM_ROLE_ENV = 'MY_PI_TEAM_ROLE';
 export const EXTENSION_PATH_ENV = 'MY_PI_TEAM_EXTENSION_PATH';
 export const AUTO_INJECT_ENV = 'MY_PI_TEAM_AUTO_INJECT_MESSAGES';
 
+let current_extension_path: string | undefined;
+
+export function set_current_extension_path(path: string): void {
+	current_extension_path = path;
+}
+
 export function get_team_root(): string {
 	return (
 		process.env[TEAM_ROOT_ENV] || join(getAgentDir(), 'teams-local')
@@ -17,7 +23,9 @@ export function get_team_root(): string {
 
 export function get_extension_path(): string {
 	return (
-		process.env[EXTENSION_PATH_ENV] || fileURLToPath(import.meta.url)
+		process.env[EXTENSION_PATH_ENV] ||
+		current_extension_path ||
+		fileURLToPath(import.meta.url)
 	);
 }
 

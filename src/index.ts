@@ -10,9 +10,15 @@ import {
 } from '@mariozechner/pi-coding-agent';
 import { defineCommand, renderUsage, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { create_my_pi } from './api.js';
+import {
+	parse_extension_paths,
+	parse_skill_allowlist,
+	parse_thinking_level,
+	parse_tool_allowlist,
+} from './cli-args.js';
 
 // Suppress node:sqlite ExperimentalWarning
 process.removeAllListeners('warning');
@@ -26,48 +32,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
 	readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'),
 );
-
-// citty can't handle repeatable args, so parse repeatable flags from argv directly
-// (citty uses strict: false, so unknown flags are silently ignored)
-function parse_extension_paths(argv: string[]): string[] {
-	const paths: string[] = [];
-	for (let i = 0; i < argv.length; i++) {
-		if (
-			(argv[i] === '-e' || argv[i] === '--extension') &&
-			i + 1 < argv.length
-		) {
-			paths.push(resolve(argv[++i]));
-		}
-	}
-	return paths;
-}
-
-function parse_tool_allowlist(argv: string[]): string[] | undefined {
-	for (let i = 0; i < argv.length; i++) {
-		if (
-			(argv[i] === '--tools' || argv[i] === '-t') &&
-			i + 1 < argv.length
-		) {
-			const tools = argv[++i]
-				.split(',')
-				.map((tool) => tool.trim())
-				.filter(Boolean);
-			return tools.length ? tools : undefined;
-		}
-	}
-	return undefined;
-}
-
-function parse_skill_allowlist(argv: string[]): string[] | undefined {
-	const skills: string[] = [];
-	for (let i = 0; i < argv.length; i++) {
-		if (argv[i] === '--skill' && i + 1 < argv.length) {
-			skills.push(argv[++i].trim());
-		}
-	}
-	const unique = [...new Set(skills.filter(Boolean))];
-	return unique.length ? unique : undefined;
-}
 
 async function read_stdin(): Promise<string> {
 	const chunks: Buffer[] = [];
@@ -187,6 +151,13 @@ const main = defineCommand({
 			description: 'Runtime mode: interactive, print, json, or rpc',
 			required: false,
 		},
+		extension: {
+			type: 'string',
+			alias: 'e',
+			description:
+				'Extension path to load; repeatable via argv parsing',
+			required: false,
+		},
 		'no-builtin': {
 			type: 'boolean',
 			description: 'Disable all built-in extensions',
@@ -285,6 +256,12 @@ const main = defineCommand({
 			description:
 				'Model to use (e.g. claude-sonnet-4-5-20241022, gpt-5.4, cloudflare-workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast)',
 		},
+		thinking: {
+			type: 'string',
+			description:
+				'Thinking level: off, minimal, low, medium, high, or xhigh',
+			required: false,
+		},
 		tools: {
 			type: 'string',
 			alias: 't',
@@ -316,9 +293,18 @@ const main = defineCommand({
 	},
 	async run({ args }) {
 		const cwd = process.cwd();
-		const extension_paths = parse_extension_paths(process.argv);
+		const extension_paths = parse_extension_paths(process.argv, cwd);
 		const selected_tools = parse_tool_allowlist(process.argv);
 		const selected_skills = parse_skill_allowlist(process.argv);
+		let selected_thinking;
+		try {
+			selected_thinking = parse_thinking_level(args.thinking);
+		} catch (error) {
+			console.error(
+				error instanceof Error ? error.message : String(error),
+			);
+			process.exit(1);
+		}
 
 		let runtime_mode: 'interactive' | 'print' | 'json' | 'rpc' =
 			'interactive';
@@ -412,6 +398,7 @@ const main = defineCommand({
 			telemetry: telemetry_override,
 			telemetry_db_path: args['telemetry-db'],
 			model: args.model,
+			thinking: selected_thinking,
 			selected_tools,
 			selected_skills,
 			system_prompt: args['system-prompt'],
