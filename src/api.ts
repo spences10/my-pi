@@ -102,6 +102,7 @@ const PACKAGE_THEME_DIR = resolve(
 	'themes',
 );
 const PI_AGENT_DIR_ENV = 'PI_CODING_AGENT_DIR';
+const MY_PI_RUNTIME_MODE_ENV = 'MY_PI_RUNTIME_MODE';
 
 const UNTRUSTED_CHILD_ENV_DEFAULTS: Record<string, string> = {
 	MY_PI_CHILD_ENV_ALLOWLIST: '',
@@ -327,6 +328,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 	if (agent_dir) {
 		process.env[PI_AGENT_DIR_ENV] = effective_agent_dir;
 	}
+	process.env[MY_PI_RUNTIME_MODE_ENV] = runtime_mode;
 
 	const resolved_extensions = extensions.map((p) => resolve(cwd, p));
 	const force_disabled = get_force_disabled_builtins({

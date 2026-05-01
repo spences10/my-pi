@@ -1172,6 +1172,10 @@ async function show_team_text_modal(
 	});
 }
 
+function has_modal_ui(ctx: ExtensionContext): boolean {
+	return ctx.hasUI && process.env.MY_PI_RUNTIME_MODE !== 'rpc';
+}
+
 function set_team_ui(
 	ctx: ExtensionContext,
 	store: TeamStore,
@@ -1459,7 +1463,10 @@ function present_completed_task_results(
 	status: TeamStatus,
 ): void {
 	const text = format_completed_task_results(status);
-	if (ctx.hasUI && typeof ctx.ui.setEditorText === 'function') {
+	if (
+		has_modal_ui(ctx) &&
+		typeof ctx.ui.setEditorText === 'function'
+	) {
 		ctx.ui.setEditorText(text);
 		ctx.ui.notify('Inserted completed team results into the editor.');
 		return;
@@ -1477,7 +1484,7 @@ export async function handle_team_command(
 	own_role = 'lead',
 ): Promise<void> {
 	const trimmed = args.trim();
-	if (!trimmed && ctx.hasUI) {
+	if (!trimmed && has_modal_ui(ctx)) {
 		while (true) {
 			const selected = await show_team_home_modal(
 				ctx,
@@ -1524,7 +1531,7 @@ export async function handle_team_command(
 			case 'id': {
 				const team_id = current_team_id();
 				const text = `${team_id}\n${store.team_dir(team_id)}`;
-				if (ctx.hasUI) {
+				if (has_modal_ui(ctx)) {
 					await show_team_text_modal(ctx, {
 						title: 'Team id/path',
 						subtitle: team_id,
@@ -1539,7 +1546,7 @@ export async function handle_team_command(
 				const [ui_arg, style_arg] = rest;
 				const mode = rest_text.trim().toLowerCase();
 				if (!mode) {
-					if (ctx.hasUI) {
+					if (has_modal_ui(ctx)) {
 						await show_team_ui_modal(
 							ctx,
 							store,
@@ -1579,7 +1586,7 @@ export async function handle_team_command(
 				break;
 			}
 			case 'teams': {
-				if (ctx.hasUI) {
+				if (has_modal_ui(ctx)) {
 					const team_id = await show_team_switcher(
 						ctx,
 						store,
@@ -1627,7 +1634,7 @@ export async function handle_team_command(
 				const status = await get_team_status(store, team_id, runners);
 				set_team_ui(ctx, store, team_id, runners);
 				const text = format_status(status);
-				if (ctx.hasUI) {
+				if (has_modal_ui(ctx)) {
 					await show_team_text_modal(ctx, {
 						title: 'Team status',
 						subtitle: `${status.team.name} • ${format_status_counts(status)}`,
@@ -1643,7 +1650,7 @@ export async function handle_team_command(
 				const team_id = current_team_id();
 				const status = await get_team_status(store, team_id, runners);
 				set_team_ui(ctx, store, team_id, runners);
-				if (ctx.hasUI) {
+				if (has_modal_ui(ctx)) {
 					const action = await show_team_dashboard_modal(
 						ctx,
 						store,
@@ -1702,7 +1709,7 @@ export async function handle_team_command(
 					ctx.ui.notify(`Created task #${task.id}: ${task.title}`);
 				} else if (action === 'list' || !action) {
 					let status = await get_team_status(store, team_id, runners);
-					if (ctx.hasUI && status.tasks.length > 0) {
+					if (has_modal_ui(ctx) && status.tasks.length > 0) {
 						while (true) {
 							const task_id = await show_team_task_picker(
 								ctx,
@@ -1718,7 +1725,7 @@ export async function handle_team_command(
 							});
 							status = await get_team_status(store, team_id, runners);
 						}
-					} else if (ctx.hasUI) {
+					} else if (has_modal_ui(ctx)) {
 						await show_team_text_modal(ctx, {
 							title: 'Team tasks',
 							subtitle: `${status.team.name} • ${format_status_counts(status)}`,
@@ -1732,7 +1739,7 @@ export async function handle_team_command(
 					const text = format_task_detail(
 						store.load_task(team_id, task_id),
 					);
-					if (ctx.hasUI) {
+					if (has_modal_ui(ctx)) {
 						await show_team_text_modal(ctx, {
 							title: `Task #${task_id}`,
 							text,
@@ -1840,7 +1847,7 @@ export async function handle_team_command(
 				const text = format_messages(
 					store.list_messages(current_team_id(), member),
 				);
-				if (ctx.hasUI) {
+				if (has_modal_ui(ctx)) {
 					await show_team_text_modal(ctx, {
 						title: `${member} inbox`,
 						text,
@@ -1989,7 +1996,7 @@ export async function handle_team_command(
 					runners,
 				);
 				const text = format_status(status);
-				if (ctx.hasUI) {
+				if (has_modal_ui(ctx)) {
 					await show_team_text_modal(ctx, {
 						title: 'Team status',
 						subtitle: `${status.team.name} • ${format_status_counts(status)}`,
