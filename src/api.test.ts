@@ -35,6 +35,7 @@ afterEach(() => {
 
 describe('get_force_disabled_builtins', () => {
 	const enabled = {
+		context_sidecar: true,
 		mcp: true,
 		skills: true,
 		filter_output: true,
@@ -125,6 +126,7 @@ describe('apply_untrusted_repo_defaults', () => {
 
 describe('create_my_pi environment scoping', () => {
 	const disabled_builtins = {
+		context_sidecar: false,
 		mcp: false,
 		skills: false,
 		filter_output: false,

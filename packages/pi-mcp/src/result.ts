@@ -1,3 +1,4 @@
+import { maybe_store_context_output } from '@spences10/pi-context';
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,11 +18,20 @@ export interface McpResultTruncationDetails {
 	full_output_path?: string;
 }
 
-export function format_mcp_tool_result(result: unknown): {
+export function format_mcp_tool_result(
+	result: unknown,
+	options: {
+		tool_name?: string;
+		input_summary?: string | null;
+	} = {},
+): {
 	text: string;
 	details: McpResultTruncationDetails;
 } {
-	return truncate_mcp_tool_output(stringify_mcp_tool_result(result));
+	return truncate_mcp_tool_output(
+		stringify_mcp_tool_result(result),
+		options,
+	);
 }
 
 export function stringify_mcp_tool_result(result: unknown): string {
@@ -47,6 +57,8 @@ export function truncate_mcp_tool_output(
 		max_bytes?: number;
 		max_lines?: number;
 		tmp_dir?: string;
+		tool_name?: string;
+		input_summary?: string | null;
 	} = {},
 ): { text: string; details: McpResultTruncationDetails } {
 	const max_bytes = options.max_bytes ?? MCP_RESULT_MAX_BYTES;
@@ -63,6 +75,29 @@ export function truncate_mcp_tool_output(
 				lines,
 				max_bytes,
 				max_lines,
+			},
+		};
+	}
+
+	const context_output = try_store_context_output(text, {
+		tool_name: options.tool_name ?? 'mcp',
+		input_summary: options.input_summary,
+	});
+	if (context_output) {
+		return {
+			text: context_output.receipt,
+			details: {
+				truncated: true,
+				bytes,
+				lines,
+				max_bytes,
+				max_lines,
+				preview_bytes: Buffer.byteLength(
+					context_output.preview,
+					'utf8',
+				),
+				preview_lines: count_lines(context_output.preview),
+				full_output_path: `context:${context_output.source_id}`,
 			},
 		};
 	}
@@ -92,6 +127,22 @@ export function truncate_mcp_tool_output(
 			full_output_path,
 		},
 	};
+}
+
+function try_store_context_output(
+	text: string,
+	options: { tool_name: string; input_summary?: string | null },
+): { source_id: string; preview: string; receipt: string } | null {
+	try {
+		return maybe_store_context_output({
+			text,
+			tool_name: options.tool_name,
+			input_summary: options.input_summary,
+			force: true,
+		});
+	} catch {
+		return null;
+	}
 }
 
 function count_lines(text: string): number {

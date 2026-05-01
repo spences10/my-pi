@@ -9,6 +9,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 export type BuiltinExtensionKey =
+	| 'context-sidecar'
 	| 'mcp'
 	| 'skills'
 	| 'filter-output'
@@ -48,6 +49,13 @@ const DEFAULT_CONFIG: BuiltinExtensionsConfig = {
 };
 
 export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
+	{
+		key: 'context-sidecar',
+		label: 'Context sidecar',
+		description: 'Local SQLite FTS sidecar for oversized tool output',
+		cli_flag: '--no-context-sidecar',
+		aliases: ['context-sidecar', 'context', 'sidecar'],
+	},
 	{
 		key: 'mcp',
 		label: 'MCP',

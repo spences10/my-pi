@@ -16,6 +16,7 @@ import {
 	type LoadExtensionsResult,
 } from '@mariozechner/pi-coding-agent';
 import confirm_destructive_extension from '@spences10/pi-confirm-destructive';
+import context_sidecar_extension from '@spences10/pi-context';
 import lsp_extension from '@spences10/pi-lsp';
 import mcp_extension from '@spences10/pi-mcp';
 import nopeek_extension from '@spences10/pi-nopeek';
@@ -58,6 +59,7 @@ export interface CreateMyPiOptions {
 	extensions?: string[];
 	extensionFactories?: ExtensionFactory[];
 	runtime_mode?: MyPiRuntimeMode;
+	context_sidecar?: boolean;
 	mcp?: boolean;
 	skills?: boolean;
 	filter_output?: boolean;
@@ -87,6 +89,7 @@ const BUILTIN_EXTENSION_FACTORIES: Record<
 	BuiltinExtensionKey,
 	ExtensionFactory
 > = {
+	'context-sidecar': context_sidecar_extension,
 	mcp: mcp_extension,
 	skills: skills_extension,
 	'filter-output': filter_output_extension,
@@ -254,6 +257,7 @@ export function get_force_disabled_builtins(
 	options: Pick<
 		CreateMyPiOptions,
 		| 'runtime_mode'
+		| 'context_sidecar'
 		| 'mcp'
 		| 'skills'
 		| 'filter_output'
@@ -270,6 +274,7 @@ export function get_force_disabled_builtins(
 	>,
 ): ReadonlySet<BuiltinExtensionKey> {
 	const force_disabled = new Set<BuiltinExtensionKey>();
+	if (!options.context_sidecar) force_disabled.add('context-sidecar');
 	if (!options.mcp) force_disabled.add('mcp');
 	if (!options.skills) force_disabled.add('skills');
 	if (!options.filter_output) force_disabled.add('filter-output');
@@ -343,6 +348,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		extensions = [],
 		extensionFactories: user_factories = [],
 		runtime_mode = 'interactive',
+		context_sidecar = true,
 		mcp = true,
 		skills = true,
 		filter_output = true,
@@ -396,6 +402,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 	const resolved_extensions = extensions.map((p) => resolve(cwd, p));
 	const force_disabled = get_force_disabled_builtins({
 		runtime_mode,
+		context_sidecar,
 		mcp,
 		skills,
 		filter_output,

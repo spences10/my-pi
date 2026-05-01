@@ -464,6 +464,7 @@ In interactive mode:
 - `/lsp status|list|restart` — inspect or restart language server
   state
 - `/redact-stats` — show how many secrets were redacted this session
+- `/context-stats` — show context sidecar byte accounting
 - `/telemetry status|stats|query|export|on|off|path` — inspect, query,
   export, or toggle local SQLite telemetry
 
@@ -613,6 +614,7 @@ published only as dependencies and are not Pi packages to install via
 ```bash
 pi install npm:@spences10/pi-redact
 pi install npm:@spences10/pi-telemetry
+pi install npm:@spences10/pi-context
 pi install npm:@spences10/pi-mcp
 pi install npm:@spences10/pi-lsp
 pi install npm:@spences10/pi-confirm-destructive
@@ -629,6 +631,8 @@ pi install npm:@spences10/pi-themes
   redaction and `/redact-stats`
 - [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md) —
   local SQLite telemetry and `/telemetry`
+- [`@spences10/pi-context`](./packages/pi-context/README.md) — local
+  SQLite FTS sidecar for oversized tool output
 - [`@spences10/pi-mcp`](./packages/pi-mcp/README.md) — MCP server
   integration and `/mcp`
 - [`@spences10/pi-lsp`](./packages/pi-lsp/README.md) — LSP-backed
@@ -668,6 +672,7 @@ src/
 packages/
   pi-redact/               Installable Pi package for output redaction
   pi-telemetry/            Installable Pi package for SQLite telemetry
+  pi-context/              Installable Pi package for context sidecar
   pi-mcp/                  Installable Pi package for MCP integration
   pi-lsp/                  Installable Pi package for LSP tools
   pi-confirm-destructive/  Installable Pi package for destructive action confirmations

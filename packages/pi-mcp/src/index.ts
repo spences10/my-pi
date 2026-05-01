@@ -110,6 +110,16 @@ function redact_url(value: string): string {
 	}
 }
 
+function summarize_mcp_tool_params(params: unknown): string | null {
+	try {
+		const json = JSON.stringify(params);
+		if (!json) return null;
+		return json.length > 500 ? `${json.slice(0, 497)}...` : json;
+	} catch {
+		return null;
+	}
+}
+
 function format_server_target(config: McpServerConfig): string {
 	if (config.transport === 'http') return redact_url(config.url);
 	return [config.command, ...(config.args ?? [])].join(' ');
@@ -362,7 +372,10 @@ export default async function mcp(pi: ExtensionAPI) {
 									}>;
 								};
 
-								const formatted = format_mcp_tool_result(result);
+								const formatted = format_mcp_tool_result(result, {
+									tool_name,
+									input_summary: summarize_mcp_tool_params(params),
+								});
 
 								return {
 									content: [

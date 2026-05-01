@@ -61,6 +61,7 @@
 		"@mariozechner/pi-tui": "^0.71.1",
 		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-confirm-destructive": "workspace:*",
+		"@spences10/pi-context": "workspace:*",
 		"@spences10/pi-lsp": "workspace:*",
 		"@spences10/pi-mcp": "workspace:*",
 		"@spences10/pi-nopeek": "workspace:*",

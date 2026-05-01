@@ -1,0 +1,60 @@
+{
+	"name": "@spences10/pi-context",
+	"version": "0.0.1",
+	"description": "Pi extension for local SQLite context sidecar storage and retrieval of large tool output",
+	"keywords": [
+		"context",
+		"evals",
+		"fts5",
+		"pi",
+		"pi-package",
+		"sqlite"
+	],
+	"license": "MIT",
+	"author": "Scott Spence <me@scottspence.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/spences10/my-pi.git",
+		"directory": "packages/pi-context"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./store": {
+			"types": "./dist/store.d.ts",
+			"import": "./dist/store.js"
+		}
+	},
+	"scripts": {
+		"build": "pnpm --filter @spences10/pi-redact run build && tsc -p tsconfig.build.json",
+		"check": "pnpm --filter @spences10/pi-redact run build && tsc --noEmit",
+		"test": "pnpm --filter @spences10/pi-redact run build && vitest run"
+	},
+	"dependencies": {
+		"@mariozechner/pi-coding-agent": "^0.71.1",
+		"@spences10/pi-redact": "workspace:*",
+		"typebox": "^1.1.36"
+	},
+	"devDependencies": {
+		"@types/node": "^25.6.0",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.5"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	},
+	"pi": {
+		"extensions": [
+			"./dist/index.js"
+		]
+	}
+}

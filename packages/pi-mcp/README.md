@@ -106,8 +106,12 @@ loaded into global or project MCP config after modal confirmation.
 - forwards model tool calls to the MCP server
 - truncates oversized MCP tool text output to the first 50 KiB or
   2,000 lines
-- saves truncated full output to a local `/tmp/my-pi-mcp-output-*.txt`
-  file so it can be inspected with `read` or `rg`
+- when `@spences10/pi-context` is enabled, stores oversized full
+  output in the local SQLite context sidecar and returns a searchable
+  source id
+- otherwise saves truncated full output to a local
+  `/tmp/my-pi-mcp-output-*.txt` file so it can be inspected with
+  `read` or `rg`
 - cleans up server processes on session shutdown
 
 ## Using from a custom harness

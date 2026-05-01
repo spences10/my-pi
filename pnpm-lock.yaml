@@ -29,6 +29,9 @@ importers:
       '@spences10/pi-confirm-destructive':
         specifier: workspace:*
         version: link:packages/pi-confirm-destructive
+      '@spences10/pi-context':
+        specifier: workspace:*
+        version: link:packages/pi-context
       '@spences10/pi-lsp':
         specifier: workspace:*
         version: link:packages/pi-lsp
@@ -116,6 +119,28 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.3))
 
+  packages/pi-context:
+    dependencies:
+      '@mariozechner/pi-coding-agent':
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
+      '@spences10/pi-redact':
+        specifier: workspace:*
+        version: link:../pi-redact
+      typebox:
+        specifier: ^1.1.36
+        version: 1.1.36
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.3))
+
   packages/pi-lsp:
     dependencies:
       '@mariozechner/pi-coding-agent':
@@ -152,6 +177,9 @@ importers:
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:../pi-child-env
+      '@spences10/pi-context':
+        specifier: workspace:*
+        version: link:../pi-context
       '@spences10/pi-project-trust':
         specifier: workspace:*
         version: link:../pi-project-trust

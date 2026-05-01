@@ -164,6 +164,12 @@ const main = defineCommand({
 				'Safe mode for unknown repos: skip project MCP, hooks, project prompt presets, project skills, and project LSP binaries unless explicitly re-enabled',
 			default: false,
 		},
+		'no-context-sidecar': {
+			type: 'boolean',
+			description:
+				'Disable SQLite context sidecar for large tool output',
+			default: false,
+		},
 		'no-mcp': {
 			type: 'boolean',
 			description: 'Disable built-in MCP extension',
@@ -375,6 +381,8 @@ const main = defineCommand({
 			session_dir: args['session-dir'],
 			extensions: extension_paths,
 			runtime_mode,
+			context_sidecar:
+				!args['no-builtin'] && !args['no-context-sidecar'],
 			mcp: !args['no-builtin'] && !args['no-mcp'],
 			skills: !args['no-builtin'] && !args['no-skills'],
 			filter_output: !args['no-builtin'] && !args['no-filter'],
