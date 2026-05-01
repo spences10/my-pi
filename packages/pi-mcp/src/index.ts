@@ -10,6 +10,8 @@ import {
 	type ProjectTrustSubject,
 } from '@spences10/pi-project-trust';
 import {
+	show_confirm_modal,
+	show_input_modal,
 	show_picker_modal,
 	show_settings_modal,
 	show_text_modal,
@@ -600,14 +602,32 @@ export default async function mcp(pi: ExtensionAPI) {
 		);
 	};
 
+	const confirm_mcp_action = async (
+		ctx: ExtensionCommandContext,
+		options: {
+			title: string;
+			message: string;
+			confirm_label?: string;
+		},
+	): Promise<boolean> => {
+		if (!ctx.hasUI) {
+			return await ctx.ui.confirm(options.title, options.message);
+		}
+		return await show_confirm_modal(ctx, {
+			title: options.title,
+			message: options.message,
+			confirm_label: options.confirm_label,
+		});
+	};
+
 	const handle_mcp_restore = async (
 		ctx: ExtensionCommandContext,
 		requested_file?: string,
-	): Promise<void> => {
+	): Promise<boolean> => {
 		const backups = list_mcp_config_backups();
 		if (backups.length === 0) {
 			ctx.ui.notify('No MCP backups found', 'warning');
-			return;
+			return false;
 		}
 
 		let selected_path = requested_file
@@ -631,13 +651,15 @@ export default async function mcp(pi: ExtensionAPI) {
 				empty_message: 'No MCP backups found',
 			});
 		}
-		if (!selected_path) return;
+		if (!selected_path) return false;
 
-		const confirmed = await ctx.ui.confirm(
-			'Restore MCP backup?',
-			'This replaces current global/project MCP config with the selected backup.',
-		);
-		if (!confirmed) return;
+		const confirmed = await confirm_mcp_action(ctx, {
+			title: 'Restore MCP backup?',
+			message:
+				'This replaces current global/project MCP config with the selected backup.',
+			confirm_label: 'Restore backup',
+		});
+		if (!confirmed) return false;
 
 		const restored = restore_mcp_config_backup(
 			ctx.cwd,
@@ -647,18 +669,19 @@ export default async function mcp(pi: ExtensionAPI) {
 			ctx,
 			`Restored ${restored.filename}.`,
 		);
+		return true;
 	};
 
 	const handle_mcp_profile = async (
 		ctx: ExtensionCommandContext,
 		args: string[],
-	): Promise<void> => {
+	): Promise<boolean> => {
 		const action = args[0] ?? 'load';
 		if (action === 'list') {
 			const profiles = list_mcp_profiles();
 			if (profiles.length === 0) {
 				ctx.ui.notify('No MCP profiles saved');
-				return;
+				return false;
 			}
 			const text = profiles
 				.map(
@@ -669,17 +692,23 @@ export default async function mcp(pi: ExtensionAPI) {
 			if (ctx.hasUI)
 				await show_mcp_text_modal(ctx, 'MCP profiles', text);
 			else ctx.ui.notify(text);
-			return;
+			return false;
 		}
 
 		if (action === 'save') {
 			const name =
 				args[1] ??
-				(await ctx.ui.input(
-					'Save MCP profile',
-					'letters, numbers, underscores, hyphens',
-				));
-			if (!name) return;
+				(ctx.hasUI
+					? await show_input_modal(ctx, {
+							title: 'Save MCP profile',
+							label: 'Profile name',
+							subtitle: 'letters, numbers, underscores, hyphens',
+						})
+					: await ctx.ui.input(
+							'Save MCP profile',
+							'letters, numbers, underscores, hyphens',
+						));
+			if (!name) return false;
 			try {
 				const profile = save_mcp_profile(ctx.cwd, name);
 				ctx.ui.notify(
@@ -692,7 +721,7 @@ export default async function mcp(pi: ExtensionAPI) {
 					'warning',
 				);
 			}
-			return;
+			return false;
 		}
 
 		if (action !== 'load') {
@@ -700,13 +729,13 @@ export default async function mcp(pi: ExtensionAPI) {
 				'Unknown profile action. Use profile list, profile save, or profile load.',
 				'warning',
 			);
-			return;
+			return false;
 		}
 
 		const profiles = list_mcp_profiles();
 		if (profiles.length === 0) {
 			ctx.ui.notify('No MCP profiles saved', 'warning');
-			return;
+			return false;
 		}
 		let name = args[1];
 		if (!name) {
@@ -721,28 +750,31 @@ export default async function mcp(pi: ExtensionAPI) {
 				})),
 				empty_message: 'No MCP profiles saved',
 			});
-			if (!selected) return;
+			if (!selected) return false;
 			name = selected;
 		}
 		const scope = (
 			args[2] === 'project' ? 'project' : 'global'
 		) satisfies McpConfigScope;
-		const confirmed = await ctx.ui.confirm(
-			'Load MCP profile?',
-			`This replaces ${scope} MCP config with profile ${name}.`,
-		);
-		if (!confirmed) return;
+		const confirmed = await confirm_mcp_action(ctx, {
+			title: 'Load MCP profile?',
+			message: `This replaces ${scope} MCP config with profile ${name}.`,
+			confirm_label: 'Load profile',
+		});
+		if (!confirmed) return false;
 		try {
 			const profile = load_mcp_profile(ctx.cwd, name, scope);
 			await reload_after_config_change(
 				ctx,
 				`Loaded MCP profile ${profile.name} (${profile.server_count} servers).`,
 			);
+			return true;
 		} catch (error) {
 			ctx.ui.notify(
 				error instanceof Error ? error.message : String(error),
 				'warning',
 			);
+			return false;
 		}
 	};
 
@@ -833,14 +865,16 @@ export default async function mcp(pi: ExtensionAPI) {
 					} else if (selected === 'backup') {
 						await handle_mcp_backup(ctx);
 					} else if (selected === 'restore') {
-						await handle_mcp_restore(ctx);
-						return;
+						if (await handle_mcp_restore(ctx)) return;
 					} else if (selected.startsWith('profile ')) {
-						await handle_mcp_profile(
-							ctx,
-							selected.split(/\s+/).slice(1),
-						);
-						if (selected === 'profile load') return;
+						if (
+							await handle_mcp_profile(
+								ctx,
+								selected.split(/\s+/).slice(1),
+							)
+						) {
+							return;
+						}
 					}
 					await ensure_servers(ctx.cwd, ctx);
 				}

@@ -17,6 +17,7 @@ import {
 	visibleWidth,
 	wrapTextWithAnsi,
 	type Component,
+	type Focusable,
 	type OverlayOptions,
 	type SelectItem,
 	type SelectListLayoutOptions,
@@ -84,6 +85,19 @@ export interface SettingsModalOptions {
 export interface TextModalOptions extends ModalOptions {
 	text: ModalText;
 	max_visible_lines?: number;
+}
+
+export interface InputModalOptions extends ModalOptions {
+	label?: string;
+	initial_value?: string;
+	trim?: boolean;
+	allow_empty?: boolean;
+}
+
+export interface ConfirmModalOptions extends ModalOptions {
+	message: ModalText;
+	confirm_label?: string;
+	cancel_label?: string;
 }
 
 const default_overlay_options: OverlayOptions = {
@@ -158,7 +172,7 @@ function get_selected_setting(
 
 function make_settings_theme(theme: ModalTheme): SettingsListTheme {
 	return {
-		cursor: theme.fg('accent', '›'),
+		cursor: theme.fg('accent', '→ '),
 		label: (text, selected) => {
 			if (text.startsWith('──') && text.endsWith('──')) {
 				return theme.fg('dim', theme.bold(text));
@@ -174,6 +188,12 @@ function make_settings_theme(theme: ModalTheme): SettingsListTheme {
 		description: (text) => theme.fg('muted', text),
 		hint: (text) => theme.fg('dim', text),
 	};
+}
+
+function is_focusable(value: unknown): value is Focusable {
+	return Boolean(
+		value && typeof value === 'object' && 'focused' in value,
+	);
 }
 
 class TextModalBody implements ModalBody {
@@ -248,6 +268,68 @@ class TextModalBody implements ModalBody {
 		) {
 			this.on_cancel();
 		}
+	}
+}
+
+class InputModalBody implements ModalBody, Focusable {
+	private readonly input = new Input();
+	private _focused = false;
+
+	get focused(): boolean {
+		return this._focused;
+	}
+
+	set focused(value: boolean) {
+		this._focused = value;
+		this.input.focused = value;
+	}
+
+	constructor(
+		private readonly options: InputModalOptions,
+		private readonly theme: ModalTheme,
+		private readonly on_submit: (value: string) => void,
+		private readonly on_cancel: () => void,
+	) {
+		this.input.setValue(options.initial_value ?? '');
+		this.input.onSubmit = (value) => {
+			const next_value =
+				options.trim === false ? value : value.trim();
+			if (!options.allow_empty && next_value.length === 0) return;
+			this.on_submit(next_value);
+		};
+		this.input.onEscape = this.on_cancel;
+	}
+
+	render(width: number): string[] {
+		const lines: string[] = [];
+		if (this.options.label) {
+			for (const line of wrapTextWithAnsi(
+				this.options.label,
+				width,
+			)) {
+				lines.push(this.theme.fg('muted', line));
+			}
+			lines.push('');
+		}
+		lines.push(...this.input.render(width));
+		lines.push('');
+		lines.push(
+			this.theme.fg(
+				'dim',
+				this.options.allow_empty
+					? 'Enter submits • Esc cancels'
+					: 'Enter submits non-empty value • Esc cancels',
+			),
+		);
+		return lines.map((line) => truncateToWidth(line, width));
+	}
+
+	invalidate(): void {
+		this.input.invalidate();
+	}
+
+	handleInput(data: string): void {
+		this.input.handleInput(data);
 	}
 }
 
@@ -485,6 +567,12 @@ export async function show_modal<T>(
 			const body = create_body({ done }, theme);
 
 			return {
+				get focused(): boolean {
+					return is_focusable(body) ? body.focused : false;
+				},
+				set focused(value: boolean) {
+					if (is_focusable(body)) body.focused = value;
+				},
 				render: (width: number) => {
 					const container = new Container();
 					const content = new Box(2, 1);
@@ -590,6 +678,63 @@ export async function show_text_modal(
 				() => done(),
 			),
 	);
+}
+
+export async function show_input_modal(
+	ctx: ExtensionCommandContext,
+	options: InputModalOptions,
+): Promise<string | undefined> {
+	return await show_modal<string | undefined>(
+		ctx,
+		{
+			title: options.title,
+			subtitle: options.subtitle,
+			footer: options.footer,
+			overlay_options: {
+				width: '70%',
+				minWidth: 50,
+				maxHeight: '60%',
+				...options.overlay_options,
+			},
+		},
+		({ done }, theme) =>
+			new InputModalBody(
+				options,
+				theme,
+				(value) => done(value),
+				() => done(undefined),
+			),
+	);
+}
+
+export async function show_confirm_modal(
+	ctx: ExtensionCommandContext,
+	options: ConfirmModalOptions,
+): Promise<boolean> {
+	const selected = await show_picker_modal(ctx, {
+		title: options.title,
+		subtitle: options.message,
+		footer: options.footer ?? 'enter selects • esc cancels',
+		overlay_options: {
+			width: '70%',
+			minWidth: 50,
+			maxHeight: '60%',
+			...options.overlay_options,
+		},
+		items: [
+			{
+				value: 'confirm',
+				label: options.confirm_label ?? 'Confirm',
+				description: 'Proceed with this action',
+			},
+			{
+				value: 'cancel',
+				label: options.cancel_label ?? 'Cancel',
+				description: 'Go back without changing anything',
+			},
+		],
+	});
+	return selected === 'confirm';
 }
 
 export async function show_settings_modal(

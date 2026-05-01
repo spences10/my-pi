@@ -87,13 +87,14 @@ mcp__sqlite__execute_read_query
 /mcp profiles                # picker for profile load
 ```
 
-Use `/mcp` to open a searchable modal for enabling/disabling servers.
-Toggles update the current session and persist a `disabled`/`enabled`
-flag in the winning `mcp.json` entry. Backups are written under
-`~/.pi/agent/mcp-backups/` and restore global/project MCP config
-exactly as captured. Profiles are saved under
-`~/.pi/agent/mcp-profiles/` as reusable merged server sets that can be
-loaded into global or project MCP config.
+Use `/mcp` to open a modal home menu for server management, read-only
+summaries, backups, and profiles. Toggles update the current session
+and persist a `disabled`/`enabled` flag in the winning `mcp.json`
+entry. Backups are written under `~/.pi/agent/mcp-backups/` and
+restore global/project MCP config exactly as captured after modal
+confirmation. Profiles are saved under `~/.pi/agent/mcp-profiles/` as
+reusable merged server sets that can be saved with a modal input and
+loaded into global or project MCP config after modal confirmation.
 
 ## What it does
 
