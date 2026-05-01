@@ -60,7 +60,7 @@ afterEach(() => {
 	}
 });
 
-function create_command_context() {
+function create_command_context(modal_results: unknown[] = []) {
 	const notifications: Array<{ message: string; level?: string }> =
 		[];
 	const selections: string[] = [];
@@ -72,6 +72,20 @@ function create_command_context() {
 					notifications.push({ message, level });
 				},
 				select: vi.fn(async () => selections.shift()),
+				custom: modal_results.length
+					? vi.fn(async (create_component: any) => {
+							create_component(
+								{ requestRender: vi.fn() },
+								{
+									fg: (_color: string, text: string) => text,
+									bold: (text: string) => text,
+								},
+								{},
+								vi.fn(),
+							);
+							return modal_results.shift();
+						})
+					: undefined,
 			},
 		} as any,
 		notifications,
@@ -615,6 +629,37 @@ describe('lsp extension', () => {
 		expect(stop).toHaveBeenCalledTimes(1);
 		expect(notifications.pop()?.message).toBe(
 			'Restarted typescript language server state.',
+		);
+	});
+
+	it('offers restart all directly from the modal home', async () => {
+		const stop = vi.fn().mockResolvedValue(undefined);
+		const client = create_mock_client({
+			hover: vi.fn().mockResolvedValue({ contents: 'hover docs' }),
+			stop,
+		});
+		const { pi, tools, commands } = create_test_pi();
+		const { ctx, notifications } = create_command_context([
+			'restart-all',
+			undefined,
+		]);
+
+		await create_lsp_extension({
+			create_client: () => client,
+			read_file: async () => 'export const value = 1;\n',
+			cwd: () => '/repo',
+		})(pi);
+
+		await tools.get('lsp_hover').execute('1', {
+			file: 'src/file.ts',
+			line: 0,
+			character: 0,
+		});
+		await commands.get('lsp').handler('', ctx);
+
+		expect(stop).toHaveBeenCalledTimes(1);
+		expect(notifications.pop()?.message).toBe(
+			'Restarted all language server state.',
 		);
 	});
 

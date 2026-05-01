@@ -867,6 +867,10 @@ async function handle_lsp_command(
 				await handle_lsp_restart_modal(ctx, clear_language_state);
 				continue;
 			}
+			if (selected === 'restart-all') {
+				await restart_all_lsp_servers(ctx, clear_language_state);
+				continue;
+			}
 			await show_lsp_text_modal(
 				ctx,
 				selected === 'running'
@@ -974,7 +978,12 @@ async function show_lsp_home_modal(
 			{
 				value: 'restart',
 				label: 'Restart server',
-				description: 'Pick all servers or a supported language',
+				description: 'Pick a supported language to restart',
+			},
+			{
+				value: 'restart-all',
+				label: 'Restart all',
+				description: 'Stop every running language server',
 			},
 		],
 		footer: 'enter opens • esc close/back',
@@ -1017,12 +1026,19 @@ async function handle_lsp_restart_modal(
 	});
 	if (!selected) return;
 	if (selected === 'all') {
-		await clear_language_state();
-		ctx.ui.notify('Restarted all language server state.');
+		await restart_all_lsp_servers(ctx, clear_language_state);
 		return;
 	}
 	await clear_language_state(selected);
 	ctx.ui.notify(`Restarted ${selected} language server state.`);
+}
+
+async function restart_all_lsp_servers(
+	ctx: ExtensionCommandContext,
+	clear_language_state: (language?: string) => Promise<void>,
+): Promise<void> {
+	await clear_language_state();
+	ctx.ui.notify('Restarted all language server state.');
 }
 
 function format_lsp_view(

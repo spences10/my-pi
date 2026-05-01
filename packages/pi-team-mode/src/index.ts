@@ -1642,7 +1642,8 @@ async function show_team_member_action_modal(
 			{
 				value: 'shutdown',
 				label: 'Shutdown teammate',
-				description: 'Ask attached runner to stop or terminate safe orphan',
+				description:
+					'Ask attached runner to stop or terminate safe orphan',
 			},
 		);
 	}
@@ -1711,7 +1712,12 @@ async function run_member_modal_action(
 		});
 		const runner = runners.get(message.to);
 		if (runner?.is_running) {
-			await deliver_message_to_runner(store, team_id, runner, message);
+			await deliver_message_to_runner(
+				store,
+				team_id,
+				runner,
+				message,
+			);
 		}
 		ctx.ui.notify(`Sent ${message.id} to ${message.to}`);
 		return;
@@ -1742,14 +1748,21 @@ async function run_member_modal_action(
 	if (action === 'wait') {
 		const runner = runners.get(member_name);
 		if (runner?.is_running) await runner.wait_for_idle();
-		else await wait_for_orphaned_member(store, team_id, member_name, 120_000);
+		else
+			await wait_for_orphaned_member(
+				store,
+				team_id,
+				member_name,
+				120_000,
+			);
 		ctx.ui.notify(`${member_name} is no longer running`);
 		return;
 	}
 
 	const confirmed = await show_confirm_modal(ctx, {
 		title: `Shutdown ${member_name}?`,
-		message: 'Attached runners are asked to stop; safe orphaned teammate processes are terminated.',
+		message:
+			'Attached runners are asked to stop; safe orphaned teammate processes are terminated.',
 		confirm_label: 'Shutdown',
 	});
 	if (!confirmed) return;
