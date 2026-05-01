@@ -56,8 +56,10 @@ detect local edits and upstream changes.
 /skills defaults all-disabled
 ```
 
-With a UI available, `/skills` opens an interactive manager. In
-headless mode, use the subcommands directly.
+With a UI available, `/skills` opens a modal home menu for managing,
+importing, syncing, refreshing, and setting default policy. The no-arg
+`import`, `sync`, and `defaults` subcommands use modal pickers/forms
+in interactive mode. In headless mode, use the subcommands directly.
 
 ## Skill enablement
 

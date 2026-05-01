@@ -1,9 +1,17 @@
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ExtensionCommandContext,
+} from '@mariozechner/pi-coding-agent';
 import { type SettingItem } from '@mariozechner/pi-tui';
-import { show_settings_modal } from '@spences10/pi-tui-modal';
+import {
+	show_picker_modal,
+	show_settings_modal,
+	show_text_modal,
+} from '@spences10/pi-tui-modal';
 import {
 	create_skills_manager,
 	type ManagedSkill,
+	type SkillsManager,
 } from './manager.js';
 
 export { create_skills_manager } from './manager.js';
@@ -180,6 +188,270 @@ function sets_equal(
 	return true;
 }
 
+async function show_skills_home_modal(
+	ctx: ExtensionCommandContext,
+	managed_count: number,
+	importable_count: number,
+): Promise<string | undefined> {
+	return await show_picker_modal(ctx, {
+		title: 'Skills',
+		subtitle: `${managed_count} managed • ${importable_count} importable`,
+		items: [
+			{
+				value: 'manage',
+				label: 'Manage skills',
+				description: 'Enable, disable, import, and sync skills',
+			},
+			{
+				value: 'import',
+				label: 'Import skill',
+				description: 'Copy an external skill into Pi-native storage',
+			},
+			{
+				value: 'sync',
+				label: 'Sync imported skill',
+				description:
+					'Update an imported skill from its upstream source',
+			},
+			{
+				value: 'refresh',
+				label: 'Refresh discovery',
+				description: 'Rescan managed and importable skills',
+			},
+			{
+				value: 'defaults',
+				label: 'Default policy',
+				description:
+					'Choose whether new skills default enabled or disabled',
+			},
+		],
+		footer: 'enter opens • esc close/back',
+	});
+}
+
+async function show_skills_manager_modal(
+	ctx: ExtensionCommandContext,
+	mgr: SkillsManager,
+): Promise<boolean> {
+	const discovered = sort_skills(mgr.discover());
+	const importable = sort_skills(mgr.discover_importable());
+	if (discovered.length === 0 && importable.length === 0) {
+		ctx.ui.notify('No managed or importable skills found');
+		return false;
+	}
+
+	const initial_enabled = new Set(
+		discovered
+			.filter((skill) => skill.enabled)
+			.map((skill) => skill.key),
+	);
+	const current_enabled = new Set(initial_enabled);
+	const queued_imports = new Set<string>();
+	let reload_notice: string | null = null;
+
+	const managed_items = discovered.map(to_setting_item);
+	const importable_items = importable.map((skill) =>
+		to_importable_setting_item(discovered, skill),
+	);
+
+	const all_items: SettingItem[] = [];
+	if (managed_items.length > 0) {
+		all_items.push({
+			id: '__header_managed__',
+			label: `── Managed (${managed_items.length}) ──`,
+			description: '',
+			currentValue: '',
+		});
+		all_items.push(...managed_items);
+	}
+	if (importable_items.length > 0) {
+		all_items.push({
+			id: '__header_importable__',
+			label: `── Importable (${importable_items.length}) ──`,
+			description: '',
+			currentValue: '',
+		});
+		all_items.push(...importable_items);
+	}
+
+	const metadata_by_id = new Map(
+		all_items.map((item) => [item.id, item.description ?? '']),
+	);
+	for (const item of all_items) {
+		if (!item.id.startsWith('__header_')) item.description = '';
+	}
+
+	const managed_keys = new Set(discovered.map((skill) => skill.key));
+	const importable_map = new Map(
+		importable.map((skill) => [skill.key, skill]),
+	);
+
+	await show_settings_modal(ctx, {
+		title: 'Skills',
+		subtitle: () => {
+			const enabled = current_enabled.size;
+			const disabled = discovered.length - enabled;
+			const queued = queued_imports.size;
+			const parts = [`${enabled} enabled`, `${disabled} disabled`];
+			if (importable.length > 0)
+				parts.push(`${importable.length} importable`);
+			if (queued > 0) parts.push(`${queued} queued for import`);
+			return parts.join(' • ');
+		},
+		items: all_items,
+		max_visible: Math.min(Math.max(all_items.length + 4, 8), 12),
+		enable_search: true,
+		metadata: (item) =>
+			item ? metadata_by_id.get(item.id)?.split('\n') : undefined,
+		on_change: (id, new_value) => {
+			if (id.startsWith('__header_')) return;
+
+			if (managed_keys.has(id)) {
+				if (new_value === ENABLED) {
+					current_enabled.add(id);
+					mgr.enable(id);
+				} else {
+					current_enabled.delete(id);
+					mgr.disable(id);
+				}
+				return;
+			}
+
+			const import_skill = importable_map.get(id);
+			if (!import_skill) return;
+
+			const state = get_importable_state(discovered, import_skill);
+			if (state.action === 'import') {
+				if (new_value === ENABLED) queued_imports.add(id);
+				else queued_imports.delete(id);
+				return;
+			}
+
+			if (state.action !== 'sync') return;
+			const imported_skill = find_matching_imported_skill(
+				discovered,
+				import_skill,
+			);
+			if (!imported_skill) {
+				ctx.ui.notify(
+					`Imported copy for ${import_skill.name} was not found`,
+					'warning',
+				);
+				return;
+			}
+
+			try {
+				const result = mgr.sync_skill(imported_skill.key);
+				if (result.changed) {
+					reload_notice = `Synced ${import_skill.name}. Reloading...`;
+					return true;
+				}
+				ctx.ui.notify(
+					`${import_skill.name} is already up to date.`,
+					'info',
+				);
+			} catch (error) {
+				ctx.ui.notify(
+					error instanceof Error ? error.message : String(error),
+					'warning',
+				);
+			}
+		},
+	});
+
+	if (queued_imports.size > 0) {
+		const imported_names: string[] = [];
+		for (const key of queued_imports) {
+			try {
+				mgr.import_skill(key);
+				imported_names.push(key);
+			} catch (error) {
+				ctx.ui.notify(
+					error instanceof Error ? error.message : String(error),
+					'warning',
+				);
+			}
+		}
+		if (imported_names.length > 0) {
+			reload_notice = `Imported ${imported_names.length} skill(s). Reloading...`;
+		}
+	}
+
+	if (reload_notice) {
+		ctx.ui.notify(reload_notice, 'info');
+		await ctx.reload();
+		return true;
+	}
+
+	if (!sets_equal(initial_enabled, current_enabled)) {
+		ctx.ui.notify('Reloading to apply updated skills...', 'info');
+		await ctx.reload();
+		return true;
+	}
+
+	return false;
+}
+
+async function pick_skill(
+	ctx: ExtensionCommandContext,
+	options: {
+		title: string;
+		subtitle: string;
+		skills: ManagedSkill[];
+		empty_message: string;
+	},
+): Promise<string | undefined> {
+	return await show_picker_modal(ctx, {
+		title: options.title,
+		subtitle: options.subtitle,
+		items: options.skills.map((skill) => ({
+			value: skill.key,
+			label: skill.name,
+			description: `${skill.source} • ${skill.key}`,
+		})),
+		empty_message: options.empty_message,
+	});
+}
+
+async function show_refresh_summary(
+	ctx: ExtensionCommandContext,
+	mgr: SkillsManager,
+): Promise<void> {
+	mgr.refresh();
+	await show_text_modal(ctx, {
+		title: 'Skills refreshed',
+		text: `${mgr.discover().length} managed skills\n${mgr.discover_importable().length} importable skills found`,
+	});
+}
+
+async function show_defaults_modal(
+	ctx: ExtensionCommandContext,
+	mgr: SkillsManager,
+): Promise<void> {
+	const selected = await show_picker_modal(ctx, {
+		title: 'Skill default policy',
+		subtitle: 'Choose how newly discovered skills start',
+		items: [
+			{
+				value: 'all-enabled',
+				label: 'All enabled',
+				description: 'New skills are enabled by default',
+			},
+			{
+				value: 'all-disabled',
+				label: 'All disabled',
+				description: 'New skills require explicit enablement',
+			},
+		],
+	});
+	if (!selected) return;
+	mgr.set_defaults(selected as 'all-enabled' | 'all-disabled');
+	await show_text_modal(ctx, {
+		title: 'Skill defaults updated',
+		text: `Default policy: ${selected}`,
+	});
+}
+
 // Default export for Pi Package / additionalExtensionPaths loading
 export default async function skills(pi: ExtensionAPI) {
 	const mgr = create_skills_manager();
@@ -236,160 +508,35 @@ export default async function skills(pi: ExtensionAPI) {
 			const trimmed = args.trim();
 
 			if (!trimmed && ctx.hasUI) {
-				const discovered = sort_skills(mgr.discover());
-				const importable = sort_skills(mgr.discover_importable());
-				if (discovered.length === 0 && importable.length === 0) {
-					ctx.ui.notify('No managed or importable skills found');
-					return;
-				}
+				while (true) {
+					const managed_count = mgr.discover().length;
+					const importable_count = mgr.discover_importable().length;
+					const selected = await show_skills_home_modal(
+						ctx,
+						managed_count,
+						importable_count,
+					);
+					if (!selected) return;
 
-				const initial_enabled = new Set(
-					discovered
-						.filter((skill) => skill.enabled)
-						.map((skill) => skill.key),
-				);
-				const current_enabled = new Set(initial_enabled);
-				const queued_imports = new Set<string>();
-				let reload_notice: string | null = null;
-
-				const managed_items = discovered.map(to_setting_item);
-				const importable_items = importable.map((skill) =>
-					to_importable_setting_item(discovered, skill),
-				);
-
-				const all_items: SettingItem[] = [];
-				if (managed_items.length > 0) {
-					all_items.push({
-						id: '__header_managed__',
-						label: `── Managed (${managed_items.length}) ──`,
-						description: '',
-						currentValue: '',
-					});
-					all_items.push(...managed_items);
-				}
-				if (importable_items.length > 0) {
-					all_items.push({
-						id: '__header_importable__',
-						label: `── Importable (${importable_items.length}) ──`,
-						description: '',
-						currentValue: '',
-					});
-					all_items.push(...importable_items);
-				}
-
-				const metadata_by_id = new Map(
-					all_items.map((item) => [item.id, item.description ?? '']),
-				);
-				for (const item of all_items) {
-					if (!item.id.startsWith('__header_')) item.description = '';
-				}
-
-				const managed_keys = new Set(discovered.map((s) => s.key));
-				const importable_map = new Map(
-					importable.map((s) => [s.key, s]),
-				);
-
-				await show_settings_modal(ctx, {
-					title: 'Skills',
-					subtitle: () => {
-						const enabled = current_enabled.size;
-						const disabled = discovered.length - enabled;
-						const queued = queued_imports.size;
-						const parts = [
-							`${enabled} enabled`,
-							`${disabled} disabled`,
-						];
-						if (importable.length > 0) {
-							parts.push(`${importable.length} importable`);
-						}
-						if (queued > 0) {
-							parts.push(`${queued} queued for import`);
-						}
-						return parts.join(' • ');
-					},
-					items: all_items,
-					max_visible: Math.min(
-						Math.max(all_items.length + 4, 8),
-						12,
-					),
-					enable_search: true,
-					metadata: (item) =>
-						item
-							? metadata_by_id.get(item.id)?.split('\n')
-							: undefined,
-					on_change: (id, new_value) => {
-						if (id.startsWith('__header_')) return;
-
-						if (managed_keys.has(id)) {
-							if (new_value === ENABLED) {
-								current_enabled.add(id);
-								mgr.enable(id);
-							} else {
-								current_enabled.delete(id);
-								mgr.disable(id);
-							}
-							return;
-						}
-
-						const import_skill = importable_map.get(id);
-						if (!import_skill) return;
-
-						const state = get_importable_state(
-							discovered,
-							import_skill,
-						);
-
-						if (state.action === 'import') {
-							if (new_value === ENABLED) {
-								queued_imports.add(id);
-							} else {
-								queued_imports.delete(id);
-							}
-							return;
-						}
-
-						if (state.action === 'sync') {
-							const imported_skill = find_matching_imported_skill(
-								discovered,
-								import_skill,
-							);
-							if (!imported_skill) {
-								ctx.ui.notify(
-									`Imported copy for ${import_skill.name} was not found`,
-									'warning',
-								);
-								return;
-							}
-
-							try {
-								const result = mgr.sync_skill(imported_skill.key);
-								if (result.changed) {
-									reload_notice = `Synced ${import_skill.name}. Reloading...`;
-									return true;
-								} else {
-									ctx.ui.notify(
-										`${import_skill.name} is already up to date.`,
-										'info',
-									);
-								}
-							} catch (error) {
-								ctx.ui.notify(
-									error instanceof Error
-										? error.message
-										: String(error),
-									'warning',
-								);
-							}
-						}
-					},
-				});
-
-				if (queued_imports.size > 0) {
-					const imported_names: string[] = [];
-					for (const key of queued_imports) {
+					if (selected === 'manage') {
+						if (await show_skills_manager_modal(ctx, mgr)) return;
+					} else if (selected === 'import') {
+						const key = await pick_skill(ctx, {
+							title: 'Import skill',
+							subtitle:
+								'Copy an external skill into Pi-native storage',
+							skills: sort_skills(mgr.discover_importable()),
+							empty_message: 'No importable skills found',
+						});
+						if (!key) continue;
 						try {
-							mgr.import_skill(key);
-							imported_names.push(key);
+							const result = mgr.import_skill(key);
+							ctx.ui.notify(
+								`Imported ${key} to ${result.skillDir}. Reloading...`,
+								'info',
+							);
+							await ctx.reload();
+							return;
 						} catch (error) {
 							ctx.ui.notify(
 								error instanceof Error
@@ -398,28 +545,44 @@ export default async function skills(pi: ExtensionAPI) {
 								'warning',
 							);
 						}
+					} else if (selected === 'sync') {
+						const key = await pick_skill(ctx, {
+							title: 'Sync imported skill',
+							subtitle:
+								'Update an imported skill from its upstream source',
+							skills: sort_skills(
+								mgr
+									.discover()
+									.filter((skill) => Boolean(skill.import_meta)),
+							),
+							empty_message: 'No imported skills found',
+						});
+						if (!key) continue;
+						try {
+							const result = mgr.sync_skill(key);
+							if (result.changed) {
+								ctx.ui.notify(`Synced ${key}. Reloading...`, 'info');
+								await ctx.reload();
+								return;
+							}
+							await show_text_modal(ctx, {
+								title: 'Skill already up to date',
+								text: `${key} is already up to date.`,
+							});
+						} catch (error) {
+							ctx.ui.notify(
+								error instanceof Error
+									? error.message
+									: String(error),
+								'warning',
+							);
+						}
+					} else if (selected === 'refresh') {
+						await show_refresh_summary(ctx, mgr);
+					} else if (selected === 'defaults') {
+						await show_defaults_modal(ctx, mgr);
 					}
-					if (imported_names.length > 0) {
-						reload_notice = `Imported ${imported_names.length} skill(s). Reloading...`;
-					}
 				}
-
-				if (reload_notice) {
-					ctx.ui.notify(reload_notice, 'info');
-					await ctx.reload();
-					return;
-				}
-
-				if (!sets_equal(initial_enabled, current_enabled)) {
-					ctx.ui.notify(
-						'Reloading to apply updated skills...',
-						'info',
-					);
-					await ctx.reload();
-					return;
-				}
-
-				return;
 			}
 
 			const [sub, ...rest] = (trimmed || 'list').split(/\s+/);
@@ -427,7 +590,19 @@ export default async function skills(pi: ExtensionAPI) {
 
 			switch (sub) {
 				case 'import': {
-					if (!arg) {
+					let target = arg;
+					if (!target && ctx.hasUI) {
+						target =
+							(await pick_skill(ctx, {
+								title: 'Import skill',
+								subtitle:
+									'Copy an external skill into Pi-native storage',
+								skills: sort_skills(mgr.discover_importable()),
+								empty_message: 'No importable skills found',
+							})) ?? '';
+						if (!target) return;
+					}
+					if (!target) {
 						ctx.ui.notify(
 							'Usage: /skills import <key|name>',
 							'warning',
@@ -435,9 +610,9 @@ export default async function skills(pi: ExtensionAPI) {
 						return;
 					}
 					try {
-						const result = mgr.import_skill(arg);
+						const result = mgr.import_skill(target);
 						ctx.ui.notify(
-							`Imported ${arg} to ${result.skillDir}. Reloading...`,
+							`Imported ${target} to ${result.skillDir}. Reloading...`,
 							'info',
 						);
 						await ctx.reload();
@@ -451,7 +626,23 @@ export default async function skills(pi: ExtensionAPI) {
 					}
 				}
 				case 'sync': {
-					if (!arg) {
+					let target = arg;
+					if (!target && ctx.hasUI) {
+						target =
+							(await pick_skill(ctx, {
+								title: 'Sync imported skill',
+								subtitle:
+									'Update an imported skill from its upstream source',
+								skills: sort_skills(
+									mgr
+										.discover()
+										.filter((skill) => Boolean(skill.import_meta)),
+								),
+								empty_message: 'No imported skills found',
+							})) ?? '';
+						if (!target) return;
+					}
+					if (!target) {
 						ctx.ui.notify(
 							'Usage: /skills sync <key|name>',
 							'warning',
@@ -459,11 +650,11 @@ export default async function skills(pi: ExtensionAPI) {
 						return;
 					}
 					try {
-						const result = mgr.sync_skill(arg);
+						const result = mgr.sync_skill(target);
 						ctx.ui.notify(
 							result.changed
-								? `Synced ${arg}. Reloading...`
-								: `${arg} is already up to date.`,
+								? `Synced ${target}. Reloading...`
+								: `${target} is already up to date.`,
 							'info',
 						);
 						if (result.changed) {
@@ -479,6 +670,10 @@ export default async function skills(pi: ExtensionAPI) {
 					}
 				}
 				case 'refresh': {
+					if (ctx.hasUI) {
+						await show_refresh_summary(ctx, mgr);
+						break;
+					}
 					mgr.refresh();
 					ctx.ui.notify(
 						`Rescanned: ${mgr.discover().length} managed skills, ${mgr.discover_importable().length} importable skills found`,
@@ -486,6 +681,10 @@ export default async function skills(pi: ExtensionAPI) {
 					break;
 				}
 				case 'defaults': {
+					if (!arg && ctx.hasUI) {
+						await show_defaults_modal(ctx, mgr);
+						break;
+					}
 					if (arg !== 'all-enabled' && arg !== 'all-disabled') {
 						ctx.ui.notify(
 							'Usage: /skills defaults <all-enabled|all-disabled>',
@@ -494,7 +693,14 @@ export default async function skills(pi: ExtensionAPI) {
 						return;
 					}
 					mgr.set_defaults(arg);
-					ctx.ui.notify(`Default policy: ${arg}`);
+					if (ctx.hasUI) {
+						await show_text_modal(ctx, {
+							title: 'Skill defaults updated',
+							text: `Default policy: ${arg}`,
+						});
+					} else {
+						ctx.ui.notify(`Default policy: ${arg}`);
+					}
 					break;
 				}
 				default:
