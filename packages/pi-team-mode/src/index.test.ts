@@ -13,6 +13,7 @@ import {
 	require_lead_for_teammate_spawn,
 	should_inject_team_prompt,
 	should_show_team_widget,
+	validate_team_tool_params,
 } from './index.js';
 import { TeamStore, type TeamStatus } from './store.js';
 
@@ -86,6 +87,76 @@ function test_status(
 		},
 	};
 }
+
+describe('team tool validation', () => {
+	const optional_only_actions = [
+		'team_create',
+		'team_list',
+		'team_status',
+		'team_clear',
+		'team_ui',
+		'member_status',
+		'task_list',
+	] as const;
+
+	for (const action of optional_only_actions) {
+		it(`accepts ${action} without action-specific fields`, () => {
+			expect(() =>
+				validate_team_tool_params({ action }),
+			).not.toThrow();
+		});
+	}
+
+	const missing_required_cases = [
+		['member_upsert', /member/],
+		['member_spawn', /member/],
+		['member_prompt', /member/],
+		['member_follow_up', /member/],
+		['member_steer', /member/],
+		['member_shutdown', /member/],
+		['member_wait', /member/],
+		['task_create', /title/],
+		['task_get', /task_id/],
+		['task_update', /task_id/],
+		['task_claim_next', /assignee/],
+		['message_send', /to/],
+		['message_list', /member/],
+		['message_read', /member/],
+		['message_ack', /member/],
+	] as const;
+
+	for (const [action, field_match] of missing_required_cases) {
+		it(`rejects ${action} without required fields`, () => {
+			expect(() => validate_team_tool_params({ action })).toThrow(
+				new RegExp(
+					`Invalid team tool action ${action}:.*${field_match.source}`,
+				),
+			);
+		});
+	}
+
+	it('accepts legacy aliases for member and prompt fields', () => {
+		expect(() =>
+			validate_team_tool_params({
+				action: 'member_prompt',
+				name: 'alice',
+				initial_prompt: 'go',
+			}),
+		).not.toThrow();
+		expect(() =>
+			validate_team_tool_params({
+				action: 'task_claim_next',
+				member: 'alice',
+			}),
+		).not.toThrow();
+		expect(() =>
+			validate_team_tool_params({
+				action: 'message_ack',
+				to: 'alice',
+			}),
+		).not.toThrow();
+	});
+});
 
 describe('nested team spawn guard', () => {
 	it('rejects teammate-role spawn attempts with a clear error', () => {
