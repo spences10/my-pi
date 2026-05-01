@@ -33,8 +33,8 @@
 		"test": "pnpm --filter @spences10/pi-child-env run build && vitest run"
 	},
 	"dependencies": {
-		"@mariozechner/pi-ai": "^0.71.0",
-		"@mariozechner/pi-coding-agent": "^0.71.0",
+		"@mariozechner/pi-ai": "^0.71.1",
+		"@mariozechner/pi-coding-agent": "^0.71.1",
 		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*",
 		"typebox": "^1.1.36"

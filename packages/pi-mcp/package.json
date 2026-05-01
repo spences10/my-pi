@@ -37,7 +37,7 @@
 		"test": "pnpm --filter @spences10/pi-child-env run build && pnpm --filter @spences10/pi-project-trust run build && vitest run"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.71.0",
+		"@mariozechner/pi-coding-agent": "^0.71.1",
 		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-project-trust": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*"

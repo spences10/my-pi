@@ -33,8 +33,8 @@
 		"check": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.71.0",
-		"@mariozechner/pi-tui": "^0.71.0"
+		"@mariozechner/pi-coding-agent": "^0.71.1",
+		"@mariozechner/pi-tui": "^0.71.1"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",

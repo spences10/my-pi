@@ -15,14 +15,14 @@ importers:
   .:
     dependencies:
       '@mariozechner/pi-ai':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@mariozechner/pi-tui':
-        specifier: ^0.71.0
-        version: 0.71.0
+        specifier: ^0.71.1
+        version: 0.71.1
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:packages/pi-child-env
@@ -103,8 +103,8 @@ importers:
   packages/pi-confirm-destructive:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -119,8 +119,8 @@ importers:
   packages/pi-lsp:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:../pi-child-env
@@ -147,8 +147,8 @@ importers:
   packages/pi-mcp:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:../pi-child-env
@@ -172,8 +172,8 @@ importers:
   packages/pi-nopeek:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -188,8 +188,8 @@ importers:
   packages/pi-omnisearch:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -216,8 +216,8 @@ importers:
   packages/pi-recall:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -232,11 +232,11 @@ importers:
   packages/pi-redact:
     dependencies:
       '@mariozechner/pi-ai':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -251,11 +251,11 @@ importers:
   packages/pi-skills:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@mariozechner/pi-tui':
-        specifier: ^0.71.0
-        version: 0.71.0
+        specifier: ^0.71.1
+        version: 0.71.1
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal
@@ -273,8 +273,8 @@ importers:
   packages/pi-sqlite-tools:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -289,11 +289,11 @@ importers:
   packages/pi-team-mode:
     dependencies:
       '@mariozechner/pi-ai':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:../pi-child-env
@@ -317,8 +317,8 @@ importers:
   packages/pi-telemetry:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal
@@ -338,11 +338,11 @@ importers:
   packages/pi-tui-modal:
     dependencies:
       '@mariozechner/pi-coding-agent':
-        specifier: ^0.71.0
-        version: 0.71.0(ws@8.20.0)(zod@4.4.1)
+        specifier: ^0.71.1
+        version: 0.71.1(ws@8.20.0)(zod@4.4.1)
       '@mariozechner/pi-tui':
-        specifier: ^0.71.0
-        version: 0.71.0
+        specifier: ^0.71.1
+        version: 0.71.1
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -684,22 +684,22 @@ packages:
     resolution: {integrity: sha512-faGUlTcXka5l7rv0lP3K3vGW/ejRuOS24RR2aSFWREUQqzjgdsuWNo/IiPqL3kWRGt6Ahl2+qcDAwtdeWeuGUw==}
     hasBin: true
 
-  '@mariozechner/pi-agent-core@0.71.0':
-    resolution: {integrity: sha512-bHO0cfap04IosXNFjK39Kp4Adf5l/MPJDnZcCA0/XUXKAAQFkb9x5j4C8N3/u+JVaXguj+Wjc7IiCLPcrCTjJg==}
+  '@mariozechner/pi-agent-core@0.71.1':
+    resolution: {integrity: sha512-LMXcKoPmjD06EHwnl7IGMkJs/l3Qdl9z1xKsQGqqyd60ZgdxaATtR40Yyzcku1ogu16NhCHrUg6PJ9XeRcT+qQ==}
     engines: {node: '>=20.0.0'}
 
-  '@mariozechner/pi-ai@0.71.0':
-    resolution: {integrity: sha512-Bq5CLfm3tgn1JRHAsX/TVLmCUnLpR0U4smY9WUY3JX3eOKyTgiD27bdZRaoZsUSQp5uk8oBiw8S2mBNqTmZ28g==}
+  '@mariozechner/pi-ai@0.71.1':
+    resolution: {integrity: sha512-xksl4Y20qnjGbF3/eo0rX+TXEiZkkgRCEO8n/q7tMeVKhQ41migVG+msF+xTJoC3HkrTWfak3Y2Z6UjTUbjeTg==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
-  '@mariozechner/pi-coding-agent@0.71.0':
-    resolution: {integrity: sha512-e0YRECBYBl3ZwU1KxZwsU2Fd9WH/EDVu/f+pYOf1CoediDmUe4/JeGZSURESej+A6iIxyMtwUdzkPa5KpTmbBA==}
+  '@mariozechner/pi-coding-agent@0.71.1':
+    resolution: {integrity: sha512-pP7ymz+MmZrcN5aUldm1q1cVbG3u04yZR/XsHEfidku5W3PP1uxsA0A4g4NOhXnkK5EZ+Qg6H12BAbVvl7Qq2Q==}
     engines: {node: '>=20.6.0'}
     hasBin: true
 
-  '@mariozechner/pi-tui@0.71.0':
-    resolution: {integrity: sha512-6GyauY5i+Tp1hWF08OQHM1GfetcjJuQTVRILMdFKs45P7mP5ePOG/P1M0OYYpsrwaRJzPS2Lh2d2e1FweSK+Rg==}
+  '@mariozechner/pi-tui@0.71.1':
+    resolution: {integrity: sha512-jNMN9EmGiH8EIKG62fceOTonoJ9k0cohTdjQCDrOk77vnxPVK+3be/+S1xk4hxviltwxlRH0d7mGQXs+CuEL8g==}
     engines: {node: '>=20.0.0'}
 
   '@mistralai/mistralai@2.2.1':
@@ -1900,8 +1900,8 @@ packages:
     resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
     engines: {node: '>= 4'}
 
-  ip-address@10.1.1:
-    resolution: {integrity: sha512-1FMu8/N15Ck1BL551Jf42NYIoin2unWjLQ2Fze/DXryJRl5twqtwNHlO39qERGbIOcKYWHdgRryhOC+NG4eaLw==}
+  ip-address@10.2.0:
+    resolution: {integrity: sha512-/+S6j4E9AHvW9SWMSEY9Xfy66O5PWvVEJ08O0y5JGyEKQpojb0K0GKpz/v5HJ/G0vi3D2sjGK78119oXZeE0qA==}
     engines: {node: '>= 12'}
 
   is-extglob@2.1.1:
@@ -3323,9 +3323,9 @@ snapshots:
       std-env: 3.10.0
       yoctocolors: 2.1.2
 
-  '@mariozechner/pi-agent-core@0.71.0(ws@8.20.0)(zod@4.4.1)':
+  '@mariozechner/pi-agent-core@0.71.1(ws@8.20.0)(zod@4.4.1)':
     dependencies:
-      '@mariozechner/pi-ai': 0.71.0(ws@8.20.0)(zod@4.4.1)
+      '@mariozechner/pi-ai': 0.71.1(ws@8.20.0)(zod@4.4.1)
       typebox: 1.1.36
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
@@ -3336,7 +3336,7 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-ai@0.71.0(ws@8.20.0)(zod@4.4.1)':
+  '@mariozechner/pi-ai@0.71.1(ws@8.20.0)(zod@4.4.1)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.1)
       '@aws-sdk/client-bedrock-runtime': 3.1040.0
@@ -3358,12 +3358,12 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-coding-agent@0.71.0(ws@8.20.0)(zod@4.4.1)':
+  '@mariozechner/pi-coding-agent@0.71.1(ws@8.20.0)(zod@4.4.1)':
     dependencies:
       '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.71.0(ws@8.20.0)(zod@4.4.1)
-      '@mariozechner/pi-ai': 0.71.0(ws@8.20.0)(zod@4.4.1)
-      '@mariozechner/pi-tui': 0.71.0
+      '@mariozechner/pi-agent-core': 0.71.1(ws@8.20.0)(zod@4.4.1)
+      '@mariozechner/pi-ai': 0.71.1(ws@8.20.0)(zod@4.4.1)
+      '@mariozechner/pi-tui': 0.71.1
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
       cli-highlight: 2.1.11
@@ -3392,7 +3392,7 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-tui@0.71.0':
+  '@mariozechner/pi-tui@0.71.1':
     dependencies:
       '@types/mime-types': 2.1.4
       chalk: 5.6.2
@@ -4454,7 +4454,7 @@ snapshots:
 
   ignore@7.0.5: {}
 
-  ip-address@10.1.1: {}
+  ip-address@10.2.0: {}
 
   is-extglob@2.1.1: {}
 
@@ -4908,7 +4908,7 @@ snapshots:
 
   socks@2.8.8:
     dependencies:
-      ip-address: 10.1.1
+      ip-address: 10.2.0
       smart-buffer: 4.2.0
 
   source-map-js@1.2.1: {}

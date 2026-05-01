@@ -37,8 +37,8 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@mariozechner/pi-ai": "^0.71.0",
-		"@mariozechner/pi-coding-agent": "^0.71.0"
+		"@mariozechner/pi-ai": "^0.71.1",
+		"@mariozechner/pi-coding-agent": "^0.71.1"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",
