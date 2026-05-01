@@ -23,6 +23,8 @@ JSON:
 - Dracula
 - Gruvbox Dark
 - Night Owl
+- Neon Afterglow
+- Neon Noir
 - Nord
 - One Dark
 - Rosé Pine
