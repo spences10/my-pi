@@ -95,7 +95,12 @@ describe('create_rpc_teammate_env', () => {
 function write_fake_rpc_child(
 	options: {
 		hang_get_state?: boolean;
+		hang_prompt?: boolean;
+		fail_prompt_error?: string;
+		exit_immediately?: boolean;
+		exit_after_prompt?: boolean;
 		exit_after_follow_up?: boolean;
+		malformed_on_start?: boolean;
 		file_name?: string;
 		argv_path?: string;
 	} = {},
@@ -107,9 +112,16 @@ function write_fake_rpc_child(
 const fs = require('node:fs');
 const readline = require('node:readline');
 const hang_get_state = ${JSON.stringify(options.hang_get_state ?? false)};
+const hang_prompt = ${JSON.stringify(options.hang_prompt ?? false)};
+const fail_prompt_error = ${JSON.stringify(options.fail_prompt_error)};
+const exit_immediately = ${JSON.stringify(options.exit_immediately ?? false)};
+const exit_after_prompt = ${JSON.stringify(options.exit_after_prompt ?? false)};
 const exit_after_follow_up = ${JSON.stringify(options.exit_after_follow_up ?? false)};
+const malformed_on_start = ${JSON.stringify(options.malformed_on_start ?? false)};
 const argv_path = ${JSON.stringify(options.argv_path)};
 if (argv_path) fs.writeFileSync(argv_path, JSON.stringify(process.argv.slice(2)));
+if (malformed_on_start) process.stdout.write('not-json\\n');
+if (exit_immediately) process.exit(42);
 function send(value) { process.stdout.write(JSON.stringify(value) + '\\n'); }
 const rl = readline.createInterface({ input: process.stdin });
 rl.on('line', (line) => {
@@ -119,10 +131,15 @@ rl.on('line', (line) => {
   } else if (msg.type === 'set_session_name') {
     send({ type: 'response', id: msg.id, success: true });
   } else if (msg.type === 'prompt') {
+    if (fail_prompt_error) return send({ type: 'response', id: msg.id, success: false, error: fail_prompt_error });
+    if (hang_prompt) return;
     send({ type: 'response', id: msg.id, success: true });
     send({ type: 'agent_start' });
-    setTimeout(() => send({ type: 'message_end', message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] } }), 5);
-    setTimeout(() => send({ type: 'agent_end' }), 10);
+    if (exit_after_prompt) setTimeout(() => process.exit(1), 5);
+    else {
+      setTimeout(() => send({ type: 'message_end', message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] } }), 5);
+      setTimeout(() => send({ type: 'agent_end' }), 10);
+    }
   } else if (msg.type === 'follow_up' || msg.type === 'steer' || msg.type === 'abort') {
     send({ type: 'response', id: msg.id, success: true });
     if (msg.type === 'follow_up' && exit_after_follow_up) setTimeout(() => process.exit(1), 5);
@@ -133,6 +150,10 @@ process.on('SIGTERM', () => process.exit(0));
 	);
 	chmodSync(path, 0o755);
 	return path;
+}
+
+async function wait_for_runner_close(): Promise<void> {
+	await new Promise((resolve) => setTimeout(resolve, 75));
 }
 
 describe('build_rpc_teammate_args', () => {
@@ -315,6 +336,137 @@ describe('RpcTeammate lifecycle', () => {
 				.list_members(team.id)
 				.find((member) => member.name === 'alice'),
 		).toMatchObject({ status: 'offline' });
+	});
+
+	it('records malformed RPC output without killing the teammate', async () => {
+		const fake_pi = write_fake_rpc_child({
+			malformed_on_start: true,
+		});
+		const team = store.create_team({ cwd: root, name: 'demo' });
+		const runner = new RpcTeammate(store, {
+			team_id: team.id,
+			member: 'alice',
+			cwd: root,
+			team_root: root,
+			extension_path: join(root, 'team-extension.js'),
+			pi_command: fake_pi,
+		});
+
+		await runner.start();
+
+		expect(
+			readFileSync(store.events_path(team.id), 'utf-8'),
+		).toContain('member_output_parse_error');
+		await runner.shutdown('test done');
+		await wait_for_runner_close();
+	});
+
+	it('marks provider/model RPC errors as blocked', async () => {
+		const fake_pi = write_fake_rpc_child({
+			fail_prompt_error: 'model unavailable',
+		});
+		const team = store.create_team({ cwd: root, name: 'demo' });
+		const runner = new RpcTeammate(store, {
+			team_id: team.id,
+			member: 'alice',
+			cwd: root,
+			team_root: root,
+			extension_path: join(root, 'team-extension.js'),
+			pi_command: fake_pi,
+		});
+
+		await runner.start();
+		await expect(runner.prompt('do work')).rejects.toThrow(
+			/model unavailable/,
+		);
+
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({ status: 'blocked' });
+		expect(
+			readFileSync(store.events_path(team.id), 'utf-8'),
+		).toContain('member_rpc_error');
+		await runner.shutdown('test done');
+		await wait_for_runner_close();
+	});
+
+	it('marks RPC request timeouts as blocked', async () => {
+		const fake_pi = write_fake_rpc_child({ hang_prompt: true });
+		const team = store.create_team({ cwd: root, name: 'demo' });
+		const runner = new RpcTeammate(store, {
+			team_id: team.id,
+			member: 'alice',
+			cwd: root,
+			team_root: root,
+			extension_path: join(root, 'team-extension.js'),
+			pi_command: fake_pi,
+		});
+		const request = (runner as any).request.bind(runner);
+		(runner as any).request = (
+			command: Record<string, unknown>,
+			timeout_ms: number,
+		) =>
+			request(command, command.type === 'prompt' ? 25 : timeout_ms);
+
+		await runner.start();
+		await expect(runner.prompt('do work')).rejects.toThrow(
+			/timed out/,
+		);
+		expect(
+			store
+				.list_members(team.id)
+				.find((member) => member.name === 'alice'),
+		).toMatchObject({ status: 'blocked' });
+		await runner.shutdown('test done');
+		await wait_for_runner_close();
+	});
+
+	it('blocks in-progress tasks when a child dies mid-task', async () => {
+		const fake_pi = write_fake_rpc_child({ exit_after_prompt: true });
+		const team = store.create_team({ cwd: root, name: 'demo' });
+		const task = await store.create_task(team.id, {
+			title: 'Implement',
+			assignee: 'alice',
+			status: 'in_progress',
+		});
+		const runner = new RpcTeammate(store, {
+			team_id: team.id,
+			member: 'alice',
+			cwd: root,
+			team_root: root,
+			extension_path: join(root, 'team-extension.js'),
+			pi_command: fake_pi,
+		});
+
+		await runner.start();
+		await runner.prompt('do work');
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(store.load_task(team.id, task.id)).toMatchObject({
+			status: 'blocked',
+			result: 'Blocked because teammate alice went offline.',
+		});
+		await wait_for_runner_close();
+	});
+
+	it('reports child startup failure before the handshake', async () => {
+		const fake_pi = write_fake_rpc_child({ exit_immediately: true });
+		const team = store.create_team({ cwd: root, name: 'demo' });
+		const runner = new RpcTeammate(store, {
+			team_id: team.id,
+			member: 'alice',
+			cwd: root,
+			team_root: root,
+			extension_path: join(root, 'team-extension.js'),
+			pi_command: fake_pi,
+		});
+
+		await expect(runner.start()).rejects.toThrow(/exited/);
+		expect(
+			readFileSync(store.events_path(team.id), 'utf-8'),
+		).toContain('member_start_failed');
 	});
 
 	it('restores delivered mailbox messages when a child exits before acknowledging them', async () => {

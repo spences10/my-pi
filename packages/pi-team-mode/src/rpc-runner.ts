@@ -506,11 +506,31 @@ export class RpcTeammate {
 		this.resolve_idle_waiters();
 		this.reject_all(error);
 		await this.clear_unacknowledged_deliveries();
+		await this.block_in_progress_tasks();
 		await this.store.upsert_member(this.team_id, {
 			name: this.member,
 			status: 'offline',
 		});
 		this.options.on_exit?.(this.member);
+	}
+
+	private async block_in_progress_tasks(): Promise<void> {
+		try {
+			for (const task of this.store.list_tasks(this.team_id)) {
+				if (
+					task.status !== 'in_progress' ||
+					task.assignee !== this.member
+				) {
+					continue;
+				}
+				await this.store.update_task(this.team_id, task.id, {
+					status: 'blocked',
+					result: `Blocked because teammate ${this.member} went offline.`,
+				});
+			}
+		} catch {
+			// Best-effort recovery only; preserve the original shutdown/error path.
+		}
 	}
 
 	private async clear_unacknowledged_deliveries(): Promise<void> {

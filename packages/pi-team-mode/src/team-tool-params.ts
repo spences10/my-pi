@@ -83,6 +83,7 @@ export const TeamToolParams = Type.Object({
 	from: Type.Optional(Type.String()),
 	to: Type.Optional(Type.String()),
 	message: Type.Optional(Type.String()),
+	message_ids: Type.Optional(Type.Array(Type.String())),
 	urgent: Type.Optional(Type.Boolean()),
 	initial_prompt: Type.Optional(Type.String()),
 	model: Type.Optional(Type.String()),
@@ -124,6 +125,7 @@ export type TeamToolParams = {
 	from?: string;
 	to?: string;
 	message?: string;
+	message_ids?: string[];
 	urgent?: boolean;
 	initial_prompt?: string;
 	model?: string;

@@ -131,6 +131,26 @@ describe('TeamStore', async () => {
 		});
 	});
 
+	it('serializes concurrent claims so one task is claimed once', async () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const task = await store.create_task(team.id, {
+			title: 'Single winner',
+		});
+
+		const claims = await Promise.all(
+			Array.from({ length: 10 }, (_, index) =>
+				store.claim_next_task(team.id, `worker-${index}`),
+			),
+		);
+		const winners = claims.filter(Boolean);
+
+		expect(winners).toHaveLength(1);
+		expect(winners[0]).toMatchObject({ id: task.id });
+		expect(store.load_task(team.id, task.id)).toMatchObject({
+			status: 'in_progress',
+		});
+	});
+
 	it('rejects ambiguous member and assignee names', async () => {
 		const team = store.create_team({ cwd: '/repo' });
 
@@ -362,6 +382,59 @@ describe('TeamStore', async () => {
 
 		expect(restored[0].delivered_at).toBeUndefined();
 		expect(restored[0].read_at).toBeUndefined();
+	});
+
+	it('does not restore acknowledged messages for redelivery', async () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const message = await store.send_message(team.id, {
+			from: 'lead',
+			to: 'alice',
+			body: 'hello',
+		});
+		await store.mark_messages_delivered(team.id, 'alice', [
+			message.id,
+		]);
+		await store.acknowledge_messages(team.id, 'alice', [message.id]);
+
+		const restored = await store.clear_unacknowledged_deliveries(
+			team.id,
+			'alice',
+		);
+
+		expect(restored[0].delivered_at).toBeTruthy();
+		expect(restored[0].acknowledged_at).toBeTruthy();
+	});
+
+	it('acknowledges selected mailbox messages without collapsing the whole inbox', async () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const first = await store.send_message(team.id, {
+			from: 'lead',
+			to: 'alice',
+			body: 'first',
+		});
+		const second = await store.send_message(team.id, {
+			from: 'lead',
+			to: 'alice',
+			body: 'second',
+		});
+
+		await store.mark_messages_read(team.id, 'alice', [first.id]);
+		await store.acknowledge_messages(team.id, 'alice', [second.id]);
+
+		const messages = store.list_messages(team.id, 'alice');
+		expect(
+			messages.find((item) => item.id === first.id),
+		).toMatchObject({
+			read_at: expect.any(String),
+		});
+		expect(
+			messages.find((item) => item.id === first.id)?.acknowledged_at,
+		).toBeUndefined();
+		expect(
+			messages.find((item) => item.id === second.id),
+		).toMatchObject({
+			acknowledged_at: expect.any(String),
+		});
 	});
 
 	it('persists teammate workspace metadata', async () => {

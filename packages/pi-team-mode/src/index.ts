@@ -172,6 +172,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'task claim',
 				'dm',
 				'inbox',
+				'inbox alice read',
+				'inbox alice ack',
+				'read',
+				'ack',
 				...(own_role === 'teammate'
 					? []
 					: ['spawn', 'spawn alice --worktree --mutating']),

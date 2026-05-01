@@ -565,10 +565,23 @@ export async function execute_team_tool(
 		}
 		case 'message_read':
 		case 'message_ack': {
-			const messages = await store.acknowledge_messages(
-				require_team_id(),
-				require_arg(params.member ?? params.to, 'member'),
+			const active = require_team_id();
+			const member = require_arg(
+				params.member ?? params.to,
+				'member',
 			);
+			const messages =
+				params.action === 'message_read'
+					? await store.mark_messages_read(
+							active,
+							member,
+							params.message_ids,
+						)
+					: await store.acknowledge_messages(
+							active,
+							member,
+							params.message_ids,
+						);
 			return {
 				content: [
 					{

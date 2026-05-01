@@ -218,6 +218,71 @@ describe('nested team spawn guard', () => {
 	});
 });
 
+describe('mailbox commands', () => {
+	it('marks selected messages read and acknowledged without acking the whole inbox', async () => {
+		const root = mkdtempSync(join(tmpdir(), 'my-pi-team-mailbox-'));
+		try {
+			const store = new TeamStore(root);
+			const team = store.create_team({ cwd: '/repo' });
+			const first = await store.send_message(team.id, {
+				from: 'lead',
+				to: 'alice',
+				body: 'first',
+			});
+			const second = await store.send_message(team.id, {
+				from: 'lead',
+				to: 'alice',
+				body: 'second',
+			});
+			const notifications: string[] = [];
+			const ctx = {
+				cwd: '/repo',
+				hasUI: false,
+				ui: {
+					notify: (message: string) => notifications.push(message),
+				},
+			} as any;
+
+			await handle_team_command(
+				`inbox alice read ${first.id}`,
+				ctx,
+				store,
+				new Map(),
+				() => team.id,
+				() => undefined,
+				'lead',
+			);
+			await handle_team_command(
+				`ack alice ${second.id}`,
+				ctx,
+				store,
+				new Map(),
+				() => team.id,
+				() => undefined,
+				'lead',
+			);
+
+			const messages = store.list_messages(team.id, 'alice');
+			expect(
+				messages.find((message) => message.id === first.id),
+			).toMatchObject({
+				read_at: expect.any(String),
+			});
+			expect(
+				messages.find((message) => message.id === first.id)
+					?.acknowledged_at,
+			).toBeUndefined();
+			expect(
+				messages.find((message) => message.id === second.id),
+			).toMatchObject({
+				acknowledged_at: expect.any(String),
+			});
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+});
+
 describe('orphaned teammate recovery', () => {
 	it('terminates a live persisted teammate pid after lead restart', async () => {
 		const root = mkdtempSync(join(tmpdir(), 'my-pi-team-orphan-'));

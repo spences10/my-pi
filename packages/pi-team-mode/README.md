@@ -135,12 +135,24 @@ IDs: letters, numbers, dots, underscores, and hyphens only. This
 avoids ambiguous local state paths like `alice/dev` and `alice-dev`
 resolving to the same mailbox/member file.
 
-Mailbox messages track delivery separately from acknowledgement.
-Sending to a running RPC teammate marks the message delivered only
-after the RPC queue accepts it; teammates should call `message_read`
-after processing the injected mailbox message. If the teammate exits
-before acknowledging, the message is restored for redelivery on the
-next session.
+Mailbox messages track three separate states:
+
+- `delivered_at`: the message was injected into a session or accepted
+  by a running teammate's RPC queue.
+- `read_at`: the recipient has reviewed the message, but it may still
+  need action.
+- `acknowledged_at`: the recipient has fully processed the message and
+  it is safe to suppress redelivery.
+
+Use `message_read` to mark reviewed messages without acknowledging
+work, and `message_ack` after acting on them. Both tool actions accept
+optional `message_ids`; without IDs they update the whole inbox for
+the member. Command equivalents are
+`/team inbox <member> read [ids...]`,
+`/team inbox <member> ack [ids...]`, `/team read <member> [ids...]`,
+and `/team ack <member> [ids...]`. If a teammate exits after delivery
+but before acknowledgement, unacknowledged deliveries are restored for
+redelivery on the next session.
 
 ## Commands
 
@@ -155,6 +167,8 @@ next session.
 /team task assign 1 bob
 /team task unassign 1
 /team dm alice status?
+/team inbox alice read msg-id
+/team ack alice msg-id
 /team status
 /team dashboard
 /team results
@@ -166,15 +180,18 @@ next session.
 ```
 
 Use `/team status` as the source of truth for member state, task
-state, and mailbox activity. Use `/team dashboard` for a compact modal
-with members, task groups, mailboxes, transcript paths, and available
-usage totals. Use `/team results` to join completed task results into
-a single summary. Assigned tasks stay queued until the assigned
-teammate claims them, so the status view reflects actual work in
-progress. Use `/team task block|cancel <id> [reason]`,
-`/team task reopen <id>`, and `/team task assign|unassign` for manual
-lifecycle corrections. Assigning a task changes ownership only; it
-does not reopen blocked or cancelled work.
+state, and mailbox activity. See
+[docs/comparison-matrix.md](docs/comparison-matrix.md) for the
+feature-parity gap check against comparable orchestration tools. Use
+`/team dashboard` for a compact modal with members, task groups,
+mailboxes, transcript paths, and available usage totals. Use
+`/team results` to join completed task results into a single summary.
+Assigned tasks stay queued until the assigned teammate claims them, so
+the status view reflects actual work in progress. Use
+`/team task block|cancel <id> [reason]`, `/team task reopen <id>`, and
+`/team task assign|unassign` for manual lifecycle corrections.
+Assigning a task changes ownership only; it does not reopen blocked or
+cancelled work.
 
 ## Tool API
 
@@ -197,8 +214,9 @@ orchestration. Important actions include:
   fields)
 - `message_send`
 - `message_list`
-- `message_read` / `message_ack` to acknowledge processed mailbox
-  messages
+- `message_read` to mark messages reviewed and `message_ack` to
+  acknowledge processed mailbox messages; both support optional
+  `message_ids` for partial inbox updates
 
 Real work should use `member_spawn` from a lead session. Teammate-role
 sessions reject `member_spawn` and `/team spawn` so nested teams

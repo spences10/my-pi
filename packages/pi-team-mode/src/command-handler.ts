@@ -126,7 +126,7 @@ Use the \`team\` tool as the source of truth for team coordination.
 
 Rules:
 - The team lead should create tasks, spawn members, message teammates, and inspect status through the \`team\` tool.
-- Teammates should read messages, acknowledge processed mailbox messages with message_read, claim exactly one ready task, work it, update the task with status/result, then go idle.
+- Mailbox states are separate: delivered means queued to a session, read means reviewed, acknowledged means fully processed and safe to suppress redelivery. Teammates should use message_read after reviewing messages and message_ack after acting on them.
 - Do not create nested teams from a teammate session; teammate sessions cannot use member_spawn or /team spawn.
 - Use urgent steer/follow-up messaging for coordination instead of assuming shared context.
 - Team leads should use real RPC teammates via member_spawn for background work.
@@ -1262,10 +1262,28 @@ export async function handle_team_command(
 				break;
 			}
 			case 'inbox': {
-				const member = rest_text || 'lead';
-				const text = format_messages(
-					store.list_messages(current_team_id(), member),
-				);
+				const [member_arg, action_arg, ...ids] = rest;
+				const member = member_arg || 'lead';
+				let text: string;
+				if (action_arg === 'read' || action_arg === 'ack') {
+					const messages =
+						action_arg === 'read'
+							? await store.mark_messages_read(
+									current_team_id(),
+									member,
+									ids.length ? ids : undefined,
+								)
+							: await store.acknowledge_messages(
+									current_team_id(),
+									member,
+									ids.length ? ids : undefined,
+								);
+					text = format_messages(messages);
+				} else {
+					text = format_messages(
+						store.list_messages(current_team_id(), member),
+					);
+				}
 				if (has_modal_ui(ctx)) {
 					await show_team_text_modal(ctx, {
 						title: `${member} inbox`,
@@ -1274,6 +1292,24 @@ export async function handle_team_command(
 				} else {
 					ctx.ui.notify(text);
 				}
+				break;
+			}
+			case 'read':
+			case 'ack': {
+				const [member, ...ids] = rest;
+				const messages =
+					sub === 'read'
+						? await store.mark_messages_read(
+								current_team_id(),
+								require_arg(member, 'member'),
+								ids.length ? ids : undefined,
+							)
+						: await store.acknowledge_messages(
+								current_team_id(),
+								require_arg(member, 'member'),
+								ids.length ? ids : undefined,
+							);
+				ctx.ui.notify(format_messages(messages));
 				break;
 			}
 			case 'spawn': {
@@ -1471,6 +1507,7 @@ export async function handle_team_command(
 						'/team task reopen <id> — move back to pending and clear the result note',
 						'/team task assign <id> <member> / unassign <id> — change owner without changing status',
 						'/team dm <member> <message> — send a mailbox message',
+						'/team inbox <member> read|ack [message-id...] — mark mailbox messages read or acknowledged',
 						'/team wait|shutdown <member> — control a teammate',
 						'/team teams|switch|resume|clear — manage active team UI',
 					].join('\n'),
