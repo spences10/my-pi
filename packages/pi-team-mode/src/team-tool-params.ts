@@ -64,126 +64,40 @@ const TeamUiStyleParam = StringEnum([
 	'color',
 ] as const);
 
-function team_action_params(
-	action: TeamActionName,
-	fields: Record<string, unknown> = {},
-) {
-	return Type.Object({
-		action: Type.Literal(action),
-		team_id: Type.Optional(Type.String()),
-		...fields,
-	});
-}
-
-function member_action_params(
-	action: TeamActionName,
-	fields: Record<string, unknown> = {},
-) {
-	return Type.Union([
-		team_action_params(action, {
-			member: Type.String(),
-			name: Type.Optional(Type.String()),
-			...fields,
-		}),
-		team_action_params(action, {
-			name: Type.String(),
-			member: Type.Optional(Type.String()),
-			...fields,
-		}),
-	]);
-}
-
-export const TeamToolParams = Type.Union([
-	team_action_params('team_create', {
-		name: Type.Optional(Type.String()),
-	}),
-	team_action_params('team_list'),
-	team_action_params('team_status'),
-	team_action_params('team_clear'),
-	team_action_params('team_ui', {
-		mode: Type.Optional(TeamUiModeParam),
-		style: Type.Optional(TeamUiStyleParam),
-	}),
-	member_action_params('member_upsert', {
-		role: Type.Optional(TeamRole),
-		status: Type.Optional(TeamMemberStatus),
-	}),
-	member_action_params('member_spawn', {
-		initial_prompt: Type.Optional(Type.String()),
-		model: Type.Optional(Type.String()),
-		thinking: Type.Optional(Type.String()),
-		profile: Type.Optional(Type.String()),
-		agent: Type.Optional(Type.String()),
-		workspace_mode: Type.Optional(TeamWorkspaceModeParam),
-		branch: Type.Optional(Type.String()),
-		worktree_path: Type.Optional(Type.String()),
-		mutating: Type.Optional(Type.Boolean()),
-		force: Type.Optional(Type.Boolean()),
-	}),
-	member_action_params('member_prompt', {
-		message: Type.Optional(Type.String()),
-		initial_prompt: Type.Optional(Type.String()),
-	}),
-	member_action_params('member_follow_up', {
-		message: Type.Optional(Type.String()),
-		initial_prompt: Type.Optional(Type.String()),
-	}),
-	member_action_params('member_steer', {
-		message: Type.Optional(Type.String()),
-		initial_prompt: Type.Optional(Type.String()),
-	}),
-	member_action_params('member_shutdown', {
-		message: Type.Optional(Type.String()),
-		timeout_ms: Type.Optional(Type.Number()),
-	}),
-	team_action_params('member_status'),
-	member_action_params('member_wait', {
-		timeout_ms: Type.Optional(Type.Number()),
-	}),
-	team_action_params('task_create', {
-		title: Type.String(),
-		description: Type.Optional(Type.String()),
-		assignee: Type.Optional(Type.String()),
-		depends_on: Type.Optional(Type.Array(Type.String())),
-	}),
-	team_action_params('task_list'),
-	team_action_params('task_get', {
-		task_id: Type.String(),
-	}),
-	team_action_params('task_update', {
-		task_id: Type.String(),
-		title: Type.Optional(Type.String()),
-		description: Type.Optional(Type.String()),
-		task_status: Type.Optional(TeamTaskStatusParam),
-		assignee: Type.Optional(Type.String()),
-		clear_assignee: Type.Optional(Type.Boolean()),
-		depends_on: Type.Optional(Type.Array(Type.String())),
-		result: Type.Optional(Type.String()),
-		clear_result: Type.Optional(Type.Boolean()),
-	}),
-	team_action_params('task_claim_next', {
-		assignee: Type.Optional(Type.String()),
-		member: Type.Optional(Type.String()),
-	}),
-	team_action_params('message_send', {
-		from: Type.Optional(Type.String()),
-		to: Type.String(),
-		message: Type.String(),
-		urgent: Type.Optional(Type.Boolean()),
-	}),
-	team_action_params('message_list', {
-		member: Type.Optional(Type.String()),
-		to: Type.Optional(Type.String()),
-	}),
-	team_action_params('message_read', {
-		member: Type.Optional(Type.String()),
-		to: Type.Optional(Type.String()),
-	}),
-	team_action_params('message_ack', {
-		member: Type.Optional(Type.String()),
-		to: Type.Optional(Type.String()),
-	}),
-]);
+export const TeamToolParams = Type.Object({
+	action: StringEnum(TEAM_ACTIONS),
+	team_id: Type.Optional(Type.String()),
+	name: Type.Optional(Type.String()),
+	member: Type.Optional(Type.String()),
+	role: Type.Optional(TeamRole),
+	status: Type.Optional(TeamMemberStatus),
+	title: Type.Optional(Type.String()),
+	description: Type.Optional(Type.String()),
+	task_id: Type.Optional(Type.String()),
+	task_status: Type.Optional(TeamTaskStatusParam),
+	assignee: Type.Optional(Type.String()),
+	clear_assignee: Type.Optional(Type.Boolean()),
+	depends_on: Type.Optional(Type.Array(Type.String())),
+	result: Type.Optional(Type.String()),
+	clear_result: Type.Optional(Type.Boolean()),
+	from: Type.Optional(Type.String()),
+	to: Type.Optional(Type.String()),
+	message: Type.Optional(Type.String()),
+	urgent: Type.Optional(Type.Boolean()),
+	initial_prompt: Type.Optional(Type.String()),
+	model: Type.Optional(Type.String()),
+	thinking: Type.Optional(Type.String()),
+	profile: Type.Optional(Type.String()),
+	agent: Type.Optional(Type.String()),
+	workspace_mode: Type.Optional(TeamWorkspaceModeParam),
+	branch: Type.Optional(Type.String()),
+	worktree_path: Type.Optional(Type.String()),
+	mutating: Type.Optional(Type.Boolean()),
+	force: Type.Optional(Type.Boolean()),
+	timeout_ms: Type.Optional(Type.Number()),
+	mode: Type.Optional(TeamUiModeParam),
+	style: Type.Optional(TeamUiStyleParam),
+});
 
 export type TeamToolParams = {
 	action: TeamActionName;

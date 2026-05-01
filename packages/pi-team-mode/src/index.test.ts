@@ -18,6 +18,7 @@ import {
 } from './index.js';
 import { capture_process_identity } from './process-identity.js';
 import { TeamStore, type TeamStatus } from './store.js';
+import { TeamToolParams } from './team-tool-params.js';
 
 const original_team_ui = process.env.MY_PI_TEAM_UI;
 const original_team_ui_style = process.env.MY_PI_TEAM_UI_STYLE;
@@ -91,6 +92,17 @@ function test_status(
 }
 
 describe('team tool validation', () => {
+	it('uses a top-level object schema for provider compatibility', () => {
+		const schema = TeamToolParams as unknown as {
+			type: string;
+			properties: { action: { type: string; enum: string[] } };
+		};
+
+		expect(schema.type).toBe('object');
+		expect(schema.properties.action.type).toBe('string');
+		expect(schema.properties.action.enum).toContain('member_spawn');
+	});
+
 	const optional_only_actions = [
 		'team_create',
 		'team_list',
