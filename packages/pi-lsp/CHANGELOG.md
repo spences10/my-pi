@@ -1,5 +1,16 @@
 # @spences10/pi-lsp
 
+## 0.0.9
+
+### Patch Changes
+
+- 52cfb66: Add modal-first navigation dashboards for LSP and telemetry
+  commands using shared Pi TUI modal primitives.
+- f491150: Adds direct Restart all action to LSP modal home, matching
+  UX epic navigation requirements cleanly.
+- Updated dependencies [ee169f8]
+  - @spences10/pi-tui-modal@0.0.4
+
 ## 0.0.8
 
 ### Patch Changes

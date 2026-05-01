@@ -1,5 +1,37 @@
 # my-pi
 
+## 0.1.24
+
+### Patch Changes
+
+- 52cfb66: Add modal-first navigation dashboards for LSP and telemetry
+  commands using shared Pi TUI modal primitives.
+- 7d9b363: Fix flaky team-mode RPC e2e by avoiding modal UI paths
+  during RPC command execution.
+- 2cbb408: Build root CLI before package test runs so e2e tests work
+  in clean CI.
+- Updated dependencies [0d8947c]
+- Updated dependencies [cc0a396]
+- Updated dependencies [52cfb66]
+- Updated dependencies [f65b4c7]
+- Updated dependencies [7e3ccf1]
+- Updated dependencies [e711bd0]
+- Updated dependencies [f491150]
+- Updated dependencies [d425461]
+- Updated dependencies [ee169f8]
+- Updated dependencies [6a55331]
+- Updated dependencies [ff5563b]
+- Updated dependencies [7d9b363]
+- Updated dependencies [329dc7c]
+- Updated dependencies [3ed0e0b]
+- Updated dependencies [75d1dc2]
+  - @spences10/pi-team-mode@0.0.8
+  - @spences10/pi-telemetry@0.0.4
+  - @spences10/pi-lsp@0.0.9
+  - @spences10/pi-skills@0.0.7
+  - @spences10/pi-tui-modal@0.0.4
+  - @spences10/pi-mcp@0.0.11
+
 ## 0.1.23
 
 ### Patch Changes

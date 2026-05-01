@@ -1,5 +1,16 @@
 # @spences10/pi-skills
 
+## 0.0.7
+
+### Patch Changes
+
+- e711bd0: Add a modal home menu for skills management, imports,
+  syncs, refresh summaries, and default policy selection.
+- d425461: Add modal skill browsing with read-only detail views while
+  preserving script-friendly list and show commands.
+- Updated dependencies [ee169f8]
+  - @spences10/pi-tui-modal@0.0.4
+
 ## 0.0.6
 
 ### Patch Changes

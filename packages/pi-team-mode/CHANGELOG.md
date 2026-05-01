@@ -1,5 +1,36 @@
 # @spences10/pi-team-mode
 
+## 0.0.8
+
+### Patch Changes
+
+- 0d8947c: Harden teammate worktree assignment by refusing active
+  duplicate path or branch assignments and validating git worktree
+  path and branch reuse before spawning.
+- cc0a396: Improve team-mode mailbox semantics, reliability tests,
+  child recovery, and orchestration comparison documentation.
+- f65b4c7: Harden orphan teammate shutdown by verifying process
+  identity before signalling and documenting platform cleanup
+  limitations.
+- 7e3ccf1: Fix non-modal team switching and include docs in published
+  pi-team-mode package tarball.
+- 6a55331: Fix team tool schema to use top-level object for provider
+  compatibility while preserving action validation.
+- ff5563b: Prevent teardown-time RPC runner state writes from failing
+  after team storage cleanup.
+- 7d9b363: Fix flaky team-mode RPC e2e by avoiding modal UI paths
+  during RPC command execution.
+- 329dc7c: Replace the catch-all team tool parameter schema with
+  action-specific variants and runtime validation for required fields.
+- 3ed0e0b: Add team modal mutation flows for tasks, members,
+  assignment, teammate messaging, waiting, and shutdown actions.
+- 75d1dc2: Split team-mode bootstrap into focused command handling,
+  tool execution, activity polling, UI status, formatting, config,
+  runner orchestration, team tool parameter validation, and workspace
+  guard modules.
+- Updated dependencies [ee169f8]
+  - @spences10/pi-tui-modal@0.0.4
+
 ## 0.0.7
 
 ### Patch Changes

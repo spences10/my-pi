@@ -1,5 +1,13 @@
 # @spences10/pi-tui-modal
 
+## 0.0.4
+
+### Patch Changes
+
+- ee169f8: Add shared modal input and confirm primitives, wire MCP
+  profile and restore flows, and stabilize settings modal row
+  selection alignment.
+
 ## 0.0.3
 
 ### Patch Changes

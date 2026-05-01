@@ -1,5 +1,14 @@
 # @spences10/pi-telemetry
 
+## 0.0.4
+
+### Patch Changes
+
+- 52cfb66: Add modal-first navigation dashboards for LSP and telemetry
+  commands using shared Pi TUI modal primitives.
+- Updated dependencies [ee169f8]
+  - @spences10/pi-tui-modal@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes
