@@ -1,5 +1,14 @@
 # @spences10/pi-team-mode
 
+## 0.0.9
+
+### Patch Changes
+
+- 117f765: Fix CLI flag parsing and team-mode teammate spawning
+  extension path resolution.
+- dcb9909: Publish API types, clean package contents, and redact
+  persisted team event logs safely.
+
 ## 0.0.8
 
 ### Patch Changes

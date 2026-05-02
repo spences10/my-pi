@@ -1,5 +1,24 @@
 # @spences10/pi-mcp
 
+## 0.0.12
+
+### Patch Changes
+
+- 2552f1f: Add comprehensive context sidecar eval tests, improve line
+  chunking
+- 2153385: Fix headless MCP tool registration so selected tools are
+  available before non-interactive agent runs start.
+- c5fd4e8: Add SQLite context sidecar for oversized tool output with
+  MCP integration and telemetry eval harness.
+- 57d754f: Add package smoke tests, MCP failure coverage, warning
+  filtering, and agent-dir isolation documentation updates
+- 15cbd0a: Fix agent-dir isolation leaks and scope runtime environment
+  mutations to disposed my-pi sessions safely
+- Updated dependencies [2552f1f]
+- Updated dependencies [15cbd0a]
+  - @spences10/pi-context@0.0.2
+  - @spences10/pi-project-trust@0.0.4
+
 ## 0.0.11
 
 ### Patch Changes

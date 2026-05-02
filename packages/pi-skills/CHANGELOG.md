@@ -1,5 +1,14 @@
 # @spences10/pi-skills
 
+## 0.0.8
+
+### Patch Changes
+
+- 57d754f: Add package smoke tests, MCP failure coverage, warning
+  filtering, and agent-dir isolation documentation updates
+- 15cbd0a: Fix agent-dir isolation leaks and scope runtime environment
+  mutations to disposed my-pi sessions safely
+
 ## 0.0.7
 
 ### Patch Changes

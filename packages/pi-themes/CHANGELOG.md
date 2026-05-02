@@ -1,5 +1,12 @@
 # @spences10/pi-themes
 
+## 0.0.3
+
+### Patch Changes
+
+- fdaf682: Add Neon Noir alongside Neon Afterglow, expanding Pi themes
+  with two bright cyberpunk palettes.
+
 ## 0.0.2
 
 ### Patch Changes

@@ -1,5 +1,35 @@
 # my-pi
 
+## 0.1.25
+
+### Patch Changes
+
+- 117f765: Fix CLI flag parsing and team-mode teammate spawning
+  extension path resolution.
+- c5fd4e8: Add SQLite context sidecar for oversized tool output with
+  MCP integration and telemetry eval harness.
+- dcb9909: Publish API types, clean package contents, and redact
+  persisted team event logs safely.
+- 57d754f: Add package smoke tests, MCP failure coverage, warning
+  filtering, and agent-dir isolation documentation updates
+- 15cbd0a: Fix agent-dir isolation leaks and scope runtime environment
+  mutations to disposed my-pi sessions safely
+- Updated dependencies [117f765]
+- Updated dependencies [2552f1f]
+- Updated dependencies [2153385]
+- Updated dependencies [fdaf682]
+- Updated dependencies [c5fd4e8]
+- Updated dependencies [dcb9909]
+- Updated dependencies [57d754f]
+- Updated dependencies [15cbd0a]
+  - @spences10/pi-team-mode@0.0.9
+  - @spences10/pi-context@0.0.2
+  - @spences10/pi-mcp@0.0.12
+  - @spences10/pi-themes@0.0.3
+  - @spences10/pi-skills@0.0.8
+  - @spences10/pi-project-trust@0.0.4
+  - @spences10/pi-lsp@0.0.10
+
 ## 0.1.24
 
 ### Patch Changes

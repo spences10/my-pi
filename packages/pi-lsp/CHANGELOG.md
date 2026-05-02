@@ -1,5 +1,14 @@
 # @spences10/pi-lsp
 
+## 0.0.10
+
+### Patch Changes
+
+- 15cbd0a: Fix agent-dir isolation leaks and scope runtime environment
+  mutations to disposed my-pi sessions safely
+- Updated dependencies [15cbd0a]
+  - @spences10/pi-project-trust@0.0.4
+
 ## 0.0.9
 
 ### Patch Changes
