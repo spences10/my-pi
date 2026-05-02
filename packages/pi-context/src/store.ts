@@ -1,221 +1,65 @@
 import { redact_text } from '@spences10/pi-redact';
 import { createHash, randomUUID } from 'node:crypto';
-import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	statSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { parse_context_retention_policy } from './policy.js';
+import { apply_schema } from './schema.js';
+import {
+	DEFAULT_CONTEXT_MAX_BYTES,
+	DEFAULT_CONTEXT_MAX_LINES,
+	chunk_text,
+	count_lines,
+	escape_fts5_query,
+	make_preview,
+	should_index_text,
+	summarize_source,
+} from './text.js';
+import type {
+	ContextChunk,
+	ContextCleanupResult,
+	ContextListResult,
+	ContextRetentionPolicy,
+	ContextScopeOptions,
+	ContextSearchResult,
+	ContextStats,
+	ContextStoreOptions,
+	ListRow,
+	ScopedFilter,
+	SearchRow,
+	StoreContextInput,
+	StoredContextOutput,
+} from './types.js';
 
-export const DEFAULT_CONTEXT_MAX_BYTES = 24 * 1024;
-export const DEFAULT_CONTEXT_MAX_LINES = 300;
-export const DEFAULT_CONTEXT_RETENTION_DAYS = 7;
-const DEFAULT_PREVIEW_LINES = 80;
-const DEFAULT_PREVIEW_BYTES = 8 * 1024;
-
-const SCHEMA = readFileSync(
-	new URL('./schema.sql', import.meta.url),
-	'utf8',
-);
-const LATEST_CONTEXT_SCHEMA_VERSION = 1;
-const PERSISTENT_PRAGMAS = `
-PRAGMA journal_mode = WAL;
-`;
-const CONNECTION_PRAGMAS = `
-PRAGMA foreign_keys = ON;
-PRAGMA busy_timeout = 5000;
-`;
-const MIGRATIONS: Record<number, string> = {
-	1: SCHEMA,
-};
-
-export interface ContextStoreOptions {
-	db_path?: string;
-	project_path?: string | null;
-	session_id?: string | null;
-	max_bytes?: number;
-	max_lines?: number;
-}
-
-export interface ContextRetentionPolicy {
-	retention_days: number | null;
-	purge_on_shutdown: boolean;
-	max_mb: number | null;
-	max_bytes: number | null;
-}
-
-export interface ContextCleanupResult {
-	deleted: number;
-	age_deleted: number;
-	size_deleted: number;
-	policy: ContextRetentionPolicy;
-}
-
-export interface StoreContextInput {
-	text: string;
-	tool_name: string;
-	input_summary?: string | null;
-	session_id?: string | null;
-	project_path?: string | null;
-	force?: boolean;
-}
-
-export interface StoredContextOutput {
-	source_id: string;
-	bytes: number;
-	lines: number;
-	preview: string;
-	receipt: string;
-	chunk_count: number;
-	returned_bytes: number;
-}
-
-export interface ContextSearchResult {
-	source_id: string;
-	chunk_id: string;
-	ordinal: number;
-	title: string | null;
-	content: string;
-	tool_name: string;
-	created_at: number;
-	bytes: number;
-	lines: number;
-	rank: number;
-}
-
-export interface ContextListResult {
-	source_id: string;
-	created_at: number;
-	project_path: string | null;
-	session_id: string | null;
-	tool_name: string;
-	input_summary: string | null;
-	bytes: number;
-	lines: number;
-	chunk_count: number;
-	first_chunk_title: string | null;
-	preview: string | null;
-}
-
-export interface ContextScopeOptions {
-	project_path?: string | null;
-	session_id?: string | null;
-	global?: boolean;
-}
-
-export interface ContextStats {
-	sources: number;
-	chunks: number;
-	bytes_stored: number;
-	bytes_returned: number;
-	bytes_saved: number;
-	reduction_pct: number;
-	db_bytes: number;
-	wal_bytes: number;
-	total_bytes: number;
-	oldest_created_at: number | null;
-	newest_created_at: number | null;
-	retention_days: number | null;
-	purge_on_shutdown: boolean;
-	max_mb: number | null;
-}
-
-interface SourceRow {
-	id: string;
-	tool_name: string;
-	created_at: number;
-	byte_count: number;
-	line_count: number;
-}
-
-interface SearchRow extends SourceRow {
-	chunk_id: string;
-	ordinal: number;
-	title: string | null;
-	content: string;
-	rank: number;
-}
-
-interface ScopedFilter {
-	where: string[];
-	params: Array<string | number>;
-}
-
-interface ListRow {
-	source_id: string;
-	created_at: number;
-	project_path: string | null;
-	session_id: string | null;
-	tool_name: string;
-	input_summary: string | null;
-	byte_count: number;
-	line_count: number;
-	chunk_count: number;
-	first_chunk_title: string | null;
-	preview: string | null;
-}
-
-interface ChunkRow {
-	id: string;
-	source_id: string;
-	ordinal: number;
-	title: string | null;
-	content: string;
-	byte_count: number;
-}
+export {
+	DEFAULT_CONTEXT_RETENTION_DAYS,
+	parse_context_retention_policy,
+} from './policy.js';
+export {
+	DEFAULT_CONTEXT_MAX_BYTES,
+	DEFAULT_CONTEXT_MAX_LINES,
+	count_lines,
+	escape_fts5_query,
+	make_preview,
+	should_index_text,
+} from './text.js';
+export type {
+	ContextChunk,
+	ContextCleanupResult,
+	ContextListResult,
+	ContextRetentionPolicy,
+	ContextScopeOptions,
+	ContextSearchResult,
+	ContextStats,
+	ContextStoreOptions,
+	StoreContextInput,
+	StoredContextOutput,
+} from './types.js';
 
 let global_options: ContextStoreOptions = {};
 let global_enabled = false;
 let global_store: ContextStore | null = null;
-
-export function parse_context_retention_policy(
-	env: NodeJS.ProcessEnv = process.env,
-): ContextRetentionPolicy {
-	const retention_days = parse_optional_positive_number(
-		env.MY_PI_CONTEXT_RETENTION_DAYS,
-		DEFAULT_CONTEXT_RETENTION_DAYS,
-	);
-	const max_mb = parse_optional_positive_number(
-		env.MY_PI_CONTEXT_MAX_MB,
-		null,
-	);
-	return {
-		retention_days,
-		purge_on_shutdown: parse_boolean_env(
-			env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN,
-		),
-		max_mb,
-		max_bytes: max_mb === null ? null : max_mb * 1024 * 1024,
-	};
-}
-
-function parse_optional_positive_number(
-	value: string | undefined,
-	fallback: number | null,
-): number | null {
-	if (value === undefined || value.trim() === '') return fallback;
-	const normalized = value.trim().toLowerCase();
-	if (
-		normalized === '0' ||
-		normalized === 'off' ||
-		normalized === 'false' ||
-		normalized === 'none' ||
-		normalized === 'disabled'
-	)
-		return null;
-	const parsed = Number(normalized);
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function parse_boolean_env(value: string | undefined): boolean {
-	if (!value) return false;
-	return ['1', 'true', 'yes', 'on'].includes(
-		value.trim().toLowerCase(),
-	);
-}
 
 export function default_context_db_path(): string {
 	if (process.env.MY_PI_CONTEXT_DB)
@@ -266,249 +110,6 @@ export function maybe_store_context_output(
 ): StoredContextOutput | null {
 	if (!global_enabled) return null;
 	return get_context_store(options).store(input);
-}
-
-export function count_lines(text: string): number {
-	if (!text) return 0;
-	return text.split('\n').length;
-}
-
-export function should_index_text(
-	text: string,
-	options: Pick<ContextStoreOptions, 'max_bytes' | 'max_lines'> = {},
-): boolean {
-	const max_bytes = options.max_bytes ?? DEFAULT_CONTEXT_MAX_BYTES;
-	const max_lines = options.max_lines ?? DEFAULT_CONTEXT_MAX_LINES;
-	return (
-		Buffer.byteLength(text, 'utf8') > max_bytes ||
-		count_lines(text) > max_lines
-	);
-}
-
-export function escape_fts5_query(query: string): string {
-	const trimmed = query.trim();
-	if (!trimmed) return '""';
-	if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-		return trimmed.replace(
-			/"(.*)"/s,
-			(_match, inner: string) => `"${inner.replace(/"/g, '""')}"`,
-		);
-	}
-
-	const tokens = trimmed
-		.split(/\s+/)
-		.map((token) => token.trim())
-		.filter(Boolean)
-		.map((token) => {
-			const is_prefix = token.endsWith('*');
-			const base = is_prefix ? token.slice(0, -1) : token;
-			const safe = base
-				.replace(/["'(){}[\]^:./\\+-]/g, ' ')
-				.trim()
-				.replace(/\s+/g, ' ');
-			if (!safe) return '';
-			const quoted = `"${safe.replace(/"/g, '""')}"`;
-			return is_prefix ? `${quoted}*` : quoted;
-		})
-		.filter(Boolean);
-
-	return tokens.length > 0 ? tokens.join(' ') : '""';
-}
-
-export function make_preview(
-	text: string,
-	max_lines = DEFAULT_PREVIEW_LINES,
-	max_bytes = DEFAULT_PREVIEW_BYTES,
-): string {
-	const lines = text.split('\n');
-	let preview: string;
-	if (lines.length <= max_lines) {
-		preview = text;
-	} else {
-		const head_count = Math.ceil(max_lines / 2);
-		const tail_count = Math.floor(max_lines / 2);
-		const omitted = lines.length - head_count - tail_count;
-		preview = [
-			...lines.slice(0, head_count),
-			``,
-			`[... ${omitted} lines omitted; indexed in context sidecar ...]`,
-			``,
-			...lines.slice(-tail_count),
-		].join('\n');
-	}
-
-	return take_utf8_bytes(preview, max_bytes);
-}
-
-function take_utf8_bytes(text: string, max_bytes: number): string {
-	if (Buffer.byteLength(text, 'utf8') <= max_bytes) return text;
-	let bytes = 0;
-	let output = '';
-	for (const char of text) {
-		const char_bytes = Buffer.byteLength(char, 'utf8');
-		if (bytes + char_bytes > max_bytes) break;
-		bytes += char_bytes;
-		output += char;
-	}
-	return `${output}\n[... preview truncated at ${format_bytes(max_bytes)} ...]`;
-}
-
-function chunk_text(text: string, source_id: string): ChunkRow[] {
-	const paragraphs = text.split(/\n{2,}/);
-	const chunks: string[] = [];
-	let current = '';
-	const target_bytes = 4096;
-
-	for (const paragraph of paragraphs) {
-		if (Buffer.byteLength(paragraph, 'utf8') > target_bytes) {
-			if (current) chunks.push(current);
-			chunks.push(...split_large_chunk(paragraph, target_bytes));
-			current = '';
-			continue;
-		}
-
-		const next = current ? `${current}\n\n${paragraph}` : paragraph;
-		if (Buffer.byteLength(next, 'utf8') > target_bytes && current) {
-			chunks.push(current);
-			current = paragraph;
-		} else {
-			current = next;
-		}
-	}
-	if (current) chunks.push(current);
-	if (chunks.length === 0) chunks.push(text);
-
-	return chunks.map((content, index) => ({
-		id: `${source_id}_${String(index + 1).padStart(4, '0')}`,
-		source_id,
-		ordinal: index + 1,
-		title: first_non_empty_line(content),
-		content,
-		byte_count: Buffer.byteLength(content, 'utf8'),
-	}));
-}
-
-function split_large_chunk(
-	text: string,
-	target_bytes: number,
-): string[] {
-	const chunks: string[] = [];
-	let current = '';
-
-	for (const line of text.split('\n')) {
-		const next = current ? `${current}\n${line}` : line;
-		if (Buffer.byteLength(next, 'utf8') <= target_bytes) {
-			current = next;
-			continue;
-		}
-
-		if (current) chunks.push(current);
-		if (Buffer.byteLength(line, 'utf8') <= target_bytes) {
-			current = line;
-			continue;
-		}
-
-		let rest = line;
-		while (Buffer.byteLength(rest, 'utf8') > target_bytes) {
-			const [head, tail] = split_utf8_at_byte(rest, target_bytes);
-			chunks.push(head);
-			rest = tail;
-		}
-		current = rest;
-	}
-
-	if (current) chunks.push(current);
-	return chunks;
-}
-
-function split_utf8_at_byte(
-	text: string,
-	max_bytes: number,
-): [string, string] {
-	let bytes = 0;
-	let index = 0;
-	for (const char of text) {
-		const char_bytes = Buffer.byteLength(char, 'utf8');
-		if (bytes + char_bytes > max_bytes) break;
-		bytes += char_bytes;
-		index += char.length;
-	}
-	return [text.slice(0, index), text.slice(index)];
-}
-
-function first_non_empty_line(text: string): string | null {
-	const line = text
-		.split('\n')
-		.map((value) => value.trim())
-		.find(Boolean);
-	return line ? line.slice(0, 120) : null;
-}
-
-function format_bytes(bytes: number): string {
-	if (bytes < 1024) return `${bytes} B`;
-	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-	return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
-}
-
-function summarize_source(
-	result: StoredContextOutput,
-	tool_name: string,
-): string {
-	return [
-		`[context-sidecar] Large ${tool_name} output indexed locally`,
-		``,
-		`Source: ${result.source_id}`,
-		`Size: ${format_bytes(result.bytes)}, ${result.lines} lines, ${result.chunk_count} chunks`,
-		`Use context_search query:"..." source_id:"${result.source_id}" to inspect it.`,
-		`Use context_get source_id:"${result.source_id}" for exact chunks.`,
-		``,
-		result.preview,
-	].join('\n');
-}
-
-function get_user_version(db: DatabaseSync): number {
-	const row = db.prepare('PRAGMA user_version').get() as {
-		user_version: number;
-	};
-	return row.user_version;
-}
-
-function apply_schema(db: DatabaseSync): void {
-	db.exec(PERSISTENT_PRAGMAS);
-	db.exec(CONNECTION_PRAGMAS);
-
-	const current_version = get_user_version(db);
-	if (current_version > LATEST_CONTEXT_SCHEMA_VERSION) {
-		db.close();
-		throw new Error(
-			`Context database schema version ${current_version} is newer than supported version ${LATEST_CONTEXT_SCHEMA_VERSION}`,
-		);
-	}
-
-	for (
-		let next_version = current_version + 1;
-		next_version <= LATEST_CONTEXT_SCHEMA_VERSION;
-		next_version++
-	) {
-		const migration = MIGRATIONS[next_version];
-		if (!migration) {
-			db.close();
-			throw new Error(
-				`Missing context migration for schema version ${next_version}`,
-			);
-		}
-
-		db.exec('BEGIN');
-		try {
-			db.exec(migration);
-			db.exec(`PRAGMA user_version = ${next_version}`);
-			db.exec('COMMIT');
-		} catch (error) {
-			db.exec('ROLLBACK');
-			db.close();
-			throw error;
-		}
-	}
 }
 
 export class ContextStore {
@@ -808,7 +409,7 @@ export class ContextStore {
 		source_id: string,
 		chunk_id?: string,
 		options: ContextScopeOptions = {},
-	): ChunkRow[] {
+	): ContextChunk[] {
 		const scoped = this.scoped_filter('context_sources', options);
 		const filters = ['context_chunks.source_id = ?', ...scoped.where];
 		const params: Array<string | number> = [
@@ -832,7 +433,7 @@ export class ContextStore {
 			WHERE ${filters.join(' AND ')}
 			ORDER BY context_chunks.ordinal
 		`);
-		return stmt.all(...params) as unknown as ChunkRow[];
+		return stmt.all(...params) as unknown as ContextChunk[];
 	}
 
 	stats(): ContextStats {
