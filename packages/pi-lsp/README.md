@@ -75,7 +75,9 @@ diagnostics without guessing from text search alone.
 When LSP tools are active, the extension injects a small system prompt
 reminder telling the model to use LSP for focused diagnostics, type
 and symbol questions, definitions, references, and validation before
-reporting completion.
+reporting completion. It also reminds the model to run diagnostics on
+changed language-server-supported files before completion or commit,
+preferring `lsp_diagnostics_many` for batches.
 
 ## Commands
 
