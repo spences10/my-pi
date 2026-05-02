@@ -390,7 +390,10 @@ built-in extensions.
 
 Built-in extension choices can also be saved interactively with
 `/extensions`. Startup flags like `--no-recall` and `--no-skills`
-still force-disable those extensions for the current process only.
+still force-disable those extensions for the current process only. The
+built-in registry in `src/extensions/builtin-registry.ts` is the
+source of truth for built-in order, API option names, disable flags,
+labels, and runtime-mode constraints.
 
 ### Themes
 
@@ -777,6 +780,7 @@ src/
   index.ts                 CLI entry point (citty + pi SDK)
   api.ts                   Programmatic API (create_my_pi + re-exports)
   extensions/
+    builtin-registry.ts    Built-in extension metadata, ordering, flags, and loaders
     manager/               Built-in extension manager and config
     prompt-presets/        Runtime prompt preset selection and editing
     session-name/          Session auto-naming

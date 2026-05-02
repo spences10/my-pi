@@ -1,4 +1,8 @@
 import { resolve } from 'node:path';
+import {
+	BUILTIN_EXTENSIONS,
+	type BuiltinExtensionOptionName,
+} from './extensions/builtin-registry.js';
 
 const THINKING_LEVELS = new Set([
 	'off',
@@ -16,6 +20,40 @@ export type CliThinkingLevel =
 	| 'medium'
 	| 'high'
 	| 'xhigh';
+
+export type BuiltinDisableCliArgs = Record<
+	string,
+	{
+		type: 'boolean';
+		description: string;
+		default: false;
+	}
+>;
+
+export function create_builtin_disable_cli_args(): BuiltinDisableCliArgs {
+	return Object.fromEntries(
+		BUILTIN_EXTENSIONS.map((extension) => [
+			extension.cli_arg,
+			{
+				type: 'boolean' as const,
+				description: extension.cli_description,
+				default: false as const,
+			},
+		]),
+	);
+}
+
+export function resolve_builtin_extension_options(
+	args: Record<string, unknown>,
+): Partial<Record<BuiltinExtensionOptionName, boolean>> {
+	const no_builtin = Boolean(args['no-builtin']);
+	return Object.fromEntries(
+		BUILTIN_EXTENSIONS.map((extension) => [
+			extension.option_name,
+			!no_builtin && !args[extension.cli_arg],
+		]),
+	) as Partial<Record<BuiltinExtensionOptionName, boolean>>;
+}
 
 export function collect_flag_values(
 	argv: string[],

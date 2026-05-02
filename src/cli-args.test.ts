@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
 	collect_flag_values,
+	create_builtin_disable_cli_args,
 	parse_extension_paths,
 	parse_skill_allowlist,
 	parse_thinking_level,
 	parse_tool_allowlist,
+	resolve_builtin_extension_options,
 } from './cli-args.js';
+import { BUILTIN_EXTENSIONS } from './extensions/builtin-registry.js';
 
 describe('CLI arg helpers', () => {
 	it('collects repeated flags in spaced and equals forms', () => {
@@ -61,5 +64,37 @@ describe('CLI arg helpers', () => {
 		expect(() => parse_thinking_level('maximum')).toThrow(
 			'--thinking must be one of',
 		);
+	});
+
+	it('generates built-in disable CLI args from the registry', () => {
+		const args = create_builtin_disable_cli_args();
+		for (const extension of BUILTIN_EXTENSIONS) {
+			expect(args[extension.cli_arg]).toMatchObject({
+				type: 'boolean',
+				description: extension.cli_description,
+				default: false,
+			});
+		}
+	});
+
+	it('maps built-in disable flags to API options from the registry', () => {
+		expect(
+			resolve_builtin_extension_options({
+				'no-mcp': true,
+				'no-session-name': true,
+			}),
+		).toMatchObject({
+			mcp: false,
+			session_name: false,
+			recall: true,
+		});
+
+		expect(
+			resolve_builtin_extension_options({ 'no-builtin': true }),
+		).toMatchObject({
+			mcp: false,
+			skills: false,
+			session_name: false,
+		});
 	});
 });

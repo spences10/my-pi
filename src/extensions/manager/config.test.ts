@@ -1,11 +1,47 @@
 import { describe, expect, it } from 'vitest';
+import { BUILTIN_EXTENSION_REGISTRY } from '../builtin-registry.js';
 import {
+	BUILTIN_EXTENSIONS,
 	find_builtin_extension,
 	is_builtin_extension_active,
 	is_builtin_extension_enabled,
 	resolve_builtin_extension_states,
 	type BuiltinExtensionsConfig,
 } from './config.js';
+
+describe('BUILTIN_EXTENSION_REGISTRY', () => {
+	it('has consistent unique metadata for every built-in', () => {
+		const keys = new Set<string>();
+		const options = new Set<string>();
+		const flags = new Set<string>();
+
+		for (const extension of BUILTIN_EXTENSION_REGISTRY) {
+			expect(extension.default_enabled).toBe(true);
+			expect(extension.label).toBeTruthy();
+			expect(extension.docs_label).toBeTruthy();
+			expect(extension.cli_arg).toBe(
+				extension.cli_flag.slice('--'.length),
+			);
+			expect(extension.cli_flag).toMatch(/^--no-/);
+			expect(extension.option_name).toMatch(/^[a-z][a-z0-9_]*$/);
+			expect(extension.load).toEqual(expect.any(Function));
+			expect(keys.has(extension.key)).toBe(false);
+			expect(options.has(extension.option_name)).toBe(false);
+			expect(flags.has(extension.cli_flag)).toBe(false);
+			keys.add(extension.key);
+			options.add(extension.option_name);
+			flags.add(extension.cli_flag);
+		}
+	});
+
+	it('keeps manager-visible built-ins in registry order', () => {
+		expect(
+			BUILTIN_EXTENSIONS.map((extension) => extension.key),
+		).toEqual(
+			BUILTIN_EXTENSION_REGISTRY.map((extension) => extension.key),
+		);
+	});
+});
 
 describe('find_builtin_extension', () => {
 	it('finds canonical keys', () => {

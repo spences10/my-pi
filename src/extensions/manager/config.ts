@@ -7,30 +7,14 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import {
+	BUILTIN_EXTENSIONS,
+	type BuiltinExtensionInfo,
+	type BuiltinExtensionKey,
+} from '../builtin-registry.js';
 
-export type BuiltinExtensionKey =
-	| 'context-sidecar'
-	| 'mcp'
-	| 'skills'
-	| 'filter-output'
-	| 'recall'
-	| 'nopeek'
-	| 'omnisearch'
-	| 'sqlite-tools'
-	| 'prompt-presets'
-	| 'lsp'
-	| 'session-name'
-	| 'confirm-destructive'
-	| 'hooks-resolution'
-	| 'team-mode';
-
-export interface BuiltinExtensionInfo {
-	key: BuiltinExtensionKey;
-	label: string;
-	description: string;
-	cli_flag: string;
-	aliases: string[];
-}
+export { BUILTIN_EXTENSIONS };
+export type { BuiltinExtensionInfo, BuiltinExtensionKey };
 
 export interface BuiltinExtensionsConfig {
 	version: number;
@@ -47,120 +31,6 @@ const DEFAULT_CONFIG: BuiltinExtensionsConfig = {
 	version: 1,
 	enabled: {},
 };
-
-export const BUILTIN_EXTENSIONS: BuiltinExtensionInfo[] = [
-	{
-		key: 'context-sidecar',
-		label: 'Context sidecar',
-		description: 'Local SQLite FTS sidecar for oversized tool output',
-		cli_flag: '--no-context-sidecar',
-		aliases: ['context-sidecar', 'context', 'sidecar'],
-	},
-	{
-		key: 'mcp',
-		label: 'MCP',
-		description: 'MCP server integration and /mcp command',
-		cli_flag: '--no-mcp',
-		aliases: ['mcp'],
-	},
-	{
-		key: 'skills',
-		label: 'Skills',
-		description: 'Managed pi-native skills and /skills command',
-		cli_flag: '--no-skills',
-		aliases: ['skills', 'skill'],
-	},
-	{
-		key: 'filter-output',
-		label: 'Filter output',
-		description: 'Secret redaction for tool output',
-		cli_flag: '--no-filter',
-		aliases: [
-			'filter-output',
-			'filter_output',
-			'filter',
-			'redaction',
-		],
-	},
-	{
-		key: 'recall',
-		label: 'Recall',
-		description: 'pirecall reminder and background session sync',
-		cli_flag: '--no-recall',
-		aliases: ['recall', 'pirecall'],
-	},
-	{
-		key: 'nopeek',
-		label: 'Nopeek',
-		description:
-			'nopeek reminder for secret-safe environment loading',
-		cli_flag: '--no-nopeek',
-		aliases: ['nopeek', 'secrets', 'secret-loading'],
-	},
-	{
-		key: 'omnisearch',
-		label: 'Omnisearch',
-		description: 'mcp-omnisearch reminder for verified web research',
-		cli_flag: '--no-omnisearch',
-		aliases: ['omnisearch', 'search', 'web-search', 'research'],
-	},
-	{
-		key: 'sqlite-tools',
-		label: 'SQLite tools',
-		description:
-			'mcp-sqlite-tools reminder for safer SQLite database work',
-		cli_flag: '--no-sqlite-tools',
-		aliases: ['sqlite-tools', 'sqlite', 'mcp-sqlite-tools'],
-	},
-	{
-		key: 'prompt-presets',
-		label: 'Prompt presets',
-		description:
-			'Runtime prompt preset selection and /prompt-preset command',
-		cli_flag: '--no-prompt-presets',
-		aliases: ['prompt-presets', 'prompt-preset', 'preset', 'presets'],
-	},
-	{
-		key: 'lsp',
-		label: 'LSP',
-		description:
-			'Language Server Protocol tools (diagnostics, hover, definition, references)',
-		cli_flag: '--no-lsp',
-		aliases: ['lsp', 'language-server'],
-	},
-	{
-		key: 'session-name',
-		label: 'Session name',
-		description:
-			'AI-powered session auto-naming and /session-name command',
-		cli_flag: '--no-session-name',
-		aliases: ['session-name', 'session', 'auto-name'],
-	},
-	{
-		key: 'confirm-destructive',
-		label: 'Confirm destructive',
-		description:
-			'Prompt before destructive tool calls like file deletes, overwrites, and hard resets',
-		cli_flag: '--no-confirm-destructive',
-		aliases: ['confirm-destructive', 'confirm'],
-	},
-	{
-		key: 'hooks-resolution',
-		label: 'Hooks resolution',
-		description:
-			'Claude Code style PostToolUse hook compatibility from .claude, .rulesync, and .pi configs',
-		cli_flag: '--no-hooks',
-		aliases: ['hooks-resolution', 'hooks'],
-	},
-	{
-		key: 'team-mode',
-		label: 'Team mode',
-		description:
-			'Experimental orchestrator/team mode with RPC teammates, tasks, and mailboxes',
-		cli_flag: '--no-team-mode',
-		aliases: ['team-mode', 'team', 'teammates'],
-	},
-];
 
 export function get_builtin_extensions_config_path(): string {
 	const xdg =

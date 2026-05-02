@@ -22,16 +22,16 @@ import {
 import { apply_project_trust_untrusted_defaults } from '@spences10/pi-project-trust';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
-import hooks_resolution_extension from './extensions/hooks-resolution/index.js';
 import {
-	BUILTIN_EXTENSIONS,
+	BUILTIN_EXTENSION_REGISTRY,
+	type BuiltinExtensionKey,
+	type BuiltinExtensionOptionName,
+} from './extensions/builtin-registry.js';
+import {
 	is_builtin_extension_active,
 	load_builtin_extensions_config,
-	type BuiltinExtensionKey,
 } from './extensions/manager/config.js';
 import { create_extensions_extension } from './extensions/manager/index.js';
-import prompt_presets_extension from './extensions/prompt-presets/index.js';
-import session_name_extension from './extensions/session-name/index.js';
 
 export type MyPiRuntimeMode =
 	| 'interactive'
@@ -43,26 +43,16 @@ export type MyPiThinkingLevel = NonNullable<
 	CreateAgentSessionFromServicesOptions['thinkingLevel']
 >;
 
-export interface CreateMyPiOptions {
+type BuiltinExtensionOptions = Partial<
+	Record<BuiltinExtensionOptionName, boolean>
+>;
+
+export interface CreateMyPiOptions extends BuiltinExtensionOptions {
 	cwd?: string;
 	agent_dir?: string;
 	extensions?: string[];
 	extensionFactories?: ExtensionFactory[];
 	runtime_mode?: MyPiRuntimeMode;
-	context_sidecar?: boolean;
-	mcp?: boolean;
-	skills?: boolean;
-	filter_output?: boolean;
-	recall?: boolean;
-	nopeek?: boolean;
-	omnisearch?: boolean;
-	sqlite_tools?: boolean;
-	prompt_presets?: boolean;
-	lsp?: boolean;
-	session_name?: boolean;
-	confirm_destructive?: boolean;
-	hooks_resolution?: boolean;
-	team_mode?: boolean;
 	telemetry?: boolean;
 	telemetry_db_path?: string;
 	model?: string;
@@ -76,32 +66,6 @@ export interface CreateMyPiOptions {
 }
 
 type BuiltinExtensionLoader = () => Promise<ExtensionFactory>;
-
-const BUILTIN_EXTENSION_LOADERS: Record<
-	BuiltinExtensionKey,
-	BuiltinExtensionLoader
-> = {
-	'context-sidecar': async () =>
-		(await import('@spences10/pi-context')).default,
-	mcp: async () => (await import('@spences10/pi-mcp')).default,
-	skills: async () => (await import('@spences10/pi-skills')).default,
-	'filter-output': async () =>
-		(await import('@spences10/pi-redact')).default,
-	recall: async () => (await import('@spences10/pi-recall')).default,
-	nopeek: async () => (await import('@spences10/pi-nopeek')).default,
-	omnisearch: async () =>
-		(await import('@spences10/pi-omnisearch')).default,
-	'sqlite-tools': async () =>
-		(await import('@spences10/pi-sqlite-tools')).default,
-	'prompt-presets': async () => prompt_presets_extension,
-	lsp: async () => (await import('@spences10/pi-lsp')).default,
-	'session-name': async () => session_name_extension,
-	'confirm-destructive': async () =>
-		(await import('@spences10/pi-confirm-destructive')).default,
-	'hooks-resolution': async () => hooks_resolution_extension,
-	'team-mode': async () =>
-		(await import('@spences10/pi-team-mode')).default,
-};
 
 const require = createRequire(import.meta.url);
 const PACKAGE_THEME_DIR = resolve(
@@ -209,10 +173,6 @@ function resolve_agent_dir(cwd: string, agent_dir?: string): string {
 	return agent_dir ? resolve(cwd, agent_dir) : getAgentDir();
 }
 
-const NON_INTERACTIVE_UI_ONLY_BUILTINS: BuiltinExtensionKey[] = [
-	'session-name',
-];
-
 interface ModelRegistryLike {
 	getAll(): Model<Api>[];
 }
@@ -260,48 +220,25 @@ export function resolve_effective_thinking_level(
 }
 
 export function get_force_disabled_builtins(
-	options: Pick<
-		CreateMyPiOptions,
-		| 'runtime_mode'
-		| 'context_sidecar'
-		| 'mcp'
-		| 'skills'
-		| 'filter_output'
-		| 'recall'
-		| 'nopeek'
-		| 'omnisearch'
-		| 'sqlite_tools'
-		| 'prompt_presets'
-		| 'lsp'
-		| 'session_name'
-		| 'confirm_destructive'
-		| 'hooks_resolution'
-		| 'team_mode'
-	>,
+	options: Pick<CreateMyPiOptions, 'runtime_mode'> &
+		BuiltinExtensionOptions,
 ): ReadonlySet<BuiltinExtensionKey> {
 	const force_disabled = new Set<BuiltinExtensionKey>();
-	if (!options.context_sidecar) force_disabled.add('context-sidecar');
-	if (!options.mcp) force_disabled.add('mcp');
-	if (!options.skills) force_disabled.add('skills');
-	if (!options.filter_output) force_disabled.add('filter-output');
-	if (!options.recall) force_disabled.add('recall');
-	if (!options.nopeek) force_disabled.add('nopeek');
-	if (!options.omnisearch) force_disabled.add('omnisearch');
-	if (!options.sqlite_tools) force_disabled.add('sqlite-tools');
-	if (!options.prompt_presets) force_disabled.add('prompt-presets');
-	if (!options.lsp) force_disabled.add('lsp');
-	if (!options.session_name) force_disabled.add('session-name');
-	if (!options.confirm_destructive)
-		force_disabled.add('confirm-destructive');
-	if (!options.hooks_resolution)
-		force_disabled.add('hooks-resolution');
-	if (!options.team_mode) force_disabled.add('team-mode');
-	if (
-		options.runtime_mode &&
-		options.runtime_mode !== 'interactive'
-	) {
-		for (const key of NON_INTERACTIVE_UI_ONLY_BUILTINS) {
-			force_disabled.add(key);
+	for (const extension of BUILTIN_EXTENSION_REGISTRY) {
+		const enabled =
+			options[extension.option_name] ?? extension.default_enabled;
+		if (!enabled) force_disabled.add(extension.key);
+		const disabled_in =
+			'mode_constraints' in extension
+				? extension.mode_constraints.disabled_in
+				: undefined;
+		if (
+			options.runtime_mode &&
+			(
+				disabled_in as readonly MyPiRuntimeMode[] | undefined
+			)?.includes(options.runtime_mode)
+		) {
+			force_disabled.add(extension.key);
 		}
 	}
 	return force_disabled;
@@ -367,20 +304,6 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		extensions = [],
 		extensionFactories: user_factories = [],
 		runtime_mode = 'interactive',
-		context_sidecar = true,
-		mcp = true,
-		skills = true,
-		filter_output = true,
-		recall = true,
-		nopeek = true,
-		omnisearch = true,
-		sqlite_tools = true,
-		prompt_presets = true,
-		lsp = true,
-		session_name = true,
-		confirm_destructive = true,
-		hooks_resolution = true,
-		team_mode = true,
 		telemetry,
 		telemetry_db_path,
 		model,
@@ -420,21 +343,8 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 
 	const resolved_extensions = extensions.map((p) => resolve(cwd, p));
 	const force_disabled = get_force_disabled_builtins({
+		...options,
 		runtime_mode,
-		context_sidecar,
-		mcp,
-		skills,
-		filter_output,
-		recall,
-		nopeek,
-		omnisearch,
-		sqlite_tools,
-		prompt_presets,
-		lsp,
-		session_name,
-		confirm_destructive,
-		hooks_resolution,
-		team_mode,
 	});
 	const builtins_config = load_builtin_extensions_config();
 	const skills_manager = is_builtin_extension_active(
@@ -452,10 +362,10 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 			cwd,
 		}),
 		create_extensions_extension({ force_disabled }),
-		...BUILTIN_EXTENSIONS.map((extension) =>
+		...BUILTIN_EXTENSION_REGISTRY.map((extension) =>
 			create_lazy_builtin_extension_factory(
 				extension.key,
-				BUILTIN_EXTENSION_LOADERS[extension.key],
+				extension.load,
 				force_disabled,
 			),
 		),

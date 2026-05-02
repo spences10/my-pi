@@ -8,10 +8,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+	create_builtin_disable_cli_args,
 	parse_extension_paths,
 	parse_skill_allowlist,
 	parse_thinking_level,
 	parse_tool_allowlist,
+	resolve_builtin_extension_options,
 } from './cli-args.js';
 import { install_sqlite_warning_filter } from './warnings.js';
 
@@ -159,77 +161,7 @@ const main = defineCommand({
 				'Safe mode for unknown repos: skip project MCP, hooks, project prompt presets, project skills, and project LSP binaries unless explicitly re-enabled',
 			default: false,
 		},
-		'no-context-sidecar': {
-			type: 'boolean',
-			description:
-				'Disable SQLite context sidecar for large tool output',
-			default: false,
-		},
-		'no-mcp': {
-			type: 'boolean',
-			description: 'Disable built-in MCP extension',
-			default: false,
-		},
-		'no-skills': {
-			type: 'boolean',
-			description: 'Disable built-in skills extension',
-			default: false,
-		},
-		'no-filter': {
-			type: 'boolean',
-			description: 'Disable secret redaction in tool output',
-			default: false,
-		},
-		'no-recall': {
-			type: 'boolean',
-			description: 'Disable recall extension',
-			default: false,
-		},
-		'no-nopeek': {
-			type: 'boolean',
-			description: 'Disable nopeek reminder extension',
-			default: false,
-		},
-		'no-omnisearch': {
-			type: 'boolean',
-			description: 'Disable mcp-omnisearch reminder extension',
-			default: false,
-		},
-		'no-sqlite-tools': {
-			type: 'boolean',
-			description: 'Disable mcp-sqlite-tools reminder extension',
-			default: false,
-		},
-		'no-prompt-presets': {
-			type: 'boolean',
-			description: 'Disable prompt presets extension',
-			default: false,
-		},
-		'no-lsp': {
-			type: 'boolean',
-			description: 'Disable LSP extension',
-			default: false,
-		},
-		'no-session-name': {
-			type: 'boolean',
-			description: 'Disable session name extension',
-			default: false,
-		},
-		'no-confirm-destructive': {
-			type: 'boolean',
-			description: 'Disable destructive action confirmations',
-			default: false,
-		},
-		'no-hooks': {
-			type: 'boolean',
-			description: 'Disable Claude-style hook execution',
-			default: false,
-		},
-		'no-team-mode': {
-			type: 'boolean',
-			description: 'Disable experimental team mode extension',
-			default: false,
-		},
+		...create_builtin_disable_cli_args(),
 		telemetry: {
 			type: 'boolean',
 			description: 'Enable local SQLite telemetry for this process',
@@ -384,23 +316,7 @@ const main = defineCommand({
 			session_dir: args['session-dir'],
 			extensions: extension_paths,
 			runtime_mode,
-			context_sidecar:
-				!args['no-builtin'] && !args['no-context-sidecar'],
-			mcp: !args['no-builtin'] && !args['no-mcp'],
-			skills: !args['no-builtin'] && !args['no-skills'],
-			filter_output: !args['no-builtin'] && !args['no-filter'],
-			recall: !args['no-builtin'] && !args['no-recall'],
-			nopeek: !args['no-builtin'] && !args['no-nopeek'],
-			omnisearch: !args['no-builtin'] && !args['no-omnisearch'],
-			sqlite_tools: !args['no-builtin'] && !args['no-sqlite-tools'],
-			prompt_presets:
-				!args['no-builtin'] && !args['no-prompt-presets'],
-			lsp: !args['no-builtin'] && !args['no-lsp'],
-			session_name: !args['no-builtin'] && !args['no-session-name'],
-			confirm_destructive:
-				!args['no-builtin'] && !args['no-confirm-destructive'],
-			hooks_resolution: !args['no-builtin'] && !args['no-hooks'],
-			team_mode: !args['no-builtin'] && !args['no-team-mode'],
+			...resolve_builtin_extension_options(args),
 			telemetry: telemetry_override,
 			telemetry_db_path: args['telemetry-db'],
 			model: args.model,
