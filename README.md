@@ -79,6 +79,13 @@ pnpx my-pi@latest
 # or: npx my-pi@latest / bunx my-pi@latest
 ```
 
+With pnpm 10's build-script approval gate, use explicit build
+allowances if you want a warning-free `pnpx` install:
+
+```bash
+pnpm dlx --allow-build=@google/genai --allow-build=koffi --allow-build=protobufjs my-pi@latest
+```
+
 ### API Keys
 
 Pi handles authentication natively via `AuthStorage`. Options (in

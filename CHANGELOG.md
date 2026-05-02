@@ -1,5 +1,11 @@
 # my-pi
 
+## 0.1.28
+
+### Patch Changes
+
+- Document pnpm install build approvals for Pi runtime dependencies.
+
 ## 0.1.27
 
 ### Patch Changes
@@ -418,6 +424,7 @@
   session transfer prompts.
 
   The `/handoff` command now:
+
   - summarizes the current branch conversation with the active model
   - asks the user to review and edit the generated prompt
   - creates a new session linked to the current one
