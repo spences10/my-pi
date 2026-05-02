@@ -1,0 +1,222 @@
+import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import context_sidecar, {
+	get_context_store,
+	is_context_sidecar_enabled,
+	set_context_sidecar_enabled,
+} from './index.js';
+
+type HookHandler = (
+	event: Record<string, unknown>,
+	ctx?: { cwd: string },
+) => Promise<unknown>;
+
+type ToolResult = {
+	content: Array<{ type: string; text: string }>;
+	details?: unknown;
+};
+
+type RegisteredTool = {
+	name: string;
+	execute: (
+		tool_call_id: string,
+		params: Record<string, unknown>,
+	) => ToolResult | Promise<ToolResult>;
+};
+
+type RegisteredCommand = {
+	handler: (args: string[], ctx: CommandContext) => Promise<void>;
+};
+
+type CommandContext = {
+	ui: { notify: (message: string, type: string) => void };
+};
+
+let dirs: string[] = [];
+const original_context_db = process.env.MY_PI_CONTEXT_DB;
+
+function temp_db(): string {
+	const dir = mkdtempSync(join(tmpdir(), 'pi-context-ext-'));
+	dirs.push(dir);
+	return join(dir, 'context.db');
+}
+
+function create_fake_pi(): {
+	pi: ExtensionAPI;
+	hooks: Map<string, HookHandler[]>;
+	tools: Map<string, RegisteredTool>;
+	commands: Map<string, RegisteredCommand>;
+} {
+	const hooks = new Map<string, HookHandler[]>();
+	const tools = new Map<string, RegisteredTool>();
+	const commands = new Map<string, RegisteredCommand>();
+	const pi = {
+		on(name: string, handler: HookHandler) {
+			hooks.set(name, [...(hooks.get(name) ?? []), handler]);
+		},
+		registerTool(tool: unknown) {
+			const registered = tool as RegisteredTool;
+			tools.set(registered.name, registered);
+		},
+		registerCommand(name: string, command: unknown) {
+			commands.set(name, command as RegisteredCommand);
+		},
+	} as unknown as ExtensionAPI;
+	return { pi, hooks, tools, commands };
+}
+
+function large_output(token = 'needle-token'): string {
+	return Array.from({ length: 340 }, (_value, index) =>
+		index === 330 ? `${token} at line ${index}` : `line ${index}`,
+	).join('\n');
+}
+
+function source_id_from(text: string): string {
+	const match = text.match(/Source: (ctx_[^\n]+)/);
+	expect(match).not.toBeNull();
+	return match![1];
+}
+
+afterEach(() => {
+	set_context_sidecar_enabled(false);
+	if (original_context_db === undefined)
+		delete process.env.MY_PI_CONTEXT_DB;
+	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+	for (const dir of dirs)
+		rmSync(dir, { recursive: true, force: true });
+	dirs = [];
+});
+
+describe('context_sidecar extension', () => {
+	it('registers lifecycle hooks, retrieval tools, and stats command', async () => {
+		process.env.MY_PI_CONTEXT_DB = temp_db();
+		const fake = create_fake_pi();
+
+		context_sidecar(fake.pi);
+
+		expect(is_context_sidecar_enabled()).toBe(true);
+		expect([...fake.tools.keys()].sort()).toEqual([
+			'context_get',
+			'context_purge',
+			'context_search',
+			'context_stats',
+		]);
+		expect(fake.commands.has('context-stats')).toBe(true);
+		expect(fake.hooks.get('tool_result')).toHaveLength(1);
+
+		await fake.hooks.get('session_shutdown')![0]({});
+		expect(is_context_sidecar_enabled()).toBe(false);
+		await fake.hooks.get('session_start')![0](
+			{},
+			{ cwd: '/tmp/project' },
+		);
+		expect(is_context_sidecar_enabled()).toBe(true);
+	});
+
+	it('replaces oversized text tool results and leaves small, skipped, and non-text results alone', async () => {
+		process.env.MY_PI_CONTEXT_DB = temp_db();
+		const fake = create_fake_pi();
+		context_sidecar(fake.pi);
+		const tool_result = fake.hooks.get('tool_result')![0];
+
+		expect(
+			await tool_result({
+				toolName: 'bash',
+				content: [{ type: 'text', text: 'small output' }],
+			}),
+		).toBeUndefined();
+		expect(
+			await tool_result({
+				toolName: 'context_search',
+				content: [{ type: 'text', text: large_output('skip-token') }],
+			}),
+		).toBeUndefined();
+		expect(
+			await tool_result({
+				toolName: 'bash',
+				content: [{ type: 'image', data: 'ignored' }],
+			}),
+		).toBeUndefined();
+
+		const replacement = (await tool_result({
+			toolName: 'bash',
+			input: { command: 'generate large output' },
+			content: [{ type: 'text', text: large_output('hook-token') }],
+		})) as ToolResult;
+
+		expect(replacement.content[0].text).toContain(
+			'[context-sidecar]',
+		);
+		expect(replacement.content[0].text).toContain('context_search');
+		const source_id = source_id_from(replacement.content[0].text);
+		expect(
+			get_context_store().search('hook-token', { source_id }),
+		).toHaveLength(1);
+	});
+
+	it('searches, retrieves, reports stats, purges, and notifies through registered tools', async () => {
+		process.env.MY_PI_CONTEXT_DB = temp_db();
+		const fake = create_fake_pi();
+		context_sidecar(fake.pi);
+		const tool_result = fake.hooks.get('tool_result')![0];
+		const replacement = (await tool_result({
+			toolName: 'bash',
+			content: [{ type: 'text', text: large_output('tool-token') }],
+		})) as ToolResult;
+		const source_id = source_id_from(replacement.content[0].text);
+
+		const search = await fake.tools
+			.get('context_search')!
+			.execute('call-1', {
+				query: 'tool-token',
+				limit: 1,
+			});
+		expect(search.content[0].text).toContain('tool-token');
+		expect(search.details).toMatchObject({ count: 1 });
+
+		const get = await fake.tools
+			.get('context_get')!
+			.execute('call-2', {
+				source_id,
+			});
+		expect(get.content[0].text).toContain('tool-token');
+		expect(get.details).toMatchObject({ count: 1 });
+
+		const stats = await fake.tools
+			.get('context_stats')!
+			.execute('call-3', {});
+		expect(stats.content[0].text).toContain('context-sidecar stats');
+		expect(stats.details).toMatchObject({ sources: 1, chunks: 1 });
+
+		const notifications: string[] = [];
+		await fake.commands.get('context-stats')!.handler([], {
+			ui: {
+				notify(message: string, type: string) {
+					notifications.push(`${type}:${message}`);
+				},
+			},
+		});
+		expect(notifications[0]).toContain(
+			'info:## context-sidecar stats',
+		);
+
+		const purge = await fake.tools
+			.get('context_purge')!
+			.execute('call-4', {
+				source_id,
+			});
+		expect(purge.content[0].text).toBe(
+			'Deleted 1 context source(s).',
+		);
+
+		const empty = await fake.tools
+			.get('context_get')!
+			.execute('call-5', {
+				source_id,
+			});
+		expect(empty.content[0].text).toBe('No chunks found.');
+	});
+});

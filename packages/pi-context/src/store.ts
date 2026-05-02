@@ -284,6 +284,13 @@ function chunk_text(text: string, source_id: string): ChunkRow[] {
 	const target_bytes = 4096;
 
 	for (const paragraph of paragraphs) {
+		if (Buffer.byteLength(paragraph, 'utf8') > target_bytes) {
+			if (current) chunks.push(current);
+			chunks.push(...split_large_chunk(paragraph, target_bytes));
+			current = '';
+			continue;
+		}
+
 		const next = current ? `${current}\n\n${paragraph}` : paragraph;
 		if (Buffer.byteLength(next, 'utf8') > target_bytes && current) {
 			chunks.push(current);
@@ -303,6 +310,54 @@ function chunk_text(text: string, source_id: string): ChunkRow[] {
 		content,
 		byte_count: Buffer.byteLength(content, 'utf8'),
 	}));
+}
+
+function split_large_chunk(
+	text: string,
+	target_bytes: number,
+): string[] {
+	const chunks: string[] = [];
+	let current = '';
+
+	for (const line of text.split('\n')) {
+		const next = current ? `${current}\n${line}` : line;
+		if (Buffer.byteLength(next, 'utf8') <= target_bytes) {
+			current = next;
+			continue;
+		}
+
+		if (current) chunks.push(current);
+		if (Buffer.byteLength(line, 'utf8') <= target_bytes) {
+			current = line;
+			continue;
+		}
+
+		let rest = line;
+		while (Buffer.byteLength(rest, 'utf8') > target_bytes) {
+			const [head, tail] = split_utf8_at_byte(rest, target_bytes);
+			chunks.push(head);
+			rest = tail;
+		}
+		current = rest;
+	}
+
+	if (current) chunks.push(current);
+	return chunks;
+}
+
+function split_utf8_at_byte(
+	text: string,
+	max_bytes: number,
+): [string, string] {
+	let bytes = 0;
+	let index = 0;
+	for (const char of text) {
+		const char_bytes = Buffer.byteLength(char, 'utf8');
+		if (bytes + char_bytes > max_bytes) break;
+		bytes += char_bytes;
+		index += char.length;
+	}
+	return [text.slice(0, index), text.slice(index)];
 }
 
 function first_non_empty_line(text: string): string | null {
