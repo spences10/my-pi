@@ -1,5 +1,22 @@
 # @spences10/pi-mcp
 
+## 0.0.14
+
+### Patch Changes
+
+- aa8cfb7: Improve extension UX with context modal, MCP profile
+  picker, clearer redaction naming, and team cleanup.
+- Updated dependencies [1745de7]
+- Updated dependencies [aa8cfb7]
+- Updated dependencies [f4203a0]
+- Updated dependencies [63438fd]
+- Updated dependencies [c7d0025]
+- Updated dependencies [fd9a2b2]
+- Updated dependencies [03e02a8]
+- Updated dependencies [35d85b9]
+- Updated dependencies [2fa5ae5]
+  - @spences10/pi-context@0.0.4
+
 ## 0.0.13
 
 ### Patch Changes

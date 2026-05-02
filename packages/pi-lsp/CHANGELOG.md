@@ -1,5 +1,12 @@
 # @spences10/pi-lsp
 
+## 0.0.12
+
+### Patch Changes
+
+- 8a6c2c7: Refactor pi-lsp into focused modules for prompts, tools,
+  commands, server management, and matching test files.
+
 ## 0.0.11
 
 ### Patch Changes

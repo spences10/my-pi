@@ -1,5 +1,32 @@
 # my-pi
 
+## 0.1.29
+
+### Patch Changes
+
+- aa8cfb7: Improve extension UX with context modal, MCP profile
+  picker, clearer redaction naming, and team cleanup.
+- f4203a0: Document context sidecar coverage policy and prevent
+  recursive indexing of context and MCP receipts.
+- 35d85b9: Improve context receipts, scoped stats, previews, and
+  documentation for clearer sidecar retrieval UX.
+- Updated dependencies [8a6c2c7]
+- Updated dependencies [1745de7]
+- Updated dependencies [aa8cfb7]
+- Updated dependencies [f4203a0]
+- Updated dependencies [63438fd]
+- Updated dependencies [132eff7]
+- Updated dependencies [c7d0025]
+- Updated dependencies [fd9a2b2]
+- Updated dependencies [03e02a8]
+- Updated dependencies [35d85b9]
+- Updated dependencies [2fa5ae5]
+  - @spences10/pi-lsp@0.0.12
+  - @spences10/pi-context@0.0.4
+  - @spences10/pi-team-mode@0.0.11
+  - @spences10/pi-mcp@0.0.14
+  - @spences10/pi-skills@0.0.10
+
 ## 0.1.28
 
 ### Patch Changes

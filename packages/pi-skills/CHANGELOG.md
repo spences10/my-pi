@@ -1,5 +1,12 @@
 # @spences10/pi-skills
 
+## 0.0.10
+
+### Patch Changes
+
+- 132eff7: Refactor skill profiles into named skill sets with
+  profile-based enablement and legacy config migration.
+
 ## 0.0.9
 
 ### Patch Changes

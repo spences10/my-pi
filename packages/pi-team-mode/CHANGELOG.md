@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.11
+
+### Patch Changes
+
+- aa8cfb7: Improve extension UX with context modal, MCP profile
+  picker, clearer redaction naming, and team cleanup.
+
 ## 0.0.10
 
 ### Patch Changes

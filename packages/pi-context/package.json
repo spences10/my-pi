@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-context",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "Pi extension for local SQLite context sidecar storage and retrieval of large tool output",
 	"keywords": [
 		"context",
