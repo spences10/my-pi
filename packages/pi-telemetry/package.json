@@ -38,7 +38,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.71.1",
+		"@mariozechner/pi-coding-agent": "^0.72.0",
 		"@spences10/pi-tui-modal": "workspace:*"
 	},
 	"devDependencies": {
