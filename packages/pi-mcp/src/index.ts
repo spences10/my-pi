@@ -6,20 +6,15 @@ import {
 	type ExtensionContext,
 } from '@mariozechner/pi-coding-agent';
 import {
-	resolve_project_trust,
-	type ProjectTrustSubject,
-} from '@spences10/pi-project-trust';
-import {
 	show_confirm_modal,
 	show_input_modal,
 	show_picker_modal,
 	show_settings_modal,
 	show_text_modal,
 } from '@spences10/pi-tui-modal';
-import { McpClient, type McpServerConfig } from './client.js';
+import { McpClient } from './client.js';
 import {
 	create_mcp_config_backup,
-	get_project_mcp_config_info,
 	list_mcp_config_backups,
 	list_mcp_profiles,
 	load_mcp_config,
@@ -28,194 +23,24 @@ import {
 	save_mcp_profile,
 	set_mcp_server_enabled,
 	type McpConfigScope,
-	type McpProjectConfigInfo,
 } from './config.js';
 import { create_mcp_tool_registration_metadata } from './metadata.js';
+import { get_project_mcp_config_load_decision } from './project-config-loader.js';
 import { format_mcp_tool_result } from './result.js';
 import {
-	create_mcp_project_trust_subject,
-	default_mcp_trust_store_path,
-	is_project_mcp_config_trusted,
-} from './trust.js';
-
-const PROJECT_MCP_CONFIG_ENV = 'MY_PI_MCP_PROJECT_CONFIG';
-const ENABLED = '● enabled';
-const DISABLED = '○ disabled';
-
-interface ServerState {
-	config: McpServerConfig;
-	client?: McpClient;
-	tool_names: string[];
-	enabled: boolean;
-	status: 'disconnected' | 'connecting' | 'connected' | 'failed';
-	error?: string;
-	connect_promise?: Promise<void>;
-}
-
-function create_server_states(
-	configs: McpServerConfig[],
-): Map<string, ServerState> {
-	return new Map(
-		configs.map((config) => [
-			config.name,
-			{
-				config,
-				tool_names: [],
-				enabled: config.disabled !== true,
-				status: 'disconnected' as const,
-			},
-		]),
-	);
-}
-
-function remove_server_tools_from_active(
-	pi: ExtensionAPI,
-	tool_names: string[],
-): void {
-	const tool_set = new Set(tool_names);
-	pi.setActiveTools(
-		pi.getActiveTools().filter((tool) => !tool_set.has(tool)),
-	);
-}
-
-function format_server_status(state: ServerState): string {
-	switch (state.status) {
-		case 'connected':
-			return state.enabled ? 'enabled' : 'disabled';
-		case 'connecting':
-			return state.enabled ? 'connecting' : 'connecting, disabled';
-		case 'failed':
-			return state.enabled ? 'failed' : 'failed, disabled';
-		default:
-			return state.enabled ? 'not connected yet' : 'disabled';
-	}
-}
-
-function redact_url(value: string): string {
-	try {
-		const url = new URL(value);
-		if (url.username) url.username = '***';
-		if (url.password) url.password = '***';
-		for (const key of url.searchParams.keys()) {
-			if (/token|key|secret|password|auth/i.test(key)) {
-				url.searchParams.set(key, '***');
-			}
-		}
-		return url.toString();
-	} catch {
-		return value.replace(
-			/(token|key|secret|password|auth)=([^\s&]+)/gi,
-			'$1=***',
-		);
-	}
-}
-
-function summarize_mcp_tool_params(params: unknown): string | null {
-	try {
-		const json = JSON.stringify(params);
-		if (!json) return null;
-		return json.length > 500 ? `${json.slice(0, 497)}...` : json;
-	} catch {
-		return null;
-	}
-}
-
-function format_server_target(config: McpServerConfig): string {
-	if (config.transport === 'http') return redact_url(config.url);
-	return [config.command, ...(config.args ?? [])].join(' ');
-}
-
-function count_pending_enabled_servers(
-	servers: ReadonlyMap<string, ServerState>,
-): number {
-	return Array.from(servers.values()).filter(
-		(state) => state.enabled && state.status !== 'connected',
-	).length;
-}
-
-function report_mcp_failure(
-	state: ServerState,
-	ctx?: ExtensionContext,
-): void {
-	const message = `MCP server failed (${state.config.name}): ${state.error}`;
-	if (ctx?.hasUI) {
-		ctx.ui.notify(message, 'warning');
-		return;
-	}
-	console.error(message);
-}
-
-function themed(
-	ctx: ExtensionContext,
-	color: 'accent' | 'dim' | 'muted',
-	text: string,
-): string {
-	try {
-		return ctx.ui.theme.fg(color, text);
-	} catch {
-		return text;
-	}
-}
-
-function update_mcp_status(
-	ctx: ExtensionContext,
-	servers: ReadonlyMap<string, ServerState>,
-): void {
-	if (!ctx.hasUI) return;
-	if (servers.size === 0) {
-		ctx.ui.setStatus('mcp', undefined);
-		return;
-	}
-
-	const states = Array.from(servers.values());
-	const enabled = states.filter((state) => state.enabled).length;
-	const connected = states.filter(
-		(state) => state.enabled && state.status === 'connected',
-	).length;
-	const connecting = states.filter(
-		(state) => state.enabled && state.status === 'connecting',
-	).length;
-	const failed = states.filter(
-		(state) => state.enabled && state.status === 'failed',
-	).length;
-
-	const fragments = [`MCP ${connected}/${enabled} connected`];
-	if (connecting > 0) fragments.push(`${connecting} connecting`);
-	if (failed > 0) fragments.push(`${failed} failed`);
-
-	ctx.ui.setStatus('mcp', themed(ctx, 'dim', fragments.join(' · ')));
-}
-
-function set_connect_feedback(
-	ctx: ExtensionContext,
-	pending_server_count: number,
-): () => void {
-	if (!ctx.hasUI) {
-		return () => {};
-	}
-
-	const label =
-		pending_server_count === 1
-			? 'Connecting 1 MCP server...'
-			: `Connecting ${pending_server_count} MCP servers...`;
-
-	ctx.ui.setWorkingMessage(label);
-	ctx.ui.setWorkingIndicator({
-		frames: [
-			themed(ctx, 'dim', '·'),
-			themed(ctx, 'muted', '•'),
-			themed(ctx, 'accent', '●'),
-			themed(ctx, 'muted', '•'),
-		],
-		intervalMs: 120,
-	});
-	ctx.ui.setStatus('mcp', themed(ctx, 'dim', label));
-
-	return () => {
-		ctx.ui.setWorkingMessage();
-		ctx.ui.setWorkingIndicator();
-	};
-}
+	count_pending_enabled_servers,
+	create_server_states,
+	DISABLED,
+	ENABLED,
+	format_server_status,
+	format_server_target,
+	remove_server_tools_from_active,
+	report_mcp_failure,
+	set_connect_feedback,
+	summarize_mcp_tool_params,
+	update_mcp_status,
+	type ServerState,
+} from './server-state.js';
 
 export function should_wait_for_mcp_connections(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
@@ -227,64 +52,6 @@ export function should_wait_for_mcp_connections(
 	);
 }
 
-interface ProjectMcpConfigLoadDecision {
-	include_project: boolean;
-	metadata_trusted: boolean;
-}
-
-function create_project_mcp_trust_subject(
-	info: McpProjectConfigInfo,
-): ProjectTrustSubject {
-	const server_lines =
-		info.servers.length === 0
-			? ['- no valid server entries detected']
-			: info.servers.map(
-					(server) => `- ${server.name}: ${server.summary}`,
-				);
-	return {
-		...create_mcp_project_trust_subject(info.path, info.hash),
-		summary_lines: server_lines,
-		choices: {
-			allow_once: 'Allow once for this session',
-			trust: 'Trust this repo until mcp.json changes',
-			skip: 'Skip project MCP config',
-		},
-		headless_warning: `Skipping untrusted project MCP config: ${info.path}. Set ${PROJECT_MCP_CONFIG_ENV}=allow to enable it for this run.`,
-	};
-}
-
-async function get_project_mcp_config_load_decision(
-	cwd: string,
-	ctx?: ExtensionContext,
-): Promise<ProjectMcpConfigLoadDecision> {
-	const skipped = { include_project: false, metadata_trusted: false };
-	const info = get_project_mcp_config_info(cwd);
-	if (!info) return skipped;
-	if (is_project_mcp_config_trusted(info.path, info.hash)) {
-		return { include_project: true, metadata_trusted: true };
-	}
-
-	const decision = await resolve_project_trust(
-		create_project_mcp_trust_subject(info),
-		{
-			has_ui: ctx?.hasUI,
-			select: ctx?.hasUI
-				? async (message, choices) =>
-						(await ctx.ui.select(message, choices)) ?? choices[2]
-				: undefined,
-			warn: console.warn,
-			trust_store_path: default_mcp_trust_store_path(),
-		},
-	);
-
-	if (decision.action === 'skip') return skipped;
-	return {
-		include_project: true,
-		metadata_trusted: decision.metadata_trusted,
-	};
-}
-
-// Default export for Pi Package / additionalExtensionPaths loading
 export default async function mcp(pi: ExtensionAPI) {
 	let initialized_cwd: string | null = null;
 	let initialize_promise: Promise<void> | undefined;
