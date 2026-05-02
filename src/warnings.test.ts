@@ -1,4 +1,3 @@
-import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	install_sqlite_warning_filter,
@@ -18,15 +17,25 @@ describe('warning handling', () => {
 		expect(should_suppress_warning(other)).toBe(false);
 	});
 
-	it('does not remove existing warning listeners and installs once', () => {
-		const emitter = new EventEmitter() as typeof process;
-		const existing = vi.fn();
-		emitter.on('warning', existing);
+	it('filters node:sqlite warnings before delegating to emitWarning', () => {
+		const original_emit_warning = vi.fn();
+		const process_like = {
+			emitWarning: original_emit_warning,
+		} as unknown as typeof process;
 
-		install_sqlite_warning_filter(emitter);
-		install_sqlite_warning_filter(emitter);
+		install_sqlite_warning_filter(process_like);
+		install_sqlite_warning_filter(process_like);
 
-		expect(emitter.listenerCount('warning')).toBe(2);
-		expect(emitter.listeners('warning')).toContain(existing);
+		process_like.emitWarning(
+			'SQLite is an experimental feature and might change at any time',
+			'ExperimentalWarning',
+		);
+		process_like.emitWarning('Something else', 'ExperimentalWarning');
+
+		expect(original_emit_warning).toHaveBeenCalledOnce();
+		expect(original_emit_warning).toHaveBeenCalledWith(
+			'Something else',
+			'ExperimentalWarning',
+		);
 	});
 });

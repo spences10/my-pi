@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
@@ -10,6 +11,11 @@ export default defineConfig({
 	},
 	test: {
 		include: ['src/**/*.test.ts'],
+		setupFiles: [
+			fileURLToPath(
+				new URL('./src/test/setup-warnings.ts', import.meta.url),
+			),
+		],
 	},
 	fmt: {
 		useTabs: true,

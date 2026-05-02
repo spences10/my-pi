@@ -3,16 +3,10 @@
 // CLI for my-pi — composable pi coding agent
 // Extension stacking patterns inspired by https://github.com/disler/pi-vs-claude-code
 
-import {
-	InteractiveMode,
-	runPrintMode,
-	runRpcMode,
-} from '@mariozechner/pi-coding-agent';
 import { defineCommand, renderUsage, runMain } from 'citty';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { create_my_pi } from './api.js';
 import {
 	parse_extension_paths,
 	parse_skill_allowlist,
@@ -375,6 +369,14 @@ const main = defineCommand({
 		} else if (args['no-telemetry']) {
 			telemetry_override = false;
 		}
+
+		const [
+			{ create_my_pi },
+			{ InteractiveMode, runPrintMode, runRpcMode },
+		] = await Promise.all([
+			import('./api.js'),
+			import('@mariozechner/pi-coding-agent'),
+		]);
 
 		const runtime = await create_my_pi({
 			cwd,
