@@ -19,21 +19,7 @@ import {
 	type ExtensionFactory,
 	type LoadExtensionsResult,
 } from '@mariozechner/pi-coding-agent';
-import confirm_destructive_extension from '@spences10/pi-confirm-destructive';
-import context_sidecar_extension from '@spences10/pi-context';
-import lsp_extension from '@spences10/pi-lsp';
-import mcp_extension from '@spences10/pi-mcp';
-import nopeek_extension from '@spences10/pi-nopeek';
-import omnisearch_extension from '@spences10/pi-omnisearch';
 import { apply_project_trust_untrusted_defaults } from '@spences10/pi-project-trust';
-import recall_extension from '@spences10/pi-recall';
-import filter_output_extension from '@spences10/pi-redact';
-import skills_extension, {
-	create_skills_manager,
-} from '@spences10/pi-skills';
-import sqlite_tools_extension from '@spences10/pi-sqlite-tools';
-import team_mode_extension from '@spences10/pi-team-mode';
-import { create_telemetry_extension } from '@spences10/pi-telemetry';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import hooks_resolution_extension from './extensions/hooks-resolution/index.js';
@@ -89,24 +75,32 @@ export interface CreateMyPiOptions {
 	untrusted_repo?: boolean;
 }
 
-const BUILTIN_EXTENSION_FACTORIES: Record<
+type BuiltinExtensionLoader = () => Promise<ExtensionFactory>;
+
+const BUILTIN_EXTENSION_LOADERS: Record<
 	BuiltinExtensionKey,
-	ExtensionFactory
+	BuiltinExtensionLoader
 > = {
-	'context-sidecar': context_sidecar_extension,
-	mcp: mcp_extension,
-	skills: skills_extension,
-	'filter-output': filter_output_extension,
-	recall: recall_extension,
-	nopeek: nopeek_extension,
-	omnisearch: omnisearch_extension,
-	'sqlite-tools': sqlite_tools_extension,
-	'prompt-presets': prompt_presets_extension,
-	lsp: lsp_extension,
-	'session-name': session_name_extension,
-	'confirm-destructive': confirm_destructive_extension,
-	'hooks-resolution': hooks_resolution_extension,
-	'team-mode': team_mode_extension,
+	'context-sidecar': async () =>
+		(await import('@spences10/pi-context')).default,
+	mcp: async () => (await import('@spences10/pi-mcp')).default,
+	skills: async () => (await import('@spences10/pi-skills')).default,
+	'filter-output': async () =>
+		(await import('@spences10/pi-redact')).default,
+	recall: async () => (await import('@spences10/pi-recall')).default,
+	nopeek: async () => (await import('@spences10/pi-nopeek')).default,
+	omnisearch: async () =>
+		(await import('@spences10/pi-omnisearch')).default,
+	'sqlite-tools': async () =>
+		(await import('@spences10/pi-sqlite-tools')).default,
+	'prompt-presets': async () => prompt_presets_extension,
+	lsp: async () => (await import('@spences10/pi-lsp')).default,
+	'session-name': async () => session_name_extension,
+	'confirm-destructive': async () =>
+		(await import('@spences10/pi-confirm-destructive')).default,
+	'hooks-resolution': async () => hooks_resolution_extension,
+	'team-mode': async () =>
+		(await import('@spences10/pi-team-mode')).default,
 };
 
 const require = createRequire(import.meta.url);
@@ -313,9 +307,9 @@ export function get_force_disabled_builtins(
 	return force_disabled;
 }
 
-function create_builtin_extension_factory(
+export function create_lazy_builtin_extension_factory(
 	key: BuiltinExtensionKey,
-	extension: ExtensionFactory,
+	load_extension: BuiltinExtensionLoader,
 	force_disabled: ReadonlySet<BuiltinExtensionKey>,
 ): ExtensionFactory {
 	return async (pi) => {
@@ -323,7 +317,20 @@ function create_builtin_extension_factory(
 		if (!is_builtin_extension_active(config, key, force_disabled)) {
 			return;
 		}
+		const extension = await load_extension();
 		await extension(pi);
+	};
+}
+
+function create_lazy_telemetry_extension(options: {
+	enabled?: boolean;
+	db_path?: string;
+	cwd?: string;
+}): ExtensionFactory {
+	return async (pi) => {
+		const { create_telemetry_extension } =
+			await import('@spences10/pi-telemetry');
+		await create_telemetry_extension(options)(pi);
 	};
 }
 
@@ -429,17 +436,26 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		hooks_resolution,
 		team_mode,
 	});
+	const builtins_config = load_builtin_extensions_config();
+	const skills_manager = is_builtin_extension_active(
+		builtins_config,
+		'skills',
+		force_disabled,
+	)
+		? (await import('@spences10/pi-skills')).create_skills_manager()
+		: undefined;
+
 	const managed_extension_factories: ExtensionFactory[] = [
-		create_telemetry_extension({
+		create_lazy_telemetry_extension({
 			enabled: telemetry,
 			db_path: telemetry_db_path,
 			cwd,
 		}),
 		create_extensions_extension({ force_disabled }),
 		...BUILTIN_EXTENSIONS.map((extension) =>
-			create_builtin_extension_factory(
+			create_lazy_builtin_extension_factory(
 				extension.key,
-				BUILTIN_EXTENSION_FACTORIES[extension.key],
+				BUILTIN_EXTENSION_LOADERS[extension.key],
 				force_disabled,
 			),
 		),
@@ -486,21 +502,11 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 					managed_inline_paths,
 				),
 				skillsOverride: (base: any) => {
-					const config = load_builtin_extensions_config();
-					if (
-						!is_builtin_extension_active(
-							config,
-							'skills',
-							force_disabled,
-						)
-					) {
-						return base;
-					}
+					if (!skills_manager) return base;
 
 					const include_project_skills = is_resource_enabled(
 						process.env.MY_PI_PROJECT_SKILLS,
 					);
-					const skills_manager = create_skills_manager();
 					const selected_skill_names = selected_skills?.length
 						? new Set(selected_skills)
 						: undefined;

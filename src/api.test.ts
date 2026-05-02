@@ -1,9 +1,15 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import {
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	apply_untrusted_repo_defaults,
+	create_lazy_builtin_extension_factory,
 	create_my_pi,
 	get_force_disabled_builtins,
 	is_project_local_skill_path,
@@ -15,6 +21,7 @@ const original_agent_dir = process.env.PI_CODING_AGENT_DIR;
 const original_runtime_mode = process.env.MY_PI_RUNTIME_MODE;
 const original_mcp_project_config =
 	process.env.MY_PI_MCP_PROJECT_CONFIG;
+const original_xdg_config_home = process.env.XDG_CONFIG_HOME;
 
 function restore_env(): void {
 	if (original_agent_dir === undefined)
@@ -28,6 +35,9 @@ function restore_env(): void {
 	else
 		process.env.MY_PI_MCP_PROJECT_CONFIG =
 			original_mcp_project_config;
+	if (original_xdg_config_home === undefined)
+		delete process.env.XDG_CONFIG_HOME;
+	else process.env.XDG_CONFIG_HOME = original_xdg_config_home;
 }
 
 afterEach(() => {
@@ -88,6 +98,81 @@ describe('get_force_disabled_builtins', () => {
 		expect(disabled.has('nopeek')).toBe(false);
 		expect(disabled.has('omnisearch')).toBe(false);
 		expect(disabled.has('sqlite-tools')).toBe(false);
+	});
+});
+
+describe('create_lazy_builtin_extension_factory', () => {
+	it('does not load force-disabled built-ins', async () => {
+		let loaded = 0;
+		const extension = create_lazy_builtin_extension_factory(
+			'mcp',
+			async () => {
+				loaded++;
+				return async () => undefined;
+			},
+			new Set(['mcp']),
+		);
+
+		await extension({} as never);
+
+		expect(loaded).toBe(0);
+	});
+
+	it('does not load config-disabled built-ins', async () => {
+		const xdg_config_home = mkdtempSync(
+			join(tmpdir(), 'my-pi-api-config-'),
+		);
+		let loaded = 0;
+
+		try {
+			process.env.XDG_CONFIG_HOME = xdg_config_home;
+			mkdirSync(join(xdg_config_home, 'my-pi'), {
+				recursive: true,
+			});
+			writeFileSync(
+				join(xdg_config_home, 'my-pi', 'extensions.json'),
+				JSON.stringify({
+					version: 1,
+					enabled: { mcp: false },
+				}),
+			);
+
+			const extension = create_lazy_builtin_extension_factory(
+				'mcp',
+				async () => {
+					loaded++;
+					return async () => undefined;
+				},
+				new Set(),
+			);
+
+			await extension({} as never);
+
+			expect(loaded).toBe(0);
+		} finally {
+			rmSync(xdg_config_home, { recursive: true, force: true });
+		}
+	});
+
+	it('loads enabled built-ins only when the wrapper runs', async () => {
+		let loaded = 0;
+		let ran = 0;
+		const extension = create_lazy_builtin_extension_factory(
+			'mcp',
+			async () => {
+				loaded++;
+				return async () => {
+					ran++;
+				};
+			},
+			new Set(),
+		);
+
+		expect(loaded).toBe(0);
+		await extension({} as never);
+
+		expect(loaded).toBe(1);
+		expect(ran).toBe(1);
 	});
 });
 
