@@ -1,4 +1,9 @@
 import {
+	clampThinkingLevel,
+	getSupportedThinkingLevels,
+	type ModelThinkingLevel,
+} from '@mariozechner/pi-ai';
+import {
 	getAgentDir,
 	type ExtensionAPI,
 	type ExtensionCommandContext,
@@ -769,7 +774,31 @@ export function render_footer_status_line(
 	);
 }
 
-function get_current_thinking_level(ctx: ExtensionContext): string {
+const VALID_THINKING_LEVELS = new Set<ModelThinkingLevel>([
+	'off',
+	'minimal',
+	'low',
+	'medium',
+	'high',
+	'xhigh',
+]);
+
+function is_model_thinking_level(
+	level: string,
+): level is ModelThinkingLevel {
+	return VALID_THINKING_LEVELS.has(level as ModelThinkingLevel);
+}
+
+export function get_default_footer_thinking_level(
+	model: ExtensionContext['model'],
+): ModelThinkingLevel {
+	if (!model?.reasoning) return 'off';
+	return clampThinkingLevel(model, 'medium');
+}
+
+export function get_current_thinking_level(
+	ctx: Pick<ExtensionContext, 'model' | 'sessionManager'>,
+): ModelThinkingLevel {
 	const entries = ctx.sessionManager.getEntries();
 	for (let i = entries.length - 1; i >= 0; i--) {
 		const entry = entries[i] as {
@@ -778,12 +807,18 @@ function get_current_thinking_level(ctx: ExtensionContext): string {
 		};
 		if (
 			entry.type === 'thinking_level_change' &&
-			typeof entry.thinkingLevel === 'string'
+			typeof entry.thinkingLevel === 'string' &&
+			is_model_thinking_level(entry.thinkingLevel)
 		) {
-			return entry.thinkingLevel;
+			if (!ctx.model?.reasoning) return 'off';
+			return getSupportedThinkingLevels(ctx.model).includes(
+				entry.thinkingLevel,
+			)
+				? entry.thinkingLevel
+				: clampThinkingLevel(ctx.model, entry.thinkingLevel);
 		}
 	}
-	return ctx.model?.reasoning ? 'high' : 'off';
+	return get_default_footer_thinking_level(ctx.model);
 }
 
 function render_footer_lines(

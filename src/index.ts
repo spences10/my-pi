@@ -78,6 +78,7 @@ EXAMPLES
   my-pi --untrusted --agent-dir /tmp/pi-agent --json "run case"
   my-pi -e ./my-ext.ts -e ./other-ext.ts "hello"
   my-pi -m claude-haiku-4-5-20241022 "explain this file"
+  XIAOMI_API_KEY=... my-pi -m xiaomi/mimo-v2.5-pro "summarize this repo"
   my-pi -m cloudflare-workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast "explain this file"
   my-pi --preset terse,no-purple-prose "summarize this repo"
   my-pi --system-prompt "You are a JSON classifier. Return only JSON." --json "classify this"

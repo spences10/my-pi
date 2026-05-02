@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	DEFAULT_PROMPT_PRESETS,
+	get_current_thinking_level,
+	get_default_footer_thinking_level,
 	load_persisted_prompt_state,
 	load_prompt_presets,
 	merge_prompt_presets,
@@ -181,6 +183,75 @@ const ANSI_ESCAPE_PATTERN = new RegExp(
 function strip_ansi(value: string): string {
 	return value.replace(ANSI_ESCAPE_PATTERN, '');
 }
+
+function make_model(overrides: Record<string, unknown> = {}) {
+	return {
+		id: 'test-model',
+		name: 'Test Model',
+		api: 'openai-completions',
+		provider: 'test',
+		baseUrl: 'http://localhost/v1',
+		reasoning: true,
+		input: ['text'],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 1000,
+		maxTokens: 100,
+		...overrides,
+	} as any;
+}
+
+describe('thinking footer helpers', () => {
+	it('defaults to the model-clamped medium thinking level', () => {
+		const high_only_model = make_model({
+			thinkingLevelMap: {
+				minimal: null,
+				low: null,
+				medium: null,
+				high: 'high',
+				xhigh: null,
+			},
+		});
+
+		expect(get_default_footer_thinking_level(high_only_model)).toBe(
+			'high',
+		);
+	});
+
+	it('clamps restored thinking entries to supported model levels', () => {
+		const high_only_model = make_model({
+			thinkingLevelMap: {
+				minimal: null,
+				low: null,
+				medium: null,
+				high: 'high',
+				xhigh: null,
+			},
+		});
+		const ctx = {
+			model: high_only_model,
+			sessionManager: {
+				getEntries: () => [
+					{ type: 'thinking_level_change', thinkingLevel: 'medium' },
+				],
+			},
+		} as any;
+
+		expect(get_current_thinking_level(ctx)).toBe('high');
+	});
+
+	it('hides thinking for non-reasoning models', () => {
+		const ctx = {
+			model: make_model({ reasoning: false }),
+			sessionManager: {
+				getEntries: () => [
+					{ type: 'thinking_level_change', thinkingLevel: 'high' },
+				],
+			},
+		} as any;
+
+		expect(get_current_thinking_level(ctx)).toBe('off');
+	});
+});
 
 describe('render_footer_status_line', () => {
 	const theme = {

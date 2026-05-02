@@ -59,8 +59,16 @@ priority order):
 1. **`pi auth`** — interactive login, stores credentials in
    `~/.pi/agent/auth.json`
 2. **Environment variables** — `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY`,
-   `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, etc.
+   `XIAOMI_API_KEY`, `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`,
+   etc.
 3. **OAuth** — supported for providers that offer it
+
+Xiaomi MiMo Token Plan is available through Pi's built-in `xiaomi`
+provider:
+
+```bash
+XIAOMI_API_KEY=... pnpx my-pi@latest -m xiaomi/mimo-v2.5-pro "summarize this repo"
+```
 
 Cloudflare Workers AI model IDs contain slashes. Pass the provider and
 model together when needed:

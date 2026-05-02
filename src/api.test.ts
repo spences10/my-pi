@@ -7,6 +7,7 @@ import {
 	create_my_pi,
 	get_force_disabled_builtins,
 	is_project_local_skill_path,
+	resolve_effective_thinking_level,
 	resolve_model_reference,
 } from './api.js';
 
@@ -214,6 +215,46 @@ describe('create_my_pi environment scoping', () => {
 		} finally {
 			rmSync(cwd, { recursive: true, force: true });
 		}
+	});
+});
+
+function make_model(overrides: Record<string, unknown> = {}) {
+	return {
+		id: 'test-model',
+		name: 'Test Model',
+		api: 'openai-completions',
+		provider: 'test',
+		baseUrl: 'http://localhost/v1',
+		reasoning: true,
+		input: ['text'],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 1000,
+		maxTokens: 100,
+		...overrides,
+	} as any;
+}
+
+describe('resolve_effective_thinking_level', () => {
+	it('clamps requested thinking to levels supported by the model', () => {
+		const high_only_model = make_model({
+			thinkingLevelMap: {
+				minimal: null,
+				low: null,
+				medium: null,
+				high: 'high',
+				xhigh: null,
+			},
+		});
+
+		expect(
+			resolve_effective_thinking_level(high_only_model, 'medium'),
+		).toBe('high');
+	});
+
+	it('keeps requested thinking unchanged when no model is selected yet', () => {
+		expect(resolve_effective_thinking_level(undefined, 'xhigh')).toBe(
+			'xhigh',
+		);
 	});
 });
 

@@ -1,7 +1,11 @@
 // Composable programmatic API for my-pi
 // Extension loading patterns inspired by pi-vs-claude-code
 
-import type { Api, Model } from '@mariozechner/pi-ai';
+import {
+	clampThinkingLevel,
+	type Api,
+	type Model,
+} from '@mariozechner/pi-ai';
 import {
 	InteractiveMode,
 	SessionManager,
@@ -251,6 +255,14 @@ export function resolve_model_reference(
 		const full_id = `${model.provider}/${model.id}`.toLowerCase();
 		return id === lower_reference || full_id === lower_reference;
 	});
+}
+
+export function resolve_effective_thinking_level(
+	model: Model<Api> | undefined,
+	thinking: MyPiThinkingLevel | undefined,
+): MyPiThinkingLevel | undefined {
+	if (!thinking || !model) return thinking;
+	return clampThinkingLevel(model, thinking);
 }
 
 export function get_force_disabled_builtins(
@@ -524,6 +536,21 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 			model,
 			services.modelRegistry,
 		);
+		const effective_thinking = resolve_effective_thinking_level(
+			requested_model,
+			thinking,
+		);
+		if (
+			requested_model &&
+			thinking &&
+			effective_thinking &&
+			effective_thinking !== thinking
+		) {
+			services.diagnostics.push({
+				type: 'warning',
+				message: `Requested thinking level "${thinking}" is not supported by ${requested_model.provider}/${requested_model.id}; using "${effective_thinking}".`,
+			});
+		}
 
 		return {
 			...(await createAgentSessionFromServices({
@@ -531,7 +558,9 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 				sessionManager,
 				sessionStartEvent: sessionStartEvent as any,
 				...(requested_model ? { model: requested_model } : {}),
-				...(thinking ? { thinkingLevel: thinking } : {}),
+				...(effective_thinking
+					? { thinkingLevel: effective_thinking }
+					: {}),
 				...(selected_tools?.length ? { tools: selected_tools } : {}),
 			})),
 			services,
