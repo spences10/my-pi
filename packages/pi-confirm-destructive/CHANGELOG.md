@@ -1,5 +1,14 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.6
+
+### Patch Changes
+
+- ca3d5e5: Harden redaction, document eval workflow, align Node
+  support, and clarify SQLite warning policy across packages.
+- d8c5c5b: Replace hand-coded workspace dependency builds with pnpm
+  graph-backed self tasks and script consistency tests.
+
 ## 0.0.5
 
 ### Patch Changes

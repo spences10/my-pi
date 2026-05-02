@@ -1,5 +1,44 @@
 # my-pi
 
+## 0.1.27
+
+### Patch Changes
+
+- deb439d: Add a committed smoke eval suite with objective command
+  assertions and a local suite runner.
+- c512148: Refactor prompt presets and team command handler into
+  focused modules, reducing god file complexity.
+- ca3d5e5: Harden redaction, document eval workflow, align Node
+  support, and clarify SQLite warning policy across packages.
+- eb36714: Lazy-load built-in extension packages so disabled
+  capabilities are not imported during root API startup.
+- 2552d22: Add built-in extension registry metadata to derive loaders,
+  CLI disable flags, options, and consistency tests.
+- d8c5c5b: Replace hand-coded workspace dependency builds with pnpm
+  graph-backed self tasks and script consistency tests.
+- Updated dependencies [c512148]
+- Updated dependencies [61a17ba]
+- Updated dependencies [ca3d5e5]
+- Updated dependencies [0495264]
+- Updated dependencies [f3c5600]
+- Updated dependencies [d8c5c5b]
+  - @spences10/pi-team-mode@0.0.10
+  - @spences10/pi-skills@0.0.9
+  - @spences10/pi-confirm-destructive@0.0.6
+  - @spences10/pi-project-trust@0.0.5
+  - @spences10/pi-sqlite-tools@0.0.4
+  - @spences10/pi-omnisearch@0.0.4
+  - @spences10/pi-child-env@0.1.3
+  - @spences10/pi-telemetry@0.0.5
+  - @spences10/pi-tui-modal@0.0.5
+  - @spences10/pi-context@0.0.3
+  - @spences10/pi-nopeek@0.0.4
+  - @spences10/pi-recall@0.0.4
+  - @spences10/pi-redact@0.0.4
+  - @spences10/pi-themes@0.0.4
+  - @spences10/pi-lsp@0.0.11
+  - @spences10/pi-mcp@0.0.13
+
 ## 0.1.26
 
 ### Patch Changes

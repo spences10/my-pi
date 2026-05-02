@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-project-trust",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"description": "Shared project trust policy helpers for Pi extensions",
 	"keywords": [
 		"pi",

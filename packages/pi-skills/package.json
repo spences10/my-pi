@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-skills",
-	"version": "0.0.8",
+	"version": "0.0.9",
 	"description": "Pi extension for managing and importing Agent Skills from Pi, Claude, and plugin sources",
 	"keywords": [
 		"agent-skills",

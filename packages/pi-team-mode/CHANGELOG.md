@@ -1,5 +1,24 @@
 # @spences10/pi-team-mode
 
+## 0.0.10
+
+### Patch Changes
+
+- c512148: Refactor prompt presets and team command handler into
+  focused modules, reducing god file complexity.
+- ca3d5e5: Harden redaction, document eval workflow, align Node
+  support, and clarify SQLite warning policy across packages.
+- 0495264: Split LSP, telemetry, MCP, and team store god files into
+  focused modules with colocated tests.
+- d8c5c5b: Replace hand-coded workspace dependency builds with pnpm
+  graph-backed self tasks and script consistency tests.
+- Updated dependencies [ca3d5e5]
+- Updated dependencies [f3c5600]
+- Updated dependencies [d8c5c5b]
+  - @spences10/pi-child-env@0.1.3
+  - @spences10/pi-tui-modal@0.0.5
+  - @spences10/pi-redact@0.0.4
+
 ## 0.0.9
 
 ### Patch Changes

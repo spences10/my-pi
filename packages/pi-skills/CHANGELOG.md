@@ -1,5 +1,19 @@
 # @spences10/pi-skills
 
+## 0.0.9
+
+### Patch Changes
+
+- 61a17ba: Refactor skills management UI into focused modules and add
+  generic profile support with tests.
+- ca3d5e5: Harden redaction, document eval workflow, align Node
+  support, and clarify SQLite warning policy across packages.
+- d8c5c5b: Replace hand-coded workspace dependency builds with pnpm
+  graph-backed self tasks and script consistency tests.
+- Updated dependencies [ca3d5e5]
+- Updated dependencies [d8c5c5b]
+  - @spences10/pi-tui-modal@0.0.5
+
 ## 0.0.8
 
 ### Patch Changes

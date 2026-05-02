@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-nopeek",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "Pi extension that reminds the model to use nopeek for secret-safe environment loading",
 	"keywords": [
 		"env",

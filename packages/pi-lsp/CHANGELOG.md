@@ -1,5 +1,21 @@
 # @spences10/pi-lsp
 
+## 0.0.11
+
+### Patch Changes
+
+- ca3d5e5: Harden redaction, document eval workflow, align Node
+  support, and clarify SQLite warning policy across packages.
+- 0495264: Split LSP, telemetry, MCP, and team store god files into
+  focused modules with colocated tests.
+- d8c5c5b: Replace hand-coded workspace dependency builds with pnpm
+  graph-backed self tasks and script consistency tests.
+- Updated dependencies [ca3d5e5]
+- Updated dependencies [d8c5c5b]
+  - @spences10/pi-project-trust@0.0.5
+  - @spences10/pi-child-env@0.1.3
+  - @spences10/pi-tui-modal@0.0.5
+
 ## 0.0.10
 
 ### Patch Changes

@@ -1,5 +1,19 @@
 # @spences10/pi-telemetry
 
+## 0.0.5
+
+### Patch Changes
+
+- ca3d5e5: Harden redaction, document eval workflow, align Node
+  support, and clarify SQLite warning policy across packages.
+- 0495264: Split LSP, telemetry, MCP, and team store god files into
+  focused modules with colocated tests.
+- d8c5c5b: Replace hand-coded workspace dependency builds with pnpm
+  graph-backed self tasks and script consistency tests.
+- Updated dependencies [ca3d5e5]
+- Updated dependencies [d8c5c5b]
+  - @spences10/pi-tui-modal@0.0.5
+
 ## 0.0.4
 
 ### Patch Changes
