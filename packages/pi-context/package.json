@@ -35,12 +35,15 @@
 		}
 	},
 	"scripts": {
-		"build": "pnpm --filter @spences10/pi-redact run build && tsc -p tsconfig.build.json",
-		"check": "pnpm --filter @spences10/pi-redact run build && tsc --noEmit",
-		"test": "pnpm --filter @spences10/pi-redact run build && vitest run"
+		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
+		"build:self": "tsc -p tsconfig.build.json",
+		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
+		"check:self": "tsc --noEmit",
+		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
+		"test:self": "vitest run"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.72.0",
+		"@mariozechner/pi-coding-agent": "^0.72.1",
 		"@spences10/pi-redact": "workspace:*",
 		"typebox": "^1.1.37"
 	},

@@ -32,12 +32,15 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "pnpm --filter @spences10/pi-context run build && tsc -p tsconfig.build.json",
-		"check": "pnpm --filter @spences10/pi-context run build && tsc --noEmit -p tsconfig.json",
-		"test": "pnpm --filter @spences10/pi-child-env run build && pnpm --filter @spences10/pi-project-trust run build && pnpm --filter @spences10/pi-context run build && vitest run"
+		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
+		"build:self": "tsc -p tsconfig.build.json",
+		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
+		"check:self": "tsc --noEmit -p tsconfig.json",
+		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
+		"test:self": "vitest run"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.72.0",
+		"@mariozechner/pi-coding-agent": "^0.72.1",
 		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-context": "workspace:*",
 		"@spences10/pi-project-trust": "workspace:*",

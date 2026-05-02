@@ -773,6 +773,18 @@ pi install npm:@spences10/pi-themes
 Each package README is the entry point for install instructions,
 commands, runtime behavior, and development notes.
 
+## Monorepo build model
+
+Workspace package ordering comes from `workspace:*` dependencies in
+each `packages/*/package.json`. Root `build`, `check`, and `test`
+first run package `build:self` scripts through pnpm's filtered
+workspace graph, so sibling `dist` output is fresh before root packing
+or tests. Individual package `build`, `check`, and `test` scripts use
+the package name from `$npm_package_name^...` to build transitive
+workspace dependencies from metadata, then run their local `*:self`
+task. Do not hand-code sibling package names into scripts; add the
+dependency to `dependencies` instead.
+
 ## Project Structure
 
 ```

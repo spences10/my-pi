@@ -43,13 +43,13 @@
 		}
 	},
 	"scripts": {
-		"build": "pnpm --filter \"./packages/*\" run build && vp pack",
+		"build": "pnpm --filter \"./packages/*\" run build:self && vp pack",
 		"dev": "vp pack --watch",
 		"start": "node ./dist/index.js",
-		"check": "pnpm --filter \"./packages/*\" run build && vp check && pnpm --filter \"./packages/*\" run check",
+		"check": "pnpm --filter \"./packages/*\" run build:self && vp check && pnpm --filter \"./packages/*\" run check:self",
 		"check:fix": "vp check --fix",
 		"format": "vp check --fix",
-		"test": "pnpm --filter \"./packages/*\" run build && vp pack && sh -c 'if [ \"$#\" -gt 0 ]; then vp test \"$@\"; else vp test && pnpm --filter \"./packages/*\" run test; fi' --",
+		"test": "pnpm --filter \"./packages/*\" run build:self && vp pack && sh -c 'if [ \"$#\" -gt 0 ]; then vp test \"$@\"; else vp test && pnpm --filter \"./packages/*\" --if-present run test:self; fi' --",
 		"test:watch": "vp test watch",
 		"eval:local": "node scripts/run-eval-case.ts",
 		"eval:suite": "node scripts/run-eval-suite.ts",
@@ -58,9 +58,9 @@
 		"release": "pnpm run build && changeset publish"
 	},
 	"dependencies": {
-		"@mariozechner/pi-ai": "^0.72.0",
-		"@mariozechner/pi-coding-agent": "^0.72.0",
-		"@mariozechner/pi-tui": "^0.72.0",
+		"@mariozechner/pi-ai": "^0.72.1",
+		"@mariozechner/pi-coding-agent": "^0.72.1",
+		"@mariozechner/pi-tui": "^0.72.1",
 		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-confirm-destructive": "workspace:*",
 		"@spences10/pi-context": "workspace:*",

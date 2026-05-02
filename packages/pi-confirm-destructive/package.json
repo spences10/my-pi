@@ -28,13 +28,16 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.build.json",
-		"check": "tsc --noEmit -p tsconfig.json",
-		"test": "vitest run",
+		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
+		"build:self": "tsc -p tsconfig.build.json",
+		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
+		"check:self": "tsc --noEmit -p tsconfig.json",
+		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
+		"test:self": "vitest run",
 		"test:watch": "vitest"
 	},
 	"dependencies": {
-		"@mariozechner/pi-coding-agent": "^0.72.0"
+		"@mariozechner/pi-coding-agent": "^0.72.1"
 	},
 	"devDependencies": {
 		"@types/node": "^25.6.0",
