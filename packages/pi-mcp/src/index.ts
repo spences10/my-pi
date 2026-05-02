@@ -392,6 +392,14 @@ export default async function mcp(pi: ExtensionAPI) {
 				state.status = 'connected';
 				if (!state.enabled) {
 					remove_server_tools_from_active(pi, state.tool_names);
+				} else if (
+					!process.env.MY_PI_RUNTIME_MODE ||
+					process.env.MY_PI_RUNTIME_MODE === 'interactive'
+				) {
+					const active = pi.getActiveTools();
+					pi.setActiveTools([
+						...new Set([...active, ...state.tool_names]),
+					]);
 				}
 			} catch (error) {
 				state.status = 'failed';
@@ -969,6 +977,14 @@ export default async function mcp(pi: ExtensionAPI) {
 			}
 		},
 	});
+
+	if (
+		process.env.MY_PI_RUNTIME_MODE &&
+		process.env.MY_PI_RUNTIME_MODE !== 'interactive'
+	) {
+		await ensure_servers(process.cwd());
+		await connect_all_servers({ include_failed: true });
+	}
 
 	pi.on('session_shutdown', async (_event, ctx) => {
 		await Promise.allSettled(
