@@ -123,7 +123,18 @@ function format_stats(stats: ContextStats): string {
 		`- Bytes saved: ${stats.bytes_saved}`,
 		`- Reduction: ${stats.reduction_pct}%`,
 		`- DB bytes: ${stats.total_bytes}`,
+		`- Oldest source: ${format_timestamp(stats.oldest_created_at)}`,
+		`- Newest source: ${format_timestamp(stats.newest_created_at)}`,
+		`- Retention days: ${stats.retention_days ?? 'disabled'}`,
+		`- Purge on shutdown: ${stats.purge_on_shutdown}`,
+		`- Max DB size: ${stats.max_mb === null ? 'disabled' : `${stats.max_mb} MiB`}`,
 	].join('\n');
+}
+
+function format_timestamp(timestamp: number | null): string {
+	return timestamp === null
+		? '(none)'
+		: new Date(timestamp).toISOString();
 }
 
 async function show_context_text_modal(
@@ -171,11 +182,19 @@ async function show_context_list(
 
 async function purge_context(
 	ctx: ExtensionCommandContext,
-	options: { older_than_days?: number; source_id?: string } = {},
+	options: {
+		older_than_days?: number;
+		source_id?: string;
+		expired?: boolean;
+	} = {},
 ): Promise<void> {
-	const description = options.source_id
-		? `Delete context source ${options.source_id}?`
-		: `Delete context sources older than ${options.older_than_days ?? 14} day(s)?`;
+	const policy = get_context_store().stats();
+	const days = options.older_than_days ?? policy.retention_days ?? 14;
+	const description = options.expired
+		? 'Delete expired context sources now?'
+		: options.source_id
+			? `Delete context source ${options.source_id}?`
+			: `Delete context sources older than ${days} day(s)?`;
 	const confirmed = ctx.hasUI
 		? await show_confirm_modal(ctx, {
 				title: 'Purge context sidecar?',
@@ -184,7 +203,14 @@ async function purge_context(
 			})
 		: await ctx.ui.confirm('Purge context sidecar?', description);
 	if (!confirmed) return;
-	const deleted = get_context_store().purge(options);
+	const scope = scope_from_context(ctx);
+	const deleted = options.expired
+		? get_context_store(scope).cleanup().deleted
+		: get_context_store(scope).purge({
+				...scope,
+				older_than_days: options.source_id ? undefined : days,
+				source_id: options.source_id,
+			});
 	ctx.ui.notify(`Deleted ${deleted} context source(s).`, 'info');
 }
 
@@ -192,10 +218,15 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 	set_context_sidecar_enabled(true, { project_path: process.cwd() });
 
 	pi.on('session_start', async (_event, ctx) => {
-		set_context_sidecar_enabled(true, scope_from_context(ctx));
+		const scope = scope_from_context(ctx);
+		set_context_sidecar_enabled(true, scope);
+		get_context_store(scope).cleanup();
 	});
 
 	pi.on('session_shutdown', async () => {
+		const store = get_context_store();
+		const stats = store.stats();
+		if (stats.purge_on_shutdown) store.cleanup();
 		set_context_sidecar_enabled(false);
 	});
 
@@ -258,7 +289,7 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const scope = scope_from_context(ctx);
 			const results = get_context_store(scope).search(params.query, {
-				...scope,
+				...(params.global ? {} : scope),
 				global: params.global,
 				source_id: params.source_id,
 				tool_name: params.tool_name,
@@ -299,7 +330,7 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 			const chunks = get_context_store(scope).get(
 				params.source_id,
 				params.chunk_id,
-				{ ...scope, global: params.global },
+				{ ...(params.global ? {} : scope), global: params.global },
 			);
 			const text = chunks.length
 				? chunks
@@ -365,14 +396,19 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const scope = scope_from_context(ctx);
-			const project_path = params.project_path ?? scope.project_path;
-			const session_id =
-				params.session_id ??
-				(params.project_path ? null : scope.session_id);
+			const has_explicit_scope =
+				params.project_path !== undefined ||
+				params.session_id !== undefined;
+			const project_path = has_explicit_scope
+				? params.project_path
+				: scope.project_path;
+			const session_id = has_explicit_scope
+				? params.session_id
+				: scope.session_id;
 			const results = get_context_store(scope).list({
 				project_path,
 				session_id,
-				global: params.global,
+				global: params.global || has_explicit_scope,
 				source_id: params.source_id,
 				tool_name: params.tool_name,
 				newer_than_days: params.newer_than_days,
@@ -413,23 +449,67 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 		name: 'context_purge',
 		label: 'Context Purge',
 		description:
-			'Delete indexed context-sidecar output by age or source id.',
+			'Delete indexed context-sidecar output by age, source, project, session, or active retention policy.',
 		parameters: Type.Object({
+			expired: Type.Optional(
+				Type.Boolean({
+					description:
+						'Run active retention cleanup now instead of manual age purge',
+				}),
+			),
 			older_than_days: Type.Optional(
 				Type.Number({
 					description:
-						'Delete sources older than this many days; default 14',
+						'Delete sources older than this many days; defaults to active retention days or 14',
 				}),
 			),
 			source_id: Type.Optional(
 				Type.String({ description: 'Delete one source id' }),
 			),
+			project_path: Type.Optional(
+				Type.String({
+					description: 'Limit purge to one project path',
+				}),
+			),
+			session_id: Type.Optional(
+				Type.String({ description: 'Limit purge to one session id' }),
+			),
+			global: Type.Optional(
+				Type.Boolean({
+					description:
+						'Purge all scopes instead of current project/session scope',
+				}),
+			),
 		}),
-		async execute(_toolCallId, params) {
-			const deleted = get_context_store().purge({
-				older_than_days: params.older_than_days,
-				source_id: params.source_id,
-			});
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const scope = scope_from_context(ctx);
+			const store = get_context_store(scope);
+			const stats = store.stats();
+			const has_explicit_scope =
+				params.project_path !== undefined ||
+				params.session_id !== undefined;
+			const project_path = params.global
+				? params.project_path
+				: has_explicit_scope
+					? params.project_path
+					: scope.project_path;
+			const session_id = params.global
+				? params.session_id
+				: has_explicit_scope
+					? params.session_id
+					: scope.session_id;
+			const deleted = params.expired
+				? store.cleanup().deleted
+				: store.purge({
+						project_path,
+						session_id,
+						older_than_days: params.source_id
+							? undefined
+							: (params.older_than_days ??
+								stats.retention_days ??
+								14),
+						source_id: params.source_id,
+					});
 			return {
 				content: [
 					{
@@ -498,6 +578,10 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 					return;
 				case 'purge': {
 					const [kind, value] = rest;
+					if (kind === 'expired') {
+						await purge_context(ctx, { expired: true });
+						return;
+					}
 					if (kind === 'source' && value) {
 						await purge_context(ctx, { source_id: value });
 						return;
@@ -505,7 +589,7 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 					const days = kind ? Number(kind) : undefined;
 					if (days !== undefined && !Number.isFinite(days)) {
 						ctx.ui.notify(
-							'Usage: /context purge [older-than-days] or /context purge source <source-id>',
+							'Usage: /context purge [older-than-days] | expired | source <source-id>',
 							'warning',
 						);
 						return;
@@ -534,11 +618,14 @@ export {
 	get_context_store,
 	is_context_sidecar_enabled,
 	maybe_store_context_output,
+	parse_context_retention_policy,
 	set_context_sidecar_enabled,
 	should_index_text,
 } from './store.js';
 export type {
+	ContextCleanupResult,
 	ContextListResult,
+	ContextRetentionPolicy,
 	ContextScopeOptions,
 	ContextSearchResult,
 	ContextStats,

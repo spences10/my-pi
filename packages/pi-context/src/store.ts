@@ -12,6 +12,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 export const DEFAULT_CONTEXT_MAX_BYTES = 24 * 1024;
 export const DEFAULT_CONTEXT_MAX_LINES = 300;
+export const DEFAULT_CONTEXT_RETENTION_DAYS = 7;
 const DEFAULT_PREVIEW_LINES = 80;
 const DEFAULT_PREVIEW_BYTES = 8 * 1024;
 
@@ -37,6 +38,20 @@ export interface ContextStoreOptions {
 	session_id?: string | null;
 	max_bytes?: number;
 	max_lines?: number;
+}
+
+export interface ContextRetentionPolicy {
+	retention_days: number | null;
+	purge_on_shutdown: boolean;
+	max_mb: number | null;
+	max_bytes: number | null;
+}
+
+export interface ContextCleanupResult {
+	deleted: number;
+	age_deleted: number;
+	size_deleted: number;
+	policy: ContextRetentionPolicy;
 }
 
 export interface StoreContextInput {
@@ -101,6 +116,11 @@ export interface ContextStats {
 	db_bytes: number;
 	wal_bytes: number;
 	total_bytes: number;
+	oldest_created_at: number | null;
+	newest_created_at: number | null;
+	retention_days: number | null;
+	purge_on_shutdown: boolean;
+	max_mb: number | null;
 }
 
 interface SourceRow {
@@ -151,6 +171,52 @@ let global_options: ContextStoreOptions = {};
 let global_enabled = false;
 let global_store: ContextStore | null = null;
 
+export function parse_context_retention_policy(
+	env: NodeJS.ProcessEnv = process.env,
+): ContextRetentionPolicy {
+	const retention_days = parse_optional_positive_number(
+		env.MY_PI_CONTEXT_RETENTION_DAYS,
+		DEFAULT_CONTEXT_RETENTION_DAYS,
+	);
+	const max_mb = parse_optional_positive_number(
+		env.MY_PI_CONTEXT_MAX_MB,
+		null,
+	);
+	return {
+		retention_days,
+		purge_on_shutdown: parse_boolean_env(
+			env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN,
+		),
+		max_mb,
+		max_bytes: max_mb === null ? null : max_mb * 1024 * 1024,
+	};
+}
+
+function parse_optional_positive_number(
+	value: string | undefined,
+	fallback: number | null,
+): number | null {
+	if (value === undefined || value.trim() === '') return fallback;
+	const normalized = value.trim().toLowerCase();
+	if (
+		normalized === '0' ||
+		normalized === 'off' ||
+		normalized === 'false' ||
+		normalized === 'none' ||
+		normalized === 'disabled'
+	)
+		return null;
+	const parsed = Number(normalized);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parse_boolean_env(value: string | undefined): boolean {
+	if (!value) return false;
+	return ['1', 'true', 'yes', 'on'].includes(
+		value.trim().toLowerCase(),
+	);
+}
+
 export function default_context_db_path(): string {
 	if (process.env.MY_PI_CONTEXT_DB)
 		return process.env.MY_PI_CONTEXT_DB;
@@ -169,8 +235,12 @@ export function set_context_sidecar_enabled(
 	options: ContextStoreOptions = {},
 ): void {
 	global_enabled = enabled;
+	if (!enabled) {
+		global_options = {};
+		global_store = null;
+		return;
+	}
 	global_options = { ...global_options, ...options };
-	if (!enabled) global_store = null;
 }
 
 export function is_context_sidecar_enabled(): boolean {
@@ -480,28 +550,33 @@ export class ContextStore {
 		alias: string,
 		options: ContextScopeOptions = {},
 	): ScopedFilter {
-		if (options.global) return { where: [], params: [] };
-		const session_id =
-			options.session_id !== undefined
-				? options.session_id
-				: this.session_id;
-		const project_path =
-			options.project_path !== undefined
-				? options.project_path
-				: this.project_path;
-		if (session_id) {
-			return {
-				where: [`${alias}.session_id = ?`],
-				params: [session_id],
-			};
+		const where: string[] = [];
+		const params: Array<string | number> = [];
+		if (options.session_id === null) {
+			where.push(`${alias}.session_id IS NULL`);
+		} else if (options.session_id !== undefined) {
+			where.push(`${alias}.session_id = ?`);
+			params.push(options.session_id);
+		} else if (!options.global && this.session_id) {
+			where.push(`${alias}.session_id = ?`);
+			params.push(this.session_id);
 		}
-		if (project_path) {
-			return {
-				where: [`${alias}.project_path = ?`],
-				params: [project_path],
-			};
+
+		if (options.project_path === null) {
+			where.push(`${alias}.project_path IS NULL`);
+		} else if (options.project_path !== undefined) {
+			where.push(`${alias}.project_path = ?`);
+			params.push(options.project_path);
+		} else if (
+			!options.global &&
+			where.length === 0 &&
+			this.project_path
+		) {
+			where.push(`${alias}.project_path = ?`);
+			params.push(this.project_path);
 		}
-		return { where: [], params: [] };
+
+		return { where, params };
 	}
 
 	store(input: StoreContextInput): StoredContextOutput | null {
@@ -766,13 +841,17 @@ export class ContextStore {
 			SELECT
 				COUNT(*) as sources,
 				COALESCE(SUM(byte_count), 0) as bytes_stored,
-				COALESCE(SUM(returned_byte_count), 0) as bytes_returned
+				COALESCE(SUM(returned_byte_count), 0) as bytes_returned,
+				MIN(created_at) as oldest_created_at,
+				MAX(created_at) as newest_created_at
 			FROM context_sources
 		`)
 			.get() as {
 			sources: number;
 			bytes_stored: number;
 			bytes_returned: number;
+			oldest_created_at: number | null;
+			newest_created_at: number | null;
 		};
 		const chunks = this.db
 			.prepare('SELECT COUNT(*) as chunks FROM context_chunks')
@@ -784,6 +863,7 @@ export class ContextStore {
 				: 0;
 		const db_bytes = file_size(this.db_path);
 		const wal_bytes = file_size(`${this.db_path}-wal`);
+		const policy = parse_context_retention_policy();
 		return {
 			sources: source.sources,
 			chunks: chunks.chunks,
@@ -794,23 +874,98 @@ export class ContextStore {
 			db_bytes,
 			wal_bytes,
 			total_bytes: db_bytes + wal_bytes,
+			oldest_created_at: source.oldest_created_at,
+			newest_created_at: source.newest_created_at,
+			retention_days: policy.retention_days,
+			purge_on_shutdown: policy.purge_on_shutdown,
+			max_mb: policy.max_mb,
 		};
 	}
 
-	purge(
-		options: { older_than_days?: number; source_id?: string } = {},
-	): number {
-		if (options.source_id) {
-			const result = this.db
-				.prepare('DELETE FROM context_sources WHERE id = ?')
-				.run(options.source_id);
-			return Number(result.changes ?? 0);
+	cleanup(
+		policy: ContextRetentionPolicy = parse_context_retention_policy(),
+	): ContextCleanupResult {
+		let age_deleted = 0;
+		if (policy.retention_days !== null) {
+			age_deleted = this.purge({
+				older_than_days: policy.retention_days,
+			});
 		}
-		const days = options.older_than_days ?? 14;
-		const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+		const size_deleted = policy.max_bytes
+			? this.purge_to_max_stored_bytes(policy.max_bytes)
+			: 0;
+		return {
+			deleted: age_deleted + size_deleted,
+			age_deleted,
+			size_deleted,
+			policy,
+		};
+	}
+
+	private purge_to_max_stored_bytes(max_bytes: number): number {
+		const total_row = this.db
+			.prepare(
+				'SELECT COALESCE(SUM(byte_count), 0) as bytes FROM context_sources',
+			)
+			.get() as { bytes: number };
+		let total = total_row.bytes;
+		if (total <= max_bytes) return 0;
+		const rows = this.db
+			.prepare(
+				'SELECT id, byte_count FROM context_sources ORDER BY created_at ASC',
+			)
+			.all() as Array<{ id: string; byte_count: number }>;
+		const delete_source = this.db.prepare(
+			'DELETE FROM context_sources WHERE id = ?',
+		);
+		let deleted = 0;
+		for (const row of rows) {
+			if (total <= max_bytes) break;
+			const result = delete_source.run(row.id);
+			if (Number(result.changes ?? 0) > 0) {
+				deleted += 1;
+				total -= row.byte_count;
+			}
+		}
+		return deleted;
+	}
+
+	purge(
+		options: ContextScopeOptions & {
+			older_than_days?: number;
+			source_id?: string;
+		} = {},
+	): number {
+		const filters: string[] = [];
+		const params: Array<string | number> = [];
+		if (options.source_id) {
+			filters.push('id = ?');
+			params.push(options.source_id);
+		}
+		if (options.project_path === null) {
+			filters.push('project_path IS NULL');
+		} else if (options.project_path !== undefined) {
+			filters.push('project_path = ?');
+			params.push(options.project_path);
+		}
+		if (options.session_id === null) {
+			filters.push('session_id IS NULL');
+		} else if (options.session_id !== undefined) {
+			filters.push('session_id = ?');
+			params.push(options.session_id);
+		}
+		const days = options.older_than_days;
+		if (days !== undefined) {
+			const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+			filters.push('created_at < ?');
+			params.push(cutoff);
+		}
+		if (filters.length === 0) return 0;
 		const result = this.db
-			.prepare('DELETE FROM context_sources WHERE created_at < ?')
-			.run(cutoff);
+			.prepare(
+				`DELETE FROM context_sources WHERE ${filters.join(' AND ')}`,
+			)
+			.run(...params);
 		return Number(result.changes ?? 0);
 	}
 

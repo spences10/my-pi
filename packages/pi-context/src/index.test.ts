@@ -49,6 +49,11 @@ type CommandContext = {
 
 let dirs: string[] = [];
 const original_context_db = process.env.MY_PI_CONTEXT_DB;
+const original_retention_days =
+	process.env.MY_PI_CONTEXT_RETENTION_DAYS;
+const original_purge_on_shutdown =
+	process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
+const original_max_mb = process.env.MY_PI_CONTEXT_MAX_MB;
 
 function temp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-ext-'));
@@ -110,6 +115,19 @@ afterEach(() => {
 	if (original_context_db === undefined)
 		delete process.env.MY_PI_CONTEXT_DB;
 	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+	if (original_retention_days === undefined)
+		delete process.env.MY_PI_CONTEXT_RETENTION_DAYS;
+	else
+		process.env.MY_PI_CONTEXT_RETENTION_DAYS =
+			original_retention_days;
+	if (original_purge_on_shutdown === undefined)
+		delete process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
+	else
+		process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN =
+			original_purge_on_shutdown;
+	if (original_max_mb === undefined)
+		delete process.env.MY_PI_CONTEXT_MAX_MB;
+	else process.env.MY_PI_CONTEXT_MAX_MB = original_max_mb;
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs = [];
@@ -140,6 +158,62 @@ describe('context_sidecar extension', () => {
 			{ cwd: '/tmp/project' },
 		);
 		expect(is_context_sidecar_enabled()).toBe(true);
+	});
+
+	it('runs retention cleanup on session lifecycle without deleting fresh current-session data', async () => {
+		process.env.MY_PI_CONTEXT_DB = temp_db();
+		process.env.MY_PI_CONTEXT_RETENTION_DAYS = '1';
+		process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN = 'true';
+		const fake = create_fake_pi();
+		context_sidecar(fake.pi);
+		const stale = get_context_store().store({
+			text: `stale-lifecycle-token\n${'a '.repeat(100)}`,
+			tool_name: 'bash',
+			force: true,
+		});
+		const fresh = get_context_store().store({
+			text: `fresh-lifecycle-token\n${'b '.repeat(100)}`,
+			tool_name: 'bash',
+			force: true,
+			project_path: '/repo',
+			session_id: '/sessions/current.jsonl',
+		});
+		const db = new DatabaseSync(get_context_store().db_path, {
+			enableForeignKeyConstraints: true,
+		});
+		try {
+			db.prepare(
+				'UPDATE context_sources SET created_at = ? WHERE id = ?',
+			).run(Date.now() - 3 * 24 * 60 * 60 * 1000, stale!.source_id);
+		} finally {
+			db.close();
+		}
+
+		await fake.hooks.get('session_start')![0](
+			{},
+			fake_context('/repo', '/sessions/current.jsonl'),
+		);
+		expect(
+			get_context_store().get(stale!.source_id, undefined, {
+				global: true,
+			}),
+		).toEqual([]);
+		expect(
+			get_context_store().get(fresh!.source_id, undefined, {
+				global: true,
+			}),
+		).toHaveLength(fresh!.chunk_count);
+
+		await fake.hooks.get('session_shutdown')![0]({});
+		expect(is_context_sidecar_enabled()).toBe(false);
+		set_context_sidecar_enabled(true, {
+			db_path: process.env.MY_PI_CONTEXT_DB,
+		});
+		expect(
+			get_context_store().get(fresh!.source_id, undefined, {
+				global: true,
+			}),
+		).toHaveLength(fresh!.chunk_count);
 	});
 
 	it('stores and searches with session/project scope from extension context', async () => {
@@ -220,8 +294,10 @@ describe('context_sidecar extension', () => {
 				undefined,
 				project_a,
 			);
-			expect(list.content[0].text).toContain('Project: /repo-a');
-		expect(list.content[0].text).toContain('Session: /sessions/a.jsonl');
+		expect(list.content[0].text).toContain('Project: /repo-a');
+		expect(list.content[0].text).toContain(
+			'Session: /sessions/a.jsonl',
+		);
 		expect(list.content[0].text).not.toContain('Project: /repo-b');
 		expect(list.details).toMatchObject({ count: 1 });
 	});

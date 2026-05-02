@@ -14,10 +14,16 @@ import {
 	escape_fts5_query,
 	get_context_store,
 	maybe_store_context_output,
+	parse_context_retention_policy,
 	set_context_sidecar_enabled,
 	should_index_text,
 } from './store.js';
 
+const original_retention_days =
+	process.env.MY_PI_CONTEXT_RETENTION_DAYS;
+const original_purge_on_shutdown =
+	process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
+const original_max_mb = process.env.MY_PI_CONTEXT_MAX_MB;
 let dirs: string[] = [];
 let stores: ContextStore[] = [];
 
@@ -45,6 +51,19 @@ function close_db(db: DatabaseSync): void {
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+	if (original_retention_days === undefined)
+		delete process.env.MY_PI_CONTEXT_RETENTION_DAYS;
+	else
+		process.env.MY_PI_CONTEXT_RETENTION_DAYS =
+			original_retention_days;
+	if (original_purge_on_shutdown === undefined)
+		delete process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
+	else
+		process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN =
+			original_purge_on_shutdown;
+	if (original_max_mb === undefined)
+		delete process.env.MY_PI_CONTEXT_MAX_MB;
+	else process.env.MY_PI_CONTEXT_MAX_MB = original_max_mb;
 	for (const store of stores) {
 		try {
 			store.close();
@@ -200,10 +219,7 @@ describe('ContextStore', () => {
 		try {
 			db.prepare(
 				'UPDATE context_sources SET created_at = ? WHERE id = ?',
-			).run(
-				Date.now() - 30 * 24 * 60 * 60 * 1000,
-				first!.source_id,
-			);
+			).run(Date.now() - 30 * 24 * 60 * 60 * 1000, first!.source_id);
 		} finally {
 			close_db(db);
 		}
@@ -219,7 +235,9 @@ describe('ContextStore', () => {
 			'first command',
 		);
 		expect(store.list({ tool_name: 'read' })).toHaveLength(1);
-		expect(store.list({ source_id: first!.source_id })).toHaveLength(1);
+		expect(store.list({ source_id: first!.source_id })).toHaveLength(
+			1,
+		);
 		expect(store.list({ limit: 1 })).toHaveLength(1);
 		expect(store.list({ limit: 1, offset: 1 })).toHaveLength(1);
 		expect(store.list({ newer_than_days: 1 })).toHaveLength(1);
@@ -249,8 +267,9 @@ describe('ContextStore', () => {
 		expect(scoped).toHaveLength(1);
 		expect(scoped[0].content).toContain('current-session');
 		expect(store.get(other!.source_id)).toEqual([]);
-		expect(store.get(other!.source_id, undefined, { global: true }))
-			.toHaveLength(other!.chunk_count);
+		expect(
+			store.get(other!.source_id, undefined, { global: true }),
+		).toHaveLength(other!.chunk_count);
 
 		store.configure({ session_id: 'session-b' });
 		expect(store.search('shared-token')[0].content).toContain(
@@ -394,6 +413,88 @@ describe('ContextStore', () => {
 		expect(store.search('fresh-token')).toHaveLength(1);
 	});
 
+	it('runs retention cleanup by age and reports active policy in stats', () => {
+		process.env.MY_PI_CONTEXT_RETENTION_DAYS = '7';
+		process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN = 'true';
+		const store = create_store({ max_bytes: 10 });
+		const old_source = store.store({
+			text: `expired-token\n${'a '.repeat(100)}`,
+			tool_name: 'bash',
+		});
+		const fresh_source = store.store({
+			text: `retained-token\n${'b '.repeat(100)}`,
+			tool_name: 'bash',
+		});
+		const db = new DatabaseSync(store.db_path, {
+			enableForeignKeyConstraints: true,
+		});
+		try {
+			db.prepare(
+				'UPDATE context_sources SET created_at = ? WHERE id = ?',
+			).run(
+				Date.now() - 10 * 24 * 60 * 60 * 1000,
+				old_source!.source_id,
+			);
+		} finally {
+			close_db(db);
+		}
+
+		const cleanup = store.cleanup();
+		expect(cleanup).toMatchObject({
+			deleted: 1,
+			age_deleted: 1,
+			size_deleted: 0,
+		});
+		expect(
+			store.get(old_source!.source_id, undefined, { global: true }),
+		).toEqual([]);
+		expect(
+			store.get(fresh_source!.source_id, undefined, { global: true }),
+		).toHaveLength(fresh_source!.chunk_count);
+		const stats = store.stats();
+		expect(stats).toMatchObject({
+			retention_days: 7,
+			purge_on_shutdown: true,
+			max_mb: null,
+		});
+		expect(stats.oldest_created_at).toBeGreaterThan(0);
+		expect(stats.newest_created_at).toBeGreaterThan(0);
+	});
+
+	it('can disable age cleanup with zero retention and cleanup by max stored bytes', () => {
+		process.env.MY_PI_CONTEXT_RETENTION_DAYS = '0';
+		process.env.MY_PI_CONTEXT_MAX_MB = '0.001';
+		const store = create_store({ max_bytes: 10 });
+		const old_source = store.store({
+			text: `old-size-token\n${'a '.repeat(900)}`,
+			tool_name: 'bash',
+		});
+		store.store({
+			text: `new-size-token\n${'b '.repeat(900)}`,
+			tool_name: 'bash',
+		});
+		const db = new DatabaseSync(store.db_path, {
+			enableForeignKeyConstraints: true,
+		});
+		try {
+			db.prepare(
+				'UPDATE context_sources SET created_at = ? WHERE id = ?',
+			).run(
+				Date.now() - 30 * 24 * 60 * 60 * 1000,
+				old_source!.source_id,
+			);
+		} finally {
+			close_db(db);
+		}
+
+		const policy = parse_context_retention_policy();
+		expect(policy.retention_days).toBeNull();
+		const cleanup = store.cleanup(policy);
+		expect(cleanup.age_deleted).toBe(0);
+		expect(cleanup.size_deleted).toBeGreaterThan(0);
+		expect(store.list({ global: true }).length).toBeLessThan(2);
+	});
+
 	it('reports zero content stats for a new database', () => {
 		const store = create_store();
 		const stats = store.stats();
@@ -404,6 +505,11 @@ describe('ContextStore', () => {
 			bytes_returned: 0,
 			bytes_saved: 0,
 			reduction_pct: 0,
+			retention_days: 7,
+			purge_on_shutdown: false,
+			max_mb: null,
+			oldest_created_at: null,
+			newest_created_at: null,
 		});
 		expect(stats.total_bytes).toBeGreaterThan(0);
 	});
