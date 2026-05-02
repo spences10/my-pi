@@ -55,7 +55,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
 	{
 		name: 'Generic Password Field',
 		pattern:
-			/\b[\w-]*(?:password|passwd|secret|token|api[_-]?key)\b[ \t]*[:=][ \t]*["']?[A-Za-z0-9._:/+=@!-]{8,}["']?/gi,
+			/\b(?:[A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY)|password|passwd|secret|token|api[_-]?key)\b[ \t]*[:=][ \t]*["']?[A-Za-z0-9._:/+=@!-]{8,}["']?/g,
 	},
 	{
 		name: 'Generic Secret Phrase',

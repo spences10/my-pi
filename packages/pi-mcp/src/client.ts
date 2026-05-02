@@ -62,6 +62,7 @@ export class McpClient {
 		{
 			resolve: (v: unknown) => void;
 			reject: (e: Error) => void;
+			timer: NodeJS.Timeout;
 		}
 	>();
 	#buffer = '';
@@ -114,7 +115,7 @@ export class McpClient {
 			this.#proc.kill();
 			this.#proc = null;
 		}
-		this.#pending.clear();
+		this.#clear_pending();
 	}
 
 	async #connect_stdio(): Promise<void> {
@@ -167,31 +168,38 @@ export class McpClient {
 
 		return new Promise((resolve, reject) => {
 			const id = this.#nextId++;
-			this.#pending.set(id, { resolve, reject });
-			this.#send({ jsonrpc: '2.0', id, method, params }).catch(
-				(error) => {
-					if (this.#pending.has(id)) {
-						this.#pending.delete(id);
-						reject(error as Error);
-					}
-				},
-			);
-
-			setTimeout(() => {
+			const timer = setTimeout(() => {
 				if (this.#pending.has(id)) {
 					this.#pending.delete(id);
 					reject(new Error(`MCP request ${method} timed out`));
 				}
 			}, this.#config.request_timeout_ms ?? 30_000);
+			timer.unref?.();
+			this.#pending.set(id, { resolve, reject, timer });
+			this.#send({ jsonrpc: '2.0', id, method, params }).catch(
+				(error) => {
+					const pending = this.#pending.get(id);
+					if (pending) {
+						this.#pending.delete(id);
+						clearTimeout(pending.timer);
+						reject(error as Error);
+					}
+				},
+			);
 		});
 	}
 
 	#close_stdio(error: Error): void {
 		if (this.#closedError) return;
 		this.#closedError = error;
+		this.#clear_pending(error);
+	}
+
+	#clear_pending(error?: Error): void {
 		for (const [id, pending] of this.#pending) {
 			this.#pending.delete(id);
-			pending.reject(error);
+			clearTimeout(pending.timer);
+			if (error) pending.reject(error);
 		}
 	}
 
@@ -347,6 +355,7 @@ export class McpClient {
 		if (msg.id == null || !this.#pending.has(msg.id)) return;
 		const pending = this.#pending.get(msg.id)!;
 		this.#pending.delete(msg.id);
+		clearTimeout(pending.timer);
 		if (msg.error) {
 			pending.reject(
 				new Error(

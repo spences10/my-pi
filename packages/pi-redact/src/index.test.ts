@@ -172,6 +172,22 @@ describe('redact_text', () => {
 		expect(redacted).toBe(markdown);
 	});
 
+	it('does not redact ordinary source variables that contain token', () => {
+		const input =
+			"const first_token = command.trim().split(/\\s+/)[0] ?? 'hook';";
+		const { redacted, count } = redact_text(input);
+		expect(count).toBe(0);
+		expect(redacted).toBe(input);
+	});
+
+	it('still redacts uppercase token-like env fields', () => {
+		const input = 'SERVICE_TOKEN = "CanaryPassword-Redaction-001!"';
+		const { redacted, count } = redact_text(input);
+		expect(count).toBe(1);
+		expect(redacted).toContain('[REDACTED:Generic Password Field]');
+		expect(redacted).not.toContain('CanaryPassword-Redaction-001!');
+	});
+
 	it('does not let generic secret phrases span prose or markdown boundaries', () => {
 		const input = `The redactor detects secrets defensively.
 

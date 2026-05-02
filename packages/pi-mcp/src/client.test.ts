@@ -4,7 +4,7 @@ import {
 	type ServerResponse,
 } from 'node:http';
 import { execPath } from 'node:process';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { McpClient } from './client.js';
 
 function read_json(req: IncomingMessage): Promise<any> {
@@ -78,6 +78,7 @@ describe('McpClient http transport', () => {
 	const servers: Array<{ close: () => Promise<void> }> = [];
 
 	afterEach(async () => {
+		vi.restoreAllMocks();
 		while (servers.length > 0) {
 			await servers.pop()!.close();
 		}
@@ -164,6 +165,7 @@ describe('McpClient http transport', () => {
 			throw new Error('Expected TCP server address');
 		}
 
+		const clear_timeout = vi.spyOn(globalThis, 'clearTimeout');
 		const client = new McpClient({
 			name: 'remote',
 			transport: 'http',
@@ -183,6 +185,8 @@ describe('McpClient http transport', () => {
 		});
 		await client.disconnect();
 
+		expect(clear_timeout).toHaveBeenCalled();
+		clear_timeout.mockRestore();
 		expect(seen_session_headers).toEqual([
 			'',
 			'session-123',
