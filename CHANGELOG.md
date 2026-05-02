@@ -1,5 +1,14 @@
 # my-pi
 
+## 0.1.26
+
+### Patch Changes
+
+- 536bba9: Align thinking level handling with model capabilities and
+  document Xiaomi MiMo provider in CLI docs.
+- 5ddd3a0: Suppress Node SQLite experimental warnings before sqlite
+  imports in CLI and test environments.
+
 ## 0.1.25
 
 ### Patch Changes
