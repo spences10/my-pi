@@ -50,17 +50,17 @@ const SECRET_PATTERNS: SecretPattern[] = [
 	},
 	{
 		name: 'Connection String with Password',
-		pattern: /:\/\/[^:]+:[^@]+@/g,
+		pattern: /\b[a-z][a-z0-9+.-]*:\/\/[^:\s/?#]+:[^@\s/?#]+@/gi,
 	},
 	{
 		name: 'Generic Password Field',
 		pattern:
-			/\b[\w-]*(?:password|passwd|secret|token|api[_-]?key)\b\s*[:=]\s*["']?[A-Za-z0-9._:/+=@!-]{8,}/gi,
+			/\b[\w-]*(?:password|passwd|secret|token|api[_-]?key)\b[ \t]*[:=][ \t]*["']?[A-Za-z0-9._:/+=@!-]{8,}["']?/gi,
 	},
 	{
 		name: 'Generic Secret Phrase',
 		pattern:
-			/\b(?:password|passwd|secret|token|api[_-]?key)\b(?:\s+(?:is|was|seen|value|header))?\s*[:=]?\s+[A-Za-z0-9._:/+=@!-]{8,}/gi,
+			/\b(?:password|passwd|secret|token|api[_-]?key)\b\s+(?:is|was|seen|value|header)\s+["']?[A-Za-z0-9._:/+=@!-]{12,}["']?/gi,
 	},
 	{
 		name: 'Tavily API Key',

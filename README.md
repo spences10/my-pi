@@ -15,6 +15,18 @@ presets, local SQLite telemetry for evals, and a programmatic API.
 Extension stacking patterns inspired by
 [pi-vs-claude-code](https://github.com/disler/pi-vs-claude-code).
 
+## What this is for
+
+`my-pi` is a composable Pi-based coding-agent harness for local agent
+work, eval runs, and agent-ops experiments. It is intentionally more
+of a cockpit than a single-purpose assistant: the default CLI combines
+MCP, LSP, skills, prompt presets, secret-safe tooling, local
+telemetry, session recall, and optional team-mode orchestration.
+
+The main design goal is repeatability: run an agent task, capture
+structured telemetry, preserve session context, and reuse the same
+configuration in interactive, print, JSON, RPC, or SDK-driven flows.
+
 ## Not a Pi package
 
 Do not install this with `pi install npm:my-pi`.
@@ -43,6 +55,22 @@ directly as its own CLI.
   analysis, and operational debugging.
 - **Bundled themes + extension stacking** — ship defaults, then layer
   extra project or ad-hoc extensions on top.
+
+## Requirements
+
+- **Node.js `>=24.15.0` minimum.** my-pi uses native `node:sqlite`
+  through the context sidecar and telemetry packages, and uses Node's
+  built-in TypeScript type stripping for small local scripts.
+- **Node 24 is used in CI.** `node:sqlite` is a release-candidate Node
+  API line, so CI runs both the minimum supported Node 24 release and
+  the current Node 24 line while the code keeps SQLite usage small and
+  synchronous.
+- **SQLite warning policy:** the `my-pi` CLI suppresses Node's
+  expected `node:sqlite` `ExperimentalWarning` before built-ins load.
+  Standalone package/API consumers own their process warning policy
+  until Node marks `node:sqlite` stable.
+- **pnpm 10** is used for local development. End users can run with
+  `pnpx`, `npx`, or `bunx`.
 
 ## Get Started
 
@@ -137,7 +165,9 @@ Team state is stored under `~/.pi/agent/teams-local` by default, or
 Telemetry is **disabled by default**. When enabled, my-pi records
 operational telemetry for each run in a local SQLite database. This is
 intended for eval harnesses, latency analysis, tool failure analysis,
-and local debugging.
+and local debugging. Telemetry captures structured operational data;
+`pirecall` complements it by retrieving the surrounding session
+transcript and prior-work context.
 
 ```bash
 pnpx my-pi@latest --telemetry --json "solve this task"
@@ -182,12 +212,62 @@ Recommended eval env vars for correlation:
 - `MY_PI_EVAL_ATTEMPT`
 - `MY_PI_EVAL_SUITE`
 
+A typical eval loop is:
+
+1. Create a stable eval run/case id.
+2. Run my-pi with `--telemetry`, usually with an isolated
+   `PI_CODING_AGENT_DIR` and `--untrusted` for reproducibility.
+3. Query or export telemetry for timings, tool calls, provider
+   requests, and success/failure state.
+4. Use `pirecall` to inspect the transcript context around the same
+   task when the structured rows are not enough.
+5. Compare attempts by `MY_PI_EVAL_RUN_ID`, `MY_PI_EVAL_CASE_ID`,
+   `MY_PI_EVAL_ATTEMPT`, and `MY_PI_EVAL_SUITE`.
+
+Example:
+
+```bash
+export MY_PI_EVAL_RUN_ID="smoke-$(date +%Y%m%d-%H%M%S)"
+export MY_PI_EVAL_CASE_ID="readme-review"
+export MY_PI_EVAL_ATTEMPT=1
+export MY_PI_EVAL_SUITE="smoke"
+
+PI_CODING_AGENT_DIR="$PWD/.tmp/pi-agent" \
+  pnpx my-pi@latest \
+  --untrusted \
+  --telemetry \
+  --telemetry-db "$PWD/.tmp/evals.db" \
+  --json "review the README and report the top issue"
+
+pnpx pirecall sync --json
+pnpx pirecall recall "readme-review smoke" --json
+```
+
+For repeatable local cases after `pnpm run build`, use the TypeScript
+wrapper script:
+
+```bash
+pnpm run eval:local -- \
+  --suite smoke \
+  --case readme-review \
+  --prompt "review the README and report the top issue"
+```
+
+It sets `MY_PI_EVAL_*`, uses an isolated `.tmp/pi-agent`, writes
+telemetry to `.tmp/evals.db`, and passes `--untrusted` by default. Add
+extra my-pi flags after `--`, for example `-- --model openai:gpt-5`.
+
 Recorded tables:
 
 - `runs`
 - `turns`
 - `tool_calls`
 - `provider_requests`
+
+A telemetry export is JSON with one object per run and nested
+summaries for turns, tool calls, and provider requests, keyed by
+run/eval ids so it can be compared with the matching `pirecall`
+transcript.
 
 Query and export helpers:
 
@@ -493,8 +573,17 @@ In interactive mode:
 
 The filter-output extension automatically redacts secrets (API keys,
 tokens, passwords, private keys) from tool output before the LLM sees
-them. Detection patterns from
-[nopeek](https://github.com/spences10/nopeek).
+them. Detection patterns come from
+[nopeek](https://github.com/spences10/nopeek). This is a defensive
+last-mile guard, not a substitute for secret hygiene: prefer `nopeek`
+for loading credentials and avoid printing secrets in the first place.
+
+The redactor intentionally errs on the side of caution, which means it
+can occasionally hide benign metadata such as URLs or documentation
+examples. If that happens in a trusted local context, inspect the file
+directly or temporarily run with `--no-filter`; do not disable the
+filter when reading unknown logs, `.env` files, or untrusted command
+output.
 
 Use `/redact-stats` to see how many secrets were caught. Disable with
 `--no-filter`.

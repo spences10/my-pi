@@ -15,6 +15,13 @@ Maintained in the `my-pi` Vite+ workspace and tested with Vitest.
 pi install npm:@spences10/pi-telemetry
 ```
 
+## Runtime
+
+Requires Node.js `>=24.15.0` for native `node:sqlite`. The `my-pi` CLI
+suppresses Node's expected `node:sqlite` `ExperimentalWarning`;
+standalone package consumers own their process warning policy until
+Node marks `node:sqlite` stable.
+
 Local development from this monorepo:
 
 ```bash

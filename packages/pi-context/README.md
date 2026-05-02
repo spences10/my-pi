@@ -4,6 +4,13 @@ Local SQLite context sidecar for Pi. Oversized tool output is stored
 in an FTS5-backed database and replaced with a compact receipt that
 the agent can search or retrieve later.
 
+## Runtime
+
+Requires Node.js `>=24.15.0` for native `node:sqlite` plus FTS5. The
+`my-pi` CLI suppresses Node's expected `node:sqlite`
+`ExperimentalWarning`; standalone package consumers own their process
+warning policy until Node marks `node:sqlite` stable.
+
 ## Local development
 
 ```bash

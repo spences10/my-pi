@@ -149,6 +149,48 @@ describe('redact_text', () => {
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
 	});
+
+	it('does not redact ordinary package metadata and documentation links', () => {
+		const input = JSON.stringify(
+			{
+				name: 'my-pi',
+				homepage: 'https://github.com/spences10/my-pi',
+				repository: {
+					type: 'git',
+					url: 'git+https://github.com/spences10/my-pi.git',
+				},
+				author: 'Scott Spence <scott@example.com>',
+				keywords: ['cli', 'sqlite', 'telemetry'],
+				badge: 'https://img.shields.io/npm/v/@spences10/pi-redact',
+			},
+			null,
+			2,
+		);
+		const markdown = `${input}\n[repo](https://github.com/spences10/my-pi)\n[npm](https://www.npmjs.com/package/@spences10/pi-redact)`;
+		const { redacted, count } = redact_text(markdown);
+		expect(count).toBe(0);
+		expect(redacted).toBe(markdown);
+	});
+
+	it('does not let generic secret phrases span prose or markdown boundaries', () => {
+		const input = `The redactor detects secrets defensively.
+
+- tokens, passwords, and API keys are examples.
+- Prefer nopeek for secret-safe loading.
+
+See https://github.com/spences10/nopeek for details.`;
+		const { redacted, count } = redact_text(input);
+		expect(count).toBe(0);
+		expect(redacted).toBe(input);
+	});
+
+	it('still redacts generic secret phrases with explicit values', () => {
+		const input = 'password is CanaryPassword-Redaction-001!';
+		const { redacted, count } = redact_text(input);
+		expect(count).toBe(1);
+		expect(redacted).toContain('[REDACTED:Generic Secret Phrase]');
+		expect(redacted).not.toContain('CanaryPassword-Redaction-001!');
+	});
 });
 
 describe('SSH helpers', () => {

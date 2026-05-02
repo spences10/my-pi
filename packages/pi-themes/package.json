@@ -24,7 +24,7 @@
 		"test": "node -e \"process.exit(0)\""
 	},
 	"engines": {
-		"node": ">=22.0.0"
+		"node": ">=24.15.0"
 	},
 	"pi": {
 		"themes": [
