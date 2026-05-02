@@ -13,6 +13,14 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
+	COMMANDS,
+	DEFAULT_QUERY_LIMIT,
+	format_telemetry_query_results,
+	format_telemetry_stats,
+	format_telemetry_status,
+	parse_telemetry_command,
+} from './commands.js';
+import {
 	load_telemetry_config,
 	resolve_telemetry_db_path,
 	resolve_telemetry_enabled,
@@ -22,9 +30,22 @@ import {
 import type {
 	TelemetryDatabase,
 	TelemetryQueryFilters,
-	TelemetryRunSummary,
-	TelemetryStats,
 } from './db.js';
+import {
+	safe_json_stringify,
+	summarize_headers,
+	summarize_provider_payload,
+	summarize_tool_args,
+	summarize_tool_result,
+	summarize_value,
+} from './summaries.js';
+export {
+	format_telemetry_query_results,
+	format_telemetry_stats,
+	format_telemetry_status,
+	parse_telemetry_command,
+	type ParsedTelemetryCommand,
+} from './commands.js';
 
 interface TelemetryStore {
 	insert_run: TelemetryDatabase['insert_run'];
@@ -64,17 +85,6 @@ interface ActiveTurn {
 	id: string;
 }
 
-const COMMANDS = [
-	'status',
-	'stats',
-	'query',
-	'export',
-	'on',
-	'off',
-	'path',
-];
-const DEFAULT_QUERY_LIMIT = 20;
-
 function parse_int(value: string | undefined): number | null {
 	if (!value) return null;
 	const parsed = Number.parseInt(value, 10);
@@ -109,129 +119,6 @@ function get_session_file(ctx: ExtensionContext): string | null {
 		getSessionFile?: () => string | undefined;
 	};
 	return session_manager.getSessionFile?.() ?? null;
-}
-
-function safe_json_stringify(value: unknown): string | null {
-	if (value === undefined) return null;
-	try {
-		return JSON.stringify(value);
-	} catch {
-		return JSON.stringify({
-			type: typeof value,
-			unserializable: true,
-		});
-	}
-}
-
-function summarize_value(value: unknown, depth = 0): unknown {
-	if (value == null) return null;
-	if (typeof value === 'string') {
-		return {
-			type: 'string',
-			bytes: Buffer.byteLength(value, 'utf-8'),
-			lines: value === '' ? 0 : value.split(/\r?\n/).length,
-		};
-	}
-	if (
-		typeof value === 'number' ||
-		typeof value === 'boolean' ||
-		typeof value === 'bigint'
-	) {
-		return value;
-	}
-	if (Array.isArray(value)) {
-		return {
-			type: 'array',
-			length: value.length,
-			items:
-				depth >= 1
-					? undefined
-					: value
-							.slice(0, 5)
-							.map((item) => summarize_value(item, depth + 1)),
-		};
-	}
-	if (typeof value === 'object') {
-		const entries = Object.entries(value as Record<string, unknown>);
-		const summary: Record<string, unknown> = {
-			type: 'object',
-			keys: entries.map(([key]) => key).slice(0, 20),
-		};
-		if (depth < 1) {
-			for (const [key, child] of entries.slice(0, 10)) {
-				if (
-					key === 'oldText' ||
-					key === 'newText' ||
-					key === 'content' ||
-					key === 'text'
-				) {
-					summary[`${key}_summary`] = summarize_value(
-						child,
-						depth + 1,
-					);
-					continue;
-				}
-				summary[key] = summarize_value(child, depth + 1);
-			}
-		}
-		return summary;
-	}
-	return {
-		type: typeof value,
-	};
-}
-
-function summarize_tool_args(
-	tool_name: string,
-	args: unknown,
-): string | null {
-	if (!args || typeof args !== 'object') {
-		return safe_json_stringify(summarize_value(args));
-	}
-
-	const input = args as Record<string, unknown>;
-	switch (tool_name) {
-		case 'bash':
-			return safe_json_stringify({
-				tool: tool_name,
-				timeout: input.timeout ?? null,
-				command: summarize_value(input.command),
-			});
-		case 'read':
-		case 'write':
-		case 'edit':
-			return safe_json_stringify({
-				tool: tool_name,
-				path: typeof input.path === 'string' ? input.path : null,
-				offset:
-					typeof input.offset === 'number' ? input.offset : null,
-				limit: typeof input.limit === 'number' ? input.limit : null,
-				content: summarize_value(input.content),
-				edits: summarize_value(input.edits),
-			});
-		default:
-			return safe_json_stringify({
-				tool: tool_name,
-				summary: summarize_value(args),
-			});
-	}
-}
-
-function summarize_tool_result(result: unknown): string | null {
-	return safe_json_stringify(summarize_value(result));
-}
-
-function summarize_headers(
-	headers: Record<string, string>,
-): string | null {
-	return safe_json_stringify({
-		keys: Object.keys(headers).slice(0, 20),
-		count: Object.keys(headers).length,
-	});
-}
-
-function summarize_provider_payload(payload: unknown): string | null {
-	return safe_json_stringify(summarize_value(payload));
 }
 
 function get_stop_reason(message: unknown): string | null {
@@ -284,222 +171,6 @@ export function describe_session_shutdown(
 	return event.targetSessionFile
 		? `${base} → ${event.targetSessionFile}`
 		: base;
-}
-
-export function format_telemetry_status(options: {
-	saved_enabled: boolean;
-	effective_enabled: boolean;
-	override?: boolean;
-	db_path: string;
-}): string {
-	const override_label =
-		options.override === undefined
-			? 'none'
-			: options.override
-				? '--telemetry'
-				: '--no-telemetry';
-
-	return [
-		`telemetry ${options.effective_enabled ? 'enabled' : 'disabled'} now`,
-		`default ${options.saved_enabled ? 'enabled' : 'disabled'}`,
-		`override ${override_label}`,
-		`db ${options.db_path}`,
-	].join('\n');
-}
-
-function format_bytes(bytes: number): string {
-	if (bytes < 1024) return `${bytes} B`;
-	if (bytes < 1024 * 1024) {
-		return `${(bytes / 1024).toFixed(1)} KiB`;
-	}
-	return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
-}
-
-function format_timestamp(timestamp: number): string {
-	return new Date(timestamp).toISOString();
-}
-
-function format_duration(duration_ms: number | null): string {
-	if (duration_ms === null) return 'open';
-	if (duration_ms < 1000) return `${duration_ms}ms`;
-	if (duration_ms < 60_000) {
-		return `${(duration_ms / 1000).toFixed(1)}s`;
-	}
-	return `${(duration_ms / 60_000).toFixed(1)}m`;
-}
-
-function format_success(value: boolean | null): string {
-	if (value === true) return 'success';
-	if (value === false) return 'failure';
-	return 'unknown';
-}
-
-function tokenize_command_args(input: string): string[] {
-	const matches =
-		input.match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+/g) ?? [];
-	return matches.map((token) => {
-		if (
-			(token.startsWith('"') && token.endsWith('"')) ||
-			(token.startsWith("'") && token.endsWith("'"))
-		) {
-			return token.slice(1, -1);
-		}
-		return token;
-	});
-}
-
-export interface ParsedTelemetryCommand {
-	subcommand: string;
-	export_path: string | null;
-	filters: TelemetryQueryFilters;
-	errors: string[];
-}
-
-export function parse_telemetry_command(
-	input: string,
-): ParsedTelemetryCommand {
-	const tokens = tokenize_command_args(input.trim());
-	const subcommand = tokens[0] ?? 'status';
-	const filters: TelemetryQueryFilters = {};
-	let export_path: string | null = null;
-	const errors: string[] = [];
-
-	for (const token of tokens.slice(1)) {
-		const equals_index = token.indexOf('=');
-		if (equals_index === -1) {
-			if (subcommand === 'export' && export_path === null) {
-				export_path = token;
-			} else {
-				errors.push(`Unexpected argument: ${token}`);
-			}
-			continue;
-		}
-
-		const key = token.slice(0, equals_index);
-		const value = token.slice(equals_index + 1);
-		switch (key) {
-			case 'eval_run_id':
-			case 'run':
-				filters.eval_run_id = value;
-				break;
-			case 'eval_case_id':
-			case 'case':
-				filters.eval_case_id = value;
-				break;
-			case 'eval_suite':
-			case 'suite':
-				filters.eval_suite = value;
-				break;
-			case 'success':
-				if (value === 'true') filters.success = true;
-				else if (value === 'false') filters.success = false;
-				else if (value === 'null') filters.success = null;
-				else {
-					errors.push(
-						`Invalid success value: ${value}. Use true, false, or null`,
-					);
-				}
-				break;
-			case 'limit': {
-				const parsed = Number.parseInt(value, 10);
-				if (!Number.isFinite(parsed) || parsed <= 0) {
-					errors.push(
-						`Invalid limit value: ${value}. Use a positive integer`,
-					);
-				} else {
-					filters.limit = parsed;
-				}
-				break;
-			}
-			default:
-				errors.push(`Unknown filter: ${key}`);
-		}
-	}
-
-	if (subcommand === 'query' && filters.limit === undefined) {
-		filters.limit = DEFAULT_QUERY_LIMIT;
-	}
-
-	return {
-		subcommand,
-		export_path,
-		filters,
-		errors,
-	};
-}
-
-function format_filter_summary(
-	filters: TelemetryQueryFilters,
-): string {
-	const parts: string[] = [];
-	if (filters.eval_run_id !== undefined) {
-		parts.push(`eval_run_id=${filters.eval_run_id}`);
-	}
-	if (filters.eval_case_id !== undefined) {
-		parts.push(`eval_case_id=${filters.eval_case_id}`);
-	}
-	if (filters.eval_suite !== undefined) {
-		parts.push(`eval_suite=${filters.eval_suite}`);
-	}
-	if (filters.success !== undefined) {
-		parts.push(`success=${String(filters.success)}`);
-	}
-	if (filters.limit !== undefined) {
-		parts.push(`limit=${filters.limit}`);
-	}
-	return parts.length > 0 ? parts.join(' ') : 'none';
-}
-
-export function format_telemetry_stats(options: {
-	db_path: string;
-	stats: TelemetryStats;
-}): string {
-	return [
-		`db ${options.db_path}`,
-		`schema v${options.stats.schema_version}`,
-		`runs ${options.stats.runs}`,
-		`turns ${options.stats.turns}`,
-		`tool_calls ${options.stats.tool_calls}`,
-		`provider_requests ${options.stats.provider_requests}`,
-		`db_bytes ${format_bytes(options.stats.db_bytes)}`,
-		`wal_bytes ${format_bytes(options.stats.wal_bytes)}`,
-		`total_bytes ${format_bytes(options.stats.total_bytes)}`,
-	].join('\n');
-}
-
-export function format_telemetry_query_results(options: {
-	db_path: string;
-	filters: TelemetryQueryFilters;
-	runs: TelemetryRunSummary[];
-}): string {
-	if (options.runs.length === 0) {
-		return [
-			`db ${options.db_path}`,
-			`filters ${format_filter_summary(options.filters)}`,
-			'no matching runs',
-		].join('\n');
-	}
-
-	return [
-		`db ${options.db_path}`,
-		`filters ${format_filter_summary(options.filters)}`,
-		...options.runs.map((run) =>
-			[
-				`${format_timestamp(run.started_at)} ${run.id}`,
-				`status=${format_success(run.success)}`,
-				`duration=${format_duration(run.duration_ms)}`,
-				`turns=${run.turn_count}`,
-				`tools=${run.tool_call_count}`,
-				`tool_errors=${run.tool_error_count}`,
-				`provider_requests=${run.provider_request_count}`,
-				run.eval_run_id ? `eval_run_id=${run.eval_run_id}` : null,
-				run.eval_case_id ? `eval_case_id=${run.eval_case_id}` : null,
-				run.eval_suite ? `eval_suite=${run.eval_suite}` : null,
-			]
-				.filter(Boolean)
-				.join(' '),
-		),
-	].join('\n');
 }
 
 function get_default_telemetry_export_path(cwd: string): string {

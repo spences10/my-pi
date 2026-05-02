@@ -1,16 +1,33 @@
-import { redact_text } from '@spences10/pi-redact';
 import {
 	existsSync,
 	mkdirSync,
 	readdirSync,
-	readFileSync,
-	renameSync,
 	rmSync,
 	statSync,
 	writeFileSync,
 } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import type { TeamProcessIdentity } from './process-identity.js';
+import {
+	delay,
+	is_pid_alive,
+	list_json_files,
+	normalize_member_name,
+	normalize_unique_ids,
+	now,
+	random_suffix,
+	read_json,
+	read_listed_json,
+	require_member_name,
+	safe_segment,
+	sanitize_event_data,
+	write_json,
+} from './store-utils.js';
+import {
+	validate_member,
+	validate_message,
+	validate_task,
+} from './store-validation.js';
 
 export type TeamMemberRole = 'lead' | 'teammate';
 export type TeamMemberStatus =
@@ -140,211 +157,6 @@ export interface TeamStatus {
 	members: TeamMember[];
 	tasks: TeamTask[];
 	counts: Record<TeamTaskStatus, number>;
-}
-
-const MAX_EVENT_STRING_LENGTH = 8000;
-
-function now(): string {
-	return new Date().toISOString();
-}
-
-function sanitize_event_data(value: unknown): unknown {
-	if (typeof value === 'string') {
-		const redacted = redact_text(value).redacted;
-		if (redacted.length <= MAX_EVENT_STRING_LENGTH) return redacted;
-		return `${redacted.slice(0, MAX_EVENT_STRING_LENGTH)}… [truncated ${redacted.length - MAX_EVENT_STRING_LENGTH} chars]`;
-	}
-	if (Array.isArray(value)) return value.map(sanitize_event_data);
-	if (!value || typeof value !== 'object') return value;
-	return Object.fromEntries(
-		Object.entries(value).map(([key, entry]) => [
-			key,
-			sanitize_event_data(entry),
-		]),
-	);
-}
-
-function random_suffix(): string {
-	return Math.random().toString(36).slice(2, 8);
-}
-
-function safe_segment(value: string): string {
-	const sanitized = value
-		.trim()
-		.replace(/[^a-zA-Z0-9_.-]+/g, '-')
-		.replace(/^-+|-+$/g, '')
-		.slice(0, 80);
-	if (!sanitized || sanitized === '.' || sanitized === '..') {
-		throw new Error('Expected a file-safe non-empty id');
-	}
-	return sanitized;
-}
-
-function normalize_member_name(
-	value: string | undefined,
-	field = 'member',
-): string | undefined {
-	const trimmed = value?.trim();
-	if (!trimmed) return undefined;
-	if (safe_segment(trimmed) !== trimmed) {
-		throw new Error(
-			`${field} must contain only letters, numbers, dots, underscores, and hyphens`,
-		);
-	}
-	return trimmed;
-}
-
-function require_member_name(
-	value: string,
-	field = 'member',
-): string {
-	const normalized = normalize_member_name(value, field);
-	if (!normalized) throw new Error(`${field} is required`);
-	return normalized;
-}
-
-function read_json<T>(path: string): T {
-	return JSON.parse(readFileSync(path, 'utf-8')) as T;
-}
-
-function quarantine_invalid_json(path: string): void {
-	const target = `${path}.invalid-${Date.now()}-${random_suffix()}`;
-	try {
-		renameSync(path, target);
-	} catch {
-		rmSync(path, { force: true });
-	}
-}
-
-function read_listed_json<T>(
-	path: string,
-	validate?: (value: T) => void,
-): T | undefined {
-	try {
-		const value = read_json<T>(path);
-		validate?.(value);
-		return value;
-	} catch {
-		quarantine_invalid_json(path);
-		return undefined;
-	}
-}
-
-function write_json(path: string, value: unknown): void {
-	mkdirSync(resolve(path, '..'), { recursive: true, mode: 0o700 });
-	const tmp = `${path}.tmp-${process.pid}-${Date.now()}-${random_suffix()}`;
-	writeFileSync(tmp, JSON.stringify(value, null, '\t') + '\n', {
-		mode: 0o600,
-	});
-	renameSync(tmp, path);
-}
-
-function list_json_files<T>(
-	dir: string,
-	validate?: (value: T) => void,
-): T[] {
-	if (!existsSync(dir)) return [];
-	return readdirSync(dir, { withFileTypes: true })
-		.filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
-		.sort((a, b) => a.name.localeCompare(b.name))
-		.flatMap((entry) => {
-			const value = read_listed_json<T>(
-				join(dir, entry.name),
-				validate,
-			);
-			return value ? [value] : [];
-		});
-}
-
-function normalize_unique_ids(
-	values: string[] | undefined,
-): string[] {
-	return [
-		...new Set(
-			(values ?? []).map((value) => value.trim()).filter(Boolean),
-		),
-	].sort();
-}
-
-function validate_member(member: TeamMember): void {
-	require_member_name(member.name);
-	if (!['lead', 'teammate'].includes(member.role)) {
-		throw new Error(`Invalid member role: ${member.role}`);
-	}
-	if (
-		![
-			'idle',
-			'running',
-			'running_attached',
-			'running_orphaned',
-			'blocked',
-			'offline',
-		].includes(member.status)
-	) {
-		throw new Error(`Invalid member status: ${member.status}`);
-	}
-	if (
-		member.workspace_mode &&
-		!['shared', 'worktree'].includes(member.workspace_mode)
-	) {
-		throw new Error(
-			`Invalid member workspace mode: ${member.workspace_mode}`,
-		);
-	}
-}
-
-function validate_task(task: TeamTask): void {
-	if (safe_segment(task.id) !== task.id) {
-		throw new Error(`Invalid task id: ${task.id}`);
-	}
-	if (!task.title?.trim()) throw new Error('Task title is required');
-	if (
-		![
-			'pending',
-			'in_progress',
-			'blocked',
-			'completed',
-			'cancelled',
-		].includes(task.status)
-	) {
-		throw new Error(`Invalid task status: ${task.status}`);
-	}
-	if (task.assignee) require_member_name(task.assignee, 'assignee');
-	if (!Array.isArray(task.depends_on)) {
-		throw new Error('Task depends_on must be an array');
-	}
-	for (const dep_id of task.depends_on) {
-		if (safe_segment(dep_id) !== dep_id) {
-			throw new Error(`Invalid dependency task id: ${dep_id}`);
-		}
-	}
-}
-
-function validate_message(message: TeamMessage): void {
-	if (safe_segment(message.id) !== message.id) {
-		throw new Error(`Invalid message id: ${message.id}`);
-	}
-	require_member_name(message.from, 'from');
-	require_member_name(message.to, 'to');
-	if (!message.body?.trim())
-		throw new Error('Message body is required');
-	if (typeof message.urgent !== 'boolean') {
-		throw new Error('Message urgent must be boolean');
-	}
-}
-
-function delay(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function is_pid_alive(pid: number | undefined): boolean {
-	if (!pid || pid <= 0) return false;
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch {
-		return false;
-	}
 }
 
 const LOCK_STALE_AFTER_MS = 30_000;
