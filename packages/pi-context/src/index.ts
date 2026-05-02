@@ -14,6 +14,7 @@ import {
 	maybe_store_context_output,
 	set_context_sidecar_enabled,
 	should_index_text,
+	type ContextScopeOptions,
 	type ContextSearchResult,
 	type ContextStats,
 } from './store.js';
@@ -47,6 +48,24 @@ function should_skip_tool(tool_name: string): boolean {
 		tool_name === 'context_purge' ||
 		tool_name === 'team'
 	);
+}
+
+function session_id_from_context(
+	ctx?: Pick<ExtensionCommandContext, 'sessionManager'>,
+): string | null {
+	const manager = ctx?.sessionManager;
+	return (
+		manager?.getSessionFile?.() ?? manager?.getSessionId?.() ?? null
+	);
+}
+
+function scope_from_context(
+	ctx?: Pick<ExtensionCommandContext, 'cwd' | 'sessionManager'>,
+): ContextScopeOptions {
+	return {
+		project_path: ctx?.cwd ?? process.cwd(),
+		session_id: session_id_from_context(ctx),
+	};
 }
 
 function format_search_results(
@@ -127,17 +146,14 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 	set_context_sidecar_enabled(true, { project_path: process.cwd() });
 
 	pi.on('session_start', async (_event, ctx) => {
-		set_context_sidecar_enabled(true, {
-			project_path: ctx.cwd,
-			session_id: undefined,
-		});
+		set_context_sidecar_enabled(true, scope_from_context(ctx));
 	});
 
 	pi.on('session_shutdown', async () => {
 		set_context_sidecar_enabled(false);
 	});
 
-	pi.on('tool_result', async (event) => {
+	pi.on('tool_result', async (event, ctx) => {
 		const tool_name = String(event.toolName ?? 'tool');
 		if (should_skip_tool(tool_name)) return;
 		if (!Array.isArray(event.content)) return;
@@ -153,6 +169,7 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 				text,
 				tool_name,
 				input_summary: summarize_tool_input(event.input),
+				...scope_from_context(ctx),
 			});
 			if (!stored) return;
 			return {
@@ -185,9 +202,18 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 					description: 'Maximum chunks to return, default 5',
 				}),
 			),
+			global: Type.Optional(
+				Type.Boolean({
+					description:
+						'Search all indexed sources instead of current project/session scope',
+				}),
+			),
 		}),
-		async execute(_toolCallId, params) {
-			const results = get_context_store().search(params.query, {
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const scope = scope_from_context(ctx);
+			const results = get_context_store(scope).search(params.query, {
+				...scope,
+				global: params.global,
 				source_id: params.source_id,
 				tool_name: params.tool_name,
 				limit: params.limit,
@@ -215,11 +241,19 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 			chunk_id: Type.Optional(
 				Type.String({ description: 'Optional exact chunk id' }),
 			),
+			global: Type.Optional(
+				Type.Boolean({
+					description:
+						'Retrieve across all scopes instead of current project/session scope',
+				}),
+			),
 		}),
-		async execute(_toolCallId, params) {
-			const chunks = get_context_store().get(
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const scope = scope_from_context(ctx);
+			const chunks = get_context_store(scope).get(
 				params.source_id,
 				params.chunk_id,
+				{ ...scope, global: params.global },
 			);
 			const text = chunks.length
 				? chunks
@@ -371,6 +405,7 @@ export {
 	should_index_text,
 } from './store.js';
 export type {
+	ContextScopeOptions,
 	ContextSearchResult,
 	ContextStats,
 	StoreContextInput,

@@ -172,6 +172,65 @@ describe('ContextStore', () => {
 		}
 	});
 
+	it('defaults search and get to the current session scope with global opt-in', () => {
+		const store = create_store({
+			max_bytes: 10,
+			project_path: '/repo',
+			session_id: 'session-a',
+		});
+		const current = store.store({
+			text: `shared-token current-session\n${'a '.repeat(100)}`,
+			tool_name: 'bash',
+		});
+		const other = store.store({
+			text: `shared-token other-session\n${'b '.repeat(100)}`,
+			tool_name: 'bash',
+			session_id: 'session-b',
+			project_path: '/repo',
+		});
+
+		const scoped = store.search('shared-token');
+		expect(scoped).toHaveLength(1);
+		expect(scoped[0].content).toContain('current-session');
+		expect(store.get(other!.source_id)).toEqual([]);
+		expect(store.get(other!.source_id, undefined, { global: true }))
+			.toHaveLength(other!.chunk_count);
+
+		store.configure({ session_id: 'session-b' });
+		expect(store.search('shared-token')[0].content).toContain(
+			'other-session',
+		);
+		expect(
+			store.search('shared-token', { global: true }),
+		).toHaveLength(2);
+		expect(current).not.toBeNull();
+	});
+
+	it('falls back to project scope when session metadata is unavailable', () => {
+		const store = create_store({
+			max_bytes: 10,
+			project_path: '/repo-a',
+			session_id: null,
+		});
+		store.store({
+			text: `overlap-token project-a\n${'a '.repeat(100)}`,
+			tool_name: 'bash',
+		});
+		store.store({
+			text: `overlap-token project-b\n${'b '.repeat(100)}`,
+			tool_name: 'bash',
+			project_path: '/repo-b',
+			session_id: null,
+		});
+
+		const scoped = store.search('overlap-token');
+		expect(scoped).toHaveLength(1);
+		expect(scoped[0].content).toContain('project-a');
+		expect(
+			store.search('overlap-token', { global: true }),
+		).toHaveLength(2);
+	});
+
 	it('filters search by source id and tool name and clamps large limits', () => {
 		const store = create_store({ max_bytes: 10 });
 		const bash = store.store({

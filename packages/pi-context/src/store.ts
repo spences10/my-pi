@@ -33,7 +33,7 @@ const MIGRATIONS: Record<number, string> = {
 
 export interface ContextStoreOptions {
 	db_path?: string;
-	project_path?: string;
+	project_path?: string | null;
 	session_id?: string | null;
 	max_bytes?: number;
 	max_lines?: number;
@@ -71,6 +71,12 @@ export interface ContextSearchResult {
 	rank: number;
 }
 
+export interface ContextScopeOptions {
+	project_path?: string | null;
+	session_id?: string | null;
+	global?: boolean;
+}
+
 export interface ContextStats {
 	sources: number;
 	chunks: number;
@@ -97,6 +103,11 @@ interface SearchRow extends SourceRow {
 	title: string | null;
 	content: string;
 	rank: number;
+}
+
+interface ScopedFilter {
+	where: string[];
+	params: Array<string | number>;
 }
 
 interface ChunkRow {
@@ -145,6 +156,8 @@ export function get_context_store(
 	const db_path = merged.db_path ?? default_context_db_path();
 	if (!global_store || global_store.db_path !== db_path) {
 		global_store = new ContextStore({ ...merged, db_path });
+	} else {
+		global_store.configure(merged);
 	}
 	return global_store;
 }
@@ -424,6 +437,45 @@ export class ContextStore {
 		apply_schema(this.db);
 	}
 
+	configure(options: ContextStoreOptions = {}): void {
+		if (options.project_path !== undefined)
+			this.project_path = options.project_path;
+		if (options.session_id !== undefined)
+			this.session_id = options.session_id;
+		if (options.max_bytes !== undefined)
+			this.max_bytes = options.max_bytes;
+		if (options.max_lines !== undefined)
+			this.max_lines = options.max_lines;
+	}
+
+	private scoped_filter(
+		alias: string,
+		options: ContextScopeOptions = {},
+	): ScopedFilter {
+		if (options.global) return { where: [], params: [] };
+		const session_id =
+			options.session_id !== undefined
+				? options.session_id
+				: this.session_id;
+		const project_path =
+			options.project_path !== undefined
+				? options.project_path
+				: this.project_path;
+		if (session_id) {
+			return {
+				where: [`${alias}.session_id = ?`],
+				params: [session_id],
+			};
+		}
+		if (project_path) {
+			return {
+				where: [`${alias}.project_path = ?`],
+				params: [project_path],
+			};
+		}
+		return { where: [], params: [] };
+	}
+
 	store(input: StoreContextInput): StoredContextOutput | null {
 		const redaction = redact_text(input.text);
 		const text = redaction.redacted;
@@ -507,7 +559,7 @@ export class ContextStore {
 
 	search(
 		query: string,
-		options: {
+		options: ContextScopeOptions & {
 			source_id?: string;
 			limit?: number;
 			tool_name?: string;
@@ -515,8 +567,12 @@ export class ContextStore {
 	): ContextSearchResult[] {
 		const limit = Math.max(1, Math.min(options.limit ?? 5, 25));
 		const match = escape_fts5_query(query);
-		const filters: string[] = [];
-		const params: Array<string | number> = [match];
+		const scoped = this.scoped_filter('context_sources', options);
+		const filters: string[] = [...scoped.where];
+		const params: Array<string | number> = [
+			match,
+			...scoped.params,
+		];
 		if (options.source_id) {
 			filters.push('context_sources.id = ?');
 			params.push(options.source_id);
@@ -564,17 +620,37 @@ export class ContextStore {
 		);
 	}
 
-	get(source_id: string, chunk_id?: string): ChunkRow[] {
-		const stmt = chunk_id
-			? this.db.prepare(`
-				SELECT id, source_id, ordinal, title, content, byte_count
-				FROM context_chunks WHERE source_id = ? AND id = ? ORDER BY ordinal
-			`)
-			: this.db.prepare(`
-				SELECT id, source_id, ordinal, title, content, byte_count
-				FROM context_chunks WHERE source_id = ? ORDER BY ordinal
-			`);
-		const params = chunk_id ? [source_id, chunk_id] : [source_id];
+	get(
+		source_id: string,
+		chunk_id?: string,
+		options: ContextScopeOptions = {},
+	): ChunkRow[] {
+		const scoped = this.scoped_filter('context_sources', options);
+		const filters = [
+			'context_chunks.source_id = ?',
+			...scoped.where,
+		];
+		const params: Array<string | number> = [
+			source_id,
+			...scoped.params,
+		];
+		if (chunk_id) {
+			filters.push('context_chunks.id = ?');
+			params.push(chunk_id);
+		}
+		const stmt = this.db.prepare(`
+			SELECT
+				context_chunks.id,
+				context_chunks.source_id,
+				context_chunks.ordinal,
+				context_chunks.title,
+				context_chunks.content,
+				context_chunks.byte_count
+			FROM context_chunks
+			JOIN context_sources ON context_sources.id = context_chunks.source_id
+			WHERE ${filters.join(' AND ')}
+			ORDER BY context_chunks.ordinal
+		`);
 		return stmt.all(...params) as unknown as ChunkRow[];
 	}
 

@@ -2,6 +2,7 @@ import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { afterEach, describe, expect, it } from 'vitest';
 import context_sidecar, {
 	get_context_store,
@@ -9,9 +10,17 @@ import context_sidecar, {
 	set_context_sidecar_enabled,
 } from './index.js';
 
+type FakeContext = {
+	cwd: string;
+	sessionManager?: {
+		getSessionFile?: () => string | undefined;
+		getSessionId?: () => string | undefined;
+	};
+};
+
 type HookHandler = (
 	event: Record<string, unknown>,
-	ctx?: { cwd: string },
+	ctx?: FakeContext,
 ) => Promise<unknown>;
 
 type ToolResult = {
@@ -24,6 +33,9 @@ type RegisteredTool = {
 	execute: (
 		tool_call_id: string,
 		params: Record<string, unknown>,
+		signal?: AbortSignal,
+		on_update?: unknown,
+		ctx?: FakeContext,
 	) => ToolResult | Promise<ToolResult>;
 };
 
@@ -80,6 +92,19 @@ function source_id_from(text: string): string {
 	return match![1];
 }
 
+function fake_context(
+	cwd: string,
+	session_file?: string,
+): FakeContext {
+	return {
+		cwd,
+		sessionManager: {
+			getSessionFile: () => session_file,
+			getSessionId: () => session_file?.replace(/\.jsonl$/, ''),
+		},
+	};
+}
+
 afterEach(() => {
 	set_context_sidecar_enabled(false);
 	if (original_context_db === undefined)
@@ -114,6 +139,76 @@ describe('context_sidecar extension', () => {
 			{ cwd: '/tmp/project' },
 		);
 		expect(is_context_sidecar_enabled()).toBe(true);
+	});
+
+	it('stores and searches with session/project scope from extension context', async () => {
+		const db_path = temp_db();
+		process.env.MY_PI_CONTEXT_DB = db_path;
+		const fake = create_fake_pi();
+		context_sidecar(fake.pi);
+		const tool_result = fake.hooks.get('tool_result')![0];
+		const project_a = fake_context('/repo-a', '/sessions/a.jsonl');
+		const project_b = fake_context('/repo-b', '/sessions/b.jsonl');
+
+		const a = (await tool_result(
+			{
+				toolName: 'bash',
+				content: [
+					{ type: 'text', text: large_output('scope-token-a') },
+				],
+			},
+			project_a,
+		)) as ToolResult;
+		await tool_result(
+			{
+				toolName: 'bash',
+				content: [
+					{ type: 'text', text: large_output('scope-token-b') },
+				],
+			},
+			project_b,
+		);
+
+		const db = new DatabaseSync(db_path, {
+			enableForeignKeyConstraints: true,
+		});
+		try {
+			const row = db
+				.prepare(
+					'SELECT session_id, project_path FROM context_sources WHERE id = ?',
+				)
+				.get(source_id_from(a.content[0].text));
+			expect(row).toMatchObject({
+				session_id: '/sessions/a.jsonl',
+				project_path: '/repo-a',
+			});
+		} finally {
+			db.close();
+		}
+
+		const scoped = await fake.tools
+			.get('context_search')!
+			.execute(
+				'call-1',
+				{ query: 'scope-token', limit: 5 },
+				undefined,
+				undefined,
+				project_a,
+			);
+		expect(scoped.content[0].text).toContain('scope-token-a');
+		expect(scoped.content[0].text).not.toContain('scope-token-b');
+
+		const global = await fake.tools
+			.get('context_search')!
+			.execute(
+				'call-2',
+				{ query: 'scope-token', global: true },
+				undefined,
+				undefined,
+				project_a,
+			);
+		expect(global.content[0].text).toContain('scope-token-a');
+		expect(global.content[0].text).toContain('scope-token-b');
 	});
 
 	it('replaces oversized text tool results and leaves small, skipped, and non-text results alone', async () => {
