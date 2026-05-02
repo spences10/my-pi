@@ -45,6 +45,8 @@ export interface StoredContextOutput {
 	receipt: string;
 	chunk_count: number;
 	returned_bytes: number;
+	project_path: string | null;
+	session_id: string | null;
 	deduped?: boolean;
 }
 
@@ -96,6 +98,13 @@ export interface ContextStats {
 	retention_days: number | null;
 	purge_on_shutdown: boolean;
 	max_mb: number | null;
+	scope_project_path: string | null;
+	scope_session_id: string | null;
+	global_sources: number;
+	global_chunks: number;
+	global_bytes_stored: number;
+	global_oldest_created_at: number | null;
+	global_newest_created_at: number | null;
 }
 
 export interface SourceRow {

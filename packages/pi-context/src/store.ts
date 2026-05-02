@@ -245,6 +245,8 @@ export class ContextStore {
 				receipt: '',
 				chunk_count: duplicate.chunk_count,
 				returned_bytes: 0,
+				project_path,
+				session_id,
 				deduped: true,
 			};
 			const receipt = summarize_source(provisional, input.tool_name);
@@ -306,6 +308,8 @@ export class ContextStore {
 				receipt: '',
 				chunk_count: chunks.length,
 				returned_bytes: 0,
+				project_path,
+				session_id,
 			};
 			const receipt = summarize_source(provisional, input.tool_name);
 			const returned_bytes = Buffer.byteLength(receipt, 'utf8');
@@ -493,18 +497,30 @@ export class ContextStore {
 		return stmt.all(...params) as unknown as ContextChunk[];
 	}
 
-	stats(): ContextStats {
+	private count_stats(options: ContextScopeOptions): {
+		sources: number;
+		chunks: number;
+		bytes_stored: number;
+		bytes_returned: number;
+		oldest_created_at: number | null;
+		newest_created_at: number | null;
+	} {
+		const scoped = this.scoped_filter('context_sources', options);
+		const where_clause = scoped.where.length
+			? `WHERE ${scoped.where.join(' AND ')}`
+			: '';
 		const source = this.db
 			.prepare(`
-			SELECT
-				COUNT(*) as sources,
-				COALESCE(SUM(byte_count), 0) as bytes_stored,
-				COALESCE(SUM(returned_byte_count), 0) as bytes_returned,
-				MIN(created_at) as oldest_created_at,
-				MAX(created_at) as newest_created_at
-			FROM context_sources
-		`)
-			.get() as {
+				SELECT
+					COUNT(*) as sources,
+					COALESCE(SUM(byte_count), 0) as bytes_stored,
+					COALESCE(SUM(returned_byte_count), 0) as bytes_returned,
+					MIN(created_at) as oldest_created_at,
+					MAX(created_at) as newest_created_at
+				FROM context_sources
+				${where_clause}
+			`)
+			.get(...scoped.params) as {
 			sources: number;
 			bytes_stored: number;
 			bytes_returned: number;
@@ -512,8 +528,23 @@ export class ContextStore {
 			newest_created_at: number | null;
 		};
 		const chunks = this.db
-			.prepare('SELECT COUNT(*) as chunks FROM context_chunks')
-			.get() as { chunks: number };
+			.prepare(`
+				SELECT COUNT(context_chunks.id) as chunks
+				FROM context_chunks
+				JOIN context_sources ON context_sources.id = context_chunks.source_id
+				${where_clause}
+			`)
+			.get(...scoped.params) as { chunks: number };
+		return { ...source, chunks: chunks.chunks };
+	}
+
+	stats(
+		options: ContextScopeOptions = { global: true },
+	): ContextStats {
+		const source = this.count_stats(options);
+		const global = options.global
+			? source
+			: this.count_stats({ global: true });
 		const bytes_saved = source.bytes_stored - source.bytes_returned;
 		const reduction_pct =
 			source.bytes_stored > 0
@@ -524,7 +555,7 @@ export class ContextStore {
 		const policy = parse_context_retention_policy();
 		return {
 			sources: source.sources,
-			chunks: chunks.chunks,
+			chunks: source.chunks,
 			bytes_stored: source.bytes_stored,
 			bytes_returned: source.bytes_returned,
 			bytes_saved,
@@ -537,6 +568,17 @@ export class ContextStore {
 			retention_days: policy.retention_days,
 			purge_on_shutdown: policy.purge_on_shutdown,
 			max_mb: policy.max_mb,
+			scope_project_path:
+				options.global === true
+					? null
+					: (options.project_path ?? null),
+			scope_session_id:
+				options.global === true ? null : (options.session_id ?? null),
+			global_sources: global.sources,
+			global_chunks: global.chunks,
+			global_bytes_stored: global.bytes_stored,
+			global_oldest_created_at: global.oldest_created_at,
+			global_newest_created_at: global.newest_created_at,
 		};
 	}
 

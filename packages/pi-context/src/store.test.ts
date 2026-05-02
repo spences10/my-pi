@@ -89,7 +89,17 @@ describe('ContextStore', () => {
 
 		expect(stored?.source_id).toMatch(/^ctx_/);
 		expect(stored?.receipt).toContain('context-sidecar');
-		expect(stored?.receipt).toContain('context_search');
+		expect(stored?.receipt).toContain('Project:');
+		expect(stored?.receipt).toContain('Session:');
+		expect(stored?.receipt).toContain('Next actions:');
+		expect(stored?.receipt).toContain(
+			`context_search query:"..." source_id:"${stored!.source_id}"`,
+		);
+		expect(stored?.receipt).toContain(
+			`context_get source_id:"${stored!.source_id}"`,
+		);
+		expect(stored?.receipt).toContain('context_list');
+		expect(stored?.receipt).toContain('Preview:');
 		expect(stored?.chunk_count).toBeGreaterThan(1);
 
 		const results = store.search('needle', {
@@ -313,6 +323,16 @@ describe('ContextStore', () => {
 		expect(
 			store.search('shared-token', { global: true }),
 		).toHaveLength(2);
+		const scoped_stats = store.stats({
+			project_path: '/repo',
+			session_id: 'session-b',
+		});
+		expect(scoped_stats).toMatchObject({
+			sources: 1,
+			global_sources: 2,
+			scope_project_path: '/repo',
+			scope_session_id: 'session-b',
+		});
 		expect(current).not.toBeNull();
 	});
 
@@ -603,6 +623,13 @@ describe('ContextStore', () => {
 			max_mb: null,
 			oldest_created_at: null,
 			newest_created_at: null,
+			scope_project_path: null,
+			scope_session_id: null,
+			global_sources: 0,
+			global_chunks: 0,
+			global_bytes_stored: 0,
+			global_oldest_created_at: null,
+			global_newest_created_at: null,
 		});
 		expect(stats.total_bytes).toBeGreaterThan(0);
 	});

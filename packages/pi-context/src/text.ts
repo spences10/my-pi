@@ -6,8 +6,8 @@ import type {
 
 export const DEFAULT_CONTEXT_MAX_BYTES = 24 * 1024;
 export const DEFAULT_CONTEXT_MAX_LINES = 300;
-const DEFAULT_PREVIEW_LINES = 80;
-const DEFAULT_PREVIEW_BYTES = 8 * 1024;
+const DEFAULT_PREVIEW_LINES = 40;
+const DEFAULT_PREVIEW_BYTES = 4 * 1024;
 
 export function count_lines(text: string): number {
 	if (!text) return 0;
@@ -205,9 +205,15 @@ export function summarize_source(
 		``,
 		`Source: ${result.source_id}`,
 		`Size: ${format_bytes(result.bytes)}, ${result.lines} lines, ${result.chunk_count} chunks`,
-		`Use context_search query:"..." source_id:"${result.source_id}" to inspect it.`,
-		`Use context_get source_id:"${result.source_id}" for exact chunks.`,
+		`Project: ${result.project_path ?? '(none)'}`,
+		`Session: ${result.session_id ?? '(none)'}`,
 		``,
+		`Next actions:`,
+		`- Search this source: context_search query:"..." source_id:"${result.source_id}"`,
+		`- Retrieve all chunks: context_get source_id:"${result.source_id}"`,
+		`- List recent scoped sources: context_list`,
+		``,
+		`Preview:`,
 		result.preview,
 	].join('\n');
 }

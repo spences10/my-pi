@@ -577,9 +577,12 @@ In interactive mode:
 - `/lsp status|list|restart` — inspect or restart language server
   state
 - `/redact-stats` — show how many secrets were redacted this session
-- `/context` / `/context stats` — inspect context sidecar stats in a
-  modal
-- `/context purge [days]` — purge old context sidecar entries
+- `/context` / `/context list [limit]` — browse recent context sidecar
+  sources in the current project/session scope
+- `/context stats` / `/context-stats` — inspect scoped/global context
+  sidecar stats and active retention policy
+- `/context purge [days|expired]` — purge old or expired context
+  sidecar entries
 - `/telemetry status|stats|query|export|on|off|path` — inspect, query,
   export, or toggle local SQLite telemetry
 
@@ -755,8 +758,8 @@ pi install npm:@spences10/pi-themes
   redaction and `/redact-stats`
 - [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md) —
   local SQLite telemetry and `/telemetry`
-- [`@spences10/pi-context`](./packages/pi-context/README.md) — local
-  SQLite FTS sidecar for oversized tool output
+- [`@spences10/pi-context`](./packages/pi-context/README.md) — scoped,
+  redacted SQLite FTS overflow cache for oversized tool output
 - [`@spences10/pi-mcp`](./packages/pi-mcp/README.md) — MCP server
   integration and `/mcp`
 - [`@spences10/pi-lsp`](./packages/pi-lsp/README.md) — LSP-backed

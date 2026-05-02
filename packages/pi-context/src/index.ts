@@ -131,19 +131,28 @@ function format_purge_details(details: ContextPurgeDetails): string {
 }
 
 function format_stats(stats: ContextStats): string {
+	const scoped = stats.scope_project_path || stats.scope_session_id;
 	return [
 		'## context-sidecar stats',
 		'',
 		`- Enabled: ${is_context_sidecar_enabled()}`,
-		`- Sources: ${stats.sources}`,
-		`- Chunks: ${stats.chunks}`,
-		`- Raw bytes stored: ${stats.bytes_stored}`,
+		scoped
+			? `- Scope: project=${stats.scope_project_path ?? '(none)'}, session=${stats.scope_session_id ?? '(none)'}`
+			: '- Scope: global',
+		`- Scoped sources: ${stats.sources}`,
+		`- Scoped chunks: ${stats.chunks}`,
+		`- Scoped raw bytes stored: ${stats.bytes_stored}`,
+		`- Global sources: ${stats.global_sources}`,
+		`- Global chunks: ${stats.global_chunks}`,
+		`- Global raw bytes stored: ${stats.global_bytes_stored}`,
 		`- Bytes returned: ${stats.bytes_returned}`,
 		`- Bytes saved: ${stats.bytes_saved}`,
 		`- Reduction: ${stats.reduction_pct}%`,
 		`- DB bytes: ${stats.total_bytes}`,
-		`- Oldest source: ${format_timestamp(stats.oldest_created_at)}`,
-		`- Newest source: ${format_timestamp(stats.newest_created_at)}`,
+		`- Scoped oldest source: ${format_timestamp(stats.oldest_created_at)}`,
+		`- Scoped newest source: ${format_timestamp(stats.newest_created_at)}`,
+		`- Global oldest source: ${format_timestamp(stats.global_oldest_created_at)}`,
+		`- Global newest source: ${format_timestamp(stats.global_newest_created_at)}`,
 		`- Retention days: ${stats.retention_days ?? 'disabled'}`,
 		`- Purge on shutdown: ${stats.purge_on_shutdown}`,
 		`- Max DB size: ${stats.max_mb === null ? 'disabled' : `${stats.max_mb} MiB`}`,
@@ -172,7 +181,8 @@ async function show_context_text_modal(
 async function show_context_stats(
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
-	const text = format_stats(get_context_store().stats());
+	const scope = scope_from_context(ctx);
+	const text = format_stats(get_context_store(scope).stats(scope));
 	if (ctx.hasUI) {
 		await show_context_text_modal(ctx, 'Context sidecar stats', text);
 	} else {
@@ -453,8 +463,9 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 		description:
 			'Show byte accounting for the local SQLite context sidecar.',
 		parameters: Type.Object({}),
-		async execute() {
-			const stats = get_context_store().stats();
+		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+			const scope = scope_from_context(ctx);
+			const stats = get_context_store(scope).stats(scope);
 			return {
 				content: [
 					{ type: 'text' as const, text: format_stats(stats) },
