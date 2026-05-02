@@ -181,11 +181,11 @@ export function create_skills_manager(): SkillsManager {
 		for (const parent of normalize_extends(profile.extends)) {
 			rules.push(...resolve_profile_rules(parent, seen));
 		}
-		for (const pattern of profile.exclude ?? []) {
-			rules.push({ pattern, enabled: false });
-		}
 		for (const pattern of profile.include ?? []) {
 			rules.push({ pattern, enabled: true });
+		}
+		for (const pattern of profile.exclude ?? []) {
+			rules.push({ pattern, enabled: false });
 		}
 		return rules;
 	}
@@ -218,16 +218,15 @@ export function create_skills_manager(): SkillsManager {
 
 	function to_profile(name: string): SkillProfile {
 		const profile = config.profiles[name] ?? {};
-		return {
+		const result: SkillProfile = {
 			name,
-			...(profile.description
-				? { description: profile.description }
-				: {}),
 			extends: normalize_extends(profile.extends),
 			include: [...(profile.include ?? [])],
 			exclude: [...(profile.exclude ?? [])],
 			active: name === get_active_profile(),
 		};
+		if (profile.description) result.description = profile.description;
+		return result;
 	}
 
 	function set_profile_skill_enabled(
@@ -340,7 +339,14 @@ export function create_skills_manager(): SkillsManager {
 		},
 
 		set_defaults(policy: SkillDefaultPolicy): void {
-			config.defaults = policy;
+			const profile = get_or_create_profile(get_active_profile());
+			profile.include = remove_value(profile.include, '*');
+			profile.exclude = remove_value(profile.exclude, '*');
+			if (policy === 'all-enabled') {
+				profile.include ??= [];
+				profile.include.unshift('*');
+			}
+			config.defaults = 'all-disabled';
 			save_skills_config(config);
 		},
 
@@ -370,16 +376,14 @@ export function create_skills_manager(): SkillsManager {
 					`Skill profile already exists: ${normalized}`,
 				);
 			}
-			config.profiles[normalized] = {
-				...(options.description
-					? { description: options.description }
-					: {}),
-				...(options.extends?.length
-					? { extends: options.extends }
-					: {}),
+			const profile: SkillProfileConfig = {
 				include: [],
 				exclude: [],
 			};
+			if (options.description)
+				profile.description = options.description;
+			if (options.extends?.length) profile.extends = options.extends;
+			config.profiles[normalized] = profile;
 			save_skills_config(config);
 			return to_profile(normalized);
 		},
@@ -414,8 +418,7 @@ export function create_skills_manager(): SkillsManager {
 			);
 			const result = import_external_skill(skill);
 			const managed_key = make_skill_key(skill.name, 'pi-native');
-			config.enabled[managed_key] = true;
-			save_skills_config(config);
+			set_profile_skill_enabled(managed_key, true);
 			this.refresh();
 			return {
 				...result,

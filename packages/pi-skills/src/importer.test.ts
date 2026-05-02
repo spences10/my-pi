@@ -57,19 +57,17 @@ function write_plugin_registry(
 			{
 				version: 2,
 				plugins: Object.fromEntries(
-					Object.entries(plugins).map(([key, value]) => [
-						key,
-						[
-							{
-								scope: 'user',
-								installPath: value.installPath,
-								version: value.version,
-								...(value.gitCommitSha
-									? { gitCommitSha: value.gitCommitSha }
-									: {}),
-							},
-						],
-					]),
+					Object.entries(plugins).map(([key, value]) => {
+						const plugin = {
+							scope: 'user',
+							installPath: value.installPath,
+							version: value.version,
+							...(value.gitCommitSha && {
+								gitCommitSha: value.gitCommitSha,
+							}),
+						};
+						return [key, [plugin]];
+					}),
 				),
 			},
 			null,

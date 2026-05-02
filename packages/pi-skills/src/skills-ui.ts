@@ -66,9 +66,9 @@ export async function show_skills_home_modal(
 			},
 			{
 				value: 'defaults',
-				label: 'Default policy',
+				label: 'Profile baseline',
 				description:
-					'Choose whether new skills default enabled or disabled',
+					'Choose whether this profile starts enabled or disabled',
 			},
 		],
 		footer: 'enter opens • esc close/back',
@@ -310,26 +310,26 @@ export async function show_defaults_modal(
 	mgr: SkillsManager,
 ): Promise<void> {
 	const selected = await show_picker_modal(ctx, {
-		title: 'Skill default policy',
-		subtitle: 'Choose how newly discovered skills start',
+		title: 'Skill profile baseline',
+		subtitle: `Active profile: ${mgr.get_active_profile()}`,
 		items: [
 			{
 				value: 'all-enabled',
 				label: 'All enabled',
-				description: 'New skills are enabled by default',
+				description: 'This profile enables every matching skill',
 			},
 			{
 				value: 'all-disabled',
 				label: 'All disabled',
-				description: 'New skills require explicit enablement',
+				description: 'This profile only enables explicit includes',
 			},
 		],
 	});
 	if (!selected) return;
 	mgr.set_defaults(selected as 'all-enabled' | 'all-disabled');
 	await show_text_modal(ctx, {
-		title: 'Skill defaults updated',
-		text: `Default policy: ${selected}`,
+		title: 'Skill profile baseline updated',
+		text: `Active profile baseline: ${selected}`,
 	});
 }
 
@@ -371,12 +371,12 @@ export async function show_profiles_modal(
 				},
 				{
 					value: 'include',
-					label: 'Add include pattern',
+					label: 'Enable skill/pattern',
 					description: 'Enable matching skills in a profile',
 				},
 				{
 					value: 'exclude',
-					label: 'Add exclude pattern',
+					label: 'Disable skill/pattern',
 					description: 'Disable matching skills in a profile',
 				},
 				{
@@ -419,10 +419,10 @@ export async function show_profiles_modal(
 			});
 			if (!name) continue;
 			try {
-				mgr.create_profile(name, { extends: ['default'] });
+				mgr.create_profile(name);
 				await show_text_modal(ctx, {
 					title: 'Skill profile created',
-					text: `Created ${name}. Use /skills profile use ${name} to activate it.`,
+					text: `Created empty profile ${name}. Use /skills profile use ${name} to activate it, then /skills enable <skill> to add skills.`,
 				});
 			} catch (error) {
 				ctx.ui.notify(
@@ -435,17 +435,17 @@ export async function show_profiles_modal(
 				ctx,
 				mgr,
 				selected === 'include'
-					? 'Choose include profile'
-					: 'Choose exclude profile',
+					? 'Choose enable profile'
+					: 'Choose disable profile',
 			);
 			if (!profile) continue;
 			const pattern = await show_input_modal(ctx, {
 				title:
 					selected === 'include'
-						? 'Add include pattern'
-						: 'Add exclude pattern',
+						? 'Enable skill or pattern'
+						: 'Disable skill or pattern',
 				subtitle: `Profile: ${profile}`,
-				label: 'Pattern',
+				label: 'Skill name, key, or pattern',
 				trim: true,
 			});
 			if (!pattern) continue;

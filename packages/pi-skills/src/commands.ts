@@ -30,6 +30,8 @@ export default async function skills(pi: ExtensionAPI) {
 	const subs = [
 		'list',
 		'show',
+		'enable',
+		'disable',
 		'import',
 		'sync',
 		'profile',
@@ -48,12 +50,13 @@ export default async function skills(pi: ExtensionAPI) {
 					.map((s) => ({ value: s, label: s }));
 			}
 
-			if (parts[0] === 'show') {
+			if (['show', 'enable', 'disable'].includes(parts[0] ?? '')) {
 				const q = parts.slice(1).join(' ').toLowerCase();
-				return sort_skills([
-					...mgr.discover(),
-					...mgr.discover_importable(),
-				])
+				const skills =
+					parts[0] === 'show'
+						? [...mgr.discover(), ...mgr.discover_importable()]
+						: mgr.discover();
+				return sort_skills(skills)
 					.filter(
 						(s) =>
 							s.key.toLowerCase().includes(q) ||
@@ -275,6 +278,44 @@ export default async function skills(pi: ExtensionAPI) {
 					}
 					break;
 				}
+				case 'enable':
+				case 'disable': {
+					let target = arg;
+					if (!target && ctx.hasUI) {
+						target =
+							(await pick_skill(ctx, {
+								title:
+									sub === 'enable'
+										? 'Enable skill in active profile'
+										: 'Disable skill in active profile',
+								subtitle: `Profile: ${mgr.get_active_profile()}`,
+								skills: sort_skills(mgr.discover()),
+								empty_message: 'No managed skills found',
+							})) ?? '';
+						if (!target) return;
+					}
+					if (!target) {
+						ctx.ui.notify(
+							`Usage: /skills ${sub} <key|name|pattern>`,
+							'warning',
+						);
+						return;
+					}
+					let pattern = target;
+					try {
+						pattern = find_skill(mgr.discover(), target).key;
+					} catch {
+						// Treat misses as patterns, e.g. design-* or *@plugin:vendor.
+					}
+					if (sub === 'enable') mgr.enable(pattern);
+					else mgr.disable(pattern);
+					ctx.ui.notify(
+						`Updated ${mgr.get_active_profile()} profile. Reloading...`,
+						'info',
+					);
+					await ctx.reload();
+					return;
+				}
 				case 'import': {
 					let target = arg;
 					if (!target && ctx.hasUI) {
@@ -467,8 +508,8 @@ export default async function skills(pi: ExtensionAPI) {
 							break;
 						}
 						try {
-							mgr.create_profile(target, { extends: ['default'] });
-							ctx.ui.notify(`Created skill profile ${target}`);
+							mgr.create_profile(target);
+							ctx.ui.notify(`Created empty skill profile ${target}`);
 						} catch (error) {
 							ctx.ui.notify(
 								error instanceof Error
@@ -539,11 +580,11 @@ export default async function skills(pi: ExtensionAPI) {
 					mgr.set_defaults(arg);
 					if (ctx.hasUI) {
 						await show_text_modal(ctx, {
-							title: 'Skill defaults updated',
-							text: `Default policy: ${arg}`,
+							title: 'Skill profile baseline updated',
+							text: `Active profile baseline: ${arg}`,
 						});
 					} else {
-						ctx.ui.notify(`Default policy: ${arg}`);
+						ctx.ui.notify(`Active profile baseline: ${arg}`);
 					}
 					break;
 				}

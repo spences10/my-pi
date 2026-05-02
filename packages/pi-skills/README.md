@@ -54,22 +54,32 @@ detect local edits and upstream changes.
 
 ```text
 /skills
+/skills enable <key|name|pattern>
+/skills disable <key|name|pattern>
 /skills import <key-or-name>
 /skills sync <key-or-name>
+/skills profile create <name>
+/skills profile use <name>
 /skills refresh
 /skills defaults all-enabled
 /skills defaults all-disabled
 ```
 
 With a UI available, `/skills` opens a modal home menu for managing,
-importing, syncing, refreshing, and setting default policy. The no-arg
-`import`, `sync`, and `defaults` subcommands use modal pickers/forms
-in interactive mode. In headless mode, use the subcommands directly.
+importing, syncing, refreshing, profile switching, and profile
+baseline selection. The no-arg `import`, `sync`, and `defaults`
+subcommands use modal pickers/forms in interactive mode. In headless
+mode, use the subcommands directly.
 
 ## Skill enablement
 
-The extension tracks enabled/disabled state in its own config and
-contributes enabled managed skill paths during Pi resource discovery.
+The extension treats profiles as named skill sets. The active profile
+contains include/exclude rules for skill names, keys, sources, or
+paths; `*` wildcards are supported. Legacy top-level enablement is
+migrated into the `default` profile on load.
+
+The extension contributes enabled managed skill paths during Pi
+resource discovery.
 
 In a custom harness such as `my-pi`, this can be combined with a
 resource filter to enforce disabled skills. In vanilla `pi`, Pi's own
