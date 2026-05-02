@@ -52,6 +52,7 @@
 		"test": "pnpm --filter \"./packages/*\" run build && vp pack && sh -c 'if [ \"$#\" -gt 0 ]; then vp test \"$@\"; else vp test && pnpm --filter \"./packages/*\" run test; fi' --",
 		"test:watch": "vp test watch",
 		"eval:local": "node scripts/run-eval-case.ts",
+		"eval:suite": "node scripts/run-eval-suite.ts",
 		"changeset": "changeset",
 		"version": "changeset version",
 		"release": "pnpm run build && changeset publish"

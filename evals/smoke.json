@@ -1,0 +1,78 @@
+{
+	"version": 1,
+	"name": "smoke",
+	"cases": [
+		{
+			"id": "cli-help-contract",
+			"description": "CLI help exposes eval, telemetry, and safety flags without requiring provider auth.",
+			"command": "node",
+			"args": ["dist/index.js", "--help"],
+			"assert": {
+				"exit_code": 0,
+				"stdout_contains": [
+					"my-pi",
+					"--telemetry",
+					"--telemetry-db",
+					"--untrusted",
+					"--no-mcp"
+				],
+				"output_not_contains": [
+					"[object Object]",
+					"UnhandledPromiseRejection"
+				]
+			}
+		},
+		{
+			"id": "no-mcp-removes-mcp-tools",
+			"description": "Disabling MCP removes all MCP tools from the active tool registry.",
+			"command": "node",
+			"args": [
+				"--input-type=module",
+				"-e",
+				"const { mkdtempSync, rmSync } = await import('node:fs'); const { tmpdir } = await import('node:os'); const { join } = await import('node:path'); const { create_my_pi } = await import('./dist/api.js'); const cwd = mkdtempSync(join(tmpdir(), 'my-pi-eval-no-mcp-')); const runtime = await create_my_pi({ cwd, runtime_mode: 'json', context_sidecar: false, mcp: false, skills: false, filter_output: false, recall: false, nopeek: false, omnisearch: false, sqlite_tools: false, prompt_presets: false, lsp: false, session_name: false, confirm_destructive: false, hooks_resolution: false, team_mode: false }); const extensions = await runtime.services.resourceLoader.getExtensions(); const mcpTools = extensions.runtime.getAllTools().map((tool) => tool.name).filter((name) => name.startsWith('mcp__')); await runtime.dispose(); rmSync(cwd, { recursive: true, force: true }); if (mcpTools.length) { console.error(JSON.stringify(mcpTools.slice(0, 10))); process.exit(1); } console.log('mcp tools absent');"
+			],
+			"assert": {
+				"exit_code": 0,
+				"stdout_contains": ["mcp tools absent"],
+				"output_not_contains": ["mcp__"]
+			}
+		},
+		{
+			"id": "context-sidecar-index-retrieve",
+			"description": "Context sidecar stores oversized output and retrieves it by FTS query.",
+			"command": "node",
+			"env": {
+				"NODE_OPTIONS": "--no-warnings=ExperimentalWarning"
+			},
+			"args": [
+				"--input-type=module",
+				"-e",
+				"const { mkdtempSync, rmSync } = await import('node:fs'); const { tmpdir } = await import('node:os'); const { join } = await import('node:path'); const { ContextStore } = await import('./packages/pi-context/dist/store.js'); const dir = mkdtempSync(join(tmpdir(), 'my-pi-eval-context-')); const store = new ContextStore({ db_path: join(dir, 'context.db'), max_bytes: 50, max_lines: 3 }); const text = Array.from({ length: 80 }, (_, index) => `chunkable sentinel-${index} alpha beta`).join('\\n'); const stored = store.store({ text, tool_name: 'bash', force: true }); const hits = stored ? store.search('sentinel-42', { source_id: stored.source_id }) : []; const chunks = stored ? store.get(stored.source_id) : []; store.close(); rmSync(dir, { recursive: true, force: true }); if (!stored || hits.length === 0 || chunks.length === 0) process.exit(1); console.log(JSON.stringify({ sources: 1, hits: hits.length, chunks: chunks.length }));"
+			],
+			"assert": {
+				"exit_code": 0,
+				"stdout_contains": ["\"sources\":1", "\"hits\":"],
+				"output_not_contains": ["CanaryPassword-Redaction-001!"]
+			}
+		},
+		{
+			"id": "redaction-canary-and-metadata",
+			"description": "Redaction preserves normal GitHub/package metadata while redacting known secret canaries.",
+			"command": "node",
+			"args": [
+				"--input-type=module",
+				"-e",
+				"const { redact_text } = await import('./packages/pi-redact/dist/index.js'); const metadata = redact_text('https://github.com/spences10/my-pi#readme'); const canary = redact_text('password = \"CanaryPassword-Redaction-001!\"'); console.log(JSON.stringify({ metadata: metadata.redacted, metadataCount: metadata.count, canary: canary.redacted, canaryCount: canary.count }));"
+			],
+			"assert": {
+				"exit_code": 0,
+				"stdout_contains": [
+					"https://github.com/spences10/my-pi#readme",
+					"\"metadataCount\":0",
+					"[REDACTED:Generic Password Field]"
+				],
+				"output_not_contains": ["CanaryPassword-Redaction-001!"]
+			}
+		}
+	]
+}

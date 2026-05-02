@@ -257,6 +257,21 @@ It sets `MY_PI_EVAL_*`, uses an isolated `.tmp/pi-agent`, writes
 telemetry to `.tmp/evals.db`, and passes `--untrusted` by default. Add
 extra my-pi flags after `--`, for example `-- --model openai:gpt-5`.
 
+For assertion-backed regression gates, run the committed smoke suite
+after `pnpm run build`:
+
+```bash
+pnpm run eval:suite
+pnpm run eval:suite -- --case no-mcp-removes-mcp-tools
+pnpm run eval:suite -- --json
+```
+
+Suites live in `evals/*.json`. Each case declares a command plus
+objective assertions for exit code and expected/forbidden stdout,
+stderr, or combined output. Cases can declare required environment
+variable names; missing values are reported as skips without printing
+secret values.
+
 Recorded tables:
 
 - `runs`
