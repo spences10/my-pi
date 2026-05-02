@@ -199,7 +199,9 @@ export function summarize_source(
 	tool_name: string,
 ): string {
 	return [
-		`[context-sidecar] Large ${tool_name} output indexed locally`,
+		result.deduped
+			? `[context-sidecar] Duplicate large ${tool_name} output reused existing local index`
+			: `[context-sidecar] Large ${tool_name} output indexed locally`,
 		``,
 		`Source: ${result.source_id}`,
 		`Size: ${format_bytes(result.bytes)}, ${result.lines} lines, ${result.chunk_count} chunks`,

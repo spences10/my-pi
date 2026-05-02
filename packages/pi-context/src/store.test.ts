@@ -191,6 +191,41 @@ describe('ContextStore', () => {
 		}
 	});
 
+	it('deduplicates identical redacted content within the same scope only', () => {
+		const store = create_store({
+			max_bytes: 10,
+			project_path: '/repo',
+			session_id: 'session-a',
+		});
+		const text = `dedupe-token\n${'same '.repeat(100)}`;
+		const first = store.store({ text, tool_name: 'bash' });
+		const duplicate = store.store({ text, tool_name: 'bash' });
+		const other_session = store.store({
+			text,
+			tool_name: 'bash',
+			project_path: '/repo',
+			session_id: 'session-b',
+		});
+
+		expect(duplicate?.source_id).toBe(first?.source_id);
+		expect(duplicate?.deduped).toBe(true);
+		expect(duplicate?.receipt).toContain('reused existing');
+		expect(other_session?.source_id).not.toBe(first?.source_id);
+		expect(store.list({ global: true })).toHaveLength(2);
+		const db = new DatabaseSync(store.db_path, {
+			enableForeignKeyConstraints: true,
+		});
+		try {
+			expect(
+				db
+					.prepare('SELECT COUNT(*) as count FROM context_chunks')
+					.get(),
+			).toMatchObject({ count: 2 });
+		} finally {
+			close_db(db);
+		}
+	});
+
 	it('lists recent sources with scope, filters, pagination, and compact metadata', () => {
 		const store = create_store({
 			max_bytes: 10,
@@ -377,6 +412,64 @@ describe('ContextStore', () => {
 		expect(store.get(stored!.source_id)).toEqual([]);
 		expect(store.search('purge-token')).toEqual([]);
 		expect(store.purge({ source_id: stored!.source_id })).toBe(0);
+	});
+
+	it('purges by project and session filters with details', () => {
+		const store = create_store({ max_bytes: 10 });
+		const project_a_session_a = store.store({
+			text: `project-session-token a-a\n${'a '.repeat(100)}`,
+			tool_name: 'bash',
+			project_path: '/repo-a',
+			session_id: 'session-a',
+		});
+		const project_a_session_b = store.store({
+			text: `project-session-token a-b\n${'b '.repeat(100)}`,
+			tool_name: 'bash',
+			project_path: '/repo-a',
+			session_id: 'session-b',
+		});
+		const project_b_session_a = store.store({
+			text: `project-session-token b-a\n${'c '.repeat(100)}`,
+			tool_name: 'bash',
+			project_path: '/repo-b',
+			session_id: 'session-a',
+		});
+
+		const session_purge = store.purge_with_details({
+			project_path: '/repo-a',
+			session_id: 'session-a',
+		});
+		expect(session_purge).toMatchObject({
+			deleted: 1,
+			project_path: '/repo-a',
+			session_id: 'session-a',
+		});
+		expect(
+			store.get(project_a_session_a!.source_id, undefined, {
+				global: true,
+			}),
+		).toEqual([]);
+		expect(
+			store.get(project_a_session_b!.source_id, undefined, {
+				global: true,
+			}),
+		).toHaveLength(project_a_session_b!.chunk_count);
+
+		const project_purge = store.purge_with_details({
+			project_path: '/repo-b',
+		});
+		expect(project_purge).toMatchObject({
+			deleted: 1,
+			project_path: '/repo-b',
+		});
+		expect(
+			store.get(project_b_session_a!.source_id, undefined, {
+				global: true,
+			}),
+		).toEqual([]);
+		expect(
+			store.search('project-session-token', { global: true }),
+		).toHaveLength(1);
 	});
 
 	it('purges old sources by age without deleting fresh sources', () => {

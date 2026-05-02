@@ -15,6 +15,7 @@ import {
 	set_context_sidecar_enabled,
 	should_index_text,
 	type ContextListResult,
+	type ContextPurgeDetails,
 	type ContextScopeOptions,
 	type ContextSearchResult,
 	type ContextStats,
@@ -111,6 +112,24 @@ function format_list_results(results: ContextListResult[]): string {
 		.join('\n\n');
 }
 
+function format_purge_details(details: ContextPurgeDetails): string {
+	const filters = [
+		details.source_id ? `source_id=${details.source_id}` : undefined,
+		details.project_path !== undefined
+			? `project_path=${details.project_path ?? '(none)'}`
+			: undefined,
+		details.session_id !== undefined
+			? `session_id=${details.session_id ?? '(none)'}`
+			: undefined,
+		details.older_than_days !== undefined
+			? `older_than_days=${details.older_than_days}`
+			: undefined,
+	]
+		.filter(Boolean)
+		.join(', ');
+	return `Deleted ${details.deleted} context source(s).${filters ? ` Filters: ${filters}.` : ''}`;
+}
+
 function format_stats(stats: ContextStats): string {
 	return [
 		'## context-sidecar stats',
@@ -204,14 +223,14 @@ async function purge_context(
 		: await ctx.ui.confirm('Purge context sidecar?', description);
 	if (!confirmed) return;
 	const scope = scope_from_context(ctx);
-	const deleted = options.expired
-		? get_context_store(scope).cleanup().deleted
-		: get_context_store(scope).purge({
+	const details = options.expired
+		? { deleted: get_context_store(scope).cleanup().deleted }
+		: get_context_store(scope).purge_with_details({
 				...scope,
 				older_than_days: options.source_id ? undefined : days,
 				source_id: options.source_id,
 			});
-	ctx.ui.notify(`Deleted ${deleted} context source(s).`, 'info');
+	ctx.ui.notify(format_purge_details(details), 'info');
 }
 
 export default function context_sidecar(pi: ExtensionAPI): void {
@@ -498,9 +517,9 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 				: has_explicit_scope
 					? params.session_id
 					: scope.session_id;
-			const deleted = params.expired
-				? store.cleanup().deleted
-				: store.purge({
+			const details = params.expired
+				? { deleted: store.cleanup().deleted }
+				: store.purge_with_details({
 						project_path,
 						session_id,
 						older_than_days: params.source_id
@@ -514,10 +533,10 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 				content: [
 					{
 						type: 'text' as const,
-						text: `Deleted ${deleted} context source(s).`,
+						text: format_purge_details(details),
 					},
 				],
-				details: { deleted },
+				details,
 			};
 		},
 	});
@@ -625,6 +644,7 @@ export {
 export type {
 	ContextCleanupResult,
 	ContextListResult,
+	ContextPurgeDetails,
 	ContextRetentionPolicy,
 	ContextScopeOptions,
 	ContextSearchResult,

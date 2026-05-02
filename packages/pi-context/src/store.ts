@@ -20,6 +20,7 @@ import type {
 	ContextChunk,
 	ContextCleanupResult,
 	ContextListResult,
+	ContextPurgeDetails,
 	ContextRetentionPolicy,
 	ContextScopeOptions,
 	ContextSearchResult,
@@ -48,6 +49,7 @@ export type {
 	ContextChunk,
 	ContextCleanupResult,
 	ContextListResult,
+	ContextPurgeDetails,
 	ContextRetentionPolicy,
 	ContextScopeOptions,
 	ContextSearchResult,
@@ -180,6 +182,35 @@ export class ContextStore {
 		return { where, params };
 	}
 
+	private find_duplicate_source(
+		content_hash: string,
+		scope: ContextScopeOptions,
+	): { id: string; chunk_count: number } | null {
+		const scoped = this.scoped_filter('context_sources', scope);
+		const filters = [
+			'context_sources.content_hash = ?',
+			...scoped.where,
+		];
+		const params: Array<string | number> = [
+			content_hash,
+			...scoped.params,
+		];
+		const row = this.db
+			.prepare(`
+				SELECT context_sources.id, COUNT(context_chunks.id) as chunk_count
+				FROM context_sources
+				LEFT JOIN context_chunks ON context_chunks.source_id = context_sources.id
+				WHERE ${filters.join(' AND ')}
+				GROUP BY context_sources.id
+				ORDER BY context_sources.created_at DESC
+				LIMIT 1
+			`)
+			.get(...params) as
+			| { id: string; chunk_count: number }
+			| undefined;
+		return row ?? null;
+	}
+
 	store(input: StoreContextInput): StoredContextOutput | null {
 		const redaction = redact_text(input.text);
 		const text = redaction.redacted;
@@ -194,13 +225,39 @@ export class ContextStore {
 
 		const bytes = Buffer.byteLength(text, 'utf8');
 		const lines = count_lines(text);
-		const source_id = `ctx_${Date.now().toString(36)}_${randomUUID().slice(0, 8)}`;
 		const created_at = Date.now();
 		const content_hash = createHash('sha256')
 			.update(text)
 			.digest('hex');
-		const chunks = chunk_text(text, source_id);
+		const session_id = input.session_id ?? this.session_id;
+		const project_path = input.project_path ?? this.project_path;
 		const preview = make_preview(text);
+		const duplicate = this.find_duplicate_source(content_hash, {
+			session_id,
+			project_path,
+		});
+		if (duplicate) {
+			const provisional: StoredContextOutput = {
+				source_id: duplicate.id,
+				bytes,
+				lines,
+				preview,
+				receipt: '',
+				chunk_count: duplicate.chunk_count,
+				returned_bytes: 0,
+				deduped: true,
+			};
+			const receipt = summarize_source(provisional, input.tool_name);
+			const returned_bytes = Buffer.byteLength(receipt, 'utf8');
+			this.db
+				.prepare(
+					'UPDATE context_sources SET returned_byte_count = returned_byte_count + ? WHERE id = ?',
+				)
+				.run(returned_bytes, duplicate.id);
+			return { ...provisional, receipt, returned_bytes };
+		}
+		const source_id = `ctx_${Date.now().toString(36)}_${randomUUID().slice(0, 8)}`;
+		const chunks = chunk_text(text, source_id);
 		const preview_bytes = Buffer.byteLength(preview, 'utf8');
 
 		const insert = this.db.prepare(`
@@ -221,8 +278,8 @@ export class ContextStore {
 		try {
 			insert.run(
 				source_id,
-				input.session_id ?? this.session_id,
-				input.project_path ?? this.project_path,
+				session_id,
+				project_path,
 				input.tool_name,
 				input.input_summary ?? null,
 				created_at,
@@ -537,6 +594,15 @@ export class ContextStore {
 			source_id?: string;
 		} = {},
 	): number {
+		return this.purge_with_details(options).deleted;
+	}
+
+	purge_with_details(
+		options: ContextScopeOptions & {
+			older_than_days?: number;
+			source_id?: string;
+		} = {},
+	): ContextPurgeDetails {
 		const filters: string[] = [];
 		const params: Array<string | number> = [];
 		if (options.source_id) {
@@ -561,13 +627,21 @@ export class ContextStore {
 			filters.push('created_at < ?');
 			params.push(cutoff);
 		}
-		if (filters.length === 0) return 0;
+		if (filters.length === 0) {
+			return { deleted: 0 };
+		}
 		const result = this.db
 			.prepare(
 				`DELETE FROM context_sources WHERE ${filters.join(' AND ')}`,
 			)
 			.run(...params);
-		return Number(result.changes ?? 0);
+		return {
+			deleted: Number(result.changes ?? 0),
+			source_id: options.source_id,
+			project_path: options.project_path,
+			session_id: options.session_id,
+			older_than_days: options.older_than_days,
+		};
 	}
 
 	close(): void {

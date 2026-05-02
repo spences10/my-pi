@@ -20,6 +20,14 @@ export interface ContextCleanupResult {
 	policy: ContextRetentionPolicy;
 }
 
+export interface ContextPurgeDetails {
+	deleted: number;
+	source_id?: string;
+	project_path?: string | null;
+	session_id?: string | null;
+	older_than_days?: number;
+}
+
 export interface StoreContextInput {
 	text: string;
 	tool_name: string;
@@ -37,6 +45,7 @@ export interface StoredContextOutput {
 	receipt: string;
 	chunk_count: number;
 	returned_bytes: number;
+	deduped?: boolean;
 }
 
 export interface ContextSearchResult {

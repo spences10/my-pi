@@ -407,9 +407,11 @@ describe('context_sidecar extension', () => {
 			.execute('call-4', {
 				source_id,
 			});
-		expect(purge.content[0].text).toBe(
+		expect(purge.content[0].text).toContain(
 			'Deleted 1 context source(s).',
 		);
+		expect(purge.content[0].text).toContain(`source_id=${source_id}`);
+		expect(purge.details).toMatchObject({ deleted: 1, source_id });
 
 		const empty = await fake.tools
 			.get('context_get')!
