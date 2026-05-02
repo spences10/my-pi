@@ -460,6 +460,85 @@ export default async function mcp(pi: ExtensionAPI) {
 		return true;
 	};
 
+	const load_profile = async (
+		ctx: ExtensionCommandContext,
+		name: string,
+		scope: McpConfigScope,
+	): Promise<boolean> => {
+		const confirmed = await confirm_mcp_action(ctx, {
+			title: 'Load MCP profile?',
+			message: `This replaces ${scope} MCP config with profile ${name}.`,
+			confirm_label: 'Load profile',
+		});
+		if (!confirmed) return false;
+		try {
+			const profile = load_mcp_profile(ctx.cwd, name, scope);
+			await reload_after_config_change(
+				ctx,
+				`Loaded MCP profile ${profile.name} (${profile.server_count} servers).`,
+			);
+			return true;
+		} catch (error) {
+			ctx.ui.notify(
+				error instanceof Error ? error.message : String(error),
+				'warning',
+			);
+			return false;
+		}
+	};
+
+	const show_mcp_profile_actions = async (
+		ctx: ExtensionCommandContext,
+		name: string,
+	): Promise<boolean> => {
+		const profile = list_mcp_profiles().find(
+			(item) => item.name === name,
+		);
+		if (!profile) {
+			ctx.ui.notify(`MCP profile not found: ${name}`, 'warning');
+			return false;
+		}
+		const action = await show_picker_modal(ctx, {
+			title: `MCP profile: ${profile.name}`,
+			subtitle: `${profile.server_count} server(s)${profile.created_at ? ` • ${profile.created_at}` : ''}`,
+			items: [
+				{
+					value: 'load-global',
+					label: 'Load as global config',
+					description: 'Replace ~/.pi/agent/mcp.json',
+				},
+				{
+					value: 'load-project',
+					label: 'Load as project config',
+					description: 'Replace ./mcp.json for this project',
+				},
+				{
+					value: 'inspect',
+					label: 'Inspect profile',
+					description: 'Show path, creation date, and server count',
+				},
+			],
+			footer: 'enter selects • esc back',
+		});
+		if (action === 'load-global')
+			return await load_profile(ctx, profile.name, 'global');
+		if (action === 'load-project')
+			return await load_profile(ctx, profile.name, 'project');
+		if (action === 'inspect') {
+			await show_mcp_text_modal(
+				ctx,
+				`MCP profile: ${profile.name}`,
+				[
+					`Name: ${profile.name}`,
+					`Servers: ${profile.server_count}`,
+					`Created: ${profile.created_at ?? 'unknown'}`,
+					`Path: ${profile.path}`,
+				].join('\n'),
+			);
+		}
+		return false;
+	};
+
 	const handle_mcp_profile = async (
 		ctx: ExtensionCommandContext,
 		args: string[],
@@ -471,16 +550,34 @@ export default async function mcp(pi: ExtensionAPI) {
 				ctx.ui.notify('No MCP profiles saved');
 				return false;
 			}
-			const text = profiles
-				.map(
-					(profile) =>
-						`${profile.name} — ${profile.server_count} servers`,
-				)
-				.join('\n');
-			if (ctx.hasUI)
-				await show_mcp_text_modal(ctx, 'MCP profiles', text);
-			else ctx.ui.notify(text);
-			return false;
+			if (!ctx.hasUI) {
+				ctx.ui.notify(
+					profiles
+						.map(
+							(profile) =>
+								`${profile.name} — ${profile.server_count} servers`,
+						)
+						.join('\n'),
+				);
+				return false;
+			}
+			const requested = args[1];
+			const selected =
+				requested ??
+				(await show_picker_modal(ctx, {
+					title: 'MCP profiles',
+					subtitle: `${profiles.length} saved profile(s)`,
+					items: profiles.map((profile) => ({
+						value: profile.name,
+						label: profile.name,
+						description: `${profile.server_count} servers${profile.created_at ? ` • ${profile.created_at}` : ''}`,
+					})),
+					empty_message: 'No MCP profiles saved',
+					footer: 'enter opens actions • esc back',
+				}));
+			return selected
+				? await show_mcp_profile_actions(ctx, selected)
+				: false;
 		}
 
 		if (action === 'save') {
@@ -544,26 +641,7 @@ export default async function mcp(pi: ExtensionAPI) {
 		const scope = (
 			args[2] === 'project' ? 'project' : 'global'
 		) satisfies McpConfigScope;
-		const confirmed = await confirm_mcp_action(ctx, {
-			title: 'Load MCP profile?',
-			message: `This replaces ${scope} MCP config with profile ${name}.`,
-			confirm_label: 'Load profile',
-		});
-		if (!confirmed) return false;
-		try {
-			const profile = load_mcp_profile(ctx.cwd, name, scope);
-			await reload_after_config_change(
-				ctx,
-				`Loaded MCP profile ${profile.name} (${profile.server_count} servers).`,
-			);
-			return true;
-		} catch (error) {
-			ctx.ui.notify(
-				error instanceof Error ? error.message : String(error),
-				'warning',
-			);
-			return false;
-		}
+		return await load_profile(ctx, name, scope);
 	};
 
 	pi.on('session_start', async (_event, ctx) => {
@@ -692,7 +770,7 @@ export default async function mcp(pi: ExtensionAPI) {
 				case 'profiles': {
 					await handle_mcp_profile(
 						ctx,
-						sub === 'profiles' ? ['load', ...rest] : rest,
+						sub === 'profiles' ? ['list', ...rest] : rest,
 					);
 					break;
 				}

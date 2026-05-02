@@ -55,7 +55,10 @@ to show the below-editor widget when the team has useful detail, or
 set `MY_PI_TEAM_UI=off|compact|auto|full`. Use
 `/team ui style plain|badge|color` or
 `MY_PI_TEAM_UI_STYLE=plain|badge|color` to tune visual emphasis. Use
-`/team clear` to detach the current session from the active team UI.
+`/team detach` (or `/team clear`) to detach the current session from
+the active team UI without deleting stored state. Use
+`/team delete <id>` or `/team prune-stale [days] [--cwd]` to remove
+old local team state after teammates are shut down.
 
 RPC teammate processes receive a minimal child-process environment by
 default, not the full parent `process.env`. Use
@@ -176,7 +179,9 @@ redelivery on the next session.
 /team switch [team-id-or-name]
 /team ui style badge
 /team resume
-/team clear
+/team detach
+/team delete [team-id-or-name]
+/team prune-stale [days] [--cwd]
 ```
 
 Use `/team status` as the source of truth for member state, task

@@ -184,7 +184,7 @@ export async function execute_team_tool(
 				content: [
 					{
 						type: 'text' as const,
-						text: 'Cleared active team UI',
+						text: 'Detached team UI',
 					},
 				],
 				details: { active_team_id: null },

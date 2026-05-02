@@ -69,9 +69,10 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 	},
 	{
 		key: 'filter-output',
-		label: 'Filter output',
-		docs_label: 'Output filtering',
-		description: 'Secret redaction for tool output',
+		label: 'Secret redaction',
+		docs_label: 'Secret redaction',
+		description:
+			'Redacts secrets from tool output before the model sees them',
 		default_enabled: true,
 		option_name: 'filter_output',
 		cli_arg: 'no-filter',
@@ -82,6 +83,8 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 			'filter_output',
 			'filter',
 			'redaction',
+			'secret-redaction',
+			'output-redaction',
 		],
 		load: async () => (await import('@spences10/pi-redact')).default,
 	},
@@ -152,7 +155,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_arg: 'no-prompt-presets',
 		cli_flag: '--no-prompt-presets',
 		cli_description: 'Disable prompt presets extension',
-		aliases: ['prompt-presets', 'prompt-preset', 'preset', 'presets'],
+		aliases: ['prompt-preset', 'preset', 'presets'],
 		load: async () =>
 			(await import('./prompt-presets/index.js')).default,
 	},

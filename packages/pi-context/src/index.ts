@@ -1,4 +1,12 @@
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ExtensionCommandContext,
+} from '@mariozechner/pi-coding-agent';
+import {
+	show_confirm_modal,
+	show_picker_modal,
+	show_text_modal,
+} from '@spences10/pi-tui-modal';
 import { Type } from 'typebox';
 import {
 	get_context_store,
@@ -70,6 +78,49 @@ function format_stats(stats: ContextStats): string {
 		`- Reduction: ${stats.reduction_pct}%`,
 		`- DB bytes: ${stats.total_bytes}`,
 	].join('\n');
+}
+
+async function show_context_text_modal(
+	ctx: ExtensionCommandContext,
+	title: string,
+	text: string,
+): Promise<void> {
+	await show_text_modal(ctx, {
+		title,
+		text,
+		max_visible_lines: 18,
+		overlay_options: { width: '80%', minWidth: 64 },
+	});
+}
+
+async function show_context_stats(
+	ctx: ExtensionCommandContext,
+): Promise<void> {
+	const text = format_stats(get_context_store().stats());
+	if (ctx.hasUI) {
+		await show_context_text_modal(ctx, 'Context sidecar stats', text);
+	} else {
+		ctx.ui.notify(text, 'info');
+	}
+}
+
+async function purge_context(
+	ctx: ExtensionCommandContext,
+	options: { older_than_days?: number; source_id?: string } = {},
+): Promise<void> {
+	const description = options.source_id
+		? `Delete context source ${options.source_id}?`
+		: `Delete context sources older than ${options.older_than_days ?? 14} day(s)?`;
+	const confirmed = ctx.hasUI
+		? await show_confirm_modal(ctx, {
+				title: 'Purge context sidecar?',
+				message: description,
+				confirm_label: 'Purge',
+			})
+		: await ctx.ui.confirm('Purge context sidecar?', description);
+	if (!confirmed) return;
+	const deleted = get_context_store().purge(options);
+	ctx.ui.notify(`Deleted ${deleted} context source(s).`, 'info');
 }
 
 export default function context_sidecar(pi: ExtensionAPI): void {
@@ -239,13 +290,75 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 		},
 	});
 
+	pi.registerCommand('context', {
+		description: 'Inspect and manage the context sidecar',
+		getArgumentCompletions: (prefix) =>
+			['stats', 'purge']
+				.filter((item) => item.startsWith(prefix.trim()))
+				.map((item) => ({ value: item, label: item })),
+		handler: async (args, ctx) => {
+			const [sub = '', ...rest] = args
+				.trim()
+				.split(/\s+/)
+				.filter(Boolean);
+			if (!sub && ctx.hasUI) {
+				const selected = await show_picker_modal(ctx, {
+					title: 'Context sidecar',
+					subtitle: 'Local SQLite storage for oversized tool output',
+					items: [
+						{
+							value: 'stats',
+							label: 'Show stats',
+							description: 'Byte accounting and storage reduction',
+						},
+						{
+							value: 'purge',
+							label: 'Purge old context',
+							description: 'Delete sources older than 14 days',
+						},
+					],
+				});
+				if (!selected) return;
+				await (selected === 'stats'
+					? show_context_stats(ctx)
+					: purge_context(ctx));
+				return;
+			}
+
+			switch (sub || 'stats') {
+				case 'stats':
+					await show_context_stats(ctx);
+					return;
+				case 'purge': {
+					const [kind, value] = rest;
+					if (kind === 'source' && value) {
+						await purge_context(ctx, { source_id: value });
+						return;
+					}
+					const days = kind ? Number(kind) : undefined;
+					if (days !== undefined && !Number.isFinite(days)) {
+						ctx.ui.notify(
+							'Usage: /context purge [older-than-days] or /context purge source <source-id>',
+							'warning',
+						);
+						return;
+					}
+					await purge_context(ctx, { older_than_days: days });
+					return;
+				}
+				default:
+					ctx.ui.notify(
+						`Unknown context command: ${sub}. Use stats or purge.`,
+						'warning',
+					);
+			}
+		},
+	});
+
 	pi.registerCommand('context-stats', {
 		description: 'Show context sidecar byte accounting',
 		handler: async (_args, ctx) => {
-			ctx.ui.notify(
-				format_stats(get_context_store().stats()),
-				'info',
-			);
+			await show_context_stats(ctx);
 		},
 	});
 }

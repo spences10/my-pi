@@ -235,6 +235,75 @@ export async function show_team_home_modal(
 	});
 }
 
+export type SavedTeamModalAction =
+	| 'switch'
+	| 'dashboard'
+	| 'delete'
+	| 'detach';
+
+export async function show_saved_team_actions_modal(
+	ctx: ExtensionCommandContext,
+	status: TeamStatus,
+	active_team_id: string | undefined,
+): Promise<SavedTeamModalAction | undefined> {
+	const is_active = status.team.id === active_team_id;
+	const items: SelectItem[] = [
+		{
+			value: 'switch',
+			label: is_active ? 'Keep selected' : 'Switch to team',
+			description: `${format_status_counts(status)} • ${status.team.cwd}`,
+		},
+		{
+			value: 'dashboard',
+			label: 'Open dashboard',
+			description:
+				'Members, tasks, mailboxes, transcripts, and usage',
+		},
+		{
+			value: 'delete',
+			label: 'Delete team',
+			description: 'Remove stored team state from disk',
+		},
+	];
+	if (is_active) {
+		items.push({
+			value: 'detach',
+			label: 'Detach team UI',
+			description: 'Keep state on disk but clear this session view',
+		});
+	}
+
+	return (await show_picker_modal(ctx, {
+		title: status.team.name,
+		subtitle: `${status.team.id} • ${format_status_counts(status)}`,
+		items,
+		footer: 'enter runs action • esc back',
+	})) as SavedTeamModalAction | undefined;
+}
+
+export async function confirm_delete_team_modal(
+	ctx: ExtensionCommandContext,
+	team: TeamConfig,
+): Promise<boolean> {
+	return await show_confirm_modal(ctx, {
+		title: 'Delete team?',
+		message: `Delete ${team.name} (${team.id}) from local team storage? This cannot be undone.`,
+		confirm_label: 'Delete team',
+	});
+}
+
+export async function confirm_prune_teams_modal(
+	ctx: ExtensionCommandContext,
+	count: number,
+	older_than_days: number,
+): Promise<boolean> {
+	return await show_confirm_modal(ctx, {
+		title: 'Prune stale teams?',
+		message: `Delete ${count} stale team(s) older than ${older_than_days} day(s)? This cannot be undone.`,
+		confirm_label: 'Prune teams',
+	});
+}
+
 export async function show_team_task_picker(
 	ctx: ExtensionCommandContext,
 	status: TeamStatus,

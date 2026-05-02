@@ -144,7 +144,7 @@ consumption by other agents or scripts.
 
 In non-interactive modes (`"prompt"`, `-P`, `--json`), my-pi keeps
 headless-capable built-ins like MCP, LSP, prompt presets, recall,
-hooks, and secret filtering enabled, while skipping UI-only built-ins
+hooks, and secret redaction enabled, while skipping UI-only built-ins
 like session auto-naming.
 
 ### RPC and team mode
@@ -577,7 +577,9 @@ In interactive mode:
 - `/lsp status|list|restart` — inspect or restart language server
   state
 - `/redact-stats` — show how many secrets were redacted this session
-- `/context-stats` — show context sidecar byte accounting
+- `/context` / `/context stats` — inspect context sidecar stats in a
+  modal
+- `/context purge [days]` — purge old context sidecar entries
 - `/telemetry status|stats|query|export|on|off|path` — inspect, query,
   export, or toggle local SQLite telemetry
 
@@ -596,9 +598,9 @@ In interactive mode:
 
 ## Secret Redaction
 
-The filter-output extension automatically redacts secrets (API keys,
-tokens, passwords, private keys) from tool output before the LLM sees
-them. Detection patterns come from
+The secret redaction extension automatically redacts secrets (API
+keys, tokens, passwords, private keys) from tool output before the LLM
+sees them. Detection patterns come from
 [nopeek](https://github.com/spences10/nopeek). This is a defensive
 last-mile guard, not a substitute for secret hygiene: prefer `nopeek`
 for loading credentials and avoid printing secrets in the first place.

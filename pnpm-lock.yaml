@@ -127,6 +127,9 @@ importers:
       '@spences10/pi-redact':
         specifier: workspace:*
         version: link:../pi-redact
+      '@spences10/pi-tui-modal':
+        specifier: workspace:*
+        version: link:../pi-tui-modal
       typebox:
         specifier: ^1.1.37
         version: 1.1.37

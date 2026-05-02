@@ -317,6 +317,17 @@ export class TeamStore {
 		return read_json<TeamConfig>(path);
 	}
 
+	async delete_team(team_id: string): Promise<TeamConfig> {
+		return await this.with_team_lock(team_id, () => {
+			const team = this.load_team(team_id);
+			rmSync(this.team_dir(team_id), {
+				recursive: true,
+				force: true,
+			});
+			return team;
+		});
+	}
+
 	private save_team(team: TeamConfig): void {
 		write_json(this.config_path(team.id), team);
 	}

@@ -51,7 +51,7 @@ MODES
 NOTES
 
   - In non-interactive modes, my-pi keeps headless-capable built-ins like
-    MCP, LSP, prompt presets, recall, nopeek, Omnisearch, SQLite tools, hooks, and output filtering.
+    MCP, LSP, prompt presets, recall, nopeek, Omnisearch, SQLite tools, hooks, and secret redaction.
   - UI-only built-ins like session auto-naming are skipped.
   - Repeat -e / --extension to stack multiple extensions.
 

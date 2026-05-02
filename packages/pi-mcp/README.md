@@ -84,7 +84,7 @@ mcp__sqlite__execute_read_query
 /mcp profile list
 /mcp profile save [name]
 /mcp profile load [name] [global|project]
-/mcp profiles                # picker for profile load
+/mcp profiles                # saved profile list and actions
 ```
 
 Use `/mcp` to open a modal home menu for server management, read-only

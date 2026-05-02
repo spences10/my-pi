@@ -24,8 +24,13 @@ pi -e ./packages/pi-context
 
 - `context_search` — search indexed tool output
 - `context_get` — retrieve exact stored chunks
-- `context_stats` / `/context-stats` — byte accounting and DB stats
-- `context_purge` — delete old indexed output
+- `context_stats` / `/context stats` / `/context-stats` — byte
+  accounting and DB stats
+- `context_purge` / `/context purge [days]` — delete old indexed
+  output
+
+Use `/context` in interactive mode for a small modal with stats and
+purge actions.
 
 The default DB path is
 `${PI_CODING_AGENT_DIR:-~/.pi/agent}/context.db`. Set

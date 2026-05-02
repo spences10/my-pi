@@ -825,11 +825,7 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 		},
 	};
 
-	for (const command_name of [
-		'prompt-preset',
-		'prompt-presets',
-		'preset',
-	]) {
+	for (const command_name of ['prompt-preset', 'preset']) {
 		pi.registerCommand(command_name, prompt_preset_command);
 	}
 

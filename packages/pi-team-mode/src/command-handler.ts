@@ -40,11 +40,14 @@ import {
 } from './runner-orchestration.js';
 import { TeamStore, type TeamConfig } from './store.js';
 import {
+	confirm_delete_team_modal,
+	confirm_prune_teams_modal,
 	present_completed_task_results,
 	prompt_member_name,
 	prompt_task_create,
 	prompt_team_name,
 	run_task_modal_action,
+	show_saved_team_actions_modal,
 	show_team_dashboard_modal,
 	show_team_home_modal,
 	show_team_member_actions_modal,
@@ -73,6 +76,28 @@ function get_latest_team_for_cwd(
 	cwd: string,
 ): TeamConfig | undefined {
 	return store.list_teams().find((team) => team.cwd === cwd);
+}
+
+function team_has_running_members(
+	status: Awaited<ReturnType<typeof get_team_status>>,
+): boolean {
+	return status.members.some((member) =>
+		['running', 'running_attached', 'running_orphaned'].includes(
+			member.status,
+		),
+	);
+}
+
+function team_is_stale(
+	status: Awaited<ReturnType<typeof get_team_status>>,
+	older_than_days: number,
+): boolean {
+	if (team_has_running_members(status)) return false;
+	const timestamp = Date.parse(
+		status.team.updated_at ?? status.team.created_at,
+	);
+	if (!Number.isFinite(timestamp)) return false;
+	return Date.now() - timestamp > older_than_days * 86_400_000;
 }
 
 function find_team_switch_target(
@@ -284,18 +309,67 @@ export async function handle_team_command(
 			}
 			case 'teams': {
 				if (has_modal_ui(ctx)) {
-					const team_id = await show_team_switcher(
-						ctx,
-						store,
-						get_active_team_id(),
-					);
-					if (team_id) {
-						set_active_team_id(team_id);
-						set_team_ui(ctx, store, team_id, runners);
-						const team = store.load_team(team_id);
-						ctx.ui.notify(
-							`Switched to team ${team.name} (${team.id})`,
+					while (true) {
+						const team_id = await show_team_switcher(
+							ctx,
+							store,
+							get_active_team_id(),
 						);
+						if (!team_id) break;
+						const status = await get_team_status(
+							store,
+							team_id,
+							runners,
+						);
+						const action = await show_saved_team_actions_modal(
+							ctx,
+							status,
+							get_active_team_id(),
+						);
+						if (action === 'switch') {
+							set_active_team_id(team_id);
+							set_team_ui(ctx, store, team_id, runners);
+							ctx.ui.notify(
+								`Switched to team ${status.team.name} (${status.team.id})`,
+							);
+							break;
+						}
+						if (action === 'dashboard') {
+							const dashboard_action =
+								await show_team_dashboard_modal(ctx, store, status);
+							if (dashboard_action === 'results') {
+								present_completed_task_results(ctx, status);
+							}
+						}
+						if (action === 'detach') {
+							set_active_team_id(undefined);
+							set_team_ui(ctx, store, undefined, runners);
+							ctx.ui.notify('Detached team UI');
+							break;
+						}
+						if (action === 'delete') {
+							if (team_has_running_members(status)) {
+								ctx.ui.notify(
+									'Shut down running teammates before deleting a team.',
+									'warning',
+								);
+								continue;
+							}
+							if (
+								!(await confirm_delete_team_modal(ctx, status.team))
+							) {
+								continue;
+							}
+							await store.delete_team(team_id);
+							if (get_active_team_id() === team_id) {
+								set_active_team_id(undefined);
+								set_team_ui(ctx, store, undefined, runners);
+							}
+							ctx.ui.notify(
+								`Deleted team ${status.team.name} (${status.team.id})`,
+								'info',
+							);
+						}
 					}
 				} else {
 					const statuses = await get_team_statuses(store, runners);
@@ -329,10 +403,87 @@ export async function handle_team_command(
 				break;
 			}
 			case 'clear':
-			case 'close': {
+			case 'close':
+			case 'detach': {
 				set_active_team_id(undefined);
 				set_team_ui(ctx, store, undefined, runners);
-				ctx.ui.notify('Cleared active team UI');
+				ctx.ui.notify('Detached team UI');
+				break;
+			}
+			case 'delete':
+			case 'remove': {
+				const target = find_team_switch_target(
+					store,
+					rest_text || current_team_id(),
+				);
+				const status = await get_team_status(
+					store,
+					target.id,
+					runners,
+				);
+				if (team_has_running_members(status)) {
+					throw new Error(
+						'Shut down running teammates before deleting a team.',
+					);
+				}
+				const confirmed = has_modal_ui(ctx)
+					? await confirm_delete_team_modal(ctx, status.team)
+					: await ctx.ui.confirm(
+							'Delete team?',
+							`Delete ${status.team.name} (${status.team.id}) from local team storage?`,
+						);
+				if (!confirmed) break;
+				await store.delete_team(target.id);
+				if (get_active_team_id() === target.id) {
+					set_active_team_id(undefined);
+					set_team_ui(ctx, store, undefined, runners);
+				}
+				ctx.ui.notify(
+					`Deleted team ${status.team.name} (${status.team.id})`,
+					'info',
+				);
+				break;
+			}
+			case 'prune':
+			case 'prune-stale': {
+				const days_arg = rest.find((item) => /^\d+$/.test(item));
+				const days = days_arg ? Number(days_arg) : 14;
+				const cwd_only = rest.includes('--cwd');
+				const statuses = await get_team_statuses(store, runners);
+				const stale = statuses.filter(
+					(status) =>
+						(!cwd_only || status.team.cwd === ctx.cwd) &&
+						team_is_stale(status, days),
+				);
+				if (stale.length === 0) {
+					ctx.ui.notify(
+						`No stale teams older than ${days} day(s)${cwd_only ? ' for this cwd' : ''}.`,
+					);
+					break;
+				}
+				const confirmed = has_modal_ui(ctx)
+					? await confirm_prune_teams_modal(ctx, stale.length, days)
+					: await ctx.ui.confirm(
+							'Prune stale teams?',
+							`Delete ${stale.length} stale team(s) older than ${days} day(s)?`,
+						);
+				if (!confirmed) break;
+				for (const status of stale) {
+					await store.delete_team(status.team.id);
+				}
+				if (
+					get_active_team_id() &&
+					stale.some(
+						(status) => status.team.id === get_active_team_id(),
+					)
+				) {
+					set_active_team_id(undefined);
+					set_team_ui(ctx, store, undefined, runners);
+				}
+				ctx.ui.notify(
+					`Deleted ${stale.length} stale team(s).`,
+					'info',
+				);
 				break;
 			}
 			case 'status':
@@ -831,7 +982,8 @@ export async function handle_team_command(
 						'/team dm <member> <message> — send a mailbox message',
 						'/team inbox <member> read|ack [message-id...] — mark mailbox messages read or acknowledged',
 						'/team wait|shutdown <member> — control a teammate',
-						'/team teams|switch|resume|clear — manage active team UI',
+						'/team teams|switch|resume|detach — manage active team UI',
+						'/team delete <id> / prune-stale [days] [--cwd] — remove stored stale teams',
 					].join('\n'),
 					'warning',
 				);
