@@ -19,40 +19,49 @@ describe('make_skill_key', () => {
 	});
 });
 
+function test_config(
+	overrides: Omit<Partial<SkillsConfig>, 'profiles'>,
+): SkillsConfig {
+	return {
+		version: 2,
+		enabled: {},
+		defaults: 'all-disabled',
+		current_profile: 'default',
+		profiles: {},
+		...overrides,
+	};
+}
+
 describe('is_skill_enabled', () => {
 	it('returns explicit enabled state', () => {
-		const config: SkillsConfig = {
-			version: 1,
+		const config = test_config({
 			enabled: { 'my-skill@local': true },
 			defaults: 'all-disabled',
-		};
+		});
 		expect(is_skill_enabled(config, 'my-skill@local')).toBe(true);
 	});
 
 	it('returns explicit disabled state', () => {
-		const config: SkillsConfig = {
-			version: 1,
+		const config = test_config({
 			enabled: { 'my-skill@local': false },
 			defaults: 'all-enabled',
-		};
+		});
 		expect(is_skill_enabled(config, 'my-skill@local')).toBe(false);
 	});
 
 	it('falls back to all-enabled default', () => {
-		const config: SkillsConfig = {
-			version: 1,
+		const config = test_config({
 			enabled: {},
 			defaults: 'all-enabled',
-		};
+		});
 		expect(is_skill_enabled(config, 'unknown@source')).toBe(true);
 	});
 
 	it('falls back to all-disabled default', () => {
-		const config: SkillsConfig = {
-			version: 1,
+		const config = test_config({
 			enabled: {},
 			defaults: 'all-disabled',
-		};
+		});
 		expect(is_skill_enabled(config, 'unknown@source')).toBe(false);
 	});
 });
