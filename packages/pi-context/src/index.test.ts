@@ -314,18 +314,23 @@ describe('context_sidecar extension', () => {
 				content: [{ type: 'text', text: 'small output' }],
 			}),
 		).toBeUndefined();
-		expect(
-			await tool_result({
-				toolName: 'context_search',
-				content: [{ type: 'text', text: large_output('skip-token') }],
-			}),
-		).toBeUndefined();
-		expect(
-			await tool_result({
-				toolName: 'context_list',
-				content: [{ type: 'text', text: large_output('skip-list') }],
-			}),
-		).toBeUndefined();
+		for (const toolName of [
+			'context_search',
+			'context_get',
+			'context_list',
+			'context_stats',
+			'context_purge',
+			'team',
+		]) {
+			expect(
+				await tool_result({
+					toolName,
+					content: [
+						{ type: 'text', text: large_output(`skip-${toolName}`) },
+					],
+				}),
+			).toBeUndefined();
+		}
 		expect(
 			await tool_result({
 				toolName: 'bash',
@@ -346,6 +351,33 @@ describe('context_sidecar extension', () => {
 		const source_id = source_id_from(replacement.content[0].text);
 		expect(
 			get_context_store().search('hook-token', { source_id }),
+		).toHaveLength(1);
+	});
+
+	it('does not re-index an existing context-sidecar receipt such as direct MCP storage', async () => {
+		process.env.MY_PI_CONTEXT_DB = temp_db();
+		const fake = create_fake_pi();
+		context_sidecar(fake.pi);
+		const stored = get_context_store().store({
+			text: large_output('mcp-direct-token'),
+			tool_name: 'mcp__demo__large',
+			force: true,
+		});
+		const tool_result = fake.hooks.get('tool_result')![0];
+
+		expect(
+			await tool_result({
+				toolName: 'mcp__demo__large',
+				content: [{ type: 'text', text: stored!.receipt }],
+			}),
+		).toBeUndefined();
+		expect(get_context_store().list({ global: true })).toHaveLength(
+			1,
+		);
+		expect(
+			get_context_store().search('mcp-direct-token', {
+				global: true,
+			}),
 		).toHaveLength(1);
 	});
 

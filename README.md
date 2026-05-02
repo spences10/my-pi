@@ -759,7 +759,8 @@ pi install npm:@spences10/pi-themes
 - [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md) —
   local SQLite telemetry and `/telemetry`
 - [`@spences10/pi-context`](./packages/pi-context/README.md) — scoped,
-  redacted SQLite FTS overflow cache for oversized tool output
+  redacted SQLite FTS overflow cache for oversized text output from
+  read/bash/LSP and direct MCP results
 - [`@spences10/pi-mcp`](./packages/pi-mcp/README.md) — MCP server
   integration and `/mcp`
 - [`@spences10/pi-lsp`](./packages/pi-lsp/README.md) — LSP-backed

@@ -51,6 +51,33 @@ context_get source_id:"ctx_..."
 context_list
 ```
 
+## Coverage policy
+
+Intentional sidecar-backed output:
+
+- `read` and `bash` text output: handled by the generic `tool_result`
+  hook when output exceeds byte/line thresholds.
+- MCP tool output: handled directly in `@spences10/pi-mcp` before
+  temp-file fallback, then ignored by the generic hook because
+  receipts already contain `[context-sidecar]`.
+- LSP tool output: handled by the generic hook for large text
+  diagnostics or symbol/reference dumps; small structured summaries
+  stay inline.
+- Hook output and telemetry summaries: not directly indexed unless
+  they appear as large text tool results.
+
+Intentionally skipped output:
+
+- `context_*` tools: avoids recursive indexing of
+  retrieval/maintenance output.
+- `team`: coordination/mailbox/task state belongs in team-mode and
+  session history surfaces, not this overflow cache.
+- Non-text/image results: ignored by `pi-context`; image/file handling
+  should use dedicated tool-specific surfaces.
+
+Any newly sidecar-backed text follows the same redaction,
+project/session scope, retention, and dedupe rules.
+
 ## Storage, scoping, and retention
 
 The default DB path is
