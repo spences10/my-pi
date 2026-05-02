@@ -125,6 +125,7 @@ describe('context_sidecar extension', () => {
 		expect(is_context_sidecar_enabled()).toBe(true);
 		expect([...fake.tools.keys()].sort()).toEqual([
 			'context_get',
+			'context_list',
 			'context_purge',
 			'context_search',
 			'context_stats',
@@ -209,6 +210,20 @@ describe('context_sidecar extension', () => {
 			);
 		expect(global.content[0].text).toContain('scope-token-a');
 		expect(global.content[0].text).toContain('scope-token-b');
+
+		const list = await fake.tools
+			.get('context_list')!
+			.execute(
+				'call-3',
+				{ limit: 5 },
+				undefined,
+				undefined,
+				project_a,
+			);
+			expect(list.content[0].text).toContain('Project: /repo-a');
+		expect(list.content[0].text).toContain('Session: /sessions/a.jsonl');
+		expect(list.content[0].text).not.toContain('Project: /repo-b');
+		expect(list.details).toMatchObject({ count: 1 });
 	});
 
 	it('replaces oversized text tool results and leaves small, skipped, and non-text results alone', async () => {
@@ -227,6 +242,12 @@ describe('context_sidecar extension', () => {
 			await tool_result({
 				toolName: 'context_search',
 				content: [{ type: 'text', text: large_output('skip-token') }],
+			}),
+		).toBeUndefined();
+		expect(
+			await tool_result({
+				toolName: 'context_list',
+				content: [{ type: 'text', text: large_output('skip-list') }],
 			}),
 		).toBeUndefined();
 		expect(
@@ -271,6 +292,13 @@ describe('context_sidecar extension', () => {
 			});
 		expect(search.content[0].text).toContain('tool-token');
 		expect(search.details).toMatchObject({ count: 1 });
+
+		const list = await fake.tools
+			.get('context_list')!
+			.execute('call-list', { limit: 1 });
+		expect(list.content[0].text).toContain(source_id);
+		expect(list.content[0].text).toContain('Tool: bash');
+		expect(list.details).toMatchObject({ count: 1 });
 
 		const get = await fake.tools
 			.get('context_get')!

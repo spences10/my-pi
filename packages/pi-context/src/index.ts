@@ -14,6 +14,7 @@ import {
 	maybe_store_context_output,
 	set_context_sidecar_enabled,
 	should_index_text,
+	type ContextListResult,
 	type ContextScopeOptions,
 	type ContextSearchResult,
 	type ContextStats,
@@ -44,6 +45,7 @@ function should_skip_tool(tool_name: string): boolean {
 	return (
 		tool_name === 'context_search' ||
 		tool_name === 'context_get' ||
+		tool_name === 'context_list' ||
 		tool_name === 'context_stats' ||
 		tool_name === 'context_purge' ||
 		tool_name === 'team'
@@ -84,6 +86,31 @@ function format_search_results(
 		.join('\n\n---\n\n');
 }
 
+function format_list_results(results: ContextListResult[]): string {
+	if (results.length === 0)
+		return 'No indexed context sources found.';
+	return results
+		.map((result) =>
+			[
+				`## ${result.source_id}`,
+				`Created: ${new Date(result.created_at).toISOString()} • Tool: ${result.tool_name}`,
+				`Size: ${result.bytes} bytes, ${result.lines} lines, ${result.chunk_count} chunks`,
+				`Project: ${result.project_path ?? '(none)'}`,
+				`Session: ${result.session_id ?? '(none)'}`,
+				result.input_summary
+					? `Input: ${result.input_summary}`
+					: undefined,
+				result.first_chunk_title
+					? `First chunk: ${result.first_chunk_title}`
+					: undefined,
+				result.preview ? `Preview: ${result.preview}` : undefined,
+			]
+				.filter(Boolean)
+				.join('\n'),
+		)
+		.join('\n\n');
+}
+
 function format_stats(stats: ContextStats): string {
 	return [
 		'## context-sidecar stats',
@@ -118,6 +145,25 @@ async function show_context_stats(
 	const text = format_stats(get_context_store().stats());
 	if (ctx.hasUI) {
 		await show_context_text_modal(ctx, 'Context sidecar stats', text);
+	} else {
+		ctx.ui.notify(text, 'info');
+	}
+}
+
+async function show_context_list(
+	ctx: ExtensionCommandContext,
+	limit?: number,
+): Promise<void> {
+	const scope = scope_from_context(ctx);
+	const text = format_list_results(
+		get_context_store(scope).list({ ...scope, limit }),
+	);
+	if (ctx.hasUI) {
+		await show_context_text_modal(
+			ctx,
+			'Context sidecar sources',
+			text,
+		);
 	} else {
 		ctx.ui.notify(text, 'info');
 	}
@@ -275,6 +321,78 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
+		name: 'context_list',
+		label: 'Context List',
+		description:
+			'List indexed sources in the local SQLite context sidecar.',
+		promptSnippet:
+			'List recent indexed context-sidecar sources without knowing a source id',
+		parameters: Type.Object({
+			source_id: Type.Optional(
+				Type.String({ description: 'Limit to one source id' }),
+			),
+			tool_name: Type.Optional(
+				Type.String({ description: 'Limit to one tool name' }),
+			),
+			project_path: Type.Optional(
+				Type.String({ description: 'Limit to one project path' }),
+			),
+			session_id: Type.Optional(
+				Type.String({ description: 'Limit to one session id' }),
+			),
+			newer_than_days: Type.Optional(
+				Type.Number({
+					description: 'Only sources newer than N days',
+				}),
+			),
+			older_than_days: Type.Optional(
+				Type.Number({
+					description: 'Only sources older than N days',
+				}),
+			),
+			limit: Type.Optional(
+				Type.Number({ description: 'Maximum sources, default 10' }),
+			),
+			offset: Type.Optional(
+				Type.Number({ description: 'Pagination offset, default 0' }),
+			),
+			global: Type.Optional(
+				Type.Boolean({
+					description:
+						'List all scopes instead of current project/session scope',
+				}),
+			),
+		}),
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const scope = scope_from_context(ctx);
+			const project_path = params.project_path ?? scope.project_path;
+			const session_id =
+				params.session_id ??
+				(params.project_path ? null : scope.session_id);
+			const results = get_context_store(scope).list({
+				project_path,
+				session_id,
+				global: params.global,
+				source_id: params.source_id,
+				tool_name: params.tool_name,
+				newer_than_days: params.newer_than_days,
+				older_than_days: params.older_than_days,
+				limit: params.limit,
+				offset: params.offset,
+			});
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: format_list_results(results),
+					},
+				],
+				details: { count: results.length },
+			};
+		},
+	});
+
+	pi.registerTool({
 		name: 'context_stats',
 		label: 'Context Stats',
 		description:
@@ -327,7 +445,7 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 	pi.registerCommand('context', {
 		description: 'Inspect and manage the context sidecar',
 		getArgumentCompletions: (prefix) =>
-			['stats', 'purge']
+			['list', 'stats', 'purge']
 				.filter((item) => item.startsWith(prefix.trim()))
 				.map((item) => ({ value: item, label: item })),
 		handler: async (args, ctx) => {
@@ -341,6 +459,11 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 					subtitle: 'Local SQLite storage for oversized tool output',
 					items: [
 						{
+							value: 'list',
+							label: 'List recent sources',
+							description: 'Browse indexed output in this scope',
+						},
+						{
 							value: 'stats',
 							label: 'Show stats',
 							description: 'Byte accounting and storage reduction',
@@ -353,13 +476,23 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 					],
 				});
 				if (!selected) return;
-				await (selected === 'stats'
-					? show_context_stats(ctx)
-					: purge_context(ctx));
+				if (selected === 'list') await show_context_list(ctx);
+				else if (selected === 'stats') await show_context_stats(ctx);
+				else await purge_context(ctx);
 				return;
 			}
 
-			switch (sub || 'stats') {
+			switch (sub || 'list') {
+				case 'list': {
+					const [limit_text] = rest;
+					const limit = limit_text ? Number(limit_text) : undefined;
+					if (limit !== undefined && !Number.isFinite(limit)) {
+						ctx.ui.notify('Usage: /context list [limit]', 'warning');
+						return;
+					}
+					await show_context_list(ctx, limit);
+					return;
+				}
 				case 'stats':
 					await show_context_stats(ctx);
 					return;
@@ -382,7 +515,7 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 				}
 				default:
 					ctx.ui.notify(
-						`Unknown context command: ${sub}. Use stats or purge.`,
+						`Unknown context command: ${sub}. Use list, stats, or purge.`,
 						'warning',
 					);
 			}
@@ -405,6 +538,7 @@ export {
 	should_index_text,
 } from './store.js';
 export type {
+	ContextListResult,
 	ContextScopeOptions,
 	ContextSearchResult,
 	ContextStats,

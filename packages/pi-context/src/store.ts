@@ -71,6 +71,20 @@ export interface ContextSearchResult {
 	rank: number;
 }
 
+export interface ContextListResult {
+	source_id: string;
+	created_at: number;
+	project_path: string | null;
+	session_id: string | null;
+	tool_name: string;
+	input_summary: string | null;
+	bytes: number;
+	lines: number;
+	chunk_count: number;
+	first_chunk_title: string | null;
+	preview: string | null;
+}
+
 export interface ContextScopeOptions {
 	project_path?: string | null;
 	session_id?: string | null;
@@ -108,6 +122,20 @@ interface SearchRow extends SourceRow {
 interface ScopedFilter {
 	where: string[];
 	params: Array<string | number>;
+}
+
+interface ListRow {
+	source_id: string;
+	created_at: number;
+	project_path: string | null;
+	session_id: string | null;
+	tool_name: string;
+	input_summary: string | null;
+	byte_count: number;
+	line_count: number;
+	chunk_count: number;
+	first_chunk_title: string | null;
+	preview: string | null;
 }
 
 interface ChunkRow {
@@ -557,6 +585,90 @@ export class ContextStore {
 		}
 	}
 
+	list(
+		options: ContextScopeOptions & {
+			source_id?: string;
+			tool_name?: string;
+			limit?: number;
+			offset?: number;
+			newer_than_days?: number;
+			older_than_days?: number;
+		} = {},
+	): ContextListResult[] {
+		const limit = Math.max(1, Math.min(options.limit ?? 10, 50));
+		const offset = Math.max(0, options.offset ?? 0);
+		const scoped = this.scoped_filter('context_sources', options);
+		const filters: string[] = [...scoped.where];
+		const params: Array<string | number> = [...scoped.params];
+		if (options.source_id) {
+			filters.push('context_sources.id = ?');
+			params.push(options.source_id);
+		}
+		if (options.tool_name) {
+			filters.push('context_sources.tool_name = ?');
+			params.push(options.tool_name);
+		}
+		if (options.newer_than_days !== undefined) {
+			filters.push('context_sources.created_at >= ?');
+			params.push(
+				Date.now() - options.newer_than_days * 24 * 60 * 60 * 1000,
+			);
+		}
+		if (options.older_than_days !== undefined) {
+			filters.push('context_sources.created_at < ?');
+			params.push(
+				Date.now() - options.older_than_days * 24 * 60 * 60 * 1000,
+			);
+		}
+		params.push(limit, offset);
+		const where_clause = filters.length
+			? `WHERE ${filters.join(' AND ')}`
+			: '';
+		const stmt = this.db.prepare(`
+			SELECT
+				context_sources.id as source_id,
+				context_sources.created_at,
+				context_sources.project_path,
+				context_sources.session_id,
+				context_sources.tool_name,
+				context_sources.input_summary,
+				context_sources.byte_count,
+				context_sources.line_count,
+				COUNT(context_chunks.id) as chunk_count,
+				(
+					SELECT title FROM context_chunks first_chunk
+					WHERE first_chunk.source_id = context_sources.id
+					ORDER BY ordinal LIMIT 1
+				) as first_chunk_title,
+				(
+					SELECT substr(content, 1, 240) FROM context_chunks first_chunk
+					WHERE first_chunk.source_id = context_sources.id
+					ORDER BY ordinal LIMIT 1
+				) as preview
+			FROM context_sources
+			LEFT JOIN context_chunks ON context_chunks.source_id = context_sources.id
+			${where_clause}
+			GROUP BY context_sources.id
+			ORDER BY context_sources.created_at DESC
+			LIMIT ? OFFSET ?
+		`);
+		return (stmt.all(...params) as unknown as ListRow[]).map(
+			(row) => ({
+				source_id: row.source_id,
+				created_at: row.created_at,
+				project_path: row.project_path,
+				session_id: row.session_id,
+				tool_name: row.tool_name,
+				input_summary: row.input_summary,
+				bytes: row.byte_count,
+				lines: row.line_count,
+				chunk_count: row.chunk_count,
+				first_chunk_title: row.first_chunk_title,
+				preview: row.preview,
+			}),
+		);
+	}
+
 	search(
 		query: string,
 		options: ContextScopeOptions & {
@@ -569,10 +681,7 @@ export class ContextStore {
 		const match = escape_fts5_query(query);
 		const scoped = this.scoped_filter('context_sources', options);
 		const filters: string[] = [...scoped.where];
-		const params: Array<string | number> = [
-			match,
-			...scoped.params,
-		];
+		const params: Array<string | number> = [match, ...scoped.params];
 		if (options.source_id) {
 			filters.push('context_sources.id = ?');
 			params.push(options.source_id);
@@ -626,10 +735,7 @@ export class ContextStore {
 		options: ContextScopeOptions = {},
 	): ChunkRow[] {
 		const scoped = this.scoped_filter('context_sources', options);
-		const filters = [
-			'context_chunks.source_id = ?',
-			...scoped.where,
-		];
+		const filters = ['context_chunks.source_id = ?', ...scoped.where];
 		const params: Array<string | number> = [
 			source_id,
 			...scoped.params,

@@ -172,6 +172,62 @@ describe('ContextStore', () => {
 		}
 	});
 
+	it('lists recent sources with scope, filters, pagination, and compact metadata', () => {
+		const store = create_store({
+			max_bytes: 10,
+			project_path: '/repo',
+			session_id: 'session-a',
+		});
+		const first = store.store({
+			text: `list-token first-source\n${'a '.repeat(100)}`,
+			tool_name: 'bash',
+			input_summary: 'first command',
+		});
+		store.store({
+			text: `list-token second-source\n${'b '.repeat(100)}`,
+			tool_name: 'read',
+			input_summary: 'second command',
+		});
+		store.store({
+			text: `list-token other-session\n${'c '.repeat(100)}`,
+			tool_name: 'bash',
+			project_path: '/repo',
+			session_id: 'session-b',
+		});
+		const db = new DatabaseSync(store.db_path, {
+			enableForeignKeyConstraints: true,
+		});
+		try {
+			db.prepare(
+				'UPDATE context_sources SET created_at = ? WHERE id = ?',
+			).run(
+				Date.now() - 30 * 24 * 60 * 60 * 1000,
+				first!.source_id,
+			);
+		} finally {
+			close_db(db);
+		}
+
+		const scoped = store.list();
+		expect(scoped).toHaveLength(2);
+		expect(scoped[0]).toMatchObject({
+			project_path: '/repo',
+			session_id: 'session-a',
+			chunk_count: 1,
+		});
+		expect(scoped.map((source) => source.input_summary)).toContain(
+			'first command',
+		);
+		expect(store.list({ tool_name: 'read' })).toHaveLength(1);
+		expect(store.list({ source_id: first!.source_id })).toHaveLength(1);
+		expect(store.list({ limit: 1 })).toHaveLength(1);
+		expect(store.list({ limit: 1, offset: 1 })).toHaveLength(1);
+		expect(store.list({ newer_than_days: 1 })).toHaveLength(1);
+		expect(store.list({ older_than_days: 14 })).toHaveLength(1);
+		expect(store.list({ global: true })).toHaveLength(3);
+		expect(store.list({ session_id: 'missing' })).toEqual([]);
+	});
+
 	it('defaults search and get to the current session scope with global opt-in', () => {
 		const store = create_store({
 			max_bytes: 10,
