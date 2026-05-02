@@ -55,7 +55,7 @@
 		"eval:suite": "node scripts/run-eval-suite.ts",
 		"changeset": "changeset",
 		"version": "changeset version",
-		"release": "pnpm run build && changeset publish"
+		"release": "git diff --quiet && git diff --cached --quiet && pnpm run build && changeset publish"
 	},
 	"dependencies": {
 		"@mariozechner/pi-ai": "^0.72.1",
