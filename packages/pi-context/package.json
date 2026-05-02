@@ -36,10 +36,10 @@
 	},
 	"scripts": {
 		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
-		"build:self": "tsc -p tsconfig.build.json",
+		"build:self": "tsc -p tsconfig.build.json && cp src/schema.sql dist/schema.sql",
 		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
 		"check:self": "tsc --noEmit",
-		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
+		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self && pnpm run test:self",
 		"test:self": "vitest run"
 	},
 	"dependencies": {

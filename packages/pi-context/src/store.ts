@@ -1,6 +1,11 @@
 import { redact_text } from '@spences10/pi-redact';
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, statSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	statSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -10,61 +15,21 @@ export const DEFAULT_CONTEXT_MAX_LINES = 300;
 const DEFAULT_PREVIEW_LINES = 80;
 const DEFAULT_PREVIEW_BYTES = 8 * 1024;
 
-const SCHEMA = `
-PRAGMA foreign_keys = ON;
+const SCHEMA = readFileSync(
+	new URL('./schema.sql', import.meta.url),
+	'utf8',
+);
+const LATEST_CONTEXT_SCHEMA_VERSION = 1;
+const PERSISTENT_PRAGMAS = `
 PRAGMA journal_mode = WAL;
-PRAGMA busy_timeout = 5000;
-
-CREATE TABLE IF NOT EXISTS context_sources (
-  id TEXT PRIMARY KEY,
-  session_id TEXT,
-  project_path TEXT,
-  tool_name TEXT NOT NULL,
-  input_summary TEXT,
-  created_at INTEGER NOT NULL,
-  byte_count INTEGER NOT NULL,
-  line_count INTEGER NOT NULL,
-  content_hash TEXT NOT NULL,
-  preview_byte_count INTEGER NOT NULL DEFAULT 0,
-  returned_byte_count INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS context_chunks (
-  id TEXT PRIMARY KEY,
-  source_id TEXT NOT NULL REFERENCES context_sources(id) ON DELETE CASCADE,
-  ordinal INTEGER NOT NULL,
-  title TEXT,
-  content TEXT NOT NULL,
-  byte_count INTEGER NOT NULL
-);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS context_chunks_fts USING fts5(
-  title,
-  content,
-  content='context_chunks',
-  content_rowid='rowid'
-);
-
-CREATE TRIGGER IF NOT EXISTS context_chunks_ai AFTER INSERT ON context_chunks BEGIN
-  INSERT INTO context_chunks_fts(rowid, title, content) VALUES (new.rowid, new.title, new.content);
-END;
-
-CREATE TRIGGER IF NOT EXISTS context_chunks_ad AFTER DELETE ON context_chunks BEGIN
-  INSERT INTO context_chunks_fts(context_chunks_fts, rowid, title, content)
-  VALUES('delete', old.rowid, old.title, old.content);
-END;
-
-CREATE TRIGGER IF NOT EXISTS context_chunks_au AFTER UPDATE ON context_chunks BEGIN
-  INSERT INTO context_chunks_fts(context_chunks_fts, rowid, title, content)
-  VALUES('delete', old.rowid, old.title, old.content);
-  INSERT INTO context_chunks_fts(rowid, title, content) VALUES (new.rowid, new.title, new.content);
-END;
-
-CREATE INDEX IF NOT EXISTS idx_context_sources_created ON context_sources(created_at);
-CREATE INDEX IF NOT EXISTS idx_context_sources_session ON context_sources(session_id);
-CREATE INDEX IF NOT EXISTS idx_context_sources_project ON context_sources(project_path);
-CREATE INDEX IF NOT EXISTS idx_context_chunks_source ON context_chunks(source_id, ordinal);
 `;
+const CONNECTION_PRAGMAS = `
+PRAGMA foreign_keys = ON;
+PRAGMA busy_timeout = 5000;
+`;
+const MIGRATIONS: Record<number, string> = {
+	1: SCHEMA,
+};
 
 export interface ContextStoreOptions {
 	db_path?: string;
@@ -390,6 +355,51 @@ function summarize_source(
 	].join('\n');
 }
 
+function get_user_version(db: DatabaseSync): number {
+	const row = db.prepare('PRAGMA user_version').get() as {
+		user_version: number;
+	};
+	return row.user_version;
+}
+
+function apply_schema(db: DatabaseSync): void {
+	db.exec(PERSISTENT_PRAGMAS);
+	db.exec(CONNECTION_PRAGMAS);
+
+	const current_version = get_user_version(db);
+	if (current_version > LATEST_CONTEXT_SCHEMA_VERSION) {
+		db.close();
+		throw new Error(
+			`Context database schema version ${current_version} is newer than supported version ${LATEST_CONTEXT_SCHEMA_VERSION}`,
+		);
+	}
+
+	for (
+		let next_version = current_version + 1;
+		next_version <= LATEST_CONTEXT_SCHEMA_VERSION;
+		next_version++
+	) {
+		const migration = MIGRATIONS[next_version];
+		if (!migration) {
+			db.close();
+			throw new Error(
+				`Missing context migration for schema version ${next_version}`,
+			);
+		}
+
+		db.exec('BEGIN');
+		try {
+			db.exec(migration);
+			db.exec(`PRAGMA user_version = ${next_version}`);
+			db.exec('COMMIT');
+		} catch (error) {
+			db.exec('ROLLBACK');
+			db.close();
+			throw error;
+		}
+	}
+}
+
 export class ContextStore {
 	readonly db_path: string;
 	private db: DatabaseSync;
@@ -411,7 +421,7 @@ export class ContextStore {
 		this.db = new DatabaseSync(this.db_path, {
 			enableForeignKeyConstraints: true,
 		});
-		this.db.exec(SCHEMA);
+		apply_schema(this.db);
 	}
 
 	store(input: StoreContextInput): StoredContextOutput | null {

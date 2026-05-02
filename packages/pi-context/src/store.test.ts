@@ -1,4 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import {
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -286,6 +291,48 @@ describe('ContextStore', () => {
 			reduction_pct: 0,
 		});
 		expect(stats.total_bytes).toBeGreaterThan(0);
+	});
+
+	it('initializes expected schema objects and includes schema in package builds', () => {
+		const store = create_store();
+		const db = new DatabaseSync(store.db_path, {
+			enableForeignKeyConstraints: true,
+		});
+		try {
+			const objects = db
+				.prepare(
+					`SELECT type, name FROM sqlite_master ORDER BY type, name`,
+				)
+				.all() as Array<{ type: string; name: string }>;
+			const names = objects.map((object) => object.name);
+			expect(names).toContain('context_sources');
+			expect(names).toContain('context_chunks');
+			expect(names).toContain('context_chunks_fts');
+			expect(names).toContain('context_chunks_ai');
+			expect(names).toContain('context_chunks_ad');
+			expect(names).toContain('context_chunks_au');
+			expect(
+				objects.some(
+					(object) =>
+						object.type === 'index' &&
+						object.name === 'idx_context_chunks_source',
+				),
+			).toBe(true);
+			expect(db.prepare('PRAGMA user_version').get()).toMatchObject({
+				user_version: 1,
+			});
+		} finally {
+			close_db(db);
+		}
+
+		const built_schema = new URL(
+			'../dist/schema.sql',
+			import.meta.url,
+		);
+		expect(existsSync(built_schema)).toBe(true);
+		expect(readFileSync(built_schema, 'utf8')).toContain(
+			'CREATE TABLE IF NOT EXISTS context_sources',
+		);
 	});
 });
 
