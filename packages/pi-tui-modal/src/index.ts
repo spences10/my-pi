@@ -1,10 +1,6 @@
-import {
-	DynamicBorder,
-	type ExtensionCommandContext,
-} from '@mariozechner/pi-coding-agent';
+import { type ExtensionCommandContext } from '@mariozechner/pi-coding-agent';
 import {
 	Box,
-	Container,
 	fuzzyFilter,
 	getKeybindings,
 	Input,
@@ -24,9 +20,16 @@ import {
 	type SelectListTheme,
 	type SettingItem,
 	type SettingsListTheme,
+	type TUI,
 } from '@mariozechner/pi-tui';
 
 type ModalColor = 'accent' | 'muted' | 'dim' | 'warning' | 'success';
+export type ModalBorderStyle = 'rounded' | 'square' | 'line' | 'none';
+
+export interface ModalStyle {
+	border?: ModalBorderStyle;
+	border_color?: ModalColor;
+}
 
 type ModalTheme = {
 	fg(color: ModalColor, text: string): string;
@@ -46,6 +49,7 @@ export interface ModalOptions {
 	subtitle?: ModalText;
 	footer?: ModalText;
 	overlay_options?: OverlayOptions;
+	style?: ModalStyle;
 }
 
 export interface ModalBody extends Component {
@@ -56,11 +60,16 @@ export interface ModalControls<T> {
 	done: (result: T) => void;
 }
 
+export interface ModalLayout {
+	get_max_body_lines(body_width?: number): number;
+}
+
 export interface PickerModalOptions {
 	title: string;
 	subtitle?: ModalText;
 	footer?: ModalText;
 	overlay_options?: OverlayOptions;
+	style?: ModalStyle;
 	items: SelectItem[];
 	initial_index?: number;
 	max_visible?: number;
@@ -73,6 +82,7 @@ export interface SettingsModalOptions {
 	subtitle?: ModalText;
 	footer?: ModalText;
 	overlay_options?: OverlayOptions;
+	style?: ModalStyle;
 	items: SettingItem[];
 	max_visible?: number;
 	enable_search?: boolean;
@@ -106,10 +116,149 @@ const default_overlay_options: OverlayOptions = {
 	maxHeight: '80%',
 };
 
+const default_modal_style: Required<ModalStyle> = {
+	border: 'rounded',
+	border_color: 'accent',
+};
+
+type BorderCharacters = {
+	top_left: string;
+	top: string;
+	top_right: string;
+	left: string;
+	right: string;
+	bottom_left: string;
+	bottom: string;
+	bottom_right: string;
+};
+
+const border_characters: Record<
+	Exclude<ModalBorderStyle, 'line' | 'none'>,
+	BorderCharacters
+> = {
+	rounded: {
+		top_left: '╭',
+		top: '─',
+		top_right: '╮',
+		left: '│',
+		right: '│',
+		bottom_left: '╰',
+		bottom: '─',
+		bottom_right: '╯',
+	},
+	square: {
+		top_left: '┌',
+		top: '─',
+		top_right: '┐',
+		left: '│',
+		right: '│',
+		bottom_left: '└',
+		bottom: '─',
+		bottom_right: '┘',
+	},
+};
+
 function normalize_text(value: ModalText | undefined): string[] {
 	if (!value) return [];
 	const resolved = typeof value === 'function' ? value() : value;
 	return Array.isArray(resolved) ? resolved : [resolved];
+}
+
+function parse_size_value(
+	value: OverlayOptions['maxHeight'] | undefined,
+	total: number,
+): number | undefined {
+	if (value === undefined) return undefined;
+	if (typeof value === 'number') return value;
+	const match = value.match(/^(\d+(?:\.\d+)?)%$/);
+	return match
+		? Math.floor((Number(match[1]) / 100) * total)
+		: undefined;
+}
+
+function get_vertical_margin(
+	margin: OverlayOptions['margin'],
+): number {
+	if (typeof margin === 'number') return Math.max(0, margin) * 2;
+	return (
+		Math.max(0, margin?.top ?? 0) + Math.max(0, margin?.bottom ?? 0)
+	);
+}
+
+function get_terminal_rows(tui: TUI): number {
+	const rows = (tui as unknown as { terminal?: { rows?: number } })
+		.terminal?.rows;
+	return rows ?? process.stdout.rows ?? 24;
+}
+
+function get_border_line_count(
+	style: ModalStyle | undefined,
+): number {
+	return style?.border === 'none' ? 0 : 2;
+}
+
+function count_text_lines(
+	value: ModalText | undefined,
+	width: number,
+): number {
+	return normalize_text(value).reduce((count, text) => {
+		if (text.trim() === '') return count;
+		return (
+			count +
+			wrapTextWithAnsi(text.replace(/\t/g, '   '), width).length
+		);
+	}, 0);
+}
+
+function get_modal_body_line_budget(
+	tui: TUI,
+	options: ModalOptions,
+	body_width = 80,
+): number {
+	const terminal_rows = get_terminal_rows(tui);
+	const overlay_options = {
+		...default_overlay_options,
+		...options.overlay_options,
+	};
+	const available_height = Math.max(
+		1,
+		terminal_rows - get_vertical_margin(overlay_options.margin),
+	);
+	const max_height = Math.max(
+		1,
+		Math.min(
+			parse_size_value(overlay_options.maxHeight, terminal_rows) ??
+				available_height,
+			available_height,
+		),
+	);
+	const fixed_lines =
+		get_border_line_count(options.style) +
+		2 +
+		count_text_lines(options.title, body_width) +
+		count_text_lines(options.subtitle, body_width) +
+		count_text_lines(options.footer, body_width);
+	return Math.max(1, max_height - fixed_lines);
+}
+
+function fit_visible_items(
+	item_count: number,
+	preferred: number,
+	body_line_budget: number,
+): number {
+	const budget = Math.max(1, body_line_budget);
+	const candidate = Math.max(1, Math.min(preferred, item_count));
+	if (item_count > candidate) {
+		return Math.max(1, Math.min(candidate, budget - 1));
+	}
+	return Math.max(1, Math.min(candidate, budget));
+}
+
+function set_component_max_visible(
+	component: unknown,
+	max_visible: number,
+): void {
+	(component as { maxVisible?: number }).maxVisible = max_visible;
 }
 
 function normalize_metadata(
@@ -202,10 +351,14 @@ class TextModalBody implements ModalBody {
 
 	constructor(
 		private readonly text: ModalText,
-		private readonly max_visible_lines: number,
+		private max_visible_lines: number,
 		private readonly theme: ModalTheme,
 		private readonly on_cancel: () => void,
 	) {}
+
+	set_max_visible_lines(max_visible_lines: number): void {
+		this.max_visible_lines = Math.max(1, max_visible_lines);
+	}
 
 	render(width: number): string[] {
 		this.wrapped_lines = normalize_text(this.text).flatMap((block) =>
@@ -340,7 +493,7 @@ class DetailedSettingsList implements ModalBody {
 
 	constructor(
 		private readonly items: SettingItem[],
-		private readonly max_visible: number,
+		private max_visible: number,
 		private readonly theme: SettingsListTheme,
 		private readonly on_change: (
 			id: string,
@@ -358,6 +511,10 @@ class DetailedSettingsList implements ModalBody {
 
 	get_selected_item(): SettingItem | undefined {
 		return this.get_display_items()[this.selected_index];
+	}
+
+	set_max_visible(max_visible: number): void {
+		this.max_visible = Math.max(1, max_visible);
 	}
 
 	render(width: number): string[] {
@@ -554,17 +711,91 @@ class DetailedSettingsList implements ModalBody {
 	}
 }
 
+function pad_to_width(line: string, width: number): string {
+	return line + ' '.repeat(Math.max(0, width - visibleWidth(line)));
+}
+
+function render_border_line(
+	chars: Pick<BorderCharacters, 'top_left' | 'top' | 'top_right'>,
+	width: number,
+	color: (text: string) => string,
+): string {
+	if (width <= 1) return color(chars.top_left);
+	return color(
+		chars.top_left +
+			chars.top.repeat(Math.max(0, width - 2)) +
+			chars.top_right,
+	);
+}
+
+function render_bottom_border_line(
+	chars: Pick<
+		BorderCharacters,
+		'bottom_left' | 'bottom' | 'bottom_right'
+	>,
+	width: number,
+	color: (text: string) => string,
+): string {
+	if (width <= 1) return color(chars.bottom_left);
+	return color(
+		chars.bottom_left +
+			chars.bottom.repeat(Math.max(0, width - 2)) +
+			chars.bottom_right,
+	);
+}
+
+function render_framed_modal(
+	content: Component,
+	width: number,
+	style: ModalStyle | undefined,
+	theme: ModalTheme,
+): string[] {
+	const resolved_style = { ...default_modal_style, ...style };
+	const color = (text: string) =>
+		theme.fg(resolved_style.border_color, text);
+
+	if (resolved_style.border === 'none') {
+		return content.render(width);
+	}
+
+	if (resolved_style.border === 'line') {
+		const line = color('─'.repeat(Math.max(1, width)));
+		return [line, ...content.render(width), line];
+	}
+
+	const chars = border_characters[resolved_style.border];
+	const inner_width = Math.max(1, width - 2);
+	const body_lines = content.render(inner_width).map((line) => {
+		const padded = pad_to_width(
+			truncateToWidth(line, inner_width, '', true),
+			inner_width,
+		);
+		return `${color(chars.left)}${padded}${color(chars.right)}`;
+	});
+
+	return [
+		render_border_line(chars, width, color),
+		...body_lines,
+		render_bottom_border_line(chars, width, color),
+	];
+}
+
 export async function show_modal<T>(
 	ctx: ExtensionCommandContext,
 	options: ModalOptions,
 	create_body: (
 		controls: ModalControls<T>,
 		theme: ModalTheme,
+		layout: ModalLayout,
 	) => ModalBody,
 ): Promise<T> {
 	return await ctx.ui.custom<T>(
 		(tui, theme, _kb, done) => {
-			const body = create_body({ done }, theme);
+			const layout: ModalLayout = {
+				get_max_body_lines: (body_width?: number) =>
+					get_modal_body_line_budget(tui, options, body_width),
+			};
+			const body = create_body({ done }, theme, layout);
 
 			return {
 				get focused(): boolean {
@@ -574,14 +805,8 @@ export async function show_modal<T>(
 					if (is_focusable(body)) body.focused = value;
 				},
 				render: (width: number) => {
-					const container = new Container();
 					const content = new Box(2, 1);
 
-					container.addChild(
-						new DynamicBorder((text: string) =>
-							theme.fg('accent', text),
-						),
-					);
 					content.addChild(
 						new Text(
 							theme.fg('accent', theme.bold(options.title)),
@@ -592,17 +817,23 @@ export async function show_modal<T>(
 					for (const line of normalize_text(options.subtitle)) {
 						content.addChild(new Text(theme.fg('muted', line), 0, 0));
 					}
-					content.addChild(body);
+					content.addChild({
+						render: (body_width: number) =>
+							body
+								.render(body_width)
+								.slice(0, layout.get_max_body_lines(body_width)),
+						invalidate: () => body.invalidate(),
+					});
 					for (const line of normalize_text(options.footer)) {
 						content.addChild(new Text(theme.fg('dim', line), 0, 0));
 					}
-					container.addChild(content);
-					container.addChild(
-						new DynamicBorder((text: string) =>
-							theme.fg('accent', text),
-						),
+
+					return render_framed_modal(
+						content,
+						width,
+						options.style,
+						theme,
 					);
-					return container.render(width);
 				},
 				invalidate: () => {
 					body.invalidate();
@@ -640,11 +871,18 @@ export async function show_picker_modal(
 			footer:
 				options.footer ?? '↑↓ navigate • enter select • esc cancel',
 			overlay_options: options.overlay_options,
+			style: options.style,
 		},
-		({ done }, theme) => {
+		({ done }, theme, layout) => {
+			const preferred_max_visible =
+				options.max_visible ?? Math.min(options.items.length, 12);
 			const select_list = new SelectList(
 				options.items,
-				options.max_visible ?? Math.min(options.items.length, 12),
+				fit_visible_items(
+					options.items.length,
+					preferred_max_visible,
+					layout.get_max_body_lines(),
+				),
 				make_select_theme(theme),
 				options.layout,
 			);
@@ -653,7 +891,21 @@ export async function show_picker_modal(
 			}
 			select_list.onSelect = (item) => done(item.value);
 			select_list.onCancel = () => done(undefined);
-			return select_list;
+			return {
+				render: (width: number) => {
+					set_component_max_visible(
+						select_list,
+						fit_visible_items(
+							options.items.length,
+							preferred_max_visible,
+							layout.get_max_body_lines(width),
+						),
+					);
+					return select_list.render(width);
+				},
+				invalidate: () => select_list.invalidate(),
+				handleInput: (data: string) => select_list.handleInput(data),
+			};
 		},
 	);
 }
@@ -669,14 +921,30 @@ export async function show_text_modal(
 			subtitle: options.subtitle,
 			footer: options.footer ?? '↑↓ scroll • esc back',
 			overlay_options: options.overlay_options,
+			style: options.style,
 		},
-		({ done }, theme) =>
-			new TextModalBody(
+		({ done }, theme, layout) => {
+			const preferred_max_visible = options.max_visible_lines ?? 18;
+			const body = new TextModalBody(
 				options.text,
-				options.max_visible_lines ?? 18,
+				Math.min(preferred_max_visible, layout.get_max_body_lines()),
 				theme,
 				() => done(),
-			),
+			);
+			return {
+				render: (width: number) => {
+					body.set_max_visible_lines(
+						Math.min(
+							preferred_max_visible,
+							layout.get_max_body_lines(width),
+						),
+					);
+					return body.render(width);
+				},
+				invalidate: () => body.invalidate(),
+				handleInput: (data: string) => body.handleInput(data),
+			};
+		},
 	);
 }
 
@@ -696,6 +964,7 @@ export async function show_input_modal(
 				maxHeight: '60%',
 				...options.overlay_options,
 			},
+			style: options.style,
 		},
 		({ done }, theme) =>
 			new InputModalBody(
@@ -721,6 +990,7 @@ export async function show_confirm_modal(
 			maxHeight: '60%',
 			...options.overlay_options,
 		},
+		style: options.style,
 		items: [
 			{
 				value: 'confirm',
@@ -750,11 +1020,22 @@ export async function show_settings_modal(
 				options.footer ??
 				'search filters • enter toggles • esc close',
 			overlay_options: options.overlay_options,
+			style: options.style,
 		},
-		({ done }, theme) => {
-			const max_visible =
+		({ done }, theme, layout) => {
+			const preferred_max_visible =
 				options.max_visible ??
 				Math.min(Math.max(options.items.length + 4, 8), 16);
+			const get_max_visible = (width?: number) =>
+				fit_visible_items(
+					options.items.length,
+					preferred_max_visible,
+					layout.get_max_body_lines(width) -
+						(options.enable_search ? 2 : 0) -
+						2 -
+						2 -
+						(options.metadata ? 3 : 0),
+				);
 			const settings_theme = make_settings_theme(theme);
 			const handle_change = (id: string, new_value: string) => {
 				if (options.on_change(id, new_value)) done();
@@ -766,7 +1047,7 @@ export async function show_settings_modal(
 			const list = options.detail
 				? new DetailedSettingsList(
 						options.items,
-						max_visible,
+						get_max_visible(),
 						settings_theme,
 						handle_change,
 						handle_cancel,
@@ -777,7 +1058,7 @@ export async function show_settings_modal(
 					)
 				: new SettingsList(
 						options.items,
-						max_visible,
+						get_max_visible(),
 						settings_theme,
 						handle_change,
 						handle_cancel,
@@ -786,6 +1067,12 @@ export async function show_settings_modal(
 
 			return {
 				render: (width: number) => {
+					const max_visible = get_max_visible(width);
+					if (list instanceof DetailedSettingsList) {
+						list.set_max_visible(max_visible);
+					} else {
+						set_component_max_visible(list, max_visible);
+					}
 					const lines = list.render(width);
 					const selected_item =
 						list instanceof DetailedSettingsList

@@ -1,5 +1,6 @@
 import type { ExtensionCommandContext } from '@mariozechner/pi-coding-agent';
 import {
+	getKeybindings,
 	Key,
 	matchesKey,
 	truncateToWidth,
@@ -784,26 +785,75 @@ export async function show_team_dashboard_modal(
 		{
 			title: 'Team dashboard',
 			subtitle: `${status.team.name} • ${format_status_counts(status)}`,
-			footer: 'enter/s summarize completed results • q/esc close',
+			footer: '↑↓ scroll • enter/s results • q/esc close',
 			overlay_options: { width: '90%', minWidth: 72 },
 		},
-		({ done }, theme) => ({
-			render: (width: number) =>
-				dashboard.split('\n').map((line) => {
-					const styled = /^[A-Z][^:]+$/.test(line)
-						? theme.fg('accent', theme.bold(line))
-						: line;
-					return truncateToWidth(styled, width);
-				}),
-			invalidate: () => undefined,
-			handleInput: (data: string) => {
-				if (matchesKey(data, Key.enter) || data === 's') {
-					done('results');
-				} else if (matchesKey(data, Key.escape) || data === 'q') {
-					done('close');
-				}
-			},
-		}),
+		({ done }, theme, layout) => {
+			const dashboard_lines = dashboard.split('\n');
+			let offset = 0;
+			let max_offset = 0;
+
+			return {
+				render: (width: number) => {
+					const rendered = dashboard_lines.map((line) => {
+						const styled = /^[A-Z][^:]+$/.test(line)
+							? theme.fg('accent', theme.bold(line))
+							: line;
+						return truncateToWidth(styled, width);
+					});
+					const budget = Math.max(
+						1,
+						layout.get_max_body_lines(width),
+					);
+					const visible_count =
+						rendered.length > budget
+							? Math.max(1, budget - 1)
+							: budget;
+					max_offset = Math.max(0, rendered.length - visible_count);
+					offset = Math.max(0, Math.min(offset, max_offset));
+					const end = Math.min(
+						offset + visible_count,
+						rendered.length,
+					);
+					const visible = rendered.slice(offset, end);
+					if (rendered.length > visible_count) {
+						visible.push(
+							theme.fg(
+								'dim',
+								truncateToWidth(
+									`(${offset + 1}-${end}/${rendered.length})`,
+									width,
+								),
+							),
+						);
+					}
+					return visible;
+				},
+				invalidate: () => undefined,
+				handleInput: (data: string) => {
+					const keybindings = getKeybindings();
+					if (
+						keybindings.matches(data, 'tui.select.up') ||
+						data === 'k'
+					) {
+						offset = Math.max(0, offset - 1);
+					} else if (
+						keybindings.matches(data, 'tui.select.down') ||
+						data === 'j'
+					) {
+						offset = Math.min(max_offset, offset + 1);
+					} else if (matchesKey(data, Key.home)) {
+						offset = 0;
+					} else if (matchesKey(data, Key.end)) {
+						offset = max_offset;
+					} else if (matchesKey(data, Key.enter) || data === 's') {
+						done('results');
+					} else if (matchesKey(data, Key.escape) || data === 'q') {
+						done('close');
+					}
+				},
+			};
+		},
 	);
 }
 
