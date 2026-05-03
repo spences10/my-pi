@@ -1,5 +1,12 @@
 # @spences10/pi-lsp
 
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [7b27f9e]
+  - @spences10/pi-tui-modal@0.0.6
+
 ## 0.0.12
 
 ### Patch Changes

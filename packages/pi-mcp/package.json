@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-mcp",
-	"version": "0.0.14",
+	"version": "0.0.15",
 	"description": "Pi extension for connecting MCP servers and exposing their tools",
 	"keywords": [
 		"mcp",

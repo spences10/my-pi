@@ -1,5 +1,14 @@
 # @spences10/pi-team-mode
 
+## 0.0.12
+
+### Patch Changes
+
+- 7b27f9e: Add rounded modal borders, dynamic height budgeting, and
+  scrollable team dashboard for small terminals.
+- Updated dependencies [7b27f9e]
+  - @spences10/pi-tui-modal@0.0.6
+
 ## 0.0.11
 
 ### Patch Changes

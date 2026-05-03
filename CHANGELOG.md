@@ -1,5 +1,18 @@
 # my-pi
 
+## 0.1.30
+
+### Patch Changes
+
+- Updated dependencies [7b27f9e]
+  - @spences10/pi-team-mode@0.0.12
+  - @spences10/pi-tui-modal@0.0.6
+  - @spences10/pi-context@0.0.5
+  - @spences10/pi-lsp@0.0.13
+  - @spences10/pi-mcp@0.0.15
+  - @spences10/pi-skills@0.0.11
+  - @spences10/pi-telemetry@0.0.6
+
 ## 0.1.29
 
 ### Patch Changes
