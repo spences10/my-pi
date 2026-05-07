@@ -16,13 +16,13 @@ importers:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@mariozechner/pi-tui':
         specifier: ^0.73.0
-        version: 0.73.0
+        version: 0.73.1
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:packages/pi-child-env
@@ -86,10 +86,10 @@ importers:
         version: 25.6.0
       vite-plus:
         specifier: ^0.1.20
-        version: 0.1.20(@types/node@25.6.0)(typescript@6.0.3)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))(yaml@2.8.4)
+        version: 0.1.20(@types/node@25.6.0)(jiti@2.7.0)(typescript@6.0.3)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))(yaml@2.8.4)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-child-env:
     devDependencies:
@@ -101,13 +101,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-confirm-destructive:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -117,13 +117,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-context:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@spences10/pi-redact':
         specifier: workspace:*
         version: link:../pi-redact
@@ -142,13 +142,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-lsp:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:../pi-child-env
@@ -170,13 +170,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-mcp:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:../pi-child-env
@@ -198,13 +198,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-nopeek:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -214,13 +214,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-omnisearch:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -230,7 +230,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-project-trust:
     devDependencies:
@@ -242,13 +242,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-recall:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -258,16 +258,16 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-redact:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -277,16 +277,16 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-skills:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@mariozechner/pi-tui':
         specifier: ^0.73.0
-        version: 0.73.0
+        version: 0.73.1
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal
@@ -299,13 +299,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-sqlite-tools:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -315,16 +315,16 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-team-mode:
     dependencies:
       '@mariozechner/pi-ai':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:../pi-child-env
@@ -346,13 +346,13 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-telemetry:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal
@@ -365,7 +365,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
   packages/pi-themes: {}
 
@@ -373,10 +373,10 @@ importers:
     dependencies:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.73.0
-        version: 0.73.0(ws@8.20.0)(zod@4.4.3)
+        version: 0.73.1(ws@8.20.0)(zod@4.4.3)
       '@mariozechner/pi-tui':
         specifier: ^0.73.0
-        version: 0.73.0
+        version: 0.73.1
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
@@ -386,7 +386,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+        version: 4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
 
 packages:
 
@@ -416,8 +416,8 @@ packages:
   '@aws-crypto/util@5.2.0':
     resolution: {integrity: sha512-4RkU9EsI6ZpBve5fseQlGNUWKMa1RLPQ1dnjnQoe07ldfIzcsGb5hC5W0Dm7u423KWzawlrpbjXBrXCEv9zazQ==}
 
-  '@aws-sdk/client-bedrock-runtime@3.1043.0':
-    resolution: {integrity: sha512-J22pIYr7ZND7F9oYvqALUeHBsA2ND8fHm7ZIu2SBkoYXuvTMdRIfbHwyas3cZkYp+W/zGaLC/5mAHcmQQuaSOw==}
+  '@aws-sdk/client-bedrock-runtime@3.1044.0':
+    resolution: {integrity: sha512-uwJB0pVZIey+kYag8xeUirMvuaDhhEHuYgSsapOKT5XCAije5pLNlg160eECJdhX9JEf0IthIM3IiHKSEkFtMw==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/core@3.974.8':
@@ -504,8 +504,8 @@ packages:
     resolution: {integrity: sha512-Th7kPI6YPtvJUcdznooXJMy+9rQWjmEF81LxaJssngBzuysK4a/x+l8kjm1zb7nYsUPbndnBdUnwng/3PLvtGw==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/token-providers@3.1043.0':
-    resolution: {integrity: sha512-Rlh9piVFV4WOMGgcHY0+O4TMDOSJGYxh7dvxWIhmhf6ASvRPMA2HZb6DSCan8nl5IFXjCYxYXWjpb5+Ii77MjQ==}
+  '@aws-sdk/token-providers@3.1044.0':
+    resolution: {integrity: sha512-uvpWTfpzOM9qVrR0kdAjzBbvv2ERW7S1CKeBeRkHyHy21Ext5fNReIVrbAzhjuVC7UxRyZQ8PHYW/3T83hWlbg==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/types@3.973.8':
@@ -714,26 +714,22 @@ packages:
     resolution: {integrity: sha512-D3F+UrU9CR7roJt0zDLp6Oc+4/KlLDIrN4frH+6V90SJNW2KKUec1oCQIPaaDjCqeOsQyX9dyqYbImIQIM45PA==}
     engines: {node: '>= 10'}
 
-  '@mariozechner/jiti@2.6.5':
-    resolution: {integrity: sha512-faGUlTcXka5l7rv0lP3K3vGW/ejRuOS24RR2aSFWREUQqzjgdsuWNo/IiPqL3kWRGt6Ahl2+qcDAwtdeWeuGUw==}
-    hasBin: true
-
-  '@mariozechner/pi-agent-core@0.73.0':
-    resolution: {integrity: sha512-ugcpvq0X9fr9fTSK29/3S4+KU/eeVMrBb7ZU3HqiF3xD7I1GlgumLj4FYmDrYSEA6+rzgNWlJUKwjKh9o0Z6AA==}
+  '@mariozechner/pi-agent-core@0.73.1':
+    resolution: {integrity: sha512-Y/KVOhuKSgRQgYBlwmRtO2gPkUcoavOSqGF9bpQIINvNZvc19k6Z1H3bFDTce3Vp5ApMmTsfLH3+tNvOg75fAQ==}
     engines: {node: '>=20.0.0'}
 
-  '@mariozechner/pi-ai@0.73.0':
-    resolution: {integrity: sha512-phKOpcde/ssz6UYszkmaGJ9LF9mgt/AP8LrtSwsfap+kMSeFfSQ2/mCSBT1mLJ2BqVuff9uXs1/+op1aQeaafQ==}
+  '@mariozechner/pi-ai@0.73.1':
+    resolution: {integrity: sha512-Jh4lXawZYuC83HzSIYuVum9NBqJD49i4JOt3H96cGW/924cwJMOyUs1Mv/e4QPzTXnzrqMoGviNQnvGgSu1LSg==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
-  '@mariozechner/pi-coding-agent@0.73.0':
-    resolution: {integrity: sha512-Fs2dRIgtjDT8X5VDGNGzxj251B0FvkRsgX03YJv1FK4wg5Maj+jkf8/5A6tbPnPcXsCgs41xxJRf3tF5vJRccA==}
+  '@mariozechner/pi-coding-agent@0.73.1':
+    resolution: {integrity: sha512-gXQh3SaZmWTfVMc4Ao5+LGbVeKvzyO7tolok0nLsZgq9nGjZx/EEU3NM8C+qUnB4Nvs2rswG5qOVgLzQkq0fHQ==}
     engines: {node: '>=20.6.0'}
     hasBin: true
 
-  '@mariozechner/pi-tui@0.73.0':
-    resolution: {integrity: sha512-St1W+tMPKHatfK+lblsKfL+SsFyFVMK2tW6xHpBfCiMuevbOCRo/CMatso7mu1642UO04ncmfCrrpUK5L9aoog==}
+  '@mariozechner/pi-tui@0.73.1':
+    resolution: {integrity: sha512-ybVsRnUbzQRtbocltJ2OXb2QogrO67N2BlUyKjZz9BHcZYiDJtNkcKQockxDjsVvDc0uBCLDX6iZJoBElBd8fw==}
     engines: {node: '>=20.0.0'}
 
   '@mistralai/mistralai@2.2.1':
@@ -1965,6 +1961,10 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
+  jiti@2.7.0:
+    resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
+    hasBin: true
+
   js-yaml@3.14.2:
     resolution: {integrity: sha512-PMSmkqxr106Xa156c2M265Z+FTrPl+oxd/rgOQy2tijQeK5TxQ43psO1ZCwhVOSdnn+RzkzlRz/eY4BgJBYVpg==}
     hasBin: true
@@ -1989,8 +1989,8 @@ packages:
   jws@4.0.1:
     resolution: {integrity: sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==}
 
-  koffi@2.16.1:
-    resolution: {integrity: sha512-0Ie6CfD026dNfWSosDw9dPxPzO9Rlyo0N8m5r05S8YjytIpuilzMFDMY4IDy/8xQsTwpuVinhncD+S8n3bcYZQ==}
+  koffi@2.16.2:
+    resolution: {integrity: sha512-owU0MRwv6xkrVqCd+33uw6BaYppkTRXbO/rVdJNI2dvZG0gzyRhYwW25eWtc5pauwK8TGh3AbkFONSezdykfSA==}
 
   lightningcss-android-arm64@1.32.0:
     resolution: {integrity: sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==}
@@ -2418,9 +2418,6 @@ packages:
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
 
-  std-env@3.10.0:
-    resolution: {integrity: sha512-5GS12FdOZNliM5mAOxFRg7Ir0pWz8MdpYm6AY6VPkGpbA7ZzmbzNcBJQ0GPvvyWgcY7QAhCgf9Uy89I03faLkg==}
-
   std-env@4.1.0:
     resolution: {integrity: sha512-Rq7ybcX2RuC55r9oaPVEW7/xu3tj8u4GeBYHBWCychFtzMIr86A7e3PPEBPT37sHStKX3+TiX/Fr/ACmJLVlLQ==}
 
@@ -2440,8 +2437,8 @@ packages:
     resolution: {integrity: sha512-vavAMRXOgBVNF6nyEEmL3DBK19iRpDcoIwW+swQ+CbGiu7lju6t+JklA1MHweoWtadgt4ISVUsXLyDq34ddcwA==}
     engines: {node: '>=4'}
 
-  strnum@2.2.3:
-    resolution: {integrity: sha512-oKx6RUCuHfT3oyVjtnrmn19H1SiCqgJSg+54XqURKp5aCMbrXrhLjRN9TjuwMjiYstZ0MzDrHqkGZ5dFTKd+zg==}
+  strnum@2.3.0:
+    resolution: {integrity: sha512-ums3KNd42PGyx5xaoVTO1mjU1bH3NpY4vsrVlnv9PNGqQj8wd7rJ6nEypLrJ7z5vxK5RP0yMLo6J/Gsm62DI5Q==}
 
   strtok3@10.3.5:
     resolution: {integrity: sha512-ki4hZQfh5rX0QDLLkOCj+h+CVNkqmp/CMf8v8kZpkNVK6jGQooMytqzLZYUVYIZcFZ6yDB70EfD8POcFXiF5oA==}
@@ -2668,10 +2665,6 @@ packages:
   yauzl@2.10.0:
     resolution: {integrity: sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==}
 
-  yoctocolors@2.1.2:
-    resolution: {integrity: sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug==}
-    engines: {node: '>=18'}
-
   zod-to-json-schema@3.25.2:
     resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
     peerDependencies:
@@ -2720,7 +2713,7 @@ snapshots:
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
 
-  '@aws-sdk/client-bedrock-runtime@3.1043.0':
+  '@aws-sdk/client-bedrock-runtime@3.1044.0':
     dependencies:
       '@aws-crypto/sha256-browser': 5.2.0
       '@aws-crypto/sha256-js': 5.2.0
@@ -2734,7 +2727,7 @@ snapshots:
       '@aws-sdk/middleware-user-agent': 3.972.38
       '@aws-sdk/middleware-websocket': 3.972.16
       '@aws-sdk/region-config-resolver': 3.972.13
-      '@aws-sdk/token-providers': 3.1043.0
+      '@aws-sdk/token-providers': 3.1044.0
       '@aws-sdk/types': 3.973.8
       '@aws-sdk/util-endpoints': 3.996.8
       '@aws-sdk/util-user-agent-browser': 3.972.10
@@ -3044,7 +3037,7 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  '@aws-sdk/token-providers@3.1043.0':
+  '@aws-sdk/token-providers@3.1044.0':
     dependencies:
       '@aws-sdk/core': 3.974.8
       '@aws-sdk/nested-clients': 3.997.6
@@ -3352,14 +3345,9 @@ snapshots:
       '@mariozechner/clipboard-win32-x64-msvc': 0.3.2
     optional: true
 
-  '@mariozechner/jiti@2.6.5':
+  '@mariozechner/pi-agent-core@0.73.1(ws@8.20.0)(zod@4.4.3)':
     dependencies:
-      std-env: 3.10.0
-      yoctocolors: 2.1.2
-
-  '@mariozechner/pi-agent-core@0.73.0(ws@8.20.0)(zod@4.4.3)':
-    dependencies:
-      '@mariozechner/pi-ai': 0.73.0(ws@8.20.0)(zod@4.4.3)
+      '@mariozechner/pi-ai': 0.73.1(ws@8.20.0)(zod@4.4.3)
       typebox: 1.1.38
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
@@ -3370,10 +3358,10 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-ai@0.73.0(ws@8.20.0)(zod@4.4.3)':
+  '@mariozechner/pi-ai@0.73.1(ws@8.20.0)(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
-      '@aws-sdk/client-bedrock-runtime': 3.1043.0
+      '@aws-sdk/client-bedrock-runtime': 3.1044.0
       '@google/genai': 1.52.0
       '@mistralai/mistralai': 2.2.1
       chalk: 5.6.2
@@ -3392,12 +3380,11 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-coding-agent@0.73.0(ws@8.20.0)(zod@4.4.3)':
+  '@mariozechner/pi-coding-agent@0.73.1(ws@8.20.0)(zod@4.4.3)':
     dependencies:
-      '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.73.0(ws@8.20.0)(zod@4.4.3)
-      '@mariozechner/pi-ai': 0.73.0(ws@8.20.0)(zod@4.4.3)
-      '@mariozechner/pi-tui': 0.73.0
+      '@mariozechner/pi-agent-core': 0.73.1(ws@8.20.0)(zod@4.4.3)
+      '@mariozechner/pi-ai': 0.73.1(ws@8.20.0)(zod@4.4.3)
+      '@mariozechner/pi-tui': 0.73.1
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
       cli-highlight: 2.1.11
@@ -3407,6 +3394,7 @@ snapshots:
       glob: 13.0.6
       hosted-git-info: 9.0.3
       ignore: 7.0.5
+      jiti: 2.7.0
       marked: 15.0.12
       minimatch: 10.2.5
       proper-lockfile: 4.1.2
@@ -3426,7 +3414,7 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-tui@0.73.0':
+  '@mariozechner/pi-tui@0.73.1':
     dependencies:
       '@types/mime-types': 2.1.4
       chalk: 5.6.2
@@ -3434,7 +3422,7 @@ snapshots:
       marked: 15.0.12
       mime-types: 3.0.2
     optionalDependencies:
-      koffi: 2.16.1
+      koffi: 2.16.2
 
   '@mistralai/mistralai@2.2.1':
     dependencies:
@@ -4033,13 +4021,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.5(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))':
+  '@vitest/mocker@4.1.5(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))':
     dependencies:
       '@vitest/spy': 4.1.5
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.8(@types/node@25.6.0)(yaml@2.8.4)
+      vite: 8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4)
 
   '@vitest/pretty-format@4.1.5':
     dependencies:
@@ -4065,7 +4053,7 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@voidzero-dev/vite-plus-core@0.1.20(@types/node@25.6.0)(typescript@6.0.3)(yaml@2.8.4)':
+  '@voidzero-dev/vite-plus-core@0.1.20(@types/node@25.6.0)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.8.4)':
     dependencies:
       '@oxc-project/runtime': 0.127.0
       '@oxc-project/types': 0.127.0
@@ -4074,6 +4062,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.6.0
       fsevents: 2.3.3
+      jiti: 2.7.0
       typescript: 6.0.3
       yaml: 2.8.4
 
@@ -4095,11 +4084,11 @@ snapshots:
   '@voidzero-dev/vite-plus-linux-x64-musl@0.1.20':
     optional: true
 
-  '@voidzero-dev/vite-plus-test@0.1.20(@types/node@25.6.0)(typescript@6.0.3)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))(yaml@2.8.4)':
+  '@voidzero-dev/vite-plus-test@0.1.20(@types/node@25.6.0)(jiti@2.7.0)(typescript@6.0.3)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))(yaml@2.8.4)':
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@types/chai': 5.2.3
-      '@voidzero-dev/vite-plus-core': 0.1.20(@types/node@25.6.0)(typescript@6.0.3)(yaml@2.8.4)
+      '@voidzero-dev/vite-plus-core': 0.1.20(@types/node@25.6.0)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.8.4)
       es-module-lexer: 1.7.0
       obug: 2.1.1
       pixelmatch: 7.2.0
@@ -4109,7 +4098,7 @@ snapshots:
       tinybench: 2.9.0
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
-      vite: 8.0.8(@types/node@25.6.0)(yaml@2.8.4)
+      vite: 8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4)
       ws: 8.20.0
     optionalDependencies:
       '@types/node': 25.6.0
@@ -4332,7 +4321,7 @@ snapshots:
       '@nodable/entities': 2.1.0
       fast-xml-builder: 1.1.9
       path-expression-matcher: 1.5.0
-      strnum: 2.2.3
+      strnum: 2.3.0
 
   fastq@1.20.1:
     dependencies:
@@ -4508,6 +4497,8 @@ snapshots:
 
   isexe@2.0.0: {}
 
+  jiti@2.7.0: {}
+
   js-yaml@3.14.2:
     dependencies:
       argparse: 1.0.10
@@ -4541,7 +4532,7 @@ snapshots:
       jwa: 2.0.1
       safe-buffer: 5.2.1
 
-  koffi@2.16.1:
+  koffi@2.16.2:
     optional: true
 
   lightningcss-android-arm64@1.32.0:
@@ -4959,8 +4950,6 @@ snapshots:
 
   stackback@0.0.2: {}
 
-  std-env@3.10.0: {}
-
   std-env@4.1.0: {}
 
   string-width@4.2.3:
@@ -4979,7 +4968,7 @@ snapshots:
 
   strip-bom@3.0.0: {}
 
-  strnum@2.2.3: {}
+  strnum@2.3.0: {}
 
   strtok3@10.3.5:
     dependencies:
@@ -5042,11 +5031,11 @@ snapshots:
 
   uuid@14.0.0: {}
 
-  vite-plus@0.1.20(@types/node@25.6.0)(typescript@6.0.3)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))(yaml@2.8.4):
+  vite-plus@0.1.20(@types/node@25.6.0)(jiti@2.7.0)(typescript@6.0.3)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))(yaml@2.8.4):
     dependencies:
       '@oxc-project/types': 0.127.0
-      '@voidzero-dev/vite-plus-core': 0.1.20(@types/node@25.6.0)(typescript@6.0.3)(yaml@2.8.4)
-      '@voidzero-dev/vite-plus-test': 0.1.20(@types/node@25.6.0)(typescript@6.0.3)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))(yaml@2.8.4)
+      '@voidzero-dev/vite-plus-core': 0.1.20(@types/node@25.6.0)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.8.4)
+      '@voidzero-dev/vite-plus-test': 0.1.20(@types/node@25.6.0)(jiti@2.7.0)(typescript@6.0.3)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))(yaml@2.8.4)
       oxfmt: 0.46.0
       oxlint: 1.61.0(oxlint-tsgolint@0.22.0)
       oxlint-tsgolint: 0.22.0
@@ -5089,7 +5078,7 @@ snapshots:
       - vite
       - yaml
 
-  vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4):
+  vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -5099,12 +5088,13 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.6.0
       fsevents: 2.3.3
+      jiti: 2.7.0
       yaml: 2.8.4
 
-  vitest@4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4)):
+  vitest@4.1.5(@types/node@25.6.0)(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4)):
     dependencies:
       '@vitest/expect': 4.1.5
-      '@vitest/mocker': 4.1.5(vite@8.0.8(@types/node@25.6.0)(yaml@2.8.4))
+      '@vitest/mocker': 4.1.5(vite@8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4))
       '@vitest/pretty-format': 4.1.5
       '@vitest/runner': 4.1.5
       '@vitest/snapshot': 4.1.5
@@ -5121,7 +5111,7 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 8.0.8(@types/node@25.6.0)(yaml@2.8.4)
+      vite: 8.0.8(@types/node@25.6.0)(jiti@2.7.0)(yaml@2.8.4)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 25.6.0
@@ -5169,8 +5159,6 @@ snapshots:
     dependencies:
       buffer-crc32: 0.2.13
       fd-slicer: 1.1.0
-
-  yoctocolors@2.1.2: {}
 
   zod-to-json-schema@3.25.2(zod@4.4.3):
     dependencies:
