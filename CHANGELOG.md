@@ -1,5 +1,17 @@
 # my-pi
 
+## 0.1.50
+
+### Patch Changes
+
+- c11697a: Extract configurable Pi footer package and decouple prompt
+  presets into status publisher only.
+- ffea37e: Standardize shared dependency versions through pnpm catalog
+  and align package dev dependencies for CI.
+- Updated dependencies [ffea37e]
+  - @spences10/pi-project-trust@0.0.7
+  - @spences10/pi-tui-modal@0.0.16
+
 ## 0.1.49
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.12
+
+### Patch Changes
+
+- ffea37e: Standardize shared dependency versions through pnpm catalog
+  and align package dev dependencies for CI.
+
 ## 0.0.11
 
 ### Patch Changes

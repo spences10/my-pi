@@ -1,5 +1,17 @@
 # @spences10/pi-mcp
 
+## 0.0.28
+
+### Patch Changes
+
+- ffea37e: Standardize shared dependency versions through pnpm catalog
+  and align package dev dependencies for CI.
+- Updated dependencies [ffea37e]
+  - @spences10/pi-project-trust@0.0.7
+  - @spences10/pi-child-env@0.1.5
+  - @spences10/pi-tui-modal@0.0.16
+  - @spences10/pi-context@0.0.18
+
 ## 0.0.27
 
 ### Patch Changes

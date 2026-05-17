@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-svelte-guardrails",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"description": "Pi extension that blocks discouraged Svelte patterns before agents write them",
 	"keywords": [
 		"agent-guardrails",

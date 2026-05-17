@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-git-ui",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"description": "Focused Git staging and commit modal for Pi",
 	"keywords": [
 		"git",

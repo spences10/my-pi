@@ -1,5 +1,12 @@
 # @spences10/pi-project-trust
 
+## 0.0.7
+
+### Patch Changes
+
+- ffea37e: Standardize shared dependency versions through pnpm catalog
+  and align package dev dependencies for CI.
+
 ## 0.0.6
 
 ### Patch Changes

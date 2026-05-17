@@ -1,5 +1,12 @@
 # @spences10/pi-child-env
 
+## 0.1.5
+
+### Patch Changes
+
+- ffea37e: Standardize shared dependency versions through pnpm catalog
+  and align package dev dependencies for CI.
+
 ## 0.1.4
 
 ### Patch Changes

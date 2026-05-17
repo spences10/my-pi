@@ -1,5 +1,12 @@
 # @spences10/pi-tui-modal
 
+## 0.0.16
+
+### Patch Changes
+
+- ffea37e: Standardize shared dependency versions through pnpm catalog
+  and align package dev dependencies for CI.
+
 ## 0.0.15
 
 ### Patch Changes
