@@ -32,7 +32,7 @@ catalogs:
       version: 4.1.5
 
 overrides:
-  basic-ftp: 5.3.1
+  basic-ftp: 6.0.1
   fast-xml-parser: 5.7.2
   postcss: 8.5.12
   protobufjs: 7.5.5
