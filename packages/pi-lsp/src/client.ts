@@ -241,6 +241,8 @@ export class LspClient extends EventEmitter {
 				textDocument: { uri, version: next_version },
 				contentChanges: [{ text }],
 			});
+			// Invalidate cached diagnostics so wait_for_diagnostics waits for fresh ones
+			this.#diagnostics_by_uri.delete(uri);
 			return;
 		}
 
