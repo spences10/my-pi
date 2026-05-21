@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-project-trust?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-project-trust)
 [![license](https://img.shields.io/npm/l/@spences10/pi-project-trust)](https://www.npmjs.com/package/@spences10/pi-project-trust)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Share one trust policy across Pi extensions that touch project files
 or resources. `pi-project-trust` helps extensions consistently decide
 when a path, command, or project-owned resource is safe to use.

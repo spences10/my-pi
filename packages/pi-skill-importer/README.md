@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-skill-importer?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-skill-importer)
 [![license](https://img.shields.io/npm/l/@spences10/pi-skill-importer)](https://www.npmjs.com/package/@spences10/pi-skill-importer)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Move external Agent Skills into Pi without hand-copying files.
 `pi-skill-importer` provides the import helpers Pi uses to normalize
 skill metadata, content, and storage from compatible skill sources.

@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-confirm-destructive?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-confirm-destructive)
 [![license](https://img.shields.io/npm/l/@spences10/pi-confirm-destructive)](https://www.npmjs.com/package/@spences10/pi-confirm-destructive)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Stop destructive shell commands before they surprise you.
 `pi-confirm-destructive` adds a Git-aware confirmation layer for
 deletes, resets, force pushes, and other risky actions so agents pause

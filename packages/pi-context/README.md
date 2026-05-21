@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-context?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-context)
 [![license](https://img.shields.io/npm/l/@spences10/pi-context)](https://www.npmjs.com/package/@spences10/pi-context)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Keep huge tool output useful without flooding the model context.
 `pi-context` stores oversized command, file, MCP, and LSP results in a
 local searchable SQLite sidecar, then gives the agent compact receipts

@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-coding-preferences?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-coding-preferences)
 [![license](https://img.shields.io/npm/l/@spences10/pi-coding-preferences)](https://www.npmjs.com/package/@spences10/pi-coding-preferences)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Keep agents aligned with your local coding standards before bad
 commands run. `pi-coding-preferences` turns workflow preferences—like
 using `rg` instead of `grep`—into lightweight guardrails that nudge

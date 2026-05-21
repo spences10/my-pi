@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-sqlite-tools?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-sqlite-tools)
 [![license](https://img.shields.io/npm/l/@spences10/pi-sqlite-tools)](https://www.npmjs.com/package/@spences10/pi-sqlite-tools)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Make SQLite work safer than ad-hoc shell commands. `pi-sqlite-tools`
 reminds agents to use the gated `mcp-sqlite-tools` workflow for
 inspecting, querying, backing up, and modifying databases instead of

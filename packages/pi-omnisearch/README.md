@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-omnisearch?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-omnisearch)
 [![license](https://img.shields.io/npm/l/@spences10/pi-omnisearch)](https://www.npmjs.com/package/@spences10/pi-omnisearch)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Make agents verify current facts before answering. `pi-omnisearch`
 reminds the model to use the Omnisearch MCP tools for web search,
 extraction, and cited synthesis instead of relying on stale memory or

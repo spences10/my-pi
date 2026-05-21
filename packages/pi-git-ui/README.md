@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-git-ui?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-git-ui)
 [![license](https://img.shields.io/npm/l/@spences10/pi-git-ui)](https://www.npmjs.com/package/@spences10/pi-git-ui)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Review and commit changes from inside Pi without context-switching to
 a separate Git client. `pi-git-ui` provides a focused staging, diff
 review, and commit modal designed for agent-assisted coding workflows.

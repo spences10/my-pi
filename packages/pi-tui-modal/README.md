@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-tui-modal?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-tui-modal)
 [![license](https://img.shields.io/npm/l/@spences10/pi-tui-modal)](https://www.npmjs.com/package/@spences10/pi-tui-modal)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Build Pi overlays that feel consistent instead of one-off.
 `pi-tui-modal` provides shared TUI modal primitives for pickers,
 settings, prompts, confirmations, and scrollable text views used

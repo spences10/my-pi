@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-nopeek?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-nopeek)
 [![license](https://img.shields.io/npm/l/@spences10/pi-nopeek)](https://www.npmjs.com/package/@spences10/pi-nopeek)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Use secrets in commands without pasting them into the model context.
 `pi-nopeek` reminds agents to load `.env`, cloud tokens, and database
 URLs through the `nopeek` CLI so workflows can authenticate while

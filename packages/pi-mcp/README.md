@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-mcp?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-mcp)
 [![license](https://img.shields.io/npm/l/@spences10/pi-mcp)](https://www.npmjs.com/package/@spences10/pi-mcp)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Bring your MCP servers into Pi as first-class agent tools. `pi-mcp`
 discovers configured servers, exposes their tools safely, and keeps
 large MCP responses manageable through Pi’s context sidecar

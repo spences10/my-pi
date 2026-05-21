@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-telemetry?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-telemetry)
 [![license](https://img.shields.io/npm/l/@spences10/pi-telemetry)](https://www.npmjs.com/package/@spences10/pi-telemetry)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Understand what your Pi sessions actually do. `pi-telemetry` records
 local SQLite metrics for runs, turns, tool calls, and provider
 requests so you can inspect usage, latency, cost, and agent behavior

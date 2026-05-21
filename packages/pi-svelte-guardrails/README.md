@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-svelte-guardrails?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-svelte-guardrails)
 [![license](https://img.shields.io/npm/l/@spences10/pi-svelte-guardrails)](https://www.npmjs.com/package/@spences10/pi-svelte-guardrails)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Catch discouraged Svelte patterns before they land in your codebase.
 `pi-svelte-guardrails` blocks common agent mistakes and points the
 model toward current Svelte 5 practices while edits are still cheap to

@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-skills?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-skills)
 [![license](https://img.shields.io/npm/l/@spences10/pi-skills)](https://www.npmjs.com/package/@spences10/pi-skills)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Manage the skills Pi is allowed to discover and use. `pi-skills` adds
 profiles, enable/disable rules, GitHub skill search/install, and
 update flows so teams can curate reusable Agent Skills instead of

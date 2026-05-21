@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-recall?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-recall)
 [![license](https://img.shields.io/npm/l/@spences10/pi-recall)](https://www.npmjs.com/package/@spences10/pi-recall)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Find the old decision, bugfix, or implementation detail instead of
 rediscovering it. `pi-recall` keeps `pirecall` synced and reminds the
 model to query past Pi sessions when history would save time or avoid

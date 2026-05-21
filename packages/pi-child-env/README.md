@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-child-env?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-child-env)
 [![license](https://img.shields.io/npm/l/@spences10/pi-child-env)](https://www.npmjs.com/package/@spences10/pi-child-env)
 
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
 Launch Pi child processes without leaking unsafe environment state.
 `pi-child-env` centralizes the allowlist/scrubbing rules extensions
 use for subprocesses, so tools get the variables they need while
