@@ -1,5 +1,14 @@
 # @spences10/pi-telemetry
 
+## 0.0.21
+
+### Patch Changes
+
+- 96071d3: Add package preview image to package READMEs so npm pages
+  display consistent project branding.
+- Updated dependencies [96071d3]
+  - @spences10/pi-tui-modal@0.0.20
+
 ## 0.0.20
 
 ### Patch Changes

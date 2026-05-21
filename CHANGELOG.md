@@ -1,5 +1,16 @@
 # my-pi
 
+## 0.1.61
+
+### Patch Changes
+
+- bc33d49: Consolidate scattered user config into canonical settings
+  file with one-way legacy migration and documented ownership.
+- Updated dependencies [96071d3]
+  - @spences10/pi-project-trust@0.0.10
+  - @spences10/pi-tui-modal@0.0.20
+  - @spences10/pi-themes@0.0.8
+
 ## 0.1.60
 
 ## 0.1.59

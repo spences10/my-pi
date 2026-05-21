@@ -1,5 +1,12 @@
 # @spences10/pi-tui-modal
 
+## 0.0.20
+
+### Patch Changes
+
+- 96071d3: Add package preview image to package READMEs so npm pages
+  display consistent project branding.
+
 ## 0.0.19
 
 ### Patch Changes

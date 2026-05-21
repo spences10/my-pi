@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-lsp",
-	"version": "0.0.30",
+	"version": "0.0.31",
 	"description": "Language Server Protocol tools for Pi agents to inspect diagnostics, hovers, definitions, references, and symbols",
 	"keywords": [
 		"language-server",

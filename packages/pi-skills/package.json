@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-skills",
-	"version": "0.0.25",
+	"version": "0.0.26",
 	"description": "Agent Skills management for Pi with profiles, enablement rules, GitHub search/install, and update flows",
 	"keywords": [
 		"agent-skills",

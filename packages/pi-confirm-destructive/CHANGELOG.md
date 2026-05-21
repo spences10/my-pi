@@ -1,5 +1,12 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.15
+
+### Patch Changes
+
+- 96071d3: Add package preview image to package READMEs so npm pages
+  display consistent project branding.
+
 ## 0.0.14
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-context",
-	"version": "0.0.21",
+	"version": "0.0.22",
 	"description": "Searchable local SQLite sidecar that keeps oversized Pi tool output useful without flooding model context",
 	"keywords": [
 		"context",

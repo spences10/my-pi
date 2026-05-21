@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-sqlite-tools",
-	"version": "0.0.11",
+	"version": "0.0.12",
 	"description": "SQLite safety workflow reminder that steers Pi agents to use gated mcp-sqlite-tools instead of raw sqlite3",
 	"keywords": [
 		"database",

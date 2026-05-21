@@ -1,5 +1,17 @@
 # @spences10/pi-mcp
 
+## 0.0.34
+
+### Patch Changes
+
+- 96071d3: Add package preview image to package READMEs so npm pages
+  display consistent project branding.
+- Updated dependencies [96071d3]
+  - @spences10/pi-project-trust@0.0.10
+  - @spences10/pi-child-env@0.1.8
+  - @spences10/pi-tui-modal@0.0.20
+  - @spences10/pi-context@0.0.22
+
 ## 0.0.33
 
 ### Patch Changes

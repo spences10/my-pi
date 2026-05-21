@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-telemetry",
-	"version": "0.0.20",
+	"version": "0.0.21",
 	"description": "Local SQLite telemetry for Pi runs, turns, tool calls, provider requests, usage, and latency",
 	"keywords": [
 		"evals",

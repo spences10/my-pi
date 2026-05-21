@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-recall",
-	"version": "0.0.12",
+	"version": "0.0.13",
 	"description": "Pi extension that syncs pirecall and nudges agents to query past Pi sessions when history matters",
 	"keywords": [
 		"pi",

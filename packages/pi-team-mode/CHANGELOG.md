@@ -1,5 +1,16 @@
 # @spences10/pi-team-mode
 
+## 0.0.29
+
+### Patch Changes
+
+- 96071d3: Add package preview image to package READMEs so npm pages
+  display consistent project branding.
+- Updated dependencies [96071d3]
+  - @spences10/pi-child-env@0.1.8
+  - @spences10/pi-tui-modal@0.0.20
+  - @spences10/pi-redact@0.0.12
+
 ## 0.0.28
 
 ### Patch Changes

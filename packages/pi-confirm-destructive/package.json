@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-confirm-destructive",
-	"version": "0.0.14",
+	"version": "0.0.15",
 	"description": "Git-aware Pi guardrail that asks for confirmation before destructive shell actions can change or lose work",
 	"keywords": [
 		"confirm",

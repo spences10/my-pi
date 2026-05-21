@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-footer",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"description": "Configurable Pi footer/statusline that keeps model, project, Git, token, and runtime state visible",
 	"keywords": [
 		"footer",

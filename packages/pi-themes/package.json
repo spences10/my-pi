@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-themes",
-	"version": "0.0.7",
+	"version": "0.0.8",
 	"description": "Polished theme pack for Pi that improves contrast, mood, and visual hierarchy in the terminal UI",
 	"keywords": [
 		"pi",

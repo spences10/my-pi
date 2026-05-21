@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-redact",
-	"version": "0.0.11",
+	"version": "0.0.12",
 	"description": "Tool-output redaction for Pi that replaces likely secrets before they reach the model context",
 	"keywords": [
 		"pi",

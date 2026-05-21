@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-child-env",
-	"version": "0.1.7",
+	"version": "0.1.8",
 	"description": "Safe environment builder for Pi child processes that passes needed variables while scrubbing secrets and noisy runtime state",
 	"keywords": [
 		"env",
