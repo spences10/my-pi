@@ -1,17 +1,13 @@
 import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	renameSync,
-	writeFileSync,
-} from 'node:fs';
-import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
-import {
 	BUILTIN_EXTENSIONS,
 	type BuiltinExtensionInfo,
 	type BuiltinExtensionKey,
 } from '../builtin-registry.js';
+import {
+	get_settings_path,
+	load_settings,
+	save_settings,
+} from '../../settings/index.js';
 
 export { BUILTIN_EXTENSIONS };
 export type { BuiltinExtensionInfo, BuiltinExtensionKey };
@@ -27,57 +23,31 @@ export interface BuiltinExtensionState extends BuiltinExtensionInfo {
 	forced_disabled: boolean;
 }
 
-const DEFAULT_CONFIG: BuiltinExtensionsConfig = {
-	version: 1,
-	enabled: {},
-};
-
 export function get_builtin_extensions_config_path(): string {
-	const xdg =
-		process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
-	return join(xdg, 'my-pi', 'extensions.json');
+	return get_settings_path();
 }
 
 export function load_builtin_extensions_config(): BuiltinExtensionsConfig {
-	const path = get_builtin_extensions_config_path();
-	if (!existsSync(path)) return { ...DEFAULT_CONFIG };
-
-	try {
-		const raw = readFileSync(path, 'utf-8');
-		const parsed = JSON.parse(
-			raw,
-		) as Partial<BuiltinExtensionsConfig>;
-		const enabled: BuiltinExtensionsConfig['enabled'] = {};
-		for (const extension of BUILTIN_EXTENSIONS) {
-			const value = parsed.enabled?.[extension.key];
-			if (typeof value === 'boolean') {
-				enabled[extension.key] = value;
-			}
-		}
-
-		return {
-			version: parsed.version ?? 1,
-			enabled,
-		};
-	} catch {
-		return { ...DEFAULT_CONFIG };
+	const settings = load_settings();
+	const enabled: BuiltinExtensionsConfig['enabled'] = {};
+	for (const extension of BUILTIN_EXTENSIONS) {
+		const value = settings.extensions.enabled[extension.key];
+		if (typeof value === 'boolean') enabled[extension.key] = value;
 	}
+	return { version: 1, enabled };
 }
 
 export function save_builtin_extensions_config(
 	config: BuiltinExtensionsConfig,
 ): void {
-	const path = get_builtin_extensions_config_path();
-	const dir = dirname(path);
-	if (!existsSync(dir)) {
-		mkdirSync(dir, { recursive: true, mode: 0o700 });
-	}
-
-	const tmp = `${path}.tmp-${Date.now()}`;
-	writeFileSync(tmp, JSON.stringify(config, null, '\t') + '\n', {
-		mode: 0o600,
+	const settings = load_settings();
+	save_settings({
+		...settings,
+		extensions: {
+			...settings.extensions,
+			enabled: config.enabled,
+		},
 	});
-	renameSync(tmp, path);
 }
 
 export function is_builtin_extension_enabled(

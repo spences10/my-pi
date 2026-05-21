@@ -624,7 +624,7 @@ In interactive mode:
    `mcp__<server>__<tool>`
 6. `/mcp enable/disable` toggles tools via `pi.setActiveTools()`
 7. Built-in extension state can be managed via `/extensions` and is
-   persisted in `~/.config/my-pi/extensions.json`
+   persisted in `~/.pi/agent/my-pi-settings.json`
 8. Cleanup on `session_shutdown`
 
 ## Secret Redaction
@@ -843,9 +843,14 @@ dependency to `dependencies` instead.
 src/
   index.ts                 CLI entry point (citty + pi SDK)
   api.ts                   Programmatic API (create_my_pi + re-exports)
+  settings/                Canonical ~/.pi/agent/my-pi-settings.json loader/schema/migration
+    current.ts             Current settings read/write only
+    schema.ts              Canonical settings type, defaults, and normalization
+    legacy.ts              Legacy config discovery only; safe to remove after migration window
+    migrate.ts             One-way legacy-to-current migration and backup/move logic
   extensions/
     builtin-registry.ts    Built-in extension metadata, ordering, flags, and loaders
-    manager/               Built-in extension manager and config
+    manager/               Built-in extension manager; reads/writes via src/settings
     prompt-presets/        Runtime prompt preset selection and editing
     session-name/          Session auto-naming
     hooks-resolution/      Claude-style hook resolution
