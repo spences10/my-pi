@@ -1,5 +1,16 @@
 # my-pi
 
+## 0.1.65
+
+### Patch Changes
+
+- 3d30360: Fix settings normalization preserving MCP, trust, packages,
+  preferences, and prompt preset sections during saves.
+- 0316275: Replace outdated extension stacking framing with additional
+  extensions composed into my-pi’s managed runtime architecture.
+- 1f334e0: Add pi-handoff prompt shim for portable markdown handoffs
+  between sessions, teammates, and return findings.
+
 ## 0.1.64
 
 ### Patch Changes

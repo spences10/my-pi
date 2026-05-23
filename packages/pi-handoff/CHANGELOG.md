@@ -1,5 +1,12 @@
 # @spences10/pi-handoff
 
+## 0.0.1
+
+### Patch Changes
+
+- 1f334e0: Add pi-handoff prompt shim for portable markdown handoffs
+  between sessions, teammates, and return findings.
+
 ## 0.1.0
 
 ### Minor Changes

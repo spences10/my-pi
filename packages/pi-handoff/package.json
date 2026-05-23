@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-handoff",
-	"version": "0.0.0",
+	"version": "0.0.1",
 	"description": "Prompt shim that teaches Pi agents to create portable handoffs for later sessions and teammates",
 	"keywords": [
 		"agents",
