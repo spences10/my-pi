@@ -5,6 +5,11 @@ export interface MyPiSettings {
 	extensions: {
 		enabled: Partial<Record<BuiltinExtensionKey, boolean>>;
 	};
+	mcp?: { policy?: unknown };
+	codingPreferences?: unknown;
+	promptPresets?: { global?: unknown; state?: unknown };
+	trust?: Record<string, unknown>;
+	packages?: Record<string, unknown>;
 }
 
 export const DEFAULT_SETTINGS: MyPiSettings = {
@@ -27,6 +32,7 @@ export function normalize_settings(value: unknown): MyPiSettings {
 	}
 
 	return {
+		...(raw && typeof raw === 'object' ? raw : {}),
 		version: 1,
 		extensions: { enabled },
 	};

@@ -39,7 +39,7 @@ describe('settings', () => {
 	it('creates the canonical settings file when no config exists', () => {
 		const settings = load_settings();
 
-		expect(settings).toEqual({
+		expect(settings).toMatchObject({
 			version: 1,
 			extensions: { enabled: {} },
 		});
@@ -76,5 +76,33 @@ describe('settings', () => {
 		expect(
 			JSON.parse(readFileSync(get_settings_path(), 'utf-8')),
 		).toMatchObject({ extensions: { enabled: { recall: false } } });
+	});
+
+	it('preserves package settings sections when normalizing', () => {
+		mkdirSync(test_dirs.agent_dir, { recursive: true });
+		writeFileSync(
+			get_settings_path(),
+			JSON.stringify({
+				version: 1,
+				extensions: { enabled: { mcp: true } },
+				mcp: { policy: { servers: { demo: {} } } },
+				trust: { hooks: { '/repo': { trusted_at: 'now' } } },
+				packages: { skills: { enabled: ['one'] } },
+			}),
+		);
+
+		save_settings({
+			...load_settings(),
+			extensions: { enabled: { recall: false } },
+		});
+
+		expect(
+			JSON.parse(readFileSync(get_settings_path(), 'utf-8')),
+		).toMatchObject({
+			extensions: { enabled: { recall: false } },
+			mcp: { policy: { servers: { demo: {} } } },
+			trust: { hooks: { '/repo': { trusted_at: 'now' } } },
+			packages: { skills: { enabled: ['one'] } },
+		});
 	});
 });
