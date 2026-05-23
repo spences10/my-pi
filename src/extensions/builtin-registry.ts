@@ -322,6 +322,20 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 			(await import('@spences10/pi-coding-preferences')).default,
 	},
 	{
+		key: 'handoff',
+		label: 'Handoff',
+		docs_label: 'Handoff',
+		description:
+			'Prompt shim for portable handoffs to later sessions and teammates',
+		default_enabled: true,
+		option_name: 'handoff',
+		cli_arg: 'no-handoff',
+		cli_flag: '--no-handoff',
+		cli_description: 'Disable handoff prompt guidance',
+		aliases: ['handoff', 'continuation'],
+		load: async () => (await import('@spences10/pi-handoff')).default,
+	},
+	{
 		key: 'team-mode',
 		label: 'Team mode',
 		docs_label: 'Team mode',

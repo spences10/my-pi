@@ -85,6 +85,7 @@
 		"@spences10/pi-context": "workspace:*",
 		"@spences10/pi-footer": "workspace:*",
 		"@spences10/pi-git-ui": "workspace:*",
+		"@spences10/pi-handoff": "workspace:*",
 		"@spences10/pi-lsp": "workspace:*",
 		"@spences10/pi-mcp": "workspace:*",
 		"@spences10/pi-nopeek": "workspace:*",
