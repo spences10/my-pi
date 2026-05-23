@@ -1,0 +1,89 @@
+{
+  "$schema": "https://raw.githubusercontent.com/earendil-works/pi/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+  "name": "strtgy",
+  "vars": {
+    "brand": "#fff266",
+    "brandDark": "#ccbb00",
+    "brandLight": "#fff799",
+    
+    "successColor": "#82e384",
+    "successBg": "#071d07",
+    
+    "info": "#66dbff",
+    "infoDark": "#007599",
+    
+    "magenta": "#ef76d3",
+    "pink": "#ff66bd",
+    
+    "errorColor": "#ff6669",
+    "errorBg": "#240001",
+    
+    "warningColor": "#ffb566",
+    "warningDark": "#cc6900",
+    
+    "gray": "#888888",
+    "dimGray": "#444444",
+    "bgBase": "#1e1e1e",
+    "bgHighlight": "#2d2d2d"
+  },
+  "colors": {
+    "accent": "brand",
+    "border": "dimGray",
+    "borderAccent": "brandLight",
+    "borderMuted": "dimGray",
+    
+    "success": "successColor",
+    "error": "errorColor",
+    "warning": "warningColor",
+    "muted": "gray",
+    "dim": "dimGray",
+    "text": "",
+    "thinkingText": "gray",
+    
+    "selectedBg": "bgHighlight",
+    "userMessageBg": "bgHighlight",
+    "userMessageText": "",
+    "customMessageBg": "bgHighlight",
+    "customMessageText": "",
+    "customMessageLabel": "brand",
+    "toolPendingBg": "bgBase",
+    "toolSuccessBg": "successBg",
+    "toolErrorBg": "errorBg",
+    "toolTitle": "brand",
+    "toolOutput": "",
+    
+    "mdHeading": "brand",
+    "mdLink": "info",
+    "mdLinkUrl": "gray",
+    "mdCode": "pink",
+    "mdCodeBlock": "",
+    "mdCodeBlockBorder": "dimGray",
+    "mdQuote": "gray",
+    "mdQuoteBorder": "brandDark",
+    "mdHr": "dimGray",
+    "mdListBullet": "brand",
+    
+    "toolDiffAdded": "successColor",
+    "toolDiffRemoved": "errorColor",
+    "toolDiffContext": "gray",
+    
+    "syntaxComment": "gray",
+    "syntaxKeyword": "magenta",
+    "syntaxFunction": "info",
+    "syntaxVariable": "warningColor",
+    "syntaxString": "successColor",
+    "syntaxNumber": "pink",
+    "syntaxType": "brandLight",
+    "syntaxOperator": "brand",
+    "syntaxPunctuation": "dimGray",
+    
+    "thinkingOff": "dimGray",
+    "thinkingMinimal": "gray",
+    "thinkingLow": "infoDark",
+    "thinkingMedium": "warningDark",
+    "thinkingHigh": "magenta",
+    "thinkingXhigh": "errorColor",
+    
+    "bashMode": "pink"
+  }
+}

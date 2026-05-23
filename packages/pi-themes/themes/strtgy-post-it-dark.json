@@ -1,0 +1,91 @@
+{
+  "$schema": "https://raw.githubusercontent.com/earendil-works/pi/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+  "name": "strtgy-post-it-dark",
+  "vars": {
+    "brand": "#ffe900",
+    "brandDim": "#b3a300",
+    
+    "successColor": "#82e384",
+    "successBg": "#1d291e",
+    
+    "info": "#66dbff",
+    
+    "magenta": "#ef76d3",
+    "pink": "#ff66bd",
+    
+    "errorColor": "#ff6669",
+    "errorBg": "#2b1e1e",
+    
+    "warningColor": "#ffb566",
+    
+    "grayText": "#b5b5b0",
+    "grayMuted": "#70706b",
+    "grayDim": "#383833",
+    
+    "bgBase": "#1a1a18",
+    "bgHighlight": "#242421",
+    "bgSelection": "#2e2e26",
+    
+    "textMain": "#e6e6e1"
+  },
+  "colors": {
+    "accent": "brand",
+    "border": "grayDim",
+    "borderAccent": "brandDim",
+    "borderMuted": "grayDim",
+    
+    "success": "successColor",
+    "error": "errorColor",
+    "warning": "warningColor",
+    "muted": "grayText",
+    "dim": "grayMuted",
+    "text": "textMain",
+    "thinkingText": "grayText",
+    
+    "selectedBg": "bgSelection",
+    "userMessageBg": "bgHighlight",
+    "userMessageText": "textMain",
+    "customMessageBg": "bgHighlight",
+    "customMessageText": "textMain",
+    "customMessageLabel": "brand",
+    "toolPendingBg": "bgBase",
+    "toolSuccessBg": "successBg",
+    "toolErrorBg": "errorBg",
+    "toolTitle": "brand",
+    "toolOutput": "grayText",
+    
+    "mdHeading": "brand",
+    "mdLink": "info",
+    "mdLinkUrl": "grayMuted",
+    "mdCode": "pink",
+    "mdCodeBlock": "textMain",
+    "mdCodeBlockBorder": "grayDim",
+    "mdQuote": "grayText",
+    "mdQuoteBorder": "brandDim",
+    "mdHr": "grayDim",
+    "mdListBullet": "brand",
+    
+    "toolDiffAdded": "successColor",
+    "toolDiffRemoved": "errorColor",
+    "toolDiffContext": "grayMuted",
+    
+    "syntaxComment": "grayMuted",
+    "syntaxKeyword": "magenta",
+    "syntaxFunction": "info",
+    "syntaxVariable": "warningColor",
+    "syntaxString": "successColor",
+    "syntaxNumber": "pink",
+    "syntaxType": "brand",
+    "syntaxOperator": "brand",
+    "syntaxPunctuation": "grayText",
+    
+    "thinkingOff": "grayDim",
+    "thinkingMinimal": "grayMuted",
+    "thinkingLow": "info",
+    "thinkingMedium": "warningColor",
+    "thinkingHigh": "magenta",
+    "thinkingXhigh": "errorColor",
+    
+    "bashMode": "pink"
+  }
+}

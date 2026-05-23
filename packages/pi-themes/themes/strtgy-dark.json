@@ -1,0 +1,96 @@
+{
+  "$schema": "https://raw.githubusercontent.com/earendil-works/pi/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+  "name": "strtgy-dark",
+  "vars": {
+    "brand": "#ffe900",
+    "brandDim": "#b3a300",
+    "brandBright": "#fff04d",
+    
+    "successColor": "#3bd23d",
+    "successBg": "#122a13",
+    "successBorder": "#1c4a1d",
+    
+    "info": "#009ccd",
+    "infoDim": "#006d8f",
+    
+    "magenta": "#e838bf",
+    "pink": "#ff48b0",
+    
+    "errorColor": "#ff7477",
+    "errorBg": "#331818",
+    "errorBorder": "#5c2a2b",
+    
+    "warningColor": "#ffaa52",
+    "warningDim": "#b37739",
+    
+    "grayText": "#a0a0a0",
+    "grayMuted": "#606060",
+    "grayDim": "#333333",
+    
+    "bgBase": "#0d0d0d",
+    "bgHighlight": "#1a1a1a",
+    "bgSelection": "#2a2a24",
+    
+    "textMain": "#e0e0e0"
+  },
+  "colors": {
+    "accent": "brand",
+    "border": "grayDim",
+    "borderAccent": "brandDim",
+    "borderMuted": "grayDim",
+    
+    "success": "successColor",
+    "error": "errorColor",
+    "warning": "warningColor",
+    "muted": "grayText",
+    "dim": "grayMuted",
+    "text": "textMain",
+    "thinkingText": "grayText",
+    
+    "selectedBg": "bgSelection",
+    "userMessageBg": "bgHighlight",
+    "userMessageText": "textMain",
+    "customMessageBg": "bgHighlight",
+    "customMessageText": "textMain",
+    "customMessageLabel": "brand",
+    "toolPendingBg": "bgBase",
+    "toolSuccessBg": "successBg",
+    "toolErrorBg": "errorBg",
+    "toolTitle": "brand",
+    "toolOutput": "grayText",
+    
+    "mdHeading": "brand",
+    "mdLink": "info",
+    "mdLinkUrl": "grayMuted",
+    "mdCode": "pink",
+    "mdCodeBlock": "textMain",
+    "mdCodeBlockBorder": "grayDim",
+    "mdQuote": "grayText",
+    "mdQuoteBorder": "brandDim",
+    "mdHr": "grayDim",
+    "mdListBullet": "brand",
+    
+    "toolDiffAdded": "successColor",
+    "toolDiffRemoved": "errorColor",
+    "toolDiffContext": "grayMuted",
+    
+    "syntaxComment": "grayMuted",
+    "syntaxKeyword": "magenta",
+    "syntaxFunction": "info",
+    "syntaxVariable": "warningColor",
+    "syntaxString": "successColor",
+    "syntaxNumber": "pink",
+    "syntaxType": "brandBright",
+    "syntaxOperator": "brand",
+    "syntaxPunctuation": "grayText",
+    
+    "thinkingOff": "grayDim",
+    "thinkingMinimal": "grayMuted",
+    "thinkingLow": "infoDim",
+    "thinkingMedium": "warningDim",
+    "thinkingHigh": "magenta",
+    "thinkingXhigh": "errorColor",
+    
+    "bashMode": "pink"
+  }
+}
