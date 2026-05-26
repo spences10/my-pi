@@ -19,6 +19,7 @@ import {
 } from 'node:path';
 import {
 	IMPORT_METADATA_FILE,
+	scan_importable_skills,
 	type DiscoveredSkill,
 	type ImportedSkillMetadata,
 } from './scanner.js';
@@ -236,6 +237,7 @@ export interface ImportedSkillSyncStatus {
 		| 'local-changes'
 		| 'missing-upstream';
 	detail: string;
+	recovery?: string;
 	currentHash?: string;
 	upstreamHash?: string;
 }
@@ -255,14 +257,53 @@ function assert_imported_skill(
 	return skill.import_meta;
 }
 
+function relative_from_install(
+	metadata: ImportedSkillMetadata,
+): string | null {
+	if (!metadata.upstream_install_path) return null;
+	const relative_path = relative(
+		metadata.upstream_install_path,
+		metadata.upstream_base_dir,
+	);
+	if (
+		!relative_path ||
+		relative_path.startsWith('..') ||
+		isAbsolute(relative_path)
+	) {
+		return null;
+	}
+	return relative_path;
+}
+
+export function find_rebind_candidate(
+	skill: DiscoveredSkill,
+): DiscoveredSkill | undefined {
+	const metadata = assert_imported_skill(skill);
+	const relative_path = relative_from_install(metadata);
+	return scan_importable_skills().find((external) => {
+		if (external.source !== metadata.source) return false;
+		if (external.name !== skill.name) return false;
+		if (!relative_path) return true;
+		return (
+			external.plugin?.installPath &&
+			resolve(external.baseDir) ===
+				resolve(external.plugin.installPath, relative_path)
+		);
+	});
+}
+
 export function get_imported_skill_sync_status(
 	skill: DiscoveredSkill,
 ): ImportedSkillSyncStatus {
 	const metadata = assert_imported_skill(skill);
 	if (!existsSync(metadata.upstream_base_dir)) {
+		const candidate = find_rebind_candidate(skill);
 		return {
 			status: 'missing-upstream',
-			detail: `Upstream source no longer exists: ${metadata.upstream_base_dir}`,
+			detail: `Recorded upstream cache path no longer exists: ${metadata.upstream_base_dir}`,
+			recovery: candidate
+				? `Current plugin install found at ${candidate.baseDir}. Run /skill-importer sync ${skill.name} to rebind and refresh safely.`
+				: `No current plugin install was found for ${metadata.source}. Install or update the plugin, then run /skill-importer sync ${skill.name}; otherwise delete and re-import the skill.`,
 		};
 	}
 
@@ -329,9 +370,38 @@ export function sync_imported_skill(
 ): SyncSkillResult {
 	const metadata = assert_imported_skill(skill);
 	if (!existsSync(metadata.upstream_base_dir)) {
-		throw new Error(
-			`Upstream source no longer exists: ${metadata.upstream_base_dir}`,
-		);
+		const candidate = find_rebind_candidate(skill);
+		if (!candidate) {
+			throw new Error(
+				`Recorded upstream cache path no longer exists: ${metadata.upstream_base_dir}. No current plugin install was found for ${metadata.source}; install or update the plugin, then sync again, or delete and re-import the skill.`,
+			);
+		}
+		const current_hash = hash_directory(skill.baseDir);
+		if (current_hash !== metadata.imported_hash) {
+			throw new Error(
+				`Refusing to rebind ${skill.name}; local changes detected in ${skill.baseDir}`,
+			);
+		}
+		replace_directory(candidate.baseDir, skill.baseDir);
+		const imported_hash = hash_directory(skill.baseDir);
+		const upstream_hash = hash_directory(candidate.baseDir);
+		const updated: ImportedSkillMetadata = {
+			...metadata,
+			upstream_skill_path: candidate.skillPath,
+			upstream_base_dir: candidate.baseDir,
+			upstream_install_path: candidate.plugin?.installPath,
+			upstream_version: candidate.plugin?.version,
+			upstream_git_commit_sha: candidate.plugin?.gitCommitSha,
+			last_synced_at: new Date().toISOString(),
+			imported_hash,
+			upstream_hash,
+		};
+		write_metadata(skill.baseDir, updated);
+		return {
+			skillDir: skill.baseDir,
+			metadata: updated,
+			changed: true,
+		};
 	}
 
 	const current_hash = hash_directory(skill.baseDir);

@@ -330,6 +330,81 @@ describe('skills importing and syncing', () => {
 		).toThrow(/single safe path segment/i);
 	});
 
+	it('rebinds a missing upstream plugin cache to the current plugin install', async () => {
+		const old_install_path = join(
+			home_dir,
+			'plugin-cache',
+			'frontend-design',
+			'1.0.0',
+		);
+		write_skill(
+			join(old_install_path, 'skills', 'frontend-design'),
+			'frontend-design',
+			'Build interfaces',
+		);
+		write_plugin_registry(home_dir, {
+			'frontend-design@claude-plugins-official': {
+				installPath: old_install_path,
+				version: '1.0.0',
+			},
+		});
+
+		const scanner = await import('./scanner.js');
+		const importer = await import('./importer.js');
+		const external = scanner
+			.scan_importable_skills()
+			.find((skill) => skill.name === 'frontend-design');
+		const imported = importer.import_external_skill(external!);
+		rmSync(old_install_path, { recursive: true, force: true });
+
+		const new_install_path = join(
+			home_dir,
+			'plugin-cache',
+			'frontend-design',
+			'2.0.0',
+		);
+		write_skill(
+			join(new_install_path, 'skills', 'frontend-design'),
+			'frontend-design',
+			'Build better interfaces',
+		);
+		writeFileSync(
+			join(new_install_path, 'skills', 'frontend-design', 'notes.md'),
+			'fresh plugin cache',
+		);
+		write_plugin_registry(home_dir, {
+			'frontend-design@claude-plugins-official': {
+				installPath: new_install_path,
+				version: '2.0.0',
+				gitCommitSha: 'newsha',
+			},
+		});
+
+		const managed = scanner
+			.scan_managed_skills()
+			.find((skill) => skill.name === 'frontend-design');
+		const status = importer.get_imported_skill_sync_status(managed!);
+		expect(status.status).toBe('missing-upstream');
+		expect(status.recovery).toContain('Current plugin install found');
+
+		const result = importer.sync_imported_skill(managed!);
+		const metadata = JSON.parse(
+			readFileSync(
+				join(imported.skillDir, '.my-pi-source.json'),
+				'utf-8',
+			),
+		);
+
+		expect(result.changed).toBe(true);
+		expect(metadata.upstream_base_dir).toBe(
+			join(new_install_path, 'skills', 'frontend-design'),
+		);
+		expect(metadata.upstream_version).toBe('2.0.0');
+		expect(
+			readFileSync(join(imported.skillDir, 'notes.md'), 'utf-8'),
+		).toBe('fresh plugin cache');
+	});
+
 	it('refuses to delete managed skills without importer metadata', async () => {
 		const skill_dir = join(
 			home_dir,

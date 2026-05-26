@@ -11,6 +11,7 @@ import {
 } from '@spences10/pi-tui-modal';
 import {
 	delete_managed_skill as delete_imported_skill,
+	find_rebind_candidate,
 	get_imported_skill_sync_status,
 	import_external_skill,
 	sync_imported_skill,
@@ -26,6 +27,7 @@ const WARNING =
 const selected_label = '● selected';
 const skipped_label = '○ skip';
 const delete_label = '✕ delete';
+const sync_label = '↻ sync';
 const keep_label = '○ keep';
 
 function skill_key(skill: DiscoveredSkill): string {
@@ -111,6 +113,7 @@ function format_imported(skill: DiscoveredSkill): string {
 			: undefined,
 		`upstream: ${meta.upstream_base_dir}`,
 		status.detail,
+		status.recovery,
 	]
 		.filter(Boolean)
 		.join('\n');
@@ -124,30 +127,6 @@ function notify_error(
 		error instanceof Error ? error.message : String(error),
 		'warning',
 	);
-}
-
-async function pick_imported(
-	ctx: ExtensionCommandContext,
-	title: string,
-): Promise<DiscoveredSkill | undefined> {
-	const skills = sort_skills(imported_skills());
-	const selected = await show_picker_modal(ctx, {
-		title,
-		subtitle:
-			'Only copied Pi-native skills with importer metadata are shown.',
-		items: skills.map((skill) => ({
-			value: skill_key(skill),
-			label: skill.name,
-			description: get_imported_skill_sync_status(skill).status,
-		})),
-		selected_footer: (item) => {
-			const skill = item ? find_skill(skills, item.value) : undefined;
-			return skill ? format_imported(skill).split('\n') : undefined;
-		},
-		empty_message: 'No imported skill copies found',
-		max_visible: 12,
-	});
-	return selected ? find_skill(skills, selected) : undefined;
 }
 
 async function show_home(
@@ -355,31 +334,109 @@ async function import_command(
 	}
 }
 
+async function pick_imported_for_sync(
+	ctx: ExtensionCommandContext,
+): Promise<DiscoveredSkill[]> {
+	const skills = sort_skills(imported_skills());
+	if (skills.length === 0) {
+		ctx.ui.notify('No imported skill copies found');
+		return [];
+	}
+	const items = selectable_skill_items(
+		skills,
+		sync_label,
+		keep_label,
+	);
+	await show_settings_modal(ctx, {
+		title: 'Sync imported skill copies',
+		subtitle: `${skills.length} imported • toggle copies to sync`,
+		footer: 'enter toggles',
+		items,
+		max_visible: 12,
+		enable_search: true,
+		metadata: (item) => item?.description?.split('\n'),
+		on_change: () => undefined,
+	});
+	const selected = new Set(
+		items
+			.filter((item) => item.currentValue === sync_label)
+			.map((item) => item.id),
+	);
+	return skills.filter((skill) => selected.has(skill_key(skill)));
+}
+
+async function confirm_rebinds(
+	ctx: ExtensionCommandContext,
+	skills: DiscoveredSkill[],
+): Promise<boolean> {
+	const rebinds = skills
+		.map((skill) => ({
+			skill,
+			status: get_imported_skill_sync_status(skill),
+			candidate: find_rebind_candidate(skill),
+		}))
+		.filter(
+			({ status, candidate }) =>
+				status.status === 'missing-upstream' && candidate,
+		);
+	if (rebinds.length === 0 || !ctx.hasUI) return true;
+	const shown = rebinds.slice(0, 8).map(({ skill }) => skill.name);
+	const extra = rebinds.length - shown.length;
+	return show_confirm_modal(ctx, {
+		title: `Rebind ${rebinds.length} skill${rebinds.length === 1 ? '' : 's'}?`,
+		message: [
+			'The recorded upstream cache paths are gone, but current plugin installs were found.',
+			'Rebind metadata to the current plugin cache and sync selected copies?',
+			'',
+			...shown.map((name) => `• ${name}`),
+			extra > 0 ? `• …and ${extra} more` : undefined,
+		]
+			.filter(Boolean)
+			.join('\n'),
+		confirm_label: 'Rebind and sync',
+		cancel_label: 'Cancel',
+	});
+}
+
 async function sync_command(
 	target: string,
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
 	try {
-		const skill = target
-			? find_imported_for_sync(target)
+		const skills = target
+			? [find_imported_for_sync(target)]
 			: ctx.hasUI
-				? await pick_imported(ctx, 'Sync imported skill')
-				: undefined;
-		if (!skill) {
+				? await pick_imported_for_sync(ctx)
+				: [];
+		if (skills.length === 0) {
 			ctx.ui.notify(
 				'Usage: /skill-importer sync <key|name>',
 				'warning',
 			);
 			return;
 		}
-		const result = sync_imported_skill(skill);
+		if (!(await confirm_rebinds(ctx, skills))) return;
+		let changed = 0;
+		const failures: string[] = [];
+		for (const skill of skills) {
+			try {
+				if (sync_imported_skill(skill).changed) changed++;
+			} catch (error) {
+				failures.push(
+					error instanceof Error ? error.message : String(error),
+				);
+			}
+		}
+		if (failures.length) {
+			ctx.ui.notify(failures.join('\n'), 'warning');
+		}
 		ctx.ui.notify(
-			result.changed
-				? `Synced ${skill.name}. Reloading...`
-				: `${skill.name} is already up to date.`,
+			changed
+				? `Synced ${changed} skill${changed === 1 ? '' : 's'}. Reloading...`
+				: 'Selected skills are already up to date.',
 			'info',
 		);
-		if (result.changed) await ctx.reload();
+		if (changed) await ctx.reload();
 	} catch (error) {
 		notify_error(ctx, error);
 	}
