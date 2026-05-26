@@ -1,5 +1,12 @@
 # @spences10/pi-skill-importer
 
+## 0.0.8
+
+### Patch Changes
+
+- c6dd1fe: Improve skill importer missing-upstream recovery with
+  current plugin detection, guided rebinding, and multi-skill sync.
+
 ## 0.0.7
 
 ### Patch Changes
