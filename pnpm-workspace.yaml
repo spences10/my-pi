@@ -7,7 +7,7 @@ minimumReleaseAge: 2880
 
 catalog:
   '@earendil-works/pi-ai': 0.75.5
-  '@earendil-works/pi-coding-agent': 0.75.5
+  '@earendil-works/pi-coding-agent': 0.76.0
   '@earendil-works/pi-tui': 0.75.5
   '@types/node': ^25.8.0
   '@vitest/coverage-v8': 4.1.7
