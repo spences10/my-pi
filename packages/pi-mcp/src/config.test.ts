@@ -509,6 +509,78 @@ describe('load_mcp_config', () => {
 		]);
 	});
 
+	it('expands ${VAR} in HTTP headers from process.env', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+		process.env.MY_TEST_TOKEN = 'secret123';
+
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					remote: {
+						type: 'http',
+						url: 'https://example.com/mcp',
+						headers: {
+							Authorization: 'Bearer ${MY_TEST_TOKEN}',
+							'X-Custom': 'static',
+						},
+					},
+				},
+			}),
+		);
+
+		expect(load_mcp_config(cwd)).toEqual([
+			{
+				name: 'remote',
+				transport: 'http',
+				url: 'https://example.com/mcp',
+				headers: {
+					Authorization: 'Bearer secret123',
+					'X-Custom': 'static',
+				},
+			},
+		]);
+
+		delete process.env.MY_TEST_TOKEN;
+	});
+
+	it('expands undefined ${VAR} to empty string', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+		delete process.env.NONEXISTENT_VAR;
+
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					remote: {
+						type: 'http',
+						url: 'https://example.com/mcp',
+						headers: {
+							Authorization: 'Bearer ${NONEXISTENT_VAR}',
+						},
+					},
+				},
+			}),
+		);
+
+		expect(load_mcp_config(cwd)).toEqual([
+			{
+				name: 'remote',
+				transport: 'http',
+				url: 'https://example.com/mcp',
+				headers: {
+					Authorization: 'Bearer ',
+				},
+			},
+		]);
+	});
+
 	it('throws a clear error for invalid config shapes', () => {
 		const home = tmp_dir();
 		const cwd = tmp_dir();

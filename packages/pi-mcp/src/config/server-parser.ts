@@ -5,6 +5,17 @@ import type {
 	RawMcpServerEntry,
 } from './types.js';
 
+/**
+ * Expand `${VAR}` patterns in a string using process.env.
+ * Returns the string unchanged if no patterns are found.
+ * Undefined/unset env vars expand to an empty string.
+ */
+function expand_env_vars(value: string): string {
+	return value.replace(/\$\{([^}]+)\}/g, (_, varName) => {
+		return process.env[varName] ?? '';
+	});
+}
+
 function is_string_record(
 	value: unknown,
 	label: string,
@@ -61,9 +72,14 @@ export function parse_server(
 			);
 		}
 		is_string_record(entry.headers, 'headers', name);
-		const headers = entry.headers as
+		const raw_headers = entry.headers as
 			| Record<string, string>
 			| undefined;
+		const headers = raw_headers
+			? Object.fromEntries(
+					Object.entries(raw_headers).map(([k, v]) => [k, expand_env_vars(v)]),
+				)
+			: undefined;
 		const config: McpHttpServerConfig = {
 			name,
 			transport: 'http',
