@@ -64,6 +64,164 @@ function summarize_payload(event) {
 	return JSON.stringify(payload).slice(0, 180);
 }
 
+function label_storage_key() {
+	return selected_id ? `pi-observability-labels:${selected_id}` : '';
+}
+function read_labels() {
+	const key = label_storage_key();
+	if (!key) return [];
+	try {
+		return JSON.parse(localStorage.getItem(key) || '[]');
+	} catch {
+		return [];
+	}
+}
+function write_labels(labels) {
+	const key = label_storage_key();
+	if (key) localStorage.setItem(key, JSON.stringify(labels));
+}
+function render_labels() {
+	const labels = read_labels();
+	label_list.innerHTML = labels
+		.map(
+			(label, index) =>
+				'<button class="label-chip" data-index="' +
+				index +
+				'">' +
+				escape_html(label) +
+				' ×</button>',
+		)
+		.join('');
+	document.querySelectorAll('.label-chip').forEach((el) => {
+		el.onclick = () => {
+			const next = read_labels();
+			next.splice(Number(el.dataset.index), 1);
+			write_labels(next);
+			render_labels();
+		};
+	});
+}
+function save_label() {
+	const value = label_input.value.trim();
+	if (!value || !selected_id) return;
+	const labels = read_labels();
+	labels.push(value);
+	write_labels(labels);
+	label_input.value = '';
+	render_labels();
+}
+function final_result_events(events) {
+	return events.filter(
+		(event) =>
+			event.type === 'agent_end' ||
+			event.type === 'message_end' ||
+			event.type === 'session_shutdown',
+	);
+}
+
+function number_value(value) {
+	return typeof value === 'number' && Number.isFinite(value)
+		? value
+		: 0;
+}
+function walk_values(value, visit, seen = new Set()) {
+	if (!value || typeof value !== 'object' || seen.has(value)) return;
+	seen.add(value);
+	visit(value);
+	if (Array.isArray(value)) {
+		for (const item of value) walk_values(item, visit, seen);
+		return;
+	}
+	for (const item of Object.values(value))
+		walk_values(item, visit, seen);
+}
+function extract_usage(events) {
+	const usage = { input: 0, output: 0, total: 0, cost: 0 };
+	for (const event of events) {
+		walk_values(event.payload, (object) => {
+			const record = object;
+			usage.input +=
+				number_value(record.input_tokens) +
+				number_value(record.prompt_tokens) +
+				number_value(record.input);
+			usage.output +=
+				number_value(record.output_tokens) +
+				number_value(record.completion_tokens) +
+				number_value(record.output);
+			usage.total += number_value(record.total_tokens);
+			usage.cost +=
+				number_value(record.total_cost) +
+				number_value(record.cost_usd) +
+				number_value(record.total);
+		});
+	}
+	if (!usage.total) usage.total = usage.input + usage.output;
+	return usage;
+}
+function extract_tool_runs(events) {
+	const runs = new Map();
+	for (const event of events) {
+		const payload = event.payload || {};
+		const id =
+			payload.toolCallId || payload.tool_call_id || payload.id;
+		if (!id || !String(event.type).includes('tool')) continue;
+		const key = String(id);
+		const run = runs.get(key) || {
+			id: key,
+			events: [],
+			name: payload.toolName || payload.tool_name,
+		};
+		run.events.push(event);
+		run.name =
+			run.name || payload.toolName || payload.tool_name || event.type;
+		if (event.type.endsWith('start')) run.start = event;
+		if (event.type.endsWith('end') || event.type === 'tool_result')
+			run.end = event;
+		if (
+			payload.isError ||
+			payload.status === 'error' ||
+			event_text(event).includes('error')
+		)
+			run.error = true;
+		runs.set(key, run);
+	}
+	return [...runs.values()].map((run) => ({
+		...run,
+		duration:
+			run.start && run.end ? elapsed_ms([run.start, run.end]) : 0,
+	}));
+}
+function extract_provider_stats(events) {
+	const provider = events.filter((event) =>
+		String(event.type).includes('provider'),
+	);
+	const statuses = new Map();
+	for (const event of provider) {
+		const status =
+			event.payload?.status || event.payload?.statusCode || 'unknown';
+		statuses.set(status, (statuses.get(status) || 0) + 1);
+	}
+	return { count: provider.length, statuses };
+}
+function extract_artifacts(events) {
+	const artifacts = [];
+	for (const event of events) {
+		const text = JSON.stringify(event.payload || {});
+		const paths = [
+			...text.matchAll(/(?:[\w.-]+\/)+[\w.-]+\.[\w.-]+/g),
+		].map((match) => match[0]);
+		const urls = [...text.matchAll(/https?:\/\/[^\s"'<>]+/g)].map(
+			(match) => match[0],
+		);
+		for (const value of [...paths, ...urls].slice(0, 6))
+			artifacts.push({ event, value });
+	}
+	return artifacts;
+}
+function format_cost(value) {
+	return value ? '$' + value.toFixed(value < 0.01 ? 4 : 2) : '—';
+}
+
 function project_key(session) {
 	const cwd = String(session.cwd || 'unknown project');
 	return cwd;
@@ -107,16 +265,52 @@ function filtered_sessions() {
 			.some((value) => String(value).toLowerCase().includes(query)),
 	);
 }
+function payload_path(payload, path) {
+	return path
+		.split('.')
+		.reduce((value, key) => value?.[key], payload);
+}
+function query_matches(event, query) {
+	if (!query) return true;
+	const text = event_text(event);
+	for (const part of query.split(/\s+/).filter(Boolean)) {
+		const [key, ...rest] = part.split(':');
+		const value = rest.join(':').toLowerCase();
+		if (!value) {
+			if (!text.includes(key.toLowerCase())) return false;
+			continue;
+		}
+		if (
+			key === 'type' &&
+			!String(event.type).toLowerCase().includes(value)
+		)
+			return false;
+		else if (
+			key === 'tool' &&
+			!text.includes(`tool${value}`) &&
+			!text.includes(value)
+		)
+			return false;
+		else if (key === 'status' && !text.includes(value)) return false;
+		else if (key === 'json') {
+			const [path, expected = ''] = value.split('=');
+			const actual = payload_path(event.payload, path);
+			if (
+				!String(actual ?? '')
+					.toLowerCase()
+					.includes(expected)
+			)
+				return false;
+		} else if (!text.includes(part.toLowerCase())) return false;
+	}
+	return true;
+}
 function filtered_events(events) {
 	const type = type_filter.value;
 	const query = event_search_input.value.trim().toLowerCase();
 	return events.filter((event) => {
 		if (type && event.type !== type) return false;
-		if (!query) return true;
-		return (
-			String(event.type).toLowerCase().includes(query) ||
-			event_text(event).includes(query)
-		);
+		return query_matches(event, query);
 	});
 }
 function update_type_filter() {
@@ -253,9 +447,14 @@ function render_overview(events) {
 	const types = new Map();
 	for (const event of filtered)
 		types.set(event.type, (types.get(event.type) || 0) + 1);
-	const tools = filtered.filter((event) =>
+	const tools = extract_tool_runs(filtered);
+	const tool_events = filtered.filter((event) =>
 		event.type.includes('tool'),
 	);
+	const provider = extract_provider_stats(filtered);
+	const usage = extract_usage(filtered);
+	const artifacts = extract_artifacts(filtered);
+	const final_events = final_result_events(filtered);
 	const errors = filtered.filter(
 		(event) =>
 			event.type === 'error' || event_text(event).includes('error'),
@@ -273,17 +472,41 @@ function render_overview(events) {
 		)
 		.join('');
 	const tool_rows = tools
+		.sort((a, b) => b.duration - a.duration)
 		.slice(0, 8)
 		.map(
-			(event) =>
-				'<div class="tool-row"><span class="pill">#' +
-				event.seq +
+			(run) =>
+				'<div class="tool-row"><span class="pill">' +
+				(run.error ? 'error' : format_duration(run.duration)) +
 				'</span><div><strong>' +
-				escape_html(summarize_payload(event) || event.type) +
+				escape_html(run.name || run.id) +
 				'</strong><div class="muted">' +
-				short_time(event.ts) +
+				escape_html(run.id) +
 				' · ' +
-				escape_html(event.type) +
+				run.events.length +
+				' events</div></div></div>',
+		)
+		.join('');
+	const provider_rows = [...provider.statuses.entries()]
+		.map(
+			([status, count]) =>
+				'<div class="breakdown-row"><span>HTTP/status ' +
+				escape_html(status) +
+				'</span><strong>' +
+				count +
+				'</strong></div>',
+		)
+		.join('');
+	const artifact_rows = artifacts
+		.slice(0, 8)
+		.map(
+			(item) =>
+				'<div class="tool-row"><span class="pill">#' +
+				item.event.seq +
+				'</span><div><strong>' +
+				escape_html(item.value) +
+				'</strong><div class="muted">' +
+				escape_html(item.event.type) +
 				'</div></div></div>',
 		)
 		.join('');
@@ -298,16 +521,51 @@ function render_overview(events) {
 		format_duration(elapsed_ms(filtered)) +
 		'</strong><span>elapsed</span></div><div><strong>' +
 		tools.length +
-		'</strong><span>tool events</span></div><div><strong>' +
+		'</strong><span>tool runs</span></div><div><strong>' +
 		errors.length +
 		'</strong><span>possible errors</span></div></div></div>' +
-		'<div class="summary-grid"><div class="summary-card"><h3>Event mix</h3>' +
+		'<div class="summary-grid"><div class="summary-card"><h3>Token + cost rollup</h3>' +
+		'<div class="breakdown-row"><span>input tokens</span><strong>' +
+		usage.input +
+		'</strong></div><div class="breakdown-row"><span>output tokens</span><strong>' +
+		usage.output +
+		'</strong></div><div class="breakdown-row"><span>total tokens</span><strong>' +
+		usage.total +
+		'</strong></div><div class="breakdown-row"><span>estimated cost</span><strong>' +
+		format_cost(usage.cost) +
+		'</strong></div></div><div class="summary-card"><h3>Tool runs by duration/status</h3>' +
+		(tool_rows ||
+			'<div class="empty compact">No tool runs in this trace.</div>') +
+		'</div><div class="summary-card"><h3>Provider statuses</h3>' +
+		(provider_rows ||
+			'<div class="empty compact">No provider events.</div>') +
+		'</div><div class="summary-card"><h3>Artifacts and links</h3>' +
+		(artifact_rows ||
+			'<div class="empty compact">No obvious paths or links found.</div>') +
+		'</div><div class="summary-card"><h3>Final outputs</h3>' +
+		(final_events.slice(-4).map(render_compact_event).join('') ||
+			'<div class="empty compact">No final output events.</div>') +
+		'</div><div class="summary-card"><h3>Event mix</h3>' +
 		(type_rows || '<div class="empty compact">No events.</div>') +
 		'</div><div class="summary-card"><h3>Recent tool activity</h3>' +
-		(tool_rows ||
-			'<div class="empty compact">No tool events in this trace.</div>') +
+		(tool_events.slice(0, 8).map(render_compact_event).join('') ||
+			'<div class="empty compact">No tool events.</div>') +
 		'</div></div>';
 }
+function render_compact_event(event) {
+	return (
+		'<div class="tool-row"><span class="pill">#' +
+		event.seq +
+		'</span><div><strong>' +
+		escape_html(summarize_payload(event) || event.type) +
+		'</strong><div class="muted">' +
+		short_time(event.ts) +
+		' · ' +
+		escape_html(event.type) +
+		'</div></div></div>'
+	);
+}
+
 function render_timeline(events) {
 	const filtered = filtered_events(events);
 	const times = filtered
@@ -357,6 +615,7 @@ function render_single() {
 	const filtered = filtered_events(events);
 	render_overview(events);
 	render_timeline(events);
+	render_labels();
 	single_view.innerHTML =
 		filtered.map(render_event).join('') ||
 		'<div class="empty">No events loaded. Select a session or wait for live events.</div>';
@@ -533,6 +792,10 @@ pause_btn.onclick = () => {
 search_input.oninput = render_active;
 event_search_input.oninput = render_active;
 type_filter.onchange = render_active;
+save_label_btn.onclick = save_label;
+label_input.onkeydown = (event) => {
+	if (event.key === 'Enter') save_label();
+};
 function connect() {
 	const es = new EventSource(api('/events/stream'));
 	es.addEventListener('hello', () => {

@@ -37,6 +37,7 @@ interface PreparedStatements {
 	upsert_session: StatementSync;
 	list_sessions: StatementSync;
 	list_events: StatementSync;
+	search_events: StatementSync;
 	delete_old_events: StatementSync;
 	delete_over_limit_events: StatementSync;
 	delete_orphan_sessions: StatementSync;
@@ -169,6 +170,14 @@ function prepare_db(db_path: string): {
 				SELECT * FROM events
 				WHERE session_id = ?
 				ORDER BY seq DESC
+				LIMIT ?
+			`),
+			search_events: db.prepare(`
+				SELECT * FROM events
+				WHERE (? = '' OR session_id = ?)
+					AND (? = '' OR type = ?)
+					AND (? = '' OR payload_json LIKE ?)
+				ORDER BY ts DESC
 				LIMIT ?
 			`),
 			delete_old_events: db.prepare(`
@@ -472,6 +481,26 @@ export function start_observability_server(
 				);
 				const rows = statements.list_events.all(
 					decodeURIComponent(events_match[1]),
+					limit,
+				) as Record<string, unknown>[];
+				return json(res, 200, { events: rows.map(to_row_event) });
+			}
+			if (req_url.pathname === '/events/search') {
+				const query = req_url.searchParams.get('q') ?? '';
+				const type = req_url.searchParams.get('type') ?? '';
+				const session_id =
+					req_url.searchParams.get('session_id') ?? '';
+				const limit = Math.min(
+					Number(req_url.searchParams.get('limit') ?? 200),
+					1000,
+				);
+				const rows = statements.search_events.all(
+					session_id,
+					session_id,
+					type,
+					type,
+					query,
+					query ? `%${query}%` : '',
 					limit,
 				) as Record<string, unknown>[];
 				return json(res, 200, { events: rows.map(to_row_event) });

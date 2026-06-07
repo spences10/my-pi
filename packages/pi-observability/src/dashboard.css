@@ -315,6 +315,17 @@ aside {
 	align-items: flex-start;
 	justify-content: flex-start;
 }
+.label-editor {
+	display: grid;
+	grid-template-columns: minmax(180px, 1fr) auto;
+	gap: 8px;
+	margin-top: 12px;
+}
+.label-chip {
+	border-radius: 999px;
+	font-size: 11px;
+	padding: 2px 8px;
+}
 .timeline-shell {
 	margin-top: 12px;
 }
