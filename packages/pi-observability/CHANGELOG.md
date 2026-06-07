@@ -1,5 +1,12 @@
 # @spences10/pi-observability
 
+## 0.0.4
+
+### Patch Changes
+
+- a6e4bed: Fix observability dashboard group chips wrapping and
+  truncation to prevent overlap with long project paths.
+
 ## 0.0.3
 
 ### Patch Changes

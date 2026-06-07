@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.78
+
+### Patch Changes
+
+- a6e4bed: Fix observability dashboard group chips wrapping and
+  truncation to prevent overlap with long project paths.
+
 ## 0.1.77
 
 ### Patch Changes

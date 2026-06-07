@@ -1,16 +1,18 @@
 @font-face {
-	font-family: "Victor Mono";
+	font-family: 'Victor Mono';
 	font-style: normal;
 	font-weight: 400;
 	font-display: swap;
-	src: url("/fonts/victor-mono-latin-400-normal.woff2") format("woff2");
+	src: url('/fonts/victor-mono-latin-400-normal.woff2')
+		format('woff2');
 }
 @font-face {
-	font-family: "Victor Mono";
+	font-family: 'Victor Mono';
 	font-style: normal;
 	font-weight: 700;
 	font-display: swap;
-	src: url("/fonts/victor-mono-latin-700-normal.woff2") format("woff2");
+	src: url('/fonts/victor-mono-latin-700-normal.woff2')
+		format('woff2');
 }
 :root {
 	color-scheme: dark;
@@ -32,9 +34,10 @@
 	--hover-line: #ff00cc;
 	--active-text: #fff7ff;
 	--mono:
-		"Victor Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		'Victor Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
+		monospace;
 }
-:root[data-theme="light"] {
+:root[data-theme='light'] {
 	color-scheme: light;
 	--bg: #fff7ff;
 	--bg-glow: #ffd4f5;
@@ -60,7 +63,11 @@
 body {
 	margin: 0;
 	background:
-		radial-gradient(circle at 20% -10%, var(--bg-glow) 0, transparent 28rem),
+		radial-gradient(
+			circle at 20% -10%,
+			var(--bg-glow) 0,
+			transparent 28rem
+		),
 		linear-gradient(180deg, var(--panel), var(--bg));
 	color: var(--text);
 	font:
@@ -68,7 +75,7 @@ body {
 		system-ui,
 		-apple-system,
 		BlinkMacSystemFont,
-		"Segoe UI",
+		'Segoe UI',
 		sans-serif;
 }
 button,
@@ -137,7 +144,8 @@ header {
 	height: 28px;
 	border-radius: 999px;
 	background: linear-gradient(var(--accent), var(--accent-2));
-	box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 45%, transparent);
+	box-shadow: 0 0 24px
+		color-mix(in srgb, var(--accent) 45%, transparent);
 }
 h1 {
 	font-size: 16px;
@@ -481,7 +489,7 @@ aside {
 	overflow: hidden;
 }
 #timeline::before {
-	content: "";
+	content: '';
 	position: absolute;
 	inset: 8px 10px auto;
 	height: 1px;
