@@ -63,7 +63,10 @@ the active team UI without deleting stored state. Use
 old local team state after teammates are shut down.
 
 RPC teammate processes receive a minimal child-process environment by
-default, not the full parent `process.env`. Use
+default, not the full parent `process.env`. Team mode always forwards
+its own coordination vars and live-observability routing vars so
+teammates appear in the observability dashboard under the team pool
+with `team-mode` and `teammate:<name>` tags. Use
 `MY_PI_TEAM_MODE_ENV_ALLOWLIST=NAME,OTHER_NAME` or the shared
 `MY_PI_CHILD_ENV_ALLOWLIST` to pass selected ambient variables (for
 example, provider credentials) to spawned teammates.

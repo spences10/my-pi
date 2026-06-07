@@ -31,6 +31,39 @@ describe('create_rpc_teammate_env', () => {
 		});
 		expect(env.ANTHROPIC_API_KEY).toBeUndefined();
 		expect(env.DATABASE_URL).toBeUndefined();
+		expect(env).toMatchObject({
+			MY_PI_OBSERVABILITY_POOL: 'team-1',
+			MY_PI_OBSERVABILITY_TAG: 'team-mode,teammate:alice',
+			MY_PI_OBSERVABILITY_NAME: 'alice',
+		});
+	});
+
+	it('passes explicit observability routing to teammates', () => {
+		const env = create_rpc_teammate_env(
+			{
+				team_root: '/tmp/team-root',
+				extension_path: '/tmp/team-extension.js',
+			},
+			'team-1',
+			'alice',
+			{
+				PATH: '/bin',
+				MY_PI_OBSERVABILITY_URL: 'http://127.0.0.1:43190',
+				MY_PI_OBSERVABILITY_TOKEN: 'token',
+				MY_PI_OBSERVABILITY_POOL: 'demo',
+				MY_PI_OBSERVABILITY_TAG: 'lead',
+				MY_PI_OBSERVABILITY_RAW: 'true',
+			},
+		);
+
+		expect(env).toMatchObject({
+			MY_PI_OBSERVABILITY_URL: 'http://127.0.0.1:43190',
+			MY_PI_OBSERVABILITY_TOKEN: 'token',
+			MY_PI_OBSERVABILITY_POOL: 'demo',
+			MY_PI_OBSERVABILITY_TAG: 'lead,team-mode,teammate:alice',
+			MY_PI_OBSERVABILITY_NAME: 'alice',
+			MY_PI_OBSERVABILITY_RAW: 'true',
+		});
 	});
 
 	it('allows provider credentials only through team-mode allowlist', () => {
