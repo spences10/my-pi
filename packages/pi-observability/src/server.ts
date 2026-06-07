@@ -56,6 +56,19 @@ const DASHBOARD_HTML = readFileSync(
 	new URL('./dashboard.html', import.meta.url),
 	'utf8',
 );
+const DASHBOARD_CSS = readFileSync(
+	new URL('./dashboard.css', import.meta.url),
+	'utf8',
+);
+const DASHBOARD_JS = readFileSync(
+	new URL(
+		process.env.NODE_ENV === 'test'
+			? './dashboard.ts'
+			: './dashboard.js',
+		import.meta.url,
+	),
+	'utf8',
+);
 const PERSISTENT_PRAGMAS = `
 PRAGMA journal_mode = WAL;
 `;
@@ -160,6 +173,19 @@ function prepare_db(db_path: string): {
 			`),
 		},
 	};
+}
+
+function text(
+	res: ServerResponse,
+	status: number,
+	content_type: string,
+	body: string,
+): void {
+	res.writeHead(status, {
+		'content-type': content_type,
+		'access-control-allow-origin': '*',
+	});
+	res.end(body);
 }
 
 function json(
@@ -313,9 +339,28 @@ export function start_observability_server(
 				return json(res, 200, { ok: true });
 			}
 			if (req_url.pathname === '/') {
-				res.writeHead(200, { 'content-type': 'text/html' });
-				res.end(render_dashboard(options.db_path));
-				return;
+				return text(
+					res,
+					200,
+					'text/html; charset=utf-8',
+					render_dashboard(options.db_path),
+				);
+			}
+			if (req_url.pathname === '/dashboard.css') {
+				return text(
+					res,
+					200,
+					'text/css; charset=utf-8',
+					DASHBOARD_CSS,
+				);
+			}
+			if (req_url.pathname === '/dashboard.js') {
+				return text(
+					res,
+					200,
+					'text/javascript; charset=utf-8',
+					DASHBOARD_JS,
+				);
 			}
 			if (
 				!is_authorized(

@@ -124,6 +124,34 @@ describe('start_observability_server', () => {
 		]);
 	});
 
+	it('serves the dashboard shell', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: '',
+			db_path: tmp_db_path(),
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		const response = await fetch(server.url);
+		const html = await response.text();
+		expect(html).toContain('Pi Observability');
+		expect(html).toContain('/dashboard.css');
+		expect(html).toContain('/dashboard.js');
+
+		const css = await (
+			await fetch(`${server.url}/dashboard.css`)
+		).text();
+		const js = await (
+			await fetch(`${server.url}/dashboard.js`)
+		).text();
+		expect(css).toContain('.layout');
+		expect(html).toContain('Filter sessions, pools, models');
+		expect(js).toContain('pause_btn');
+	});
+
 	it('rejects malformed event requests without crashing', async () => {
 		const server = start_observability_server({
 			host: '127.0.0.1',
