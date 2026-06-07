@@ -66,6 +66,22 @@ const DASHBOARD_JS_URL = new URL(
 		: './dashboard.js',
 	import.meta.url,
 );
+const FONT_URLS = new Map([
+	[
+		'/fonts/victor-mono-latin-400-normal.woff2',
+		new URL(
+			'./fonts/victor-mono-latin-400-normal.woff2',
+			import.meta.url,
+		),
+	],
+	[
+		'/fonts/victor-mono-latin-700-normal.woff2',
+		new URL(
+			'./fonts/victor-mono-latin-700-normal.woff2',
+			import.meta.url,
+		),
+	],
+]);
 const SERVER_STARTED_AT = new Date().toISOString();
 
 function read_dashboard_html(): string {
@@ -78,6 +94,10 @@ function read_dashboard_css(): string {
 
 function read_dashboard_js(): string {
 	return readFileSync(DASHBOARD_JS_URL, 'utf8');
+}
+function read_dashboard_font(pathname: string): Buffer | undefined {
+	const url = FONT_URLS.get(pathname);
+	return url ? readFileSync(url) : undefined;
 }
 const PERSISTENT_PRAGMAS = `
 PRAGMA journal_mode = WAL;
@@ -222,6 +242,20 @@ function json(
 		'access-control-allow-origin': '*',
 	});
 	res.end(JSON.stringify(body));
+}
+
+function binary(
+	res: ServerResponse,
+	status: number,
+	content_type: string,
+	body: Buffer,
+): void {
+	res.writeHead(status, {
+		'content-type': content_type,
+		'access-control-allow-origin': '*',
+		'cache-control': 'public, max-age=31536000, immutable',
+	});
+	res.end(body);
 }
 
 function is_authorized(
@@ -420,6 +454,10 @@ export function start_observability_server(
 					'text/javascript; charset=utf-8',
 					read_dashboard_js(),
 				);
+			}
+			if (req_url.pathname.startsWith('/fonts/')) {
+				const font = read_dashboard_font(req_url.pathname);
+				if (font) return binary(res, 200, 'font/woff2', font);
 			}
 			if (
 				!is_authorized(

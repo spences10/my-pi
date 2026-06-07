@@ -7,6 +7,14 @@ let session_cache = [];
 let paused = false;
 const event_cache = new Map();
 const known_types = new Set();
+const theme_key = 'pi-observability-theme';
+
+function apply_theme(theme) {
+	document.documentElement.dataset.theme = theme;
+	theme_btn.textContent = theme === 'light' ? 'Dark' : 'Light';
+	theme_btn.title = `Switch to ${theme === 'light' ? 'dark' : 'light'} theme`;
+}
+apply_theme(localStorage.getItem(theme_key) || 'dark');
 
 function api(path) {
 	return (
@@ -54,14 +62,21 @@ function format_duration(ms) {
 function event_text(event) {
 	return JSON.stringify(event.payload ?? {}).toLowerCase();
 }
+function summarize_value(value, limit = 160) {
+	if (value == null) return '';
+	if (typeof value === 'string') return value.slice(0, limit);
+	if (typeof value === 'number' || typeof value === 'boolean')
+		return String(value);
+	return JSON.stringify(value).slice(0, limit);
+}
 function summarize_payload(event) {
 	const payload = event.payload || {};
 	if (payload.tool_name) return `tool: ${payload.tool_name}`;
-	if (payload.name) return String(payload.name);
-	if (payload.message) return String(payload.message).slice(0, 160);
-	if (payload.error) return String(payload.error).slice(0, 160);
-	if (payload.summary) return String(payload.summary).slice(0, 160);
-	return JSON.stringify(payload).slice(0, 180);
+	if (payload.name) return summarize_value(payload.name);
+	if (payload.message) return summarize_value(payload.message);
+	if (payload.error) return summarize_value(payload.error);
+	if (payload.summary) return summarize_value(payload.summary);
+	return summarize_value(payload, 180);
 }
 
 function label_storage_key() {
@@ -330,6 +345,10 @@ function update_type_filter() {
 			.join('');
 	type_filter.value = selected;
 }
+function is_session_active(session) {
+	const last = new Date(session.last_ts).valueOf();
+	return !Number.isNaN(last) && Date.now() - last < 2 * 60 * 1000;
+}
 function update_stats() {
 	session_count.textContent = session_cache.length;
 	event_count.textContent = session_cache.reduce(
@@ -359,12 +378,17 @@ function render_sessions() {
 						total + Number(session.event_count || 0),
 					0,
 				);
+				const active_total =
+					group.sessions.filter(is_session_active).length;
 				return (
 					'<details class="project-group" open><summary><div><strong>' +
 					escape_html(group.name) +
 					'</strong><div class="session-meta">' +
 					escape_html(group.key) +
-					'</div></div><span class="pill">' +
+					'</div></div><span class="pill ' +
+					(active_total ? 'active-pill' : '') +
+					'">' +
+					(active_total ? active_total + ' active · ' : '') +
 					group.sessions.length +
 					' sessions · ' +
 					event_total +
@@ -373,10 +397,16 @@ function render_sessions() {
 						.map(
 							(session) =>
 								'<div class="session ' +
-								(session.session_id === selected_id ? 'active' : '') +
+								(session.session_id === selected_id
+									? 'active '
+									: '') +
+								(is_session_active(session) ? 'running' : '') +
 								'" data-id="' +
 								escape_html(session.session_id) +
 								'"><div class="session-top"><div class="session-name">' +
+								(is_session_active(session)
+									? '<span class="active-dot" title="active in the last 2 minutes"></span>'
+									: '') +
 								label_session(session) +
 								'</div><span class="pill">' +
 								Number(session.event_count || 0) +
@@ -511,19 +541,20 @@ function render_overview(events) {
 		)
 		.join('');
 	overview.innerHTML =
-		'<div class="summary-card hero-summary"><div><div class="eyebrow">Selected trace</div><h2>' +
+		'<div class="summary-card hero-summary compact-hero"><div><div class="eyebrow">Selected trace</div><h2>' +
 		(selected ? label_session(selected) : 'No session selected') +
 		'</h2><p>' +
 		escape_html(selected?.cwd || '') +
 		'</p></div><div class="summary-metrics"><div><strong>' +
 		filtered.length +
-		'</strong><span>shown events</span></div><div><strong>' +
+		'</strong><span>events</span></div><div><strong>' +
 		format_duration(elapsed_ms(filtered)) +
 		'</strong><span>elapsed</span></div><div><strong>' +
 		tools.length +
-		'</strong><span>tool runs</span></div><div><strong>' +
+		'</strong><span>tools</span></div><div><strong>' +
 		errors.length +
-		'</strong><span>possible errors</span></div></div></div>' +
+		'</strong><span>errors</span></div></div></div>' +
+		'<details class="summary-drawer"><summary><span>Trace insights</span><span class="muted">tokens, tools, providers, artifacts, outputs, mix</span></summary>' +
 		'<div class="summary-grid"><div class="summary-card"><h3>Token + cost rollup</h3>' +
 		'<div class="breakdown-row"><span>input tokens</span><strong>' +
 		usage.input +
@@ -550,7 +581,7 @@ function render_overview(events) {
 		'</div><div class="summary-card"><h3>Recent tool activity</h3>' +
 		(tool_events.slice(0, 8).map(render_compact_event).join('') ||
 			'<div class="empty compact">No tool events.</div>') +
-		'</div></div>';
+		'</div></div></details>';
 }
 function render_compact_event(event) {
 	return (
@@ -783,6 +814,14 @@ single_btn.onclick = () => void set_view('single');
 trace_btn.onclick = () => void set_view('trace');
 swimlane_btn.onclick = () => void set_view('swimlane');
 race_btn.onclick = () => void set_view('race');
+theme_btn.onclick = () => {
+	const next =
+		document.documentElement.dataset.theme === 'light'
+			? 'dark'
+			: 'light';
+	localStorage.setItem(theme_key, next);
+	apply_theme(next);
+};
 pause_btn.onclick = () => {
 	paused = !paused;
 	pause_btn.textContent = paused ? 'Resume' : 'Pause';
