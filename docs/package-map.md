@@ -15,6 +15,7 @@ vanilla Pi.
 | `@spences10/pi-lsp`                 | LSP diagnostics, hover, definitions, references, and symbols. |
 | `@spences10/pi-mcp`                 | MCP server integration and `/mcp` command.                    |
 | `@spences10/pi-nopeek`              | Reminder to use `nopeek` for secret-safe environment loading. |
+| `@spences10/pi-observability`       | Live local event stream and browser dashboard.                |
 | `@spences10/pi-omnisearch`          | Reminder to use `mcp-omnisearch` for verified web research.   |
 | `@spences10/pi-recall`              | `pirecall` reminder and background sync.                      |
 | `@spences10/pi-redact`              | Output redaction and `/redact-stats`.                         |

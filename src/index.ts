@@ -113,6 +113,7 @@ EXAMPLES
   echo "plan a login page" | my-pi --json
   my-pi --telemetry --json "run eval case"
   my-pi --telemetry --telemetry-db ./tmp/evals.db --json "run case"
+  my-pi observability
   my-pi --untrusted --agent-dir /tmp/pi-agent --json "run case"
   my-pi -e ./my-ext.ts -e ./other-ext.ts "hello"
   my-pi -m claude-haiku-4-5-20241022 "explain this file"
@@ -321,14 +322,18 @@ const main = defineCommand({
 		if (args.json) runtime_mode = 'json';
 		else if (args.print) runtime_mode = 'print';
 
+		const positionals = (args as any)._ as string[] | undefined;
+		if (positionals?.[0] === 'observability') {
+			const { start_observability_server } =
+				await import('@spences10/pi-observability/server');
+			start_observability_server();
+			return;
+		}
+
 		// Resolve prompt: named --prompt flag > positional > stdin
 		let prompt = args.prompt;
-		if (!prompt) {
-			// Check for positional arguments (after citty strips flags)
-			const positionals = (args as any)._ as string[] | undefined;
-			if (positionals && positionals.length > 0) {
-				prompt = positionals[0];
-			}
+		if (!prompt && positionals && positionals.length > 0) {
+			prompt = positionals[0];
 		}
 		if (!prompt && !process.stdin.isTTY && runtime_mode !== 'rpc') {
 			prompt = await read_stdin();

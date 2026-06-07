@@ -117,6 +117,9 @@ importers:
       '@spences10/pi-nopeek':
         specifier: workspace:*
         version: link:packages/pi-nopeek
+      '@spences10/pi-observability':
+        specifier: workspace:*
+        version: link:packages/pi-observability
       '@spences10/pi-omnisearch':
         specifier: workspace:*
         version: link:packages/pi-omnisearch
@@ -426,6 +429,21 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.8(@types/node@25.9.1)(@vitest/browser-playwright@4.1.8)(@vitest/coverage-v8@4.1.8)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.3)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/pi-observability:
+    devDependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 0.78.0(ws@8.21.0)(zod@4.4.3)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.8(@types/node@25.9.1)(@vitest/browser-playwright@4.1.7)(@vitest/coverage-v8@4.1.8)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.3)(jiti@2.7.0)(yaml@2.9.0))
 
   packages/pi-omnisearch:
     devDependencies:

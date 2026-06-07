@@ -69,8 +69,9 @@ instructions, commands, configuration, and runtime behavior.
   per-project persistence.
 - **Secret safety** — redaction plus reminders to use secret-safe
   environment loading.
-- **Recall and telemetry** — local support for prior-session lookup,
-  evals, latency analysis, and operational debugging.
+- **Recall, telemetry, and observability** — local support for
+  prior-session lookup, evals, latency analysis, live event streams,
+  and operational debugging.
 - **Git UI** — interactive source-control staging and commit support.
 - **Team mode** — local RPC teammate orchestration with tasks and
   mailboxes.
@@ -84,10 +85,10 @@ instructions, commands, configuration, and runtime behavior.
 - Pi authentication via `pi auth`, provider environment variables, or
   supported OAuth flows
 
-`my-pi` uses native `node:sqlite` through context and telemetry
-packages. The CLI suppresses Node's expected `node:sqlite`
-`ExperimentalWarning`; standalone package/API consumers own their
-process warning policy until Node marks it stable.
+`my-pi` uses native `node:sqlite` through context, telemetry, and
+observability packages. The CLI suppresses Node's expected
+`node:sqlite` `ExperimentalWarning`; standalone package/API consumers
+own their process warning policy until Node marks it stable.
 
 ## Common usage
 
@@ -104,6 +105,11 @@ pnpx my-pi@latest --json "list all TODO comments"
 
 # RPC mode for team/agent orchestration
 pnpx my-pi@latest --mode rpc
+
+# local live observability dashboard
+pnpx my-pi@latest
+# then run /observability in the TUI
+pnpx my-pi@latest observability
 ```
 
 Pi handles model authentication natively. For provider-specific model
@@ -130,6 +136,7 @@ Full package list here:
 | [`@spences10/pi-lsp`](./packages/pi-lsp/README.md)                                 | LSP-backed diagnostics and symbol tools                    |
 | [`@spences10/pi-mcp`](./packages/pi-mcp/README.md)                                 | MCP server integration and `/mcp`                          |
 | [`@spences10/pi-nopeek`](./packages/pi-nopeek/README.md)                           | `nopeek` reminder for secret-safe environment loading      |
+| [`@spences10/pi-observability`](./packages/pi-observability/README.md)             | Live local event stream and browser dashboard              |
 | [`@spences10/pi-omnisearch`](./packages/pi-omnisearch/README.md)                   | `mcp-omnisearch` reminder for verified web research        |
 | [`@spences10/pi-recall`](./packages/pi-recall/README.md)                           | `pirecall` reminder and background sync                    |
 | [`@spences10/pi-redact`](./packages/pi-redact/README.md)                           | Output redaction and `/redact-stats`                       |

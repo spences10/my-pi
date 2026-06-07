@@ -148,6 +148,21 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		load: async () => (await import('@spences10/pi-nopeek')).default,
 	},
 	{
+		key: 'observability',
+		label: 'Observability',
+		docs_label: 'Live observability',
+		description:
+			'Optional live event stream and local browser dashboard',
+		default_enabled: true,
+		option_name: 'observability',
+		cli_arg: 'no-observability',
+		cli_flag: '--no-observability',
+		cli_description: 'Disable live observability extension',
+		aliases: ['observability', 'obs', 'live-events'],
+		load: async () =>
+			(await import('@spences10/pi-observability')).default,
+	},
+	{
 		key: 'omnisearch',
 		label: 'Omnisearch',
 		docs_label: 'Omnisearch',
