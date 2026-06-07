@@ -1,0 +1,344 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Pi Observability</title>
+		<style>
+			:root {
+				color-scheme: dark;
+			}
+			body {
+				font: 14px/1.4 system-ui;
+				margin: 0;
+				background: #0b1020;
+				color: #e5e7eb;
+			}
+			header {
+				padding: 12px 16px;
+				background: #111827;
+				display: flex;
+				gap: 12px;
+				align-items: center;
+				position: sticky;
+				top: 0;
+				z-index: 2;
+			}
+			button {
+				background: #172033;
+				color: #e5e7eb;
+				border: 1px solid #334155;
+				border-radius: 8px;
+				padding: 6px 10px;
+				cursor: pointer;
+			}
+			button.active {
+				background: #2563eb;
+				border-color: #60a5fa;
+			}
+			.layout {
+				display: grid;
+				grid-template-columns: 320px 1fr;
+				height: calc(100vh - 54px);
+			}
+			aside {
+				border-right: 1px solid #263244;
+				overflow: auto;
+			}
+			.session,
+			.event,
+			.lane-event {
+				padding: 10px 12px;
+				border-bottom: 1px solid #1f2937;
+				cursor: pointer;
+			}
+			.session:hover,
+			.event:hover,
+			.lane-event:hover {
+				background: #172033;
+			}
+			.muted {
+				color: #94a3b8;
+			}
+			.events {
+				overflow: auto;
+			}
+			.pill {
+				font-size: 12px;
+				border: 1px solid #334155;
+				border-radius: 999px;
+				padding: 2px 6px;
+			}
+			.type {
+				color: #93c5fd;
+			}
+			pre {
+				white-space: pre-wrap;
+				word-break: break-word;
+				background: #050816;
+				padding: 12px;
+				border-radius: 8px;
+			}
+			.swimlane {
+				display: flex;
+				gap: 10px;
+				padding: 10px;
+				overflow: auto;
+				height: calc(100% - 20px);
+			}
+			.lane {
+				min-width: 300px;
+				max-width: 380px;
+				border: 1px solid #263244;
+				border-radius: 12px;
+				overflow: auto;
+				background: #0f172a;
+			}
+			.lane h3 {
+				margin: 0;
+				padding: 10px;
+				border-bottom: 1px solid #263244;
+				font-size: 13px;
+			}
+			.race {
+				padding: 12px;
+			}
+			.race table {
+				border-collapse: collapse;
+				width: 100%;
+			}
+			.race td,
+			.race th {
+				border-bottom: 1px solid #263244;
+				padding: 8px;
+				text-align: left;
+			}
+			.hidden {
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<strong>Pi Observability</strong>
+			<span id="live" class="pill">connecting</span>
+			<button id="single_btn" class="active">Single</button>
+			<button id="swimlane_btn">Swimlane</button>
+			<button id="race_btn">Race</button>
+			<span class="muted">DB: __DB_PATH__</span>
+		</header>
+		<div class="layout">
+			<aside id="sessions"></aside>
+			<section class="events">
+				<div id="single_view"></div>
+				<div id="swimlane_view" class="hidden swimlane"></div>
+				<div id="race_view" class="hidden race"></div>
+			</section>
+		</div>
+		<script>
+			const token_value =
+				new URLSearchParams(location.search).get('token') || '';
+			let selected_id = null;
+			let current_view = 'single';
+			let session_cache = [];
+			const event_cache = new Map();
+			function api(path) {
+				return (
+					path +
+					(token_value
+						? (path.includes('?') ? '&' : '?') +
+							'token=' +
+							encodeURIComponent(token_value)
+						: '')
+				);
+			}
+			function escape_html(s) {
+				return String(s).replace(
+					/[&<>]/g,
+					(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c],
+				);
+			}
+			function label_session(s) {
+				return escape_html(
+					(s.agent_name || s.session_id).slice(0, 40),
+				);
+			}
+			async function load_sessions() {
+				const r = await fetch(api('/sessions'));
+				const j = await r.json();
+				session_cache = j.sessions;
+				sessions.innerHTML = session_cache
+					.map(
+						(s) =>
+							'<div class="session" data-id="' +
+							s.session_id +
+							'"><strong>' +
+							label_session(s) +
+							'</strong><div class="muted">' +
+							escape_html(s.pool) +
+							' · ' +
+							s.event_count +
+							' events</div><div class="muted">' +
+							escape_html(s.last_ts) +
+							'</div></div>',
+					)
+					.join('');
+				document
+					.querySelectorAll('.session')
+					.forEach(
+						(el) =>
+							(el.onclick = () => select_session(el.dataset.id)),
+					);
+				if (current_view !== 'single') await load_all_events();
+				render_active();
+			}
+			async function fetch_events(id) {
+				if (event_cache.has(id)) return event_cache.get(id);
+				const r = await fetch(
+					api(
+						'/sessions/' +
+							encodeURIComponent(id) +
+							'/events?limit=500',
+					),
+				);
+				const j = await r.json();
+				event_cache.set(id, j.events);
+				return j.events;
+			}
+			async function load_all_events() {
+				await Promise.all(
+					session_cache
+						.slice(0, 8)
+						.map((s) => fetch_events(s.session_id)),
+				);
+			}
+			async function select_session(id) {
+				selected_id = id;
+				await fetch_events(id);
+				current_view = 'single';
+				set_view('single');
+			}
+			function render_event(e) {
+				return (
+					'<div class="event"><span class="pill">' +
+					e.seq +
+					'</span> <strong class="type">' +
+					escape_html(e.type) +
+					'</strong> <span class="muted">' +
+					escape_html(e.ts) +
+					'</span><pre>' +
+					escape_html(JSON.stringify(e.payload, null, 2)) +
+					'</pre></div>'
+				);
+			}
+			function render_single() {
+				if (!selected_id && session_cache[0])
+					selected_id = session_cache[0].session_id;
+				const events = event_cache.get(selected_id) || [];
+				single_view.innerHTML =
+					events.map(render_event).join('') ||
+					'<p class="muted" style="padding:12px">No session selected.</p>';
+			}
+			function render_swimlane() {
+				swimlane_view.innerHTML = session_cache
+					.slice(0, 8)
+					.map((s) => {
+						const events = event_cache.get(s.session_id) || [];
+						return (
+							'<div class="lane"><h3>' +
+							label_session(s) +
+							'<div class="muted">' +
+							escape_html(s.pool) +
+							' · ' +
+							events.length +
+							' shown</div></h3>' +
+							events
+								.map(
+									(e) =>
+										'<div class="lane-event"><span class="pill">' +
+										e.seq +
+										'</span> <strong class="type">' +
+										escape_html(e.type) +
+										'</strong><div class="muted">' +
+										escape_html(e.ts) +
+										'</div></div>',
+								)
+								.join('') +
+							'</div>'
+						);
+					})
+					.join('');
+			}
+			function render_race() {
+				const rows = [];
+				for (const s of session_cache.slice(0, 8)) {
+					for (const e of event_cache.get(s.session_id) || []) {
+						rows.push({ session: s, event: e });
+					}
+				}
+				rows.sort((a, b) => a.event.ts.localeCompare(b.event.ts));
+				race_view.innerHTML =
+					'<table><thead><tr><th>Time</th><th>Session</th><th>Seq</th><th>Event</th></tr></thead><tbody>' +
+					rows
+						.map(
+							(r) =>
+								'<tr><td>' +
+								escape_html(r.event.ts) +
+								'</td><td>' +
+								label_session(r.session) +
+								'</td><td>' +
+								r.event.seq +
+								'</td><td class="type">' +
+								escape_html(r.event.type) +
+								'</td></tr>',
+						)
+						.join('') +
+					'</tbody></table>';
+			}
+			function render_active() {
+				render_single();
+				render_swimlane();
+				render_race();
+			}
+			async function set_view(view) {
+				current_view = view;
+				single_btn.classList.toggle('active', view === 'single');
+				swimlane_btn.classList.toggle('active', view === 'swimlane');
+				race_btn.classList.toggle('active', view === 'race');
+				single_view.classList.toggle('hidden', view !== 'single');
+				swimlane_view.classList.toggle('hidden', view !== 'swimlane');
+				race_view.classList.toggle('hidden', view !== 'race');
+				if (view !== 'single') await load_all_events();
+				render_active();
+			}
+			single_btn.onclick = () => set_view('single');
+			swimlane_btn.onclick = () => set_view('swimlane');
+			race_btn.onclick = () => set_view('race');
+			function connect() {
+				const es = new EventSource(api('/events/stream'));
+				es.addEventListener(
+					'hello',
+					() => (live.textContent = 'live'),
+				);
+				es.addEventListener('event', (msg) => {
+					const e = JSON.parse(msg.data);
+					const existing = event_cache.get(e.session_id) || [];
+					if (
+						!existing.some((item) => item.event_id === e.event_id)
+					) {
+						event_cache.set(e.session_id, [e, ...existing]);
+					}
+					load_sessions();
+					if (!selected_id) selected_id = e.session_id;
+					render_active();
+				});
+				es.onerror = () => {
+					live.textContent = 'reconnecting';
+					es.close();
+					setTimeout(connect, 1000);
+				};
+			}
+			load_sessions();
+			connect();
+		</script>
+	</body>
+</html>
