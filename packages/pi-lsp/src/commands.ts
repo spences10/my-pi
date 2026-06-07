@@ -127,7 +127,7 @@ export async function handle_lsp_command(
 }
 
 function has_modal_ui(ctx: ExtensionCommandContext): boolean {
-	return ctx.hasUI && typeof ctx.ui.custom === 'function';
+	return ctx.mode === 'tui' && typeof ctx.ui.custom === 'function';
 }
 
 async function present_lsp_text(

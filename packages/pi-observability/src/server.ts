@@ -411,7 +411,7 @@ export function start_observability_server(
 		if (error.code === 'EADDRINUSE') {
 			if (options.log) {
 				console.error(
-					`Pi observability port ${options.port} is already in use.`,
+					`My-Pi observability port ${options.port} is already in use.`,
 				);
 			}
 			return;
@@ -422,7 +422,7 @@ export function start_observability_server(
 	server.listen(options.port, options.host, () => {
 		if (!options.log) return;
 		console.log(
-			`Pi observability listening on http://${options.host}:${options.port}`,
+			`My-Pi observability listening on http://${options.host}:${options.port}`,
 		);
 		console.log(`Database: ${options.db_path}`);
 	});

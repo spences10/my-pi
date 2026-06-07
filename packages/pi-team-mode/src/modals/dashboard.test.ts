@@ -78,6 +78,7 @@ describe('present_completed_task_results', () => {
 
 		present_completed_task_results(
 			{
+				mode: 'tui',
 				hasUI: true,
 				ui: { setEditorText: set_editor_text, notify },
 			} as unknown as ExtensionCommandContext,

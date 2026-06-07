@@ -58,6 +58,7 @@ export function create_command_context(
 	const selections: string[] = [];
 	return {
 		ctx: {
+			mode: 'tui',
 			hasUI: true,
 			ui: {
 				notify(message: string, level?: string) {

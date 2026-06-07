@@ -249,7 +249,7 @@ export async function show_team_text_modal(
 }
 
 export function has_modal_ui(ctx: ExtensionContext): boolean {
-	return ctx.hasUI && process.env.MY_PI_RUNTIME_MODE !== 'rpc';
+	return ctx.mode === 'tui';
 }
 
 export function set_team_ui(

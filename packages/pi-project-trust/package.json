@@ -41,6 +41,7 @@
 		"@spences10/pi-settings": "workspace:*"
 	},
 	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "catalog:",
 		"@types/node": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
