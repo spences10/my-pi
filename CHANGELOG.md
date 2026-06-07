@@ -1,5 +1,13 @@
 # my-pi
 
+## 0.1.77
+
+### Patch Changes
+
+- a0d5742: Improve observability dashboard theming, typography, active
+  session indicators, layout density, overflow handling, and trace
+  insights UX.
+
 ## 0.1.76
 
 ### Patch Changes

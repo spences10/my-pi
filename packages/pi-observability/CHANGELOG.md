@@ -1,5 +1,18 @@
 # @spences10/pi-observability
 
+## 0.0.3
+
+### Patch Changes
+
+- 9538d34: Improve observability dashboard with project grouping,
+  trace inspection, searchable events, summaries, and better dev
+  reload UX.
+- 6f2fa2e: Add observability trace analytics with usage rollups,
+  provider status, artifacts, labels, and backend event search.
+- a0d5742: Improve observability dashboard theming, typography, active
+  session indicators, layout density, overflow handling, and trace
+  insights UX.
+
 ## 0.0.2
 
 ### Patch Changes
