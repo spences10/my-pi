@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync } from 'node:fs';
 import {
 	createServer,
@@ -53,23 +54,30 @@ const SCHEMA = readFileSync(
 	new URL('./schema.sql', import.meta.url),
 	'utf8',
 );
-const DASHBOARD_HTML = readFileSync(
-	new URL('./dashboard.html', import.meta.url),
-	'utf8',
+const DASHBOARD_HTML_URL = new URL(
+	'./dashboard.html',
+	import.meta.url,
 );
-const DASHBOARD_CSS = readFileSync(
-	new URL('./dashboard.css', import.meta.url),
-	'utf8',
+const DASHBOARD_CSS_URL = new URL('./dashboard.css', import.meta.url);
+const DASHBOARD_JS_URL = new URL(
+	process.env.NODE_ENV === 'test'
+		? './dashboard.ts'
+		: './dashboard.js',
+	import.meta.url,
 );
-const DASHBOARD_JS = readFileSync(
-	new URL(
-		process.env.NODE_ENV === 'test'
-			? './dashboard.ts'
-			: './dashboard.js',
-		import.meta.url,
-	),
-	'utf8',
-);
+const SERVER_STARTED_AT = new Date().toISOString();
+
+function read_dashboard_html(): string {
+	return readFileSync(DASHBOARD_HTML_URL, 'utf8');
+}
+
+function read_dashboard_css(): string {
+	return readFileSync(DASHBOARD_CSS_URL, 'utf8');
+}
+
+function read_dashboard_js(): string {
+	return readFileSync(DASHBOARD_JS_URL, 'utf8');
+}
 const PERSISTENT_PRAGMAS = `
 PRAGMA journal_mode = WAL;
 `;
@@ -190,6 +198,7 @@ function text(
 	res.writeHead(status, {
 		'content-type': content_type,
 		'access-control-allow-origin': '*',
+		'cache-control': 'no-store, max-age=0',
 	});
 	res.end(body);
 }
@@ -218,6 +227,32 @@ function is_authorized(
 
 function row_text(value: unknown, fallback: string): string {
 	return typeof value === 'string' ? value : fallback;
+}
+
+function describe_port_owner(port: number): string {
+	try {
+		return execFileSync(
+			'lsof',
+			['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'],
+			{
+				encoding: 'utf8',
+				stdio: ['ignore', 'pipe', 'ignore'],
+			},
+		).trim();
+	} catch {
+		try {
+			return execFileSync('ss', ['-ltnp'], {
+				encoding: 'utf8',
+				stdio: ['ignore', 'pipe', 'ignore'],
+			})
+				.split('\n')
+				.filter((line) => line.includes(`:${port}`))
+				.join('\n')
+				.trim();
+		} catch {
+			return '';
+		}
+	}
 }
 
 function to_row_event(
@@ -272,10 +307,9 @@ function escape_html(value: string): string {
 }
 
 function render_dashboard(db_path: string): string {
-	return DASHBOARD_HTML.replaceAll(
-		'__DB_PATH__',
-		escape_html(db_path),
-	);
+	return read_dashboard_html()
+		.replaceAll('__DB_PATH__', escape_html(db_path))
+		.replaceAll('__BUILD__', escape_html(SERVER_STARTED_AT));
 }
 
 export function start_observability_server(
@@ -367,7 +401,7 @@ export function start_observability_server(
 					res,
 					200,
 					'text/css; charset=utf-8',
-					DASHBOARD_CSS,
+					read_dashboard_css(),
 				);
 			}
 			if (req_url.pathname === '/dashboard.js') {
@@ -375,7 +409,7 @@ export function start_observability_server(
 					res,
 					200,
 					'text/javascript; charset=utf-8',
-					DASHBOARD_JS,
+					read_dashboard_js(),
 				);
 			}
 			if (
@@ -478,8 +512,13 @@ export function start_observability_server(
 	server.on('error', (error: NodeJS.ErrnoException) => {
 		if (error.code === 'EADDRINUSE') {
 			if (options.log) {
+				const owner = describe_port_owner(options.port);
 				console.error(
 					`My-Pi observability port ${options.port} is already in use.`,
+				);
+				if (owner) console.error(`Port owner:\n${owner}`);
+				console.error(
+					'Stop the owner or set MY_PI_OBSERVABILITY_PORT to a free port.',
 				);
 			}
 			return;

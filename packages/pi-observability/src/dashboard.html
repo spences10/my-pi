@@ -16,7 +16,7 @@
 				<div>
 					<h1>Pi Observability</h1>
 					<div class="db-path" title="__DB_PATH__">
-						DB: __DB_PATH__
+						DB: __DB_PATH__ · served: __BUILD__
 					</div>
 				</div>
 			</div>
@@ -26,6 +26,7 @@
 				>
 				<div class="view-buttons">
 					<button id="single_btn" class="active">Single</button>
+					<button id="trace_btn">Trace</button>
 					<button id="swimlane_btn">Swimlane</button>
 					<button id="race_btn">Race</button>
 				</div>
@@ -55,11 +56,23 @@
 					<select id="type_filter">
 						<option value="">All event types</option>
 					</select>
+					<input
+						id="event_search_input"
+						placeholder="Search event payloads…"
+					/>
 				</div>
 				<div id="sessions"></div>
 			</aside>
 			<section class="events">
+				<div class="inspector">
+					<div id="overview"></div>
+					<div class="timeline-shell">
+						<div class="timeline-label">Trace timeline</div>
+						<div id="timeline"></div>
+					</div>
+				</div>
 				<div id="single_view" class="view"></div>
+				<div id="trace_view" class="hidden view trace"></div>
 				<div id="swimlane_view" class="hidden view swimlane"></div>
 				<div id="race_view" class="hidden view race"></div>
 			</section>
