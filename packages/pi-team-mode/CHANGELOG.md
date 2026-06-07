@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.32
+
+### Patch Changes
+
+- b282723: Update Pi 0.78.1 integration: refresh docs paths, lockfile,
+  and TUI mode detection guards.
+
 ## 0.0.31
 
 ### Patch Changes

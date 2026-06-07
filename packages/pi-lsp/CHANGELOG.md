@@ -1,5 +1,14 @@
 # @spences10/pi-lsp
 
+## 0.0.34
+
+### Patch Changes
+
+- b282723: Update Pi 0.78.1 integration: refresh docs paths, lockfile,
+  and TUI mode detection guards.
+- Updated dependencies [b282723]
+  - @spences10/pi-project-trust@0.0.13
+
 ## 0.0.33
 
 ### Patch Changes

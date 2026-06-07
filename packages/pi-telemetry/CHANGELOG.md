@@ -1,5 +1,12 @@
 # @spences10/pi-telemetry
 
+## 0.0.24
+
+### Patch Changes
+
+- b282723: Update Pi 0.78.1 integration: refresh docs paths, lockfile,
+  and TUI mode detection guards.
+
 ## 0.0.23
 
 ### Patch Changes

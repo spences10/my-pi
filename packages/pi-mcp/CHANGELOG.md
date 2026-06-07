@@ -1,5 +1,12 @@
 # @spences10/pi-mcp
 
+## 0.0.39
+
+### Patch Changes
+
+- Updated dependencies [b282723]
+  - @spences10/pi-project-trust@0.0.13
+
 ## 0.0.38
 
 ### Patch Changes
