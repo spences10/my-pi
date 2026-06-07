@@ -18,6 +18,8 @@ export interface ObservabilityServerOptions {
 	token: string;
 	db_path: string;
 	log: boolean;
+	retention_days?: number;
+	max_events?: number;
 }
 
 interface Subscriber {
@@ -33,6 +35,9 @@ interface PreparedStatements {
 	upsert_session: StatementSync;
 	list_sessions: StatementSync;
 	list_events: StatementSync;
+	delete_old_events: StatementSync;
+	delete_over_limit_events: StatementSync;
+	delete_orphan_sessions: StatementSync;
 }
 
 export interface RunningObservabilityServer {
@@ -77,18 +82,41 @@ CREATE INDEX IF NOT EXISTS idx_events_pool ON events(pool);
 CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
 `;
 
+function parse_positive_integer(
+	value: string | undefined,
+	fallback: number,
+): number {
+	const parsed = Number(value ?? fallback);
+	if (!Number.isInteger(parsed) || parsed < 1) return fallback;
+	return parsed;
+}
+
+function parse_port(value: string | undefined): number {
+	const port = parse_positive_integer(value, 43190);
+	if (port > 65535) return 43190;
+	return port;
+}
+
 export function resolve_observability_server_options(
 	env: NodeJS.ProcessEnv = process.env,
 ): ObservabilityServerOptions {
 	return {
 		host: env.MY_PI_OBSERVABILITY_HOST ?? '127.0.0.1',
-		port: Number(env.MY_PI_OBSERVABILITY_PORT ?? 43190),
+		port: parse_port(env.MY_PI_OBSERVABILITY_PORT),
 		token: env.MY_PI_OBSERVABILITY_TOKEN ?? '',
 		db_path: resolve(
 			env.MY_PI_OBSERVABILITY_DB ??
 				`${homedir()}/.pi/agent/observability.db`,
 		),
 		log: env.MY_PI_OBSERVABILITY_LOG !== '0',
+		retention_days: parse_positive_integer(
+			env.MY_PI_OBSERVABILITY_RETENTION_DAYS,
+			14,
+		),
+		max_events: parse_positive_integer(
+			env.MY_PI_OBSERVABILITY_MAX_EVENTS,
+			100_000,
+		),
 	};
 }
 
@@ -131,6 +159,19 @@ LIMIT ?
 			list_events: db.prepare(
 				'SELECT * FROM events WHERE session_id = ? ORDER BY seq DESC LIMIT ?',
 			),
+			delete_old_events: db.prepare(
+				"DELETE FROM events WHERE ts < datetime('now', '-' || ? || ' days')",
+			),
+			delete_over_limit_events: db.prepare(`
+DELETE FROM events
+WHERE event_id IN (
+	SELECT event_id FROM events ORDER BY ts DESC LIMIT -1 OFFSET ?
+)
+`),
+			delete_orphan_sessions: db.prepare(`
+DELETE FROM sessions
+WHERE session_id NOT IN (SELECT DISTINCT session_id FROM events)
+`),
 		},
 	};
 }
@@ -184,6 +225,18 @@ function to_session_row(row: Record<string, unknown>): unknown {
 		...row,
 		tags: JSON.parse(row_text(row.tags_json, '[]')) as string[],
 	};
+}
+
+function valid_event(value: unknown): value is ObservabilityEvent {
+	if (!value || typeof value !== 'object') return false;
+	const event = value as Partial<ObservabilityEvent>;
+	return (
+		typeof event.event_id === 'string' &&
+		typeof event.session_id === 'string' &&
+		Number.isInteger(event.seq) &&
+		typeof event.ts === 'string' &&
+		typeof event.type === 'string'
+	);
 }
 
 async function read_body(req: IncomingMessage): Promise<string> {
@@ -240,7 +293,16 @@ export function start_observability_server(
 		}
 	}
 
+	function prune_events(): void {
+		statements.delete_old_events.run(options.retention_days ?? 14);
+		statements.delete_over_limit_events.run(
+			options.max_events ?? 100_000,
+		);
+		statements.delete_orphan_sessions.run();
+	}
+
 	function ingest(event: ObservabilityEvent): boolean {
+		if (!valid_event(event)) return false;
 		const tags_json = JSON.stringify(event.tags ?? []);
 		const result = statements.insert_event.run(
 			event.event_id,
@@ -297,10 +359,16 @@ export function start_observability_server(
 				return json(res, 401, { error: 'unauthorized' });
 			}
 			if (req_url.pathname === '/events' && req.method === 'POST') {
-				const parsed = JSON.parse(await read_body(req));
+				let parsed: unknown;
+				try {
+					parsed = JSON.parse(await read_body(req));
+				} catch {
+					return json(res, 400, { error: 'invalid json' });
+				}
 				const events = Array.isArray(parsed) ? parsed : [parsed];
 				let ingested = 0;
 				for (const event of events) if (ingest(event)) ingested++;
+				if (ingested > 0) prune_events();
 				return json(res, 200, {
 					ingested,
 					rejected: events.length - ingested,
@@ -370,6 +438,18 @@ export function start_observability_server(
 		for (const sub of subscribers.values())
 			sub.res.write(': ping\n\n');
 	}, 15_000);
+
+	server.on('error', (error: NodeJS.ErrnoException) => {
+		if (error.code === 'EADDRINUSE') {
+			if (options.log) {
+				console.error(
+					`Pi observability port ${options.port} is already in use.`,
+				);
+			}
+			return;
+		}
+		throw error;
+	});
 
 	server.listen(options.port, options.host, () => {
 		if (!options.log) return;

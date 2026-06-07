@@ -41,7 +41,7 @@ async function wait_for_health(url: string): Promise<void> {
 function event(seq = 0): ObservabilityEvent {
 	return {
 		event_id: `evt-${seq}`,
-		ts: `2026-06-01T00:00:0${seq}.000Z`,
+		ts: new Date(Date.UTC(2026, 5, 1, 0, 0, seq)).toISOString(),
 		type: 'session_start',
 		session_id: 'session-1',
 		cwd: '/tmp/project',
@@ -68,7 +68,17 @@ describe('resolve_observability_server_options', () => {
 			db_path: '/tmp/obs.db',
 			token: 'secret',
 			log: false,
+			retention_days: 14,
+			max_events: 100_000,
 		});
+	});
+
+	it('falls back when the environment port is invalid', () => {
+		expect(
+			resolve_observability_server_options({
+				MY_PI_OBSERVABILITY_PORT: 'not-a-port',
+			}).port,
+		).toBe(43190);
 	});
 });
 
@@ -112,6 +122,70 @@ describe('start_observability_server', () => {
 		expect(events_body.events.map((item) => item.seq)).toEqual([
 			1, 0,
 		]);
+	});
+
+	it('rejects malformed event requests without crashing', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: '',
+			db_path: tmp_db_path(),
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		expect(
+			(
+				await fetch(`${server.url}/events`, {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: '{',
+				})
+			).status,
+		).toBe(400);
+
+		expect(
+			await (
+				await fetch(`${server.url}/events`, {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ nope: true }),
+				})
+			).json(),
+		).toMatchObject({ ingested: 0, rejected: 1 });
+	});
+
+	it('prunes events beyond the configured retention cap', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: '',
+			db_path: tmp_db_path(),
+			log: false,
+			max_events: 10,
+			retention_days: 14,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		const events = Array.from({ length: 101 }, (_, seq) =>
+			event(seq),
+		);
+		await fetch(`${server.url}/events`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(events),
+		});
+
+		const events_response = await fetch(
+			`${server.url}/sessions/session-1/events?limit=200`,
+		);
+		const events_body = (await events_response.json()) as {
+			events: ObservabilityEvent[];
+		};
+		expect(events_body.events).toHaveLength(10);
+		expect(events_body.events[0]?.seq).toBe(100);
 	});
 
 	it('requires auth when a token is configured', async () => {
