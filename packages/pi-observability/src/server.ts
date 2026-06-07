@@ -31,6 +31,7 @@ interface Subscriber {
 }
 
 interface PreparedStatements {
+	next_event_seq: StatementSync;
 	insert_event: StatementSync;
 	upsert_session: StatementSync;
 	list_sessions: StatementSync;
@@ -125,6 +126,11 @@ function prepare_db(db_path: string): {
 	return {
 		db,
 		statements: {
+			next_event_seq: db.prepare(`
+				SELECT COALESCE(MAX(seq) + 1, 0) AS seq
+				FROM events
+				WHERE session_id = ?
+			`),
 			insert_event: db.prepare(`
 				INSERT OR IGNORE INTO events
 				(event_id, session_id, seq, ts, type, pool, tags_json, payload_json, provider, model)
@@ -266,7 +272,10 @@ function escape_html(value: string): string {
 }
 
 function render_dashboard(db_path: string): string {
-	return DASHBOARD_HTML.replace('__DB_PATH__', escape_html(db_path));
+	return DASHBOARD_HTML.replaceAll(
+		'__DB_PATH__',
+		escape_html(db_path),
+	);
 }
 
 export function start_observability_server(
@@ -298,32 +307,39 @@ export function start_observability_server(
 	function ingest(event: ObservabilityEvent): boolean {
 		if (!valid_event(event)) return false;
 		const tags_json = JSON.stringify(event.tags ?? []);
-		const result = statements.insert_event.run(
-			event.event_id,
+		const next_seq_row = statements.next_event_seq.get(
 			event.session_id,
-			event.seq,
-			event.ts,
-			event.type,
-			event.pool ?? 'default',
+		) as { seq?: number } | undefined;
+		const server_event = {
+			...event,
+			seq: next_seq_row?.seq ?? 0,
+		};
+		const result = statements.insert_event.run(
+			server_event.event_id,
+			server_event.session_id,
+			server_event.seq,
+			server_event.ts,
+			server_event.type,
+			server_event.pool ?? 'default',
 			tags_json,
-			JSON.stringify(event.payload ?? {}),
-			event.provider ?? null,
-			event.model ?? null,
+			JSON.stringify(server_event.payload ?? {}),
+			server_event.provider ?? null,
+			server_event.model ?? null,
 		);
 		if (result.changes === 0) return false;
 		statements.upsert_session.run(
-			event.session_id,
-			event.pool ?? 'default',
-			event.agent_name ?? null,
-			event.cwd ?? '',
-			event.session_file ?? null,
-			event.provider ?? null,
-			event.model ?? null,
-			event.ts,
-			event.ts,
+			server_event.session_id,
+			server_event.pool ?? 'default',
+			server_event.agent_name ?? null,
+			server_event.cwd ?? '',
+			server_event.session_file ?? null,
+			server_event.provider ?? null,
+			server_event.model ?? null,
+			server_event.ts,
+			server_event.ts,
 			tags_json,
 		);
-		broadcast(event);
+		broadcast(server_event);
 		return true;
 	}
 
@@ -380,8 +396,15 @@ export function start_observability_server(
 				}
 				const events = Array.isArray(parsed) ? parsed : [parsed];
 				let ingested = 0;
-				for (const event of events) if (ingest(event)) ingested++;
-				if (ingested > 0) prune_events();
+				db.exec('BEGIN IMMEDIATE');
+				try {
+					for (const event of events) if (ingest(event)) ingested++;
+					if (ingested > 0) prune_events();
+					db.exec('COMMIT');
+				} catch (error) {
+					db.exec('ROLLBACK');
+					throw error;
+				}
 				return json(res, 200, {
 					ingested,
 					rejected: events.length - ingested,

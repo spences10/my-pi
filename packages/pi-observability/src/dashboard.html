@@ -2,10 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta
-			name="viewport"
-			content="width=device-width, initial-scale=1"
-		/>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Pi Observability</title>
 		<link rel="stylesheet" href="/dashboard.css" />
 	</head>
@@ -15,9 +12,7 @@
 				<div class="mark" aria-hidden="true"></div>
 				<div>
 					<h1>Pi Observability</h1>
-					<div class="db-path" title="__DB_PATH__">
-						DB: __DB_PATH__
-					</div>
+					<div class="db-path" title="__DB_PATH__">DB: __DB_PATH__</div>
 				</div>
 			</div>
 			<div class="toolbar">
@@ -37,15 +32,13 @@
 				<div class="filters">
 					<div class="stats">
 						<div class="stat">
-							<strong id="session_count">0</strong
-							><span>sessions</span>
+							<strong id="session_count">0</strong><span>sessions</span>
 						</div>
 						<div class="stat">
 							<strong id="event_count">0</strong><span>events</span>
 						</div>
 						<div class="stat">
-							<strong id="visible_count">0</strong
-							><span>visible</span>
+							<strong id="visible_count">0</strong><span>visible</span>
 						</div>
 					</div>
 					<input
@@ -64,6 +57,6 @@
 				<div id="race_view" class="hidden view race"></div>
 			</section>
 		</div>
-		<script src="/dashboard.js"></script>
+		<script type="module" src="/dashboard.js"></script>
 	</body>
 </html>

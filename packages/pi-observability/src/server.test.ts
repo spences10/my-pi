@@ -184,6 +184,38 @@ describe('start_observability_server', () => {
 		).toMatchObject({ ingested: 0, rejected: 1 });
 	});
 
+	it('assigns durable server sequence numbers across resumed client sequences', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: '',
+			db_path: tmp_db_path(),
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		await fetch(`${server.url}/events`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify([
+				event(0),
+				{ ...event(0), event_id: 'evt-resume-0' },
+				{ ...event(1), event_id: 'evt-resume-1' },
+			]),
+		});
+
+		const events_response = await fetch(
+			`${server.url}/sessions/session-1/events`,
+		);
+		const events_body = (await events_response.json()) as {
+			events: ObservabilityEvent[];
+		};
+		expect(events_body.events.map((item) => item.seq)).toEqual([
+			2, 1, 0,
+		]);
+	});
+
 	it('prunes events beyond the configured retention cap', async () => {
 		const server = start_observability_server({
 			host: '127.0.0.1',
