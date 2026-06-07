@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.75
+
+### Patch Changes
+
+- 320fd33: Add ambient local observability with auto-started dashboard
+  server and TUI command for live session inspection.
+
 ## 0.1.74
 
 ### Patch Changes
