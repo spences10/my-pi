@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.80
+
+### Patch Changes
+
+- 747bcd3: Add TUI observability dashboard with drilldown, filtering,
+  scrollable JSON payloads, and browser performance fixes.
+
 ## 0.1.79
 
 ## 0.1.78
