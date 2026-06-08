@@ -1,5 +1,12 @@
 # @spences10/pi-observability
 
+## 0.0.5
+
+### Patch Changes
+
+- 9f2c56a: Fix observability dashboard chip overlap with structured
+  rows, truncation, and line-clamp compatibility CSS.
+
 ## 0.0.4
 
 ### Patch Changes
