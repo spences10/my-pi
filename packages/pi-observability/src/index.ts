@@ -303,14 +303,15 @@ export default function observability(pi: ExtensionAPI) {
 
 	let dashboard_url = DEFAULT_OBSERVABILITY_URL;
 	pi.registerCommand('observability', {
-		description: 'Open or show the local observability dashboard',
+		description:
+			'Show the TUI observability dashboard; use "open" for browser',
 		handler: async (args, ctx) => {
-			const should_open = !args.trim() || args.trim() === 'open';
+			const command = args.trim();
 			if (config?.auto_start_server)
 				await ensure_local_server(config.server_url);
 			const url = config?.server_url ?? dashboard_url;
 			dashboard_url = url;
-			if (should_open) {
+			if (command === 'open') {
 				try {
 					open_dashboard(url);
 					ctx.ui.notify(`Observability dashboard: ${url}`, 'info');
@@ -322,7 +323,26 @@ export default function observability(pi: ExtensionAPI) {
 				}
 				return;
 			}
-			ctx.ui.notify(`Observability dashboard: ${url}`, 'info');
+			if (command === 'url') {
+				ctx.ui.notify(`Observability dashboard: ${url}`, 'info');
+				return;
+			}
+			try {
+				const { show_observability_tui_dashboard } =
+					await import('./tui-dashboard.js');
+				await show_observability_tui_dashboard(
+					ctx,
+					url,
+					config?.token,
+				);
+			} catch (error) {
+				ctx.ui.notify(
+					error instanceof Error
+						? `Observability dashboard failed: ${error.message}`
+						: `Observability dashboard: ${url}`,
+					'error',
+				);
+			}
 		},
 	});
 
