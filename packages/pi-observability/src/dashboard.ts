@@ -506,11 +506,11 @@ function render_overview(events) {
 		.slice(0, 8)
 		.map(
 			(run) =>
-				'<div class="tool-row"><span class="pill">' +
+				'<div class="tool-row"><span class="pill status-pill">' +
 				(run.error ? 'error' : format_duration(run.duration)) +
-				'</span><div><strong>' +
+				'</span><div class="tool-row-body"><strong class="row-title">' +
 				escape_html(run.name || run.id) +
-				'</strong><div class="muted">' +
+				'</strong><div class="muted row-meta">' +
 				escape_html(run.id) +
 				' · ' +
 				run.events.length +
@@ -531,11 +531,13 @@ function render_overview(events) {
 		.slice(0, 8)
 		.map(
 			(item) =>
-				'<div class="tool-row"><span class="pill">#' +
+				'<div class="tool-row"><span class="pill id-pill">#' +
 				item.event.seq +
-				'</span><div><strong>' +
+				'</span><div class="tool-row-body"><strong class="row-title path-title" title="' +
 				escape_html(item.value) +
-				'</strong><div class="muted">' +
+				'">' +
+				escape_html(item.value) +
+				'</strong><div class="muted row-meta">' +
 				escape_html(item.event.type) +
 				'</div></div></div>',
 		)
@@ -585,11 +587,11 @@ function render_overview(events) {
 }
 function render_compact_event(event) {
 	return (
-		'<div class="tool-row"><span class="pill">#' +
+		'<div class="tool-row"><span class="pill id-pill">#' +
 		event.seq +
-		'</span><div><strong>' +
+		'</span><div class="tool-row-body"><strong class="row-title compact-preview">' +
 		escape_html(summarize_payload(event) || event.type) +
-		'</strong><div class="muted">' +
+		'</strong><div class="muted row-meta">' +
 		short_time(event.ts) +
 		' · ' +
 		escape_html(event.type) +
