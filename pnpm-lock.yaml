@@ -15,12 +15,12 @@ catalogs:
     '@earendil-works/pi-tui':
       specifier: 0.78.1
       version: 0.78.1
+    '@types/node':
+      specifier: ^25.8.0
+      version: 25.9.2
     '@vitest/coverage-v8':
       specifier: 4.1.8
       version: 4.1.8
-    typebox:
-      specifier: ^1.1.38
-      version: 1.2.1
     typescript:
       specifier: ^6.0.3
       version: 6.0.3
@@ -69,7 +69,7 @@ importers:
         version: 0.2.2
       typebox:
         specifier: 'catalog:'
-        version: 1.2.1
+        version: 1.2.2
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.0
@@ -3470,8 +3470,8 @@ packages:
   typebox@1.1.38:
     resolution: {integrity: sha512-pZ0aQPmMmXoUvSbeuWf/Hzsc+avNw/Zd6VeE8CFgkVGWyuHPJvqeJJDeJqLve+K70LvjYIoleGcoJHPT17cWoA==}
 
-  typebox@1.2.1:
-    resolution: {integrity: sha512-0upGv6+mxJR7/Wc7yoxjc/U6SjOk2aNDNzbihYacSHh+JfOsf28IJ8ggW4/3tRlDKfbInvEDPVneEywjOWYCzw==}
+  typebox@1.2.2:
+    resolution: {integrity: sha512-0nqIJFL+baWoAEtwa0l/vfbfXg0+3gEhiWGnHuoIiivXjlk/TpxDddG0WER34CojKNpHi4ZXku8XGEz9H55b5Q==}
 
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
@@ -6199,7 +6199,7 @@ snapshots:
 
   typebox@1.1.38: {}
 
-  typebox@1.2.1: {}
+  typebox@1.2.2: {}
 
   typescript@6.0.3: {}
 
