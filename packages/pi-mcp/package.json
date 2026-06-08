@@ -9,6 +9,9 @@
 		"pi-package"
 	],
 	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/pi-mcp#readme",
+	"bugs": {
+		"url": "https://github.com/spences10/my-pi/issues"
+	},
 	"license": "MIT",
 	"author": "Scott Spence <me@scottspence.com>",
 	"repository": {
