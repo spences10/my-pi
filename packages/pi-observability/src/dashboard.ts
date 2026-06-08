@@ -5,6 +5,8 @@ let selected_id = null;
 let current_view = 'single';
 let session_cache = [];
 let paused = false;
+let live_render_timer = null;
+let session_reload_timer = null;
 const event_cache = new Map();
 const known_types = new Set();
 const theme_key = 'pi-observability-theme';
@@ -628,7 +630,7 @@ function render_timeline(events) {
 }
 function render_event(event) {
 	return (
-		'<details class="event" open><summary><div class="event-head"><span class="pill">#' +
+		'<details class="event"><summary><div class="event-head"><span class="pill">#' +
 		event.seq +
 		'</span><strong class="type">' +
 		escape_html(event.type) +
@@ -794,10 +796,10 @@ function render_race() {
 }
 function render_active() {
 	render_sessions();
-	render_single();
-	render_trace();
-	render_swimlane();
-	render_race();
+	if (current_view === 'single') render_single();
+	else if (current_view === 'trace') render_trace();
+	else if (current_view === 'swimlane') render_swimlane();
+	else if (current_view === 'race') render_race();
 }
 async function set_view(view) {
 	current_view = view;
@@ -837,6 +839,20 @@ save_label_btn.onclick = save_label;
 label_input.onkeydown = (event) => {
 	if (event.key === 'Enter') save_label();
 };
+function schedule_live_render() {
+	if (live_render_timer) return;
+	live_render_timer = setTimeout(() => {
+		live_render_timer = null;
+		render_active();
+	}, 150);
+}
+function schedule_session_reload() {
+	if (session_reload_timer) return;
+	session_reload_timer = setTimeout(() => {
+		session_reload_timer = null;
+		void load_sessions();
+	}, 1000);
+}
 function connect() {
 	const es = new EventSource(api('/events/stream'));
 	es.addEventListener('hello', () => {
@@ -852,8 +868,8 @@ function connect() {
 		if (!selected_id) selected_id = event.session_id;
 		update_type_filter();
 		if (paused) return;
-		void load_sessions();
-		render_active();
+		schedule_session_reload();
+		schedule_live_render();
 	});
 	es.onerror = () => {
 		live.classList.add('disconnected');

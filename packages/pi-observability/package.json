@@ -51,16 +51,19 @@
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {
-		"@fontsource/victor-mono": "^5.2.8"
+		"@fontsource/victor-mono": "^5.2.8",
+		"@spences10/pi-tui-modal": "workspace:*"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",
+		"@earendil-works/pi-tui": "catalog:",
 		"@types/node": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": "*"
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
 	},
 	"engines": {
 		"node": ">=24.15.0"

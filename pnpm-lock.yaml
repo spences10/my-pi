@@ -435,10 +435,16 @@ importers:
       '@fontsource/victor-mono':
         specifier: ^5.2.8
         version: 5.2.8
+      '@spences10/pi-tui-modal':
+        specifier: workspace:*
+        version: link:../pi-tui-modal
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 0.78.1(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
+        specifier: 'catalog:'
+        version: 0.78.1
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.2
