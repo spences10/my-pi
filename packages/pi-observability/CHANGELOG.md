@@ -1,5 +1,12 @@
 # @spences10/pi-observability
 
+## 0.0.6
+
+### Patch Changes
+
+- 747bcd3: Add TUI observability dashboard with drilldown, filtering,
+  scrollable JSON payloads, and browser performance fixes.
+
 ## 0.0.5
 
 ### Patch Changes
