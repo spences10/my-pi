@@ -23,6 +23,7 @@ export interface BuiltinExtensionManifestEntry {
 		disabled_in: readonly BuiltinExtensionRuntimeMode[];
 		reason: string;
 	};
+	external_package_name?: string;
 	load: BuiltinExtensionLoader;
 }
 
@@ -39,6 +40,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_description:
 			'Disable SQLite context sidecar for large tool output',
 		aliases: ['context-sidecar', 'context', 'sidecar'],
+		external_package_name: '@spences10/pi-context',
 		load: async () => (await import('@spences10/pi-context')).default,
 	},
 	{
@@ -52,6 +54,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-mcp',
 		cli_description: 'Disable built-in MCP extension',
 		aliases: ['mcp'],
+		external_package_name: '@spences10/pi-mcp',
 		load: async () => (await import('@spences10/pi-mcp')).default,
 	},
 	{
@@ -82,6 +85,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-skills',
 		cli_description: 'Disable built-in skills extension',
 		aliases: ['skills', 'skill'],
+		external_package_name: '@spences10/pi-skills',
 		load: async () => (await import('@spences10/pi-skills')).default,
 	},
 	{
@@ -96,6 +100,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-skill-importer',
 		cli_description: 'Disable external skill importer extension',
 		aliases: ['skill-importer', 'import-skills', 'skill-import'],
+		external_package_name: '@spences10/pi-skill-importer',
 		load: async () =>
 			(await import('@spences10/pi-skill-importer')).default,
 	},
@@ -118,6 +123,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 			'secret-redaction',
 			'output-redaction',
 		],
+		external_package_name: '@spences10/pi-redact',
 		load: async () => (await import('@spences10/pi-redact')).default,
 	},
 	{
@@ -131,6 +137,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-recall',
 		cli_description: 'Disable recall extension',
 		aliases: ['recall', 'pirecall'],
+		external_package_name: '@spences10/pi-recall',
 		load: async () => (await import('@spences10/pi-recall')).default,
 	},
 	{
@@ -145,6 +152,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-nopeek',
 		cli_description: 'Disable nopeek reminder extension',
 		aliases: ['nopeek', 'secrets', 'secret-loading'],
+		external_package_name: '@spences10/pi-nopeek',
 		load: async () => (await import('@spences10/pi-nopeek')).default,
 	},
 	{
@@ -159,6 +167,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-observability',
 		cli_description: 'Disable live observability extension',
 		aliases: ['observability', 'obs', 'live-events'],
+		external_package_name: '@spences10/pi-observability',
 		load: async () =>
 			(await import('@spences10/pi-observability')).default,
 	},
@@ -173,6 +182,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-omnisearch',
 		cli_description: 'Disable mcp-omnisearch reminder extension',
 		aliases: ['omnisearch', 'search', 'web-search', 'research'],
+		external_package_name: '@spences10/pi-omnisearch',
 		load: async () =>
 			(await import('@spences10/pi-omnisearch')).default,
 	},
@@ -188,6 +198,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-sqlite-tools',
 		cli_description: 'Disable mcp-sqlite-tools reminder extension',
 		aliases: ['sqlite-tools', 'sqlite', 'mcp-sqlite-tools'],
+		external_package_name: '@spences10/pi-sqlite-tools',
 		load: async () =>
 			(await import('@spences10/pi-sqlite-tools')).default,
 	},
@@ -240,6 +251,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 			disabled_in: ['print', 'json', 'rpc'],
 			reason: 'Git UI is only useful in interactive mode',
 		},
+		external_package_name: '@spences10/pi-git-ui',
 		load: async () => (await import('@spences10/pi-git-ui')).default,
 	},
 	{
@@ -254,6 +266,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-lsp',
 		cli_description: 'Disable LSP extension',
 		aliases: ['lsp', 'language-server'],
+		external_package_name: '@spences10/pi-lsp',
 		load: async () => (await import('@spences10/pi-lsp')).default,
 	},
 	{
@@ -288,6 +301,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-confirm-destructive',
 		cli_description: 'Disable destructive action confirmations',
 		aliases: ['confirm-destructive', 'confirm'],
+		external_package_name: '@spences10/pi-confirm-destructive',
 		load: async () =>
 			(await import('@spences10/pi-confirm-destructive')).default,
 	},
@@ -318,6 +332,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-svelte-guardrails',
 		cli_description: 'Disable Svelte guardrails',
 		aliases: ['svelte-guardrails', 'svelte'],
+		external_package_name: '@spences10/pi-svelte-guardrails',
 		load: async () =>
 			(await import('@spences10/pi-svelte-guardrails')).default,
 	},
@@ -333,6 +348,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-coding-preferences',
 		cli_description: 'Disable coding preferences guardrails',
 		aliases: ['coding-preferences', 'preferences', 'prefs'],
+		external_package_name: '@spences10/pi-coding-preferences',
 		load: async () =>
 			(await import('@spences10/pi-coding-preferences')).default,
 	},
@@ -362,6 +378,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		cli_flag: '--no-team-mode',
 		cli_description: 'Disable experimental team mode extension',
 		aliases: ['team-mode', 'team', 'teammates'],
+		external_package_name: '@spences10/pi-team-mode',
 		load: async () =>
 			(await import('@spences10/pi-team-mode')).default,
 	},

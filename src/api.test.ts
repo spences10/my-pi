@@ -11,6 +11,7 @@ import {
 	apply_untrusted_repo_defaults,
 	create_lazy_builtin_extension_factory,
 	create_my_pi,
+	get_externally_installed_builtin_extensions,
 	get_force_disabled_builtins,
 	resolve_effective_thinking_level,
 	resolve_model_reference,
@@ -103,6 +104,31 @@ describe('get_force_disabled_builtins', () => {
 		expect(disabled.has('nopeek')).toBe(false);
 		expect(disabled.has('omnisearch')).toBe(false);
 		expect(disabled.has('sqlite-tools')).toBe(false);
+	});
+});
+
+describe('get_externally_installed_builtin_extensions', () => {
+	it('detects agent-dir installs that would duplicate built-in packages', () => {
+		const agent_dir = mkdtempSync(join(tmpdir(), 'my-pi-api-agent-'));
+
+		try {
+			mkdirSync(
+				join(
+					agent_dir,
+					'npm',
+					'node_modules',
+					'@spences10',
+					'pi-observability',
+				),
+				{ recursive: true },
+			);
+
+			expect(
+				get_externally_installed_builtin_extensions(agent_dir),
+			).toContain('observability');
+		} finally {
+			rmSync(agent_dir, { recursive: true, force: true });
+		}
 	});
 });
 

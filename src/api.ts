@@ -272,7 +272,7 @@ export function resolve_effective_thinking_level(
 export function get_force_disabled_builtins(
 	options: Pick<CreateMyPiOptions, 'runtime_mode'> &
 		BuiltinExtensionOptions,
-): ReadonlySet<BuiltinExtensionKey> {
+): Set<BuiltinExtensionKey> {
 	const force_disabled = new Set<BuiltinExtensionKey>();
 	for (const extension of BUILTIN_EXTENSION_REGISTRY) {
 		const enabled =
@@ -292,6 +292,33 @@ export function get_force_disabled_builtins(
 		}
 	}
 	return force_disabled;
+}
+
+function is_agent_dir_package_installed(
+	agent_dir: string,
+	package_name: string,
+): boolean {
+	return existsSync(
+		join(agent_dir, 'npm', 'node_modules', package_name),
+	);
+}
+
+export function get_externally_installed_builtin_extensions(
+	agent_dir: string,
+): Set<BuiltinExtensionKey> {
+	const installed = new Set<BuiltinExtensionKey>();
+	for (const extension of BUILTIN_EXTENSION_REGISTRY) {
+		const external_package_name = (
+			extension as { external_package_name?: string }
+		).external_package_name;
+		if (
+			external_package_name &&
+			is_agent_dir_package_installed(agent_dir, external_package_name)
+		) {
+			installed.add(extension.key);
+		}
+	}
+	return installed;
 }
 
 function warn_builtin_extension_unavailable(
@@ -420,6 +447,11 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		...options,
 		runtime_mode,
 	});
+	for (const key of get_externally_installed_builtin_extensions(
+		effective_agent_dir,
+	)) {
+		force_disabled.add(key);
+	}
 	const builtins_config = load_builtin_extensions_config();
 	const skills_builtin_enabled = is_builtin_extension_active(
 		builtins_config,
