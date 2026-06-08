@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.81
+
+### Patch Changes
+
+- 69205f8: Skip bundled built-in extensions when matching standalone
+  Pi packages are already installed.
+
 ## 0.1.80
 
 ### Patch Changes
