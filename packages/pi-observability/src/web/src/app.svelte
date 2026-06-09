@@ -23,6 +23,17 @@
 
 	type Event = ObservabilityEvent<Record<string, unknown>>;
 	type Session = DashboardSession;
+	type TurnGroup = {
+		id: string;
+		title: string;
+		start?: Event;
+		end?: Event;
+		events: Event[];
+		duration_ms: number;
+		errors: number;
+		tools: number;
+		providers: number;
+	};
 
 	const visible_sessions = $derived(
 		state.sessions.filter((session) =>
@@ -97,6 +108,84 @@
 			)
 			.slice(0, 6),
 	);
+	const turns = $derived.by(() => build_turns(visible_events));
+
+	function has_error_value(value: unknown): boolean {
+		if (!value || typeof value !== "object") return false;
+		const record = value as Record<string, unknown>;
+		if (
+			Boolean(record.error) ||
+			record.isError === true ||
+			String(record.status || "").toLowerCase() === "error"
+		)
+			return true;
+		return Object.values(record).some(has_error_value);
+	}
+
+	function event_has_error(event: Event) {
+		return event.type === "error" || has_error_value(event.payload);
+	}
+
+	function elapsed(start?: Event, end?: Event) {
+		if (!start || !end) return 0;
+		return Math.max(
+			0,
+			new Date(end.ts).valueOf() - new Date(start.ts).valueOf(),
+		);
+	}
+
+	function build_turns(events: Event[]): TurnGroup[] {
+		const ordered = [...events].sort((a, b) => a.seq - b.seq);
+		const groups: TurnGroup[] = [];
+		let current: TurnGroup | null = null;
+		for (const event of ordered) {
+			if (event.type === "turn_start") {
+				current = {
+					id: event.event_id,
+					title: `Turn ${groups.length + 1}`,
+					start: event,
+					events: [event],
+					duration_ms: 0,
+					errors: 0,
+					tools: 0,
+					providers: 0,
+				};
+				groups.push(current);
+				continue;
+			}
+			if (!current) {
+				current = {
+					id: `setup:${event.event_id}`,
+					title: "Session setup",
+					events: [],
+					duration_ms: 0,
+					errors: 0,
+					tools: 0,
+					providers: 0,
+				};
+				groups.push(current);
+			}
+			current.events.push(event);
+			if (event.type === "turn_end") {
+				current.end = event;
+				current = null;
+			}
+		}
+		for (const group of groups) {
+			group.duration_ms = elapsed(
+				group.start || group.events[0],
+				group.end || group.events[group.events.length - 1],
+			);
+			group.errors = group.events.filter(event_has_error).length;
+			group.tools = group.events.filter((event) =>
+				event.type.startsWith("tool"),
+			).length;
+			group.providers = group.events.filter((event) =>
+				event.type.startsWith("provider"),
+			).length;
+		}
+		return groups.reverse();
+	}
 
 	onMount(() => {
 		read_theme();
@@ -118,7 +207,7 @@
 			{#if state.trace}
 				<section class="hero panel">
 					<div>
-						<p class="eyebrow">Selected trace</p>
+						<p class="eyebrow">Selected session</p>
 						<h2>
 							{state.trace.session
 								? label(state.trace.session)
@@ -160,8 +249,15 @@
 
 				<nav class="view-tabs">
 					<button
-						class:active={state.selected_view === "trace"}
-						onclick={() => (state.selected_view = "trace")}>Trace</button
+						class:active={state.selected_view === "timeline"}
+						onclick={() => (state.selected_view = "timeline")}>Timeline</button
+					><button
+						class:active={state.selected_view === "waterfall"}
+						onclick={() => (state.selected_view = "waterfall")}
+						>Waterfall</button
+					><button
+						class:active={state.selected_view === "events"}
+						onclick={() => (state.selected_view = "events")}>Events</button
 					><button
 						class:active={state.selected_view === "swimlane"}
 						onclick={() => {
@@ -179,7 +275,112 @@
 
 				<SessionLabels />
 
-				{#if state.selected_view === "trace"}
+				{#if state.selected_view === "timeline"}
+					<section class="timeline-layout">
+						<div class="panel timeline-panel">
+							<div class="panel-head">
+								<div>
+									<h3>Turn timeline</h3>
+									<span>Session → turn traces → observations</span>
+								</div>
+								<div class="filters">
+									<select bind:value={state.selected_type}
+										><option value="">All types</option
+										>{#each known_types as type (type)}<option value={type}
+												>{type}</option
+											>{/each}</select
+									><input
+										bind:value={state.event_query}
+										placeholder="type:, tool:, status:, json:path=value…"
+									/>
+								</div>
+							</div>
+							<div class="turns">
+								{#each turns as turn (turn.id)}
+									<article class:error={turn.errors} class="turn-card">
+										<header class="turn-head">
+											<div>
+												<strong>{turn.title}</strong>
+												<span
+													>{turn.events.length} observations · {duration(
+														turn.duration_ms,
+													)}</span
+												>
+											</div>
+											<div class="turn-metrics">
+												<span>{turn.providers} provider</span>
+												<span>{turn.tools} tool</span>
+												<span class:error={turn.errors}
+													>{turn.errors} errors</span
+												>
+											</div>
+										</header>
+										<div class="observations">
+											{#each turn.events as event (event.event_id)}
+												<button
+													class:error={event_has_error(event)}
+													class="observation"
+													onclick={() => (state.selected_event = event)}
+												>
+													<span class="pill">#{event.seq}</span>
+													<strong>{event.type}</strong>
+													<small>{time(event.ts)}</small>
+													<p>{summary(event)}</p>
+												</button>
+											{/each}
+										</div>
+									</article>
+								{:else}<p class="empty">No matching turns.</p>{/each}
+							</div>
+						</div>
+						<div class="insight-stack">
+							<div class="panel">
+								<div class="panel-head">
+									<h3>Error focus</h3>
+									<span>{state.trace.metrics.errors}</span>
+								</div>
+								{#each visible_events
+									.filter(event_has_error)
+									.slice(0, 8) as event (event.event_id)}<button
+										class="compact-row artifact"
+										onclick={() => (state.selected_event = event)}
+										><strong>{summary(event)}</strong><span>#{event.seq}</span
+										></button
+									>{:else}<p class="empty compact">
+										No error observations.
+									</p>{/each}
+							</div>
+							<div class="panel">
+								<div class="panel-head">
+									<h3>Artifacts and links</h3>
+									<span>{artifacts.length}</span>
+								</div>
+								{#each artifacts as artifact (`${artifact.event.event_id}:${artifact.value}`)}<button
+										class="compact-row artifact"
+										onclick={() => (state.selected_event = artifact.event)}
+										><strong title={artifact.value}>{artifact.value}</strong
+										><span>#{artifact.event.seq}</span></button
+									>{:else}<p class="empty compact">
+										No obvious paths or links.
+									</p>{/each}
+							</div>
+							<div class="panel">
+								<div class="panel-head">
+									<h3>Final outputs</h3>
+									<span>{final_outputs.length}</span>
+								</div>
+								{#each final_outputs as event (event.event_id)}<button
+										class="compact-row artifact"
+										onclick={() => (state.selected_event = event)}
+										><strong>{summary(event)}</strong><span>{event.type}</span
+										></button
+									>{:else}<p class="empty compact">
+										No final output events.
+									</p>{/each}
+							</div>
+						</div>
+					</section>
+				{:else if state.selected_view === "waterfall"}
 					<section class="insight-grid trace-layout">
 						<div class="trace-main">
 							<div class="panel span-panel">
@@ -234,60 +435,34 @@
 										No provider spans.
 									</p>{/each}
 							</div>
-							<div class="panel">
-								<div class="panel-head">
-									<h3>Artifacts and links</h3>
-									<span>{artifacts.length}</span>
-								</div>
-								{#each artifacts as artifact (`${artifact.event.event_id}:${artifact.value}`)}<button
-										class="compact-row artifact"
-										onclick={() => (state.selected_event = artifact.event)}
-										><strong title={artifact.value}>{artifact.value}</strong
-										><span>#{artifact.event.seq}</span></button
-									>{:else}<p class="empty compact">
-										No obvious paths or links.
-									</p>{/each}
-							</div>
-							<div class="panel">
-								<div class="panel-head">
-									<h3>Final outputs</h3>
-									<span>{final_outputs.length}</span>
-								</div>
-								{#each final_outputs as event (event.event_id)}<button
-										class="compact-row artifact"
-										onclick={() => (state.selected_event = event)}
-										><strong>{summary(event)}</strong><span>{event.type}</span
-										></button
-									>{:else}<p class="empty compact">
-										No final output events.
-									</p>{/each}
+						</div>
+					</section>
+				{:else if state.selected_view === "events"}
+					<section class="panel events-panel">
+						<div class="panel-head">
+							<h3>Event stream</h3>
+							<div class="filters">
+								<select bind:value={state.selected_type}
+									><option value="">All types</option
+									>{#each known_types as type (type)}<option value={type}
+											>{type}</option
+										>{/each}</select
+								><input
+									bind:value={state.event_query}
+									placeholder="type:, tool:, status:, json:path=value…"
+								/>
 							</div>
 						</div>
-						<div class="panel events-panel trace-events">
-							<div class="panel-head">
-								<h3>Event stream</h3>
-								<div class="filters">
-									<select bind:value={state.selected_type}
-										><option value="">All types</option
-										>{#each known_types as type (type)}<option value={type}
-												>{type}</option
-											>{/each}</select
-									><input
-										bind:value={state.event_query}
-										placeholder="type:, tool:, status:, json:path=value…"
-									/>
-								</div>
-							</div>
-							<div class="events">
-								{#each visible_events.slice(0, 180) as event (event.event_id)}<button
-										class="event"
-										onclick={() => (state.selected_event = event)}
-										><span class="pill">#{event.seq}</span><strong
-											>{event.type}</strong
-										><small>{time(event.ts)}</small>
-										<p>{summary(event)}</p></button
-									>{/each}
-							</div>
+						<div class="events full">
+							{#each visible_events.slice(0, 400) as event (event.event_id)}<button
+									class:error={event_has_error(event)}
+									class="event"
+									onclick={() => (state.selected_event = event)}
+									><span class="pill">#{event.seq}</span><strong
+										>{event.type}</strong
+									><small>{time(event.ts)}</small>
+									<p>{summary(event)}</p></button
+								>{/each}
 						</div>
 					</section>
 				{:else if state.selected_view === "swimlane"}
@@ -333,7 +508,7 @@
 					</section>
 				{/if}
 			{:else}<div class="panel empty">
-					Select a session to inspect trace bottlenecks.
+					Select a session to inspect timeline, waterfall, and event details.
 				</div>{/if}
 		</section>
 

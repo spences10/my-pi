@@ -277,9 +277,113 @@ main {
 .insight-stack {
 	display: grid;
 	gap: 14px;
+	min-width: 0;
+}
+.insight-stack .panel {
+	min-width: 0;
+	overflow: hidden;
 }
 .trace-events {
 	grid-column: 1 / -1;
+}
+.timeline-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(300px, 0.36fr);
+	gap: 18px;
+	align-items: start;
+}
+.timeline-panel {
+	min-width: 0;
+	overflow: hidden;
+}
+.turns {
+	display: grid;
+	gap: 12px;
+	padding: 14px;
+}
+.turn-card {
+	border: 1px solid var(--border-muted);
+	border-radius: 16px;
+	overflow: hidden;
+	background: color-mix(in srgb, var(--surface-2), transparent 28%);
+}
+.turn-card.error {
+	border-color: color-mix(
+		in srgb,
+		var(--red),
+		var(--border-muted) 45%
+	);
+}
+.turn-head {
+	height: auto;
+	position: static;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+	padding: 14px 16px;
+	border: 0;
+	border-bottom: 1px solid var(--border-muted);
+	background: color-mix(in srgb, var(--surface), transparent 18%);
+	backdrop-filter: none;
+}
+.turn-head div:first-child {
+	display: grid;
+	gap: 4px;
+}
+.turn-head span,
+.turn-metrics span {
+	color: var(--muted);
+	font-size: 12px;
+}
+.turn-metrics {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+.turn-metrics span {
+	border: 1px solid var(--border-muted);
+	border-radius: 999px;
+	padding: 4px 8px;
+}
+.turn-metrics span.error {
+	border-color: var(--red);
+	color: var(--red);
+}
+.observations {
+	display: grid;
+}
+.observation {
+	width: 100%;
+	display: grid;
+	grid-template-columns: auto minmax(140px, 0.35fr) auto minmax(
+			220px,
+			1fr
+		);
+	gap: 9px;
+	align-items: center;
+	text-align: left;
+	border-width: 0 0 1px;
+	border-radius: 0;
+	background: transparent;
+}
+.observation:last-child {
+	border-bottom: 0;
+}
+.observation.error,
+.event.error {
+	background: color-mix(in srgb, var(--red), transparent 86%);
+}
+.observation p {
+	color: color-mix(in srgb, var(--text), var(--muted) 45%);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.observation small {
+	color: var(--muted);
+	white-space: nowrap;
 }
 .span-panel,
 .events-panel {
@@ -352,11 +456,14 @@ time {
 	color: var(--muted);
 }
 .compact-row {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
-	justify-content: space-between;
 	gap: 12px;
 	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
 	border-width: 0 0 1px;
 	border-radius: 0;
 	background: transparent;
@@ -364,6 +471,7 @@ time {
 	text-align: left;
 }
 .compact-row strong {
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -458,6 +566,14 @@ time {
 .race tr:hover {
 	background: color-mix(in srgb, var(--focus), transparent 88%);
 }
+.drawer-backdrop {
+	position: fixed;
+	inset: 0;
+	border: 0;
+	border-radius: 0;
+	background: color-mix(in srgb, var(--bg), transparent 34%);
+	z-index: 5;
+}
 .drawer {
 	position: fixed;
 	right: 0;
@@ -468,19 +584,38 @@ time {
 	background: var(--bg);
 	border-left: 1px solid var(--border);
 	box-shadow: -30px 0 80px var(--shadow);
-	z-index: 5;
+	z-index: 6;
 	overflow: auto;
 }
 .close {
 	float: right;
 }
 pre {
+	font: inherit;
 	white-space: pre-wrap;
 	background: var(--surface);
 	border: 1px solid var(--border-muted);
 	border-radius: 14px;
 	padding: 14px;
 	color: var(--text);
+}
+.json,
+.json code {
+	font: inherit;
+	line-height: 1.55;
+	overflow-wrap: anywhere;
+}
+.json-key {
+	color: var(--cyan);
+}
+.json-string {
+	color: var(--green);
+}
+.json-number {
+	color: var(--yellow);
+}
+.json-literal {
+	color: var(--focus);
 }
 .empty {
 	padding: 24px;
@@ -497,6 +632,7 @@ pre {
 		border-right: 0;
 	}
 	.insight-grid,
+	.timeline-layout,
 	.hero {
 		display: block;
 	}
@@ -504,7 +640,8 @@ pre {
 		grid-template-columns: repeat(2, 1fr);
 		margin-top: 16px;
 	}
-	.span-row {
+	.span-row,
+	.observation {
 		grid-template-columns: 1fr;
 	}
 	.events {
@@ -538,7 +675,8 @@ pre {
 		min-width: 0;
 		display: grid;
 	}
-	.panel-head {
+	.panel-head,
+	.turn-head {
 		align-items: stretch;
 		flex-direction: column;
 	}

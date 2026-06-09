@@ -7,7 +7,7 @@ import type {
 
 type Event = ObservabilityEvent<Record<string, unknown>>;
 type Session = DashboardSession;
-type View = 'trace' | 'swimlane' | 'race';
+type View = 'timeline' | 'waterfall' | 'events' | 'swimlane' | 'race';
 type LabelMap = Record<string, string[]>;
 
 const token = new URLSearchParams(location.search).get('token') || '';
@@ -24,7 +24,7 @@ class DashboardState {
 	query = $state('');
 	event_query = $state('');
 	selected_type = $state('');
-	selected_view = $state<View>('trace');
+	selected_view = $state<View>('timeline');
 	theme = $state<'dark' | 'light'>('dark');
 	selected_event = $state<Event | null>(null);
 	labels = $state.raw<LabelMap>({});
