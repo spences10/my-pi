@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.82
+
+### Patch Changes
+
+- 7c9146d: Rebuild pi-observability dashboard as Svelte SPA with trace
+  bottlenecks, summaries, and static asset serving.
+
 ## 0.1.81
 
 ### Patch Changes

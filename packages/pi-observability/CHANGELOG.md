@@ -1,5 +1,24 @@
 # @spences10/pi-observability
 
+## 0.0.7
+
+### Patch Changes
+
+- 7c9146d: Rebuild pi-observability dashboard as Svelte SPA with trace
+  bottlenecks, summaries, and static asset serving.
+- 671a01f: Restructure observability dashboard around session
+  timelines, improve event drawer interactions, formatting, and
+  responsive overflow handling.
+- 7d94d4f: Refactor observability web dashboard into focused Svelte
+  view components with scoped styling and shared analysis helpers.
+- 699fce5: Add themed Svelte observability views for swimlane, race,
+  labels, filters, artifacts, and live caching.
+- ffda1fb: Refactor dashboard state into runes module, extract
+  kebab-case components, and reorganize trace cards.
+- 4e9d08c: Improve observability sidebar session management with
+  toggle filters, active indicators, hover actions, and recency-aware
+  grouping.
+
 ## 0.0.6
 
 ### Patch Changes
