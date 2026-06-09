@@ -17,3 +17,21 @@
 		</button>
 	{/each}
 </section>
+
+<style>
+	.labels {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+		padding: 12px;
+		margin-bottom: 14px;
+		flex-wrap: wrap;
+	}
+	.labels input {
+		max-width: 430px;
+	}
+	.label-chip {
+		border-color: var(--selected);
+		color: var(--selected);
+	}
+</style>

@@ -62,3 +62,57 @@
 			></pre>
 	</aside>
 {/if}
+
+<style>
+	.drawer-backdrop {
+		position: fixed;
+		inset: 0;
+		border: 0;
+		border-radius: 0;
+		background: color-mix(in srgb, var(--bg), transparent 34%);
+		z-index: 5;
+	}
+	.drawer {
+		position: fixed;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: min(620px, 92vw);
+		padding: 20px;
+		background: var(--bg);
+		border-left: 1px solid var(--border);
+		box-shadow: -30px 0 80px var(--shadow);
+		z-index: 6;
+		overflow: auto;
+	}
+	.close {
+		float: right;
+	}
+	pre {
+		font: inherit;
+		white-space: pre-wrap;
+		background: var(--surface);
+		border: 1px solid var(--border-muted);
+		border-radius: 14px;
+		padding: 14px;
+		color: var(--text);
+	}
+	.json,
+	.json code {
+		font: inherit;
+		line-height: 1.55;
+		overflow-wrap: anywhere;
+	}
+	.json-key {
+		color: var(--cyan);
+	}
+	.json-string {
+		color: var(--green);
+	}
+	.json-number {
+		color: var(--yellow);
+	}
+	.json-literal {
+		color: var(--focus);
+	}
+</style>
