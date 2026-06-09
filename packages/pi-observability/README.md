@@ -9,8 +9,8 @@
 
 Live local observability for Pi sessions. When enabled, the extension
 auto-starts a local server, streams redacted lifecycle events to it,
-and serves browser single-session, swimlane, and race-style views over
-Server-Sent Events.
+and serves a browser trace dashboard with bottleneck, waterfall, and
+event-inspector views over Server-Sent Events.
 
 ## Installation
 
@@ -63,10 +63,12 @@ MY_PI_OBSERVABILITY_TOKEN=dev-token
 Open `http://127.0.0.1:43190/?token=dev-token` when a token is set.
 The dashboard includes:
 
-- **Single** — detailed event payloads for one session.
-- **Swimlane** — recent events for up to eight sessions side by side.
-- **Race** — all loaded events sorted by timestamp for timing
-  comparison.
+- **Trace summary** — elapsed time, blocking time, errors, token, and
+  cost rollups for the selected session.
+- **Waterfall bottlenecks** — normalized tool/provider/message spans
+  sorted by duration.
+- **Event inspector** — searchable event summaries with lazy raw
+  payload details.
 
 ## Advanced configuration
 

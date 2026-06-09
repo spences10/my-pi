@@ -11,7 +11,12 @@ import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
-import type { ObservabilityEvent } from './types.js';
+import type {
+	DashboardSession,
+	ObservabilityEvent,
+	TraceSpanSummary,
+	TraceSummary,
+} from './types.js';
 
 export interface ObservabilityServerOptions {
 	host: string;
@@ -56,14 +61,7 @@ const SCHEMA = readFileSync(
 	'utf8',
 );
 const DASHBOARD_HTML_URL = new URL(
-	'./dashboard.html',
-	import.meta.url,
-);
-const DASHBOARD_CSS_URL = new URL('./dashboard.css', import.meta.url);
-const DASHBOARD_JS_URL = new URL(
-	process.env.NODE_ENV === 'test'
-		? './dashboard.ts'
-		: './dashboard.js',
+	'./web/index.html',
 	import.meta.url,
 );
 const FONT_URLS = new Map([
@@ -88,12 +86,21 @@ function read_dashboard_html(): string {
 	return readFileSync(DASHBOARD_HTML_URL, 'utf8');
 }
 
-function read_dashboard_css(): string {
-	return readFileSync(DASHBOARD_CSS_URL, 'utf8');
+function read_dashboard_asset(pathname: string): Buffer | undefined {
+	if (!pathname.startsWith('/assets/')) return undefined;
+	try {
+		return readFileSync(new URL(`./web${pathname}`, import.meta.url));
+	} catch {
+		return undefined;
+	}
 }
 
-function read_dashboard_js(): string {
-	return readFileSync(DASHBOARD_JS_URL, 'utf8');
+function content_type(pathname: string): string {
+	if (pathname.endsWith('.css')) return 'text/css; charset=utf-8';
+	if (pathname.endsWith('.js'))
+		return 'text/javascript; charset=utf-8';
+	if (pathname.endsWith('.svg')) return 'image/svg+xml';
+	return 'application/octet-stream';
 }
 function read_dashboard_font(pathname: string): Buffer | undefined {
 	const url = FONT_URLS.get(pathname);
@@ -316,10 +323,164 @@ function to_row_event(
 	};
 }
 
-function to_session_row(row: Record<string, unknown>): unknown {
+function to_session_row(
+	row: Record<string, unknown>,
+): DashboardSession {
 	return {
-		...row,
+		session_id: row_text(row.session_id, ''),
+		session_file: row_text(row.session_file, '') || undefined,
+		cwd: row_text(row.cwd, ''),
+		agent_name: row_text(row.agent_name, '') || undefined,
+		pool: row_text(row.pool, 'default'),
 		tags: JSON.parse(row_text(row.tags_json, '[]')) as string[],
+		provider: row_text(row.provider, '') || undefined,
+		model: row_text(row.model, '') || undefined,
+		last_ts: row_text(row.last_ts, ''),
+		event_count: Number(row.event_count),
+	};
+}
+
+function timestamp_ms(value: string | undefined): number {
+	const time = new Date(value ?? '').valueOf();
+	return Number.isNaN(time) ? 0 : time;
+}
+
+function duration_ms(events: ObservabilityEvent[]): number {
+	const times = events
+		.map((event) => timestamp_ms(event.ts))
+		.filter(Boolean);
+	return times.length > 1
+		? Math.max(...times) - Math.min(...times)
+		: 0;
+}
+
+function number_value(value: unknown): number {
+	return typeof value === 'number' && Number.isFinite(value)
+		? value
+		: 0;
+}
+
+function walk_payload(
+	value: unknown,
+	visit: (record: Record<string, unknown>) => void,
+): void {
+	if (!value || typeof value !== 'object') return;
+	visit(value as Record<string, unknown>);
+	for (const item of Object.values(value)) walk_payload(item, visit);
+}
+
+function payload_text(event: ObservabilityEvent): string {
+	return JSON.stringify(event.payload ?? {}).toLowerCase();
+}
+
+function span_name(event: ObservabilityEvent): string {
+	const payload = (event.payload ?? {}) as Record<string, unknown>;
+	return String(
+		payload.tool_name ??
+			payload.toolName ??
+			payload.name ??
+			event.type,
+	);
+}
+
+function trace_summary(
+	session: DashboardSession | null,
+	events: ObservabilityEvent[],
+): TraceSummary {
+	const ascending = events.slice().reverse();
+	const spans = new Map<string, TraceSpanSummary>();
+	let input_tokens = 0;
+	let output_tokens = 0;
+	let total_tokens = 0;
+	let cost_usd = 0;
+
+	for (const event of ascending) {
+		walk_payload(event.payload, (record) => {
+			input_tokens +=
+				number_value(record.input_tokens) +
+				number_value(record.prompt_tokens);
+			output_tokens +=
+				number_value(record.output_tokens) +
+				number_value(record.completion_tokens);
+			total_tokens += number_value(record.total_tokens);
+			cost_usd +=
+				number_value(record.total_cost) +
+				number_value(record.cost_usd);
+		});
+		const payload = (event.payload ?? {}) as Record<string, unknown>;
+		const id = String(
+			payload.toolCallId ??
+				payload.tool_call_id ??
+				payload.id ??
+				`${event.type}:${event.seq}`,
+		);
+		const kind = event.type.includes('tool')
+			? 'tool'
+			: event.type.includes('provider')
+				? 'provider'
+				: event.type.includes('message')
+					? 'message'
+					: event.type.includes('turn')
+						? 'turn'
+						: 'event';
+		const key =
+			kind === 'event'
+				? `${event.type}:${event.seq}`
+				: `${kind}:${id}`;
+		const span = spans.get(key) ?? {
+			id: key,
+			kind,
+			name: span_name(event),
+			start_ts: event.ts,
+			end_ts: event.ts,
+			duration_ms: 0,
+			error: false,
+			event_count: 0,
+		};
+		span.start_ts =
+			timestamp_ms(event.ts) < timestamp_ms(span.start_ts)
+				? event.ts
+				: span.start_ts;
+		span.end_ts =
+			timestamp_ms(event.ts) > timestamp_ms(span.end_ts)
+				? event.ts
+				: span.end_ts;
+		span.duration_ms = Math.max(
+			0,
+			timestamp_ms(span.end_ts) - timestamp_ms(span.start_ts),
+		);
+		span.error ||=
+			event.type === 'error' || payload_text(event).includes('error');
+		span.event_count += 1;
+		spans.set(key, span);
+	}
+	if (!total_tokens) total_tokens = input_tokens + output_tokens;
+	const span_list = [...spans.values()]
+		.filter((span) => span.kind !== 'event' || span.error)
+		.sort((a, b) => b.duration_ms - a.duration_ms)
+		.slice(0, 80);
+	return {
+		session,
+		spans: span_list,
+		metrics: {
+			events: events.length,
+			elapsed_ms: duration_ms(events),
+			tools: span_list.filter((span) => span.kind === 'tool').length,
+			errors: events.filter(
+				(event) =>
+					event.type === 'error' ||
+					payload_text(event).includes('error'),
+			).length,
+			input_tokens,
+			output_tokens,
+			total_tokens,
+			cost_usd,
+			blocking_ms: span_list
+				.filter(
+					(span) => span.kind === 'tool' || span.kind === 'provider',
+				)
+				.reduce((sum, span) => sum + span.duration_ms, 0),
+		},
 	};
 }
 
@@ -439,20 +600,13 @@ export function start_observability_server(
 					render_dashboard(options.db_path),
 				);
 			}
-			if (req_url.pathname === '/dashboard.css') {
-				return text(
+			const asset = read_dashboard_asset(req_url.pathname);
+			if (asset) {
+				return binary(
 					res,
 					200,
-					'text/css; charset=utf-8',
-					read_dashboard_css(),
-				);
-			}
-			if (req_url.pathname === '/dashboard.js') {
-				return text(
-					res,
-					200,
-					'text/javascript; charset=utf-8',
-					read_dashboard_js(),
+					content_type(req_url.pathname),
+					asset,
 				);
 			}
 			if (req_url.pathname.startsWith('/fonts/')) {
@@ -509,19 +663,32 @@ export function start_observability_server(
 				});
 				return json(res, 200, { sessions });
 			}
-			const events_match = req_url.pathname.match(
-				/^\/sessions\/([^/]+)\/events$/,
+			const session_route = req_url.pathname.match(
+				/^\/sessions\/([^/]+)\/(events|trace)$/,
 			);
-			if (events_match) {
+			if (session_route) {
+				const session_id = decodeURIComponent(session_route[1]);
 				const limit = Math.min(
-					Number(req_url.searchParams.get('limit') ?? 300),
+					Number(req_url.searchParams.get('limit') ?? 500),
 					1000,
 				);
 				const rows = statements.list_events.all(
-					decodeURIComponent(events_match[1]),
+					session_id,
 					limit,
 				) as Record<string, unknown>[];
-				return json(res, 200, { events: rows.map(to_row_event) });
+				const events = rows.map(to_row_event);
+				if (session_route[2] === 'events')
+					return json(res, 200, { events });
+				const session =
+					(
+						statements.list_sessions.all('', '', 500) as Record<
+							string,
+							unknown
+						>[]
+					)
+						.map(to_session_row)
+						.find((row) => row.session_id === session_id) ?? null;
+				return json(res, 200, trace_summary(session, events));
 			}
 			if (req_url.pathname === '/events/search') {
 				const query = req_url.searchParams.get('q') ?? '';

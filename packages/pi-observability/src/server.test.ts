@@ -122,6 +122,14 @@ describe('start_observability_server', () => {
 		expect(events_body.events.map((item) => item.seq)).toEqual([
 			1, 0,
 		]);
+
+		const trace_response = await fetch(
+			`${server.url}/sessions/session-1/trace`,
+		);
+		const trace_body = (await trace_response.json()) as {
+			metrics: { events: number };
+		};
+		expect(trace_body.metrics.events).toBe(2);
 	});
 
 	it('serves the dashboard shell', async () => {
@@ -138,18 +146,7 @@ describe('start_observability_server', () => {
 		const response = await fetch(server.url);
 		const html = await response.text();
 		expect(html).toContain('Pi Observability');
-		expect(html).toContain('/dashboard.css');
-		expect(html).toContain('/dashboard.js');
-
-		const css = await (
-			await fetch(`${server.url}/dashboard.css`)
-		).text();
-		const js = await (
-			await fetch(`${server.url}/dashboard.js`)
-		).text();
-		expect(css).toContain('.layout');
-		expect(html).toContain('Filter sessions, pools, models');
-		expect(js).toContain('pause_btn');
+		expect(html).toContain('<div id="app"></div>');
 	});
 
 	it('rejects malformed event requests without crashing', async () => {

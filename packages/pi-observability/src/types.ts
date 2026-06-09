@@ -47,6 +47,40 @@ export interface SessionInfo {
 	model?: string;
 }
 
+export interface DashboardSession extends SessionInfo {
+	last_ts: string;
+	event_count: number;
+}
+
+export interface TraceSpanSummary {
+	id: string;
+	kind: string;
+	name: string;
+	start_ts: string;
+	end_ts: string;
+	duration_ms: number;
+	error: boolean;
+	event_count: number;
+}
+
+export interface TraceMetricsSummary {
+	events: number;
+	elapsed_ms: number;
+	tools: number;
+	errors: number;
+	input_tokens: number;
+	output_tokens: number;
+	total_tokens: number;
+	cost_usd: number;
+	blocking_ms: number;
+}
+
+export interface TraceSummary {
+	session: DashboardSession | null;
+	spans: TraceSpanSummary[];
+	metrics: TraceMetricsSummary;
+}
+
 export interface ObservabilityConfig {
 	server_url: string;
 	token?: string;
