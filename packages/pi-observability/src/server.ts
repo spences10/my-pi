@@ -373,13 +373,19 @@ function payload_text(event: ObservabilityEvent): string {
 	return JSON.stringify(event.payload ?? {}).toLowerCase();
 }
 
+function text_value(value: unknown, fallback = ''): string {
+	if (typeof value === 'string') return value;
+	if (typeof value === 'number' || typeof value === 'boolean')
+		return String(value);
+	if (value == null) return fallback;
+	return JSON.stringify(value);
+}
+
 function span_name(event: ObservabilityEvent): string {
 	const payload = (event.payload ?? {}) as Record<string, unknown>;
-	return String(
-		payload.tool_name ??
-			payload.toolName ??
-			payload.name ??
-			event.type,
+	return text_value(
+		payload.tool_name ?? payload.toolName ?? payload.name,
+		event.type,
 	);
 }
 
@@ -408,11 +414,9 @@ function trace_summary(
 				number_value(record.cost_usd);
 		});
 		const payload = (event.payload ?? {}) as Record<string, unknown>;
-		const id = String(
-			payload.toolCallId ??
-				payload.tool_call_id ??
-				payload.id ??
-				`${event.type}:${event.seq}`,
+		const id = text_value(
+			payload.toolCallId ?? payload.tool_call_id ?? payload.id,
+			`${event.type}:${event.seq}`,
 		);
 		const kind = event.type.includes('tool')
 			? 'tool'

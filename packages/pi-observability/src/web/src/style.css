@@ -269,6 +269,18 @@ main {
 	grid-template-columns: minmax(420px, 1.2fr) minmax(320px, 0.8fr);
 	gap: 18px;
 }
+.trace-layout {
+	align-items: start;
+	grid-template-columns: minmax(520px, 1.35fr) minmax(300px, 0.65fr);
+}
+.trace-main,
+.insight-stack {
+	display: grid;
+	gap: 14px;
+}
+.trace-events {
+	grid-column: 1 / -1;
+}
 .span-panel,
 .events-panel {
 	overflow: hidden;
