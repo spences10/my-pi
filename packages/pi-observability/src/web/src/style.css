@@ -135,7 +135,7 @@ p {
 }
 main {
 	display: grid;
-	grid-template-columns: 330px minmax(0, 1fr);
+	grid-template-columns: minmax(380px, 24vw) minmax(0, 1fr);
 	min-height: calc(100vh - 76px);
 }
 .content {

@@ -8,11 +8,15 @@ import type {
 type Event = ObservabilityEvent<Record<string, unknown>>;
 type Session = DashboardSession;
 type View = 'timeline' | 'waterfall' | 'events' | 'swimlane' | 'race';
+export type SessionGroupBy = 'repo' | 'pool' | 'model';
+export type SessionSortBy = 'recent' | 'events' | 'repo';
 type LabelMap = Record<string, string[]>;
 
 const token = new URLSearchParams(location.search).get('token') || '';
 const theme_key = 'pi-observability-theme';
 const labels_key = 'pi-observability-labels';
+const pins_key = 'pi-observability-pins';
+const archived_key = 'pi-observability-archived';
 
 class DashboardState {
 	sessions = $state.raw<Session[]>([]);
@@ -22,12 +26,18 @@ class DashboardState {
 	connected = $state(false);
 	paused = $state(false);
 	query = $state('');
+	group_by = $state<SessionGroupBy>('repo');
+	sort_by = $state<SessionSortBy>('recent');
+	show_archived = $state(false);
 	event_query = $state('');
 	selected_type = $state('');
 	selected_view = $state<View>('timeline');
 	theme = $state<'dark' | 'light'>('dark');
 	selected_event = $state<Event | null>(null);
 	labels = $state.raw<LabelMap>({});
+	pinned = $state.raw<Record<string, true>>({});
+	archived = $state.raw<Record<string, true>>({});
+	live_seen = $state.raw<Record<string, number>>({});
 	label_input = $state('');
 }
 
@@ -59,6 +69,20 @@ export function duration(ms = 0) {
 	if (ms < 1000) return `${Math.round(ms)}ms`;
 	if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
 	return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
+}
+
+export function repo_name(session: Session) {
+	const key = session.cwd || 'unknown project';
+	return (
+		key.replace(/\/+$/, '').split('/').filter(Boolean).pop() || key
+	);
+}
+
+export function is_active_session(session: Session) {
+	const live = state.live_seen[session.session_id] || 0;
+	const recent = new Date(session.last_ts).valueOf();
+	const latest = Math.max(live, Number.isNaN(recent) ? 0 : recent);
+	return Date.now() - latest < 90_000;
 }
 
 function text_value(value: unknown, fallback = '') {
@@ -151,6 +175,17 @@ export function toggle_theme() {
 	localStorage.setItem(theme_key, state.theme);
 }
 
+function read_record(key: string) {
+	try {
+		return JSON.parse(localStorage.getItem(key) || '{}') as Record<
+			string,
+			true
+		>;
+	} catch {
+		return {};
+	}
+}
+
 export function read_labels() {
 	try {
 		state.labels = JSON.parse(
@@ -159,11 +194,39 @@ export function read_labels() {
 	} catch {
 		state.labels = {};
 	}
+	state.pinned = read_record(pins_key);
+	state.archived = read_record(archived_key);
 }
 
 function save_labels(next: LabelMap) {
 	state.labels = next;
 	localStorage.setItem(labels_key, JSON.stringify(next));
+}
+
+function save_record(key: string, next: Record<string, true>) {
+	localStorage.setItem(key, JSON.stringify(next));
+	return next;
+}
+
+export function toggle_pin(id: string) {
+	const next = { ...state.pinned };
+	if (next[id]) delete next[id];
+	else next[id] = true;
+	state.pinned = save_record(pins_key, next);
+}
+
+export function toggle_archive(id: string) {
+	const next = { ...state.archived };
+	if (next[id]) delete next[id];
+	else next[id] = true;
+	state.archived = save_record(archived_key, next);
+}
+
+export function toggle_query_token(token_value: string) {
+	const parts = state.query.split(/\s+/).filter(Boolean);
+	state.query = parts.includes(token_value)
+		? parts.filter((part) => part !== token_value).join(' ')
+		: [...parts, token_value].join(' ');
 }
 
 export function add_label() {
@@ -243,6 +306,15 @@ export function connect() {
 	source.addEventListener('hello', () => (state.connected = true));
 	source.addEventListener('event', (message) => {
 		const event = JSON.parse(message.data) as Event;
+		state.live_seen = {
+			...state.live_seen,
+			[event.session_id]: Date.now(),
+		};
+		if (event.type === 'session_shutdown') {
+			const next = { ...state.live_seen };
+			delete next[event.session_id];
+			state.live_seen = next;
+		}
 		if (state.paused) return;
 		const cached = event_cache.get(event.session_id) || [];
 		if (!cached.some((item) => item.event_id === event.event_id)) {

@@ -16,35 +16,63 @@
 		duration,
 		event_cache,
 		extract_artifacts,
+		is_active_session,
 		label,
 		load_comparison,
 		load_sessions,
 		query_matches,
 		read_labels,
 		read_theme,
+		repo_name,
 		state,
 	} from "./dashboard-state.svelte";
 
 	type Event = ObservabilityEvent<Record<string, unknown>>;
 	type Session = DashboardSession;
-	const visible_sessions = $derived(
-		state.sessions.filter((session) =>
-			[
-				session.session_id,
-				session.agent_name,
-				session.cwd,
-				session.pool,
-				session.provider,
-				session.model,
-				...(session.tags || []),
-				...(state.labels[session.session_id] || []),
-			]
-				.filter(Boolean)
-				.join(" ")
-				.toLowerCase()
-				.includes(state.query.toLowerCase()),
-		),
-	);
+	const visible_sessions = $derived.by(() => {
+		const parts = state.query.toLowerCase().split(/\s+/).filter(Boolean);
+		return state.sessions
+			.filter(
+				(session) => state.show_archived || !state.archived[session.session_id],
+			)
+			.filter((session) => {
+				const labels = state.labels[session.session_id] || [];
+				const fields = {
+					id: session.session_id,
+					agent: session.agent_name || "",
+					repo: repo_name(session),
+					cwd: session.cwd || "",
+					pool: session.pool || "default",
+					provider: session.provider || "",
+					model: session.model || "",
+					label: labels.join(" "),
+					active: is_active_session(session) ? "true" : "false",
+					pinned: state.pinned[session.session_id] ? "true" : "false",
+				};
+				const text = Object.values(fields).join(" ").toLowerCase();
+				return parts.every((part) => {
+					const [key, ...rest] = part.split(":");
+					const value = rest.join(":");
+					if (!value) return text.includes(key);
+					return (fields[key as keyof typeof fields] || "")
+						.toLowerCase()
+						.includes(value);
+				});
+			})
+			.sort((a, b) => {
+				const active =
+					Number(is_active_session(b)) - Number(is_active_session(a));
+				if (active) return active;
+				const pinned =
+					Number(Boolean(state.pinned[b.session_id])) -
+					Number(Boolean(state.pinned[a.session_id]));
+				if (pinned) return pinned;
+				if (state.sort_by === "events") return b.event_count - a.event_count;
+				if (state.sort_by === "repo")
+					return repo_name(a).localeCompare(repo_name(b));
+				return b.last_ts.localeCompare(a.last_ts);
+			});
+	});
 	const known_types = $derived(
 		[...new Set(state.events.map((event) => event.type))].sort((a, b) =>
 			a.localeCompare(b),
@@ -63,13 +91,23 @@
 	const grouped_sessions = $derived.by(() => {
 		const groups: Record<string, { name: string; sessions: Session[] }> = {};
 		for (const session of visible_sessions) {
-			const key = session.cwd || "unknown project";
-			const name =
-				key.replace(/\/+$/, "").split("/").filter(Boolean).pop() || key;
+			const key =
+				state.group_by === "pool"
+					? session.pool || "default"
+					: state.group_by === "model"
+						? session.model || "unknown model"
+						: session.cwd || "unknown project";
+			const name = state.group_by === "repo" ? repo_name(session) : key;
 			groups[key] ??= { name, sessions: [] };
 			groups[key].sessions.push(session);
 		}
-		return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+		return Object.values(groups).sort((a, b) => {
+			if (state.sort_by === "repo") return a.name.localeCompare(b.name);
+			return (
+				visible_sessions.indexOf(a.sessions[0]) -
+				visible_sessions.indexOf(b.sessions[0])
+			);
+		});
 	});
 	const comparison_sessions = $derived(visible_sessions.slice(0, 8));
 	const race_rows = $derived.by(() => {
