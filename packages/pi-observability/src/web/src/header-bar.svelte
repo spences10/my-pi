@@ -4,7 +4,6 @@
 
 <header>
 	<div>
-		<p class="eyebrow">Neon Afterglow telemetry</p>
 		<h1>Pi Observability</h1>
 	</div>
 	<div class="toolbar">

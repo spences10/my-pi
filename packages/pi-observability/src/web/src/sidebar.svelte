@@ -150,7 +150,7 @@
 		top: 76px;
 		max-height: calc(100vh - 76px);
 		border-right: 1px solid var(--border-muted);
-		background: color-mix(in srgb, var(--bg), var(--surface) 35%);
+		background: color-mix(in srgb, var(--bg), var(--surface) 42%);
 		display: flex;
 		flex-direction: column;
 	}
@@ -212,7 +212,7 @@
 		border: 1px solid var(--border-muted);
 		border-radius: 16px;
 		overflow: hidden;
-		background: color-mix(in srgb, var(--surface), transparent 35%);
+		background: color-mix(in srgb, var(--surface), transparent 18%);
 	}
 	.project-group summary {
 		display: flex;
@@ -249,7 +249,7 @@
 		padding-right: 62px;
 	}
 	.session.active {
-		background: color-mix(in srgb, var(--focus), transparent 78%);
+		background: color-mix(in srgb, var(--focus), var(--surface) 82%);
 	}
 	.title-line {
 		display: flex;
@@ -261,8 +261,8 @@
 		width: 8px;
 		height: 8px;
 		border-radius: 999px;
-		background: #31f59f;
-		box-shadow: 0 0 12px #31f59f;
+		background: var(--green);
+		box-shadow: 0 0 12px color-mix(in srgb, var(--green), transparent 35%);
 		flex: 0 0 auto;
 	}
 	.session-actions {
