@@ -1,5 +1,18 @@
 # @spences10/pi-observability
 
+## 0.0.9
+
+### Patch Changes
+
+- 1c1d147: Make observability session list scroll responsively without
+  collapsing expanded repository session groups.
+- 5ea3434: Fix observability dashboard fonts and align dark/light
+  theme colors with Neon Afterglow palette.
+- d933017: Normalize observability typography tokens and match event
+  drawer JSON sizing to main event rows.
+- 9eb8790: Make observability main content keep session controls fixed
+  while selected view scrolls independently.
+
 ## 0.0.8
 
 ### Patch Changes
