@@ -1,5 +1,14 @@
 # @spences10/pi-observability
 
+## 0.0.10
+
+### Patch Changes
+
+- 20e0ddc: Improve observability dashboard light theme contrast,
+  readability, borders, and pastel surface color balance.
+- ba3cfe8: Refine observability dashboard dark theme colors to better
+  match terminal-inspired Neon Afterglow visual style.
+
 ## 0.0.9
 
 ### Patch Changes
