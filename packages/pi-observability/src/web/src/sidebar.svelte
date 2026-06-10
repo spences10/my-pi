@@ -146,16 +146,20 @@
 
 <style>
 	.sidebar {
-		border-right: 1px solid var(--border-muted);
-		background: color-mix(in srgb, var(--bg), var(--surface) 35%);
-	}
-	.sticky {
 		position: sticky;
 		top: 76px;
+		max-height: calc(100vh - 76px);
+		border-right: 1px solid var(--border-muted);
+		background: color-mix(in srgb, var(--bg), var(--surface) 35%);
+		display: flex;
+		flex-direction: column;
+	}
+	.sticky {
 		z-index: 2;
 		padding: 14px;
 		border-radius: 0;
 		border-width: 0 0 1px;
+		flex: 0 0 auto;
 	}
 	.controls {
 		display: grid;
@@ -196,9 +200,13 @@
 		color: var(--text);
 	}
 	.session-list {
+		min-height: 0;
 		padding: 12px;
-		display: grid;
-		gap: 12px;
+		overflow-y: auto;
+		flex: 1 1 auto;
+	}
+	.session-list > * + * {
+		margin-top: 12px;
 	}
 	.project-group {
 		border: 1px solid var(--border-muted);
@@ -292,8 +300,12 @@
 		}
 	}
 	@media (max-width: 720px) {
-		.sticky {
-			top: 0;
+		.sidebar {
+			position: static;
+			max-height: none;
+		}
+		.session-list {
+			overflow-y: visible;
 		}
 		.stats {
 			grid-template-columns: auto 1fr auto 1fr;
