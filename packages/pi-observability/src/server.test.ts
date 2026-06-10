@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -130,6 +130,114 @@ describe('start_observability_server', () => {
 			metrics: { events: number };
 		};
 		expect(trace_body.metrics.events).toBe(2);
+	});
+
+	it('falls back to session files for summarized historic usage', async () => {
+		const session_file = join(
+			mkdtempSync(join(tmpdir(), 'pi-obs-session-')),
+			'session.jsonl',
+		);
+		writeFileSync(
+			session_file,
+			`${JSON.stringify({
+				type: 'message',
+				message: {
+					usage: {
+						input: 2000,
+						output: 50,
+						totalTokens: 2050,
+						cost: { total: 0.01 },
+					},
+				},
+			})}\n`,
+		);
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: '',
+			db_path: tmp_db_path(),
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		await fetch(`${server.url}/events`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				...event(0),
+				session_file,
+				type: 'message_end',
+				payload: { message: { type: 'object', keys: ['usage'] } },
+			}),
+		});
+
+		const trace_response = await fetch(
+			`${server.url}/sessions/session-1/trace`,
+		);
+		const trace_body = (await trace_response.json()) as {
+			metrics: {
+				input_tokens: number;
+				output_tokens: number;
+				total_tokens: number;
+				cost_usd: number;
+			};
+		};
+		expect(trace_body.metrics).toMatchObject({
+			input_tokens: 2000,
+			output_tokens: 50,
+			total_tokens: 2050,
+			cost_usd: 0.01,
+		});
+	});
+
+	it('rolls up token and cost metrics from message usage payloads', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: '',
+			db_path: tmp_db_path(),
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		await fetch(`${server.url}/events`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				...event(0),
+				type: 'message_end',
+				payload: {
+					message: {
+						usage: {
+							input: 1000,
+							output: 25,
+							totalTokens: 1025,
+							cost: { total: 0.005 },
+						},
+					},
+				},
+			}),
+		});
+
+		const trace_response = await fetch(
+			`${server.url}/sessions/session-1/trace`,
+		);
+		const trace_body = (await trace_response.json()) as {
+			metrics: {
+				input_tokens: number;
+				output_tokens: number;
+				total_tokens: number;
+				cost_usd: number;
+			};
+		};
+		expect(trace_body.metrics).toMatchObject({
+			input_tokens: 1000,
+			output_tokens: 25,
+			total_tokens: 1025,
+			cost_usd: 0.005,
+		});
 	});
 
 	it('serves the dashboard shell', async () => {

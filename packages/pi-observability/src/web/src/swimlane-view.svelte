@@ -2,6 +2,7 @@
 	import type { DashboardSession, ObservabilityEvent } from "../../types";
 	import {
 		event_cache,
+		number_crunch,
 		label,
 		query_matches,
 		state,
@@ -17,9 +18,9 @@
 	{#each sessions as session (session.session_id)}<div class="lane">
 			<h3>{label(session)}</h3>
 			<p>
-				{session.pool || "default"} · {(
-					event_cache.get(session.session_id) || []
-				).length} loaded
+				{session.pool || "default"} · {number_crunch(
+					(event_cache.get(session.session_id) || []).length,
+				)} loaded
 			</p>
 			{#each (event_cache.get(session.session_id) || [])
 				.filter((event: Event) => query_matches(event, state.event_query))

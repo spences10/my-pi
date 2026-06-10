@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import type {
 	DashboardSession,
 	ObservabilityEvent,
+	TraceMetricsSummary,
 	TraceSpanSummary,
 	TraceSummary,
 } from './types.js';
@@ -355,9 +356,23 @@ function duration_ms(events: ObservabilityEvent[]): number {
 }
 
 function number_value(value: unknown): number {
-	return typeof value === 'number' && Number.isFinite(value)
-		? value
-		: 0;
+	if (typeof value === 'number' && Number.isFinite(value))
+		return value;
+	if (typeof value === 'string') {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+	return 0;
+}
+
+function record_value(
+	record: Record<string, unknown>,
+	key: string,
+): Record<string, unknown> {
+	const value = record[key];
+	return value && typeof value === 'object' && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
 }
 
 function walk_payload(
@@ -389,6 +404,40 @@ function span_name(event: ObservabilityEvent): string {
 	);
 }
 
+function session_file_usage(
+	session_file: string | undefined,
+): Pick<
+	TraceMetricsSummary,
+	'input_tokens' | 'output_tokens' | 'total_tokens' | 'cost_usd'
+> {
+	const empty = {
+		input_tokens: 0,
+		output_tokens: 0,
+		total_tokens: 0,
+		cost_usd: 0,
+	};
+	if (!session_file) return empty;
+	try {
+		const lines = readFileSync(session_file, 'utf8').split('\n');
+		for (const line of lines) {
+			if (!line.trim()) continue;
+			const entry = JSON.parse(line) as Record<string, unknown>;
+			const message = record_value(entry, 'message');
+			const usage = record_value(message, 'usage');
+			const cost = record_value(usage, 'cost');
+			empty.input_tokens += number_value(usage.input);
+			empty.output_tokens += number_value(usage.output);
+			empty.total_tokens += number_value(usage.totalTokens);
+			empty.cost_usd += number_value(cost.total);
+		}
+		if (!empty.total_tokens)
+			empty.total_tokens = empty.input_tokens + empty.output_tokens;
+		return empty;
+	} catch {
+		return empty;
+	}
+}
+
 function trace_summary(
 	session: DashboardSession | null,
 	events: ObservabilityEvent[],
@@ -402,16 +451,30 @@ function trace_summary(
 
 	for (const event of ascending) {
 		walk_payload(event.payload, (record) => {
+			const usage = record_value(record, 'usage');
+			const cost = record_value(record, 'cost');
 			input_tokens +=
 				number_value(record.input_tokens) +
-				number_value(record.prompt_tokens);
+				number_value(record.prompt_tokens) +
+				number_value(usage.input) +
+				number_value(usage.input_tokens) +
+				number_value(usage.prompt_tokens);
 			output_tokens +=
 				number_value(record.output_tokens) +
-				number_value(record.completion_tokens);
-			total_tokens += number_value(record.total_tokens);
+				number_value(record.completion_tokens) +
+				number_value(usage.output) +
+				number_value(usage.output_tokens) +
+				number_value(usage.completion_tokens);
+			total_tokens +=
+				number_value(record.total_tokens) +
+				number_value(usage.total_tokens) +
+				number_value(usage.totalTokens);
 			cost_usd +=
 				number_value(record.total_cost) +
-				number_value(record.cost_usd);
+				number_value(record.cost_usd) +
+				number_value(cost.total) +
+				number_value(cost.total_cost) +
+				number_value(cost.cost_usd);
 		});
 		const payload = (event.payload ?? {}) as Record<string, unknown>;
 		const id = text_value(
@@ -459,6 +522,13 @@ function trace_summary(
 		spans.set(key, span);
 	}
 	if (!total_tokens) total_tokens = input_tokens + output_tokens;
+	if (!total_tokens && !cost_usd) {
+		const fallback = session_file_usage(session?.session_file);
+		input_tokens = fallback.input_tokens;
+		output_tokens = fallback.output_tokens;
+		total_tokens = fallback.total_tokens;
+		cost_usd = fallback.cost_usd;
+	}
 	const span_list = [...spans.values()]
 		.filter((span) => span.kind !== 'event' || span.error)
 		.sort((a, b) => b.duration_ms - a.duration_ms)

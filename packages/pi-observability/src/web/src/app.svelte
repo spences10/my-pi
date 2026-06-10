@@ -20,6 +20,8 @@
 		label,
 		load_comparison,
 		load_sessions,
+		money,
+		number_crunch,
 		query_matches,
 		read_labels,
 		read_theme,
@@ -170,7 +172,9 @@
 					</div>
 					<div class="metric-grid">
 						<div>
-							<strong>{state.trace.metrics.events}</strong><span>events</span>
+							<strong>{number_crunch(state.trace.metrics.events)}</strong><span
+								>events</span
+							>
 						</div>
 						<div>
 							<strong>{duration(state.trace.metrics.elapsed_ms)}</strong><span
@@ -183,19 +187,18 @@
 							>
 						</div>
 						<div>
-							<strong>{state.trace.metrics.errors}</strong><span>errors</span>
-						</div>
-						<div>
-							<strong>{state.trace.metrics.total_tokens || "—"}</strong><span
-								>tokens</span
+							<strong>{number_crunch(state.trace.metrics.errors)}</strong><span
+								>errors</span
 							>
 						</div>
 						<div>
-							<strong
-								>{state.trace.metrics.cost_usd
-									? `$${state.trace.metrics.cost_usd.toFixed(3)}`
-									: "—"}</strong
-							><span>cost</span>
+							<strong>{number_crunch(state.trace.metrics.total_tokens)}</strong
+							><span>tokens</span>
+						</div>
+						<div>
+							<strong>{money(state.trace.metrics.cost_usd)}</strong><span
+								>cost</span
+							>
 						</div>
 					</div>
 				</section>

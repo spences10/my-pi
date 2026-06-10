@@ -1,7 +1,13 @@
 <script lang="ts">
 	import type { ObservabilityEvent } from "../../types";
 	import type { TurnGroup } from "./event-analysis";
-	import { duration, state, summary, time } from "./dashboard-state.svelte";
+	import {
+		duration,
+		number_crunch,
+		state,
+		summary,
+		time,
+	} from "./dashboard-state.svelte";
 	import { event_has_error } from "./event-analysis";
 
 	type Event = ObservabilityEvent<Record<string, unknown>>;
@@ -47,15 +53,17 @@
 						<div>
 							<strong>{turn.title}</strong>
 							<span
-								>{turn.events.length} observations · {duration(
+								>{number_crunch(turn.events.length)} observations · {duration(
 									turn.duration_ms,
 								)}</span
 							>
 						</div>
 						<div class="turn-metrics">
-							<span>{turn.providers} provider</span>
-							<span>{turn.tools} tool</span>
-							<span class:error={turn.errors}>{turn.errors} errors</span>
+							<span>{number_crunch(turn.providers)} provider</span>
+							<span>{number_crunch(turn.tools)} tool</span>
+							<span class:error={turn.errors}
+								>{number_crunch(turn.errors)} errors</span
+							>
 						</div>
 					</header>
 					<div class="observations">
@@ -65,7 +73,7 @@
 								class="observation"
 								onclick={() => (state.selected_event = event)}
 							>
-								<span class="pill">#{event.seq}</span>
+								<span class="pill">#{number_crunch(event.seq)}</span>
 								<strong>{event.type}</strong>
 								<small>{time(event.ts)}</small>
 								<p>{summary(event)}</p>
@@ -80,33 +88,35 @@
 		<div class="panel">
 			<div class="panel-head">
 				<h3>Error focus</h3>
-				<span>{state.trace?.metrics.errors}</span>
+				<span>{number_crunch(state.trace?.metrics.errors ?? 0)}</span>
 			</div>
 			{#each visible_events
 				.filter(event_has_error)
 				.slice(0, 8) as event (event.event_id)}<button
 					class="compact-row artifact"
 					onclick={() => (state.selected_event = event)}
-					><strong>{summary(event)}</strong><span>#{event.seq}</span></button
+					><strong>{summary(event)}</strong><span
+						>#{number_crunch(event.seq)}</span
+					></button
 				>{:else}<p class="empty compact">No error observations.</p>{/each}
 		</div>
 		<div class="panel">
 			<div class="panel-head">
 				<h3>Artifacts and links</h3>
-				<span>{artifacts.length}</span>
+				<span>{number_crunch(artifacts.length)}</span>
 			</div>
 			{#each artifacts as artifact (`${artifact.event.event_id}:${artifact.value}`)}<button
 					class="compact-row artifact"
 					onclick={() => (state.selected_event = artifact.event)}
 					><strong title={artifact.value}>{artifact.value}</strong><span
-						>#{artifact.event.seq}</span
+						>#{number_crunch(artifact.event.seq)}</span
 					></button
 				>{:else}<p class="empty compact">No obvious paths or links.</p>{/each}
 		</div>
 		<div class="panel">
 			<div class="panel-head">
 				<h3>Final outputs</h3>
-				<span>{final_outputs.length}</span>
+				<span>{number_crunch(final_outputs.length)}</span>
 			</div>
 			{#each final_outputs as event (event.event_id)}<button
 					class="compact-row artifact"

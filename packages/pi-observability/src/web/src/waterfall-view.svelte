@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { TraceSpanSummary } from "../../types";
-	import { duration, state } from "./dashboard-state.svelte";
+	import { duration, number_crunch, state } from "./dashboard-state.svelte";
 
 	let {
 		max_span,
@@ -18,7 +18,7 @@
 		<div class="panel span-panel">
 			<div class="panel-head">
 				<h3>Waterfall bottlenecks</h3>
-				<span>{state.trace?.spans.length} spans</span>
+				<span>{number_crunch(state.trace?.spans.length ?? 0)} spans</span>
 			</div>
 			{#each state.trace?.spans ?? [] as span (span.id)}<div
 					class:error={span.error}
@@ -26,7 +26,7 @@
 				>
 					<div class="span-label">
 						<strong>{span.name}</strong><span
-							>{span.kind} · {span.event_count} events</span
+							>{span.kind} · {number_crunch(span.event_count)} events</span
 						>
 					</div>
 					<div class="bar">
@@ -42,7 +42,7 @@
 		<div class="panel">
 			<div class="panel-head">
 				<h3>Tool duration</h3>
-				<span>{tool_spans.length}</span>
+				<span>{number_crunch(tool_spans.length)}</span>
 			</div>
 			{#each tool_spans as span (span.id)}<div class="compact-row">
 					<strong>{span.name}</strong><span>{duration(span.duration_ms)}</span>
@@ -51,7 +51,7 @@
 		<div class="panel">
 			<div class="panel-head">
 				<h3>Provider calls</h3>
-				<span>{provider_spans.length}</span>
+				<span>{number_crunch(provider_spans.length)}</span>
 			</div>
 			{#each provider_spans as span (span.id)}<div class="compact-row">
 					<strong>{span.name}</strong><span>{duration(span.duration_ms)}</span>

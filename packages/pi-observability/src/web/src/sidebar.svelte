@@ -3,6 +3,7 @@
 	import {
 		is_active_session,
 		label,
+		number_crunch,
 		repo_name,
 		select_session,
 		state,
@@ -72,12 +73,16 @@
 			>
 		</div>
 		<div class="stats">
-			<strong>{state.sessions.length}</strong><span>sessions</span>
-			<strong>{active_count}</strong><span>active</span>
+			<strong>{number_crunch(state.sessions.length)}</strong><span
+				>sessions</span
+			>
+			<strong>{number_crunch(active_count)}</strong><span>active</span>
 			<strong>
-				{state.sessions.reduce(
-					(sum, session) => sum + Number(session.event_count || 0),
-					0,
+				{number_crunch(
+					state.sessions.reduce(
+						(sum, session) => sum + Number(session.event_count || 0),
+						0,
+					),
 				)}
 			</strong><span>events</span>
 		</div>
@@ -87,7 +92,7 @@
 			<details class="project-group" open>
 				<summary>
 					<strong>{group.name}</strong><span
-						>{group.sessions.length} sessions</span
+						>{number_crunch(group.sessions.length)} sessions</span
 					>
 				</summary>
 				{#each group.sessions as session (session.session_id)}
@@ -108,9 +113,9 @@
 								<strong>{label(session)}</strong>
 							</span>
 							<span>
-								{session.pool || "default"} · {session.event_count} events · {time(
-									session.last_ts,
-								)}
+								{session.pool || "default"} · {number_crunch(
+									session.event_count,
+								)} events · {time(session.last_ts)}
 							</span>
 							<small>{session.cwd}</small>
 							{#if state.labels[session.session_id]?.length}

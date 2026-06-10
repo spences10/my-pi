@@ -102,6 +102,21 @@ export function resolve_dashboard_command(
 	return 'web';
 }
 
+function summarize_metric_value(value: unknown): unknown {
+	if (!value || typeof value !== 'object') return value;
+	if (Array.isArray(value))
+		return { type: 'array', length: value.length };
+	const summary: Record<string, unknown> = {};
+	for (const [key, child] of Object.entries(value)) {
+		if (typeof child === 'number' || typeof child === 'string') {
+			summary[key] = child;
+		} else if (child && typeof child === 'object') {
+			summary[key] = summarize_metric_value(child);
+		}
+	}
+	return summary;
+}
+
 export function summarize_payload(event: unknown): unknown {
 	if (!event || typeof event !== 'object') return event;
 	const object = event as Record<string, unknown>;
@@ -120,15 +135,24 @@ export function summarize_payload(event: unknown): unknown {
 	}
 	for (const [key, value] of Object.entries(object)) {
 		if (key in summary) continue;
-		if (typeof value === 'string') {
+		if (key === 'usage' || key === 'cost') {
+			summary[key] = summarize_metric_value(value);
+		} else if (typeof value === 'string') {
 			summary[key] =
 				value.length > 500 ? `${value.slice(0, 500)}…` : value;
 		} else if (Array.isArray(value)) {
 			summary[key] = { type: 'array', length: value.length };
 		} else if (value && typeof value === 'object') {
+			const nested = value as Record<string, unknown>;
 			summary[key] = {
 				type: 'object',
-				keys: Object.keys(value).slice(0, 20),
+				keys: Object.keys(nested).slice(0, 20),
+				...('usage' in nested
+					? { usage: summarize_metric_value(nested.usage) }
+					: {}),
+				...('cost' in nested
+					? { cost: summarize_metric_value(nested.cost) }
+					: {}),
 			};
 		} else {
 			summary[key] = value;

@@ -1,4 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
+import { number_crunch } from './number-crunch';
+export { number_crunch } from './number-crunch';
 import type {
 	DashboardSession,
 	ObservabilityEvent,
@@ -64,11 +66,17 @@ export function time(value: string) {
 		: date.toLocaleTimeString();
 }
 
+export function money(value = 0) {
+	if (!value) return '—';
+	if (value < 1) return `$${value.toFixed(3)}`;
+	return `$${number_crunch(value)}`;
+}
+
 export function duration(ms = 0) {
 	if (!ms) return '—';
-	if (ms < 1000) return `${Math.round(ms)}ms`;
-	if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-	return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
+	if (ms < 1000) return `${number_crunch(Math.round(ms))}ms`;
+	if (ms < 60_000) return `${number_crunch(ms / 1000)}s`;
+	return `${number_crunch(Math.floor(ms / 60_000))}m ${number_crunch(Math.round((ms % 60_000) / 1000))}s`;
 }
 
 export function repo_name(session: Session) {

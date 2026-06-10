@@ -1,6 +1,11 @@
 <script lang="ts">
 	import type { ObservabilityEvent } from "../../types";
-	import { state, summary, time } from "./dashboard-state.svelte";
+	import {
+		number_crunch,
+		state,
+		summary,
+		time,
+	} from "./dashboard-state.svelte";
 	import { event_has_error } from "./event-analysis";
 
 	type Event = ObservabilityEvent<Record<string, unknown>>;
@@ -30,7 +35,8 @@
 				class:error={event_has_error(event)}
 				class="event"
 				onclick={() => (state.selected_event = event)}
-				><span class="pill">#{event.seq}</span><strong>{event.type}</strong
+				><span class="pill">#{number_crunch(event.seq)}</span><strong
+					>{event.type}</strong
 				><small>{time(event.ts)}</small>
 				<p>{summary(event)}</p></button
 			>{/each}

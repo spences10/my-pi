@@ -91,6 +91,32 @@ describe('payload safety', () => {
 		});
 	});
 
+	it('preserves usage and cost metrics inside summarized messages', () => {
+		expect(
+			summarize_payload({
+				message: {
+					content: [{ type: 'text', text: 'ok' }],
+					usage: {
+						input: 1000,
+						output: 25,
+						totalTokens: 1025,
+						cost: { total: 0.005 },
+					},
+				},
+			}),
+		).toMatchObject({
+			message: {
+				type: 'object',
+				usage: {
+					input: 1000,
+					output: 25,
+					totalTokens: 1025,
+					cost: { total: 0.005 },
+				},
+			},
+		});
+	});
+
 	it('truncates large json values', () => {
 		expect(
 			truncate_json_value({ text: 'x'.repeat(100) }, 20),

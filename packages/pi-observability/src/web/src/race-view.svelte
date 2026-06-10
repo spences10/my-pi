@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { DashboardSession, ObservabilityEvent } from "../../types";
-	import { label, state, summary, time } from "./dashboard-state.svelte";
+	import {
+		label,
+		number_crunch,
+		state,
+		summary,
+		time,
+	} from "./dashboard-state.svelte";
 
 	type Event = ObservabilityEvent<Record<string, unknown>>;
 	let { rows }: { rows: { session: DashboardSession; event: Event }[] } =
@@ -18,7 +24,7 @@
 			>{#each rows.slice(0, 400) as row (`${row.session.session_id}:${row.event.event_id}`)}<tr
 					onclick={() => (state.selected_event = row.event)}
 					><td>{time(row.event.ts)}</td><td>{label(row.session)}</td><td
-						>#{row.event.seq}</td
+						>#{number_crunch(row.event.seq)}</td
 					><td>{row.event.type}</td><td>{summary(row.event)}</td></tr
 				>{/each}</tbody
 		>
