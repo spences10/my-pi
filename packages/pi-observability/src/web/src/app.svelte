@@ -231,23 +231,25 @@
 
 				<SessionLabels />
 
-				{#if state.selected_view === "timeline"}
-					<TimelineView
-						{artifacts}
-						{final_outputs}
-						{known_types}
-						{turns}
-						{visible_events}
-					/>
-				{:else if state.selected_view === "waterfall"}
-					<WaterfallView {max_span} {provider_spans} {tool_spans} />
-				{:else if state.selected_view === "events"}
-					<EventsView {known_types} {visible_events} />
-				{:else if state.selected_view === "swimlane"}
-					<SwimlaneView sessions={comparison_sessions} />
-				{:else}
-					<RaceView rows={race_rows} />
-				{/if}
+				<div class="view-body">
+					{#if state.selected_view === "timeline"}
+						<TimelineView
+							{artifacts}
+							{final_outputs}
+							{known_types}
+							{turns}
+							{visible_events}
+						/>
+					{:else if state.selected_view === "waterfall"}
+						<WaterfallView {max_span} {provider_spans} {tool_spans} />
+					{:else if state.selected_view === "events"}
+						<EventsView {known_types} {visible_events} />
+					{:else if state.selected_view === "swimlane"}
+						<SwimlaneView sessions={comparison_sessions} />
+					{:else}
+						<RaceView rows={race_rows} />
+					{/if}
+				</div>
 			{:else}<div class="panel empty">
 					Select a session to inspect timeline, waterfall, and event details.
 				</div>{/if}
@@ -260,6 +262,7 @@
 <style>
 	.hero {
 		display: flex;
+		flex: 0 0 auto;
 		justify-content: space-between;
 		gap: 20px;
 		padding: 22px;
@@ -291,6 +294,12 @@
 		display: flex;
 		gap: 10px;
 		margin: 0 0 14px;
+		flex: 0 0 auto;
+	}
+	.view-body {
+		min-height: 0;
+		flex: 1 1 auto;
+		overflow-y: auto;
 	}
 	@media (max-width: 1200px) {
 		.hero {

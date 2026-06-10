@@ -1,16 +1,18 @@
 @font-face {
-	font-family: "Victor Mono";
+	font-family: 'Victor Mono';
 	font-style: normal;
 	font-weight: 400;
 	font-display: swap;
-	src: url("/fonts/victor-mono-latin-400-normal.woff2") format("woff2");
+	src: url('/fonts/victor-mono-latin-400-normal.woff2')
+		format('woff2');
 }
 @font-face {
-	font-family: "Victor Mono";
+	font-family: 'Victor Mono';
 	font-style: normal;
 	font-weight: 700;
 	font-display: swap;
-	src: url("/fonts/victor-mono-latin-700-normal.woff2") format("woff2");
+	src: url('/fonts/victor-mono-latin-700-normal.woff2')
+		format('woff2');
 }
 :root {
 	color-scheme: dark;
@@ -29,7 +31,8 @@
 	--cyan: #7df9ff;
 	--shadow: #0009;
 	--mono:
-		"Victor Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		'Victor Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
+		monospace;
 }
 .light {
 	color-scheme: light;
@@ -60,7 +63,7 @@ body {
 		system-ui,
 		-apple-system,
 		BlinkMacSystemFont,
-		"Segoe UI",
+		'Segoe UI',
 		sans-serif;
 }
 pre,
@@ -106,7 +109,8 @@ button {
 button:hover,
 button.active {
 	border-color: var(--focus);
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--focus), transparent 60%);
+	box-shadow: 0 0 0 1px
+		color-mix(in srgb, var(--focus), transparent 60%);
 }
 input,
 select {
@@ -163,8 +167,12 @@ main {
 	min-height: calc(100vh - 76px);
 }
 .content {
+	height: calc(100vh - 76px);
+	min-height: 0;
 	padding: 20px;
-	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 }
 .panel {
 	background: color-mix(in srgb, var(--surface), transparent 7%);
@@ -233,6 +241,10 @@ main {
 	padding: 14px 16px;
 }
 @media (max-width: 720px) {
+	.content {
+		height: auto;
+		overflow: visible;
+	}
 	header {
 		height: auto;
 		align-items: flex-start;

@@ -21,6 +21,7 @@
 <style>
 	.labels {
 		display: flex;
+		flex: 0 0 auto;
 		gap: 10px;
 		align-items: center;
 		padding: 12px;
