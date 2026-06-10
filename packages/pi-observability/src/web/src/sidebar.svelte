@@ -171,7 +171,7 @@
 		display: grid;
 		gap: 4px;
 		color: var(--muted);
-		font-size: 11px;
+		font-size: var(--font-size-label);
 		text-transform: uppercase;
 	}
 	.controls select {
@@ -187,7 +187,7 @@
 	.session-actions button {
 		min-height: 0;
 		padding: 5px 8px;
-		font-size: 12px;
+		font-size: var(--font-size-compact);
 	}
 	.stats {
 		display: grid;

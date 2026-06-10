@@ -48,7 +48,7 @@
 	}
 	.lane p {
 		color: var(--muted);
-		font-size: 12px;
+		font-size: var(--font-size-compact);
 		margin: 4px 0 12px;
 	}
 	.lane-event {

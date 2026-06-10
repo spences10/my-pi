@@ -83,13 +83,24 @@
 		border-left: 1px solid var(--border);
 		box-shadow: -30px 0 80px var(--shadow);
 		z-index: 6;
+		font-size: var(--font-size-ui);
 		overflow: auto;
+	}
+	.drawer h3 {
+		font-size: var(--font-size-ui);
+		line-height: 1.35;
+	}
+	.drawer p {
+		font-size: var(--font-size-compact);
+		color: var(--muted);
 	}
 	.close {
 		float: right;
 	}
 	pre {
-		font: inherit;
+		font-family: var(--font-mono);
+		font-size: var(--font-size-ui);
+		line-height: 1.45;
 		white-space: pre-wrap;
 		background: var(--surface);
 		border: 1px solid var(--border-muted);
@@ -99,8 +110,9 @@
 	}
 	.json,
 	.json code {
-		font: inherit;
-		line-height: 1.55;
+		font-family: var(--font-mono);
+		font-size: var(--font-size-ui);
+		line-height: 1.45;
 		overflow-wrap: anywhere;
 	}
 	.json-key {

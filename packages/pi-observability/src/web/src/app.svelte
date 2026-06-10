@@ -288,7 +288,7 @@
 	}
 	.metric-grid span {
 		color: var(--muted);
-		font-size: 12px;
+		font-size: var(--font-size-compact);
 	}
 	.view-tabs {
 		display: flex;

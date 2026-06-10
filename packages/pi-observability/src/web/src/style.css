@@ -30,9 +30,15 @@
 	--red: #ff174f;
 	--cyan: #7df9ff;
 	--shadow: #0009;
-	--mono:
+	--font-sans:
+		ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+		'Segoe UI', sans-serif;
+	--font-mono:
 		'Victor Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
 		monospace;
+	--font-size-ui: 14px;
+	--font-size-compact: 12px;
+	--font-size-label: 11px;
 }
 .light {
 	color-scheme: light;
@@ -58,13 +64,7 @@ body {
 	margin: 0;
 	background: var(--bg);
 	color: var(--text);
-	font:
-		14px/1.45 ui-sans-serif,
-		system-ui,
-		-apple-system,
-		BlinkMacSystemFont,
-		'Segoe UI',
-		sans-serif;
+	font: var(--font-size-ui) / 1.45 var(--font-sans);
 }
 pre,
 code,
@@ -76,7 +76,7 @@ code,
 .timeline-panel,
 .trace-layout,
 .race {
-	font-family: var(--mono);
+	font-family: var(--font-mono);
 }
 .app-shell {
 	min-height: 100vh;
@@ -143,7 +143,7 @@ p {
 .eyebrow {
 	color: var(--focus);
 	text-transform: uppercase;
-	font-size: 11px;
+	font-size: var(--font-size-label);
 	letter-spacing: 0.14em;
 }
 .toolbar {
