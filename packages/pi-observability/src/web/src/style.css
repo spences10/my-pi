@@ -42,20 +42,20 @@
 }
 .light {
 	color-scheme: light;
-	--bg: #fff7ff;
-	--surface: #fffafe;
-	--surface-2: #f2e8ff;
-	--border: #b56cff;
-	--border-muted: #dac8ef;
-	--focus: #d600a9;
-	--selected: #007f9a;
-	--text: #170626;
-	--muted: #6f5a86;
-	--green: #6a8500;
-	--yellow: #9b6700;
-	--red: #c40035;
-	--cyan: #007f9a;
-	--shadow: #9d4dff22;
+	--bg: #fff7fc;
+	--surface: #fbf3fb;
+	--surface-2: #efe5f8;
+	--border: #a855f7;
+	--border-muted: #c7a8e8;
+	--focus: #d000a6;
+	--selected: #00879b;
+	--text: #12071f;
+	--muted: #624b7f;
+	--green: #718c00;
+	--yellow: #8a5a00;
+	--red: #b00032;
+	--cyan: #007f92;
+	--shadow: #6d28d91f;
 }
 * {
 	box-sizing: border-box;
@@ -80,6 +80,7 @@ code,
 }
 .app-shell {
 	min-height: 100vh;
+	color: var(--text);
 	background:
 		radial-gradient(
 			circle at 18% -12%,
