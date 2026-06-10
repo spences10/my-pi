@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	create_event_envelope,
 	parse_tags,
+	resolve_dashboard_command,
 	resolve_observability_config,
 	summarize_payload,
 } from './index.js';
@@ -14,6 +15,18 @@ describe('parse_tags', () => {
 			'beta',
 			'gamma',
 		]);
+	});
+});
+
+describe('resolve_dashboard_command', () => {
+	it('defaults to the web dashboard', () => {
+		expect(resolve_dashboard_command('')).toBe('web');
+		expect(resolve_dashboard_command('open')).toBe('web');
+	});
+
+	it('keeps explicit tui and url modes', () => {
+		expect(resolve_dashboard_command('tui')).toBe('tui');
+		expect(resolve_dashboard_command('url')).toBe('url');
 	});
 });
 

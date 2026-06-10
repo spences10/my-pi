@@ -28,7 +28,8 @@ pi install ./packages/pi-observability
 ## Usage
 
 For the `my-pi` distribution, observability is ambient: start Pi as
-usual, then open the dashboard from the TUI with `/observability`.
+usual, then open the browser dashboard from the TUI with
+`/observability`. Use `/observability tui` for the terminal dashboard.
 
 ```bash
 pnpx my-pi@latest

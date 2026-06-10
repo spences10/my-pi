@@ -91,6 +91,17 @@ export function resolve_observability_config(
 	};
 }
 
+export type DashboardCommand = 'web' | 'tui' | 'url';
+
+export function resolve_dashboard_command(
+	args: string,
+): DashboardCommand {
+	const command = args.trim().toLowerCase();
+	if (command === 'tui') return 'tui';
+	if (command === 'url') return 'url';
+	return 'web';
+}
+
 export function summarize_payload(event: unknown): unknown {
 	if (!event || typeof event !== 'object') return event;
 	const object = event as Record<string, unknown>;
@@ -304,44 +315,41 @@ export default function observability(pi: ExtensionAPI) {
 	let dashboard_url = DEFAULT_OBSERVABILITY_URL;
 	pi.registerCommand('observability', {
 		description:
-			'Show the TUI observability dashboard; use "open" for browser',
+			'Open the web observability dashboard; use "tui" for terminal view',
 		handler: async (args, ctx) => {
-			const command = args.trim();
+			const command = resolve_dashboard_command(args);
 			if (config?.auto_start_server)
 				await ensure_local_server(config.server_url);
 			const url = config?.server_url ?? dashboard_url;
 			dashboard_url = url;
-			if (command === 'open') {
-				try {
-					open_dashboard(url);
-					ctx.ui.notify(`Observability dashboard: ${url}`, 'info');
-				} catch {
-					ctx.ui.notify(
-						`Open observability dashboard: ${url}`,
-						'info',
-					);
-				}
-				return;
-			}
 			if (command === 'url') {
 				ctx.ui.notify(`Observability dashboard: ${url}`, 'info');
 				return;
 			}
+			if (command === 'tui') {
+				try {
+					const { show_observability_tui_dashboard } =
+						await import('./tui-dashboard.js');
+					await show_observability_tui_dashboard(
+						ctx,
+						url,
+						config?.token,
+					);
+				} catch (error) {
+					ctx.ui.notify(
+						error instanceof Error
+							? `Observability TUI failed: ${error.message}`
+							: `Observability dashboard: ${url}`,
+						'error',
+					);
+				}
+				return;
+			}
 			try {
-				const { show_observability_tui_dashboard } =
-					await import('./tui-dashboard.js');
-				await show_observability_tui_dashboard(
-					ctx,
-					url,
-					config?.token,
-				);
-			} catch (error) {
-				ctx.ui.notify(
-					error instanceof Error
-						? `Observability dashboard failed: ${error.message}`
-						: `Observability dashboard: ${url}`,
-					'error',
-				);
+				open_dashboard(url);
+				ctx.ui.notify(`Observability dashboard: ${url}`, 'info');
+			} catch {
+				ctx.ui.notify(`Open observability dashboard: ${url}`, 'info');
 			}
 		},
 	});

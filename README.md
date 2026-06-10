@@ -108,7 +108,7 @@ pnpx my-pi@latest --mode rpc
 
 # local live observability dashboard
 pnpx my-pi@latest
-# then run /observability in the TUI
+# then run /observability in the TUI to open the browser dashboard
 pnpx my-pi@latest observability
 ```
 
