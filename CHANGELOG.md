@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.83
+
+### Patch Changes
+
+- 5375c4c: Make web observability dashboard default and keep terminal
+  dashboard available via observability tui subcommand.
+
 ## 0.1.82
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @spences10/pi-observability
 
+## 0.0.8
+
+### Patch Changes
+
+- 5375c4c: Make web observability dashboard default and keep terminal
+  dashboard available via observability tui subcommand.
+- e16746a: Restore observability token and cost metrics using session
+  files and shared number formatting.
+
 ## 0.0.7
 
 ### Patch Changes
