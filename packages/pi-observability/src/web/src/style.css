@@ -1,17 +1,22 @@
 @font-face {
-	font-family: VictorMono;
-	src: url('/fonts/victor-mono-latin-400-normal.woff2');
+	font-family: "Victor Mono";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url("/fonts/victor-mono-latin-400-normal.woff2") format("woff2");
 }
 @font-face {
-	font-family: VictorMono;
+	font-family: "Victor Mono";
+	font-style: normal;
 	font-weight: 700;
-	src: url('/fonts/victor-mono-latin-700-normal.woff2');
+	font-display: swap;
+	src: url("/fonts/victor-mono-latin-700-normal.woff2") format("woff2");
 }
 :root {
 	color-scheme: dark;
 	--bg: #06040f;
 	--surface: #0b0820;
-	--surface-2: #120a2b;
+	--surface-2: #26104d;
 	--border: #9d4dff;
 	--border-muted: #473a72;
 	--focus: #ff00cc;
@@ -23,22 +28,24 @@
 	--red: #ff174f;
 	--cyan: #7df9ff;
 	--shadow: #0009;
+	--mono:
+		"Victor Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .light {
 	color-scheme: light;
 	--bg: #fff7ff;
-	--surface: #fff;
+	--surface: #fffafe;
 	--surface-2: #f2e8ff;
-	--border: #b875ff;
-	--border-muted: #d8c8ff;
-	--focus: #d100a9;
-	--selected: #008ca0;
-	--text: #17051f;
-	--muted: #765f91;
-	--green: #4d7c00;
-	--yellow: #a35f00;
-	--red: #d20f3f;
-	--cyan: #006c78;
+	--border: #b56cff;
+	--border-muted: #dac8ef;
+	--focus: #d600a9;
+	--selected: #007f9a;
+	--text: #170626;
+	--muted: #6f5a86;
+	--green: #6a8500;
+	--yellow: #9b6700;
+	--red: #c40035;
+	--cyan: #007f9a;
 	--shadow: #9d4dff22;
 }
 * {
@@ -48,7 +55,25 @@ body {
 	margin: 0;
 	background: var(--bg);
 	color: var(--text);
-	font-family: VictorMono, ui-monospace, monospace;
+	font:
+		14px/1.45 ui-sans-serif,
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		"Segoe UI",
+		sans-serif;
+}
+pre,
+code,
+.pill,
+.compact-row,
+.session,
+.session-row,
+.lane-event,
+.timeline-panel,
+.trace-layout,
+.race {
+	font-family: var(--mono);
 }
 .app-shell {
 	min-height: 100vh;
@@ -81,8 +106,7 @@ button {
 button:hover,
 button.active {
 	border-color: var(--focus);
-	box-shadow: 0 0 0 1px
-		color-mix(in srgb, var(--focus), transparent 60%);
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--focus), transparent 60%);
 }
 input,
 select {
