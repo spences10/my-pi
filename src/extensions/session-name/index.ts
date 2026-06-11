@@ -16,16 +16,16 @@ const SYSTEM_PROMPT = `You are a session naming assistant. Given a conversation 
 
 Guidelines:
 - Be concise but specific
-- Use kebab-case or natural language
+- Use kebab-case only
 - Focus on the core task/question
 - Avoid generic names like "discussion" or "conversation"
 - No quotes, no punctuation at the end
 
 Examples:
-- "fix auth bug" -> "fix-auth-bug" or "authentication fix"
-- "how do I deploy to vercel" -> "vercel deployment"
-- "explain react hooks" -> "react hooks explanation"
-- "optimize database queries" -> "db query optimization"
+- "fix auth bug" -> "fix-auth-bug"
+- "how do I deploy to vercel" -> "vercel-deployment"
+- "explain react hooks" -> "react-hooks-explanation"
+- "optimize database queries" -> "db-query-optimization"
 
 Output ONLY the session name, nothing else.`;
 
@@ -36,10 +36,13 @@ const MAX_NAME_LEN = 50;
 function clean_name(value: string): string {
 	return value
 		.replace(/^["']|["']$/g, '')
-		.replace(/\n/g, ' ')
-		.replace(/\s+/g, ' ')
-		.trim()
-		.slice(0, MAX_NAME_LEN);
+		.normalize('NFKD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, MAX_NAME_LEN)
+		.replace(/-+$/g, '');
 }
 
 function truncate_conversation(value: string): string {
