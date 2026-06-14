@@ -3,7 +3,7 @@ import type { SchemaOrgProps, SeoConfig } from 'svead';
 export const seo_config: SeoConfig = {
 	title: 'My-Pi',
 	description:
-		'A ready-to-run Pi CLI distribution with scoped MCP tools, project skills, context reduction, recall, LSP tools, redaction, telemetry, and team mode.',
+		'A ready-to-run Pi CLI distribution with scoped MCP tools, project skills, context reduction, recall, LSP tools, redaction, telemetry, observability, and team mode.',
 	url: 'https://github.com/spences10/my-pi',
 	website: 'github.com/spences10/my-pi',
 	site_name: 'My-Pi',
@@ -22,7 +22,7 @@ export const logo_lines = [
 export const faq_lines = [
 	[
 		'What is my-pi?',
-		'my-pi is a Pi coding-agent distribution for terminal-first development. It wires MCP tools, LSP diagnostics, project skills, recall, context reduction, redaction, telemetry, and team mode into one install.',
+		'my-pi is a Pi coding-agent distribution for terminal-first development. It wires MCP tools, LSP diagnostics, project skills, recall, context reduction, redaction, telemetry, observability, and team mode into one install.',
 	],
 	[
 		'Is my-pi different from Pi?',
@@ -49,6 +49,10 @@ export const faq_lines = [
 		'Yes. my-pi includes output redaction, reminders to use secret-safe loading, and prompts around risky workflows. It is designed to steer agents away from pasting credentials into conversation context and toward tools that expose key names and command results without revealing secret values.',
 	],
 	[
+		'Does my-pi include live observability?',
+		'Yes. my-pi includes a local observability event stream and browser dashboard for watching sessions, teammates, tool calls, token usage, and trace-style activity as agents work.',
+	],
+	[
 		'Can my-pi run multiple agents?',
 		'Yes. Team mode creates local RPC teammates, tracks tasks and dependencies, sends mailbox messages, shows status, and can spawn mutating teammates in isolated git worktrees. Use it to delegate research, review, tests, or implementation without losing coordination.',
 	],
@@ -61,7 +65,7 @@ export const page_schema: SchemaOrgProps['schema'] = [
 		applicationCategory: 'DeveloperApplication',
 		operatingSystem: 'Linux, macOS, Windows',
 		description:
-			'Pi CLI distribution with scoped MCP tools, project skills, context reduction, recall, LSP tools, redaction, telemetry, and team mode.',
+			'Pi CLI distribution with scoped MCP tools, project skills, context reduction, recall, LSP tools, redaction, telemetry, observability, and team mode.',
 		offers: {
 			'@type': 'Offer',
 			price: '0',
@@ -119,15 +123,15 @@ export const detail_lines = [
 		'Redact tool output, remind agents to use nopeek for env files, and require confirmation before destructive commands.',
 	],
 	[
-		'Skills, recall, and team mode',
-		'Activate skills by cwd, GitHub org, or repo; recall previous sessions; and coordinate RPC teammates with tasks, mailboxes, status, and worktrees.',
+		'Skills, recall, observability, and team mode',
+		'Activate skills by cwd, GitHub org, or repo; recall previous sessions; watch live observability traces; and coordinate RPC teammates with tasks, mailboxes, status, and worktrees.',
 	],
 ] as const;
 
 export const compose_lines = [
 	[
 		'Run my-pi',
-		'Use the CLI when you want Pi with MCP, LSP, context reduction, recall, skills, redaction, telemetry, and team mode already wired together.',
+		'Use the CLI when you want Pi with MCP, LSP, context reduction, recall, skills, redaction, telemetry, observability, and team mode already wired together.',
 		'pnpx my-pi@latest',
 	],
 	[
@@ -149,6 +153,7 @@ export const package_lines = [
 	'redact',
 	'recall',
 	'skills',
+	'observability',
 	'team-mode',
 	'telemetry',
 ] as const;
