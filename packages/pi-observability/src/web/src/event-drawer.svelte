@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { state, time } from "./dashboard-state.svelte";
+	import { dashboard_state, time } from "./dashboard-state.svelte";
 
 	type Token = { id: string; text: string; class_name?: string };
 
 	function close_drawer() {
-		state.selected_event = null;
+		dashboard_state.selected_event = null;
 	}
 
 	function handle_keydown(event: KeyboardEvent) {
-		if (state.selected_event && event.key === "Escape") close_drawer();
+		if (dashboard_state.selected_event && event.key === "Escape")
+			close_drawer();
 	}
 
 	function json_tokens(value: unknown) {
@@ -45,7 +46,7 @@
 
 <svelte:window onkeydown={handle_keydown} />
 
-{#if state.selected_event}
+{#if dashboard_state.selected_event}
 	<button
 		aria-label="Close event details"
 		class="drawer-backdrop"
@@ -53,10 +54,13 @@
 	></button>
 	<aside aria-label="Event details" class="drawer">
 		<button class="close" onclick={close_drawer}>Close</button>
-		<h3>{state.selected_event.type} #{state.selected_event.seq}</h3>
-		<p>{time(state.selected_event.ts)}</p>
+		<h3>
+			{dashboard_state.selected_event.type} #{dashboard_state.selected_event
+				.seq}
+		</h3>
+		<p>{time(dashboard_state.selected_event.ts)}</p>
 		<pre class="json"><code
-				>{#each json_tokens(state.selected_event.payload) as token (token.id)}<span
+				>{#each json_tokens(dashboard_state.selected_event.payload) as token (token.id)}<span
 						class={token.class_name}>{token.text}</span
 					>{/each}</code
 			></pre>

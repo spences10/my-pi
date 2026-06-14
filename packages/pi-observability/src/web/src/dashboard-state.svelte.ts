@@ -1,11 +1,11 @@
 import { SvelteMap } from 'svelte/reactivity';
-import { number_crunch } from './number-crunch';
-export { number_crunch } from './number-crunch';
 import type {
 	DashboardSession,
 	ObservabilityEvent,
 	TraceSummary,
 } from '../../types';
+import { number_crunch } from './number-crunch';
+export { number_crunch } from './number-crunch';
 
 type Event = ObservabilityEvent<Record<string, unknown>>;
 type Session = DashboardSession;
@@ -43,7 +43,7 @@ class DashboardState {
 	label_input = $state('');
 }
 
-export const state = new DashboardState();
+export const dashboard_state = new DashboardState();
 
 export const event_cache = new SvelteMap<string, Event[]>();
 
@@ -87,7 +87,7 @@ export function repo_name(session: Session) {
 }
 
 export function is_active_session(session: Session) {
-	const live = state.live_seen[session.session_id] || 0;
+	const live = dashboard_state.live_seen[session.session_id] || 0;
 	const recent = new Date(session.last_ts).valueOf();
 	const latest = Math.max(live, Number.isNaN(recent) ? 0 : recent);
 	return Date.now() - latest < 90_000;
@@ -174,13 +174,14 @@ export function extract_artifacts(source_events: Event[]) {
 }
 
 export function read_theme() {
-	state.theme =
+	dashboard_state.theme =
 		localStorage.getItem(theme_key) === 'light' ? 'light' : 'dark';
 }
 
 export function toggle_theme() {
-	state.theme = state.theme === 'dark' ? 'light' : 'dark';
-	localStorage.setItem(theme_key, state.theme);
+	dashboard_state.theme =
+		dashboard_state.theme === 'dark' ? 'light' : 'dark';
+	localStorage.setItem(theme_key, dashboard_state.theme);
 }
 
 function read_record(key: string) {
@@ -196,18 +197,18 @@ function read_record(key: string) {
 
 export function read_labels() {
 	try {
-		state.labels = JSON.parse(
+		dashboard_state.labels = JSON.parse(
 			localStorage.getItem(labels_key) || '{}',
 		);
 	} catch {
-		state.labels = {};
+		dashboard_state.labels = {};
 	}
-	state.pinned = read_record(pins_key);
-	state.archived = read_record(archived_key);
+	dashboard_state.pinned = read_record(pins_key);
+	dashboard_state.archived = read_record(archived_key);
 }
 
 function save_labels(next: LabelMap) {
-	state.labels = next;
+	dashboard_state.labels = next;
 	localStorage.setItem(labels_key, JSON.stringify(next));
 }
 
@@ -217,52 +218,57 @@ function save_record(key: string, next: Record<string, true>) {
 }
 
 export function toggle_pin(id: string) {
-	const next = { ...state.pinned };
+	const next = { ...dashboard_state.pinned };
 	if (next[id]) delete next[id];
 	else next[id] = true;
-	state.pinned = save_record(pins_key, next);
+	dashboard_state.pinned = save_record(pins_key, next);
 }
 
 export function toggle_archive(id: string) {
-	const next = { ...state.archived };
+	const next = { ...dashboard_state.archived };
 	if (next[id]) delete next[id];
 	else next[id] = true;
-	state.archived = save_record(archived_key, next);
+	dashboard_state.archived = save_record(archived_key, next);
 }
 
 export function toggle_query_token(token_value: string) {
-	const parts = state.query.split(/\s+/).filter(Boolean);
-	state.query = parts.includes(token_value)
+	const parts = dashboard_state.query.split(/\s+/).filter(Boolean);
+	dashboard_state.query = parts.includes(token_value)
 		? parts.filter((part) => part !== token_value).join(' ')
 		: [...parts, token_value].join(' ');
 }
 
 export function add_label() {
-	const value = state.label_input.trim();
-	if (!value || !state.selected_id) return;
+	const value = dashboard_state.label_input.trim();
+	if (!value || !dashboard_state.selected_id) return;
 	save_labels({
-		...state.labels,
-		[state.selected_id]: [
-			...(state.labels[state.selected_id] || []),
+		...dashboard_state.labels,
+		[dashboard_state.selected_id]: [
+			...(dashboard_state.labels[dashboard_state.selected_id] || []),
 			value,
 		],
 	});
-	state.label_input = '';
+	dashboard_state.label_input = '';
 }
 
 export function remove_label(index: number) {
-	if (!state.selected_id) return;
-	const next = [...(state.labels[state.selected_id] || [])];
+	if (!dashboard_state.selected_id) return;
+	const next = [
+		...(dashboard_state.labels[dashboard_state.selected_id] || []),
+	];
 	next.splice(index, 1);
-	save_labels({ ...state.labels, [state.selected_id]: next });
+	save_labels({
+		...dashboard_state.labels,
+		[dashboard_state.selected_id]: next,
+	});
 }
 
 export async function load_sessions() {
 	const response = await fetch(api('/sessions'));
 	const body = await response.json();
-	state.sessions = body.sessions || [];
-	if (!state.selected_id && state.sessions[0])
-		await select_session(state.sessions[0].session_id);
+	dashboard_state.sessions = body.sessions || [];
+	if (!dashboard_state.selected_id && dashboard_state.sessions[0])
+		await select_session(dashboard_state.sessions[0].session_id);
 }
 
 export async function fetch_events(id: string) {
@@ -272,19 +278,20 @@ export async function fetch_events(id: string) {
 	const body = await response.json();
 	const loaded = (body.events || []) as Event[];
 	event_cache.set(id, loaded);
-	if (id === state.selected_id) state.events = loaded;
+	if (id === dashboard_state.selected_id)
+		dashboard_state.events = loaded;
 	return loaded;
 }
 
 export async function select_session(id: string) {
-	state.selected_id = id;
-	state.selected_event = null;
+	dashboard_state.selected_id = id;
+	dashboard_state.selected_event = null;
 	const [loaded_events, trace_response] = await Promise.all([
 		fetch_events(id),
 		fetch(api(`/sessions/${encodeURIComponent(id)}/trace`)),
 	]);
-	state.events = loaded_events;
-	state.trace = await trace_response.json();
+	dashboard_state.events = loaded_events;
+	dashboard_state.trace = await trace_response.json();
 }
 
 export async function load_comparison(sessions: Session[]) {
@@ -302,43 +309,47 @@ function schedule_sessions_reload() {
 }
 
 function schedule_selected_reload() {
-	if (!state.selected_id || selected_reload_timer) return;
+	if (!dashboard_state.selected_id || selected_reload_timer) return;
 	selected_reload_timer = setTimeout(() => {
 		selected_reload_timer = null;
-		void select_session(state.selected_id);
+		void select_session(dashboard_state.selected_id);
 	}, 350);
 }
 
 export function connect() {
 	const source = new EventSource(api('/events/stream'));
-	source.addEventListener('hello', () => (state.connected = true));
+	source.addEventListener(
+		'hello',
+		() => (dashboard_state.connected = true),
+	);
 	source.addEventListener('event', (message) => {
 		const event = JSON.parse(message.data) as Event;
-		state.live_seen = {
-			...state.live_seen,
+		dashboard_state.live_seen = {
+			...dashboard_state.live_seen,
 			[event.session_id]: Date.now(),
 		};
 		if (event.type === 'session_shutdown') {
-			const next = { ...state.live_seen };
+			const next = { ...dashboard_state.live_seen };
 			delete next[event.session_id];
-			state.live_seen = next;
+			dashboard_state.live_seen = next;
 		}
-		if (state.paused) return;
+		if (dashboard_state.paused) return;
 		const cached = event_cache.get(event.session_id) || [];
 		if (!cached.some((item) => item.event_id === event.event_id)) {
 			event_cache.set(
 				event.session_id,
 				[event, ...cached].slice(0, 500),
 			);
-			if (event.session_id === state.selected_id)
-				state.events = event_cache.get(event.session_id) || [];
+			if (event.session_id === dashboard_state.selected_id)
+				dashboard_state.events =
+					event_cache.get(event.session_id) || [];
 		}
 		schedule_sessions_reload();
-		if (event.session_id === state.selected_id)
+		if (event.session_id === dashboard_state.selected_id)
 			schedule_selected_reload();
 	});
 	source.onerror = () => {
-		state.connected = false;
+		dashboard_state.connected = false;
 		source.close();
 		setTimeout(connect, 1500);
 	};

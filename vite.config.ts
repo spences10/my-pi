@@ -34,6 +34,7 @@ export default defineConfig({
 		printWidth: 70,
 		trailingComma: 'all',
 		proseWrap: 'always',
+		ignorePatterns: ['apps/web/worker-configuration.d.ts'],
 	},
 	lint: {
 		ignorePatterns: [

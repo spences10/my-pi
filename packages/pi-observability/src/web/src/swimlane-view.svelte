@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { DashboardSession, ObservabilityEvent } from "../../types";
 	import {
+		dashboard_state,
 		event_cache,
-		number_crunch,
 		label,
+		number_crunch,
 		query_matches,
-		state,
 		summary,
 		time,
 	} from "./dashboard-state.svelte";
@@ -23,10 +23,10 @@
 				)} loaded
 			</p>
 			{#each (event_cache.get(session.session_id) || [])
-				.filter((event: Event) => query_matches(event, state.event_query))
+				.filter( (event: Event) => query_matches(event, dashboard_state.event_query), )
 				.slice(0, 60) as event (event.event_id)}<button
 					class="lane-event"
-					onclick={() => (state.selected_event = event)}
+					onclick={() => (dashboard_state.selected_event = event)}
 					><strong>{event.type}</strong><span>{time(event.ts)}</span><small
 						>{summary(event)}</small
 					></button

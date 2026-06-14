@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { DashboardSession, ObservabilityEvent } from "../../types";
 	import {
+		dashboard_state,
 		label,
 		number_crunch,
-		state,
 		summary,
 		time,
 	} from "./dashboard-state.svelte";
@@ -22,7 +22,7 @@
 			></thead
 		><tbody
 			>{#each rows.slice(0, 400) as row (`${row.session.session_id}:${row.event.event_id}`)}<tr
-					onclick={() => (state.selected_event = row.event)}
+					onclick={() => (dashboard_state.selected_event = row.event)}
 					><td>{time(row.event.ts)}</td><td>{label(row.session)}</td><td
 						>#{number_crunch(row.event.seq)}</td
 					><td>{row.event.type}</td><td>{summary(row.event)}</td></tr

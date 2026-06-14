@@ -1,18 +1,9 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import type { DashboardSession, ObservabilityEvent } from "../../types";
-	import { build_turns } from "./event-analysis";
-	import EventDrawer from "./event-drawer.svelte";
-	import EventsView from "./events-view.svelte";
-	import HeaderBar from "./header-bar.svelte";
-	import RaceView from "./race-view.svelte";
-	import SessionLabels from "./session-labels.svelte";
-	import Sidebar from "./sidebar.svelte";
-	import SwimlaneView from "./swimlane-view.svelte";
-	import TimelineView from "./timeline-view.svelte";
-	import WaterfallView from "./waterfall-view.svelte";
 	import {
 		connect,
+		dashboard_state,
 		duration,
 		event_cache,
 		extract_artifacts,
@@ -26,19 +17,33 @@
 		read_labels,
 		read_theme,
 		repo_name,
-		state,
 	} from "./dashboard-state.svelte";
+	import { build_turns } from "./event-analysis";
+	import EventDrawer from "./event-drawer.svelte";
+	import EventsView from "./events-view.svelte";
+	import HeaderBar from "./header-bar.svelte";
+	import RaceView from "./race-view.svelte";
+	import SessionLabels from "./session-labels.svelte";
+	import Sidebar from "./sidebar.svelte";
+	import SwimlaneView from "./swimlane-view.svelte";
+	import TimelineView from "./timeline-view.svelte";
+	import WaterfallView from "./waterfall-view.svelte";
 
 	type Event = ObservabilityEvent<Record<string, unknown>>;
 	type Session = DashboardSession;
 	const visible_sessions = $derived.by(() => {
-		const parts = state.query.toLowerCase().split(/\s+/).filter(Boolean);
-		return state.sessions
+		const parts = dashboard_state.query
+			.toLowerCase()
+			.split(/\s+/)
+			.filter(Boolean);
+		return dashboard_state.sessions
 			.filter(
-				(session) => state.show_archived || !state.archived[session.session_id],
+				(session) =>
+					dashboard_state.show_archived ||
+					!dashboard_state.archived[session.session_id],
 			)
 			.filter((session) => {
-				const labels = state.labels[session.session_id] || [];
+				const labels = dashboard_state.labels[session.session_id] || [];
 				const fields = {
 					id: session.session_id,
 					agent: session.agent_name || "",
@@ -49,7 +54,7 @@
 					model: session.model || "",
 					label: labels.join(" "),
 					active: is_active_session(session) ? "true" : "false",
-					pinned: state.pinned[session.session_id] ? "true" : "false",
+					pinned: dashboard_state.pinned[session.session_id] ? "true" : "false",
 				};
 				const text = Object.values(fields).join(" ").toLowerCase();
 				return parts.every((part) => {
@@ -66,45 +71,52 @@
 					Number(is_active_session(b)) - Number(is_active_session(a));
 				if (active) return active;
 				const pinned =
-					Number(Boolean(state.pinned[b.session_id])) -
-					Number(Boolean(state.pinned[a.session_id]));
+					Number(Boolean(dashboard_state.pinned[b.session_id])) -
+					Number(Boolean(dashboard_state.pinned[a.session_id]));
 				if (pinned) return pinned;
-				if (state.sort_by === "events") return b.event_count - a.event_count;
-				if (state.sort_by === "repo")
+				if (dashboard_state.sort_by === "events")
+					return b.event_count - a.event_count;
+				if (dashboard_state.sort_by === "repo")
 					return repo_name(a).localeCompare(repo_name(b));
 				return b.last_ts.localeCompare(a.last_ts);
 			});
 	});
 	const known_types = $derived(
-		[...new Set(state.events.map((event) => event.type))].sort((a, b) =>
-			a.localeCompare(b),
+		[...new Set(dashboard_state.events.map((event) => event.type))].sort(
+			(a, b) => a.localeCompare(b),
 		),
 	);
 	const visible_events = $derived(
-		state.events.filter(
+		dashboard_state.events.filter(
 			(event) =>
-				(!state.selected_type || event.type === state.selected_type) &&
-				query_matches(event, state.event_query),
+				(!dashboard_state.selected_type ||
+					event.type === dashboard_state.selected_type) &&
+				query_matches(event, dashboard_state.event_query),
 		),
 	);
 	const max_span = $derived(
-		Math.max(1, ...(state.trace?.spans ?? []).map((span) => span.duration_ms)),
+		Math.max(
+			1,
+			...(dashboard_state.trace?.spans ?? []).map((span) => span.duration_ms),
+		),
 	);
 	const grouped_sessions = $derived.by(() => {
 		const groups: Record<string, { name: string; sessions: Session[] }> = {};
 		for (const session of visible_sessions) {
 			const key =
-				state.group_by === "pool"
+				dashboard_state.group_by === "pool"
 					? session.pool || "default"
-					: state.group_by === "model"
+					: dashboard_state.group_by === "model"
 						? session.model || "unknown model"
 						: session.cwd || "unknown project";
-			const name = state.group_by === "repo" ? repo_name(session) : key;
+			const name =
+				dashboard_state.group_by === "repo" ? repo_name(session) : key;
 			groups[key] ??= { name, sessions: [] };
 			groups[key].sessions.push(session);
 		}
 		return Object.values(groups).sort((a, b) => {
-			if (state.sort_by === "repo") return a.name.localeCompare(b.name);
+			if (dashboard_state.sort_by === "repo")
+				return a.name.localeCompare(b.name);
 			return (
 				visible_sessions.indexOf(a.sessions[0]) -
 				visible_sessions.indexOf(b.sessions[0])
@@ -116,19 +128,19 @@
 		const rows: { session: Session; event: Event }[] = [];
 		for (const session of comparison_sessions) {
 			for (const event of event_cache.get(session.session_id) || []) {
-				if (query_matches(event, state.event_query))
+				if (query_matches(event, dashboard_state.event_query))
 					rows.push({ session, event });
 			}
 		}
 		return rows.sort((a, b) => a.event.ts.localeCompare(b.event.ts));
 	});
 	const tool_spans = $derived(
-		(state.trace?.spans ?? [])
+		(dashboard_state.trace?.spans ?? [])
 			.filter((span) => span.kind === "tool")
 			.slice(0, 8),
 	);
 	const provider_spans = $derived(
-		(state.trace?.spans ?? [])
+		(dashboard_state.trace?.spans ?? [])
 			.filter((span) => span.kind === "provider")
 			.slice(0, 8),
 	);
@@ -152,78 +164,82 @@
 
 <svelte:head><title>Pi Observability</title></svelte:head>
 
-<div class:light={state.theme === "light"} class="app-shell">
+<div class:light={dashboard_state.theme === "light"} class="app-shell">
 	<HeaderBar />
 
 	<main>
 		<Sidebar groups={grouped_sessions} />
 
 		<section class="content">
-			{#if state.trace}
+			{#if dashboard_state.trace}
 				<section class="hero panel">
 					<div>
 						<p class="eyebrow">Selected session</p>
 						<h2>
-							{state.trace.session
-								? label(state.trace.session)
-								: state.selected_id}
+							{dashboard_state.trace.session
+								? label(dashboard_state.trace.session)
+								: dashboard_state.selected_id}
 						</h2>
-						<p>{state.trace.session?.cwd}</p>
+						<p>{dashboard_state.trace.session?.cwd}</p>
 					</div>
 					<div class="metric-grid">
 						<div>
-							<strong>{number_crunch(state.trace.metrics.events)}</strong><span
-								>events</span
-							>
+							<strong
+								>{number_crunch(dashboard_state.trace.metrics.events)}</strong
+							><span>events</span>
 						</div>
 						<div>
-							<strong>{duration(state.trace.metrics.elapsed_ms)}</strong><span
-								>elapsed</span
-							>
+							<strong
+								>{duration(dashboard_state.trace.metrics.elapsed_ms)}</strong
+							><span>elapsed</span>
 						</div>
 						<div>
-							<strong>{duration(state.trace.metrics.blocking_ms)}</strong><span
-								>blocking</span
-							>
+							<strong
+								>{duration(dashboard_state.trace.metrics.blocking_ms)}</strong
+							><span>blocking</span>
 						</div>
 						<div>
-							<strong>{number_crunch(state.trace.metrics.errors)}</strong><span
-								>errors</span
-							>
+							<strong
+								>{number_crunch(dashboard_state.trace.metrics.errors)}</strong
+							><span>errors</span>
 						</div>
 						<div>
-							<strong>{number_crunch(state.trace.metrics.total_tokens)}</strong
+							<strong
+								>{number_crunch(
+									dashboard_state.trace.metrics.total_tokens,
+								)}</strong
 							><span>tokens</span>
 						</div>
 						<div>
-							<strong>{money(state.trace.metrics.cost_usd)}</strong><span
-								>cost</span
-							>
+							<strong>{money(dashboard_state.trace.metrics.cost_usd)}</strong
+							><span>cost</span>
 						</div>
 					</div>
 				</section>
 
 				<nav class="view-tabs">
 					<button
-						class:active={state.selected_view === "timeline"}
-						onclick={() => (state.selected_view = "timeline")}>Timeline</button
+						class:active={dashboard_state.selected_view === "timeline"}
+						onclick={() => (dashboard_state.selected_view = "timeline")}
+						>Timeline</button
 					><button
-						class:active={state.selected_view === "waterfall"}
-						onclick={() => (state.selected_view = "waterfall")}
+						class:active={dashboard_state.selected_view === "waterfall"}
+						onclick={() => (dashboard_state.selected_view = "waterfall")}
 						>Waterfall</button
 					><button
-						class:active={state.selected_view === "events"}
-						onclick={() => (state.selected_view = "events")}>Events</button
+						class:active={dashboard_state.selected_view === "events"}
+						onclick={() => (dashboard_state.selected_view = "events")}
+						>Events</button
 					><button
-						class:active={state.selected_view === "swimlane"}
+						class:active={dashboard_state.selected_view === "swimlane"}
 						onclick={() => {
-							state.selected_view = "swimlane";
+							dashboard_state.selected_view = "swimlane";
 							void load_comparison(comparison_sessions);
 						}}>Swimlane</button
 					><button
-						class:active={state.selected_view === "race"}
+						class:active={dashboard_state.selected_view === "race"}
 						onclick={() => {
-							state.selected_view = "race";
+							dashboard_state.selected_view = "race";
 							void load_comparison(comparison_sessions);
 						}}>Race</button
 					>
@@ -232,7 +248,7 @@
 				<SessionLabels />
 
 				<div class="view-body">
-					{#if state.selected_view === "timeline"}
+					{#if dashboard_state.selected_view === "timeline"}
 						<TimelineView
 							{artifacts}
 							{final_outputs}
@@ -240,11 +256,11 @@
 							{turns}
 							{visible_events}
 						/>
-					{:else if state.selected_view === "waterfall"}
+					{:else if dashboard_state.selected_view === "waterfall"}
 						<WaterfallView {max_span} {provider_spans} {tool_spans} />
-					{:else if state.selected_view === "events"}
+					{:else if dashboard_state.selected_view === "events"}
 						<EventsView {known_types} {visible_events} />
-					{:else if state.selected_view === "swimlane"}
+					{:else if dashboard_state.selected_view === "swimlane"}
 						<SwimlaneView sessions={comparison_sessions} />
 					{:else}
 						<RaceView rows={race_rows} />

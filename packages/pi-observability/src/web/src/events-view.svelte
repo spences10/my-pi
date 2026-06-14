@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { ObservabilityEvent } from "../../types";
 	import {
+		dashboard_state,
 		number_crunch,
-		state,
 		summary,
 		time,
 	} from "./dashboard-state.svelte";
@@ -20,12 +20,12 @@
 	<div class="panel-head">
 		<h3>Event stream</h3>
 		<div class="filters">
-			<select bind:value={state.selected_type}
+			<select bind:value={dashboard_state.selected_type}
 				><option value="">All types</option
 				>{#each known_types as type (type)}<option value={type}>{type}</option
 					>{/each}</select
 			><input
-				bind:value={state.event_query}
+				bind:value={dashboard_state.event_query}
 				placeholder="type:, tool:, status:, json:path=value…"
 			/>
 		</div>
@@ -34,7 +34,7 @@
 		{#each visible_events.slice(0, 400) as event (event.event_id)}<button
 				class:error={event_has_error(event)}
 				class="event"
-				onclick={() => (state.selected_event = event)}
+				onclick={() => (dashboard_state.selected_event = event)}
 				><span class="pill">#{number_crunch(event.seq)}</span><strong
 					>{event.type}</strong
 				><small>{time(event.ts)}</small>

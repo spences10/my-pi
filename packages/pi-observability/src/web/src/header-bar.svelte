@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { state, toggle_theme } from "./dashboard-state.svelte";
+	import { dashboard_state, toggle_theme } from "./dashboard-state.svelte";
 </script>
 
 <header>
@@ -7,14 +7,14 @@
 		<h1>Pi Observability</h1>
 	</div>
 	<div class="toolbar">
-		<span class:live={state.connected} class="status">
-			{state.connected ? "live" : "reconnecting"}
+		<span class:live={dashboard_state.connected} class="status">
+			{dashboard_state.connected ? "live" : "reconnecting"}
 		</span>
 		<button onclick={toggle_theme}>
-			{state.theme === "dark" ? "Light" : "Dark"}
+			{dashboard_state.theme === "dark" ? "Light" : "Dark"}
 		</button>
-		<button onclick={() => (state.paused = !state.paused)}>
-			{state.paused ? "Resume" : "Pause"}
+		<button onclick={() => (dashboard_state.paused = !dashboard_state.paused)}>
+			{dashboard_state.paused ? "Resume" : "Pause"}
 		</button>
 	</div>
 </header>

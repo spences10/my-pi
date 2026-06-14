@@ -1,41 +1,44 @@
 <script lang="ts">
 	import type { DashboardSession } from "../../types";
 	import {
+		dashboard_state,
 		is_active_session,
 		label,
 		number_crunch,
 		repo_name,
 		select_session,
-		state,
 		time,
-		toggle_query_token,
 		toggle_archive,
 		toggle_pin,
+		toggle_query_token,
 	} from "./dashboard-state.svelte";
 	type Group = { name: string; sessions: DashboardSession[] };
 	let { groups }: { groups: Group[] } = $props();
 	const active_count = $derived(
-		state.sessions.filter((session) => is_active_session(session)).length,
+		dashboard_state.sessions.filter((session) => is_active_session(session))
+			.length,
 	);
 	const selected_repo_token = $derived.by(() => {
-		const session = state.sessions.find(
-			(item) => item.session_id === state.selected_id,
+		const session = dashboard_state.sessions.find(
+			(item) => item.session_id === dashboard_state.selected_id,
 		);
 		return session ? `repo:${repo_name(session)}` : "";
 	});
-	const query_parts = $derived(state.query.split(/\s+/).filter(Boolean));
+	const query_parts = $derived(
+		dashboard_state.query.split(/\s+/).filter(Boolean),
+	);
 </script>
 
 <aside class="sidebar">
 	<div class="panel sticky">
 		<input
-			bind:value={state.query}
+			bind:value={dashboard_state.query}
 			placeholder="Search or use repo:, pool:, model:, active:true…"
 		/>
 		<div class="controls">
 			<label>
 				Group
-				<select bind:value={state.group_by}>
+				<select bind:value={dashboard_state.group_by}>
 					<option value="repo">Repo</option>
 					<option value="pool">Pool</option>
 					<option value="model">Model</option>
@@ -43,7 +46,7 @@
 			</label>
 			<label>
 				Sort
-				<select bind:value={state.sort_by}>
+				<select bind:value={dashboard_state.sort_by}>
 					<option value="recent">Recent</option>
 					<option value="events">Events</option>
 					<option value="repo">Repo</option>
@@ -67,19 +70,22 @@
 				}}>Current repo</button
 			>
 			<button
-				class:active={state.show_archived}
-				onclick={() => (state.show_archived = !state.show_archived)}
-				>{state.show_archived ? "Hide archived" : "Show archived"}</button
+				class:active={dashboard_state.show_archived}
+				onclick={() =>
+					(dashboard_state.show_archived = !dashboard_state.show_archived)}
+				>{dashboard_state.show_archived
+					? "Hide archived"
+					: "Show archived"}</button
 			>
 		</div>
 		<div class="stats">
-			<strong>{number_crunch(state.sessions.length)}</strong><span
+			<strong>{number_crunch(dashboard_state.sessions.length)}</strong><span
 				>sessions</span
 			>
 			<strong>{number_crunch(active_count)}</strong><span>active</span>
 			<strong>
 				{number_crunch(
-					state.sessions.reduce(
+					dashboard_state.sessions.reduce(
 						(sum, session) => sum + Number(session.event_count || 0),
 						0,
 					),
@@ -97,11 +103,11 @@
 				</summary>
 				{#each group.sessions as session (session.session_id)}
 					<div
-						class:archived={state.archived[session.session_id]}
+						class:archived={dashboard_state.archived[session.session_id]}
 						class="session-row"
 					>
 						<button
-							class:active={session.session_id === state.selected_id}
+							class:active={session.session_id === dashboard_state.selected_id}
 							class="session"
 							onclick={() => select_session(session.session_id)}
 							title={`${session.session_id}\n${session.cwd}\nLast event: ${time(session.last_ts)}`}
@@ -118,23 +124,27 @@
 								)} events · {time(session.last_ts)}
 							</span>
 							<small>{session.cwd}</small>
-							{#if state.labels[session.session_id]?.length}
+							{#if dashboard_state.labels[session.session_id]?.length}
 								<small class="chips">
-									{state.labels[session.session_id].join(" · ")}
+									{dashboard_state.labels[session.session_id].join(" · ")}
 								</small>
 							{/if}
 						</button>
 						<div class="session-actions">
 							<button
 								aria-label="Pin session"
-								class:pinned={state.pinned[session.session_id]}
+								class:pinned={dashboard_state.pinned[session.session_id]}
 								onclick={() => toggle_pin(session.session_id)}
-								>{state.pinned[session.session_id] ? "★" : "☆"}</button
+								>{dashboard_state.pinned[session.session_id]
+									? "★"
+									: "☆"}</button
 							>
 							<button
 								aria-label="Archive session"
 								onclick={() => toggle_archive(session.session_id)}
-								>{state.archived[session.session_id] ? "↩" : "×"}</button
+								>{dashboard_state.archived[session.session_id]
+									? "↩"
+									: "×"}</button
 							>
 						</div>
 					</div>

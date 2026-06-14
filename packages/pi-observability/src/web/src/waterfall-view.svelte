@@ -1,6 +1,10 @@
 <script lang="ts">
 	import type { TraceSpanSummary } from "../../types";
-	import { duration, number_crunch, state } from "./dashboard-state.svelte";
+	import {
+		dashboard_state,
+		duration,
+		number_crunch,
+	} from "./dashboard-state.svelte";
 
 	let {
 		max_span,
@@ -18,9 +22,11 @@
 		<div class="panel span-panel">
 			<div class="panel-head">
 				<h3>Waterfall bottlenecks</h3>
-				<span>{number_crunch(state.trace?.spans.length ?? 0)} spans</span>
+				<span
+					>{number_crunch(dashboard_state.trace?.spans.length ?? 0)} spans</span
+				>
 			</div>
-			{#each state.trace?.spans ?? [] as span (span.id)}<div
+			{#each dashboard_state.trace?.spans ?? [] as span (span.id)}<div
 					class:error={span.error}
 					class="span-row"
 				>
