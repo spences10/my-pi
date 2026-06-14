@@ -58,7 +58,10 @@
 		"changeset": "changeset",
 		"version": "changeset version && pnpm run preview:generate",
 		"release": "git diff --quiet && git diff --cached --quiet && pnpm run build && changeset publish",
-		"coverage": "pnpm --filter \"./packages/*\" run build:self && vp pack && sh -c 'vp test --coverage && pnpm --filter \"./packages/*\" --if-present run coverage:self' --"
+		"coverage": "pnpm --filter \"./packages/*\" run build:self && vp pack && sh -c 'vp test --coverage && pnpm --filter \"./packages/*\" --if-present run coverage:self' --",
+		"web:sync": "pnpm --filter web exec svelte-kit sync",
+		"web:check": "pnpm --filter web check",
+		"web:gen": "pnpm --filter web gen"
 	},
 	"dependencies": {
 		"@earendil-works/pi-ai": "catalog:",
