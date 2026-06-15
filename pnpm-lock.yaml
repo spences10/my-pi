@@ -7,14 +7,14 @@ settings:
 catalogs:
   default:
     '@earendil-works/pi-ai':
-      specifier: 0.79.2
-      version: 0.79.2
+      specifier: 0.79.3
+      version: 0.79.3
     '@earendil-works/pi-coding-agent':
-      specifier: 0.79.2
-      version: 0.79.2
+      specifier: 0.79.3
+      version: 0.79.3
     '@earendil-works/pi-tui':
-      specifier: 0.79.2
-      version: 0.79.2
+      specifier: 0.79.3
+      version: 0.79.3
     '@sveltejs/vite-plugin-svelte':
       specifier: ^7.1.2
       version: 7.1.2
@@ -27,6 +27,9 @@ catalogs:
     svelte:
       specifier: ^5.56.2
       version: 5.56.3
+    typebox:
+      specifier: ^1.1.38
+      version: 1.2.9
     typescript:
       specifier: ^6.0.3
       version: 6.0.3
@@ -54,13 +57,13 @@ importers:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 0.79.2
+        version: 0.79.3
       '@spences10/pi-project-trust':
         specifier: workspace:*
         version: link:packages/pi-project-trust
@@ -264,7 +267,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -279,7 +282,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -307,7 +310,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -329,13 +332,13 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 0.79.2
+        version: 0.79.3
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -354,10 +357,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 0.79.2
+        version: 0.79.3
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -382,7 +385,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -413,7 +416,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -428,7 +431,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -450,10 +453,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 0.79.2
+        version: 0.79.3
       '@sveltejs/vite-plugin-svelte':
         specifier: 'catalog:'
         version: 7.1.2(svelte@5.56.3)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.27.3)(jiti@2.7.0)(yaml@2.9.0))
@@ -480,7 +483,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -499,7 +502,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -514,7 +517,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -529,10 +532,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -547,7 +550,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -566,10 +569,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 0.79.2
+        version: 0.79.3
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -591,10 +594,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 0.79.2
+        version: 0.79.3
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -609,7 +612,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -628,7 +631,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -656,13 +659,13 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 0.79.2
+        version: 0.79.3
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -684,7 +687,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -701,10 +704,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 0.79.2(ws@8.21.0)(zod@4.4.3)
+        version: 0.79.3(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 0.79.2
+        version: 0.79.3
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.3
@@ -957,22 +960,22 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@earendil-works/pi-agent-core@0.79.2':
-    resolution: {integrity: sha512-52+ckc76+gantwr1QCHiCCuMFHCSWa/DSsUkOUzumLwbLYEiSM3Zd+HmvY7DXwL6Frlrrz1w2pVU+mfGbitrTw==}
+  '@earendil-works/pi-agent-core@0.79.3':
+    resolution: {integrity: sha512-Ksvnu6CpQLYGbCSgnQEetzliI7yb+QkqtSlmmunJ69QluT45kd3DjQZRNHfRLk++Dd02Y8QvsRKMopSJCcWoWw==}
     engines: {node: '>=22.19.0'}
 
-  '@earendil-works/pi-ai@0.79.2':
-    resolution: {integrity: sha512-ydZ19dWqhw4KrkKXtLByFXdNPusRTpXYAElbnCMX0iSX+m59+SUJG0RgEQ6H7sIIV6LvGSEnnQsP6tm1vwcrLA==}
-    engines: {node: '>=22.19.0'}
-    hasBin: true
-
-  '@earendil-works/pi-coding-agent@0.79.2':
-    resolution: {integrity: sha512-RAB5NvI3qw3E991iigPfeE5lqUTmsDGwlqmpqDlCqBDYNCJFJXuCJfNhyBe6/kAI1seYIheHYu5BA0q8adUqgA==}
+  '@earendil-works/pi-ai@0.79.3':
+    resolution: {integrity: sha512-lMSput/haP5uZAGbXhS5rAYd3GB7GYdJkoAUxg3VFummBeqGqGqllaTWrbHFN12kVGyVfWHhdySNXkiqVh65Iw==}
     engines: {node: '>=22.19.0'}
     hasBin: true
 
-  '@earendil-works/pi-tui@0.79.2':
-    resolution: {integrity: sha512-RGPWBacWh3HpMqkYg0tyiQWpFDZUmAikI4GoYXXWS0+MKljeD2t0VT5kdrP6fe05OD2jFbMlryau9ZHZwzkw6w==}
+  '@earendil-works/pi-coding-agent@0.79.3':
+    resolution: {integrity: sha512-B3rAyw4/f1l3EYjQpCKpevzuBIPjYor6fHxPHQpLMdn/NTv3536i1P4ZrsyFkKpXqJWH66xKK5hyf8sqRe3dGA==}
+    engines: {node: '>=22.19.0'}
+    hasBin: true
+
+  '@earendil-works/pi-tui@0.79.3':
+    resolution: {integrity: sha512-cpmkEM1aEuGUx6YZM36VlzpulwLzqD5T2cUEkGHndDTNGEbnn5sj/9SYm+QBfKjvZsWoHfZuFBnu4+hh96/FbA==}
     engines: {node: '>=22.19.0'}
 
   '@emnapi/core@1.10.0':
@@ -4126,9 +4129,9 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@earendil-works/pi-agent-core@0.79.2(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-agent-core@0.79.3(ws@8.21.0)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-ai': 0.79.2(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.79.3(ws@8.21.0)(zod@4.4.3)
       ignore: 7.0.5
       typebox: 1.1.38
       yaml: 2.9.0
@@ -4140,7 +4143,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@0.79.2(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-ai@0.79.3(ws@8.21.0)(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0
@@ -4160,11 +4163,11 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-coding-agent@0.79.2(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-coding-agent@0.79.3(ws@8.21.0)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-agent-core': 0.79.2(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-ai': 0.79.2(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-tui': 0.79.2
+      '@earendil-works/pi-agent-core': 0.79.3(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.79.3(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui': 0.79.3
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
       cross-spawn: 7.0.6
@@ -4189,7 +4192,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-tui@0.79.2':
+  '@earendil-works/pi-tui@0.79.3':
     dependencies:
       get-east-asian-width: 1.6.0
       marked: 15.0.12
