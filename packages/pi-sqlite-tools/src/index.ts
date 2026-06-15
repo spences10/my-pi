@@ -21,6 +21,8 @@ const MCP_SQLITE_TOOL_SUFFIXES = new Set([
 	'execute_write_query',
 	'execute_schema_query',
 	'bulk_insert',
+	'import_csv',
+	'export_csv',
 	'begin_transaction',
 	'commit_transaction',
 	'rollback_transaction',

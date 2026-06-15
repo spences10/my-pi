@@ -33,6 +33,23 @@ describe('should_inject_sqlite_tools_prompt', () => {
 		).toBe(true);
 	});
 
+	it('injects for aliased sqlite CSV tools', () => {
+		expect(
+			should_inject_sqlite_tools_prompt({
+				systemPromptOptions: {
+					selectedTools: ['mcp__sqlite__import_csv'],
+				},
+			} as any),
+		).toBe(true);
+		expect(
+			should_inject_sqlite_tools_prompt({
+				systemPromptOptions: {
+					selectedTools: ['mcp__sqlite__export_csv'],
+				},
+			} as any),
+		).toBe(true);
+	});
+
 	it('skips injection when sqlite MCP tools are unavailable', () => {
 		expect(
 			should_inject_sqlite_tools_prompt({
