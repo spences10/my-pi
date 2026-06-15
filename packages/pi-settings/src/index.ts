@@ -62,13 +62,6 @@ export function read_settings_section<T>(
 	) as T;
 }
 
-export function write_settings_section<T>(
-	key: keyof MyPiSettingsFile,
-	value: T,
-): void {
-	write_settings({ ...read_settings(), [key]: value });
-}
-
 export function read_package_settings<T>(
 	name: string,
 	fallback: T,
