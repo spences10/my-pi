@@ -2,6 +2,10 @@
 	"name": "@spences10/pi-settings",
 	"version": "0.0.0",
 	"description": "Shared my-pi settings store",
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
