@@ -41,7 +41,7 @@ async function wait_for_health(url: string): Promise<void> {
 function event(seq = 0): ObservabilityEvent {
 	return {
 		event_id: `evt-${seq}`,
-		ts: new Date(Date.UTC(2026, 5, 1, 0, 0, seq)).toISOString(),
+		ts: new Date(Date.now() + seq * 1000).toISOString(),
 		type: 'session_start',
 		session_id: 'session-1',
 		cwd: '/tmp/project',
