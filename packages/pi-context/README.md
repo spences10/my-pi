@@ -52,6 +52,24 @@ pi -e ./packages/pi-context
 Use `/context` in interactive mode for a small modal with list, stats,
 settings, and purge actions.
 
+## Programmatic API
+
+The default export is the Pi extension. The root module also exposes
+sidecar helpers used by sibling packages and custom harnesses:
+
+- context settings helpers such as `get_context_mcp_output_limits()`
+  and `load_context_settings_config()` for sharing retention and
+  capture policy.
+- store helpers such as `maybe_store_context_output()`,
+  `get_context_store()`, and `set_context_sidecar_enabled()` for
+  controlled direct indexing and tests.
+- eval helpers `run_context_eval()` and `run_context_eval_cli()` for
+  package evaluation workflows.
+
+`@spences10/pi-mcp` uses these root exports to store oversized MCP
+results in the sidecar before falling back to temporary files. The
+`./store` subpath remains available for store-only consumers.
+
 Receipts include the source id, first exact chunk id, and the main
 retrieval path:
 
