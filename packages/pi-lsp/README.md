@@ -102,6 +102,19 @@ import lsp from '@spences10/pi-lsp';
 // pass `lsp` as an ExtensionFactory to your Pi runtime
 ```
 
+For harnesses that need to provide their own language-server client
+factory, use the named extension factory:
+
+```ts
+import { create_lsp_extension } from '@spences10/pi-lsp';
+
+const lsp = create_lsp_extension({ create_client });
+```
+
+The package also exports `CreateLspExtensionOptions`,
+`should_inject_lsp_prompt`, and `LspClientLike` for custom harnesses
+and tests that need to share the same prompt-gating or client seam.
+
 `my-pi` imports this package directly and enables it as the built-in
 LSP extension.
 
