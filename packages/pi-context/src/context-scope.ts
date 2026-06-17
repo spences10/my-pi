@@ -31,14 +31,7 @@ export function should_skip_tool(tool_name: string): boolean {
 	// - MCP receipts are produced before generic tool_result hooks; the hook also
 	//   ignores existing [context-sidecar] receipts so direct MCP storage is not
 	//   indexed a second time.
-	return (
-		tool_name === 'context_search' ||
-		tool_name === 'context_get' ||
-		tool_name === 'context_list' ||
-		tool_name === 'context_stats' ||
-		tool_name === 'context_purge' ||
-		tool_name === 'team'
-	);
+	return tool_name.startsWith('context_') || tool_name === 'team';
 }
 
 export function session_id_from_context(

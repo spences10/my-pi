@@ -13,14 +13,14 @@ import {
 	context_store_stats,
 } from './store/maintenance.js';
 import {
-	context_store_chunk_summary,
-	context_store_get,
-} from './store/retrieval.js';
-import {
 	default_context_db_path,
 	get_context_store as get_context_store_with_ctor,
 	maybe_store_context_output as maybe_store_context_output_with_ctor,
 } from './store/registry.js';
+import {
+	context_store_chunk_summary,
+	context_store_get,
+} from './store/retrieval.js';
 import {
 	chunk_text,
 	count_lines,
@@ -34,6 +34,7 @@ import type {
 	ContextChunk,
 	ContextChunkSummary,
 	ContextCleanupResult,
+	ContextExportContent,
 	ContextListResult,
 	ContextPurgeDetails,
 	ContextRetentionPolicy,
@@ -53,6 +54,11 @@ export {
 	parse_context_retention_policy,
 } from './policy.js';
 export {
+	default_context_db_path,
+	is_context_sidecar_enabled,
+	set_context_sidecar_enabled,
+} from './store/registry.js';
+export {
 	count_lines,
 	DEFAULT_CONTEXT_MAX_BYTES,
 	DEFAULT_CONTEXT_MAX_LINES,
@@ -60,15 +66,11 @@ export {
 	make_preview,
 	should_index_text,
 } from './text.js';
-export {
-	default_context_db_path,
-	is_context_sidecar_enabled,
-	set_context_sidecar_enabled,
-} from './store/registry.js';
 export type {
 	ContextChunk,
 	ContextChunkSummary,
 	ContextCleanupResult,
+	ContextExportContent,
 	ContextListResult,
 	ContextPurgeDetails,
 	ContextRetentionPolicy,
@@ -503,6 +505,40 @@ export class ContextStore {
 		options: ContextScopeOptions = {},
 	): ContextChunk[] {
 		return context_store_get(this, source_id, chunk_id, options);
+	}
+
+	export_content(
+		source_id: string,
+		chunk_id?: string,
+		options: ContextScopeOptions = {},
+	): ContextExportContent {
+		const chunks = this.get(source_id, chunk_id, options);
+		const content = chunks.map((chunk) => chunk.content).join('');
+		const hash = chunk_id
+			? null
+			: this.source_content_hash(source_id, options);
+		const verified = hash
+			? createHash('sha256').update(content).digest('hex') === hash
+			: null;
+		return { chunks, content, verified };
+	}
+
+	private source_content_hash(
+		source_id: string,
+		options: ContextScopeOptions = {},
+	): string | null {
+		const scoped = this.scoped_filter('context_sources', options);
+		const filters = ['context_sources.id = ?', ...scoped.where];
+		const params: Array<string | number> = [
+			source_id,
+			...scoped.params,
+		];
+		const row = this.db
+			.prepare(
+				`SELECT content_hash FROM context_sources WHERE ${filters.join(' AND ')} LIMIT 1`,
+			)
+			.get(...params) as { content_hash: string } | undefined;
+		return row?.content_hash ?? null;
 	}
 
 	stats(

@@ -113,6 +113,9 @@ describe('ContextStore', () => {
 			`context_get source_id:"${stored!.source_id}"`,
 		);
 		expect(stored?.receipt).toContain(
+			`context_export source_id:"${stored!.source_id}" file_path:"tmp/context-output.txt"`,
+		);
+		expect(stored?.receipt).toContain(
 			`First chunk id: ${stored!.source_id}_0001`,
 		);
 		expect(stored?.first_chunk_id).toBe(`${stored!.source_id}_0001`);
@@ -170,6 +173,33 @@ describe('ContextStore', () => {
 		expect(stats.bytes_stored).toBeGreaterThan(stats.bytes_returned);
 		expect(stats.reduction_pct).toBeGreaterThan(0);
 		expect(stats.total_bytes).toBeGreaterThan(0);
+	});
+
+	it('exports full source content losslessly across chunk boundaries', () => {
+		const store = create_store({ max_bytes: 10 });
+		const text = JSON.stringify({
+			kind: 'context-export-smoke',
+			payload: 'x'.repeat(12_000),
+			markers: ['alpha', 'beta', 'omega'],
+		});
+		const stored = store.store({
+			text,
+			tool_name: 'mcp',
+			force: true,
+		});
+
+		const exported = store.export_content(stored!.source_id);
+
+		expect(exported.chunks.length).toBeGreaterThan(1);
+		expect(exported.content).toBe(text);
+		expect(exported.verified).toBe(true);
+		expect(JSON.parse(exported.content)).toMatchObject({
+			kind: 'context-export-smoke',
+			markers: ['alpha', 'beta', 'omega'],
+		});
+		expect(
+			store.export_content(stored!.source_id, '1').verified,
+		).toBeNull();
 	});
 
 	it('splits long line-oriented output into searchable bounded chunks', () => {
@@ -348,9 +378,7 @@ describe('ContextStore', () => {
 		const scoped = store.search('shared-token');
 		expect(scoped).toHaveLength(1);
 		expect(scoped[0].content).toContain('current-session');
-		expect(store.get(other!.source_id)).toHaveLength(
-			other!.chunk_count,
-		);
+		expect(store.get(other!.source_id)).toEqual([]);
 		expect(
 			store.get(other!.source_id, undefined, { global: true }),
 		).toHaveLength(other!.chunk_count);

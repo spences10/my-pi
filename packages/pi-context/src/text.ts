@@ -147,29 +147,8 @@ export function chunk_text(
 	text: string,
 	source_id: string,
 ): ContextChunk[] {
-	const paragraphs = text.split(/\n{2,}/);
-	const chunks: string[] = [];
-	let current = '';
 	const target_bytes = 4096;
-
-	for (const paragraph of paragraphs) {
-		if (Buffer.byteLength(paragraph, 'utf8') > target_bytes) {
-			if (current) chunks.push(current);
-			chunks.push(...split_large_chunk(paragraph, target_bytes));
-			current = '';
-			continue;
-		}
-
-		const next = current ? `${current}\n\n${paragraph}` : paragraph;
-		if (Buffer.byteLength(next, 'utf8') > target_bytes && current) {
-			chunks.push(current);
-			current = paragraph;
-		} else {
-			current = next;
-		}
-	}
-	if (current) chunks.push(current);
-	if (chunks.length === 0) chunks.push(text);
+	const chunks = split_lossless_chunks(text, target_bytes);
 
 	return chunks.map((content, index) => ({
 		id: `${source_id}_${String(index + 1).padStart(4, '0')}`,
@@ -181,37 +160,48 @@ export function chunk_text(
 	}));
 }
 
-function split_large_chunk(
+function split_lossless_chunks(
 	text: string,
 	target_bytes: number,
 ): string[] {
 	const chunks: string[] = [];
-	let current = '';
+	let rest = text;
 
-	for (const line of text.split('\n')) {
-		const next = current ? `${current}\n${line}` : line;
-		if (Buffer.byteLength(next, 'utf8') <= target_bytes) {
-			current = next;
-			continue;
-		}
-
-		if (current) chunks.push(current);
-		if (Buffer.byteLength(line, 'utf8') <= target_bytes) {
-			current = line;
-			continue;
-		}
-
-		let rest = line;
-		while (Buffer.byteLength(rest, 'utf8') > target_bytes) {
-			const [head, tail] = split_utf8_at_byte(rest, target_bytes);
+	while (Buffer.byteLength(rest, 'utf8') > target_bytes) {
+		const [head, tail] = split_utf8_at_byte(rest, target_bytes);
+		const break_index = preferred_break_index(head);
+		if (break_index === null) {
 			chunks.push(head);
 			rest = tail;
+			continue;
 		}
-		current = rest;
+
+		chunks.push(rest.slice(0, break_index));
+		rest = rest.slice(break_index);
 	}
 
-	if (current) chunks.push(current);
+	if (rest || chunks.length === 0) chunks.push(rest);
 	return chunks;
+}
+
+function preferred_break_index(head: string): number | null {
+	const minimum = Math.floor(head.length * 0.6);
+	for (const index of [
+		last_paragraph_break_index(head),
+		head.lastIndexOf('\n') + 1,
+		head.lastIndexOf(' ') + 1,
+		head.lastIndexOf('\t') + 1,
+	]) {
+		if (index >= minimum) return index;
+	}
+	return null;
+}
+
+function last_paragraph_break_index(text: string): number {
+	let index = 0;
+	for (const match of text.matchAll(/\n{2,}/g))
+		index = match.index + match[0].length;
+	return index;
 }
 
 function split_utf8_at_byte(
@@ -262,7 +252,8 @@ export function summarize_source(
 		``,
 		`Next actions:`,
 		`- Search this source: context_search query:"..." source_id:"${result.source_id}"`,
-		`- Retrieve all chunks: context_get source_id:"${result.source_id}"`,
+		`- Retrieve all chunks into model context: context_get source_id:"${result.source_id}"`,
+		`- Export chunks to a file for jq/python/sed: context_export source_id:"${result.source_id}" file_path:"tmp/context-output.txt"`,
 		`- List recent scoped sources: context_list`,
 		``,
 		`Preview:`,

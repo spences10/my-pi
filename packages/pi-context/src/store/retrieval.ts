@@ -40,11 +40,9 @@ function chunk_reference_to_ordinal(
 export function context_store_chunk_summary(
 	store: ContextStoreRetrievalTarget,
 	source_id: string,
-	_options: ContextScopeOptions = {},
+	options: ContextScopeOptions = {},
 ): ContextChunkSummary | null {
-	const scoped = store.scoped_filter('context_sources', {
-		global: true,
-	});
+	const scoped = store.scoped_filter('context_sources', options);
 	const filters = ['context_sources.id = ?', ...scoped.where];
 	const params: Array<string | number> = [
 		source_id,
@@ -80,11 +78,9 @@ export function context_store_get(
 	store: ContextStoreRetrievalTarget,
 	source_id: string,
 	chunk_id?: string,
-	_options: ContextScopeOptions = {},
+	options: ContextScopeOptions = {},
 ): ContextChunk[] {
-	const scoped = store.scoped_filter('context_sources', {
-		global: true,
-	});
+	const scoped = store.scoped_filter('context_sources', options);
 	const filters = ['context_chunks.source_id = ?', ...scoped.where];
 	const params: Array<string | number> = [
 		source_id,

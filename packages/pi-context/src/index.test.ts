@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -157,6 +157,7 @@ describe('context_sidecar extension', () => {
 
 		expect(is_context_sidecar_enabled()).toBe(true);
 		expect([...fake.tools.keys()].sort()).toEqual([
+			'context_export',
 			'context_get',
 			'context_list',
 			'context_purge',
@@ -472,6 +473,31 @@ describe('context_sidecar extension', () => {
 			});
 		expect(alias_get.content[0].text).toContain('tool-token');
 		expect(alias_get.details).toMatchObject({ count: 1 });
+
+		const export_dir = mkdtempSync(
+			join(tmpdir(), 'pi-context-export-'),
+		);
+		dirs.push(export_dir);
+		const exported = await fake.tools
+			.get('context_export')!
+			.execute('call-export', {
+				source_id,
+				file_path: join(export_dir, 'export.txt'),
+			});
+		expect(exported.content[0].text).toContain('Exported 1 chunk(s)');
+		expect(exported.content[0].text).toContain(
+			join(export_dir, 'export.txt'),
+		);
+		expect(exported.content[0].text).not.toContain('tool-token');
+		expect(
+			readFileSync(join(export_dir, 'export.txt'), 'utf8'),
+		).toContain('tool-token');
+		expect(exported.details).toMatchObject({
+			count: 1,
+			exported: true,
+			file_path: join(export_dir, 'export.txt'),
+			verified: true,
+		});
 
 		const missing_chunk = await fake.tools
 			.get('context_get')!

@@ -169,3 +169,9 @@ export interface ContextChunk {
 	content: string;
 	byte_count: number;
 }
+
+export interface ContextExportContent {
+	chunks: ContextChunk[];
+	content: string;
+	verified: boolean | null;
+}

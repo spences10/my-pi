@@ -1,4 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Type } from 'typebox';
 import {
@@ -166,6 +168,91 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 			return {
 				content: [{ type: 'text' as const, text }],
 				details: { count: chunks.length },
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: 'context_export',
+		label: 'Context Export',
+		description:
+			'Export stored chunks from the local SQLite context sidecar to a file without returning chunk content.',
+		promptSnippet:
+			'Write stored context-sidecar chunks to a file without loading them into model context',
+		parameters: Type.Object({
+			source_id: Type.String({ description: 'Indexed source id' }),
+			file_path: Type.String({
+				description:
+					'Destination file path. Relative paths resolve from the current working directory.',
+			}),
+			chunk_id: Type.Optional(
+				Type.String({ description: 'Optional exact chunk id' }),
+			),
+			global: Type.Optional(
+				Type.Boolean({
+					description:
+						'Export across all scopes instead of current project/session scope',
+				}),
+			),
+		}),
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const scope = scope_from_context(ctx);
+			const store = get_context_store(scope);
+			const scope_options = {
+				...(params.global ? {} : scope),
+				global: params.global,
+			};
+			const exported = store.export_content(
+				params.source_id,
+				params.chunk_id,
+				scope_options,
+			);
+			if (exported.chunks.length === 0) {
+				const summary = store.chunk_summary(
+					params.source_id,
+					scope_options,
+				);
+				return {
+					content: [
+						{
+							type: 'text' as const,
+							text: format_get_result(
+								params.source_id,
+								params.chunk_id,
+								exported.chunks,
+								summary,
+							),
+						},
+					],
+					details: { count: 0, exported: false },
+				};
+			}
+
+			const cwd = ctx?.cwd ?? process.cwd();
+			const file_path = isAbsolute(params.file_path)
+				? params.file_path
+				: resolve(cwd, params.file_path);
+			mkdirSync(dirname(file_path), { recursive: true });
+			writeFileSync(file_path, exported.content, 'utf8');
+			const verification =
+				exported.verified === false
+					? ' Reconstruction hash did not match the stored source; this source may have been captured by an older non-lossless chunker.'
+					: '';
+
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: `Exported ${exported.chunks.length} chunk(s) from ${params.source_id} to ${file_path}.${verification}`,
+					},
+				],
+				details: {
+					count: exported.chunks.length,
+					exported: true,
+					file_path,
+					bytes: Buffer.byteLength(exported.content, 'utf8'),
+					verified: exported.verified,
+				},
 			};
 		},
 	});

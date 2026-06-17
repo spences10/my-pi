@@ -36,7 +36,11 @@ pi -e ./packages/pi-context
 - `context_search` — search indexed tool output in the current
   project/session scope by default. Pass `global: true` to search all
   scopes.
-- `context_get` — retrieve exact stored chunks by source id.
+- `context_get` — retrieve exact stored chunks by source id into the
+  model context.
+- `context_export` — write stored chunks to a file without returning
+  chunk content to the model, useful before `jq`, Python, `sed`, or
+  `awk` processing.
 - `context_list` / `/context list [limit]` — list recent indexed
   sources in the current scope with source ids, tool names, sizes, and
   previews.
@@ -77,11 +81,15 @@ retrieval path:
 First chunk id: ctx_..._0001
 context_search query:"..." source_id:"ctx_..."
 context_get source_id:"ctx_..."
+context_export source_id:"ctx_..." file_path:"tmp/context-output.txt"
 context_list
 ```
 
 `context_get` accepts exact chunk ids plus ordinal aliases such as `1`
 or `0001`, and legacy guessed references such as `ctx_...:chunk:000`.
+`context_export` accepts the same source/chunk selectors plus a
+`file_path`; relative paths resolve from the current working directory
+and the tool returns only export metadata.
 
 ## Coverage policy
 
