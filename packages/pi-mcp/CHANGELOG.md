@@ -1,5 +1,12 @@
 # @spences10/pi-mcp
 
+## 0.0.41
+
+### Patch Changes
+
+- Updated dependencies [d158bf5]
+  - @spences10/pi-context@0.1.1
+
 ## 0.0.40
 
 ### Patch Changes
