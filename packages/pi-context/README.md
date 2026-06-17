@@ -38,9 +38,10 @@ pi -e ./packages/pi-context
   scopes.
 - `context_get` — retrieve exact stored chunks by source id into the
   model context.
-- `context_export` — write stored chunks to a file without returning
-  chunk content to the model, useful before `jq`, Python, `sed`, or
-  `awk` processing.
+- `context_export` — write stored chunks to a managed export file
+  without returning chunk content to the model, useful before `jq`,
+  Python, `sed`, or `awk` processing. Pass `file_path` to choose a
+  destination.
 - `context_list` / `/context list [limit]` — list recent indexed
   sources in the current scope with source ids, tool names, sizes, and
   previews.
@@ -81,15 +82,18 @@ retrieval path:
 First chunk id: ctx_..._0001
 context_search query:"..." source_id:"ctx_..."
 context_get source_id:"ctx_..."
-context_export source_id:"ctx_..." file_path:"tmp/context-output.txt"
+context_export source_id:"ctx_..."
 context_list
 ```
 
 `context_get` accepts exact chunk ids plus ordinal aliases such as `1`
 or `0001`, and legacy guessed references such as `ctx_...:chunk:000`.
-`context_export` accepts the same source/chunk selectors plus a
-`file_path`; relative paths resolve from the current working directory
-and the tool returns only export metadata.
+`context_export` accepts the same source/chunk selectors. By default
+it writes to `${PI_CODING_AGENT_DIR:-~/.pi/agent}/context-exports/`,
+next to the sidecar database, and cleans that managed export directory
+using the same retention-days policy as the sidecar. Pass `file_path`
+to write elsewhere; relative paths resolve from the current working
+directory. The tool returns only export metadata.
 
 ## Coverage policy
 
@@ -123,6 +127,12 @@ project/session scope, retention, and dedupe rules.
 The default DB path is
 `${PI_CODING_AGENT_DIR:-~/.pi/agent}/context.db`. Set
 `MY_PI_CONTEXT_DB` to override it.
+
+Default `context_export` files are written next to that database under
+`context-exports/`, for example
+`${PI_CODING_AGENT_DIR:-~/.pi/agent}/context-exports/ctx_....txt`.
+Older managed export files are pruned on export using the same
+retention-days setting as the sidecar.
 
 New sources are scoped by Pi session file/id when available, falling
 back to the current project path. Retrieval tools use that scope by

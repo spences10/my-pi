@@ -1,6 +1,4 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Type } from 'typebox';
 import {
@@ -16,6 +14,11 @@ import {
 	should_skip_tool,
 	summarize_tool_input,
 } from './context-scope.js';
+import {
+	cleanup_context_exports,
+	resolve_context_export_path,
+	write_context_export_file,
+} from './export-files.js';
 import {
 	get_context_store,
 	maybe_store_context_output,
@@ -181,10 +184,12 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 			'Write stored context-sidecar chunks to a file without loading them into model context',
 		parameters: Type.Object({
 			source_id: Type.String({ description: 'Indexed source id' }),
-			file_path: Type.String({
-				description:
-					'Destination file path. Relative paths resolve from the current working directory.',
-			}),
+			file_path: Type.Optional(
+				Type.String({
+					description:
+						'Destination file path. Relative paths resolve from the current working directory. Defaults to the managed context export directory.',
+				}),
+			),
 			chunk_id: Type.Optional(
 				Type.String({ description: 'Optional exact chunk id' }),
 			),
@@ -229,11 +234,14 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 			}
 
 			const cwd = ctx?.cwd ?? process.cwd();
-			const file_path = isAbsolute(params.file_path)
-				? params.file_path
-				: resolve(cwd, params.file_path);
-			mkdirSync(dirname(file_path), { recursive: true });
-			writeFileSync(file_path, exported.content, 'utf8');
+			cleanup_context_exports();
+			const file_path = resolve_context_export_path(
+				params.file_path,
+				cwd,
+				params.source_id,
+				params.chunk_id,
+			);
+			write_context_export_file(file_path, exported.content);
 			const verification =
 				exported.verified === false
 					? ' Reconstruction hash did not match the stored source; this source may have been captured by an older non-lossless chunker.'

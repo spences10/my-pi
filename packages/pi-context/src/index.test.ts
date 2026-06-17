@@ -1,7 +1,15 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	utimesSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import context_sidecar, {
@@ -498,6 +506,32 @@ describe('context_sidecar extension', () => {
 			file_path: join(export_dir, 'export.txt'),
 			verified: true,
 		});
+
+		const managed_export_dir = join(
+			dirname(process.env.MY_PI_CONTEXT_DB!),
+			'context-exports',
+		);
+		mkdirSync(managed_export_dir, { recursive: true });
+		const stale_export = join(managed_export_dir, 'stale.txt');
+		writeFileSync(stale_export, 'old export');
+		const stale_date = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+		utimesSync(stale_export, stale_date, stale_date);
+
+		const default_export = await fake.tools
+			.get('context_export')!
+			.execute('call-export-default', { source_id });
+		const managed_file = join(managed_export_dir, `${source_id}.txt`);
+		expect(default_export.content[0].text).toContain(managed_file);
+		expect(readFileSync(managed_file, 'utf8')).toContain(
+			'tool-token',
+		);
+		expect(default_export.details).toMatchObject({
+			count: 1,
+			exported: true,
+			file_path: managed_file,
+			verified: true,
+		});
+		expect(existsSync(stale_export)).toBe(false);
 
 		const missing_chunk = await fake.tools
 			.get('context_get')!

@@ -253,7 +253,7 @@ export function summarize_source(
 		`Next actions:`,
 		`- Search this source: context_search query:"..." source_id:"${result.source_id}"`,
 		`- Retrieve all chunks into model context: context_get source_id:"${result.source_id}"`,
-		`- Export chunks to a file for jq/python/sed: context_export source_id:"${result.source_id}" file_path:"tmp/context-output.txt"`,
+		`- Export chunks to a managed temp file for jq/python/sed: context_export source_id:"${result.source_id}"`,
 		`- List recent scoped sources: context_list`,
 		``,
 		`Preview:`,

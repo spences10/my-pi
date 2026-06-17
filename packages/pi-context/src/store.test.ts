@@ -113,7 +113,7 @@ describe('ContextStore', () => {
 			`context_get source_id:"${stored!.source_id}"`,
 		);
 		expect(stored?.receipt).toContain(
-			`context_export source_id:"${stored!.source_id}" file_path:"tmp/context-output.txt"`,
+			`context_export source_id:"${stored!.source_id}"`,
 		);
 		expect(stored?.receipt).toContain(
 			`First chunk id: ${stored!.source_id}_0001`,
