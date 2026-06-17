@@ -1,5 +1,12 @@
 # @spences10/pi-observability
 
+## 0.0.11
+
+### Patch Changes
+
+- bb2ef4a: Add Svelte web tsconfig and exclude generated Cloudflare
+  worker types from formatting checks.
+
 ## 0.0.10
 
 ### Patch Changes

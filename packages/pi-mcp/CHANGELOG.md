@@ -1,5 +1,17 @@
 # @spences10/pi-mcp
 
+## 0.0.40
+
+### Patch Changes
+
+- Updated dependencies [f038302]
+- Updated dependencies [7b6253e]
+- Updated dependencies [7e83a2e]
+- Updated dependencies [d84423e]
+  - @spences10/pi-settings@0.0.1
+  - @spences10/pi-context@0.1.0
+  - @spences10/pi-project-trust@0.0.14
+
 ## 0.0.39
 
 ### Patch Changes

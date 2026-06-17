@@ -1,5 +1,18 @@
 # my-pi
 
+## 0.1.86
+
+### Patch Changes
+
+- bb2ef4a: Add Svelte web tsconfig and exclude generated Cloudflare
+  worker types from formatting checks.
+- e68c765: Prefer kebab-case session names by updating auto-naming
+  prompts and normalizing manual names consistently.
+- Updated dependencies [f038302]
+- Updated dependencies [7b6253e]
+  - @spences10/pi-settings@0.0.1
+  - @spences10/pi-project-trust@0.0.14
+
 ## 0.1.85
 
 ## 0.1.84
