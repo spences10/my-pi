@@ -1,5 +1,13 @@
 # @spences10/pi-lsp
 
+## 0.0.35
+
+### Patch Changes
+
+- 29b8e2f: Document pi-lsp named exports for custom harnesses and test
+  client seams.
+  - @spences10/pi-project-trust@0.0.14
+
 ## 0.0.34
 
 ### Patch Changes

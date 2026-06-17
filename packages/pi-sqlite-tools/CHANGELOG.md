@@ -1,5 +1,12 @@
 # @spences10/pi-sqlite-tools
 
+## 0.0.13
+
+### Patch Changes
+
+- 5e18a28: Fix sqlite tools prompt gating for aliased CSV
+  import/export MCP tool selections.
+
 ## 0.0.12
 
 ### Patch Changes
