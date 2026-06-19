@@ -27,9 +27,6 @@ catalogs:
     svelte:
       specifier: ^5.56.2
       version: 5.56.3
-    typebox:
-      specifier: ^1.1.38
-      version: 1.2.13
     typescript:
       specifier: ^6.0.3
       version: 6.0.3
@@ -81,7 +78,7 @@ importers:
         version: 0.2.2
       typebox:
         specifier: 'catalog:'
-        version: 1.2.13
+        version: 1.2.14
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.0
@@ -3502,8 +3499,8 @@ packages:
   typebox@1.1.38:
     resolution: {integrity: sha512-pZ0aQPmMmXoUvSbeuWf/Hzsc+avNw/Zd6VeE8CFgkVGWyuHPJvqeJJDeJqLve+K70LvjYIoleGcoJHPT17cWoA==}
 
-  typebox@1.2.13:
-    resolution: {integrity: sha512-7bRoSs2aqbiXQ8D/xLG9HVdNqk0poSMkmXjWHi+Yex0Cg6+NQoqJTFAOWNA4mHpW57OEzRvd1pqKOIte7ICPoA==}
+  typebox@1.2.14:
+    resolution: {integrity: sha512-/ogVtZUOjV69aeVvrTCmBtDNDfvXPPi28rkrQlID+bhz1dEJ9YkcnoSqCYaPIqiNifMVuTycZlZx5X82734s7w==}
 
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
@@ -6239,7 +6236,7 @@ snapshots:
 
   typebox@1.1.38: {}
 
-  typebox@1.2.13: {}
+  typebox@1.2.14: {}
 
   typescript@6.0.3: {}
 
