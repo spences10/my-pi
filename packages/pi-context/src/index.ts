@@ -82,9 +82,9 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 		name: 'context_search',
 		label: 'Context Search',
 		description:
-			'Search large tool output stored in the local SQLite context sidecar.',
+			'Search large tool output stored in the local SQLite context sidecar. Returns concise snippets by default; use context_get with before/after or context_export for more.',
 		promptSnippet:
-			'Search oversized tool output that was indexed into the local context sidecar',
+			'Search oversized tool output with concise snippets before retrieving chunks',
 		parameters: Type.Object({
 			query: Type.String({ description: 'FTS search query' }),
 			source_id: Type.Optional(
@@ -98,6 +98,12 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 			limit: Type.Optional(
 				Type.Number({
 					description: 'Maximum chunks to return, default 5',
+				}),
+			),
+			full_content: Type.Optional(
+				Type.Boolean({
+					description:
+						'Return full matched chunks instead of concise snippets. Prefer context_get before/after or context_export for large outputs.',
 				}),
 			),
 			global: Type.Optional(
@@ -115,6 +121,7 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 				source_id: params.source_id,
 				tool_name: params.tool_name,
 				limit: params.limit,
+				full_content: params.full_content,
 			});
 			return {
 				content: [
@@ -132,12 +139,28 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 		name: 'context_get',
 		label: 'Context Get',
 		description:
-			'Retrieve exact chunks from the local SQLite context sidecar.',
-		promptSnippet: 'Retrieve exact stored output chunks by source id',
+			'Retrieve exact chunks from the local SQLite context sidecar, optionally including neighboring chunks with before/after.',
+		promptSnippet:
+			'Retrieve focused stored output chunks by source id and optional before/after range',
 		parameters: Type.Object({
 			source_id: Type.String({ description: 'Indexed source id' }),
 			chunk_id: Type.Optional(
-				Type.String({ description: 'Optional exact chunk id' }),
+				Type.String({
+					description:
+						'Optional exact chunk id or ordinal. Recommended for focused retrieval; omit only if all chunks are needed in chat.',
+				}),
+			),
+			before: Type.Optional(
+				Type.Number({
+					description:
+						'When chunk_id is set, include up to this many chunks before it (max 3). Prefer 1 first; use context_export for broad ranges.',
+				}),
+			),
+			after: Type.Optional(
+				Type.Number({
+					description:
+						'When chunk_id is set, include up to this many chunks after it (max 3). Prefer 1 first; use context_export for broad ranges.',
+				}),
 			),
 			global: Type.Optional(
 				Type.Boolean({
@@ -152,6 +175,8 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 			const scope_options = {
 				...(params.global ? {} : scope),
 				global: params.global,
+				before: params.before,
+				after: params.after,
 			};
 			const chunks = store.get(
 				params.source_id,
@@ -179,9 +204,9 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 		name: 'context_export',
 		label: 'Context Export',
 		description:
-			'Export stored chunks from the local SQLite context sidecar to a file without returning chunk content.',
+			'Export stored chunks from the local SQLite context sidecar to a file without returning chunk content. Prefer this for full JSON/log/script processing.',
 		promptSnippet:
-			'Write stored context-sidecar chunks to a file without loading them into model context',
+			'Write stored context-sidecar chunks to a file for rg/jq/Python without loading them into model context',
 		parameters: Type.Object({
 			source_id: Type.String({ description: 'Indexed source id' }),
 			file_path: Type.Optional(
@@ -191,7 +216,22 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 				}),
 			),
 			chunk_id: Type.Optional(
-				Type.String({ description: 'Optional exact chunk id' }),
+				Type.String({
+					description:
+						'Optional exact chunk id or ordinal. Omit to export the full source.',
+				}),
+			),
+			before: Type.Optional(
+				Type.Number({
+					description:
+						'When chunk_id is set, include up to this many chunks before it (max 3). Prefer 1 first; omit chunk_id to export the full source.',
+				}),
+			),
+			after: Type.Optional(
+				Type.Number({
+					description:
+						'When chunk_id is set, include up to this many chunks after it (max 3). Prefer 1 first; omit chunk_id to export the full source.',
+				}),
 			),
 			global: Type.Optional(
 				Type.Boolean({
@@ -206,6 +246,8 @@ export default function context_sidecar(pi: ExtensionAPI): void {
 			const scope_options = {
 				...(params.global ? {} : scope),
 				global: params.global,
+				before: params.before,
+				after: params.after,
 			};
 			const exported = store.export_content(
 				params.source_id,

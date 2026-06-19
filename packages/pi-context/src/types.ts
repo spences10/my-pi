@@ -62,6 +62,7 @@ export interface ContextSearchResult {
 	bytes: number;
 	lines: number;
 	rank: number;
+	snippet: boolean;
 }
 
 export interface ContextListResult {
@@ -91,6 +92,11 @@ export interface ContextScopeOptions {
 	project_path?: string | null;
 	session_id?: string | null;
 	global?: boolean;
+}
+
+export interface ContextChunkSelectionOptions extends ContextScopeOptions {
+	before?: number;
+	after?: number;
 }
 
 export interface ContextStats {

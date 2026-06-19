@@ -20,16 +20,25 @@ export function format_search_results(
 	results: ContextSearchResult[],
 ): string {
 	if (results.length === 0) return 'No indexed context matched.';
-	return results
+	const body = results
 		.map((result, index) =>
 			[
 				`## ${index + 1}. ${result.title ?? result.chunk_id}`,
-				`Source: ${result.source_id} • Chunk: ${result.chunk_id} • Tool: ${result.tool_name}`,
+				`Source: ${result.source_id} • Chunk: ${result.chunk_id} • Tool: ${result.tool_name}${result.snippet ? ' • Snippet' : ''}`,
 				'',
 				result.content,
 			].join('\n'),
 		)
 		.join('\n\n---\n\n');
+	if (!results.some((result) => result.snippet)) return body;
+	return [
+		body,
+		'',
+		'Next actions:',
+		'- Need surrounding context? Use context_get with this chunk_id plus before/after, e.g. before:1 after:1 (max 3).',
+		'- Need broad/full JSON/log/script processing? Prefer context_export, then rg/jq/Python the file.',
+		'- Need full matched chunks in chat? Rerun context_search with full_content:true.',
+	].join('\n');
 }
 
 export function format_get_result(

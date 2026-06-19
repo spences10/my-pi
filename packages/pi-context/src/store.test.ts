@@ -109,11 +109,12 @@ describe('ContextStore', () => {
 		expect(stored?.receipt).toContain(
 			`context_search query:"..." source_id:"${stored!.source_id}"`,
 		);
-		expect(stored?.receipt).toContain(
-			`context_get source_id:"${stored!.source_id}"`,
-		);
+		expect(stored?.receipt).toContain('before:1 after:1');
 		expect(stored?.receipt).toContain(
 			`context_export source_id:"${stored!.source_id}"`,
+		);
+		expect(stored?.receipt).toContain(
+			'Avoid full context_get without chunk_id',
 		);
 		expect(stored?.receipt).toContain(
 			`First chunk id: ${stored!.source_id}_0001`,
@@ -132,6 +133,16 @@ describe('ContextStore', () => {
 			tool_name: 'bash',
 		});
 		expect(results[0].content).toContain('needle-at-end');
+		expect(results[0].snippet).toBe(true);
+
+		const full_results = store.search('needle', {
+			source_id: stored!.source_id,
+			full_content: true,
+		});
+		expect(full_results[0].snippet).toBe(false);
+		expect(full_results[0].content.length).toBeGreaterThanOrEqual(
+			results[0].content.length,
+		);
 
 		const chunks = store.get(stored!.source_id);
 		expect(chunks.map((chunk) => chunk.content).join('\n')).toContain(
@@ -161,6 +172,21 @@ describe('ContextStore', () => {
 		expect(exact).toHaveLength(1);
 		expect(exact[0].id).toBe(results[0].chunk_id);
 		expect(exact[0].content).toContain('needle-at-end');
+
+		const surrounding = store.get(
+			stored!.source_id,
+			results[0].chunk_id,
+			{ before: 1, after: 1 },
+		);
+		expect(surrounding.length).toBeGreaterThanOrEqual(2);
+		expect(surrounding.map((chunk) => chunk.id)).toContain(
+			results[0].chunk_id,
+		);
+		expect(surrounding.map((chunk) => chunk.ordinal)).toEqual(
+			[...surrounding]
+				.map((chunk) => chunk.ordinal)
+				.sort((left, right) => left - right),
+		);
 
 		const stats = store.stats();
 		expect(stats.sources).toBe(1);
@@ -200,6 +226,14 @@ describe('ContextStore', () => {
 		expect(
 			store.export_content(stored!.source_id, '1').verified,
 		).toBeNull();
+		const ranged = store.export_content(stored!.source_id, '2', {
+			before: 1,
+			after: 1,
+		});
+		expect(ranged.chunks.map((chunk) => chunk.ordinal)).toEqual([
+			1, 2, 3,
+		]);
+		expect(ranged.verified).toBeNull();
 	});
 
 	it('splits long line-oriented output into searchable bounded chunks', () => {
@@ -229,6 +263,16 @@ describe('ContextStore', () => {
 		expect(
 			Buffer.byteLength(results[0].content, 'utf8'),
 		).toBeLessThanOrEqual(4096);
+
+		const clamped_range = store.get(
+			stored!.source_id,
+			results[0].chunk_id,
+			{ before: 99, after: 99 },
+		);
+		expect(clamped_range).toHaveLength(7);
+		expect(clamped_range.map((chunk) => chunk.id)).toContain(
+			results[0].chunk_id,
+		);
 	});
 
 	it('passes through small output unless forced and stores only redacted content', () => {

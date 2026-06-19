@@ -12,6 +12,23 @@ Keep huge tool output useful without flooding the model context.
 local searchable SQLite sidecar, then gives the agent compact receipts
 it can search or retrieve when needed.
 
+In a SvelteKit docs extraction benchmark against the published
+full-chunk retrieval flow, snippet-first search plus focused retrieval
+and file export reduced total tokens by **68%**, cache-read tokens by
+**70%**, and cost by **54%** while producing a comparable answer. See
+[`docs/pi-context-benchmark.md`](../../docs/pi-context-benchmark.md)
+for the scenario and raw comparison.
+
+| Metric                      | Published | Current flow | Reduction |
+| --------------------------- | --------: | -----------: | --------: |
+| Tool calls                  |        49 |           27 |       45% |
+| Context tool chars returned |   438,655 |      181,417 |       59% |
+| Total tool chars returned   |   488,258 |      196,530 |       60% |
+| Input tokens                |   163,626 |      116,844 |       29% |
+| Cache-read tokens           | 2,943,488 |      884,224 |       70% |
+| Total tokens                | 3,113,785 |    1,004,674 |       68% |
+| Cost                        |     $2.49 |        $1.13 |       54% |
+
 This is an ephemeral overflow cache for large artifacts, not durable
 session memory. Use `pirecall` for durable session history.
 
@@ -34,14 +51,18 @@ pi -e ./packages/pi-context
 ## Commands/tools
 
 - `context_search` — search indexed tool output in the current
-  project/session scope by default. Pass `global: true` to search all
+  project/session scope by default. It returns concise snippets unless
+  `full_content: true` is passed. Pass `global: true` to search all
   scopes.
-- `context_get` — retrieve exact stored chunks by source id into the
-  model context.
-- `context_export` — write stored chunks to a managed export file
-  without returning chunk content to the model, useful before `jq`,
-  Python, `sed`, or `awk` processing. Pass `file_path` to choose a
-  destination.
+- `context_get` — retrieve focused stored chunks by source id into the
+  model context. Pass `chunk_id` plus `before` / `after` to include
+  nearby surrounding chunks without retrieving the full source.
+  Neighbor ranges are capped at 3 chunks each side; use
+  `context_export` for broader inspection.
+- `context_export` — write full or ranged stored chunks to a managed
+  export file without returning chunk content to the model, useful
+  before `jq`, Python, `sed`, `awk`, or `rg` processing. Pass
+  `file_path` to choose a destination.
 - `context_list` / `/context list [limit]` — list recent indexed
   sources in the current scope with source ids, tool names, sizes, and
   previews.
@@ -75,25 +96,29 @@ sidecar helpers used by sibling packages and custom harnesses:
 results in the sidecar before falling back to temporary files. The
 `./store` subpath remains available for store-only consumers.
 
-Receipts include the source id, first exact chunk id, and the main
-retrieval path:
+Receipts include the source id, first exact chunk id, and a
+low-context retrieval path:
 
 ```text
 First chunk id: ctx_..._0001
 context_search query:"..." source_id:"ctx_..."
-context_get source_id:"ctx_..."
+context_get source_id:"ctx_..." chunk_id:"ctx_..._0001" before:1 after:1
 context_export source_id:"ctx_..."
 context_list
 ```
 
 `context_get` accepts exact chunk ids plus ordinal aliases such as `1`
 or `0001`, and legacy guessed references such as `ctx_...:chunk:000`.
-`context_export` accepts the same source/chunk selectors. By default
-it writes to `${PI_CODING_AGENT_DIR:-~/.pi/agent}/context-exports/`,
-next to the sidecar database, and cleans that managed export directory
-using the same retention-days policy as the sidecar. Pass `file_path`
-to write elsewhere; relative paths resolve from the current working
-directory. The tool returns only export metadata.
+Use `before` / `after` with `chunk_id` to include neighboring chunks
+in one call. Neighbor ranges are capped at 3 chunks each side to avoid
+accidentally recreating full-source retrieval. `context_export`
+accepts the same source/chunk selectors and neighbor options. By
+default it writes to
+`${PI_CODING_AGENT_DIR:-~/.pi/agent}/context-exports/`, next to the
+sidecar database, and cleans that managed export directory using the
+same retention-days policy as the sidecar. Pass `file_path` to write
+elsewhere; relative paths resolve from the current working directory.
+The tool returns only export metadata.
 
 ## Coverage policy
 
