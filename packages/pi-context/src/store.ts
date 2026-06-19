@@ -32,6 +32,7 @@ import {
 } from './text.js';
 import type {
 	ContextChunk,
+	ContextChunkSelectionOptions,
 	ContextChunkSummary,
 	ContextCleanupResult,
 	ContextExportContent,
@@ -68,6 +69,7 @@ export {
 } from './text.js';
 export type {
 	ContextChunk,
+	ContextChunkSelectionOptions,
 	ContextChunkSummary,
 	ContextCleanupResult,
 	ContextExportContent,
@@ -413,6 +415,7 @@ export class ContextStore {
 			source_id?: string;
 			limit?: number;
 			tool_name?: string;
+			full_content?: boolean;
 		} = {},
 	): ContextSearchResult[] {
 		const limit = Math.max(1, Math.min(options.limit ?? 5, 25));
@@ -437,6 +440,7 @@ export class ContextStore {
 		options: ContextScopeOptions & {
 			source_id?: string;
 			tool_name?: string;
+			full_content?: boolean;
 		},
 		limit: number,
 	): ContextSearchResult[] {
@@ -457,6 +461,9 @@ export class ContextStore {
 		const where_filters = filters.length
 			? ` AND ${filters.join(' AND ')}`
 			: '';
+		const content_expression = options.full_content
+			? 'context_chunks.content'
+			: "snippet(context_chunks_fts, 1, '', '', ' … ', 48)";
 		const stmt = this.db.prepare(`
 			SELECT
 				context_sources.id,
@@ -467,7 +474,7 @@ export class ContextStore {
 				context_chunks.id as chunk_id,
 				context_chunks.ordinal,
 				context_chunks.title,
-				context_chunks.content,
+				${content_expression} as content,
 				bm25(context_chunks_fts, 5.0, 1.0) as rank
 			FROM context_chunks_fts
 			JOIN context_chunks ON context_chunks.rowid = context_chunks_fts.rowid
@@ -488,6 +495,7 @@ export class ContextStore {
 				bytes: row.byte_count,
 				lines: row.line_count,
 				rank: row.rank,
+				snippet: !options.full_content,
 			}),
 		);
 	}
@@ -502,7 +510,7 @@ export class ContextStore {
 	get(
 		source_id: string,
 		chunk_id?: string,
-		options: ContextScopeOptions = {},
+		options: ContextChunkSelectionOptions = {},
 	): ContextChunk[] {
 		return context_store_get(this, source_id, chunk_id, options);
 	}
@@ -510,7 +518,7 @@ export class ContextStore {
 	export_content(
 		source_id: string,
 		chunk_id?: string,
-		options: ContextScopeOptions = {},
+		options: ContextChunkSelectionOptions = {},
 	): ContextExportContent {
 		const chunks = this.get(source_id, chunk_id, options);
 		const content = chunks.map((chunk) => chunk.content).join('');

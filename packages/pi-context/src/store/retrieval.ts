@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type {
 	ChunkSummaryRow,
 	ContextChunk,
+	ContextChunkSelectionOptions,
 	ContextChunkSummary,
 	ContextScopeOptions,
 	ScopedFilter,
@@ -74,11 +75,50 @@ export function context_store_chunk_summary(
 	return row ?? null;
 }
 
+const MAX_NEIGHBOR_CHUNKS = 3;
+
+function clamp_neighbor_count(value: number | undefined): number {
+	if (value === undefined || !Number.isFinite(value)) return 0;
+	return Math.max(
+		0,
+		Math.min(Math.floor(value), MAX_NEIGHBOR_CHUNKS),
+	);
+}
+
+function resolve_chunk_ordinal(
+	store: ContextStoreRetrievalTarget,
+	source_id: string,
+	chunk_id: string,
+	options: ContextScopeOptions,
+): number | null {
+	const ordinal = chunk_reference_to_ordinal(source_id, chunk_id);
+	if (ordinal) return ordinal;
+
+	const scoped = store.scoped_filter('context_sources', options);
+	const filters = [
+		'context_chunks.source_id = ?',
+		'context_chunks.id = ?',
+		...scoped.where,
+	];
+	const row = store.db
+		.prepare(`
+			SELECT context_chunks.ordinal
+			FROM context_chunks
+			JOIN context_sources ON context_sources.id = context_chunks.source_id
+			WHERE ${filters.join(' AND ')}
+			LIMIT 1
+		`)
+		.get(source_id, chunk_id, ...scoped.params) as
+		| { ordinal: number }
+		| undefined;
+	return row?.ordinal ?? null;
+}
+
 export function context_store_get(
 	store: ContextStoreRetrievalTarget,
 	source_id: string,
 	chunk_id?: string,
-	options: ContextScopeOptions = {},
+	options: ContextChunkSelectionOptions = {},
 ): ContextChunk[] {
 	const scoped = store.scoped_filter('context_sources', options);
 	const filters = ['context_chunks.source_id = ?', ...scoped.where];
@@ -87,13 +127,31 @@ export function context_store_get(
 		...scoped.params,
 	];
 	if (chunk_id) {
-		const ordinal = chunk_reference_to_ordinal(source_id, chunk_id);
-		if (ordinal) {
-			filters.push('context_chunks.ordinal = ?');
-			params.push(ordinal);
+		const before = clamp_neighbor_count(options.before);
+		const after = clamp_neighbor_count(options.after);
+		if (before > 0 || after > 0) {
+			const ordinal = resolve_chunk_ordinal(
+				store,
+				source_id,
+				chunk_id,
+				options,
+			);
+			if (ordinal === null) {
+				filters.push('context_chunks.id = ?');
+				params.push(chunk_id);
+			} else {
+				filters.push('context_chunks.ordinal BETWEEN ? AND ?');
+				params.push(Math.max(1, ordinal - before), ordinal + after);
+			}
 		} else {
-			filters.push('context_chunks.id = ?');
-			params.push(chunk_id);
+			const ordinal = chunk_reference_to_ordinal(source_id, chunk_id);
+			if (ordinal) {
+				filters.push('context_chunks.ordinal = ?');
+				params.push(ordinal);
+			} else {
+				filters.push('context_chunks.id = ?');
+				params.push(chunk_id);
+			}
 		}
 	}
 	const stmt = store.db.prepare(`
