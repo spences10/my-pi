@@ -1,5 +1,12 @@
 # @spences10/pi-context
 
+## 0.1.2
+
+### Patch Changes
+
+- a123aa1: Improve context sidecar retrieval with snippet search,
+  capped neighboring chunks, export guidance, and benchmark docs.
+
 ## 0.1.1
 
 ### Patch Changes
