@@ -5,17 +5,17 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vp exec vite dev",
-		"build": "wrangler types && vp exec vite build",
+		"build": "pnpm run gen && vp exec vite build",
 		"preview": "wrangler dev .svelte-kit/cloudflare/_worker.js --port 4173",
 		"prepare": "vp exec svelte-kit sync || echo ''",
-		"check": "wrangler types --include-env=false --check && vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json",
+		"check": "pnpm run gen && vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "oxfmt --check \"**/*.svelte\"",
 		"format": "oxfmt \"**/*.svelte\"",
 		"test:unit": "vp exec vitest",
 		"test": "pnpm run test:unit -- --run && pnpm run test:e2e",
 		"test:e2e": "vp exec playwright install && vp exec playwright test",
-		"gen": "wrangler types"
+		"gen": "rm -rf .svelte-kit/cloudflare && wrangler types"
 	},
 	"devDependencies": {
 		"@fontsource-variable/victor-mono": "^5.2.8",
