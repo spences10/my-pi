@@ -2,7 +2,6 @@
 	"name": "web",
 	"version": "0.0.1",
 	"private": true,
-	"packageManager": "pnpm@11.8.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vp exec vite dev",
@@ -47,5 +46,6 @@
 		"vitest": "catalog:",
 		"vitest-browser-svelte": "^2.1.1",
 		"wrangler": "^4.92.0"
-	}
+	},
+	"packageManager": "pnpm@11.8.0"
 }
