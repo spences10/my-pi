@@ -18,15 +18,15 @@ catalogs:
     '@sveltejs/vite-plugin-svelte':
       specifier: ^7.1.2
       version: 7.1.2
+    '@types/node':
+      specifier: ^25.8.0
+      version: 25.9.4
     '@vitest/coverage-v8':
       specifier: 4.1.9
       version: 4.1.9
     svelte:
       specifier: ^5.56.2
       version: 5.56.3
-    typebox:
-      specifier: ^1.1.38
-      version: 1.2.16
     typescript:
       specifier: ^6.0.3
       version: 6.0.3
@@ -78,7 +78,7 @@ importers:
         version: 0.2.2
       typebox:
         specifier: 'catalog:'
-        version: 1.2.16
+        version: 1.2.18
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.0
@@ -3392,8 +3392,8 @@ packages:
   typebox@1.1.38:
     resolution: {integrity: sha512-pZ0aQPmMmXoUvSbeuWf/Hzsc+avNw/Zd6VeE8CFgkVGWyuHPJvqeJJDeJqLve+K70LvjYIoleGcoJHPT17cWoA==}
 
-  typebox@1.2.16:
-    resolution: {integrity: sha512-p85YWtR1RznP2kt/sftmj1leGiObfHVJwkK2hkDdEKhbtQONeUeBtbYdK0x9tLPh+5AaEPD62APv189Cy+/C2g==}
+  typebox@1.2.18:
+    resolution: {integrity: sha512-f4MtqlWxawJjxsuT1onX3F/5fas45PXQFQ1jRDTRia2IpBirlj/Xs9PvSAsw9Mz3DADIDU1mXbzfJWSg21JbRg==}
 
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
@@ -6075,7 +6075,7 @@ snapshots:
 
   typebox@1.1.38: {}
 
-  typebox@1.2.16: {}
+  typebox@1.2.18: {}
 
   typescript@6.0.3: {}
 
