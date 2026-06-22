@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.89
+
+### Patch Changes
+
+- 629f238: Refactor context, observability, and API modules into
+  focused files, eliminating architecture boundary advisories.
+
 ## 0.1.88
 
 ## 0.1.87
@@ -926,6 +933,7 @@
   session transfer prompts.
 
   The `/handoff` command now:
+
   - summarizes the current branch conversation with the active model
   - asks the user to review and edit the generated prompt
   - creates a new session linked to the current one

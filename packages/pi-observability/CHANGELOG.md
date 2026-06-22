@@ -1,5 +1,12 @@
 # @spences10/pi-observability
 
+## 0.0.12
+
+### Patch Changes
+
+- 629f238: Refactor context, observability, and API modules into
+  focused files, eliminating architecture boundary advisories.
+
 ## 0.0.11
 
 ### Patch Changes
