@@ -2,6 +2,7 @@
 	"name": "web",
 	"version": "0.0.1",
 	"private": true,
+	"packageManager": "pnpm@11.8.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vp exec vite dev",
