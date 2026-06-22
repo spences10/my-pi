@@ -5,10 +5,10 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vp exec vite dev",
-		"build": "pnpm run gen && vp exec vite build",
+		"build": "vp exec vite build",
 		"preview": "wrangler dev .svelte-kit/cloudflare/_worker.js --port 4173",
 		"prepare": "vp exec svelte-kit sync || echo ''",
-		"check": "pnpm run gen && vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json",
+		"check": "vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "oxfmt --check \"**/*.svelte\"",
 		"format": "oxfmt \"**/*.svelte\"",
