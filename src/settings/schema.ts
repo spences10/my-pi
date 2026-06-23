@@ -8,6 +8,11 @@ export interface MyPiSettings {
 	mcp?: { policy?: unknown };
 	codingPreferences?: unknown;
 	promptPresets?: { global?: unknown; state?: unknown };
+	openRouterFusion?: {
+		analysisModels?: string[];
+		judgeModel?: string;
+		force?: boolean;
+	};
 	trust?: Record<string, unknown>;
 	packages?: Record<string, unknown>;
 }

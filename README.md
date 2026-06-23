@@ -115,6 +115,17 @@ pnpx my-pi@latest observability
 Pi handles model authentication natively. For provider-specific model
 examples, see the Pi docs and the relevant extension/package README.
 
+OpenRouter Fusion is configured by default: `my-pi` injects a
+non-Anthropic Fusion panel/judge only for `openrouter/fusion`.
+Configure it in `~/.pi/agent/my-pi-settings.json` under
+`openRouterFusion`, e.g.
+`{"openRouterFusion":{"analysisModels":["deepseek/deepseek-v3.2"],"judgeModel":"~openai/gpt-latest","force":false}}`.
+Fusion is forced by default with `tool_choice: "required"`; set
+`force: false` to let OpenRouter decide whether deliberation is
+needed. Env vars `MY_PI_FUSION_ANALYSIS_MODELS`,
+`MY_PI_FUSION_JUDGE_MODEL`, and `MY_PI_FUSION_FORCE` still work as
+overrides. Disable with `--no-openrouter-fusion-config`.
+
 ## Reusable Pi packages
 
 Install the full distribution with `pnpx my-pi@latest`, or install
