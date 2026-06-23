@@ -34,7 +34,7 @@ export default defineConfig({
 		printWidth: 70,
 		trailingComma: 'all',
 		proseWrap: 'always',
-		ignorePatterns: ['apps/web/worker-configuration.d.ts'],
+		ignorePatterns: ['apps/web/**'],
 	},
 	lint: {
 		ignorePatterns: [
@@ -42,10 +42,7 @@ export default defineConfig({
 			'build/**',
 			'dist/**',
 			'worker-configuration.d.ts',
-			'apps/web/.svelte-kit/**',
-			'apps/web/build/**',
-			'apps/web/dist/**',
-			'apps/web/worker-configuration.d.ts',
+			'apps/web/**',
 		],
 		options: {
 			typeAware: true,
