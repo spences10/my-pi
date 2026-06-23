@@ -27,9 +27,6 @@ catalogs:
     svelte:
       specifier: ^5.56.2
       version: 5.56.3
-    typebox:
-      specifier: ^1.1.38
-      version: 1.2.18
     typescript:
       specifier: ^6.0.3
       version: 6.0.3
@@ -81,7 +78,7 @@ importers:
         version: 0.2.2
       typebox:
         specifier: 'catalog:'
-        version: 1.2.18
+        version: 1.2.19
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.0
@@ -2590,8 +2587,8 @@ packages:
     engines: {node: '>=4'}
     hasBin: true
 
-  esrap@2.2.11:
-    resolution: {integrity: sha512-gPdx+I+BjYEinNMQaBXFjbaJVyoPMU4ZODg5mE+M4DqVG9VusAVHHjcBX+zqyITlI0DIARwDMMzZwAWj36dRoQ==}
+  esrap@2.2.12:
+    resolution: {integrity: sha512-On0QbLyaiAkVC4eXtgnXK9Kh2opit+3rcUSOc45DqJ2s/X2eXAHsGOKRSJ6IDagQEW5vPyivANfXUiqgXC67Rw==}
     peerDependencies:
       '@typescript-eslint/types': ^8.2.0
     peerDependenciesMeta:
@@ -3400,8 +3397,8 @@ packages:
   typebox@1.1.38:
     resolution: {integrity: sha512-pZ0aQPmMmXoUvSbeuWf/Hzsc+avNw/Zd6VeE8CFgkVGWyuHPJvqeJJDeJqLve+K70LvjYIoleGcoJHPT17cWoA==}
 
-  typebox@1.2.18:
-    resolution: {integrity: sha512-f4MtqlWxawJjxsuT1onX3F/5fas45PXQFQ1jRDTRia2IpBirlj/Xs9PvSAsw9Mz3DADIDU1mXbzfJWSg21JbRg==}
+  typebox@1.2.19:
+    resolution: {integrity: sha512-9stLVZhos9aUXJzu0Yf717xbcv3vFsE5APzsQ7j/honIUFtern451IdTlqmVzPzuGxHkeWwWc2cerw6m2lqKOQ==}
 
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
@@ -5280,7 +5277,7 @@ snapshots:
 
   esprima@4.0.1: {}
 
-  esrap@2.2.11:
+  esrap@2.2.12:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
@@ -6034,7 +6031,7 @@ snapshots:
       clsx: 2.1.1
       devalue: 5.8.1
       esm-env: 1.2.2
-      esrap: 2.2.11
+      esrap: 2.2.12
       is-reference: 3.0.3
       locate-character: 3.0.0
       magic-string: 0.30.21
@@ -6085,7 +6082,7 @@ snapshots:
 
   typebox@1.1.38: {}
 
-  typebox@1.2.18: {}
+  typebox@1.2.19: {}
 
   typescript@6.0.3: {}
 
