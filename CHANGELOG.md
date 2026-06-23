@@ -1,5 +1,13 @@
 # my-pi
 
+## 0.1.90
+
+### Patch Changes
+
+- d87cea5: Add configurable OpenRouter Fusion defaults, avoiding
+  Anthropic models and forcing deliberation unless explicitly
+  disabled.
+
 ## 0.1.89
 
 ### Patch Changes
