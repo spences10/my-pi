@@ -147,8 +147,8 @@ trusted repo. Profile fields include `description`, `model`,
 
 Use a profile with `/team spawn alice --profile reviewer` or the
 `member_spawn` tool parameter `profile`/`agent`. Explicit
-`member_spawn` `model`, `thinking`, and `initial_prompt` override the
-profile defaults.
+`/team spawn --model ... --thinking ...` and `member_spawn` `model`,
+`thinking`, and `initial_prompt` override the profile defaults.
 
 Teammate names, assignees, senders, and recipients must be stable file
 IDs: letters, numbers, dots, underscores, and hyphens only. This
@@ -183,7 +183,7 @@ redelivery on the next session.
 
 ```text
 /team create demo
-/team spawn alice "claim one task and report back"
+/team spawn alice --model anthropic/claude-sonnet-4-5 --thinking high "claim one task and report back"
 /team task add alice: inspect the failing test
 /team task show 1
 /team task block 1 waiting on CI logs

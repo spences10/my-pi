@@ -77,6 +77,14 @@ export class RpcTeammate {
 		return Boolean(this.proc && !this.closed);
 	}
 
+	get model(): string | undefined {
+		return this.options.model;
+	}
+
+	get thinking(): string | undefined {
+		return this.options.thinking;
+	}
+
 	async start(): Promise<void> {
 		if (this.proc) return;
 		const session_dir = join(
@@ -123,6 +131,7 @@ export class RpcTeammate {
 			status: 'idle',
 			cwd: this.cwd,
 			model: this.options.model,
+			thinking: this.options.thinking,
 			pid: proc.pid,
 			process_identity,
 			profile: this.options.profile,
