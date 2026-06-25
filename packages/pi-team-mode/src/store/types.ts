@@ -32,7 +32,6 @@ export interface TeamMember {
 	status: TeamMemberStatus;
 	cwd?: string;
 	model?: string;
-	thinking?: string;
 	profile?: string;
 	session_file?: string;
 	pid?: number;
@@ -93,7 +92,6 @@ export interface UpsertMemberInput {
 	status?: TeamMemberStatus;
 	cwd?: string;
 	model?: string;
-	thinking?: string;
 	profile?: string;
 	session_file?: string;
 	pid?: number;

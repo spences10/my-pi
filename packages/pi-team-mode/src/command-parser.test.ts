@@ -28,10 +28,6 @@ describe('team command parsing', () => {
 				'../alice',
 				'--profile',
 				'reviewer',
-				'--model',
-				'openrouter/anthropic/claude-sonnet-4.5',
-				'--thinking',
-				'High',
 				'claim work',
 			]),
 		).toEqual({
@@ -41,8 +37,6 @@ describe('team command parsing', () => {
 			branch: 'team/alice',
 			worktree_path: '../alice',
 			profile: 'reviewer',
-			model: 'openrouter/anthropic/claude-sonnet-4.5',
-			thinking: 'high',
 			prompt: 'claim work',
 		});
 	});
@@ -51,12 +45,6 @@ describe('team command parsing', () => {
 		expect(() => parse_spawn_request(['alice', '--branch'])).toThrow(
 			/branch is required/,
 		);
-	});
-
-	it('rejects invalid thinking levels', () => {
-		expect(() =>
-			parse_spawn_request(['alice', '--thinking', 'maximum']),
-		).toThrow(/thinking must be one of/);
 	});
 
 	it('prefers explicit prompts over profile prompts', () => {

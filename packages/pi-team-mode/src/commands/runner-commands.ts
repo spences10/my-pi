@@ -17,7 +17,6 @@ import {
 	format_status,
 	format_status_counts,
 } from '../formatting.js';
-import { select_teammate_model_config } from '../model-selection.js';
 import { RpcTeammate } from '../rpc-runner.js';
 import {
 	attached_member_names,
@@ -48,14 +47,6 @@ export async function handle_spawn(
 	const name = request.member;
 	const team_id = current_team_id(deps);
 	const model = current_model(deps.ctx);
-	const model_config = select_teammate_model_config({
-		requested_model: request.model,
-		profile_model: profile?.model,
-		current_model: model,
-		model_registry: deps.ctx.modelRegistry,
-		requested_thinking: request.thinking,
-		profile_thinking: profile?.thinking,
-	});
 	const existing = deps.runners.get(name);
 	if (existing?.is_running) {
 		throw new Error(
@@ -95,8 +86,10 @@ export async function handle_spawn(
 		cwd: workspace.cwd,
 		team_root: get_team_root(),
 		extension_path: get_extension_path(),
-		model: model_config.model,
-		thinking: model_config.thinking,
+		model:
+			profile?.model ??
+			(model ? `${model.provider}/${model.id}` : undefined),
+		thinking: profile?.thinking,
 		system_prompt: profile?.system_prompt,
 		tools: profile?.tools,
 		skills: profile?.skills,
@@ -117,14 +110,8 @@ export async function handle_spawn(
 	const initial_prompt = profile_prompt(profile, request.prompt);
 	if (initial_prompt) await runner.prompt(initial_prompt);
 	set_team_ui(deps.ctx, deps.store, team_id, deps.runners);
-	const config_details = [
-		runner.model ? `model ${runner.model}` : undefined,
-		runner.thinking ? `thinking ${runner.thinking}` : undefined,
-	]
-		.filter(Boolean)
-		.join(', ');
 	deps.ctx.ui.notify(
-		`Spawned teammate ${name}${config_details ? ` (${config_details})` : ''}${initial_prompt ? ' and sent prompt' : ''}`,
+		`Spawned teammate ${name}${initial_prompt ? ' and sent prompt' : ''}`,
 	);
 }
 

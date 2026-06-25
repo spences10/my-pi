@@ -1,10 +1,6 @@
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
-import {
-	parse_team_thinking_level,
-	profile_prompt,
-} from './command-parser.js';
+import { profile_prompt } from './command-parser.js';
 import { format_status, format_teams_list } from './formatting.js';
-import { select_teammate_model_config } from './model-selection.js';
 import type { TeammateProfile } from './profiles.js';
 import { RpcTeammate } from './rpc-runner.js';
 import {
@@ -285,23 +281,19 @@ export async function execute_team_tool(
 					attached_member_names(runners),
 				);
 			}
-			const thinking = parse_team_thinking_level(params.thinking);
-			const model_config = select_teammate_model_config({
-				requested_model: params.model,
-				profile_model: profile?.model,
-				current_model: ctx.model as any,
-				model_registry: ctx.modelRegistry,
-				requested_thinking: thinking,
-				profile_thinking: profile?.thinking,
-			});
 			const runner = new RpcTeammate(store, {
 				team_id: id,
 				member: member_name,
 				cwd: workspace.cwd,
 				team_root: get_team_root(),
 				extension_path: get_extension_path(),
-				model: model_config.model,
-				thinking: model_config.thinking,
+				model:
+					params.model ??
+					profile?.model ??
+					(ctx.model
+						? `${ctx.model.provider}/${ctx.model.id}`
+						: undefined),
+				thinking: params.thinking ?? profile?.thinking,
 				system_prompt: profile?.system_prompt,
 				tools: profile?.tools,
 				skills: profile?.skills,
