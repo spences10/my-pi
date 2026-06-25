@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.34
+
+### Patch Changes
+
+- 6e23c95: Add explicit team spawn model and thinking selection with
+  registry validation and clearer teammate status display.
+
 ## 0.0.33
 
 ### Patch Changes

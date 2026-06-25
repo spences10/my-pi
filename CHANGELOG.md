@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.91
+
+### Patch Changes
+
+- 9a1458a: Fix session-name extension by importing complete from pi-ai
+  compatibility entrypoint after upstream API migration safely.
+
 ## 0.1.90
 
 ### Patch Changes

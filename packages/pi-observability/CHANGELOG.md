@@ -1,5 +1,12 @@
 # @spences10/pi-observability
 
+## 0.0.13
+
+### Patch Changes
+
+- 1c8e66c: Enhance observability dashboard session context, event
+  drawer details, payload summaries, and live update persistence.
+
 ## 0.0.12
 
 ### Patch Changes
