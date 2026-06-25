@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { dashboard_state, time } from "./dashboard-state.svelte";
+	import {
+		dashboard_state,
+		payload_value,
+		text_preview,
+		time,
+	} from "./dashboard-state.svelte";
 
 	type Token = { id: string; text: string; class_name?: string };
 
@@ -11,6 +16,39 @@
 		if (dashboard_state.selected_event && event.key === "Escape")
 			close_drawer();
 	}
+
+	const important_fields = $derived.by(() => {
+		const event = dashboard_state.selected_event;
+		if (!event) return [];
+		const payload = event.payload || {};
+		return [
+			["tool", payload.toolName || payload.tool_name],
+			["model", payload.model || payload_value(payload, "payload.model")],
+			["thinking", payload_value(payload, "payload.reasoning")],
+			["status", payload.status],
+			["error", payload.error || payload.isError],
+		].filter(([, value]) => value !== undefined && value !== "");
+	});
+
+	const is_summarized = $derived.by(() => {
+		const text = JSON.stringify(dashboard_state.selected_event?.payload || {});
+		return text.includes('"keys"') || text.includes('"type":"object"');
+	});
+
+	const event_meta = $derived.by(() => {
+		const event = dashboard_state.selected_event;
+		const session = dashboard_state.trace?.session;
+		if (!event) return [];
+		return [
+			["payload", is_summarized ? "summarized" : "raw/detail"],
+			...(event.provider && event.provider !== session?.provider
+				? [["provider", event.provider]]
+				: []),
+			...(event.model && event.model !== session?.model
+				? [["model", event.model]]
+				: []),
+		];
+	});
 
 	function json_tokens(value: unknown) {
 		const source = JSON.stringify(value, null, 2);
@@ -47,11 +85,6 @@
 <svelte:window onkeydown={handle_keydown} />
 
 {#if dashboard_state.selected_event}
-	<button
-		aria-label="Close event details"
-		class="drawer-backdrop"
-		onclick={close_drawer}
-	></button>
 	<aside aria-label="Event details" class="drawer">
 		<button class="close" onclick={close_drawer}>Close</button>
 		<h3>
@@ -59,6 +92,42 @@
 				.seq}
 		</h3>
 		<p>{time(dashboard_state.selected_event.ts)}</p>
+		<div class="meta-strip">
+			{#each event_meta as [name, value] (name)}
+				<span><b>{name}</b> {value}</span>
+			{/each}
+		</div>
+		<div class="details-row">
+			<details class="technical-details">
+				<summary>Technical details</summary>
+				<div>
+					<span
+						><b>Session</b>
+						<code>{dashboard_state.selected_event.session_id}</code></span
+					>
+					<span
+						><b>Event id</b>
+						<code>{dashboard_state.selected_event.event_id}</code></span
+					>
+					<span
+						><b>Provider</b>
+						{dashboard_state.selected_event.provider || "—"}</span
+					>
+					<span><b>Model</b> {dashboard_state.selected_event.model || "—"}</span
+					>
+				</div>
+			</details>
+		</div>
+		{#if important_fields.length}
+			<div class="field-list">
+				{#each important_fields as [name, value] (name)}
+					<div>
+						<span>{name}</span>
+						<p>{text_preview(value, 500)}</p>
+					</div>
+				{/each}
+			</div>
+		{/if}
 		<pre class="json"><code
 				>{#each json_tokens(dashboard_state.selected_event.payload) as token (token.id)}<span
 						class={token.class_name}>{token.text}</span
@@ -68,20 +137,12 @@
 {/if}
 
 <style>
-	.drawer-backdrop {
-		position: fixed;
-		inset: 0;
-		border: 0;
-		border-radius: 0;
-		background: color-mix(in srgb, var(--bg), transparent 34%);
-		z-index: 5;
-	}
 	.drawer {
 		position: fixed;
 		right: 0;
 		top: 0;
 		bottom: 0;
-		width: min(620px, 92vw);
+		width: min(920px, 94vw);
 		padding: 20px;
 		background: var(--bg);
 		border-left: 1px solid var(--border);
@@ -97,6 +158,59 @@
 	.drawer p {
 		font-size: var(--font-size-compact);
 		color: var(--muted);
+	}
+	.meta-strip {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 18px;
+		margin: 12px 0 6px;
+	}
+	.meta-strip b,
+	.technical-details b,
+	.field-list span {
+		color: var(--muted);
+		font-size: var(--font-size-label);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		margin-right: 5px;
+	}
+	.details-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 14px;
+		margin: 0 0 12px;
+	}
+	.technical-details {
+		color: var(--muted);
+	}
+	.technical-details summary {
+		cursor: pointer;
+		font-size: var(--font-size-compact);
+	}
+	.technical-details div {
+		display: grid;
+		gap: 6px;
+		margin-top: 8px;
+	}
+	.technical-details span,
+	.field-list p {
+		overflow-wrap: anywhere;
+	}
+	.field-list {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+		margin: 12px 0;
+	}
+	.field-list div {
+		min-width: 0;
+		background: var(--surface);
+		border: 1px solid var(--border-muted);
+		border-radius: 12px;
+		padding: 10px;
+	}
+	.field-list span {
+		display: block;
 	}
 	.close {
 		float: right;

@@ -8,15 +8,20 @@
 		event_cache,
 		extract_artifacts,
 		is_active_session,
-		label,
 		load_comparison,
 		load_sessions,
 		money,
 		number_crunch,
+		payload_value,
 		query_matches,
+		read_details_setting,
 		read_labels,
 		read_theme,
 		repo_name,
+		session_title,
+		text_preview,
+		time,
+		toggle_details_open,
 	} from "./dashboard-state.svelte";
 	import { build_turns } from "./event-analysis";
 	import EventDrawer from "./event-drawer.svelte";
@@ -153,9 +158,34 @@
 			.slice(0, 6),
 	);
 	const turns = $derived.by(() => build_turns(visible_events));
+	const initial_agent_event = $derived.by(() =>
+		[...visible_events]
+			.sort((a, b) => a.seq - b.seq)
+			.find((event) => event.type === "agent_start"),
+	);
+	const provider_request = $derived(
+		visible_events.find((event) => event.type === "provider_request"),
+	);
+	const reasoning = $derived(
+		payload_value(provider_request?.payload, "payload.reasoning") ||
+			payload_value(provider_request?.payload, "reasoning"),
+	);
+	const session_file = $derived(
+		dashboard_state.trace?.session?.session_file ||
+			dashboard_state.events.find((event) => event.session_file)?.session_file,
+	);
+	const first_event_ts = $derived(
+		dashboard_state.trace?.session?.first_ts || visible_events.at(-1)?.ts,
+	);
+
+	async function copy_session_id() {
+		if (!dashboard_state.selected_id) return;
+		await navigator.clipboard.writeText(dashboard_state.selected_id);
+	}
 
 	onMount(() => {
 		read_theme();
+		read_details_setting();
 		read_labels();
 		void load_sessions();
 		return connect();
@@ -177,7 +207,7 @@
 						<p class="eyebrow">Selected session</p>
 						<h2>
 							{dashboard_state.trace.session
-								? label(dashboard_state.trace.session)
+								? session_title(dashboard_state.trace.session)
 								: dashboard_state.selected_id}
 						</h2>
 						<p>{dashboard_state.trace.session?.cwd}</p>
@@ -217,32 +247,120 @@
 					</div>
 				</section>
 
+				<section class="session-details panel">
+					<div class="details-head compact-head">
+						<p class="eyebrow">Session context</p>
+						<button onclick={toggle_details_open}>
+							{dashboard_state.details_open ? "Hide details" : "Show details"}
+						</button>
+					</div>
+					{#if dashboard_state.details_open}
+						<div class="detail-strip">
+							<span>
+								<b>Repo</b>
+								{dashboard_state.trace.session
+									? repo_name(dashboard_state.trace.session)
+									: "—"}
+							</span>
+							<span>
+								<b>Model</b>
+								{dashboard_state.trace.session?.model || "—"}
+							</span>
+							<span>
+								<b>Provider</b>
+								{dashboard_state.trace.session?.provider || "—"}
+							</span>
+							<span><b>Thinking</b> {text_preview(reasoning, 80) || "—"}</span>
+							<span>
+								<b>Events</b>
+								{first_event_ts ? time(first_event_ts) : "—"} → {dashboard_state
+									.trace.session
+									? time(dashboard_state.trace.session.last_ts)
+									: "—"}
+							</span>
+						</div>
+						<details class="technical-details">
+							<summary>Technical details</summary>
+							<div>
+								<span>
+									<b>CWD</b>
+									<code>{dashboard_state.trace.session?.cwd || "—"}</code>
+								</span>
+								<span>
+									<b>Pool</b>
+									{dashboard_state.trace.session?.pool || "default"}
+								</span>
+								<span>
+									<b>Tags</b>
+									{dashboard_state.trace.session?.tags?.join(" · ") || "—"}
+								</span>
+								<span>
+									<b>Session id</b> <code>{dashboard_state.selected_id}</code>
+									<button onclick={copy_session_id}>Copy</button>
+								</span>
+								<span>
+									<b>Session file</b> <code>{session_file || "—"}</code>
+								</span>
+							</div>
+						</details>
+						{#if initial_agent_event}
+							<div class="prompt-grid">
+								<details open>
+									<summary>Initial user prompt</summary>
+									<pre>{text_preview(
+											initial_agent_event.payload.prompt,
+											4000,
+										) || "—"}</pre>
+								</details>
+								<details>
+									<summary>Initial system prompt</summary>
+									<pre>{text_preview(
+											initial_agent_event.payload.systemPrompt,
+											8000,
+										) || "—"}</pre>
+								</details>
+							</div>
+						{/if}
+					{/if}
+				</section>
+
 				<nav class="view-tabs">
 					<button
 						class:active={dashboard_state.selected_view === "timeline"}
 						onclick={() => (dashboard_state.selected_view = "timeline")}
-						>Timeline</button
-					><button
+					>
+						Timeline
+					</button>
+					<button
 						class:active={dashboard_state.selected_view === "waterfall"}
 						onclick={() => (dashboard_state.selected_view = "waterfall")}
-						>Waterfall</button
-					><button
+					>
+						Waterfall
+					</button>
+					<button
 						class:active={dashboard_state.selected_view === "events"}
 						onclick={() => (dashboard_state.selected_view = "events")}
-						>Events</button
-					><button
+					>
+						Events
+					</button>
+					<button
 						class:active={dashboard_state.selected_view === "swimlane"}
 						onclick={() => {
 							dashboard_state.selected_view = "swimlane";
 							void load_comparison(comparison_sessions);
-						}}>Swimlane</button
-					><button
+						}}
+					>
+						Swimlane
+					</button>
+					<button
 						class:active={dashboard_state.selected_view === "race"}
 						onclick={() => {
 							dashboard_state.selected_view = "race";
 							void load_comparison(comparison_sessions);
-						}}>Race</button
+						}}
 					>
+						Race
+					</button>
 				</nav>
 
 				<SessionLabels />
@@ -266,9 +384,11 @@
 						<RaceView rows={race_rows} />
 					{/if}
 				</div>
-			{:else}<div class="panel empty">
+			{:else}
+				<div class="panel empty">
 					Select a session to inspect timeline, waterfall, and event details.
-				</div>{/if}
+				</div>
+			{/if}
 		</section>
 
 		<EventDrawer />
@@ -306,6 +426,81 @@
 		color: var(--muted);
 		font-size: var(--font-size-compact);
 	}
+	.session-details {
+		flex: 0 0 auto;
+		margin-bottom: 14px;
+		padding: 16px;
+	}
+	.details-head {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		align-items: center;
+		margin-bottom: 10px;
+	}
+	.compact-head button,
+	.technical-details button {
+		min-height: 0;
+		padding: 5px 8px;
+		font-size: var(--font-size-compact);
+	}
+	.detail-strip {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 18px;
+		color: var(--text);
+	}
+	.detail-strip span,
+	.technical-details span {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+	.detail-strip b,
+	.technical-details b {
+		color: var(--muted);
+		font-size: var(--font-size-label);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		margin-right: 5px;
+	}
+	.technical-details {
+		margin-top: 8px;
+		color: var(--muted);
+	}
+	.technical-details summary {
+		cursor: pointer;
+		font-size: var(--font-size-compact);
+	}
+	.technical-details div {
+		display: grid;
+		gap: 6px;
+		margin-top: 8px;
+	}
+	.prompt-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+		margin-top: 10px;
+	}
+	.prompt-grid details {
+		min-width: 0;
+		background: var(--bg);
+		border: 1px solid var(--border-muted);
+		border-radius: 12px;
+		padding: 10px;
+	}
+	.prompt-grid summary {
+		cursor: pointer;
+		color: var(--muted);
+	}
+	.prompt-grid pre {
+		max-height: 220px;
+		margin: 10px 0 0;
+		overflow: auto;
+		white-space: pre-wrap;
+		font-family: var(--font-mono);
+		font-size: var(--font-size-compact);
+	}
 	.view-tabs {
 		display: flex;
 		gap: 10px;
@@ -321,13 +516,15 @@
 		.hero {
 			display: block;
 		}
-		.metric-grid {
+		.metric-grid,
+		.prompt-grid {
 			grid-template-columns: repeat(2, 1fr);
 			margin-top: 16px;
 		}
 	}
 	@media (max-width: 720px) {
-		.metric-grid {
+		.metric-grid,
+		.prompt-grid {
 			grid-template-columns: 1fr;
 		}
 	}

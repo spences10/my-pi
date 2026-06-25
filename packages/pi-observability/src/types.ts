@@ -48,6 +48,7 @@ export interface SessionInfo {
 }
 
 export interface DashboardSession extends SessionInfo {
+	first_ts: string;
 	last_ts: string;
 	event_count: number;
 }
@@ -88,6 +89,7 @@ export interface ObservabilityConfig {
 	tags: string[];
 	agent_name?: string;
 	raw_payloads: boolean;
+	detail_level: 'summary' | 'detailed';
 	max_payload_bytes: number;
 	auto_start_server: boolean;
 }

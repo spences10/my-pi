@@ -117,6 +117,7 @@ describe('trace_summary', () => {
 			cwd: '/repo',
 			pool: 'default',
 			tags: [],
+			first_ts: 'then',
 			last_ts: 'now',
 			event_count: 1,
 		};

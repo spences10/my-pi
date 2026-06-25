@@ -19,6 +19,7 @@ const theme_key = 'pi-observability-theme';
 const labels_key = 'pi-observability-labels';
 const pins_key = 'pi-observability-pins';
 const archived_key = 'pi-observability-archived';
+const details_key = 'pi-observability-details-open';
 
 class DashboardState {
 	sessions = $state.raw<Session[]>([]);
@@ -36,6 +37,7 @@ class DashboardState {
 	selected_view = $state<View>('timeline');
 	theme = $state<'dark' | 'light'>('dark');
 	selected_event = $state<Event | null>(null);
+	details_open = $state(true);
 	labels = $state.raw<LabelMap>({});
 	pinned = $state.raw<Record<string, true>>({});
 	archived = $state.raw<Record<string, true>>({});
@@ -57,6 +59,13 @@ export function api(path: string) {
 
 export function label(session: Session) {
 	return (session.agent_name || session.session_id).slice(0, 44);
+}
+
+export function session_title(session: Session) {
+	if (session.agent_name) return session.agent_name;
+	const file = session.session_file?.split('/').filter(Boolean).pop();
+	if (file) return file.replace(/\.(jsonl?|ndjson)$/i, '');
+	return repo_name(session) || session.session_id;
 }
 
 export function time(value: string) {
@@ -101,6 +110,26 @@ function text_value(value: unknown, fallback = '') {
 	return JSON.stringify(value);
 }
 
+export function payload_value(
+	payload: Record<string, unknown> | undefined,
+	path: string,
+) {
+	return path.split('.').reduce<unknown>((value, key) => {
+		if (!value || typeof value !== 'object') return undefined;
+		return (value as Record<string, unknown>)[key];
+	}, payload);
+}
+
+export function text_preview(value: unknown, limit = 220) {
+	if (typeof value === 'string')
+		return value.length > limit ? `${value.slice(0, limit)}…` : value;
+	if (typeof value === 'number' || typeof value === 'boolean')
+		return String(value);
+	if (value == null) return '';
+	const text = JSON.stringify(value);
+	return text.length > limit ? `${text.slice(0, limit)}…` : text;
+}
+
 export function summary(event: Event) {
 	const payload = event.payload || {};
 	const value =
@@ -111,16 +140,6 @@ export function summary(event: Event) {
 		payload.summary ||
 		payload.error;
 	return text_value(value, JSON.stringify(payload)).slice(0, 180);
-}
-
-function payload_path(
-	payload: Record<string, unknown>,
-	path: string,
-) {
-	return path.split('.').reduce<unknown>((value, key) => {
-		if (!value || typeof value !== 'object') return undefined;
-		return (value as Record<string, unknown>)[key];
-	}, payload);
 }
 
 export function query_matches(event: Event, query_text: string) {
@@ -142,7 +161,7 @@ export function query_matches(event: Event, query_text: string) {
 		if (key === 'json') {
 			const [path, expected = ''] = value.split('=');
 			if (
-				!text_value(payload_path(event.payload, path))
+				!text_value(payload_value(event.payload, path))
 					.toLowerCase()
 					.includes(expected)
 			)
@@ -193,6 +212,19 @@ function read_record(key: string) {
 	} catch {
 		return {};
 	}
+}
+
+export function read_details_setting() {
+	dashboard_state.details_open =
+		localStorage.getItem(details_key) !== 'closed';
+}
+
+export function toggle_details_open() {
+	dashboard_state.details_open = !dashboard_state.details_open;
+	localStorage.setItem(
+		details_key,
+		dashboard_state.details_open ? 'open' : 'closed',
+	);
 }
 
 export function read_labels() {
@@ -271,6 +303,14 @@ export async function load_sessions() {
 		await select_session(dashboard_state.sessions[0].session_id);
 }
 
+function sync_selected_event(events: Event[]) {
+	const selected_id = dashboard_state.selected_event?.event_id;
+	if (!selected_id) return;
+	dashboard_state.selected_event =
+		events.find((event) => event.event_id === selected_id) ??
+		dashboard_state.selected_event;
+}
+
 export async function fetch_events(id: string) {
 	const response = await fetch(
 		api(`/sessions/${encodeURIComponent(id)}/events?limit=500`),
@@ -278,19 +318,23 @@ export async function fetch_events(id: string) {
 	const body = await response.json();
 	const loaded = (body.events || []) as Event[];
 	event_cache.set(id, loaded);
-	if (id === dashboard_state.selected_id)
+	if (id === dashboard_state.selected_id) {
 		dashboard_state.events = loaded;
+		sync_selected_event(loaded);
+	}
 	return loaded;
 }
 
 export async function select_session(id: string) {
+	const previous_id = dashboard_state.selected_id;
 	dashboard_state.selected_id = id;
-	dashboard_state.selected_event = null;
+	if (previous_id !== id) dashboard_state.selected_event = null;
 	const [loaded_events, trace_response] = await Promise.all([
 		fetch_events(id),
 		fetch(api(`/sessions/${encodeURIComponent(id)}/trace`)),
 	]);
 	dashboard_state.events = loaded_events;
+	sync_selected_event(loaded_events);
 	dashboard_state.trace = await trace_response.json();
 }
 
@@ -340,9 +384,11 @@ export function connect() {
 				event.session_id,
 				[event, ...cached].slice(0, 500),
 			);
-			if (event.session_id === dashboard_state.selected_id)
+			if (event.session_id === dashboard_state.selected_id) {
 				dashboard_state.events =
 					event_cache.get(event.session_id) || [];
+				sync_selected_event(dashboard_state.events);
+			}
 		}
 		schedule_sessions_reload();
 		if (event.session_id === dashboard_state.selected_id)

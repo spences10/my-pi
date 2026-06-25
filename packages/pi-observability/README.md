@@ -58,6 +58,7 @@ MY_PI_OBSERVABILITY_PORT=43190
 MY_PI_OBSERVABILITY_DB=~/.pi/agent/observability.db
 MY_PI_OBSERVABILITY_RETENTION_DAYS=14
 MY_PI_OBSERVABILITY_MAX_EVENTS=100000
+MY_PI_OBSERVABILITY_DETAIL=detailed # detailed or summary
 MY_PI_OBSERVABILITY_TOKEN=dev-token
 ```
 
@@ -66,10 +67,13 @@ The dashboard includes:
 
 - **Trace summary** — elapsed time, blocking time, errors, token, and
   cost rollups for the selected session.
+- **Session context** — session id, friendly name when configured,
+  cwd, session file, provider, model, thinking/reasoning settings, and
+  initial user/system prompt previews.
 - **Waterfall bottlenecks** — normalized tool/provider/message spans
   sorted by duration.
-- **Event inspector** — searchable event summaries with lazy raw
-  payload details.
+- **Event inspector** — searchable event summaries with extracted key
+  fields and lazy JSON payload details.
 
 ## Advanced configuration
 
@@ -100,6 +104,7 @@ Equivalent Pi flags:
 --observability-tag
 --observability-name
 --observability-raw
+--observability-detail
 --observability-disable
 --no-observability
 ```
@@ -121,10 +126,14 @@ version emits them. `/sessions` and `/events/stream` support `pool`,
 
 ## Safety
 
-By default payloads are summarized and recursively redacted before
-they leave the process. Raw payload mode is opt-in with
-`--observability-raw` or `MY_PI_OBSERVABILITY_RAW=true`; redaction and
-a payload byte cap still apply.
+By default payloads use `MY_PI_OBSERVABILITY_DETAIL=detailed`, which
+keeps allowlisted nested values useful for debugging while still
+summarizing large arrays/objects and recursively redacting secrets.
+Set `MY_PI_OBSERVABILITY_DETAIL=summary` or
+`--observability-detail summary` for key-only nested object summaries.
+Raw payload mode is opt-in with `--observability-raw` or
+`MY_PI_OBSERVABILITY_RAW=true`; redaction and a payload byte cap still
+apply.
 
 This package does not read `.env` files automatically. Pass only the
 configuration you want through environment variables or flags.

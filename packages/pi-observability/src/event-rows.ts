@@ -37,6 +37,7 @@ export function to_session_row(
 		tags: JSON.parse(row_text(row.tags_json, '[]')) as string[],
 		provider: row_text(row.provider, '') || undefined,
 		model: row_text(row.model, '') || undefined,
+		first_ts: row_text(row.first_ts, ''),
 		last_ts: row_text(row.last_ts, ''),
 		event_count: Number(row.event_count),
 	};

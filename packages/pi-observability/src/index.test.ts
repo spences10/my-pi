@@ -59,12 +59,16 @@ describe('resolve_observability_config', () => {
 				getFlag: (key) =>
 					flags.get(key) as string | boolean | undefined,
 			},
-			{ MY_PI_OBSERVABILITY_POOL: 'test' },
+			{
+				MY_PI_OBSERVABILITY_POOL: 'test',
+				MY_PI_OBSERVABILITY_DETAIL: 'summary',
+			},
 		);
 		expect(config).toMatchObject({
 			server_url: 'http://127.0.0.1:43190',
 			pool: 'test',
 			tags: ['one', 'two'],
+			detail_level: 'summary',
 			auto_start_server: false,
 		});
 	});
@@ -77,7 +81,7 @@ describe('payload safety', () => {
 		).toEqual({ nested: { api_key: '[REDACTED]', safe: 'ok' } });
 	});
 
-	it('summarizes object-heavy payloads by default', () => {
+	it('preserves useful nested detail by default', () => {
 		expect(
 			summarize_payload({
 				toolName: 'bash',
@@ -86,8 +90,24 @@ describe('payload safety', () => {
 			}),
 		).toMatchObject({
 			toolName: 'bash',
-			input: { type: 'object', keys: ['command'] },
+			input: {
+				type: 'object',
+				keys: ['command'],
+				command: 'pnpm test',
+			},
 			items: { type: 'array', length: 3 },
+		});
+	});
+
+	it('can keep object-heavy payloads in summary mode', () => {
+		expect(
+			summarize_payload(
+				{ toolName: 'bash', input: { command: 'pnpm test' } },
+				'summary',
+			),
+		).toMatchObject({
+			toolName: 'bash',
+			input: { type: 'object', keys: ['command'] },
 		});
 	});
 
@@ -136,7 +156,11 @@ describe('create_event_envelope', () => {
 				tags: ['demo'],
 			},
 			3,
-			{ raw_payloads: false, max_payload_bytes: 1000 },
+			{
+				raw_payloads: false,
+				detail_level: 'detailed',
+				max_payload_bytes: 1000,
+			},
 		);
 		expect(event).toMatchObject({
 			type: 'tool_call',

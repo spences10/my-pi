@@ -36,6 +36,12 @@ function as_boolean(value: unknown): boolean {
 	return value === true || value === 'true' || value === '1';
 }
 
+function detail_level(
+	value: unknown,
+): ObservabilityConfig['detail_level'] {
+	return value === 'summary' ? 'summary' : 'detailed';
+}
+
 export function parse_tags(value: unknown): string[] {
 	if (Array.isArray(value)) {
 		return value.flatMap((item) => parse_tags(item));
@@ -83,6 +89,10 @@ export function resolve_observability_config(
 		raw_payloads:
 			as_boolean(pi.getFlag('observability-raw')) ||
 			as_boolean(env.MY_PI_OBSERVABILITY_RAW),
+		detail_level: detail_level(
+			pi.getFlag('observability-detail') ??
+				env.MY_PI_OBSERVABILITY_DETAIL,
+		),
 		max_payload_bytes: Number(
 			env.MY_PI_OBSERVABILITY_MAX_PAYLOAD_BYTES ??
 				DEFAULT_MAX_PAYLOAD_BYTES,
@@ -108,7 +118,11 @@ function summarize_metric_value(value: unknown): unknown {
 		return { type: 'array', length: value.length };
 	const summary: Record<string, unknown> = {};
 	for (const [key, child] of Object.entries(value)) {
-		if (typeof child === 'number' || typeof child === 'string') {
+		if (
+			typeof child === 'number' ||
+			typeof child === 'string' ||
+			typeof child === 'boolean'
+		) {
 			summary[key] = child;
 		} else if (child && typeof child === 'object') {
 			summary[key] = summarize_metric_value(child);
@@ -117,7 +131,58 @@ function summarize_metric_value(value: unknown): unknown {
 	return summary;
 }
 
-export function summarize_payload(event: unknown): unknown {
+function summarize_text(value: string, limit: number): string {
+	return value.length > limit ? `${value.slice(0, limit)}…` : value;
+}
+
+function detailed_object_summary(
+	key: string,
+	value: Record<string, unknown>,
+): Record<string, unknown> {
+	const summary: Record<string, unknown> = {
+		type: 'object',
+		keys: Object.keys(value).slice(0, 20),
+	};
+	for (const [child_key, child] of Object.entries(value)) {
+		if (child_key === 'usage' || child_key === 'cost') {
+			summary[child_key] = summarize_metric_value(child);
+		} else if (
+			[
+				'model',
+				'provider',
+				'reasoning',
+				'text',
+				'tool_choice',
+			].includes(child_key)
+		) {
+			summary[child_key] =
+				typeof child === 'string'
+					? summarize_text(child, 500)
+					: summarize_metric_value(child);
+		} else if (child_key === 'instructions') {
+			summary[child_key] =
+				typeof child === 'string'
+					? summarize_text(child, 2000)
+					: summarize_metric_value(child);
+		} else if (
+			key === 'input' &&
+			(typeof child === 'string' ||
+				typeof child === 'number' ||
+				typeof child === 'boolean')
+		) {
+			summary[child_key] =
+				typeof child === 'string'
+					? summarize_text(child, 2000)
+					: child;
+		}
+	}
+	return summary;
+}
+
+export function summarize_payload(
+	event: unknown,
+	detail_level: ObservabilityConfig['detail_level'] = 'detailed',
+): unknown {
 	if (!event || typeof event !== 'object') return event;
 	const object = event as Record<string, unknown>;
 	const summary: Record<string, unknown> = {};
@@ -138,22 +203,27 @@ export function summarize_payload(event: unknown): unknown {
 		if (key === 'usage' || key === 'cost') {
 			summary[key] = summarize_metric_value(value);
 		} else if (typeof value === 'string') {
-			summary[key] =
-				value.length > 500 ? `${value.slice(0, 500)}…` : value;
+			summary[key] = summarize_text(
+				value,
+				key.toLowerCase().includes('prompt') ? 4000 : 500,
+			);
 		} else if (Array.isArray(value)) {
 			summary[key] = { type: 'array', length: value.length };
 		} else if (value && typeof value === 'object') {
 			const nested = value as Record<string, unknown>;
-			summary[key] = {
-				type: 'object',
-				keys: Object.keys(nested).slice(0, 20),
-				...('usage' in nested
-					? { usage: summarize_metric_value(nested.usage) }
-					: {}),
-				...('cost' in nested
-					? { cost: summarize_metric_value(nested.cost) }
-					: {}),
-			};
+			summary[key] =
+				detail_level === 'summary'
+					? {
+							type: 'object',
+							keys: Object.keys(nested).slice(0, 20),
+							...('usage' in nested
+								? { usage: summarize_metric_value(nested.usage) }
+								: {}),
+							...('cost' in nested
+								? { cost: summarize_metric_value(nested.cost) }
+								: {}),
+						}
+					: detailed_object_summary(key, nested);
 		} else {
 			summary[key] = value;
 		}
@@ -168,12 +238,12 @@ export function create_event_envelope(
 	seq: number,
 	config: Pick<
 		ObservabilityConfig,
-		'raw_payloads' | 'max_payload_bytes'
+		'raw_payloads' | 'detail_level' | 'max_payload_bytes'
 	>,
 ): ObservabilityEvent {
 	const safe_payload = config.raw_payloads
 		? payload
-		: summarize_payload(payload);
+		: summarize_payload(payload, config.detail_level);
 	return {
 		event_id: randomUUID(),
 		ts: new Date().toISOString(),
@@ -329,6 +399,11 @@ export default function observability(pi: ExtensionAPI) {
 		description: 'Send larger raw event payloads after redaction',
 		type: 'boolean',
 		default: false,
+	});
+	pi.registerFlag('observability-detail', {
+		description: 'Payload detail level: detailed or summary',
+		type: 'string',
+		default: undefined,
 	});
 	pi.registerFlag('observability-disable', {
 		description: 'Disable live observability for this process',

@@ -43,6 +43,7 @@ describe('event row adapters', () => {
 				tags_json: '[]',
 				provider: '',
 				model: '',
+				first_ts: 'then',
 				last_ts: 'now',
 				event_count: '4',
 			}),
@@ -55,6 +56,7 @@ describe('event row adapters', () => {
 			tags: [],
 			provider: undefined,
 			model: undefined,
+			first_ts: 'then',
 			last_ts: 'now',
 			event_count: 4,
 		});
