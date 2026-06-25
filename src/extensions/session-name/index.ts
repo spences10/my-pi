@@ -1,7 +1,7 @@
 // Session name — AI-powered session naming
 // Adapted from Thomas Lopes' pi dotfiles
 
-import { complete, type Message } from '@earendil-works/pi-ai';
+import { complete, type Message } from '@earendil-works/pi-ai/compat';
 import type {
 	ExtensionAPI,
 	SessionEntry,
