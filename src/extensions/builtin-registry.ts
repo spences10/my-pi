@@ -58,6 +58,21 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		load: async () => (await import('@spences10/pi-mcp')).default,
 	},
 	{
+		key: 'openrouter-fusion-config',
+		label: 'OpenRouter Fusion config',
+		docs_label: 'OpenRouter Fusion config guard',
+		description:
+			'Keeps OpenRouter Fusion off Anthropic by injecting a non-Anthropic panel and judge',
+		default_enabled: true,
+		option_name: 'openrouter_fusion_config',
+		cli_arg: 'no-openrouter-fusion-config',
+		cli_flag: '--no-openrouter-fusion-config',
+		cli_description: 'Disable OpenRouter Fusion non-Anthropic config',
+		aliases: ['openrouter-fusion-config', 'fusion-budget'],
+		load: async () =>
+			(await import('./openrouter-fusion-config/index.js')).default,
+	},
+	{
 		key: 'footer',
 		label: 'Footer',
 		docs_label: 'Footer',

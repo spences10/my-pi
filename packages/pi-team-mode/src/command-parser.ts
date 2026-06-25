@@ -1,6 +1,36 @@
 import type { TeammateProfile } from './profiles.js';
 import type { TeamWorkspaceMode } from './store.js';
 
+const THINKING_LEVELS = new Set([
+	'off',
+	'minimal',
+	'low',
+	'medium',
+	'high',
+	'xhigh',
+]);
+
+export type TeamThinkingLevel =
+	| 'off'
+	| 'minimal'
+	| 'low'
+	| 'medium'
+	| 'high'
+	| 'xhigh';
+
+export function parse_team_thinking_level(
+	value: string | undefined,
+): TeamThinkingLevel | undefined {
+	const normalized = value?.trim().toLowerCase();
+	if (!normalized) return undefined;
+	if (!THINKING_LEVELS.has(normalized)) {
+		throw new Error(
+			'thinking must be one of: off, minimal, low, medium, high, xhigh.',
+		);
+	}
+	return normalized as TeamThinkingLevel;
+}
+
 function require_arg(
 	value: string | undefined,
 	name: string,
@@ -33,6 +63,8 @@ export interface SpawnRequest {
 	branch?: string;
 	worktree_path?: string;
 	profile?: string;
+	model?: string;
+	thinking?: TeamThinkingLevel;
 	mutating?: boolean;
 	force?: boolean;
 }
@@ -60,6 +92,12 @@ export function parse_spawn_request(args: string[]): SpawnRequest {
 			);
 		} else if (token === '--profile' || token === '--agent') {
 			request.profile = require_arg(rest[++index], 'profile');
+		} else if (token === '--model') {
+			request.model = require_arg(rest[++index], 'model');
+		} else if (token === '--thinking') {
+			request.thinking = parse_team_thinking_level(
+				require_arg(rest[++index], 'thinking'),
+			);
 		} else {
 			prompt_parts.push(token, ...rest.slice(index + 1));
 			break;

@@ -377,6 +377,7 @@ function format_member_dashboard_line(
 	const details = [member.role, format_member_status(member)];
 	const model = member.model ?? usage?.model;
 	if (model) details.push(`model ${model}`);
+	if (member.thinking) details.push(`thinking ${member.thinking}`);
 	if (member.pid) details.push(`pid ${member.pid}`);
 	if (member.session_file)
 		details.push(`transcript ${member.session_file}`);
