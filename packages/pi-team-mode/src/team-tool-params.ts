@@ -1,5 +1,9 @@
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
+import {
+	parse_team_thinking_level,
+	type TeamThinkingLevel,
+} from './command-parser.js';
 import type { TeamTaskStatus, TeamWorkspaceMode } from './store.js';
 
 export type TeamUiMode = 'auto' | 'compact' | 'full' | 'off';
@@ -65,6 +69,14 @@ const TeamUiStyleParam = StringEnum([
 	'badge',
 	'color',
 ] as const);
+const TeamThinkingParam = StringEnum([
+	'off',
+	'minimal',
+	'low',
+	'medium',
+	'high',
+	'xhigh',
+] as const);
 
 export const TeamToolParams = Type.Object({
 	action: StringEnum(TEAM_ACTIONS),
@@ -93,7 +105,7 @@ export const TeamToolParams = Type.Object({
 	urgent: Type.Optional(Type.Boolean()),
 	initial_prompt: Type.Optional(Type.String()),
 	model: Type.Optional(Type.String()),
-	thinking: Type.Optional(Type.String()),
+	thinking: Type.Optional(TeamThinkingParam),
 	profile: Type.Optional(Type.String()),
 	agent: Type.Optional(Type.String()),
 	workspace_mode: Type.Optional(TeamWorkspaceModeParam),
@@ -139,7 +151,7 @@ export type TeamToolParams = {
 	urgent?: boolean;
 	initial_prompt?: string;
 	model?: string;
-	thinking?: string;
+	thinking?: TeamThinkingLevel;
 	profile?: string;
 	agent?: string;
 	workspace_mode?: TeamWorkspaceMode;
@@ -184,6 +196,7 @@ function require_tool_any_field(
 export function validate_team_tool_params(
 	params: TeamToolParams,
 ): void {
+	parse_team_thinking_level(params.thinking);
 	switch (params.action) {
 		case 'team_create':
 		case 'team_list':

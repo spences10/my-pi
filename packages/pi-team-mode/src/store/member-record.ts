@@ -27,6 +27,9 @@ export function build_member_record(
 		...((input.model ?? existing?.model)
 			? { model: input.model ?? existing?.model }
 			: {}),
+		...((input.thinking ?? existing?.thinking)
+			? { thinking: input.thinking ?? existing?.thinking }
+			: {}),
 		...((input.profile ?? existing?.profile)
 			? { profile: input.profile ?? existing?.profile }
 			: {}),
