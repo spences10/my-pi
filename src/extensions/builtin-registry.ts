@@ -73,6 +73,21 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 			(await import('./openrouter-fusion-config/index.js')).default,
 	},
 	{
+		key: 'umans-provider',
+		label: 'Umans provider',
+		docs_label: 'Umans provider',
+		description:
+			'Umans.ai Anthropic Messages provider with API key login support',
+		default_enabled: true,
+		option_name: 'umans_provider',
+		cli_arg: 'no-umans-provider',
+		cli_flag: '--no-umans-provider',
+		cli_description: 'Disable built-in Umans provider',
+		aliases: ['umans-provider', 'umans'],
+		load: async () =>
+			(await import('./umans-provider/index.js')).default,
+	},
+	{
 		key: 'footer',
 		label: 'Footer',
 		docs_label: 'Footer',

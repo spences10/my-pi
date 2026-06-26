@@ -115,6 +115,11 @@ pnpx my-pi@latest observability
 Pi handles model authentication natively. For provider-specific model
 examples, see the Pi docs and the relevant extension/package README.
 
+Umans.ai is available as a built-in provider. Run `/login`, choose API
+key auth, then choose Umans; select models like `umans/umans-coder` or
+`umans/umans-flash`. The provider can also read `UMANS_API_KEY` and
+can be disabled with `--no-umans-provider`.
+
 OpenRouter Fusion is configured by default: `my-pi` injects a
 non-Anthropic Fusion panel/judge only for `openrouter/fusion`.
 Configure it in `~/.pi/agent/my-pi-settings.json` under
