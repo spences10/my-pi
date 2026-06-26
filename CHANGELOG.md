@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.92
+
+### Patch Changes
+
+- bd7b2ed: Add built-in Umans provider with API key login and
+  selectable umans models.
+
 ## 0.1.91
 
 ### Patch Changes
