@@ -1,6 +1,7 @@
 import type {
 	CoordinationGroup,
 	CoordinationGroupMember,
+	CoordinationGroupMembership,
 	CoordinationInboxMessage,
 	CoordinationSession,
 } from './db.js';
@@ -17,7 +18,10 @@ export function format_sessions(
 		.map((session) => {
 			const name = session.agent_name ? ` ${session.agent_name}` : '';
 			const model = session.model_id ? ` · ${session.model_id}` : '';
-			return `- ${short_id(session.session_id)}${name} — ${session.status}; ${session.cwd}${model}`;
+			const thinking = session.thinking_level
+				? ` · thinking ${session.thinking_level}`
+				: '';
+			return `- ${short_id(session.session_id)}${name} — ${session.status}; ${session.cwd}${model}${thinking}`;
 		})
 		.join('\n');
 }
@@ -59,6 +63,27 @@ export function format_groups(
 			return `- ${group.name} (${group.group_id})${member_text}${group.cwd ? ` · ${group.cwd}` : ''}`;
 		})
 		.join('\n');
+}
+
+export function format_coordination_identity(
+	memberships: CoordinationGroupMembership[],
+	options: { thinking_level?: string } = {},
+): string | undefined {
+	if (memberships.length === 0 && !options.thinking_level)
+		return undefined;
+	return [
+		'Current coordination identity:',
+		...(options.thinking_level
+			? [`- Session thinking level: ${options.thinking_level}`]
+			: []),
+		...memberships.map((membership) => {
+			const alias = membership.alias ? ` as ${membership.alias}` : '';
+			const cwd = membership.group_cwd
+				? ` · ${membership.group_cwd}`
+				: '';
+			return `- ${membership.group_name} (${membership.group_id}): ${membership.role}${alias}${cwd}`;
+		}),
+	].join('\n');
 }
 
 export function format_peer_message_for_injection(

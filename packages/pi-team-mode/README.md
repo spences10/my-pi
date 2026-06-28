@@ -204,10 +204,14 @@ redelivery on the next session.
 
 Every session that loads the extension registers itself with session
 id, session file, cwd, pid, model, status, and optional observability
-pool/tags. Each session subscribes to the local push broker and also
-polls its own SQLite inbox as a fallback. Pending peer messages are
-self-injected with `pi.sendUserMessage()`, so delivery does not
-require a lead process to own the recipient.
+pool/tags and thinking level when available. Active coordination group
+memberships are injected into the Team Mode system prompt with the
+session's thinking level, group role, and alias, so peer sessions know
+when they are acting as a reviewer, teammate, lead, or peer in an
+orchestration group. Each session subscribes to the local push broker
+and also polls its own SQLite inbox as a fallback. Pending peer
+messages are self-injected with `pi.sendUserMessage()`, so delivery
+does not require a lead process to own the recipient.
 
 Useful peer commands:
 

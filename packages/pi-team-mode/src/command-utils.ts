@@ -79,6 +79,7 @@ export function append_team_system_prompt(
 	base_prompt: string,
 	options: {
 		active_team_id?: string;
+		coordination_identity?: string;
 		ownMember: string;
 		ownRole: string;
 	},
@@ -88,6 +89,9 @@ export function append_team_system_prompt(
 	const active_context = options.active_team_id
 		? `You are ${role_text} \`${options.ownMember}\` in team \`${options.active_team_id}\`.`
 		: 'No team is active yet. Create one with the `team` tool when the user asks for parallel/background teammate work.';
+	const coordination_identity = options.coordination_identity
+		? `\n\n${options.coordination_identity}`
+		: '';
 
 	return (
 		base_prompt +
@@ -95,7 +99,7 @@ export function append_team_system_prompt(
 
 ## Team Mode
 
-${active_context}
+${active_context}${coordination_identity}
 Use the \`team\` tool as the source of truth for peer-session and team coordination.
 
 Rules:

@@ -187,17 +187,36 @@ export async function execute_coordination_action(
 				require_arg(params.team_id ?? params.name, 'group'),
 			);
 			if (!group) throw new Error('Unknown coordination group');
+			const from_session_id = require_session_id();
 			const targets = coordination_db.resolve_session_targets(
 				require_arg(params.to, 'to'),
 			);
+			const role = params.role ?? 'peer';
 			const members = targets.map((session) =>
 				coordination_db.add_group_member({
 					group_id: group.group_id,
 					session_id: session.session_id,
 					alias: params.member,
-					role: params.role ?? 'peer',
+					role,
 				}),
 			);
+			const recipients = members
+				.map((member) => member.session_id)
+				.filter((session_id) => session_id !== from_session_id);
+			if (recipients.length > 0) {
+				const message = coordination_db.send_message({
+					from_session_id,
+					to_session_ids: recipients,
+					scope: 'group',
+					target: group.group_id,
+					body: `You have been added to coordination group ${group.name} (${group.group_id}) as ${role}${params.member ? ` with alias ${params.member}` : ''}. Treat this as your current coordination identity for related requests.`,
+					requires_ack: true,
+				});
+				await notify_coordination_messages(
+					recipients,
+					message.message_id,
+				);
+			}
 			return {
 				content: [
 					{

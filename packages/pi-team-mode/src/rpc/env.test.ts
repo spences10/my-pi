@@ -66,6 +66,21 @@ describe('create_rpc_teammate_env', () => {
 		});
 	});
 
+	it('passes teammate thinking level for coordination registration', () => {
+		const env = create_rpc_teammate_env(
+			{
+				team_root: '/tmp/team-root',
+				extension_path: '/tmp/team-extension.js',
+				thinking: 'high',
+			},
+			'team-1',
+			'alice',
+			{ PATH: '/bin' },
+		);
+
+		expect(env.MY_PI_TEAM_THINKING).toBe('high');
+	});
+
 	it('allows provider credentials only through team-mode allowlist', () => {
 		const env = create_rpc_teammate_env(
 			{

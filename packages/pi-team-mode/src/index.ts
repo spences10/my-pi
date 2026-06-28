@@ -11,6 +11,7 @@ import {
 import {
 	ACTIVE_TEAM_ENV,
 	get_coordination_db_path,
+	get_current_thinking_level,
 	get_extension_path,
 	get_team_root,
 	set_current_extension_path,
@@ -23,6 +24,7 @@ import {
 	CoordinationBrokerClient,
 	ensure_coordination_broker,
 } from './coordination-broker.js';
+import { format_coordination_identity } from './coordination-formatting.js';
 import { CoordinationPoller } from './coordination-poller.js';
 import { TeamDatabase } from './db.js';
 import {
@@ -116,6 +118,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 			status: 'online',
 			model_provider: ctx.model?.provider,
 			model_id: ctx.model?.id,
+			thinking_level: get_current_thinking_level(),
 			pool: process.env.MY_PI_OBSERVABILITY_POOL || 'default',
 			tags: (process.env.MY_PI_OBSERVABILITY_TAG || '')
 				.split(',')
@@ -185,9 +188,19 @@ export default async function team_mode(pi: ExtensionAPI) {
 
 	pi.on('before_agent_start', async (event) => {
 		if (!should_inject_team_prompt(event)) return {};
+		const own_session = own_session_id
+			? coordination_db.get_session(own_session_id)
+			: undefined;
+		const coordination_identity = own_session_id
+			? format_coordination_identity(
+					coordination_db.list_group_memberships(own_session_id),
+					{ thinking_level: own_session?.thinking_level },
+				)
+			: undefined;
 		return {
 			systemPrompt: append_team_system_prompt(event.systemPrompt, {
 				active_team_id: active_team_id,
+				coordination_identity,
 				ownMember: own_member,
 				ownRole: own_role,
 			}),

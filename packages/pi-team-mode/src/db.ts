@@ -52,6 +52,7 @@ export interface CoordinationSessionInput {
 	status?: CoordinationSessionStatus;
 	model_provider?: string;
 	model_id?: string;
+	thinking_level?: string;
 	pool?: string;
 	tags?: string[];
 	metadata?: Record<string, unknown>;
@@ -67,6 +68,7 @@ export interface CoordinationSession extends Required<
 	status: CoordinationSessionStatus;
 	model_provider?: string;
 	model_id?: string;
+	thinking_level?: string;
 	pool: string;
 	tags: string[];
 	metadata: Record<string, unknown>;
@@ -95,6 +97,11 @@ export interface CoordinationGroupMember {
 	status: 'active' | 'inactive';
 	joined_at: string;
 	updated_at: string;
+}
+
+export interface CoordinationGroupMembership extends CoordinationGroupMember {
+	group_name: string;
+	group_cwd?: string;
 }
 
 export interface CoordinationMessageInput {
@@ -144,6 +151,7 @@ interface SessionRow {
 	status: CoordinationSessionStatus;
 	model_provider: string | null;
 	model_id: string | null;
+	thinking_level: string | null;
 	pool: string;
 	tags_json: string;
 	metadata_json: string;
@@ -172,6 +180,11 @@ interface GroupMemberRow {
 	status: 'active' | 'inactive';
 	joined_at: string;
 	updated_at: string;
+}
+
+interface GroupMembershipRow extends GroupMemberRow {
+	group_name: string;
+	group_cwd: string | null;
 }
 
 interface InboxRow {
@@ -208,6 +221,7 @@ export interface TeamDatabaseStatements {
 	list_groups: StatementSync;
 	upsert_group_member: StatementSync;
 	list_group_members: StatementSync;
+	list_group_memberships: StatementSync;
 	insert_message: StatementSync;
 	insert_message_receipt: StatementSync;
 	list_inbox: StatementSync;
@@ -288,6 +302,7 @@ export class TeamDatabase {
 			input.status ?? 'online',
 			input.model_provider ?? null,
 			input.model_id ?? null,
+			input.thinking_level ?? null,
 			input.pool ?? 'default',
 			json(input.tags ?? []),
 			json(input.metadata ?? {}),
@@ -420,6 +435,20 @@ export class TeamDatabase {
 				group.group_id,
 			) as unknown as GroupMemberRow[]
 		).map((row) => this.map_group_member(row));
+	}
+
+	list_group_memberships(
+		session_id: string,
+	): CoordinationGroupMembership[] {
+		return (
+			this.statements.list_group_memberships.all(
+				session_id,
+			) as unknown as GroupMembershipRow[]
+		).map((row) => ({
+			...this.map_group_member(row),
+			group_name: row.group_name,
+			group_cwd: optional(row.group_cwd),
+		}));
 	}
 
 	send_message(input: CoordinationMessageInput): CoordinationMessage {
@@ -682,8 +711,8 @@ export class TeamDatabase {
 		return {
 			register_session: this.db.prepare(`
 				INSERT INTO sessions
-				(session_id, session_file, cwd, agent_name, pid, role, status, model_provider, model_id, pool, tags_json, metadata_json, created_at, updated_at, last_seen_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				(session_id, session_file, cwd, agent_name, pid, role, status, model_provider, model_id, thinking_level, pool, tags_json, metadata_json, created_at, updated_at, last_seen_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT(session_id) DO UPDATE SET
 					session_file = excluded.session_file,
 					cwd = excluded.cwd,
@@ -693,6 +722,7 @@ export class TeamDatabase {
 					status = excluded.status,
 					model_provider = COALESCE(excluded.model_provider, sessions.model_provider),
 					model_id = COALESCE(excluded.model_id, sessions.model_id),
+					thinking_level = COALESCE(excluded.thinking_level, sessions.thinking_level),
 					pool = excluded.pool,
 					tags_json = excluded.tags_json,
 					metadata_json = excluded.metadata_json,
@@ -742,6 +772,13 @@ export class TeamDatabase {
 			list_group_members: this.db.prepare(
 				'SELECT * FROM group_members WHERE group_id = ? ORDER BY joined_at ASC',
 			),
+			list_group_memberships: this.db.prepare(`
+				SELECT group_members.*, groups.name AS group_name, groups.cwd AS group_cwd
+				FROM group_members
+				JOIN groups ON groups.group_id = group_members.group_id
+				WHERE group_members.session_id = ? AND group_members.status = 'active'
+				ORDER BY groups.updated_at DESC
+			`),
 			insert_message: this.db.prepare(`
 				INSERT INTO messages
 				(message_id, from_session_id, scope, target, body, urgent, reply_to, expires_at, requires_ack, created_at, metadata_json)
@@ -792,6 +829,7 @@ export class TeamDatabase {
 			status: row.status,
 			model_provider: optional(row.model_provider),
 			model_id: optional(row.model_id),
+			thinking_level: optional(row.thinking_level),
 			pool: row.pool,
 			tags: parse_json(row.tags_json, []),
 			metadata: parse_json(row.metadata_json, {}),

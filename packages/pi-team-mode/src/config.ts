@@ -9,6 +9,7 @@ export const TEAM_ROLE_ENV = 'MY_PI_TEAM_ROLE';
 export const EXTENSION_PATH_ENV = 'MY_PI_TEAM_EXTENSION_PATH';
 export const AUTO_INJECT_ENV = 'MY_PI_TEAM_AUTO_INJECT_MESSAGES';
 export const COORDINATION_DB_ENV = 'MY_PI_COORDINATION_DB';
+export const TEAM_THINKING_ENV = 'MY_PI_TEAM_THINKING';
 
 let current_extension_path: string | undefined;
 
@@ -35,6 +36,15 @@ export function get_extension_path(): string {
 		current_extension_path ||
 		fileURLToPath(import.meta.url)
 	);
+}
+
+export function get_current_thinking_level(): string | undefined {
+	const env_value = process.env[TEAM_THINKING_ENV]?.trim();
+	if (env_value) return env_value;
+	const index = process.argv.indexOf('--thinking');
+	const arg_value =
+		index >= 0 ? process.argv[index + 1]?.trim() : undefined;
+	return arg_value || undefined;
 }
 
 export function should_auto_inject_messages(): boolean {

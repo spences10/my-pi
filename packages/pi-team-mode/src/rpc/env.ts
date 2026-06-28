@@ -4,6 +4,7 @@ import { normalize_member_name } from './protocol.js';
 interface RpcEnvOptions {
 	team_root: string;
 	extension_path: string;
+	thinking?: string;
 }
 
 function merge_observability_tags(
@@ -60,6 +61,9 @@ export function create_rpc_teammate_env(
 			MY_PI_TEAM_MEMBER: normalized_member,
 			MY_PI_TEAM_ROLE: 'teammate',
 			MY_PI_TEAM_EXTENSION_PATH: options.extension_path,
+			...(options.thinking
+				? { MY_PI_TEAM_THINKING: options.thinking }
+				: {}),
 			...create_teammate_observability_env(
 				source_env,
 				team_id,

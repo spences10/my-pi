@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 	status TEXT NOT NULL DEFAULT 'online' CHECK (status IN ('online', 'idle', 'running', 'blocked', 'offline')),
 	model_provider TEXT,
 	model_id TEXT,
+	thinking_level TEXT,
 	pool TEXT NOT NULL DEFAULT 'default',
 	tags_json TEXT NOT NULL DEFAULT '[]',
 	metadata_json TEXT NOT NULL DEFAULT '{}',

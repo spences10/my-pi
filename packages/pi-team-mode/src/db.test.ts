@@ -53,6 +53,7 @@ describe('TeamDatabase coordination store', () => {
 				agent_name: 'alpha',
 				pid: 1,
 				model_id: 'model-a',
+				thinking_level: 'high',
 			});
 			db.register_session({
 				session_id: 's2',
@@ -68,6 +69,9 @@ describe('TeamDatabase coordination store', () => {
 				requires_ack: true,
 			});
 
+			expect(db.get_session('s1')).toMatchObject({
+				thinking_level: 'high',
+			});
 			expect(db.list_sessions()).toHaveLength(2);
 			expect(db.resolve_session_targets('beta')).toHaveLength(1);
 			expect(db.list_inbox('s2')).toMatchObject([
@@ -122,6 +126,14 @@ describe('TeamDatabase coordination store', () => {
 			});
 
 			expect(db.list_group_members(group.group_id)).toHaveLength(2);
+			expect(db.list_group_memberships('reviewer')).toMatchObject([
+				{
+					group_id: group.group_id,
+					group_name: 'refactor',
+					alias: 'reviewer',
+					role: 'reviewer',
+				},
+			]);
 			expect(db.list_inbox('reviewer')).toMatchObject([
 				{
 					message_id: message.message_id,
