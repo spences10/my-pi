@@ -16,6 +16,17 @@ const TEAM_ACTIONS = [
 	'team_clear',
 	'team_shutdown',
 	'team_ui',
+	'session_list',
+	'session_send',
+	'session_inbox',
+	'session_read',
+	'session_ack',
+	'session_wait',
+	'group_create',
+	'group_list',
+	'group_join',
+	'group_add_session',
+	'group_send',
 	'member_upsert',
 	'member_spawn',
 	'member_prompt',
@@ -206,6 +217,34 @@ export function validate_team_tool_params(
 		case 'team_ui':
 		case 'member_status':
 		case 'task_list':
+		case 'session_list':
+		case 'session_inbox':
+		case 'session_read':
+		case 'session_ack':
+		case 'session_wait':
+		case 'group_list':
+			return;
+		case 'session_send':
+			require_tool_field(params, 'to');
+			require_tool_field(params, 'message');
+			return;
+		case 'group_create':
+			require_tool_field(params, 'name');
+			return;
+		case 'group_join':
+			require_tool_any_field(params, ['team_id', 'name'], 'group');
+			return;
+		case 'group_add_session':
+			require_tool_any_field(params, ['team_id', 'name'], 'group');
+			require_tool_field(params, 'to');
+			return;
+		case 'group_send':
+			require_tool_any_field(
+				params,
+				['team_id', 'name', 'to'],
+				'group',
+			);
+			require_tool_field(params, 'message');
 			return;
 		case 'member_upsert':
 		case 'member_spawn':

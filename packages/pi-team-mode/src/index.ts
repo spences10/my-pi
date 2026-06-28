@@ -10,6 +10,7 @@ import {
 } from './command-handler.js';
 import {
 	ACTIVE_TEAM_ENV,
+	get_coordination_db_path,
 	get_extension_path,
 	get_team_root,
 	set_current_extension_path,
@@ -18,6 +19,12 @@ import {
 	TEAM_MEMBER_ENV,
 	TEAM_ROLE_ENV,
 } from './config.js';
+import {
+	CoordinationBrokerClient,
+	ensure_coordination_broker,
+} from './coordination-broker.js';
+import { CoordinationPoller } from './coordination-poller.js';
+import { TeamDatabase } from './db.js';
 import {
 	format_completed_task_results,
 	format_team_dashboard,
@@ -60,8 +67,13 @@ export {
 export default async function team_mode(pi: ExtensionAPI) {
 	set_current_extension_path(fileURLToPath(import.meta.url));
 	const store = new TeamStore(get_team_root());
+	const coordination_db = await TeamDatabase.open(
+		get_coordination_db_path(),
+	);
+	await ensure_coordination_broker();
 	const runners = new Map<string, RpcTeammate>();
 	let active_team_id: string | undefined;
+	let own_session_id: string | undefined;
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'lead';
 	const own_role = process.env[TEAM_ROLE_ENV] || 'lead';
 	const activity_poller = new TeamActivityPoller({
@@ -75,8 +87,42 @@ export default async function team_mode(pi: ExtensionAPI) {
 		},
 		should_auto_inject_messages,
 	});
+	const coordination_poller = new CoordinationPoller({
+		db: coordination_db,
+		get_session_id: () => own_session_id,
+		should_auto_inject_messages,
+	});
+	const coordination_broker = new CoordinationBrokerClient({
+		get_session_id: () => own_session_id,
+		on_message: () => coordination_poller.poll(pi),
+	});
 
 	pi.on('session_start', async (_event, ctx) => {
+		own_session_id = ctx.sessionManager.getSessionId();
+		coordination_db.register_session({
+			session_id: own_session_id,
+			session_file: ctx.sessionManager.getSessionFile(),
+			cwd: ctx.cwd,
+			agent_name:
+				pi.getSessionName?.() ||
+				process.env.MY_PI_OBSERVABILITY_NAME ||
+				(process.env[TEAM_MEMBER_ENV] ? own_member : undefined),
+			pid: process.pid,
+			role: process.env[TEAM_ROLE_ENV]
+				? own_role === 'teammate'
+					? 'teammate'
+					: 'lead'
+				: 'peer',
+			status: 'online',
+			model_provider: ctx.model?.provider,
+			model_id: ctx.model?.id,
+			pool: process.env.MY_PI_OBSERVABILITY_POOL || 'default',
+			tags: (process.env.MY_PI_OBSERVABILITY_TAG || '')
+				.split(',')
+				.map((tag) => tag.trim())
+				.filter(Boolean),
+			metadata: { active_team_id: process.env[ACTIVE_TEAM_ENV] },
+		});
 		active_team_id = process.env[ACTIVE_TEAM_ENV];
 		if (active_team_id) {
 			try {
@@ -105,7 +151,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 		activity_poller.reset(active_team_id);
 		set_team_ui(ctx, store, active_team_id, runners);
 		activity_poller.start(pi, ctx);
+		coordination_broker.start();
+		coordination_poller.start(pi);
 		void activity_poller.poll(pi, ctx);
+		coordination_poller.poll(pi);
 	});
 
 	pi.on('session_shutdown', async (_event, ctx) => {
@@ -126,6 +175,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 		}
 		runners.clear();
 		activity_poller.stop();
+		coordination_broker.stop();
+		coordination_poller.stop();
+		if (own_session_id)
+			coordination_db.mark_session_status(own_session_id, 'offline');
 		ctx.ui.setStatus(STATUS_KEY, undefined);
 		ctx.ui.setWidget(STATUS_KEY, undefined);
 	});
@@ -153,6 +206,16 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'results',
 				'resume',
 				'teams',
+				'sessions',
+				'session list',
+				'session send',
+				'session inbox',
+				'session read',
+				'session ack',
+				'group list',
+				'group create',
+				'group join',
+				'group send',
 				'switch',
 				'ui auto',
 				'ui compact',
@@ -206,6 +269,13 @@ export default async function team_mode(pi: ExtensionAPI) {
 					activity_poller.reset(team_id);
 				},
 				own_role,
+				coordination_db,
+				(to_session_ids, message_id) =>
+					coordination_broker.notify_messages(
+						to_session_ids,
+						message_id,
+					),
+				() => own_session_id,
 			),
 	});
 
@@ -213,14 +283,17 @@ export default async function team_mode(pi: ExtensionAPI) {
 		name: 'team',
 		label: 'Team',
 		description:
-			'Manage teammate coordination: teams, RPC teammates, tasks, and mailboxes. Real spawning is available through member_spawn.',
+			'Manage peer session coordination, groups, RPC teammates, tasks, and mailboxes. Real spawning is available through member_spawn.',
 		promptSnippet:
-			'Manage team-mode members, tasks, messages, and RPC teammate sessions',
+			'Manage peer sessions, coordination groups, tasks, messages, and optional RPC teammate sessions',
 		promptGuidelines: [
+			'Use team session_list to discover registered Pi sessions across projects before sending peer messages.',
+			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for peer-session mailbox coordination.',
+			'Use team group_create, group_add_session, and group_send when one session should coordinate a team of independently running sessions.',
 			'Use team to create and update teammate-mode tasks instead of ad-hoc markdown todo lists when the user asks to coordinate a team.',
 			'Only team leads may use member_spawn. Teammate sessions must not spawn nested teammates.',
-			'Use team member_spawn to start real RPC teammates, then assign tasks and inspect status with team_status.',
-			'Use team_status as the source of truth for member state, task progress, and blocked work.',
+			'Use team member_spawn to start real RPC teammates when new sessions are needed; spawned sessions register into the same coordination bus.',
+			'Use session_list, session_inbox, and group_list as the source of truth for peer-session coordination; use team_status for spawned RPC process state.',
 		],
 		parameters: TeamToolParams,
 		async execute(
@@ -243,6 +316,13 @@ export default async function team_mode(pi: ExtensionAPI) {
 				get_team_root,
 				get_extension_path,
 				teammate_profile,
+				coordination_db,
+				notify_coordination_messages: (to_session_ids, message_id) =>
+					coordination_broker.notify_messages(
+						to_session_ids,
+						message_id,
+					),
+				get_session_id: () => own_session_id,
 			});
 		},
 	});

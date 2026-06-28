@@ -1,4 +1,9 @@
 import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import {
+	handle_group_command,
+	handle_session_command,
+	handle_sessions,
+} from './commands/coordination-commands.js';
 import { show_team_help } from './commands/help.js';
 import {
 	handle_dm,
@@ -32,6 +37,7 @@ import {
 	run_empty_team_command,
 } from './commands/team-commands.js';
 import type { TeamCommandDeps } from './commands/types.js';
+import type { TeamDatabase } from './db.js';
 import type { RpcTeammate } from './rpc-runner.js';
 import type { TeamStore } from './store.js';
 import { has_modal_ui } from './ui-status.js';
@@ -51,6 +57,12 @@ export async function handle_team_command(
 	get_active_team_id: () => string | undefined,
 	set_active_team_id: (team_id: string | undefined) => void,
 	own_role = 'lead',
+	coordination_db?: TeamDatabase,
+	notify_coordination_messages: (
+		to_session_ids: string[],
+		message_id?: string,
+	) => Promise<void> = async () => undefined,
+	get_session_id: () => string | undefined = () => undefined,
 ): Promise<void> {
 	const deps: TeamCommandDeps = {
 		args,
@@ -60,6 +72,9 @@ export async function handle_team_command(
 		get_active_team_id,
 		set_active_team_id,
 		own_role,
+		coordination_db: coordination_db as TeamDatabase,
+		notify_coordination_messages,
+		get_session_id,
 		handle_team_command: (next_args) =>
 			handle_team_command(
 				next_args,
@@ -69,6 +84,9 @@ export async function handle_team_command(
 				get_active_team_id,
 				set_active_team_id,
 				own_role,
+				coordination_db,
+				notify_coordination_messages,
+				get_session_id,
 			),
 	};
 	const trimmed = args.trim();
@@ -93,6 +111,15 @@ export async function handle_team_command(
 				break;
 			case 'teams':
 				await handle_teams(deps);
+				break;
+			case 'sessions':
+				await handle_sessions(deps);
+				break;
+			case 'session':
+				await handle_session_command(deps, rest);
+				break;
+			case 'group':
+				await handle_group_command(deps, rest);
 				break;
 			case 'switch':
 				await handle_switch_team(deps, rest_text);

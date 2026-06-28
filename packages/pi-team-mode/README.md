@@ -8,8 +8,9 @@
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
 
 Run parallel agent work without losing coordination. `pi-team-mode`
-adds local RPC teammates, task tracking, and mailbox messaging so a
-lead agent can delegate research, review, and implementation safely.
+adds a local peer-session coordination bus, optional RPC teammates,
+task tracking, and mailbox messaging so any Pi session can communicate
+with other sessions and coordinate teams safely.
 
 ## Installation
 
@@ -30,23 +31,43 @@ pi -e ./packages/pi-team-mode
 
 This package adds local multi-agent coordination to Pi:
 
-- create and inspect teams
-- spawn real RPC teammate sessions
+- register every running session in a global local coordination bus
+- discover sessions across projects and working directories
+- send mailbox-backed peer messages between independently started
+  sessions
+- create coordination groups over arbitrary sessions
+- create and inspect coordination groups/teams
+- spawn real RPC teammate sessions when new sessions are needed
 - queue, claim, and update tasks
 - send mailbox-backed direct messages
-- steer, follow up with, check teammate status, or shut down teammates
+- steer, follow up with, check teammate status, or shut down spawned
+  teammates
 - persist team state locally for the current project
 - recover cleanly from stale local locks and orphaned teammate
   processes
 - reject ambiguous teammate names and invalid task dependency graphs
 
-Team state is stored under:
+Peer-session coordination state is stored in:
+
+```text
+~/.pi/agent/coordination.db
+```
+
+Set `MY_PI_COORDINATION_DB` to use a different SQLite database path.
+The database uses WAL mode and a schema source at `src/schema.sql`.
+Sessions also connect to a local HTTP/SSE push broker on port `43191`
+by default; set `MY_PI_COORDINATION_BROKER_PORT` to use another port.
+SQLite remains the durable fallback if the broker is unavailable. RPC
+spawn control data, worktree paths, and orphan-process safety metadata
+use:
 
 ```text
 ~/.pi/agent/teams-local
 ```
 
-Set `MY_PI_TEAM_MODE_ROOT` to use a different storage directory.
+Set `MY_PI_TEAM_MODE_ROOT` to move that RPC control directory. Session
+discovery, group membership, and peer mailboxes remain in the SQLite
+coordination database.
 
 Team mode does not auto-attach old teams on startup. Use
 `/team resume` to attach the latest team for the current repo. Use
@@ -179,6 +200,33 @@ and `/team ack <member> [ids...]`. If a teammate exits after delivery
 but before acknowledgement, unacknowledged deliveries are restored for
 redelivery on the next session.
 
+## Peer-session coordination
+
+Every session that loads the extension registers itself with session
+id, session file, cwd, pid, model, status, and optional observability
+pool/tags. Each session subscribes to the local push broker and also
+polls its own SQLite inbox as a fallback. Pending peer messages are
+self-injected with `pi.sendUserMessage()`, so delivery does not
+require a lead process to own the recipient.
+
+Useful peer commands:
+
+```text
+/team sessions
+/team session send <session-id-or-name> status?
+/team session inbox
+/team session read [message-id...]
+/team session ack [message-id...]
+/team group create refactor
+/team group join <group-id-or-name> [alias]
+/team group send <group-id-or-name> please review the refactor
+```
+
+Equivalent tool actions include `session_list`, `session_send`,
+`session_inbox`, `session_read`, `session_ack`, `session_wait`,
+`group_create`, `group_list`, `group_join`, `group_add_session`, and
+`group_send`.
+
 ## Commands
 
 ```text
@@ -208,14 +256,16 @@ redelivery on the next session.
 /team prune-stale [days] [--cwd]
 ```
 
-Use `/team status` as the source of truth for member state, task
-state, and mailbox activity. `/team wait <member>` and the
-`member_wait` tool do not block the lead session; they refresh and
-return current team status while teammate work continues in the
-background. Teammates also stay alive after finishing assigned work so
-you can inspect, steer, or reuse them; run `/team shutdown --done` to
-free resources once their completed results are captured, or
-`/team shutdown --all` to stop every live teammate. See
+Use `/team sessions`, `/team session inbox`, and `/team group list` as
+the source of truth for peer-session coordination. `/team status`
+remains available for spawned RPC teammate process state and task
+compatibility. `/team wait <member>` and the `member_wait` tool do not
+block the lead session; they refresh and return current team status
+while teammate work continues in the background. Teammates also stay
+alive after finishing assigned work so you can inspect, steer, or
+reuse them; run `/team shutdown --done` to free resources once their
+completed results are captured, or `/team shutdown --all` to stop
+every live teammate. See
 [docs/comparison-matrix.md](docs/comparison-matrix.md) for the
 feature-parity gap check against comparable orchestration tools. Use
 `/team dashboard` for a compact modal with members, task groups,
@@ -233,6 +283,17 @@ cancelled work.
 The extension also registers the `team` tool for agent-driven
 orchestration. Important actions include:
 
+- `session_list`
+- `session_send`
+- `session_inbox`
+- `session_read`
+- `session_ack`
+- `session_wait`
+- `group_create`
+- `group_list`
+- `group_join`
+- `group_add_session`
+- `group_send`
 - `team_create`
 - `team_list`
 - `team_shutdown` (defaults to completed/done teammates; pass

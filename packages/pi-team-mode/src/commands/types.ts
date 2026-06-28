@@ -2,6 +2,7 @@ import type {
 	ExtensionCommandContext,
 	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
+import type { TeamDatabase } from '../db.js';
 import type { RpcTeammate } from '../rpc-runner.js';
 import type { TeamStore } from '../store.js';
 
@@ -13,6 +14,12 @@ export interface TeamCommandDeps {
 	get_active_team_id: () => string | undefined;
 	set_active_team_id: (team_id: string | undefined) => void;
 	own_role: string;
+	coordination_db: TeamDatabase;
+	notify_coordination_messages: (
+		to_session_ids: string[],
+		message_id?: string,
+	) => Promise<void>;
+	get_session_id: () => string | undefined;
 	handle_team_command: (args: string) => Promise<void>;
 }
 

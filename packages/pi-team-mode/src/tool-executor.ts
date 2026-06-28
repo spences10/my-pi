@@ -3,6 +3,7 @@ import {
 	parse_team_thinking_level,
 	profile_prompt,
 } from './command-parser.js';
+import type { TeamDatabase } from './db.js';
 import { format_status, format_teams_list } from './formatting.js';
 import { select_teammate_model_config } from './model-selection.js';
 import type { TeammateProfile } from './profiles.js';
@@ -23,6 +24,7 @@ import {
 	validate_team_tool_params,
 	type TeamToolParams as TeamToolParamsType,
 } from './team-tool-params.js';
+import { execute_coordination_action } from './tools/coordination-actions.js';
 import { execute_message_action } from './tools/message-actions.js';
 import {
 	execute_task_action,
@@ -55,6 +57,12 @@ export interface TeamToolExecutorDeps {
 		cwd: string,
 		name: string | undefined,
 	) => TeammateProfile | undefined;
+	coordination_db: TeamDatabase;
+	notify_coordination_messages: (
+		to_session_ids: string[],
+		message_id?: string,
+	) => Promise<void>;
+	get_session_id: () => string | undefined;
 }
 
 function require_lead_for_teammate_spawn(
@@ -87,6 +95,13 @@ export async function execute_team_tool(
 	const get_team_root = deps.get_team_root;
 	const get_extension_path = deps.get_extension_path;
 	const teammate_profile = deps.teammate_profile;
+	const coordination_db = deps.coordination_db;
+	const require_session_id = () => {
+		const session_id = deps.get_session_id();
+		if (!session_id)
+			throw new Error('Current session is not registered yet.');
+		return session_id;
+	};
 
 	validate_team_tool_params(params);
 	const team_id = params.team_id ?? active_team_id;
@@ -99,6 +114,24 @@ export async function execute_team_tool(
 	};
 
 	switch (params.action) {
+		case 'session_list':
+		case 'session_send':
+		case 'session_inbox':
+		case 'session_wait':
+		case 'session_read':
+		case 'session_ack':
+		case 'group_create':
+		case 'group_list':
+		case 'group_join':
+		case 'group_add_session':
+		case 'group_send':
+			return execute_coordination_action(params, {
+				ctx,
+				coordination_db,
+				notify_coordination_messages:
+					deps.notify_coordination_messages,
+				require_session_id,
+			});
 		case 'team_create': {
 			const team = store.create_team({
 				cwd: ctx.cwd,

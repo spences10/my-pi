@@ -96,14 +96,15 @@ export function append_team_system_prompt(
 ## Team Mode
 
 ${active_context}
-Use the \`team\` tool as the source of truth for team coordination.
+Use the \`team\` tool as the source of truth for peer-session and team coordination.
 
 Rules:
-- The team lead should create tasks, spawn members, message teammates, and inspect status through the \`team\` tool.
-- Mailbox states are separate: delivered means queued to a session, read means reviewed, acknowledged means fully processed and safe to suppress redelivery. Teammates should use message_read after reviewing messages and message_ack after acting on them.
-- Do not create nested teams from a teammate session; teammate sessions cannot use member_spawn or /team spawn.
+- Every my-pi session registers in the global coordination bus. Use session_list to discover sessions across projects and session_send/session_wait to communicate with them.
+- Inbox states are separate: delivered means queued to a session, read means reviewed, acknowledged means fully processed and safe to suppress redelivery. Use session_read after reviewing peer messages and session_ack after acting on them.
+- Use group_create, group_add_session, and group_send when one session should coordinate a group/team of independently running sessions.
+- Legacy team tasks and spawned RPC teammates are still available through team_create/task_create/member_spawn when new background sessions are needed.
+- Do not create nested spawned teams from a teammate session; teammate sessions cannot use member_spawn or /team spawn.
 - Use urgent steer/follow-up messaging for coordination instead of assuming shared context.
-- Team leads should use real RPC teammates via member_spawn for background work.
 - For mutating implementation work, prefer member_spawn with workspace_mode=worktree and mutating=true (or /team spawn --worktree --mutating) so teammates do not share the leader cwd.
 - Shared-cwd mutating teammates may be refused when another mutating teammate is already active in that cwd.`
 	);

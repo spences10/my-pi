@@ -79,7 +79,7 @@ export function format_member_status(
 		case 'idle':
 			return `idle${suffix}`;
 		case 'running':
-			return `running (legacy control state unknown)${suffix}`;
+			return `running (control state unknown)${suffix}`;
 		case 'running_attached':
 			return `running (attached)${suffix}`;
 		case 'running_orphaned':
