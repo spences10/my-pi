@@ -1,5 +1,14 @@
 # @spences10/pi-team-mode
 
+## 0.0.35
+
+### Patch Changes
+
+- 9215b58: Inject peer group identity and thinking level into
+  coordinated sessions for clearer orchestration roles.
+- 18db7ef: Add push-based peer session coordination with self-injected
+  messages, groups, registration, and SQLite fallback.
+
 ## 0.0.34
 
 ### Patch Changes

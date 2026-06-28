@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.93
+
+### Patch Changes
+
+- e8c1bfe: Add pi-harness runtime with task contracts, team execution,
+  enforcement, and outcome artifacts.
+
 ## 0.1.92
 
 ### Patch Changes

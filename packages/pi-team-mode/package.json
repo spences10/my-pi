@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-team-mode",
-	"version": "0.0.34",
+	"version": "0.0.35",
 	"description": "Local peer-session coordination for Pi with RPC teammates, task tracking, and mailboxes",
 	"keywords": [
 		"agent",
