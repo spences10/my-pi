@@ -20,12 +20,14 @@
 	<div class="panel-head">
 		<h3>Event stream</h3>
 		<div class="filters">
-			<select bind:value={dashboard_state.selected_type}
-				><option value="">All types</option
-				>{#each known_types as type (type)}<option value={type}>{type}</option
-					>{/each}</select
-			><input
+			<select bind:value={dashboard_state.selected_type} name="event-type">
+				<option value="">All types</option>
+				{#each known_types as type (type)}<option value={type}>{type} </option>
+				{/each}
+			</select>
+			<input
 				bind:value={dashboard_state.event_query}
+				name="event-search"
 				placeholder="type:, tool:, status:, json:path=value…"
 			/>
 		</div>
@@ -35,11 +37,13 @@
 				class:error={event_has_error(event)}
 				class="event"
 				onclick={() => (dashboard_state.selected_event = event)}
-				><span class="pill">#{number_crunch(event.seq)}</span><strong
-					>{event.type}</strong
-				><small>{time(event.ts)}</small>
+			>
+				<span class="pill">#{number_crunch(event.seq)}</span><strong>
+					{event.type}
+				</strong><small>{time(event.ts)}</small>
 				<p>{summary(event)}</p></button
-			>{/each}
+			>
+		{/each}
 	</div>
 </section>
 

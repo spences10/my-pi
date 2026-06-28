@@ -5,12 +5,8 @@
 		is_active_session,
 		label,
 		number_crunch,
-		repo_name,
 		select_session,
 		time,
-		toggle_archive,
-		toggle_pin,
-		toggle_query_token,
 	} from "./dashboard-state.svelte";
 	type Group = { name: string; sessions: DashboardSession[] };
 	let { groups }: { groups: Group[] } = $props();
@@ -18,66 +14,15 @@
 		dashboard_state.sessions.filter((session) => is_active_session(session))
 			.length,
 	);
-	const selected_repo_token = $derived.by(() => {
-		const session = dashboard_state.sessions.find(
-			(item) => item.session_id === dashboard_state.selected_id,
-		);
-		return session ? `repo:${repo_name(session)}` : "";
-	});
-	const query_parts = $derived(
-		dashboard_state.query.split(/\s+/).filter(Boolean),
-	);
 </script>
 
 <aside class="sidebar">
 	<div class="panel sticky">
 		<input
 			bind:value={dashboard_state.query}
-			placeholder="Search or use repo:, pool:, model:, active:true…"
+			name="session-search"
+			placeholder="Search sessions, repo, model, pool…"
 		/>
-		<div class="controls">
-			<label>
-				Group
-				<select bind:value={dashboard_state.group_by}>
-					<option value="repo">Repo</option>
-					<option value="pool">Pool</option>
-					<option value="model">Model</option>
-				</select>
-			</label>
-			<label>
-				Sort
-				<select bind:value={dashboard_state.sort_by}>
-					<option value="recent">Recent</option>
-					<option value="events">Events</option>
-					<option value="repo">Repo</option>
-				</select>
-			</label>
-		</div>
-		<div class="quick-filters" aria-label="Session quick filters">
-			<button
-				class:active={query_parts.includes("active:true")}
-				onclick={() => toggle_query_token("active:true")}>Active</button
-			>
-			<button
-				class:active={query_parts.includes("pinned:true")}
-				onclick={() => toggle_query_token("pinned:true")}>Pinned</button
-			>
-			<button
-				class:active={selected_repo_token &&
-					query_parts.includes(selected_repo_token)}
-				onclick={() => {
-					if (selected_repo_token) toggle_query_token(selected_repo_token);
-				}}>Current repo</button
-			>
-			<button
-				class:active={dashboard_state.show_archived}
-				onclick={() =>
-					(dashboard_state.show_archived = !dashboard_state.show_archived)}
-				>{dashboard_state.show_archived
-					? "Hide archived"
-					: "Show archived"}</button
-			>
-		</div>
 		<div class="stats">
 			<strong>{number_crunch(dashboard_state.sessions.length)}</strong><span
 				>sessions</span
@@ -102,52 +47,25 @@
 					>
 				</summary>
 				{#each group.sessions as session (session.session_id)}
-					<div
-						class:archived={dashboard_state.archived[session.session_id]}
-						class="session-row"
+					<button
+						class:active={session.session_id === dashboard_state.selected_id}
+						class="session"
+						onclick={() => select_session(session.session_id)}
+						title={`${session.session_id}\n${session.cwd}\nLast event: ${time(session.last_ts)}`}
 					>
-						<button
-							class:active={session.session_id === dashboard_state.selected_id}
-							class="session"
-							onclick={() => select_session(session.session_id)}
-							title={`${session.session_id}\n${session.cwd}\nLast event: ${time(session.last_ts)}`}
-						>
-							<span class="title-line">
-								{#if is_active_session(session)}
-									<i aria-label="Active session"></i>
-								{/if}
-								<strong>{label(session)}</strong>
-							</span>
-							<span>
-								{session.pool || "default"} · {number_crunch(
-									session.event_count,
-								)} events · {time(session.last_ts)}
-							</span>
-							<small>{session.cwd}</small>
-							{#if dashboard_state.labels[session.session_id]?.length}
-								<small class="chips">
-									{dashboard_state.labels[session.session_id].join(" · ")}
-								</small>
+						<span class="title-line">
+							{#if is_active_session(session)}
+								<i aria-label="Active session"></i>
 							{/if}
-						</button>
-						<div class="session-actions">
-							<button
-								aria-label="Pin session"
-								class:pinned={dashboard_state.pinned[session.session_id]}
-								onclick={() => toggle_pin(session.session_id)}
-								>{dashboard_state.pinned[session.session_id]
-									? "★"
-									: "☆"}</button
-							>
-							<button
-								aria-label="Archive session"
-								onclick={() => toggle_archive(session.session_id)}
-								>{dashboard_state.archived[session.session_id]
-									? "↩"
-									: "×"}</button
-							>
-						</div>
-					</div>
+							<strong>{label(session)}</strong>
+						</span>
+						<span>
+							{session.pool || "default"} · {number_crunch(
+								session.event_count,
+							)} events · {time(session.last_ts)}
+						</span>
+						<small>{session.cwd}</small>
+					</button>
 				{/each}
 			</details>
 		{/each}
@@ -171,34 +89,6 @@
 		border-width: 0 0 1px;
 		flex: 0 0 auto;
 	}
-	.controls {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 8px;
-		margin-top: 10px;
-	}
-	.controls label {
-		display: grid;
-		gap: 4px;
-		color: var(--muted);
-		font-size: var(--font-size-label);
-		text-transform: uppercase;
-	}
-	.controls select {
-		width: 100%;
-	}
-	.quick-filters {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-		margin-top: 10px;
-	}
-	.quick-filters button,
-	.session-actions button {
-		min-height: 0;
-		padding: 5px 8px;
-		font-size: var(--font-size-compact);
-	}
 	.stats {
 		display: grid;
 		grid-template-columns: auto 1fr auto 1fr auto 1fr;
@@ -219,106 +109,84 @@
 		margin-top: 12px;
 	}
 	.project-group {
-		border: 1px solid var(--border-muted);
-		border-radius: 16px;
-		overflow: hidden;
-		background: color-mix(in srgb, var(--surface), transparent 18%);
+		background: transparent;
 	}
 	.project-group summary {
+		list-style: none;
+		cursor: pointer;
+		padding: 0 2px 8px;
 		display: flex;
 		justify-content: space-between;
 		gap: 12px;
-		padding: 10px 12px;
-		cursor: pointer;
-	}
-	.project-group summary span,
-	.session span,
-	.session small {
 		color: var(--muted);
+		font-size: var(--font-size-compact);
 	}
-	.session-row {
-		position: relative;
-		border-top: 1px solid var(--border-muted);
+	.project-group summary::-webkit-details-marker {
+		display: none;
 	}
-	.session-row.archived {
-		opacity: 0.58;
+	.project-group summary strong {
+		color: var(--text);
 	}
 	.session {
 		width: 100%;
-		min-width: 0;
 		text-align: left;
+		justify-content: flex-start;
 		display: grid;
 		gap: 5px;
-		border: 0;
-		border-radius: 0;
+		margin-bottom: 8px;
+		padding: 10px;
+		border-color: transparent;
 		background: transparent;
-		transition: padding-right 120ms ease;
+		color: var(--muted);
+		min-height: 0;
 	}
-	.session-row:hover .session,
-	.session-row:focus-within .session {
-		padding-right: 62px;
+	.session:hover,
+	.session.active {
+		background: var(--surface);
+		border-color: var(--border);
+		color: var(--text);
 	}
 	.session.active {
-		background: color-mix(in srgb, var(--focus), var(--surface) 82%);
+		box-shadow: inset 3px 0 0 var(--accent);
+	}
+	.session span,
+	.session small {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.session small {
+		font-size: var(--font-size-compact);
 	}
 	.title-line {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		min-width: 0;
+		color: var(--text);
 	}
 	.title-line i {
 		width: 8px;
 		height: 8px;
-		border-radius: 999px;
-		background: var(--green);
-		box-shadow: 0 0 12px color-mix(in srgb, var(--green), transparent 35%);
+		border-radius: 99px;
+		background: #76f7a0;
+		box-shadow: 0 0 12px #76f7a0;
 		flex: 0 0 auto;
 	}
-	.session-actions {
-		position: absolute;
-		top: 9px;
-		right: 9px;
-		display: flex;
-		gap: 5px;
-		opacity: 0;
-		pointer-events: none;
-		transition: opacity 120ms ease;
-	}
-	.session-row:hover .session-actions,
-	.session-row:focus-within .session-actions,
-	.session-actions:has(.pinned) {
-		opacity: 1;
-		pointer-events: auto;
-	}
-	.session-actions .pinned {
-		color: var(--selected);
-	}
-	.session strong,
-	.session span,
-	.session small {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.chips {
-		color: var(--selected) !important;
-	}
-	@media (max-width: 1200px) {
-		.sidebar {
-			border-right: 0;
-		}
-	}
-	@media (max-width: 720px) {
+	@media (max-width: 900px) {
 		.sidebar {
 			position: static;
 			max-height: none;
+			border-right: 0;
+			border-bottom: 1px solid var(--border-muted);
 		}
 		.session-list {
-			overflow-y: visible;
+			display: flex;
+			overflow-x: auto;
+			padding: 10px;
 		}
-		.stats {
-			grid-template-columns: auto 1fr auto 1fr;
+		.project-group {
+			min-width: 280px;
 		}
 	}
 </style>

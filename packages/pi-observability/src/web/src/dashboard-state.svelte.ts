@@ -9,16 +9,10 @@ export { number_crunch } from './number-crunch';
 
 type Event = ObservabilityEvent<Record<string, unknown>>;
 type Session = DashboardSession;
-type View = 'timeline' | 'waterfall' | 'events' | 'swimlane' | 'race';
-export type SessionGroupBy = 'repo' | 'pool' | 'model';
-export type SessionSortBy = 'recent' | 'events' | 'repo';
-type LabelMap = Record<string, string[]>;
+type View = 'timeline' | 'waterfall' | 'events';
 
 const token = new URLSearchParams(location.search).get('token') || '';
 const theme_key = 'pi-observability-theme';
-const labels_key = 'pi-observability-labels';
-const pins_key = 'pi-observability-pins';
-const archived_key = 'pi-observability-archived';
 const details_key = 'pi-observability-details-open';
 
 class DashboardState {
@@ -29,20 +23,13 @@ class DashboardState {
 	connected = $state(false);
 	paused = $state(false);
 	query = $state('');
-	group_by = $state<SessionGroupBy>('repo');
-	sort_by = $state<SessionSortBy>('recent');
-	show_archived = $state(false);
 	event_query = $state('');
 	selected_type = $state('');
 	selected_view = $state<View>('timeline');
 	theme = $state<'dark' | 'light'>('dark');
 	selected_event = $state<Event | null>(null);
 	details_open = $state(true);
-	labels = $state.raw<LabelMap>({});
-	pinned = $state.raw<Record<string, true>>({});
-	archived = $state.raw<Record<string, true>>({});
 	live_seen = $state.raw<Record<string, number>>({});
-	label_input = $state('');
 }
 
 export const dashboard_state = new DashboardState();
@@ -178,6 +165,7 @@ export function query_matches(event: Event, query_text: string) {
 
 export function extract_artifacts(source_events: Event[]) {
 	const items: { event: Event; value: string }[] = [];
+	const seen = new Set<string>();
 	for (const event of source_events) {
 		const text = JSON.stringify(event.payload || {});
 		const paths = [
@@ -186,8 +174,15 @@ export function extract_artifacts(source_events: Event[]) {
 		const urls = [...text.matchAll(/https?:\/\/[^\s"'<>]+/g)].map(
 			(match) => match[0],
 		);
-		for (const value of [...paths, ...urls].slice(0, 4))
+		let event_matches = 0;
+		for (const value of [...paths, ...urls]) {
+			const key = `${event.event_id}:${value}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
 			items.push({ event, value });
+			event_matches += 1;
+			if (event_matches >= 4) break;
+		}
 	}
 	return items;
 }
@@ -203,17 +198,6 @@ export function toggle_theme() {
 	localStorage.setItem(theme_key, dashboard_state.theme);
 }
 
-function read_record(key: string) {
-	try {
-		return JSON.parse(localStorage.getItem(key) || '{}') as Record<
-			string,
-			true
-		>;
-	} catch {
-		return {};
-	}
-}
-
 export function read_details_setting() {
 	dashboard_state.details_open =
 		localStorage.getItem(details_key) !== 'closed';
@@ -225,74 +209,6 @@ export function toggle_details_open() {
 		details_key,
 		dashboard_state.details_open ? 'open' : 'closed',
 	);
-}
-
-export function read_labels() {
-	try {
-		dashboard_state.labels = JSON.parse(
-			localStorage.getItem(labels_key) || '{}',
-		);
-	} catch {
-		dashboard_state.labels = {};
-	}
-	dashboard_state.pinned = read_record(pins_key);
-	dashboard_state.archived = read_record(archived_key);
-}
-
-function save_labels(next: LabelMap) {
-	dashboard_state.labels = next;
-	localStorage.setItem(labels_key, JSON.stringify(next));
-}
-
-function save_record(key: string, next: Record<string, true>) {
-	localStorage.setItem(key, JSON.stringify(next));
-	return next;
-}
-
-export function toggle_pin(id: string) {
-	const next = { ...dashboard_state.pinned };
-	if (next[id]) delete next[id];
-	else next[id] = true;
-	dashboard_state.pinned = save_record(pins_key, next);
-}
-
-export function toggle_archive(id: string) {
-	const next = { ...dashboard_state.archived };
-	if (next[id]) delete next[id];
-	else next[id] = true;
-	dashboard_state.archived = save_record(archived_key, next);
-}
-
-export function toggle_query_token(token_value: string) {
-	const parts = dashboard_state.query.split(/\s+/).filter(Boolean);
-	dashboard_state.query = parts.includes(token_value)
-		? parts.filter((part) => part !== token_value).join(' ')
-		: [...parts, token_value].join(' ');
-}
-
-export function add_label() {
-	const value = dashboard_state.label_input.trim();
-	if (!value || !dashboard_state.selected_id) return;
-	save_labels({
-		...dashboard_state.labels,
-		[dashboard_state.selected_id]: [
-			...(dashboard_state.labels[dashboard_state.selected_id] || []),
-			value,
-		],
-	});
-	dashboard_state.label_input = '';
-}
-
-export function remove_label(index: number) {
-	if (!dashboard_state.selected_id) return;
-	const next = [
-		...(dashboard_state.labels[dashboard_state.selected_id] || []),
-	];
-	next.splice(index, 1);
-	save_labels({
-		...dashboard_state.labels,
-		[dashboard_state.selected_id]: next,
-	});
 }
 
 export async function load_sessions() {
@@ -336,12 +252,6 @@ export async function select_session(id: string) {
 	dashboard_state.events = loaded_events;
 	sync_selected_event(loaded_events);
 	dashboard_state.trace = await trace_response.json();
-}
-
-export async function load_comparison(sessions: Session[]) {
-	await Promise.all(
-		sessions.map((session) => fetch_events(session.session_id)),
-	);
 }
 
 function schedule_sessions_reload() {

@@ -36,12 +36,18 @@
 				<span>Session → turn traces → observations</span>
 			</div>
 			<div class="filters">
-				<select bind:value={dashboard_state.selected_type}
-					><option value="">All types</option
-					>{#each known_types as type (type)}<option value={type}>{type}</option
-						>{/each}</select
-				><input
+				<select
+					bind:value={dashboard_state.selected_type}
+					name="timeline-event-type"
+				>
+					<option value="">All types</option>
+					{#each known_types as type (type)}
+						<option value={type}>{type} </option>
+					{/each}
+				</select>
+				<input
 					bind:value={dashboard_state.event_query}
+					name="timeline-event-search"
 					placeholder="type:, tool:, status:, json:path=value…"
 				/>
 			</div>
@@ -52,18 +58,18 @@
 					<header class="turn-head">
 						<div>
 							<strong>{turn.title}</strong>
-							<span
-								>{number_crunch(turn.events.length)} observations · {duration(
+							<span>
+								{number_crunch(turn.events.length)} observations · {duration(
 									turn.duration_ms,
-								)}</span
-							>
+								)}
+							</span>
 						</div>
 						<div class="turn-metrics">
 							<span>{number_crunch(turn.providers)} provider</span>
 							<span>{number_crunch(turn.tools)} tool</span>
-							<span class:error={turn.errors}
-								>{number_crunch(turn.errors)} errors</span
-							>
+							<span class:error={turn.errors}>
+								{number_crunch(turn.errors)} errors
+							</span>
 						</div>
 					</header>
 					<div class="observations">

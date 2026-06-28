@@ -50,10 +50,24 @@ export function is_authorized(
 	return authorization === `Bearer ${token}`;
 }
 
+export class BodyTooLargeError extends Error {
+	constructor(readonly max_bytes: number) {
+		super(`request body exceeds ${max_bytes} bytes`);
+		this.name = 'BodyTooLargeError';
+	}
+}
+
 export async function read_body(
 	req: IncomingMessage,
+	max_bytes = 1_048_576,
 ): Promise<string> {
 	const chunks: Buffer[] = [];
-	for await (const chunk of req) chunks.push(Buffer.from(chunk));
+	let total = 0;
+	for await (const chunk of req) {
+		const buffer = Buffer.from(chunk);
+		total += buffer.byteLength;
+		if (total > max_bytes) throw new BodyTooLargeError(max_bytes);
+		chunks.push(buffer);
+	}
 	return Buffer.concat(chunks).toString('utf8');
 }

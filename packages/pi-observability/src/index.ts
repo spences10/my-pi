@@ -286,6 +286,7 @@ async function ensure_local_server(url: string): Promise<void> {
 			process.env.MY_PI_OBSERVABILITY_DB ??
 			`${homedir()}/.pi/agent/observability.db`,
 		log: false,
+		throw_on_listen_error: false,
 	});
 }
 

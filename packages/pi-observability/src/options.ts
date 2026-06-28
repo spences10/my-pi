@@ -37,5 +37,9 @@ export function resolve_observability_server_options(
 			env.MY_PI_OBSERVABILITY_MAX_EVENTS,
 			100_000,
 		),
+		max_body_bytes: parse_positive_integer(
+			env.MY_PI_OBSERVABILITY_MAX_BODY_BYTES,
+			1_048_576,
+		),
 	};
 }

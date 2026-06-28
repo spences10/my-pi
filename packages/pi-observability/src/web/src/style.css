@@ -71,11 +71,8 @@ code,
 .pill,
 .compact-row,
 .session,
-.session-row,
-.lane-event,
 .timeline-panel,
-.trace-layout,
-.race {
+.trace-layout {
 	font-family: var(--font-mono);
 }
 .app-shell {

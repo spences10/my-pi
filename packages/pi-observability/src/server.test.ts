@@ -70,6 +70,7 @@ describe('resolve_observability_server_options', () => {
 			log: false,
 			retention_days: 14,
 			max_events: 100_000,
+			max_body_bytes: 1_048_576,
 		});
 	});
 
@@ -287,6 +288,31 @@ describe('start_observability_server', () => {
 				})
 			).json(),
 		).toMatchObject({ ingested: 0, rejected: 1 });
+	});
+
+	it('rejects event bodies over the configured cap', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: '',
+			db_path: tmp_db_path(),
+			log: false,
+			max_body_bytes: 16,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		const response = await fetch(`${server.url}/events`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(event(0)),
+		});
+
+		expect(response.status).toBe(413);
+		expect(await response.json()).toMatchObject({
+			error: 'request body too large',
+			max_bytes: 16,
+		});
 	});
 
 	it('assigns durable server sequence numbers across resumed client sequences', async () => {

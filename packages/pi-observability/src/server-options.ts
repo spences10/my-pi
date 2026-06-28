@@ -9,6 +9,8 @@ export interface ObservabilityServerOptions {
 	log: boolean;
 	retention_days?: number;
 	max_events?: number;
+	max_body_bytes?: number;
+	throw_on_listen_error?: boolean;
 }
 
 export interface RunningObservabilityServer {

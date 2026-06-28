@@ -1,21 +1,18 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import type { DashboardSession, ObservabilityEvent } from "../../types";
+	import type { DashboardSession } from "../../types";
 	import {
 		connect,
 		dashboard_state,
 		duration,
-		event_cache,
 		extract_artifacts,
 		is_active_session,
-		load_comparison,
 		load_sessions,
 		money,
 		number_crunch,
 		payload_value,
 		query_matches,
 		read_details_setting,
-		read_labels,
 		read_theme,
 		repo_name,
 		session_title,
@@ -27,14 +24,10 @@
 	import EventDrawer from "./event-drawer.svelte";
 	import EventsView from "./events-view.svelte";
 	import HeaderBar from "./header-bar.svelte";
-	import RaceView from "./race-view.svelte";
-	import SessionLabels from "./session-labels.svelte";
 	import Sidebar from "./sidebar.svelte";
-	import SwimlaneView from "./swimlane-view.svelte";
 	import TimelineView from "./timeline-view.svelte";
 	import WaterfallView from "./waterfall-view.svelte";
 
-	type Event = ObservabilityEvent<Record<string, unknown>>;
 	type Session = DashboardSession;
 	const visible_sessions = $derived.by(() => {
 		const parts = dashboard_state.query
@@ -42,13 +35,7 @@
 			.split(/\s+/)
 			.filter(Boolean);
 		return dashboard_state.sessions
-			.filter(
-				(session) =>
-					dashboard_state.show_archived ||
-					!dashboard_state.archived[session.session_id],
-			)
 			.filter((session) => {
-				const labels = dashboard_state.labels[session.session_id] || [];
 				const fields = {
 					id: session.session_id,
 					agent: session.agent_name || "",
@@ -57,9 +44,7 @@
 					pool: session.pool || "default",
 					provider: session.provider || "",
 					model: session.model || "",
-					label: labels.join(" "),
 					active: is_active_session(session) ? "true" : "false",
-					pinned: dashboard_state.pinned[session.session_id] ? "true" : "false",
 				};
 				const text = Object.values(fields).join(" ").toLowerCase();
 				return parts.every((part) => {
@@ -75,14 +60,6 @@
 				const active =
 					Number(is_active_session(b)) - Number(is_active_session(a));
 				if (active) return active;
-				const pinned =
-					Number(Boolean(dashboard_state.pinned[b.session_id])) -
-					Number(Boolean(dashboard_state.pinned[a.session_id]));
-				if (pinned) return pinned;
-				if (dashboard_state.sort_by === "events")
-					return b.event_count - a.event_count;
-				if (dashboard_state.sort_by === "repo")
-					return repo_name(a).localeCompare(repo_name(b));
 				return b.last_ts.localeCompare(a.last_ts);
 			});
 	});
@@ -108,36 +85,11 @@
 	const grouped_sessions = $derived.by(() => {
 		const groups: Record<string, { name: string; sessions: Session[] }> = {};
 		for (const session of visible_sessions) {
-			const key =
-				dashboard_state.group_by === "pool"
-					? session.pool || "default"
-					: dashboard_state.group_by === "model"
-						? session.model || "unknown model"
-						: session.cwd || "unknown project";
-			const name =
-				dashboard_state.group_by === "repo" ? repo_name(session) : key;
-			groups[key] ??= { name, sessions: [] };
-			groups[key].sessions.push(session);
+			const name = repo_name(session);
+			groups[name] ??= { name, sessions: [] };
+			groups[name].sessions.push(session);
 		}
-		return Object.values(groups).sort((a, b) => {
-			if (dashboard_state.sort_by === "repo")
-				return a.name.localeCompare(b.name);
-			return (
-				visible_sessions.indexOf(a.sessions[0]) -
-				visible_sessions.indexOf(b.sessions[0])
-			);
-		});
-	});
-	const comparison_sessions = $derived(visible_sessions.slice(0, 8));
-	const race_rows = $derived.by(() => {
-		const rows: { session: Session; event: Event }[] = [];
-		for (const session of comparison_sessions) {
-			for (const event of event_cache.get(session.session_id) || []) {
-				if (query_matches(event, dashboard_state.event_query))
-					rows.push({ session, event });
-			}
-		}
-		return rows.sort((a, b) => a.event.ts.localeCompare(b.event.ts));
+		return Object.values(groups);
 	});
 	const tool_spans = $derived(
 		(dashboard_state.trace?.spans ?? [])
@@ -186,7 +138,6 @@
 	onMount(() => {
 		read_theme();
 		read_details_setting();
-		read_labels();
 		void load_sessions();
 		return connect();
 	});
@@ -343,27 +294,7 @@
 					>
 						Events
 					</button>
-					<button
-						class:active={dashboard_state.selected_view === "swimlane"}
-						onclick={() => {
-							dashboard_state.selected_view = "swimlane";
-							void load_comparison(comparison_sessions);
-						}}
-					>
-						Swimlane
-					</button>
-					<button
-						class:active={dashboard_state.selected_view === "race"}
-						onclick={() => {
-							dashboard_state.selected_view = "race";
-							void load_comparison(comparison_sessions);
-						}}
-					>
-						Race
-					</button>
 				</nav>
-
-				<SessionLabels />
 
 				<div class="view-body">
 					{#if dashboard_state.selected_view === "timeline"}
@@ -376,12 +307,8 @@
 						/>
 					{:else if dashboard_state.selected_view === "waterfall"}
 						<WaterfallView {max_span} {provider_spans} {tool_spans} />
-					{:else if dashboard_state.selected_view === "events"}
-						<EventsView {known_types} {visible_events} />
-					{:else if dashboard_state.selected_view === "swimlane"}
-						<SwimlaneView sessions={comparison_sessions} />
 					{:else}
-						<RaceView rows={race_rows} />
+						<EventsView {known_types} {visible_events} />
 					{/if}
 				</div>
 			{:else}

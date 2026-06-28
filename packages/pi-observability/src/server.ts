@@ -15,6 +15,7 @@ import {
 } from './event-rows.js';
 import {
 	binary,
+	BodyTooLargeError,
 	is_authorized,
 	json,
 	read_body,
@@ -43,12 +44,36 @@ interface Subscriber {
 	session_id?: string;
 }
 
+const DEFAULT_MAX_BODY_BYTES = 1_048_576;
+const REQUEST_TIMEOUT_MS = 30_000;
+const HEADERS_TIMEOUT_MS = 10_000;
+const KEEP_ALIVE_TIMEOUT_MS = 5_000;
+
 export function start_observability_server(
 	options: ObservabilityServerOptions = resolve_observability_server_options(),
 ): RunningObservabilityServer {
 	const { db, statements } = prepare_db(options.db_path);
 	let next_subscriber_id = 1;
 	const subscribers = new Map<number, Subscriber>();
+
+	function write_subscriber(sub: Subscriber, frame: string): void {
+		try {
+			if (sub.res.destroyed || !sub.res.write(frame)) {
+				subscribers.delete(sub.id);
+				sub.res.destroy();
+			}
+		} catch {
+			subscribers.delete(sub.id);
+			sub.res.destroy();
+		}
+	}
+
+	function close_subscribers(): void {
+		for (const sub of subscribers.values()) {
+			sub.res.end();
+		}
+		subscribers.clear();
+	}
 
 	function broadcast(event: ObservabilityEvent): void {
 		const frame = `event: event\ndata: ${JSON.stringify(event)}\n\n`;
@@ -57,7 +82,7 @@ export function start_observability_server(
 			if (sub.tag && !event.tags.includes(sub.tag)) continue;
 			if (sub.session_id && sub.session_id !== event.session_id)
 				continue;
-			sub.res.write(frame);
+			write_subscriber(sub, frame);
 		}
 	}
 
@@ -152,8 +177,19 @@ export function start_observability_server(
 			if (req_url.pathname === '/events' && req.method === 'POST') {
 				let parsed: unknown;
 				try {
-					parsed = JSON.parse(await read_body(req));
-				} catch {
+					parsed = JSON.parse(
+						await read_body(
+							req,
+							options.max_body_bytes ?? DEFAULT_MAX_BODY_BYTES,
+						),
+					);
+				} catch (error) {
+					if (error instanceof BodyTooLargeError) {
+						return json(res, 413, {
+							error: 'request body too large',
+							max_bytes: error.max_bytes,
+						});
+					}
 					return json(res, 400, { error: 'invalid json' });
 				}
 				const events = Array.isArray(parsed) ? parsed : [parsed];
@@ -254,7 +290,10 @@ export function start_observability_server(
 					session_id:
 						req_url.searchParams.get('session_id') ?? undefined,
 				});
-				res.write('retry: 2000\nevent: hello\ndata: {}\n\n');
+				write_subscriber(
+					subscribers.get(id)!,
+					'retry: 2000\nevent: hello\ndata: {}\n\n',
+				);
 				req.on('close', () => subscribers.delete(id));
 				return;
 			}
@@ -268,24 +307,28 @@ export function start_observability_server(
 
 	const heartbeat = setInterval(() => {
 		for (const sub of subscribers.values())
-			sub.res.write(': ping\n\n');
+			write_subscriber(sub, ': ping\n\n');
 	}, 15_000);
 
+	server.requestTimeout = REQUEST_TIMEOUT_MS;
+	server.headersTimeout = HEADERS_TIMEOUT_MS;
+	server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
+
 	server.on('error', (error: NodeJS.ErrnoException) => {
-		if (error.code === 'EADDRINUSE') {
-			if (options.log) {
-				const owner = describe_port_owner(options.port);
-				console.error(
-					`My-Pi observability port ${options.port} is already in use.`,
-				);
-				if (owner) console.error(`Port owner:\n${owner}`);
-				console.error(
-					'Stop the owner or set MY_PI_OBSERVABILITY_PORT to a free port.',
-				);
-			}
-			return;
+		if (error.code === 'EADDRINUSE' && options.log) {
+			const owner = describe_port_owner(options.port);
+			console.error(
+				`My-Pi observability port ${options.port} is already in use.`,
+			);
+			if (owner) console.error(`Port owner:\n${owner}`);
+			console.error(
+				'Stop the owner or set MY_PI_OBSERVABILITY_PORT to a free port.',
+			);
 		}
-		throw error;
+		clearInterval(heartbeat);
+		close_subscribers();
+		db.close();
+		if (options.throw_on_listen_error !== false) throw error;
 	});
 
 	server.listen(options.port, options.host, () => {
@@ -303,6 +346,7 @@ export function start_observability_server(
 		db_path: options.db_path,
 		close: async () => {
 			clearInterval(heartbeat);
+			close_subscribers();
 			await new Promise<void>((resolve_close) => {
 				server.close(() => resolve_close());
 			});
