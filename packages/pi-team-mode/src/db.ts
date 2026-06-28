@@ -331,12 +331,26 @@ export class TeamDatabase {
 	}
 
 	resolve_session_targets(target: string): CoordinationSession[] {
-		return (
-			this.statements.resolve_session_target.all(
-				target,
-				target,
-			) as unknown as SessionRow[]
+		const sessions = (
+			this.statements.list_online_sessions.all() as unknown as SessionRow[]
 		).map((row) => this.map_session(row));
+		const exact = sessions.filter(
+			(session) =>
+				session.session_id === target ||
+				session.agent_name === target,
+		);
+		if (exact.length > 0) return exact;
+
+		const prefix_matches = sessions.filter((session) =>
+			session.session_id.startsWith(target),
+		);
+		if (prefix_matches.length <= 1) return prefix_matches;
+
+		throw new Error(
+			`Ambiguous session target: ${target}. Matching sessions: ${prefix_matches
+				.map((session) => session.session_id)
+				.join(', ')}`,
+		);
 	}
 
 	mark_session_status(
@@ -504,8 +518,18 @@ export class TeamDatabase {
 		input: Omit<CoordinationMessageInput, 'to_session_ids' | 'scope'>,
 	): CoordinationMessage {
 		const targets = this.resolve_session_targets(input.target);
-		if (targets.length === 0)
-			throw new Error(`Unknown session target: ${input.target}`);
+		if (targets.length === 0) {
+			const suggestions = this.list_sessions()
+				.filter(
+					(session) =>
+						session.session_id.includes(input.target) ||
+						session.agent_name?.includes(input.target),
+				)
+				.map((session) => session.session_id);
+			throw new Error(
+				`Unknown session target: ${input.target}${suggestions.length ? `. Matching sessions: ${suggestions.join(', ')}` : ''}`,
+			);
+		}
 		return this.send_message({
 			...input,
 			scope: 'session',

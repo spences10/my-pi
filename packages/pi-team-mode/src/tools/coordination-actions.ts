@@ -35,7 +35,12 @@ export async function execute_coordination_action(
 			});
 			return {
 				content: [
-					{ type: 'text' as const, text: format_sessions(sessions) },
+					{
+						type: 'text' as const,
+						text: format_sessions(sessions, {
+							full_ids: params.mode === 'full',
+						}),
+					},
 				],
 				details: { sessions },
 			};

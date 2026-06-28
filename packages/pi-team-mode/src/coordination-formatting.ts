@@ -12,16 +12,20 @@ function short_id(id: string): string {
 
 export function format_sessions(
 	sessions: CoordinationSession[],
+	options: { full_ids?: boolean } = {},
 ): string {
 	if (sessions.length === 0) return 'No registered sessions.';
 	return sessions
 		.map((session) => {
+			const id = options.full_ids
+				? session.session_id
+				: short_id(session.session_id);
 			const name = session.agent_name ? ` ${session.agent_name}` : '';
 			const model = session.model_id ? ` · ${session.model_id}` : '';
 			const thinking = session.thinking_level
 				? ` · thinking ${session.thinking_level}`
 				: '';
-			return `- ${short_id(session.session_id)}${name} — ${session.status}; ${session.cwd}${model}${thinking}`;
+			return `- ${id}${name} — ${session.status}; ${session.cwd}${model}${thinking}`;
 		})
 		.join('\n');
 }

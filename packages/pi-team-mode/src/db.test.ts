@@ -111,6 +111,9 @@ describe('TeamDatabase coordination store', () => {
 			});
 			expect(db.list_sessions()).toHaveLength(2);
 			expect(db.resolve_session_targets('beta')).toHaveLength(1);
+			expect(db.resolve_session_targets('s2')).toMatchObject([
+				{ session_id: 's2' },
+			]);
 			expect(db.list_inbox('s2')).toMatchObject([
 				{
 					message_id: message.message_id,
@@ -134,6 +137,50 @@ describe('TeamDatabase coordination store', () => {
 				read_at: expect.any(String),
 				acknowledged_at: expect.any(String),
 			});
+		} finally {
+			db.close();
+		}
+	});
+
+	it('resolves unique session id prefixes and reports ambiguous or unknown targets', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			db.register_session({
+				session_id: '019f0f71-967e-7aed-853c-94ac29fbe7b6',
+				cwd: '/repo-a',
+			});
+			db.register_session({
+				session_id: '019f0f71-7eee-7aed-853c-94ac29fbe7b6',
+				cwd: '/repo-b',
+			});
+			db.register_session({
+				session_id: '019f0f71-967f-7aed-853c-94ac29fbe7b6',
+				cwd: '/repo-c',
+			});
+
+			expect(
+				db.resolve_session_targets('019f0f71-7ee'),
+			).toMatchObject([
+				{ session_id: '019f0f71-7eee-7aed-853c-94ac29fbe7b6' },
+			]);
+			expect(() =>
+				db.resolve_session_targets('019f0f71-967'),
+			).toThrow(/Ambiguous session target: 019f0f71-967/);
+			expect(() =>
+				db.resolve_session_targets('019f0f71-967'),
+			).toThrow(/019f0f71-967e-7aed-853c-94ac29fbe7b6/);
+			expect(() =>
+				db.resolve_session_targets('019f0f71-967'),
+			).toThrow(/019f0f71-967f-7aed-853c-94ac29fbe7b6/);
+			expect(() =>
+				db.send_to_session_target({
+					from_session_id: '019f0f71-7eee-7aed-853c-94ac29fbe7b6',
+					target: '967e',
+					body: 'hello',
+				}),
+			).toThrow(
+				/Unknown session target: 967e\. Matching sessions: 019f0f71-967e-7aed-853c-94ac29fbe7b6/,
+			);
 		} finally {
 			db.close();
 		}
