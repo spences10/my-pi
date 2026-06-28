@@ -1,4 +1,10 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -24,7 +30,7 @@ describe('TeamDatabase coordination store', () => {
 		const db = await TeamDatabase.open(db_path);
 		try {
 			expect(existsSync(db_path)).toBe(true);
-			expect(db.get_schema_version()).toBe(1);
+			expect(db.get_schema_version()).toBe(2);
 			expect(
 				db.read_rows<{ name: string }>(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'message_receipts'",
@@ -39,6 +45,37 @@ describe('TeamDatabase coordination store', () => {
 			expect(
 				db.read_rows<{ timeout: number }>('PRAGMA busy_timeout'),
 			).toEqual([{ timeout: 5000 }]);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('migrates existing v1 coordination databases to thinking-level schema', async () => {
+		const db_path = tmp_db();
+		mkdirSync(join(db_path, '..'), { recursive: true });
+		const { DatabaseSync } = await import('node:sqlite');
+		const v1_db = new DatabaseSync(db_path);
+		try {
+			const current_schema = readFileSync(
+				new URL('./schema.sql', import.meta.url),
+				'utf8',
+			);
+			v1_db.exec(
+				current_schema.replace('\n\tthinking_level TEXT,', ''),
+			);
+			v1_db.exec('PRAGMA user_version = 1;');
+		} finally {
+			v1_db.close();
+		}
+
+		const db = await TeamDatabase.open(db_path);
+		try {
+			expect(db.get_schema_version()).toBe(2);
+			expect(
+				db.read_rows<{ name: string }>(
+					"SELECT name FROM pragma_table_info('sessions') WHERE name = 'thinking_level'",
+				),
+			).toEqual([{ name: 'thinking_level' }]);
 		} finally {
 			db.close();
 		}

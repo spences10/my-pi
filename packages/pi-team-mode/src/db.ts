@@ -8,7 +8,7 @@ const SCHEMA = readFileSync(
 	new URL('./schema.sql', import.meta.url),
 	'utf-8',
 );
-export const LATEST_TEAM_SCHEMA_VERSION = 1;
+export const LATEST_TEAM_SCHEMA_VERSION = 2;
 const PERSISTENT_PRAGMAS = `
 PRAGMA journal_mode = WAL;
 `;
@@ -18,6 +18,7 @@ PRAGMA busy_timeout = 5000;
 `;
 const MIGRATIONS: Record<number, string> = {
 	1: SCHEMA,
+	2: `ALTER TABLE sessions ADD COLUMN thinking_level TEXT;`,
 };
 
 type DatabaseSyncConstructor =
@@ -673,6 +674,20 @@ export class TeamDatabase {
 			throw new Error(
 				`Team coordination database schema version ${current_version} is newer than supported version ${LATEST_TEAM_SCHEMA_VERSION}`,
 			);
+		}
+		if (current_version === 0) {
+			this.db.exec('BEGIN');
+			try {
+				this.db.exec(SCHEMA);
+				this.db.exec(
+					`PRAGMA user_version = ${LATEST_TEAM_SCHEMA_VERSION}`,
+				);
+				this.db.exec('COMMIT');
+			} catch (error) {
+				this.db.exec('ROLLBACK');
+				throw error;
+			}
+			return;
 		}
 		for (
 			let next_version = current_version + 1;
