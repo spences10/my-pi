@@ -156,6 +156,7 @@ Full package list here:
 | [`@spences10/pi-omnisearch`](./packages/pi-omnisearch/README.md)                   | `mcp-omnisearch` reminder for verified web research        |
 | [`@spences10/pi-recall`](./packages/pi-recall/README.md)                           | `pirecall` reminder and background sync                    |
 | [`@spences10/pi-redact`](./packages/pi-redact/README.md)                           | Output redaction and `/redact-stats`                       |
+| [`@spences10/pi-harness`](./packages/pi-harness/README.md)                         | Ephemeral task harness runtime                             |
 | [`@spences10/pi-skills`](./packages/pi-skills/README.md)                           | Skill management, import, and sync                         |
 | [`@spences10/pi-sqlite-tools`](./packages/pi-sqlite-tools/README.md)               | `mcp-sqlite-tools` reminder for safer SQLite database work |
 | [`@spences10/pi-svelte-guardrails`](./packages/pi-svelte-guardrails/README.md)     | Svelte pattern guardrails                                  |

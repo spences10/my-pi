@@ -105,6 +105,21 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		load: async () => (await import('./footer/index.js')).default,
 	},
 	{
+		key: 'harness',
+		label: 'Harness',
+		docs_label: 'Task harness runtime',
+		description:
+			'Ephemeral /tmp task harness runtime with tools, enforcement, and bundled skills',
+		default_enabled: true,
+		option_name: 'harness',
+		cli_arg: 'no-harness',
+		cli_flag: '--no-harness',
+		cli_description: 'Disable task harness runtime',
+		aliases: ['harness', 'task-harness'],
+		external_package_name: '@spences10/pi-harness',
+		load: async () => (await import('@spences10/pi-harness')).default,
+	},
+	{
 		key: 'skills',
 		label: 'Skills',
 		docs_label: 'Skills',

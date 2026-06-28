@@ -1,0 +1,71 @@
+{
+	"name": "@spences10/pi-harness",
+	"version": "0.0.1",
+	"description": "Ephemeral task harness runtime for my-pi agent workflows",
+	"keywords": [
+		"agent",
+		"coding",
+		"harness",
+		"pi",
+		"pi-package",
+		"skills"
+	],
+	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/pi-harness#readme",
+	"license": "MIT",
+	"author": "Scott Spence <me@scottspence.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/spences10/my-pi.git",
+		"directory": "packages/pi-harness"
+	},
+	"files": [
+		"dist",
+		"skills",
+		"README.md"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
+		"build:self": "vp exec tsc -p tsconfig.build.json",
+		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
+		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
+		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
+		"test:self": "vp exec vitest run",
+		"coverage:self": "vp exec vitest run --coverage",
+		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@types/node": "catalog:",
+		"typebox": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"typebox": "*"
+	},
+	"engines": {
+		"node": ">=24.15.0"
+	},
+	"pi": {
+		"extensions": [
+			"./dist/index.js"
+		],
+		"skills": [
+			"./skills"
+		],
+		"image": "https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png"
+	}
+}

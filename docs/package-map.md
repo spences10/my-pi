@@ -19,6 +19,7 @@ vanilla Pi.
 | `@spences10/pi-omnisearch`          | Reminder to use `mcp-omnisearch` for verified web research.   |
 | `@spences10/pi-recall`              | `pirecall` reminder and background sync.                      |
 | `@spences10/pi-redact`              | Output redaction and `/redact-stats`.                         |
+| `@spences10/pi-harness`             | Ephemeral task harness runtime.                               |
 | `@spences10/pi-skills`              | Skill management, discovery, profiles, import, and sync.      |
 | `@spences10/pi-sqlite-tools`        | Reminder to use `mcp-sqlite-tools` for safer SQLite work.     |
 | `@spences10/pi-svelte-guardrails`   | Svelte pattern guardrails.                                    |

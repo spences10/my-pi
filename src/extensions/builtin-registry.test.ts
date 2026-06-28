@@ -19,6 +19,7 @@ describe('src/extensions/builtin-registry.ts', () => {
 			'recall',
 			'nopeek',
 			'observability',
+			'harness',
 			'omnisearch',
 			'sqlite-tools',
 			'git-ui',
