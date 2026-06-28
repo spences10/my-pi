@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.37
+
+### Patch Changes
+
+- 47bd8e2: Fix team session discovery with full IDs, prefix targeting,
+  and clearer ambiguous target errors.
+
 ## 0.0.36
 
 ### Patch Changes

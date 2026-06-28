@@ -1,5 +1,12 @@
 # @spences10/pi-observability
 
+## 0.0.14
+
+### Patch Changes
+
+- 6ef5062: Simplify Pi observability dashboard, remove cluttered
+  views, and harden local server request handling and startup.
+
 ## 0.0.13
 
 ### Patch Changes
