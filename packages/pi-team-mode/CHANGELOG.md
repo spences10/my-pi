@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.36
+
+### Patch Changes
+
+- 4bca247: Migrate existing coordination databases to add thinking
+  level support without breaking published users.
+
 ## 0.0.35
 
 ### Patch Changes
