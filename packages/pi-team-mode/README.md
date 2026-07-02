@@ -231,6 +231,13 @@ Equivalent tool actions include `session_list`, `session_send`,
 `group_create`, `group_list`, `group_join`, `group_add_session`, and
 `group_send`.
 
+Fresh sessions that start with natural language such as “standby”,
+“standby for orchestrator”, “you are the subordinate”, or “standby for
+handoff” are automatically marked as standby in the coordination
+registry. `/team sessions` and `session_list` show that standby label,
+and `member_spawn` refuses to create a new same-cwd teammate while
+registered standby sessions exist unless `force` is set.
+
 ## Commands
 
 ```text

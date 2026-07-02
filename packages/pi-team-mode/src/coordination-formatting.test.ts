@@ -26,4 +26,18 @@ describe('coordination formatting', () => {
 			'019f0f71-967e-7aed-853c-94ac29fbe7b6',
 		);
 	});
+
+	it('labels registered standby sessions', () => {
+		expect(
+			format_sessions([
+				{
+					...session,
+					metadata: {
+						availability: 'standby',
+						intent: 'subordinate',
+					},
+				},
+			]),
+		).toContain('standby:subordinate');
+	});
 });

@@ -104,6 +104,7 @@ Use the \`team\` tool as the source of truth for peer-session and team coordinat
 
 Rules:
 - Every my-pi session registers in the global coordination bus. Use session_list to discover sessions across projects and session_send/session_wait to communicate with them.
+- If the user mentions standby sessions, existing sessions, subordinates, handoffs, or other active sessions, call session_list and prefer registered standby sessions before member_spawn.
 - Inbox states are separate: delivered means queued to a session, read means reviewed, acknowledged means fully processed and safe to suppress redelivery. Use session_read after reviewing peer messages and session_ack after acting on them.
 - Use group_create, group_add_session, and group_send when one session should coordinate a group/team of independently running sessions.
 - Legacy team tasks and spawned RPC teammates are still available through team_create/task_create/member_spawn when new background sessions are needed.

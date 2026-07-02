@@ -5,6 +5,7 @@ import type {
 	CoordinationInboxMessage,
 	CoordinationSession,
 } from './db.js';
+import { standby_label } from './standby.js';
 
 function short_id(id: string): string {
 	return id.length > 12 ? `${id.slice(0, 12)}…` : id;
@@ -21,11 +22,13 @@ export function format_sessions(
 				? session.session_id
 				: short_id(session.session_id);
 			const name = session.agent_name ? ` ${session.agent_name}` : '';
+			const standby = standby_label(session.metadata);
+			const standby_text = standby ? ` · ${standby}` : '';
 			const model = session.model_id ? ` · ${session.model_id}` : '';
 			const thinking = session.thinking_level
 				? ` · thinking ${session.thinking_level}`
 				: '';
-			return `- ${id}${name} — ${session.status}; ${session.cwd}${model}${thinking}`;
+			return `- ${id}${name} — ${session.status}${standby_text}; ${session.cwd}${model}${thinking}`;
 		})
 		.join('\n');
 }

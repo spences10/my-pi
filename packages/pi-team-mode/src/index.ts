@@ -33,6 +33,10 @@ import {
 } from './formatting.js';
 import { capture_process_identity } from './process-identity.js';
 import { RpcTeammate } from './rpc-runner.js';
+import {
+	detect_standby_registration,
+	type StandbyRegistration,
+} from './standby.js';
 import { TeamStore } from './store.js';
 import {
 	TeamToolParams,
@@ -51,6 +55,41 @@ import {
 	find_shared_mutating_conflict,
 	find_worktree_assignment_conflict,
 } from './workspace-guards.js';
+
+function extract_latest_user_text(
+	event: unknown,
+): string | undefined {
+	const prompt = (event as { prompt?: unknown }).prompt;
+	return typeof prompt === 'string' ? prompt : undefined;
+}
+
+function register_standby_session(
+	coordination_db: TeamDatabase,
+	session_id: string,
+	cwd: string | undefined,
+	registration: StandbyRegistration,
+): void {
+	const session = coordination_db.get_session(session_id);
+	if (!session) return;
+	coordination_db.register_session({
+		session_id,
+		session_file: session.session_file,
+		cwd: cwd ?? session.cwd,
+		agent_name: session.agent_name,
+		pid: session.pid,
+		role: session.role,
+		status: 'idle',
+		model_provider: session.model_provider,
+		model_id: session.model_id,
+		thinking_level: session.thinking_level,
+		pool: session.pool,
+		tags: session.tags,
+		metadata: {
+			...session.metadata,
+			...registration,
+		},
+	});
+}
 
 export {
 	find_shared_mutating_conflict,
@@ -76,6 +115,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 	const runners = new Map<string, RpcTeammate>();
 	let active_team_id: string | undefined;
 	let own_session_id: string | undefined;
+	let current_cwd: string | undefined;
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'lead';
 	const own_role = process.env[TEAM_ROLE_ENV] || 'lead';
 	const activity_poller = new TeamActivityPoller({
@@ -101,6 +141,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 
 	pi.on('session_start', async (_event, ctx) => {
 		own_session_id = ctx.sessionManager.getSessionId();
+		current_cwd = ctx.cwd;
 		coordination_db.register_session({
 			session_id: own_session_id,
 			session_file: ctx.sessionManager.getSessionFile(),
@@ -187,6 +228,17 @@ export default async function team_mode(pi: ExtensionAPI) {
 	});
 
 	pi.on('before_agent_start', async (event) => {
+		const standby_registration = detect_standby_registration(
+			extract_latest_user_text(event),
+		);
+		if (standby_registration && own_session_id) {
+			register_standby_session(
+				coordination_db,
+				own_session_id,
+				current_cwd,
+				standby_registration,
+			);
+		}
 		if (!should_inject_team_prompt(event)) return {};
 		const own_session = own_session_id
 			? coordination_db.get_session(own_session_id)
@@ -301,6 +353,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 			'Manage peer sessions, coordination groups, tasks, messages, and optional RPC teammate sessions',
 		promptGuidelines: [
 			'Use team session_list to discover registered Pi sessions across projects before sending peer messages.',
+			'If the user mentions standby sessions, existing sessions, subordinates, handoffs, or other active sessions, call session_list and prefer registered standby sessions before member_spawn.',
 			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for peer-session mailbox coordination.',
 			'Use team group_create, group_add_session, and group_send when one session should coordinate a team of independently running sessions.',
 			'Use team to create and update teammate-mode tasks instead of ad-hoc markdown todo lists when the user asks to coordinate a team.',

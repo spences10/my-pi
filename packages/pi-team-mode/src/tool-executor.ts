@@ -8,6 +8,7 @@ import { format_status, format_teams_list } from './formatting.js';
 import { select_teammate_model_config } from './model-selection.js';
 import type { TeammateProfile } from './profiles.js';
 import { RpcTeammate } from './rpc-runner.js';
+import { is_standby_session } from './standby.js';
 import {
 	attached_member_names,
 	get_team_status,
@@ -280,6 +281,19 @@ export async function execute_team_tool(
 				params.member ?? params.name,
 				'member',
 			);
+			const standby_sessions = coordination_db
+				.list_sessions()
+				.filter(
+					(session) =>
+						session.cwd === ctx.cwd &&
+						is_standby_session(session.metadata) &&
+						session.session_id !== deps.get_session_id(),
+				);
+			if (standby_sessions.length > 0 && !params.force) {
+				throw new Error(
+					`Registered standby session${standby_sessions.length === 1 ? '' : 's'} exist in this cwd: ${standby_sessions.map((session) => session.session_id).join(', ')}. Use session_send/session_list to coordinate with them, or set force: true to spawn a new teammate anyway.`,
+				);
+			}
 			const profile = teammate_profile(
 				ctx.cwd,
 				params.profile ?? params.agent,
