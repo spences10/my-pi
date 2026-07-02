@@ -12,6 +12,14 @@ function short_id(id: string): string {
 	return id.length > 12 ? `${id.slice(0, 12)}…` : id;
 }
 
+const COMPACT_BODY_LIMIT = 240;
+
+function compact_body(body: string): string {
+	const normalized = body.replace(/\s+/g, ' ').trim();
+	if (normalized.length <= COMPACT_BODY_LIMIT) return normalized;
+	return `${normalized.slice(0, COMPACT_BODY_LIMIT - 1).trimEnd()}… [truncated]`;
+}
+
 export function format_sessions(
 	sessions: CoordinationSession[],
 	options: { full_ids?: boolean } = {},
@@ -69,22 +77,29 @@ export function format_artifact(
 
 export function format_inbox(
 	messages: CoordinationInboxMessage[],
+	options: { full?: boolean } = {},
 ): string {
 	if (messages.length === 0) return 'No matching inbox messages.';
-	return messages
-		.map((message) => {
-			const from =
-				message.from_agent_name ?? short_id(message.from_session_id);
-			const states = [
-				message.delivered_at ? 'delivered' : 'undelivered',
-				message.read_at ? 'read' : undefined,
-				message.acknowledged_at ? 'acknowledged' : undefined,
-			]
-				.filter(Boolean)
-				.join(', ');
-			return `- ${message.message_id} from ${from} (${states}): ${message.body}`;
-		})
-		.join('\n');
+	const lines = messages.map((message) => {
+		const from =
+			message.from_agent_name ?? short_id(message.from_session_id);
+		const states = [
+			message.delivered_at ? 'delivered' : 'undelivered',
+			message.read_at ? 'read' : undefined,
+			message.acknowledged_at ? 'acknowledged' : undefined,
+		]
+			.filter(Boolean)
+			.join(', ');
+		const body = options.full
+			? message.body
+			: compact_body(message.body);
+		return `- ${message.message_id} from ${from} (${states}): ${body}`;
+	});
+	if (!options.full)
+		lines.push(
+			'Use session_inbox with mode=full for full message text, or retrieve referenced artifacts for long handoffs.',
+		);
+	return lines.join('\n');
 }
 
 export function format_groups(
@@ -136,9 +151,10 @@ export function format_peer_message_for_injection(
 		'',
 		...messages.flatMap((message) => [
 			`Message ${message.message_id} from ${message.from_agent_name ?? message.from_session_id}${message.requires_ack ? ' (ack required)' : ''}:`,
-			message.body,
+			compact_body(message.body),
 			'',
 		]),
+		'Message bodies are compact by default. Use the team tool session_inbox with mode=full for full text, or retrieve referenced artifacts for long handoffs.',
 		'Use the team tool session_read after reviewing and session_ack after acting on messages that are complete.',
 	].join('\n');
 }

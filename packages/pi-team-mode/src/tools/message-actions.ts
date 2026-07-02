@@ -57,10 +57,14 @@ export async function execute_message_action(
 				content: [
 					{
 						type: 'text' as const,
-						text: format_messages(messages),
+						text: format_messages(messages, {
+							full: params.mode === 'full',
+						}),
 					},
 				],
-				details: { messages },
+				details: {
+					message_ids: messages.map((message) => message.id),
+				},
 			};
 		}
 		case 'message_wait': {
@@ -79,11 +83,17 @@ export async function execute_message_action(
 					{
 						type: 'text' as const,
 						text: message
-							? format_messages([message])
+							? format_messages([message], {
+									full: params.mode === 'full',
+								})
 							: 'No matching message before timeout.',
 					},
 				],
-				details: { message },
+				details: {
+					message: message
+						? { id: message.id, reply_to: message.reply_to }
+						: undefined,
+				},
 			};
 		}
 		case 'message_read':
@@ -109,10 +119,14 @@ export async function execute_message_action(
 				content: [
 					{
 						type: 'text' as const,
-						text: format_messages(messages),
+						text: format_messages(messages, {
+							full: params.mode === 'full',
+						}),
 					},
 				],
-				details: { messages },
+				details: {
+					message_ids: messages.map((message) => message.id),
+				},
 			};
 		}
 	}

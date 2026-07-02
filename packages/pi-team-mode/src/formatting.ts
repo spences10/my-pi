@@ -210,28 +210,46 @@ export function format_teams_list(
 		.join('\n');
 }
 
-export function format_messages(messages: TeamMessage[]): string {
+const COMPACT_MESSAGE_BODY_LIMIT = 240;
+
+function compact_message_body(body: string): string {
+	const normalized = body.replace(/\s+/g, ' ').trim();
+	if (normalized.length <= COMPACT_MESSAGE_BODY_LIMIT)
+		return normalized;
+	return `${normalized.slice(0, COMPACT_MESSAGE_BODY_LIMIT - 1).trimEnd()}… [truncated]`;
+}
+
+export function format_messages(
+	messages: TeamMessage[],
+	options: { full?: boolean } = {},
+): string {
 	if (messages.length === 0) return 'No messages yet.';
-	return messages
-		.map((message) => {
-			const urgent = message.urgent ? ' urgent' : '';
-			const ack = message.requires_ack ? ' requires-ack' : '';
-			const reply = message.reply_to
-				? ` reply-to:${message.reply_to}`
-				: '';
-			const expires = message.expires_at
-				? ` expires:${message.expires_at}`
-				: '';
-			const state = message.acknowledged_at
-				? 'acknowledged'
-				: message.read_at
-					? 'read'
-					: message.delivered_at
-						? 'delivered'
-						: 'unread';
-			return `- ${message.id}${urgent}${ack}${reply}${expires} ${state} from ${message.from}: ${message.body}`;
-		})
-		.join('\n');
+	const lines = messages.map((message) => {
+		const urgent = message.urgent ? ' urgent' : '';
+		const ack = message.requires_ack ? ' requires-ack' : '';
+		const reply = message.reply_to
+			? ` reply-to:${message.reply_to}`
+			: '';
+		const expires = message.expires_at
+			? ` expires:${message.expires_at}`
+			: '';
+		const state = message.acknowledged_at
+			? 'acknowledged'
+			: message.read_at
+				? 'read'
+				: message.delivered_at
+					? 'delivered'
+					: 'unread';
+		const body = options.full
+			? message.body
+			: compact_message_body(message.body);
+		return `- ${message.id}${urgent}${ack}${reply}${expires} ${state} from ${message.from}: ${body}`;
+	});
+	if (!options.full)
+		lines.push(
+			'Use message_list with mode=full for full message text, or retrieve referenced artifacts for long handoffs.',
+		);
+	return lines.join('\n');
 }
 
 export interface SessionUsageSummary {
@@ -537,9 +555,10 @@ export function format_injected_messages(
 		'',
 		...messages.map((message) => {
 			const urgent = message.urgent ? ' urgent' : '';
-			return `- ${message.id}${urgent} from ${message.from}: ${message.body}`;
+			return `- ${message.id}${urgent} from ${message.from}: ${compact_message_body(message.body)}`;
 		}),
 		'',
+		'Message bodies are compact by default. Use message_list with mode=full for full text, or retrieve referenced artifacts for long handoffs.',
 		'Use the team tool to update tasks or reply if action is needed.',
 		'After handling these messages, acknowledge them with team action message_read for your member.',
 	];
@@ -547,5 +566,5 @@ export function format_injected_messages(
 }
 
 export function format_rpc_message(message: TeamMessage): string {
-	return `<teammate-message id="${message.id}" from="${message.from}" urgent="${message.urgent}">\n${message.body}\n</teammate-message>\nAfter handling this message, acknowledge it with team action message_read for your member.`;
+	return `<teammate-message id="${message.id}" from="${message.from}" urgent="${message.urgent}">\n${compact_message_body(message.body)}\n</teammate-message>\nMessage bodies are compact by default. Use message_list with mode=full for full text, or retrieve referenced artifacts for long handoffs.\nAfter handling this message, acknowledge it with team action message_read for your member.`;
 }

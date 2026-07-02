@@ -114,7 +114,17 @@ export class TeamActivityPoller {
 						unread,
 					),
 					display: true,
-					details: { team_id: active_team_id, messages: unread },
+					details: {
+						team_id: active_team_id,
+						messages: unread.map((message) => ({
+							id: message.id,
+							from: message.from,
+							to: message.to,
+							urgent: message.urgent,
+							requires_ack: message.requires_ack,
+							reply_to: message.reply_to,
+						})),
+					},
 				},
 				{ deliverAs: 'followUp', triggerTurn: true },
 			);

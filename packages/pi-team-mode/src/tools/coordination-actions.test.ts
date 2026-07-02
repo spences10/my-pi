@@ -48,4 +48,41 @@ describe('coordination actions', () => {
 			db.close();
 		}
 	});
+
+	it('uses compact session inbox output unless mode is full', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			db.send_to_session_target({
+				from_session_id: 'lead',
+				target: 'worker',
+				body: `please inspect ${'private context '.repeat(40)}final detail`,
+			});
+
+			const context = {
+				ctx: { cwd: '/repo' } as any,
+				coordination_db: db,
+				notify_coordination_messages: async () => undefined,
+				require_session_id: () => 'worker',
+			};
+			const compact = await execute_coordination_action(
+				{ action: 'session_inbox' },
+				context,
+			);
+			const full = await execute_coordination_action(
+				{ action: 'session_inbox', mode: 'full' },
+				context,
+			);
+
+			expect(compact.content[0]?.text).toContain('[truncated]');
+			expect(compact.content[0]?.text).not.toContain('final detail');
+			expect(JSON.stringify(compact.details)).not.toContain(
+				'private context',
+			);
+			expect(full.content[0]?.text).toContain('final detail');
+		} finally {
+			db.close();
+		}
+	});
 });

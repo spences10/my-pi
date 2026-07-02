@@ -53,6 +53,9 @@ describe('team activity poller', () => {
 		expect(JSON.stringify(sent[0])).toContain(
 			'Team mailbox update for alice',
 		);
+		expect((sent[0] as any).details.messages[0]).toEqual(
+			expect.not.objectContaining({ body: 'Status?' }),
+		);
 		expect(
 			store.list_messages(team.id, 'alice')[0]!.delivered_at,
 		).toBeTruthy();

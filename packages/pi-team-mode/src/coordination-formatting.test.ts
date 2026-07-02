@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { format_sessions } from './coordination-formatting.js';
-import type { CoordinationSession } from './db/index.js';
+import {
+	format_inbox,
+	format_peer_message_for_injection,
+	format_sessions,
+} from './coordination-formatting.js';
+import type {
+	CoordinationInboxMessage,
+	CoordinationSession,
+} from './db/index.js';
 
 const session: CoordinationSession = {
 	session_id: '019f0f71-967e-7aed-853c-94ac29fbe7b6',
@@ -14,6 +21,22 @@ const session: CoordinationSession = {
 	created_at: '2026-06-28T00:00:00.000Z',
 	updated_at: '2026-06-28T00:00:00.000Z',
 	last_seen_at: '2026-06-28T00:00:00.000Z',
+};
+
+const long_body = `please review ${'sensitive implementation context '.repeat(30)}final detail`;
+
+const inbox_message: CoordinationInboxMessage = {
+	message_id: 'msg-1',
+	from_session_id: 'lead-session',
+	to_session_id: 'worker-session',
+	scope: 'session',
+	target: 'worker-session',
+	body: long_body,
+	urgent: false,
+	requires_ack: true,
+	created_at: '2026-06-28T00:00:00.000Z',
+	metadata: {},
+	receipt_created_at: '2026-06-28T00:00:00.000Z',
 };
 
 describe('coordination formatting', () => {
@@ -40,5 +63,30 @@ describe('coordination formatting', () => {
 				},
 			]),
 		).toContain('standby:subordinate');
+	});
+
+	it('truncates long peer messages for auto-injection', () => {
+		const text = format_peer_message_for_injection('worker-session', [
+			inbox_message,
+		]);
+
+		expect(text).toContain('msg-1');
+		expect(text).toContain('[truncated]');
+		expect(text).toContain('session_inbox with mode=full');
+		expect(text).not.toContain('final detail');
+	});
+
+	it('formats inbox compactly by default and fully on request', () => {
+		expect(format_inbox([inbox_message])).toContain('[truncated]');
+		expect(format_inbox([inbox_message])).not.toContain(
+			'final detail',
+		);
+
+		expect(format_inbox([inbox_message], { full: true })).toContain(
+			'final detail',
+		);
+		expect(
+			format_inbox([inbox_message], { full: true }),
+		).not.toContain('[truncated]');
 	});
 });

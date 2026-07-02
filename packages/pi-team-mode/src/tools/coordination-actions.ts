@@ -85,9 +85,22 @@ export async function execute_coordination_action(
 			});
 			return {
 				content: [
-					{ type: 'text' as const, text: format_inbox(messages) },
+					{
+						type: 'text' as const,
+						text: format_inbox(messages, {
+							full: params.mode === 'full',
+						}),
+					},
 				],
-				details: { messages },
+				details: {
+					messages: messages.map((message) => ({
+						message_id: message.message_id,
+						from_session_id: message.from_session_id,
+						to_session_id: message.to_session_id,
+						read_at: message.read_at,
+						acknowledged_at: message.acknowledged_at,
+					})),
+				},
 			};
 		}
 		case 'session_wait': {
@@ -106,9 +119,16 @@ export async function execute_coordination_action(
 			}
 			return {
 				content: [
-					{ type: 'text' as const, text: format_inbox(messages) },
+					{
+						type: 'text' as const,
+						text: format_inbox(messages, {
+							full: params.mode === 'full',
+						}),
+					},
 				],
-				details: { messages },
+				details: {
+					message_ids: messages.map((message) => message.message_id),
+				},
 			};
 		}
 		case 'session_read':
@@ -129,9 +149,16 @@ export async function execute_coordination_action(
 			});
 			return {
 				content: [
-					{ type: 'text' as const, text: format_inbox(messages) },
+					{
+						type: 'text' as const,
+						text: format_inbox(messages, {
+							full: params.mode === 'full',
+						}),
+					},
 				],
-				details: { messages },
+				details: {
+					message_ids: messages.map((message) => message.message_id),
+				},
 			};
 		}
 		case 'artifact_create': {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	format_injected_messages,
 	format_messages,
+	format_rpc_message,
 	format_status,
 	format_status_counts,
 	format_task_detail,
@@ -99,5 +100,35 @@ describe('team formatting boundaries', () => {
 		expect(format_injected_messages('alice', messages)).toContain(
 			'Team mailbox update for alice',
 		);
+	});
+
+	it('truncates long mailbox messages by default and supports full formatting', () => {
+		const long_body = `review ${'private context '.repeat(40)}final detail`;
+		const messages: TeamMessage[] = [
+			{
+				id: 'msg-1',
+				from: 'lead',
+				to: 'alice',
+				body: long_body,
+				urgent: false,
+				created_at: '2026-04-30T00:00:00.000Z',
+			},
+		];
+
+		expect(format_messages(messages)).toContain('[truncated]');
+		expect(format_messages(messages)).not.toContain('final detail');
+		expect(format_messages(messages, { full: true })).toContain(
+			'final detail',
+		);
+
+		const injected = format_injected_messages('alice', messages);
+		expect(injected).toContain('[truncated]');
+		expect(injected).toContain('message_list with mode=full');
+		expect(injected).not.toContain('final detail');
+
+		const rpc = format_rpc_message(messages[0]!);
+		expect(rpc).toContain('[truncated]');
+		expect(rpc).toContain('message_list with mode=full');
+		expect(rpc).not.toContain('final detail');
 	});
 });

@@ -34,6 +34,8 @@ export async function handle_inbox(
 ): Promise<void> {
 	const [member_arg, action_arg, ...ids] = rest;
 	const member = member_arg || 'lead';
+	const full = action_arg === '--full' || ids.includes('--full');
+	const message_ids = ids.filter((id) => id !== '--full');
 	let text: string;
 	if (action_arg === 'read' || action_arg === 'ack') {
 		const messages =
@@ -41,17 +43,18 @@ export async function handle_inbox(
 				? await deps.store.mark_messages_read(
 						current_team_id(deps),
 						member,
-						ids.length ? ids : undefined,
+						message_ids.length ? message_ids : undefined,
 					)
 				: await deps.store.acknowledge_messages(
 						current_team_id(deps),
 						member,
-						ids.length ? ids : undefined,
+						message_ids.length ? message_ids : undefined,
 					);
-		text = format_messages(messages);
+		text = format_messages(messages, { full });
 	} else {
 		text = format_messages(
 			deps.store.list_messages(current_team_id(deps), member),
+			{ full },
 		);
 	}
 	if (has_modal_ui(deps.ctx)) {

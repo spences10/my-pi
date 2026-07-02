@@ -60,7 +60,10 @@ export async function handle_session_command(
 				include_acknowledged: tail.includes('--all'),
 			},
 		);
-		deps.ctx.ui.notify(format_inbox(messages), 'info');
+		deps.ctx.ui.notify(
+			format_inbox(messages, { full: tail.includes('--full') }),
+			'info',
+		);
 		return;
 	}
 	if (sub === 'read' || sub === 'ack') {
