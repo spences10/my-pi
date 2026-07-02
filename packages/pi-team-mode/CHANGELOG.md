@@ -1,5 +1,15 @@
 # @spences10/pi-team-mode
 
+## 0.0.38
+
+### Patch Changes
+
+- 855016d: Refactor team coordination database modules and add
+  structured session artifacts for efficient inter-session information
+  exchange.
+- f739295: Auto-register natural-language standby sessions and prevent
+  accidental teammate spawning when standby sessions already exist.
+
 ## 0.0.37
 
 ### Patch Changes
