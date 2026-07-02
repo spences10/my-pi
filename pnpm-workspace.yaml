@@ -6,9 +6,9 @@ packages:
 minimumReleaseAge: 2880
 
 catalog:
-  '@earendil-works/pi-ai': 0.80.2
-  '@earendil-works/pi-coding-agent': 0.80.2
-  '@earendil-works/pi-tui': 0.80.2
+  '@earendil-works/pi-ai': 0.80.3
+  '@earendil-works/pi-coding-agent': 0.80.3
+  '@earendil-works/pi-tui': 0.80.3
   '@sveltejs/vite-plugin-svelte': ^7.1.2
   '@types/node': ^25.8.0
   '@vitest/coverage-v8': 4.1.9
