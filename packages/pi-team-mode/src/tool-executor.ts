@@ -3,12 +3,11 @@ import {
 	parse_team_thinking_level,
 	profile_prompt,
 } from './command-parser.js';
-import type { TeamDatabase } from './db.js';
+import type { TeamDatabase } from './db/index.js';
 import { format_status, format_teams_list } from './formatting.js';
 import { select_teammate_model_config } from './model-selection.js';
 import type { TeammateProfile } from './profiles.js';
 import { RpcTeammate } from './rpc-runner.js';
-import { is_standby_session } from './standby.js';
 import {
 	attached_member_names,
 	get_team_status,
@@ -16,6 +15,7 @@ import {
 	shutdown_orphaned_member,
 	shutdown_team_members,
 } from './runner-orchestration.js';
+import { is_standby_session } from './standby.js';
 import {
 	TeamStore,
 	type TeamConfig,
@@ -126,6 +126,9 @@ export async function execute_team_tool(
 		case 'group_join':
 		case 'group_add_session':
 		case 'group_send':
+		case 'artifact_create':
+		case 'artifact_get':
+		case 'artifact_list':
 			return execute_coordination_action(params, {
 				ctx,
 				coordination_db,

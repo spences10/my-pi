@@ -1,10 +1,11 @@
 import type {
+	CoordinationArtifact,
 	CoordinationGroup,
 	CoordinationGroupMember,
 	CoordinationGroupMembership,
 	CoordinationInboxMessage,
 	CoordinationSession,
-} from './db.js';
+} from './db/index.js';
 import { standby_label } from './standby.js';
 
 function short_id(id: string): string {
@@ -22,15 +23,48 @@ export function format_sessions(
 				? session.session_id
 				: short_id(session.session_id);
 			const name = session.agent_name ? ` ${session.agent_name}` : '';
-			const standby = standby_label(session.metadata);
+			const alias = session.session_alias
+				? ` (${session.session_alias})`
+				: '';
+			const availability =
+				session.availability !== 'available'
+					? ` · ${session.availability}`
+					: '';
+			const intent = session.intent ? ` · ${session.intent}` : '';
+			const standby = session.intent
+				? undefined
+				: standby_label(session.metadata);
 			const standby_text = standby ? ` · ${standby}` : '';
 			const model = session.model_id ? ` · ${session.model_id}` : '';
 			const thinking = session.thinking_level
 				? ` · thinking ${session.thinking_level}`
 				: '';
-			return `- ${id}${name} — ${session.status}${standby_text}; ${session.cwd}${model}${thinking}`;
+			return `- ${id}${name}${alias} — ${session.status}${availability}${intent}${standby_text}; ${session.cwd}${model}${thinking}`;
 		})
 		.join('\n');
+}
+
+export function format_artifacts(
+	artifacts: CoordinationArtifact[],
+): string {
+	if (artifacts.length === 0) return 'No coordination artifacts.';
+	return artifacts
+		.map(
+			(artifact) =>
+				`- ${artifact.artifact_id} [${artifact.kind}] ${artifact.title}: ${artifact.summary}`,
+		)
+		.join('\n');
+}
+
+export function format_artifact(
+	artifact: CoordinationArtifact,
+): string {
+	return [
+		`${artifact.artifact_id} [${artifact.kind}] ${artifact.title}`,
+		`Summary: ${artifact.summary}`,
+		'',
+		artifact.body,
+	].join('\n');
 }
 
 export function format_inbox(

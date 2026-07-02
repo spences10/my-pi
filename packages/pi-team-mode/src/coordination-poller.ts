@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { format_peer_message_for_injection } from './coordination-formatting.js';
-import type { TeamDatabase } from './db.js';
+import type { TeamDatabase } from './db/index.js';
 
 export class CoordinationPoller {
 	private timer: NodeJS.Timeout | undefined;

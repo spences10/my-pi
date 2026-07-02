@@ -26,7 +26,7 @@ import {
 } from './coordination-broker.js';
 import { format_coordination_identity } from './coordination-formatting.js';
 import { CoordinationPoller } from './coordination-poller.js';
-import { TeamDatabase } from './db.js';
+import { TeamDatabase } from './db/index.js';
 import {
 	format_completed_task_results,
 	format_team_dashboard,
@@ -82,6 +82,9 @@ function register_standby_session(
 		model_provider: session.model_provider,
 		model_id: session.model_id,
 		thinking_level: session.thinking_level,
+		availability: registration.availability,
+		intent: registration.intent,
+		session_alias: registration.alias,
 		pool: session.pool,
 		tags: session.tags,
 		metadata: {
@@ -348,13 +351,14 @@ export default async function team_mode(pi: ExtensionAPI) {
 		name: 'team',
 		label: 'Team',
 		description:
-			'Manage peer session coordination, groups, RPC teammates, tasks, and mailboxes. Real spawning is available through member_spawn.',
+			'Manage peer session coordination, groups, artifacts, RPC teammates, tasks, and mailboxes. Real spawning is available through member_spawn.',
 		promptSnippet:
-			'Manage peer sessions, coordination groups, tasks, messages, and optional RPC teammate sessions',
+			'Manage peer sessions, coordination groups, artifacts, tasks, messages, and optional RPC teammate sessions',
 		promptGuidelines: [
 			'Use team session_list to discover registered Pi sessions across projects before sending peer messages.',
 			'If the user mentions standby sessions, existing sessions, subordinates, handoffs, or other active sessions, call session_list and prefer registered standby sessions before member_spawn.',
-			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for peer-session mailbox coordination.',
+			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for compact peer-session mailbox coordination.',
+			'Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of large mailbox bodies.',
 			'Use team group_create, group_add_session, and group_send when one session should coordinate a team of independently running sessions.',
 			'Use team to create and update teammate-mode tasks instead of ad-hoc markdown todo lists when the user asks to coordinate a team.',
 			'Only team leads may use member_spawn. Teammate sessions must not spawn nested teammates.',

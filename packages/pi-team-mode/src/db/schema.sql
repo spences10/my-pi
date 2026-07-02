@@ -1,5 +1,5 @@
 -- Source of truth for local team-mode coordination SQLite DDL.
--- This file is the schema for coordination database version 1.
+-- This file is the latest schema used for new coordination databases.
 -- Database setup pragmas and migration versioning are applied in code.
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS sessions (
 	model_provider TEXT,
 	model_id TEXT,
 	thinking_level TEXT,
+	availability TEXT NOT NULL DEFAULT 'available' CHECK (availability IN ('available', 'busy', 'standby', 'handoff', 'offline')),
+	intent TEXT,
+	session_alias TEXT,
+	parent_session_id TEXT,
 	pool TEXT NOT NULL DEFAULT 'default',
 	tags_json TEXT NOT NULL DEFAULT '[]',
 	metadata_json TEXT NOT NULL DEFAULT '{}',
@@ -20,6 +24,21 @@ CREATE TABLE IF NOT EXISTS sessions (
 	updated_at TEXT NOT NULL,
 	last_seen_at TEXT NOT NULL,
 	offline_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS coordination_artifacts (
+	artifact_id TEXT PRIMARY KEY,
+	kind TEXT NOT NULL CHECK (kind IN ('summary', 'handoff', 'plan', 'evidence', 'result', 'log', 'diff')),
+	owner_session_id TEXT NOT NULL,
+	cwd TEXT NOT NULL,
+	title TEXT NOT NULL,
+	summary TEXT NOT NULL,
+	body TEXT NOT NULL,
+	body_format TEXT NOT NULL DEFAULT 'markdown',
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL,
+	metadata_json TEXT NOT NULL DEFAULT '{}',
+	FOREIGN KEY (owner_session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS groups (
@@ -125,6 +144,12 @@ CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_cwd ON sessions(cwd);
 CREATE INDEX IF NOT EXISTS idx_sessions_agent_name ON sessions(agent_name);
 CREATE INDEX IF NOT EXISTS idx_sessions_pool ON sessions(pool);
+CREATE INDEX IF NOT EXISTS idx_sessions_availability ON sessions(availability);
+CREATE INDEX IF NOT EXISTS idx_sessions_intent ON sessions(intent);
+CREATE INDEX IF NOT EXISTS idx_sessions_session_alias ON sessions(session_alias);
+CREATE INDEX IF NOT EXISTS idx_coordination_artifacts_owner ON coordination_artifacts(owner_session_id);
+CREATE INDEX IF NOT EXISTS idx_coordination_artifacts_cwd_kind ON coordination_artifacts(cwd, kind);
+CREATE INDEX IF NOT EXISTS idx_coordination_artifacts_updated ON coordination_artifacts(updated_at);
 CREATE INDEX IF NOT EXISTS idx_messages_from ON messages(from_session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_message_receipts_to_pending ON message_receipts(to_session_id, delivered_at, read_at, acknowledged_at);

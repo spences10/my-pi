@@ -27,6 +27,9 @@ const TEAM_ACTIONS = [
 	'group_join',
 	'group_add_session',
 	'group_send',
+	'artifact_create',
+	'artifact_get',
+	'artifact_list',
 	'member_upsert',
 	'member_spawn',
 	'member_prompt',
@@ -80,6 +83,16 @@ const TeamUiStyleParam = StringEnum([
 	'badge',
 	'color',
 ] as const);
+const ArtifactKindParam = StringEnum([
+	'summary',
+	'handoff',
+	'plan',
+	'evidence',
+	'result',
+	'log',
+	'diff',
+] as const);
+
 const TeamThinkingParam = StringEnum([
 	'off',
 	'minimal',
@@ -126,6 +139,11 @@ export const TeamToolParams = Type.Object({
 	force: Type.Optional(Type.Boolean()),
 	timeout_ms: Type.Optional(Type.Number()),
 	mode: Type.Optional(TeamUiModeParam),
+	kind: Type.Optional(ArtifactKindParam),
+	body: Type.Optional(Type.String()),
+	body_format: Type.Optional(Type.String()),
+	query: Type.Optional(Type.String()),
+	artifact_id: Type.Optional(Type.String()),
 	style: Type.Optional(TeamUiStyleParam),
 });
 
@@ -172,6 +190,18 @@ export type TeamToolParams = {
 	force?: boolean;
 	timeout_ms?: number;
 	mode?: TeamUiMode;
+	kind?:
+		| 'summary'
+		| 'handoff'
+		| 'plan'
+		| 'evidence'
+		| 'result'
+		| 'log'
+		| 'diff';
+	body?: string;
+	body_format?: string;
+	query?: string;
+	artifact_id?: string;
 	style?: TeamUiStyle;
 };
 
@@ -245,6 +275,16 @@ export function validate_team_tool_params(
 				'group',
 			);
 			require_tool_field(params, 'message');
+			return;
+		case 'artifact_create':
+			require_tool_field(params, 'kind');
+			require_tool_field(params, 'title');
+			require_tool_field(params, 'body');
+			return;
+		case 'artifact_get':
+			require_tool_field(params, 'artifact_id');
+			return;
+		case 'artifact_list':
 			return;
 		case 'member_upsert':
 		case 'member_spawn':

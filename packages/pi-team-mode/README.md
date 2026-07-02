@@ -33,8 +33,10 @@ This package adds local multi-agent coordination to Pi:
 
 - register every running session in a global local coordination bus
 - discover sessions across projects and working directories
-- send mailbox-backed peer messages between independently started
-  sessions
+- send compact mailbox-backed peer messages between independently
+  started sessions
+- store larger handoffs, plans, findings, logs, and results as
+  coordination artifacts referenced from mailbox messages
 - create coordination groups over arbitrary sessions
 - create and inspect coordination groups/teams
 - spawn real RPC teammate sessions when new sessions are needed
@@ -54,7 +56,7 @@ Peer-session coordination state is stored in:
 ```
 
 Set `MY_PI_COORDINATION_DB` to use a different SQLite database path.
-The database uses WAL mode and a schema source at `src/schema.sql`.
+The database uses WAL mode with schema and migrations under `src/db/`.
 Sessions also connect to a local HTTP/SSE push broker on port `43191`
 by default; set `MY_PI_COORDINATION_BROKER_PORT` to use another port.
 SQLite remains the durable fallback if the broker is unavailable. RPC
@@ -66,7 +68,8 @@ use:
 ```
 
 Set `MY_PI_TEAM_MODE_ROOT` to move that RPC control directory. Session
-discovery, group membership, and peer mailboxes remain in the SQLite
+discovery, availability/intent metadata, group membership,
+coordination artifacts, and peer mailboxes remain in the SQLite
 coordination database.
 
 Team mode does not auto-attach old teams on startup. Use
@@ -228,8 +231,11 @@ Useful peer commands:
 
 Equivalent tool actions include `session_list`, `session_send`,
 `session_inbox`, `session_read`, `session_ack`, `session_wait`,
-`group_create`, `group_list`, `group_join`, `group_add_session`, and
-`group_send`.
+`artifact_create`, `artifact_get`, `artifact_list`, `group_create`,
+`group_list`, `group_join`, `group_add_session`, and `group_send`.
+Keep mailbox messages compact; put detailed handoffs, plans, findings,
+logs, diffs, and results in coordination artifacts and send the
+artifact id plus a short summary.
 
 Fresh sessions that start with natural language such as “standby”,
 “standby for orchestrator”, “you are the subordinate”, or “standby for
@@ -305,6 +311,10 @@ orchestration. Important actions include:
 - `group_join`
 - `group_add_session`
 - `group_send`
+- `artifact_create`
+- `artifact_get`
+- `artifact_list` (`query` searches title, summary, and body in the
+  current cwd)
 - `team_create`
 - `team_list`
 - `team_shutdown` (defaults to completed/done teammates; pass

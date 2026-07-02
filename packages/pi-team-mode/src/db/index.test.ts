@@ -8,7 +8,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { TeamDatabase } from './db.js';
+import { TeamDatabase } from './index.js';
 
 const dirs: string[] = [];
 
@@ -30,7 +30,7 @@ describe('TeamDatabase coordination store', () => {
 		const db = await TeamDatabase.open(db_path);
 		try {
 			expect(existsSync(db_path)).toBe(true);
-			expect(db.get_schema_version()).toBe(2);
+			expect(db.get_schema_version()).toBe(3);
 			expect(
 				db.read_rows<{ name: string }>(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'message_receipts'",
@@ -60,9 +60,44 @@ describe('TeamDatabase coordination store', () => {
 				new URL('./schema.sql', import.meta.url),
 				'utf8',
 			);
-			v1_db.exec(
-				current_schema.replace('\n\tthinking_level TEXT,', ''),
-			);
+			const v1_schema = current_schema
+				.replace('\n\tthinking_level TEXT,', '')
+				.replace(
+					"\n\tavailability TEXT NOT NULL DEFAULT 'available' CHECK (availability IN ('available', 'busy', 'standby', 'handoff', 'offline')),",
+					'',
+				)
+				.replace('\n\tintent TEXT,', '')
+				.replace('\n\tsession_alias TEXT,', '')
+				.replace('\n\tparent_session_id TEXT,', '')
+				.replace(
+					/CREATE TABLE IF NOT EXISTS coordination_artifacts \([\s\S]*?\);\n\n/,
+					'',
+				)
+				.replace(
+					'CREATE INDEX IF NOT EXISTS idx_sessions_availability ON sessions(availability);\n',
+					'',
+				)
+				.replace(
+					'CREATE INDEX IF NOT EXISTS idx_sessions_intent ON sessions(intent);\n',
+					'',
+				)
+				.replace(
+					'CREATE INDEX IF NOT EXISTS idx_sessions_session_alias ON sessions(session_alias);\n',
+					'',
+				)
+				.replace(
+					'CREATE INDEX IF NOT EXISTS idx_coordination_artifacts_owner ON coordination_artifacts(owner_session_id);\n',
+					'',
+				)
+				.replace(
+					'CREATE INDEX IF NOT EXISTS idx_coordination_artifacts_cwd_kind ON coordination_artifacts(cwd, kind);\n',
+					'',
+				)
+				.replace(
+					'CREATE INDEX IF NOT EXISTS idx_coordination_artifacts_updated ON coordination_artifacts(updated_at);\n',
+					'',
+				);
+			v1_db.exec(v1_schema);
 			v1_db.exec('PRAGMA user_version = 1;');
 		} finally {
 			v1_db.close();
@@ -70,12 +105,15 @@ describe('TeamDatabase coordination store', () => {
 
 		const db = await TeamDatabase.open(db_path);
 		try {
-			expect(db.get_schema_version()).toBe(2);
+			expect(db.get_schema_version()).toBe(3);
 			expect(
 				db.read_rows<{ name: string }>(
-					"SELECT name FROM pragma_table_info('sessions') WHERE name = 'thinking_level'",
+					"SELECT name FROM pragma_table_info('sessions') WHERE name IN ('thinking_level', 'availability') ORDER BY name",
 				),
-			).toEqual([{ name: 'thinking_level' }]);
+			).toEqual([
+				{ name: 'availability' },
+				{ name: 'thinking_level' },
+			]);
 		} finally {
 			db.close();
 		}
@@ -91,6 +129,9 @@ describe('TeamDatabase coordination store', () => {
 				pid: 1,
 				model_id: 'model-a',
 				thinking_level: 'high',
+				availability: 'standby',
+				intent: 'reviewer',
+				session_alias: 'alpha-review',
 			});
 			db.register_session({
 				session_id: 's2',
@@ -108,6 +149,9 @@ describe('TeamDatabase coordination store', () => {
 
 			expect(db.get_session('s1')).toMatchObject({
 				thinking_level: 'high',
+				availability: 'standby',
+				intent: 'reviewer',
+				session_alias: 'alpha-review',
 			});
 			expect(db.list_sessions()).toHaveLength(2);
 			expect(db.resolve_session_targets('beta')).toHaveLength(1);
@@ -137,6 +181,33 @@ describe('TeamDatabase coordination store', () => {
 				read_at: expect.any(String),
 				acknowledged_at: expect.any(String),
 			});
+		} finally {
+			db.close();
+		}
+	});
+
+	it('creates and searches coordination artifacts', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo-a' });
+			const artifact = db.create_artifact({
+				kind: 'handoff',
+				owner_session_id: 'lead',
+				cwd: '/repo-a',
+				title: 'Review handoff',
+				summary: 'Compact summary for mailbox messages',
+				body: 'Full plan and findings live here.',
+			});
+
+			expect(db.get_artifact(artifact.artifact_id)).toMatchObject({
+				kind: 'handoff',
+				title: 'Review handoff',
+			});
+			expect(db.list_artifacts({ cwd: '/repo-a' })).toHaveLength(1);
+			expect(
+				db.search_artifacts('findings', { cwd: '/repo-a' }),
+			).toMatchObject([{ artifact_id: artifact.artifact_id }]);
+			expect(db.list_artifacts({ cwd: '/repo-b' })).toEqual([]);
 		} finally {
 			db.close();
 		}

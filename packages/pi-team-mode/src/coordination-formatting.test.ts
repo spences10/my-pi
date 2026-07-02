@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { format_sessions } from './coordination-formatting.js';
-import type { CoordinationSession } from './db.js';
+import type { CoordinationSession } from './db/index.js';
 
 const session: CoordinationSession = {
 	session_id: '019f0f71-967e-7aed-853c-94ac29fbe7b6',
 	cwd: '/repo',
 	role: 'peer',
 	status: 'online',
+	availability: 'available',
 	pool: 'default',
 	tags: [],
 	metadata: {},

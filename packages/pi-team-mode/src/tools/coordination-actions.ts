@@ -1,10 +1,12 @@
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import {
+	format_artifact,
+	format_artifacts,
 	format_groups,
 	format_inbox,
 	format_sessions,
 } from '../coordination-formatting.js';
-import type { TeamDatabase } from '../db.js';
+import type { TeamDatabase } from '../db/index.js';
 import type { TeamToolParams } from '../team-tool-params.js';
 import { require_arg } from './task-actions.js';
 
@@ -130,6 +132,58 @@ export async function execute_coordination_action(
 					{ type: 'text' as const, text: format_inbox(messages) },
 				],
 				details: { messages },
+			};
+		}
+		case 'artifact_create': {
+			const artifact = coordination_db.create_artifact({
+				kind: params.kind ?? 'summary',
+				owner_session_id: require_session_id(),
+				cwd: ctx.cwd,
+				title: require_arg(params.title, 'title'),
+				summary:
+					params.description ?? require_arg(params.title, 'title'),
+				body: require_arg(params.body, 'body'),
+				body_format: params.body_format,
+			});
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: `Created coordination artifact ${artifact.artifact_id}: ${artifact.title}`,
+					},
+				],
+				details: { artifact },
+			};
+		}
+		case 'artifact_get': {
+			const artifact = coordination_db.get_artifact(
+				require_arg(params.artifact_id, 'artifact_id'),
+			);
+			if (!artifact) throw new Error('Unknown coordination artifact');
+			return {
+				content: [
+					{ type: 'text' as const, text: format_artifact(artifact) },
+				],
+				details: { artifact },
+			};
+		}
+		case 'artifact_list': {
+			const artifacts = params.query
+				? coordination_db.search_artifacts(params.query, {
+						cwd: ctx.cwd,
+					})
+				: coordination_db.list_artifacts({
+						cwd: ctx.cwd,
+						kind: params.kind,
+					});
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: format_artifacts(artifacts),
+					},
+				],
+				details: { artifacts },
 			};
 		}
 		case 'group_create': {

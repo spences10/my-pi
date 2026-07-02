@@ -2,7 +2,7 @@ import type {
 	ExtensionCommandContext,
 	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
-import type { TeamDatabase } from '../db.js';
+import type { TeamDatabase } from '../db/index.js';
 import type { RpcTeammate } from '../rpc-runner.js';
 import type { TeamStore } from '../store.js';
 

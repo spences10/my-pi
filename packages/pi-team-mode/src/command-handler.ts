@@ -37,7 +37,7 @@ import {
 	run_empty_team_command,
 } from './commands/team-commands.js';
 import type { TeamCommandDeps } from './commands/types.js';
-import type { TeamDatabase } from './db.js';
+import type { TeamDatabase } from './db/index.js';
 import type { RpcTeammate } from './rpc-runner.js';
 import type { TeamStore } from './store.js';
 import { has_modal_ui } from './ui-status.js';
