@@ -1,3 +1,8 @@
+import {
+	body_chunk_metadata,
+	format_body_chunks,
+	format_chunk_metadata,
+} from './chunking.js';
 import type {
 	CoordinationArtifact,
 	CoordinationGroup,
@@ -57,21 +62,41 @@ export function format_artifacts(
 ): string {
 	if (artifacts.length === 0) return 'No coordination artifacts.';
 	return artifacts
-		.map(
-			(artifact) =>
-				`- ${artifact.artifact_id} [${artifact.kind}] ${artifact.title}: ${artifact.summary}`,
-		)
+		.map((artifact) => {
+			const metadata = format_chunk_metadata(artifact.body);
+			return `- ${artifact.artifact_id} [${artifact.kind}] ${artifact.title}: ${artifact.summary} (${metadata}; use artifact_get with chunk_index or mode=full)`;
+		})
 		.join('\n');
 }
 
 export function format_artifact(
 	artifact: CoordinationArtifact,
+	options: {
+		full?: boolean;
+		chunk_index?: number;
+		before?: number;
+		after?: number;
+	} = {},
 ): string {
+	const metadata = body_chunk_metadata(artifact.body);
 	return [
 		`${artifact.artifact_id} [${artifact.kind}] ${artifact.title}`,
 		`Summary: ${artifact.summary}`,
+		`Body: length ${metadata.body_length}, chunks ${metadata.chunk_count}`,
 		'',
-		artifact.body,
+		options.full
+			? artifact.body
+			: format_body_chunks(
+					artifact.artifact_id,
+					artifact.body,
+					options,
+				),
+		...(options.full
+			? []
+			: [
+					'',
+					'Use artifact_get with chunk_index/before/after for nearby chunks, or mode=full for the full body.',
+				]),
 	].join('\n');
 }
 
@@ -93,11 +118,12 @@ export function format_inbox(
 		const body = options.full
 			? message.body
 			: compact_body(message.body);
-		return `- ${message.message_id} from ${from} (${states}): ${body}`;
+		const metadata = format_chunk_metadata(message.body);
+		return `- ${message.message_id} from ${from} (${states}; ${metadata}): ${body}`;
 	});
 	if (!options.full)
 		lines.push(
-			'Use session_inbox with mode=full for full message text, or retrieve referenced artifacts for long handoffs.',
+			'Use session_inbox/message_list with message_id and chunk_index for focused retrieval, mode=full for full text, or retrieve referenced artifacts for long handoffs.',
 		);
 	return lines.join('\n');
 }

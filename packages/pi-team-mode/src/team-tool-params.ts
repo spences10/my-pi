@@ -144,6 +144,10 @@ export const TeamToolParams = Type.Object({
 	body_format: Type.Optional(Type.String()),
 	query: Type.Optional(Type.String()),
 	artifact_id: Type.Optional(Type.String()),
+	message_id: Type.Optional(Type.String()),
+	chunk_index: Type.Optional(Type.Number()),
+	before: Type.Optional(Type.Number()),
+	after: Type.Optional(Type.Number()),
 	style: Type.Optional(TeamUiStyleParam),
 });
 
@@ -202,6 +206,10 @@ export type TeamToolParams = {
 	body_format?: string;
 	query?: string;
 	artifact_id?: string;
+	message_id?: string;
+	chunk_index?: number;
+	before?: number;
+	after?: number;
 	style?: TeamUiStyle;
 };
 

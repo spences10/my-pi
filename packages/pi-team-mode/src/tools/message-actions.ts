@@ -1,3 +1,7 @@
+import {
+	body_chunk_metadata,
+	format_body_chunks,
+} from '../chunking.js';
 import { format_messages } from '../formatting.js';
 import type { RpcTeammate } from '../rpc-runner.js';
 import { deliver_message_to_runner } from '../runner-orchestration.js';
@@ -10,6 +14,34 @@ interface MessageActionContext {
 	runners: Map<string, RpcTeammate>;
 	own_member: string;
 	require_team_id: () => string;
+}
+
+function has_chunk_request(params: TeamToolParams): boolean {
+	return (
+		params.chunk_index !== undefined ||
+		params.message_id !== undefined
+	);
+}
+
+function format_message_chunk(
+	messages: { id: string; body: string }[],
+	params: TeamToolParams,
+): string | undefined {
+	if (!has_chunk_request(params)) return undefined;
+	const message_id = params.message_id ?? params.message_ids?.[0];
+	const message = message_id
+		? messages.find((item) => item.id === message_id)
+		: messages[0];
+	if (!message) return 'No matching message for chunk retrieval.';
+	return [
+		`Message ${message.id} ${JSON.stringify(body_chunk_metadata(message.body))}`,
+		format_body_chunks(`message ${message.id}`, message.body, {
+			chunk_index: params.chunk_index,
+			before: params.before,
+			after: params.after,
+		}),
+		'Use message_id with chunk_index/before/after for nearby chunks, or mode=full for full bodies.',
+	].join('\n');
 }
 
 export async function execute_message_action(
@@ -53,13 +85,16 @@ export async function execute_message_action(
 				require_team_id(),
 				require_arg(params.member ?? params.to, 'member'),
 			);
+			const chunk_text = format_message_chunk(messages, params);
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text: format_messages(messages, {
-							full: params.mode === 'full',
-						}),
+						text:
+							chunk_text ??
+							format_messages(messages, {
+								full: params.mode === 'full',
+							}),
 					},
 				],
 				details: {
@@ -78,14 +113,18 @@ export async function execute_message_action(
 					include_read: params.include_read,
 				},
 			);
+			const chunk_text = message
+				? format_message_chunk([message], params)
+				: undefined;
 			return {
 				content: [
 					{
 						type: 'text' as const,
 						text: message
-							? format_messages([message], {
+							? (chunk_text ??
+								format_messages([message], {
 									full: params.mode === 'full',
-								})
+								}))
 							: 'No matching message before timeout.',
 					},
 				],
@@ -115,13 +154,16 @@ export async function execute_message_action(
 							member,
 							params.message_ids,
 						);
+			const chunk_text = format_message_chunk(messages, params);
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text: format_messages(messages, {
-							full: params.mode === 'full',
-						}),
+						text:
+							chunk_text ??
+							format_messages(messages, {
+								full: params.mode === 'full',
+							}),
 					},
 				],
 				details: {

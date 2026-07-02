@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { format_chunk_metadata } from './chunking.js';
 import {
 	TeamStore,
 	type TeamMember,
@@ -243,11 +244,12 @@ export function format_messages(
 		const body = options.full
 			? message.body
 			: compact_message_body(message.body);
-		return `- ${message.id}${urgent}${ack}${reply}${expires} ${state} from ${message.from}: ${body}`;
+		const metadata = format_chunk_metadata(message.body);
+		return `- ${message.id}${urgent}${ack}${reply}${expires} ${state} from ${message.from} (${metadata}): ${body}`;
 	});
 	if (!options.full)
 		lines.push(
-			'Use message_list with mode=full for full message text, or retrieve referenced artifacts for long handoffs.',
+			'Use message_list/session_inbox with message_id and chunk_index for focused retrieval, mode=full for full text, or retrieve referenced artifacts for long handoffs.',
 		);
 	return lines.join('\n');
 }

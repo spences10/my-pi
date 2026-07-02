@@ -235,7 +235,11 @@ Equivalent tool actions include `session_list`, `session_send`,
 `group_list`, `group_join`, `group_add_session`, and `group_send`.
 Keep mailbox messages compact; put detailed handoffs, plans, findings,
 logs, diffs, and results in coordination artifacts and send the
-artifact id plus a short summary.
+artifact id plus a short summary. Compact inbox/artifact views include
+`body_length` and `chunk_count`; retrieve focused context with tool
+parameters such as `message_id`, `artifact_id`, `chunk_index`,
+`before`, and `after`, or use `mode: "full"` when the full body is
+explicitly needed.
 
 Fresh sessions that start with natural language such as “standby”,
 “standby for orchestrator”, “you are the subordinate”, or “standby for

@@ -209,6 +209,37 @@ describe('execute_team_tool mailbox actions', () => {
 		});
 	});
 
+	it('retrieves focused legacy mailbox message chunks', async () => {
+		const team = store.create_team({ cwd: '/repo' });
+		const message = await store.send_message(team.id, {
+			from: 'lead',
+			to: 'alice',
+			body: `${'first '.repeat(260)}${'second '.repeat(260)}${'third '.repeat(260)}`,
+		});
+
+		const result = await execute_team_tool(
+			{
+				action: 'message_list',
+				member: 'alice',
+				message_id: message.id,
+				chunk_index: 1,
+				before: 1,
+			},
+			{
+				cwd: '/repo',
+				ui: {
+					setStatus: () => undefined,
+					setWidget: () => undefined,
+				},
+			} as any,
+			deps(team.id) as any,
+		);
+
+		expect(result.content[0].text).toContain('chunk 1/');
+		expect(result.content[0].text).toContain('chunk 2/');
+		expect(result.content[0].text).not.toContain('chunk 3/');
+	});
+
 	it('acknowledges selected messages without touching the rest', async () => {
 		const team = store.create_team({ cwd: '/repo' });
 		const first = await store.send_message(team.id, {

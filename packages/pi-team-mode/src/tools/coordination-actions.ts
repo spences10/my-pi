@@ -1,5 +1,9 @@
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import {
+	body_chunk_metadata,
+	format_body_chunks,
+} from '../chunking.js';
+import {
 	format_artifact,
 	format_artifacts,
 	format_groups,
@@ -18,6 +22,38 @@ interface CoordinationActionContext {
 		message_id?: string,
 	) => Promise<void>;
 	require_session_id: () => string;
+}
+
+function has_chunk_request(params: TeamToolParams): boolean {
+	return (
+		params.chunk_index !== undefined ||
+		params.message_id !== undefined
+	);
+}
+
+function format_message_chunk(
+	messages: { message_id: string; body: string }[],
+	params: TeamToolParams,
+): string | undefined {
+	if (!has_chunk_request(params)) return undefined;
+	const message_id = params.message_id ?? params.message_ids?.[0];
+	const message = message_id
+		? messages.find((item) => item.message_id === message_id)
+		: messages[0];
+	if (!message) return 'No matching message for chunk retrieval.';
+	return [
+		`Message ${message.message_id} ${JSON.stringify(body_chunk_metadata(message.body))}`,
+		format_body_chunks(
+			`message ${message.message_id}`,
+			message.body,
+			{
+				chunk_index: params.chunk_index,
+				before: params.before,
+				after: params.after,
+			},
+		),
+		'Use message_id with chunk_index/before/after for nearby chunks, or mode=full for full bodies.',
+	].join('\n');
 }
 
 export async function execute_coordination_action(
@@ -83,13 +119,16 @@ export async function execute_coordination_action(
 				include_read: params.include_read,
 				include_acknowledged: params.include_read,
 			});
+			const chunk_text = format_message_chunk(messages, params);
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text: format_inbox(messages, {
-							full: params.mode === 'full',
-						}),
+						text:
+							chunk_text ??
+							format_inbox(messages, {
+								full: params.mode === 'full',
+							}),
 					},
 				],
 				details: {
@@ -117,13 +156,16 @@ export async function execute_coordination_action(
 					include_read: params.include_read,
 				});
 			}
+			const chunk_text = format_message_chunk(messages, params);
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text: format_inbox(messages, {
-							full: params.mode === 'full',
-						}),
+						text:
+							chunk_text ??
+							format_inbox(messages, {
+								full: params.mode === 'full',
+							}),
 					},
 				],
 				details: {
@@ -147,13 +189,16 @@ export async function execute_coordination_action(
 				include_read: true,
 				include_acknowledged: true,
 			});
+			const chunk_text = format_message_chunk(messages, params);
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text: format_inbox(messages, {
-							full: params.mode === 'full',
-						}),
+						text:
+							chunk_text ??
+							format_inbox(messages, {
+								full: params.mode === 'full',
+							}),
 					},
 				],
 				details: {
@@ -189,9 +234,20 @@ export async function execute_coordination_action(
 			if (!artifact) throw new Error('Unknown coordination artifact');
 			return {
 				content: [
-					{ type: 'text' as const, text: format_artifact(artifact) },
+					{
+						type: 'text' as const,
+						text: format_artifact(artifact, {
+							full: params.mode === 'full',
+							chunk_index: params.chunk_index,
+							before: params.before,
+							after: params.after,
+						}),
+					},
 				],
-				details: { artifact },
+				details: {
+					artifact_id: artifact.artifact_id,
+					...body_chunk_metadata(artifact.body),
+				},
 			};
 		}
 		case 'artifact_list': {
@@ -210,7 +266,14 @@ export async function execute_coordination_action(
 						text: format_artifacts(artifacts),
 					},
 				],
-				details: { artifacts },
+				details: {
+					artifacts: artifacts.map((artifact) => ({
+						artifact_id: artifact.artifact_id,
+						kind: artifact.kind,
+						title: artifact.title,
+						...body_chunk_metadata(artifact.body),
+					})),
+				},
 			};
 		}
 		case 'group_create': {
