@@ -1,5 +1,14 @@
 # @spences10/pi-team-mode
 
+## 0.0.39
+
+### Patch Changes
+
+- 2f326d4: Compact team mailbox auto-injection by default; require
+  explicit full mode for message bodies.
+- 1a8cc19: Add focused chunk retrieval for long team messages and
+  artifacts without loading full bodies.
+
 ## 0.0.38
 
 ### Patch Changes
