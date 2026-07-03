@@ -68,6 +68,7 @@ export async function execute_coordination_action(
 	} = context;
 	switch (params.action) {
 		case 'session_list': {
+			coordination_db.mark_stale_sessions_offline();
 			const sessions = coordination_db.list_sessions({
 				include_offline: params.include_read,
 			});
@@ -84,6 +85,7 @@ export async function execute_coordination_action(
 			};
 		}
 		case 'session_send': {
+			coordination_db.mark_stale_sessions_offline();
 			const session_id = require_session_id();
 			const target = require_arg(params.to, 'to');
 			const recipients = coordination_db
@@ -332,6 +334,7 @@ export async function execute_coordination_action(
 			};
 		}
 		case 'group_add_session': {
+			coordination_db.mark_stale_sessions_offline();
 			const group = coordination_db.get_group(
 				require_arg(params.team_id ?? params.name, 'group'),
 			);

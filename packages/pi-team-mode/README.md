@@ -32,7 +32,9 @@ pi -e ./packages/pi-team-mode
 This package adds local multi-agent coordination to Pi:
 
 - register every running session in a global local coordination bus
-- discover sessions across projects and working directories
+- discover live sessions across projects and working directories
+- mark stale PID-backed session registrations offline before listing
+  or targeting peers
 - send compact mailbox-backed peer messages between independently
   started sessions
 - store larger handoffs, plans, findings, logs, and results as

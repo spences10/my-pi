@@ -45,6 +45,10 @@ import {
 	optional,
 	parse_json,
 } from './util.js';
+import {
+	find_stale_sessions,
+	type ProcessAliveCheck,
+} from '../session-liveness.js';
 export { LATEST_TEAM_SCHEMA_VERSION } from './schema.js';
 export type {
 	CoordinationArtifact,
@@ -135,6 +139,18 @@ export class TeamDatabase {
 		return rows.map((row) => map_session(row));
 	}
 
+	mark_stale_sessions_offline(
+		is_alive?: ProcessAliveCheck,
+	): string[] {
+		const sessions = (
+			this.statements.list_online_sessions.all() as unknown as SessionRow[]
+		).map((row) => map_session(row));
+		const stale = find_stale_sessions(sessions, is_alive);
+		for (const session of stale)
+			this.mark_session_status(session.session_id, 'offline');
+		return stale.map((session) => session.session_id);
+	}
+
 	resolve_session_targets(target: string): CoordinationSession[] {
 		const sessions = (
 			this.statements.list_online_sessions.all() as unknown as SessionRow[]
@@ -168,6 +184,7 @@ export class TeamDatabase {
 			timestamp,
 			timestamp,
 			status === 'offline' ? timestamp : null,
+			status,
 			session_id,
 		);
 	}

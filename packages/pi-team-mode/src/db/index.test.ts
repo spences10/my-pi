@@ -213,6 +213,55 @@ describe('TeamDatabase coordination store', () => {
 		}
 	});
 
+	it('marks registered sessions with dead pids offline', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			db.register_session({
+				session_id: 'live',
+				cwd: '/repo',
+				pid: 10,
+			});
+			db.register_session({
+				session_id: 'dead',
+				cwd: '/repo',
+				pid: 20,
+			});
+			db.register_session({
+				session_id: 'unknown-pid',
+				cwd: '/repo',
+			});
+
+			expect(
+				db.mark_stale_sessions_offline((pid) => pid !== 20),
+			).toEqual(['dead']);
+			const online_sessions = db.list_sessions();
+			expect(online_sessions).toHaveLength(2);
+			expect(online_sessions).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						session_id: 'unknown-pid',
+						status: 'online',
+					}),
+					expect.objectContaining({
+						session_id: 'live',
+						status: 'online',
+					}),
+				]),
+			);
+			expect(db.list_sessions({ include_offline: true })).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						session_id: 'dead',
+						status: 'offline',
+						availability: 'offline',
+					}),
+				]),
+			);
+		} finally {
+			db.close();
+		}
+	});
+
 	it('resolves unique session id prefixes and reports ambiguous or unknown targets', async () => {
 		const db = await TeamDatabase.open(tmp_db());
 		try {
