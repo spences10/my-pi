@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { McpServerConfig } from './client.js';
 import {
 	count_pending_enabled_servers,
 	create_server_states,
 	format_server_status,
 	format_server_target,
+	get_mcp_idle_timeout_ms,
 	remove_server_tools_from_active,
 	summarize_mcp_tool_params,
 } from './server-state.js';
@@ -21,6 +22,16 @@ const http_config: McpServerConfig = {
 	transport: 'http',
 	url: 'https://user:pass@example.com/mcp?token=secret&safe=ok',
 };
+
+const original_idle_timeout = process.env.MY_PI_MCP_IDLE_TIMEOUT_MS;
+
+afterEach(() => {
+	if (original_idle_timeout === undefined) {
+		delete process.env.MY_PI_MCP_IDLE_TIMEOUT_MS;
+	} else {
+		process.env.MY_PI_MCP_IDLE_TIMEOUT_MS = original_idle_timeout;
+	}
+});
 
 describe('mcp server state helpers', () => {
 	it('creates enabled state from configs', () => {
@@ -64,6 +75,34 @@ describe('mcp server state helpers', () => {
 
 		expect(summary).toHaveLength(500);
 		expect(summary?.endsWith('...')).toBe(true);
+	});
+
+	it('defaults to a 15 minute idle timeout', () => {
+		const states = create_server_states([stdio_config]);
+
+		expect(get_mcp_idle_timeout_ms(states.get('local')!)).toBe(
+			15 * 60_000,
+		);
+	});
+
+	it('allows config and env idle timeout overrides', () => {
+		const states = create_server_states([
+			{ ...stdio_config, idle_timeout_ms: 123 },
+			http_config,
+		]);
+		process.env.MY_PI_MCP_IDLE_TIMEOUT_MS = '456';
+
+		expect(get_mcp_idle_timeout_ms(states.get('local')!)).toBe(123);
+		expect(get_mcp_idle_timeout_ms(states.get('remote')!)).toBe(456);
+	});
+
+	it('allows disabling idle shutdown with a zero env timeout', () => {
+		const states = create_server_states([stdio_config]);
+		process.env.MY_PI_MCP_IDLE_TIMEOUT_MS = '0';
+
+		expect(
+			get_mcp_idle_timeout_ms(states.get('local')!),
+		).toBeUndefined();
 	});
 
 	it('removes server tools from active tools', () => {

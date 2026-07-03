@@ -47,6 +47,14 @@ export function remove_server_tools_from_active(
 	);
 }
 
+/**
+ * Default idle timeout: disconnect idle MCP servers after 15 minutes.
+ * Override per-server with `idle_timeout_ms` in config, or globally with
+ * the `MY_PI_MCP_IDLE_TIMEOUT_MS` env var. Set that env var to `0` to
+ * disable idle shutdown entirely.
+ */
+const DEFAULT_MCP_IDLE_TIMEOUT_MS = 15 * 60_000;
+
 export function get_mcp_idle_timeout_ms(
 	state: ServerState,
 ): number | undefined {
@@ -55,7 +63,7 @@ export function get_mcp_idle_timeout_ms(
 		configured ??
 		(process.env.MY_PI_MCP_IDLE_TIMEOUT_MS
 			? Number(process.env.MY_PI_MCP_IDLE_TIMEOUT_MS)
-			: undefined);
+			: DEFAULT_MCP_IDLE_TIMEOUT_MS);
 	return value && Number.isFinite(value) && value > 0
 		? value
 		: undefined;

@@ -134,6 +134,9 @@ loaded into global or project MCP config after modal confirmation.
 - discovers tools via `tools/list`
 - registers each discovered MCP tool with Pi
 - forwards model tool calls to the MCP server
+- disconnects idle connected servers after 15 minutes by default
+  (`MY_PI_MCP_IDLE_TIMEOUT_MS=0` disables this globally; per-server
+  `idle_timeout_ms` overrides it)
 - truncates oversized MCP tool text output to the first 50 KiB or
   2,000 lines
 - when `@spences10/pi-context` is enabled, stores oversized full

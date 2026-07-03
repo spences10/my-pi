@@ -6,15 +6,25 @@ import {
 	chmodSync,
 	existsSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	rmSync,
+	statSync,
 	writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+} from 'vitest';
 import { handle_team_command } from './index.js';
 import { RpcTeammate } from './rpc-runner.js';
 import { TeamStore } from './store.js';
@@ -26,17 +36,66 @@ const team_extension = join(
 	'packages/pi-team-mode/dist/index.js',
 );
 
+const e2e_tmp_prefix = 'my-pi-team-e2e-';
+const stale_e2e_root_ms = 5 * 60_000;
+const active_roots = new Set<string>();
+
 let root: string;
 let store: TeamStore;
 
+function cleanup_root(path: string | undefined): void {
+	if (!path) return;
+	rmSync(path, { recursive: true, force: true });
+	active_roots.delete(path);
+}
+
+function cleanup_active_roots(): void {
+	for (const path of Array.from(active_roots)) {
+		cleanup_root(path);
+	}
+}
+
+function cleanup_stale_e2e_roots(): void {
+	const now = Date.now();
+	for (const entry of readdirSync(tmpdir())) {
+		if (!entry.startsWith(e2e_tmp_prefix)) continue;
+		const path = join(tmpdir(), entry);
+		try {
+			if (now - statSync(path).mtimeMs >= stale_e2e_root_ms) {
+				cleanup_root(path);
+			}
+		} catch {
+			cleanup_root(path);
+		}
+	}
+}
+
+function cleanup_on_signal(signal: NodeJS.Signals): void {
+	cleanup_active_roots();
+	process.kill(process.pid, signal);
+}
+
+beforeAll(() => {
+	cleanup_stale_e2e_roots();
+});
+
 beforeEach(() => {
-	root = mkdtempSync(join(tmpdir(), 'my-pi-team-e2e-'));
+	root = mkdtempSync(join(tmpdir(), e2e_tmp_prefix));
+	active_roots.add(root);
 	store = new TeamStore(join(root, 'teams'));
 });
 
 afterEach(() => {
-	rmSync(root, { recursive: true, force: true });
+	cleanup_root(root);
 });
+
+afterAll(() => {
+	cleanup_active_roots();
+});
+
+process.once('exit', cleanup_active_roots);
+process.once('SIGINT', () => cleanup_on_signal('SIGINT'));
+process.once('SIGTERM', () => cleanup_on_signal('SIGTERM'));
 
 interface RpcWaiter {
 	predicate: (event: any) => boolean;
