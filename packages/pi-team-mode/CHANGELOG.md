@@ -1,5 +1,14 @@
 # @spences10/pi-team-mode
 
+## 0.0.40
+
+### Patch Changes
+
+- 3378dfb: Mark stale PID-backed coordination sessions offline before
+  listing or targeting peer sessions in team mode.
+- de93334: Disconnect idle MCP servers by default and clean up
+  interrupted team-mode e2e temp directories.
+
 ## 0.0.39
 
 ### Patch Changes

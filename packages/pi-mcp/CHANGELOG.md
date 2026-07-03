@@ -1,5 +1,12 @@
 # @spences10/pi-mcp
 
+## 0.0.44
+
+### Patch Changes
+
+- de93334: Disconnect idle MCP servers by default and clean up
+  interrupted team-mode e2e temp directories.
+
 ## 0.0.43
 
 ### Patch Changes

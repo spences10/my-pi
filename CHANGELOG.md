@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.98
+
+### Patch Changes
+
+- 74a0c9c: Add Codex usage footer status extension showing active
+  OpenAI Codex quota windows and reset timing.
+
 ## 0.1.97
 
 ## 0.1.96
