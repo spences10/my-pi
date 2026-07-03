@@ -105,6 +105,9 @@ importers:
       '@spences10/pi-child-env':
         specifier: workspace:*
         version: link:packages/pi-child-env
+      '@spences10/pi-codex-usage':
+        specifier: workspace:*
+        version: link:packages/pi-codex-usage
       '@spences10/pi-coding-preferences':
         specifier: workspace:*
         version: link:packages/pi-coding-preferences
@@ -252,6 +255,21 @@ importers:
 
   packages/pi-child-env:
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.4
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@25.9.4)(@vitest/browser-playwright@4.1.9)(@vitest/browser-preview@4.1.9)(@vitest/coverage-v8@4.1.9)(vite@8.1.2(@types/node@25.9.4)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/pi-codex-usage:
+    devDependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 0.80.3(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.4

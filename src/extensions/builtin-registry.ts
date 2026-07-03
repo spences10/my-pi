@@ -105,6 +105,21 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		load: async () => (await import('./footer/index.js')).default,
 	},
 	{
+		key: 'codex-usage',
+		label: 'Codex usage',
+		docs_label: 'Codex usage status',
+		description: 'OpenAI Codex usage status for the footer',
+		default_enabled: true,
+		option_name: 'codex_usage',
+		cli_arg: 'no-codex-usage',
+		cli_flag: '--no-codex-usage',
+		cli_description: 'Disable Codex usage footer status',
+		aliases: ['codex-usage', 'codex-status'],
+		external_package_name: '@spences10/pi-codex-usage',
+		load: async () =>
+			(await import('@spences10/pi-codex-usage')).default,
+	},
+	{
 		key: 'harness',
 		label: 'Harness',
 		docs_label: 'Task harness runtime',

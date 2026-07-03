@@ -84,6 +84,7 @@
 	},
 	"optionalDependencies": {
 		"@spences10/pi-child-env": "workspace:*",
+		"@spences10/pi-codex-usage": "workspace:*",
 		"@spences10/pi-coding-preferences": "workspace:*",
 		"@spences10/pi-confirm-destructive": "workspace:*",
 		"@spences10/pi-context": "workspace:*",
