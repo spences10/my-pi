@@ -14,6 +14,9 @@ const original_context_db = process.env.MY_PI_CONTEXT_DB;
 
 type RegisteredTool = {
 	name: string;
+	description: string;
+	promptSnippet: string;
+	parameters: any;
 	execute: (
 		...args: any[]
 	) => Promise<{ content: Array<{ text: string }>; details: any }>;
@@ -57,6 +60,16 @@ describe('context_get tool', () => {
 			force: true,
 		});
 		const tool = register_tool();
+
+		expect(tool.description).toContain('source_id plus chunk_id');
+		expect(tool.description).toContain('omitting chunk_id');
+		expect(tool.description).toContain('full source into chat');
+		expect(tool.promptSnippet).toContain(
+			'avoid full-source chat retrieval',
+		);
+		expect(tool.parameters.properties.chunk_id.description).toContain(
+			'exceptional full-source chat retrieval',
+		);
 
 		const found = await tool.execute('call', {
 			source_id: stored!.source_id,

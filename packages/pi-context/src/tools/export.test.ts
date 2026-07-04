@@ -14,6 +14,9 @@ const original_context_db = process.env.MY_PI_CONTEXT_DB;
 
 type RegisteredTool = {
 	name: string;
+	description: string;
+	promptSnippet: string;
+	parameters: any;
 	execute: (
 		...args: any[]
 	) => Promise<{ content: Array<{ text: string }>; details: any }>;
@@ -62,6 +65,13 @@ describe('context_export tool', () => {
 			'export.txt',
 		);
 		const tool = register_tool();
+
+		expect(tool.description).toContain('broad/full JSON/log/script');
+		expect(tool.description).toContain('full source offline');
+		expect(tool.promptSnippet).toContain('offline rg/jq/Python');
+		expect(tool.parameters.properties.chunk_id.description).toContain(
+			'full source for offline processing',
+		);
 
 		const result = await tool.execute('call', {
 			source_id: stored!.source_id,

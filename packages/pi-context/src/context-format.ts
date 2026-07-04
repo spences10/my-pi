@@ -35,9 +35,9 @@ export function format_search_results(
 		body,
 		'',
 		'Next actions:',
-		'- Need surrounding context? Use context_get with this chunk_id plus before/after, e.g. before:1 after:1 (max 3).',
-		'- Need broad/full JSON/log/script processing? Prefer context_export, then rg/jq/Python the file.',
-		'- Need full matched chunks in chat? Rerun context_search with full_content:true.',
+		'- Need surrounding context? Use context_get with source_id plus this chunk_id and before/after, e.g. before:1 after:1 (max 3).',
+		'- Need broad/full JSON/log/script processing? Prefer context_export, then use rg/jq/Python on the file.',
+		'- Need full matched chunks in chat? Rerun context_search with full_content:true only for small matches.',
 	].join('\n');
 }
 

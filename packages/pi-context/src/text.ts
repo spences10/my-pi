@@ -237,6 +237,7 @@ export function summarize_source(
 	result: StoredContextOutput,
 	tool_name: string,
 ): string {
+	const capture_reason = format_capture_reason(result);
 	return [
 		result.deduped
 			? `[context-sidecar] Duplicate large ${tool_name} output reused existing local index`
@@ -244,6 +245,7 @@ export function summarize_source(
 		``,
 		`Source: ${result.source_id}`,
 		`Size: ${format_bytes(result.bytes)}, ${result.lines} lines, ${result.chunk_count} chunks`,
+		capture_reason,
 		result.first_chunk_id
 			? `First chunk id: ${result.first_chunk_id}`
 			: undefined,
@@ -262,4 +264,32 @@ export function summarize_source(
 	]
 		.filter((line): line is string => line !== undefined)
 		.join('\n');
+}
+
+function format_capture_reason(
+	result: StoredContextOutput,
+): string | undefined {
+	if (
+		result.capture_max_bytes === undefined ||
+		result.capture_max_lines === undefined
+	)
+		return undefined;
+
+	const reasons: string[] = [];
+	if (result.bytes > result.capture_max_bytes) {
+		reasons.push(
+			`${format_bytes(result.bytes)} exceeds ${format_bytes(result.capture_max_bytes)}`,
+		);
+	}
+	if (result.lines > result.capture_max_lines) {
+		reasons.push(
+			`${result.lines} lines exceeds ${result.capture_max_lines}`,
+		);
+	}
+	if (reasons.length === 0) {
+		reasons.push(
+			`forced capture; thresholds are ${format_bytes(result.capture_max_bytes)} or ${result.capture_max_lines} lines`,
+		);
+	}
+	return `Captured: ${reasons.join('; ')}.`;
 }

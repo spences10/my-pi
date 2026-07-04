@@ -105,6 +105,8 @@ describe('ContextStore', () => {
 		expect(stored?.receipt).toContain('context-sidecar');
 		expect(stored?.receipt).toContain('Project:');
 		expect(stored?.receipt).toContain('Session:');
+		expect(stored?.receipt).toContain('Captured:');
+		expect(stored?.receipt).toContain('exceeds 10 B');
 		expect(stored?.receipt).toContain('Next actions:');
 		expect(stored?.receipt).toContain(
 			`context_search query:"..." source_id:"${stored!.source_id}"`,
@@ -311,7 +313,7 @@ describe('ContextStore', () => {
 		}
 	});
 
-	it('deduplicates identical redacted content across sessions in the same project', () => {
+	it('deduplicates identical redacted content only within the same default retrieval scope', () => {
 		const store = create_store({
 			max_bytes: 10,
 			project_path: '/repo',
@@ -330,9 +332,15 @@ describe('ContextStore', () => {
 		expect(duplicate?.source_id).toBe(first?.source_id);
 		expect(duplicate?.deduped).toBe(true);
 		expect(duplicate?.receipt).toContain('reused existing');
-		expect(other_session?.source_id).toBe(first?.source_id);
-		expect(other_session?.deduped).toBe(true);
-		expect(store.list({ global: true })).toHaveLength(1);
+		expect(other_session?.source_id).not.toBe(first?.source_id);
+		expect(other_session?.deduped).toBeUndefined();
+		expect(store.list({ global: true })).toHaveLength(2);
+		expect(
+			store.get(other_session!.source_id, undefined, {
+				project_path: '/repo',
+				session_id: 'session-b',
+			}),
+		).toHaveLength(other_session!.chunk_count);
 		const db = new DatabaseSync(store.db_path, {
 			enableForeignKeyConstraints: true,
 		});
@@ -341,7 +349,7 @@ describe('ContextStore', () => {
 				db
 					.prepare('SELECT COUNT(*) as count FROM context_chunks')
 					.get(),
-			).toMatchObject({ count: 1 });
+			).toMatchObject({ count: 2 });
 		} finally {
 			close_db(db);
 		}

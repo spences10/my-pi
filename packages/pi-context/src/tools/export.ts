@@ -14,9 +14,9 @@ export function register_context_export_tool(pi: ExtensionAPI): void {
 		name: 'context_export',
 		label: 'Context Export',
 		description:
-			'Export stored chunks from the local SQLite context sidecar to a file without returning chunk content. Prefer this for full JSON/log/script processing.',
+			'Export stored chunks from the local SQLite context sidecar to a file without returning chunk content. Prefer this for broad/full JSON/log/script processing; omit chunk_id when intentionally processing the full source offline.',
 		promptSnippet:
-			'Write stored context-sidecar chunks to a file for rg/jq/Python without loading them into model context',
+			'Write stored context-sidecar chunks to a file for offline rg/jq/Python without loading them into model context',
 		parameters: Type.Object({
 			source_id: Type.String({ description: 'Indexed source id' }),
 			file_path: Type.Optional(
@@ -28,7 +28,7 @@ export function register_context_export_tool(pi: ExtensionAPI): void {
 			chunk_id: Type.Optional(
 				Type.String({
 					description:
-						'Optional exact chunk id or ordinal. Omit to export the full source.',
+						'Optional exact chunk id or ordinal. Omit only when intentionally exporting the full source for offline processing.',
 				}),
 			),
 			before: Type.Optional(

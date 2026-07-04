@@ -51,18 +51,21 @@ pi -e ./packages/pi-context
 ## Commands/tools
 
 - `context_search` — search indexed tool output in the current
-  project/session scope by default. It returns concise snippets unless
-  `full_content: true` is passed. Pass `global: true` to search all
-  scopes.
+  project/session scope by default. Use it snippet-first before
+  retrieving chunks. `full_content: true` returns full matched chunks
+  and should be a last resort for small matches, not broad retrieval.
+  Pass `global: true` to search all scopes.
 - `context_get` — retrieve focused stored chunks by source id into the
-  model context. Pass `chunk_id` plus `before` / `after` to include
-  nearby surrounding chunks without retrieving the full source.
-  Neighbor ranges are capped at 3 chunks each side; use
-  `context_export` for broader inspection.
+  model context. Normally pass `source_id` plus `chunk_id`, then add
+  `before` / `after` to include nearby surrounding chunks without
+  retrieving the full source. Neighbor ranges are capped at 3 chunks
+  each side; omitting `chunk_id` is exceptional full-source chat
+  retrieval. Use `context_export` for broader inspection.
 - `context_export` — write full or ranged stored chunks to a managed
   export file without returning chunk content to the model, useful
-  before `jq`, Python, `sed`, `awk`, or `rg` processing. Pass
-  `file_path` to choose a destination.
+  before `jq`, Python, `sed`, `awk`, or `rg` processing. Omit
+  `chunk_id` when you intentionally want full-source offline
+  processing. Pass `file_path` to choose a destination.
 - `context_list` / `/context list [limit]` — list recent indexed
   sources in the current scope with source ids, tool names, sizes, and
   previews.
@@ -96,8 +99,8 @@ sidecar helpers used by sibling packages and custom harnesses:
 results in the sidecar before falling back to temporary files. The
 `./store` subpath remains available for store-only consumers.
 
-Receipts include the source id, first exact chunk id, and a
-low-context retrieval path:
+Receipts include the source id, first exact chunk id, why the output
+was captured, and a low-context retrieval path:
 
 ```text
 First chunk id: ctx_..._0001
@@ -145,7 +148,9 @@ Intentionally skipped output:
   should use dedicated tool-specific surfaces.
 
 Any newly sidecar-backed text follows the same redaction,
-project/session scope, retention, and dedupe rules.
+project/session scope, retention, and dedupe rules. Duplicate outputs
+reuse an existing source only when that source is visible to the same
+default retrieval scope.
 
 ## Storage, scoping, and retention
 

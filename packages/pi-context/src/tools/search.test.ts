@@ -14,6 +14,9 @@ const original_context_db = process.env.MY_PI_CONTEXT_DB;
 
 type RegisteredTool = {
 	name: string;
+	description: string;
+	promptSnippet: string;
+	parameters: any;
 	execute: (
 		...args: any[]
 	) => Promise<{ content: Array<{ text: string }>; details: any }>;
@@ -71,6 +74,13 @@ describe('context_search tool', () => {
 		});
 
 		expect(tool.name).toBe('context_search');
+		expect(tool.description).toContain('snippet-first');
+		expect(tool.description).toContain('full_content:true');
+		expect(tool.description).toContain('not broad retrieval');
+		expect(tool.promptSnippet).toContain('export broad results');
+		expect(
+			tool.parameters.properties.full_content.description,
+		).toContain('Last resort for small matches');
 		expect(result.content[0].text).toContain('alpha-token');
 		expect(result.content[0].text).toContain('beta-token');
 		expect(result.details.count).toBe(2);

@@ -236,6 +236,7 @@ export class ContextStore {
 		const preview = make_preview(text);
 		const duplicate = this.find_duplicate_source(content_hash, {
 			project_path,
+			session_id,
 		});
 		if (duplicate) {
 			const provisional: StoredContextOutput = {
@@ -250,6 +251,8 @@ export class ContextStore {
 				project_path,
 				session_id,
 				deduped: true,
+				capture_max_bytes: this.max_bytes,
+				capture_max_lines: this.max_lines,
 			};
 			const receipt = summarize_source(provisional, input.tool_name);
 			const returned_bytes = Buffer.byteLength(receipt, 'utf8');
@@ -313,6 +316,8 @@ export class ContextStore {
 				returned_bytes: 0,
 				project_path,
 				session_id,
+				capture_max_bytes: this.max_bytes,
+				capture_max_lines: this.max_lines,
 			};
 			const receipt = summarize_source(provisional, input.tool_name);
 			const returned_bytes = Buffer.byteLength(receipt, 'utf8');

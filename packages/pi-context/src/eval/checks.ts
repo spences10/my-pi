@@ -224,33 +224,80 @@ export function run_dedupe_evals(results: EvalCaseResult[]): void {
 			project_path: PROJECT,
 			force: true,
 		});
-		const second = store.store({
+		const same_session = store.store({
+			text,
+			tool_name: 'read',
+			session_id: `${SESSION}:a`,
+			project_path: PROJECT,
+			force: true,
+		});
+		const other_session = store.store({
 			text,
 			tool_name: 'read',
 			session_id: `${SESSION}:b`,
 			project_path: PROJECT,
 			force: true,
 		});
-		if (!first || !second)
+		if (!first || !same_session || !other_session)
 			throw new Error('Failed to seed dedupe eval');
-		const retrieved = store.get(second.source_id, undefined, {
-			session_id: `${SESSION}:b`,
-			project_path: PROJECT,
-		});
-		const stats = store.stats({ global: true });
-		const passed =
-			first.source_id === second.source_id &&
-			second.deduped === true &&
-			stats.sources === 1 &&
-			retrieved.length === first.chunk_count;
+
+		const same_session_chunks = store.get(
+			first.source_id,
+			undefined,
+			{
+				session_id: `${SESSION}:a`,
+				project_path: PROJECT,
+			},
+		);
+		const same_session_passed =
+			first.source_id === same_session.source_id &&
+			same_session.deduped === true &&
+			same_session_chunks.length === first.chunk_count;
 		results.push({
-			name: 'cross-session-dedupe',
+			name: 'same-session-dedupe',
 			category: 'dedupe',
-			passed,
+			passed: same_session_passed,
 			description:
-				'Identical content across sessions should be content-address reused instead of stored twice.',
-			detail: `first=${first.source_id}; second=${second.source_id}; sources=${stats.sources}; retrieved=${retrieved.length}`,
-			returned_bytes: result_bytes(retrieved),
+				'Identical content in the same default retrieval scope should reuse the existing source.',
+			detail: `first=${first.source_id}; duplicate=${same_session.source_id}; retrieved=${same_session_chunks.length}`,
+			returned_bytes: result_bytes(same_session_chunks),
+			result_count: same_session_chunks.length,
+		});
+
+		const other_session_chunks = store.get(
+			other_session.source_id,
+			undefined,
+			{
+				session_id: `${SESSION}:b`,
+				project_path: PROJECT,
+			},
+		);
+		const hidden_from_first_session = store.get(
+			other_session.source_id,
+			undefined,
+			{
+				session_id: `${SESSION}:a`,
+				project_path: PROJECT,
+			},
+		);
+		const stats = store.stats({ global: true });
+		const cross_session_passed =
+			other_session.source_id !== first.source_id &&
+			other_session.deduped !== true &&
+			stats.sources === 2 &&
+			other_session_chunks.length === other_session.chunk_count &&
+			hidden_from_first_session.length === 0;
+		results.push({
+			name: 'cross-session-dedupe-isolation',
+			category: 'dedupe',
+			passed: cross_session_passed,
+			description:
+				'Identical content across sessions should remain separately scoped and visible only from its own retrieval scope.',
+			detail: `first=${first.source_id}; other=${other_session.source_id}; sources=${stats.sources}; other_retrieved=${other_session_chunks.length}; hidden=${hidden_from_first_session.length}`,
+			returned_bytes: result_bytes([
+				...other_session_chunks,
+				...hidden_from_first_session,
+			]),
 			result_count: stats.sources,
 		});
 	} finally {

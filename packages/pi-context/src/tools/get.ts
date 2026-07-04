@@ -9,15 +9,15 @@ export function register_context_get_tool(pi: ExtensionAPI): void {
 		name: 'context_get',
 		label: 'Context Get',
 		description:
-			'Retrieve exact chunks from the local SQLite context sidecar, optionally including neighboring chunks with before/after.',
+			'Retrieve focused chunks from the local SQLite context sidecar. Normally pass source_id plus chunk_id and use before/after neighbors; omitting chunk_id retrieves the full source into chat.',
 		promptSnippet:
-			'Retrieve focused stored output chunks by source id and optional before/after range',
+			'Retrieve focused stored output chunks by source_id plus chunk_id; use before/after neighbors, avoid full-source chat retrieval',
 		parameters: Type.Object({
 			source_id: Type.String({ description: 'Indexed source id' }),
 			chunk_id: Type.Optional(
 				Type.String({
 					description:
-						'Optional exact chunk id or ordinal. Recommended for focused retrieval; omit only if all chunks are needed in chat.',
+						'Exact chunk id or ordinal. Recommended for normal focused retrieval; omit only for exceptional full-source chat retrieval.',
 				}),
 			),
 			before: Type.Optional(

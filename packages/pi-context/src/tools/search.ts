@@ -9,9 +9,9 @@ export function register_context_search_tool(pi: ExtensionAPI): void {
 		name: 'context_search',
 		label: 'Context Search',
 		description:
-			'Search large tool output stored in the local SQLite context sidecar. Returns concise snippets by default; use context_get with before/after or context_export for more.',
+			'Search large tool output stored in the local SQLite context sidecar. Use this snippet-first before retrieving chunks; reserve full_content:true for small matched chunks, not broad retrieval.',
 		promptSnippet:
-			'Search oversized tool output with concise snippets before retrieving chunks',
+			'Search oversized tool output with concise snippets before retrieving chunks; export broad results for offline rg/jq/Python work',
 		parameters: Type.Object({
 			query: Type.String({ description: 'FTS search query' }),
 			source_id: Type.Optional(
@@ -30,7 +30,7 @@ export function register_context_search_tool(pi: ExtensionAPI): void {
 			full_content: Type.Optional(
 				Type.Boolean({
 					description:
-						'Return full matched chunks instead of concise snippets. Prefer context_get before/after or context_export for large outputs.',
+						'Return full matched chunks instead of concise snippets. Last resort for small matches only; prefer context_get before/after or context_export for large outputs.',
 				}),
 			),
 			global: Type.Optional(
