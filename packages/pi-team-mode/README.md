@@ -104,23 +104,32 @@ interactive confirmation, or steer them from the lead session when a
 decision is needed.
 
 For read-only research, spawning teammates in the shared cwd is fine.
-For implementation work that writes files, use per-member worktree
-mode:
+For implementation work that writes files, mark the teammate as
+mutating and default to the current shared cwd/branch unless you have
+a specific isolation plan:
 
 ```text
-/team spawn alice --worktree --mutating --branch team/alice "claim one coding task"
+/team spawn alice --mutating "claim one coding task"
 ```
 
-The `team` tool exposes the same controls via `member_spawn` with
-`workspace_mode: "worktree"`, `mutating: true`, and optional `branch`
-or `worktree_path`. Team status shows each member's workspace path,
-branch, and control state (`running (attached)` vs
-`running orphaned`). Shared-cwd mutating spawns are refused when
-another active mutating teammate is already using that cwd unless
-`force`/`--force` is set. Worktrees are created under
-`MY_PI_TEAM_MODE_ROOT/worktrees` by default and are never deleted
-during shutdown; dirty worktrees are preserved until you clean them up
-explicitly with git.
+The `team` tool exposes the same control via `member_spawn` with
+`mutating: true`. Team status shows each member's workspace path,
+branch, control state (`running (attached)` vs `running orphaned`),
+and whether it is mutating. Shared-cwd mutating spawns are refused
+when another active mutating teammate is already using that cwd unless
+`force`/`--force` is set, so shared-cwd file edits should normally run
+sequentially.
+
+Use per-member worktree mode only when the repo setup, ignored files,
+ports, databases, and merge/cleanup ownership are understood:
+
+```text
+/team spawn alice --worktree --mutating --branch team/alice "claim one isolated coding task"
+```
+
+Worktrees are created under `MY_PI_TEAM_MODE_ROOT/worktrees` by
+default and are never deleted during shutdown; dirty worktrees are
+preserved until you clean them up explicitly with git.
 
 If a lead process restarts while teammate child processes are still
 alive, `/team status` marks those persisted PIDs as orphaned. Use
@@ -325,9 +334,9 @@ orchestration. Important actions include:
 - `team_list`
 - `team_shutdown` (defaults to completed/done teammates; pass
   `member: "all"` to stop every live teammate)
-- `member_spawn` (`profile`/`agent`, `workspace_mode: "worktree"`,
-  `mutating: true`, optional `branch`/`worktree_path` for isolated
-  coding work)
+- `member_spawn` (`profile`/`agent`, `mutating: true` for file-editing
+  teammates, optional `workspace_mode: "worktree"`, `branch`, and
+  `worktree_path` for explicitly isolated coding work)
 - `member_prompt`
 - `member_follow_up`
 - `member_steer`

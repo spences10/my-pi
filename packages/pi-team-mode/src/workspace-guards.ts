@@ -80,6 +80,6 @@ export async function require_no_shared_mutating_conflict(
 	);
 	if (!conflict) return;
 	throw new Error(
-		`Refusing to spawn mutating teammate ${member_name} in shared cwd because ${conflict.name} is already using ${cwd}. Use workspace_mode=worktree or --worktree for write isolation.`,
+		`Refusing to spawn mutating teammate ${member_name} in shared cwd because ${conflict.name} is already using ${cwd}. Wait for or shut down the active mutating teammate, or use workspace_mode=worktree/--worktree only after confirming isolation setup and merge ownership.`,
 	);
 }

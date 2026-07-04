@@ -110,7 +110,9 @@ Rules:
 - Legacy team tasks and spawned RPC teammates are still available through team_create/task_create/member_spawn when new background sessions are needed.
 - Do not create nested spawned teams from a teammate session; teammate sessions cannot use member_spawn or /team spawn.
 - Use urgent steer/follow-up messaging for coordination instead of assuming shared context.
-- For mutating implementation work, prefer member_spawn with workspace_mode=worktree and mutating=true (or /team spawn --worktree --mutating) so teammates do not share the leader cwd.
+- Default to the current shared cwd/branch for teammate work unless the user asks for isolation or a worktree-specific plan is clearly justified.
+- Mark file-editing teammates with mutating=true (or /team spawn --mutating); keep shared-cwd mutating work sequential unless ownership is explicitly safe.
+- Use workspace_mode=worktree or /team spawn --worktree only after considering repo setup cost, ignored files, ports, databases, and merge/cleanup ownership.
 - Shared-cwd mutating teammates may be refused when another mutating teammate is already active in that cwd.`
 	);
 }

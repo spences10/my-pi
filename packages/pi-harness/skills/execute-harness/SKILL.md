@@ -19,13 +19,16 @@ execution contract.
    before editing.
 3. Call `harness_update` with `status: running` and the current phase.
 4. If the `team` tool is available and you are the team lead, create
-   or reuse a team, create/claim a task for the harness, and use
-   `member_spawn` with `workspace_mode: worktree` and `mutating: true`
-   to run one executor teammate against the harness.
+   or reuse a team, create/claim a task for the harness, and use one
+   `member_spawn` executor with `mutating: true` for file-editing
+   work. Default to the contract `cwd`; use `workspace_mode: worktree`
+   only when the user asks for isolation or the plan covers setup,
+   runtime state, merge, and cleanup ownership.
 5. The teammate prompt must tell it to read `harness.json`,
    `SYSTEM.md`, `TASK.md`, and `status.json`, execute only inside the
    contract, run `validate.sh` and `review.sh`, update harness
-   evidence, and report changed files plus risks.
+   evidence, and report changed files plus risks. If using a worktree,
+   set `HARNESS_CWD` to that worktree for validation and review.
 6. Recover any remaining source-of-truth context needed to act safely.
 7. Execute surgically inside `allowed_paths`; do not fight
    enforcement.
