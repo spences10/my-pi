@@ -2,7 +2,7 @@ import {
 	spawn,
 	type ChildProcessWithoutNullStreams,
 } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { capture_process_identity } from './process-identity.js';
@@ -58,6 +58,7 @@ export class RpcTeammate {
 	private decoder = new StringDecoder('utf8');
 	private pending = new Map<string, PendingRequest>();
 	private idle_waiters: Array<() => void> = [];
+	private event_queue: Promise<void> = Promise.resolve();
 	private status: 'idle' | 'running' | 'offline' = 'idle';
 	private closed = false;
 
@@ -143,7 +144,7 @@ export class RpcTeammate {
 
 		proc.stdout.on('data', (chunk) => this.handle_stdout(chunk));
 		proc.stderr.on('data', (chunk) => {
-			this.store.append_event(this.team_id, 'member_stderr', {
+			this.append_event_if_team_exists('member_stderr', {
 				member: this.member,
 				text: chunk.toString('utf8'),
 			});
@@ -157,7 +158,7 @@ export class RpcTeammate {
 					`RPC teammate exited (${code ?? signal ?? 'unknown'})`,
 				),
 			);
-			this.store.append_event(this.team_id, 'member_exit', {
+			this.append_event_if_team_exists('member_exit', {
 				member: this.member,
 				code,
 				signal,
@@ -185,7 +186,7 @@ export class RpcTeammate {
 			await this.mark_offline(
 				error instanceof Error ? error : new Error(String(error)),
 			);
-			this.store.append_event(this.team_id, 'member_start_failed', {
+			this.append_event_if_team_exists('member_start_failed', {
 				member: this.member,
 				error: error instanceof Error ? error.message : String(error),
 			});
@@ -355,7 +356,32 @@ export class RpcTeammate {
 			return;
 		}
 
-		void this.handle_event(event);
+		this.enqueue_event(event);
+	}
+
+	private enqueue_event(event: any): void {
+		this.event_queue = this.event_queue
+			.catch(() => undefined)
+			.then(() => this.handle_event(event))
+			.catch((error) => {
+				this.append_event_if_team_exists('member_rpc_event_error', {
+					member: this.member,
+					error:
+						error instanceof Error ? error.message : String(error),
+				});
+			});
+	}
+
+	private append_event_if_team_exists(
+		type: string,
+		data: unknown,
+	): void {
+		if (!existsSync(this.store.team_dir(this.team_id))) return;
+		try {
+			this.store.append_event(this.team_id, type, data);
+		} catch {
+			// Best-effort telemetry only; never recreate cleaned-up team state.
+		}
 	}
 
 	private handle_extension_ui_request(event: any): void {
@@ -395,7 +421,7 @@ export class RpcTeammate {
 			name: this.member,
 			status: 'blocked',
 		});
-		this.store.append_event(this.team_id, 'member_rpc_error', {
+		this.append_event_if_team_exists('member_rpc_error', {
 			member: this.member,
 			error: message,
 		});
@@ -460,6 +486,9 @@ export class RpcTeammate {
 	}
 
 	private async handle_event(event: any): Promise<void> {
+		if (this.closed) return;
+		let should_resolve_idle_waiters = false;
+
 		if (event.type === 'agent_start') {
 			await this.mark_busy();
 		} else if (event.type === 'agent_end') {
@@ -468,8 +497,7 @@ export class RpcTeammate {
 				name: this.member,
 				status: 'idle',
 			});
-			const waiters = this.idle_waiters.splice(0);
-			for (const waiter of waiters) waiter();
+			should_resolve_idle_waiters = true;
 		} else if (event.type === 'tool_execution_start') {
 			await this.mark_busy();
 		}
@@ -482,10 +510,15 @@ export class RpcTeammate {
 			event.type === 'message_end'
 		) {
 			await this.touch_member();
-			this.store.append_event(this.team_id, 'member_rpc_event', {
+			this.append_event_if_team_exists('member_rpc_event', {
 				member: this.member,
 				event,
 			});
+		}
+
+		if (should_resolve_idle_waiters) {
+			const waiters = this.idle_waiters.splice(0);
+			for (const waiter of waiters) waiter();
 		}
 	}
 
