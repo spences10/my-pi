@@ -35,6 +35,8 @@ pi -e ./packages/pi-team-mode
   or targeting peers
 - sends compact mailbox-backed peer messages between independently
   started sessions
+- opens headless, resumable teammate sessions that still behave as
+  normal Pi sessions coordinated through mailboxes
 - stores larger handoffs, plans, findings, logs, diffs, and results as
   coordination artifacts referenced from mailbox messages
 - creates coordination groups over arbitrary sessions
@@ -59,6 +61,7 @@ SQLite remains the durable fallback if the broker is unavailable.
 ```text
 /team sessions
 /team session list
+/team session open <alias> [initial-message]
 /team session send <session-id-or-name> <message>
 /team session inbox [--all] [--full]
 /team session read [message-id...]
@@ -66,6 +69,7 @@ SQLite remains the durable fallback if the broker is unavailable.
 /team group list
 /team group create <name>
 /team group join <group-id-or-name> [alias]
+/team group open <group-id-or-name> <alias> [initial-message]
 /team group send <group-id-or-name> <message>
 ```
 
@@ -75,6 +79,7 @@ The `team` tool exposes peer-only coordination actions:
 
 - `session_list`
 - `session_send`
+- `session_open`
 - `session_inbox`
 - `session_read`
 - `session_ack`
@@ -92,6 +97,21 @@ The `team` tool exposes peer-only coordination actions:
 - `message_wait`
 - `message_read`
 - `message_ack`
+
+Use `session_open` only when you need to create a new teammate session;
+prefer already-registered standby sessions for general delegation. Opened
+sessions are headless Pi processes launched with a restricted
+`team-mode` child environment, registered in the same coordination DB,
+and resumable later through normal Pi session primitives such as
+`/resume` or a direct session id/path:
+
+```bash
+pi --session <opened-session-id-or-session-jsonl>
+```
+
+The launcher uses Pi `--mode rpc` only to keep a non-interactive Pi
+process alive for later resume/inspection; initial work is delivered by
+mailbox, not by private RPC ownership.
 
 Use artifacts for larger handoffs and send artifact ids in mailbox
 messages instead of pasting long content into peer messages.

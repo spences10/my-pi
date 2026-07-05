@@ -8,6 +8,12 @@ import {
 import {
 	get_coordination_db_path,
 	get_current_thinking_level,
+	get_extension_path,
+	get_team_root,
+	HEADLESS_ALIAS_ENV,
+	HEADLESS_INTENT_ENV,
+	HEADLESS_LAUNCH_ENV,
+	HEADLESS_PARENT_SESSION_ENV,
 	set_current_extension_path,
 	should_auto_inject_messages,
 	TEAM_MEMBER_ENV,
@@ -20,6 +26,7 @@ import {
 import { format_coordination_identity } from './coordination-formatting.js';
 import { CoordinationPoller } from './coordination-poller.js';
 import { TeamDatabase } from './db/index.js';
+import { DefaultHeadlessSessionRunner } from './headless-runner.js';
 import {
 	detect_standby_registration,
 	type StandbyRegistration,
@@ -85,6 +92,9 @@ export default async function team_mode(pi: ExtensionAPI) {
 	let current_cwd: string | undefined;
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'peer';
 	const own_role = process.env[TEAM_ROLE_ENV] || 'peer';
+	const headless_runner = new DefaultHeadlessSessionRunner(
+		coordination_db,
+	);
 	const coordination_poller = new CoordinationPoller({
 		db: coordination_db,
 		get_session_id: () => own_session_id,
@@ -98,6 +108,8 @@ export default async function team_mode(pi: ExtensionAPI) {
 	pi.on('session_start', async (_event, ctx) => {
 		own_session_id = ctx.sessionManager.getSessionId();
 		current_cwd = ctx.cwd;
+		const existing_session =
+			coordination_db.get_session(own_session_id);
 		coordination_db.register_session({
 			session_id: own_session_id,
 			session_file: ctx.sessionManager.getSessionFile(),
@@ -105,6 +117,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 			agent_name:
 				pi.getSessionName?.() ||
 				process.env.MY_PI_OBSERVABILITY_NAME ||
+				process.env[HEADLESS_ALIAS_ENV] ||
 				(process.env[TEAM_MEMBER_ENV] ? own_member : undefined),
 			pid: process.pid,
 			role: process.env[TEAM_ROLE_ENV]
@@ -116,11 +129,26 @@ export default async function team_mode(pi: ExtensionAPI) {
 			model_provider: ctx.model?.provider,
 			model_id: ctx.model?.id,
 			thinking_level: get_current_thinking_level(),
+			availability: process.env[HEADLESS_LAUNCH_ENV]
+				? 'standby'
+				: undefined,
+			intent: process.env[HEADLESS_INTENT_ENV],
+			session_alias: process.env[HEADLESS_ALIAS_ENV],
+			parent_session_id: process.env[HEADLESS_PARENT_SESSION_ENV],
 			pool: process.env.MY_PI_OBSERVABILITY_POOL || 'default',
 			tags: (process.env.MY_PI_OBSERVABILITY_TAG || '')
 				.split(',')
 				.map((tag) => tag.trim())
 				.filter(Boolean),
+			metadata: process.env[HEADLESS_LAUNCH_ENV]
+				? {
+						...existing_session?.metadata,
+						launch_mode: process.env[HEADLESS_LAUNCH_ENV],
+						alias: process.env[HEADLESS_ALIAS_ENV],
+						registered_by: 'child',
+						registered_pid: process.pid,
+					}
+				: existing_session?.metadata,
 		});
 		coordination_broker.start();
 		coordination_poller.start(pi);
@@ -164,18 +192,21 @@ export default async function team_mode(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand('team', {
-		description: 'Peer session coordination with groups and mailboxes',
+		description:
+			'Peer session coordination with groups and mailboxes',
 		getArgumentCompletions: (prefix) => {
 			const subs = [
 				'sessions',
 				'session list',
 				'session send',
+				'session open',
 				'session inbox',
 				'session read',
 				'session ack',
 				'group list',
 				'group create',
 				'group join',
+				'group open',
 				'group send',
 			];
 			return subs
@@ -193,6 +224,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 						message_id,
 					),
 				() => own_session_id,
+				headless_runner,
+				{
+					team_root: get_team_root(),
+					coordination_db_path: get_coordination_db_path(),
+					extension_path: get_extension_path(),
+				},
 			),
 	});
 
@@ -207,6 +244,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 			'Use team session_list to discover registered Pi sessions across projects before sending peer messages.',
 			'If the user mentions standby sessions, existing sessions, subordinates, handoffs, or other active sessions, call session_list and prefer registered standby sessions.',
 			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for compact peer-session mailbox coordination.',
+			'Prefer existing standby sessions for delegation; use session_open only when the user asks to create or open a new headless teammate session.',
 			'Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of large mailbox bodies.',
 			'Use team group_create, group_add_session, and group_send when one session should coordinate a group of independently running sessions.',
 			'Use session_list, session_inbox, and group_list as the source of truth for peer-session coordination.',
@@ -227,6 +265,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 						message_id,
 					),
 				get_session_id: () => own_session_id,
+				headless_runner,
+				headless_defaults: {
+					team_root: get_team_root(),
+					coordination_db_path: get_coordination_db_path(),
+					extension_path: get_extension_path(),
+				},
 			});
 		},
 	});

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TeamDatabase } from '../db/index.js';
 import { execute_coordination_action } from './coordination-actions.js';
 
@@ -129,6 +129,122 @@ describe('coordination actions', () => {
 			expect(range.content[0]?.text).toContain('chunk 1/');
 			expect(range.content[0]?.text).toContain('chunk 2/');
 			expect(range.content[0]?.text).toContain('chunk 3/');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('opens a headless session and sends initial handoff', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			const notify = vi.fn(async () => undefined);
+			const headless_runner = {
+				open_or_resume: vi.fn(async () => ({
+					resumed: false,
+					session: db.register_session({
+						session_id: 'worker-session',
+						cwd: '/repo',
+						parent_session_id: 'lead',
+						session_alias: 'worker',
+					}),
+				})),
+			};
+
+			const result = await execute_coordination_action(
+				{
+					action: 'session_open',
+					member: 'worker',
+					message: 'please research',
+					timeout_ms: 1234,
+				},
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: notify,
+					require_session_id: () => 'lead',
+					headless_runner,
+					headless_defaults: {
+						team_root: '/teams',
+						coordination_db_path: '/coordination.db',
+						extension_path: '/ext.js',
+					},
+				},
+			);
+
+			expect(headless_runner.open_or_resume).toHaveBeenCalledWith(
+				expect.objectContaining({
+					alias: 'worker',
+					parent_session_id: 'lead',
+					message: 'please research',
+					timeout_ms: 1234,
+				}),
+			);
+			expect(notify).toHaveBeenCalledWith(
+				['worker-session'],
+				expect.stringMatching(/^mr/),
+			);
+			expect(result.content[0]?.text).toContain(
+				'Opened headless session',
+			);
+			expect(db.list_inbox('worker-session')[0]?.body).toBe(
+				'please research',
+			);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('opens a headless session into a group before handoff', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			const group = db.create_group({
+				name: 'research',
+				cwd: '/repo',
+				created_by_session_id: 'lead',
+			});
+			const notify = vi.fn(async () => undefined);
+			const headless_runner = {
+				open_or_resume: vi.fn(async () => ({
+					resumed: false,
+					session: db.register_session({
+						session_id: 'worker-session',
+						cwd: '/repo',
+						parent_session_id: 'lead',
+						session_alias: 'worker',
+					}),
+				})),
+			};
+
+			await execute_coordination_action(
+				{
+					action: 'session_open',
+					member: 'worker',
+					team_id: group.group_id,
+					message: 'group task',
+				},
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: notify,
+					require_session_id: () => 'lead',
+					headless_runner,
+					headless_defaults: {
+						team_root: '/teams',
+						coordination_db_path: '/coordination.db',
+						extension_path: '/ext.js',
+					},
+				},
+			);
+
+			expect(
+				db
+					.list_group_members(group.group_id)
+					.map((member) => member.session_id),
+			).toContain('worker-session');
+			expect(db.list_inbox('worker-session')).toHaveLength(2);
+			expect(notify).toHaveBeenCalledTimes(2);
 		} finally {
 			db.close();
 		}
