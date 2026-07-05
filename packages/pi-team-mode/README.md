@@ -103,7 +103,10 @@ prefer already-registered standby sessions for general delegation. Opened
 sessions are headless Pi processes launched with a restricted
 `team-mode` child environment, registered in the same coordination DB,
 and resumable later through normal Pi session primitives such as
-`/resume` or a direct session id/path:
+`/resume` or a direct session id/path. Mailbox injections also update
+session visibility metadata, so `/team sessions` and `team session_list`
+show the latest delivered/read/acknowledged mailbox activity for humans
+opening or resuming the teammate:
 
 ```bash
 pi --session <opened-session-id-or-session-jsonl>

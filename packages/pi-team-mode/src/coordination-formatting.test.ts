@@ -65,6 +65,23 @@ describe('coordination formatting', () => {
 		).toContain('standby:subordinate');
 	});
 
+	it('surfaces mailbox activity in session lists', () => {
+		expect(
+			format_sessions([
+				{
+					...session,
+					metadata: {
+						mailbox_activity: {
+							state: 'delivered',
+							message_count: 2,
+							message_ids: ['message-one', 'message-two'],
+						},
+					},
+				},
+			]),
+		).toContain('mailbox delivered 2 messages message-one…');
+	});
+
 	it('truncates long peer messages for auto-injection', () => {
 		const text = format_peer_message_for_injection('worker-session', [
 			inbox_message,

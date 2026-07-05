@@ -48,6 +48,11 @@ export function prepare_statements(
 					availability = CASE WHEN ? = 'offline' THEN 'offline' ELSE availability END
 				WHERE session_id = ?
 			`),
+		update_session_metadata: db.prepare(`
+				UPDATE sessions
+				SET metadata_json = ?, updated_at = ?
+				WHERE session_id = ?
+			`),
 		insert_artifact: db.prepare(`
 				INSERT INTO coordination_artifacts
 				(artifact_id, kind, owner_session_id, cwd, title, summary, body, body_format, created_at, updated_at, metadata_json)

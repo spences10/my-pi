@@ -25,6 +25,27 @@ function compact_body(body: string): string {
 	return `${normalized.slice(0, COMPACT_BODY_LIMIT - 1).trimEnd()}… [truncated]`;
 }
 
+function format_mailbox_activity(
+	metadata: Record<string, unknown>,
+): string {
+	const activity = metadata.mailbox_activity;
+	if (!activity || typeof activity !== 'object') return '';
+	const state = (activity as { state?: unknown }).state;
+	const count = (activity as { message_count?: unknown })
+		.message_count;
+	const ids = (activity as { message_ids?: unknown }).message_ids;
+	if (typeof state !== 'string') return '';
+	const count_text =
+		typeof count === 'number'
+			? `${count} message${count === 1 ? '' : 's'}`
+			: 'message';
+	const id_text =
+		Array.isArray(ids) && ids.length > 0
+			? ` ${String(ids[0]).slice(0, 12)}${ids.length > 1 ? '…' : ''}`
+			: '';
+	return ` · mailbox ${state} ${count_text}${id_text}`;
+}
+
 export function format_sessions(
 	sessions: CoordinationSession[],
 	options: { full_ids?: boolean } = {},
@@ -52,7 +73,8 @@ export function format_sessions(
 			const thinking = session.thinking_level
 				? ` · thinking ${session.thinking_level}`
 				: '';
-			return `- ${id}${name}${alias} — ${session.status}${availability}${intent}${standby_text}; ${session.cwd}${model}${thinking}`;
+			const mailbox = format_mailbox_activity(session.metadata);
+			return `- ${id}${name}${alias} — ${session.status}${availability}${intent}${standby_text}${mailbox}; ${session.cwd}${model}${thinking}`;
 		})
 		.join('\n');
 }
@@ -181,6 +203,7 @@ export function format_peer_message_for_injection(
 			'',
 		]),
 		'Message bodies are compact by default. Use the team tool session_inbox with mode=full for full text, or retrieve referenced artifacts for long handoffs.',
+		'This injected mailbox task is recorded in session visibility state; it will appear in /team sessions and team session_list as delivered/read/acknowledged activity for humans resuming the session.',
 		'Use the team tool session_read after reviewing and session_ack after acting on messages that are complete.',
 	].join('\n');
 }
