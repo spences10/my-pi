@@ -12,7 +12,15 @@ import {
 } from '../coordination-formatting.js';
 import type { TeamDatabase } from '../db/index.js';
 import type { TeamToolParams } from '../team-tool-params.js';
-import { require_arg } from './task-actions.js';
+
+function require_arg(
+	value: string | undefined,
+	name: string,
+): string {
+	const trimmed = value?.trim();
+	if (!trimmed) throw new Error(`${name} is required`);
+	return trimmed;
+}
 
 interface CoordinationActionContext {
 	ctx: ExtensionContext;
@@ -84,7 +92,8 @@ export async function execute_coordination_action(
 				details: { sessions },
 			};
 		}
-		case 'session_send': {
+		case 'session_send':
+		case 'message_send': {
 			coordination_db.mark_stale_sessions_offline();
 			const session_id = require_session_id();
 			const target = require_arg(params.to, 'to');
@@ -92,7 +101,7 @@ export async function execute_coordination_action(
 				.resolve_session_targets(target)
 				.map((session) => session.session_id);
 			const message = coordination_db.send_to_session_target({
-				from_session_id: session_id,
+				from_session_id: params.from ?? session_id,
 				target,
 				body: require_arg(params.message, 'message'),
 				urgent: params.urgent,
@@ -108,13 +117,14 @@ export async function execute_coordination_action(
 				content: [
 					{
 						type: 'text' as const,
-						text: `Sent coordination message ${message.message_id} to ${params.to}`,
+						text: `Sent coordination message ${message.message_id} to ${target}`,
 					},
 				],
 				details: { message },
 			};
 		}
-		case 'session_inbox': {
+		case 'session_inbox':
+		case 'message_list': {
 			const target =
 				params.to ?? params.member ?? require_session_id();
 			const messages = coordination_db.list_inbox(target, {
@@ -144,7 +154,8 @@ export async function execute_coordination_action(
 				},
 			};
 		}
-		case 'session_wait': {
+		case 'session_wait':
+		case 'message_wait': {
 			const target =
 				params.to ?? params.member ?? require_session_id();
 			const deadline =
@@ -176,7 +187,9 @@ export async function execute_coordination_action(
 			};
 		}
 		case 'session_read':
-		case 'session_ack': {
+		case 'session_ack':
+		case 'message_read':
+		case 'message_ack': {
 			const target =
 				params.to ?? params.member ?? require_session_id();
 			const ids =
@@ -184,7 +197,10 @@ export async function execute_coordination_action(
 				coordination_db
 					.list_inbox(target, { include_read: true })
 					.map((message) => message.message_id);
-			if (params.action === 'session_read')
+			if (
+				params.action === 'session_read' ||
+				params.action === 'message_read'
+			)
 				coordination_db.mark_messages_read(target, ids);
 			else coordination_db.mark_messages_acknowledged(target, ids);
 			const messages = coordination_db.list_inbox(target, {
@@ -413,7 +429,4 @@ export async function execute_coordination_action(
 			};
 		}
 	}
-	throw new Error(
-		`Unsupported coordination action: ${params.action}`,
-	);
 }

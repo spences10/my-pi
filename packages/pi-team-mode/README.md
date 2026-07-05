@@ -7,10 +7,10 @@
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
 
-Run parallel agent work without losing coordination. `pi-team-mode`
-adds a local peer-session coordination bus, optional RPC teammates,
-task tracking, and mailbox messaging so any Pi session can communicate
-with other sessions and coordinate teams safely.
+Local peer-session coordination for Pi. `pi-team-mode` registers Pi
+sessions in a local SQLite coordination bus, sends mailbox-backed peer
+messages, stores larger handoff artifacts, and coordinates groups of
+independently started sessions.
 
 ## Installation
 
@@ -29,27 +29,18 @@ pi -e ./packages/pi-team-mode
 
 ## What it does
 
-This package adds local multi-agent coordination to Pi:
-
-- register every running session in a global local coordination bus
-- discover live sessions across projects and working directories
-- mark stale PID-backed session registrations offline before listing
+- registers every running session in a global local coordination bus
+- discovers live sessions across projects and working directories
+- marks stale PID-backed session registrations offline before listing
   or targeting peers
-- send compact mailbox-backed peer messages between independently
+- sends compact mailbox-backed peer messages between independently
   started sessions
-- store larger handoffs, plans, findings, logs, and results as
+- stores larger handoffs, plans, findings, logs, diffs, and results as
   coordination artifacts referenced from mailbox messages
-- create coordination groups over arbitrary sessions
-- create and inspect coordination groups/teams
-- spawn real RPC teammate sessions when new sessions are needed
-- queue, claim, and update tasks
-- send mailbox-backed direct messages
-- steer, follow up with, check teammate status, or shut down spawned
-  teammates
-- persist team state locally for the current project
-- recover cleanly from stale local locks and orphaned teammate
-  processes
-- reject ambiguous teammate names and invalid task dependency graphs
+- creates coordination groups over arbitrary sessions
+- injects active coordination identity into the Team Mode system prompt
+- uses a local HTTP/SSE broker for fast delivery with SQLite polling as
+  durable fallback
 
 Peer-session coordination state is stored in:
 
@@ -61,259 +52,26 @@ Set `MY_PI_COORDINATION_DB` to use a different SQLite database path.
 The database uses WAL mode with schema and migrations under `src/db/`.
 Sessions also connect to a local HTTP/SSE push broker on port `43191`
 by default; set `MY_PI_COORDINATION_BROKER_PORT` to use another port.
-SQLite remains the durable fallback if the broker is unavailable. RPC
-spawn control data, worktree paths, and orphan-process safety metadata
-use:
+SQLite remains the durable fallback if the broker is unavailable.
 
-```text
-~/.pi/agent/teams-local
-```
-
-Set `MY_PI_TEAM_MODE_ROOT` to move that RPC control directory. Session
-discovery, availability/intent metadata, group membership,
-coordination artifacts, and peer mailboxes remain in the SQLite
-coordination database.
-
-Team mode does not auto-attach old teams on startup. Use
-`/team resume` to attach the latest team for the current repo. Use
-`/team teams` to list all local teams and `/team switch` to pick one
-from the TUI. Active teams show a compact footer status by default.
-Use `/team ui off` to hide it for the current session, `/team ui full`
-to show the below-editor widget when the team has useful detail, or
-set `MY_PI_TEAM_UI=off|compact|auto|full`. Use
-`/team ui style plain|badge|color` or
-`MY_PI_TEAM_UI_STYLE=plain|badge|color` to tune visual emphasis. Use
-`/team detach` (or `/team clear`) to detach the current session from
-the active team UI without deleting stored state. Use
-`/team delete <id>` or `/team prune-stale [days] [--cwd]` to remove
-old local team state after teammates are shut down.
-
-RPC teammate processes receive a minimal child-process environment by
-default, not the full parent `process.env`. Team mode always forwards
-its own coordination vars and live-observability routing vars so
-teammates appear in the observability dashboard under the team pool
-with `team-mode` and `teammate:<name>` tags. Use
-`MY_PI_TEAM_MODE_ENV_ALLOWLIST=NAME,OTHER_NAME` or the shared
-`MY_PI_CHILD_ENV_ALLOWLIST` to pass selected ambient variables (for
-example, provider credentials) to spawned teammates.
-
-Headless RPC teammates auto-cancel extension UI prompts (`confirm`,
-`select`, `input`, and `editor`) because there is no human inside the
-child session. Design teammate prompts so they can proceed without
-interactive confirmation, or steer them from the lead session when a
-decision is needed.
-
-For read-only research, spawning teammates in the shared cwd is fine.
-For implementation work that writes files, mark the teammate as
-mutating and default to the current shared cwd/branch unless you have
-a specific isolation plan:
-
-```text
-/team spawn alice --mutating "claim one coding task"
-```
-
-The `team` tool exposes the same control via `member_spawn` with
-`mutating: true`. Team status shows each member's workspace path,
-branch, control state (`running (attached)` vs `running orphaned`),
-and whether it is mutating. Shared-cwd mutating spawns are refused
-when another active mutating teammate is already using that cwd unless
-`force`/`--force` is set, so shared-cwd file edits should normally run
-sequentially.
-
-Use per-member worktree mode only when the repo setup, ignored files,
-ports, databases, and merge/cleanup ownership are understood:
-
-```text
-/team spawn alice --worktree --mutating --branch team/alice "claim one isolated coding task"
-```
-
-Worktrees are created under `MY_PI_TEAM_MODE_ROOT/worktrees` by
-default and are never deleted during shutdown; dirty worktrees are
-preserved until you clean them up explicitly with git.
-
-If a lead process restarts while teammate child processes are still
-alive, `/team status` marks those persisted PIDs as orphaned. Use
-`/team shutdown <member>` or `member_shutdown` to safely terminate a
-known orphaned teammate process and clean up its member state. Use
-`/team shutdown` or `/team shutdown --done` when completed teammates
-are still running after their assigned work is done; use
-`/team shutdown --all` to stop every live teammate in the active team.
-Before signalling an orphan, team mode verifies the persisted process
-identity (PID plus process start identity and command/session markers
-where the platform exposes them) to avoid PID-reuse kills. Linux uses
-`/proc` start ticks, command line, and cwd. Other platforms fall back
-to `ps` start time and command line when available. If the platform
-cannot provide enough identity to verify the process, orphan
-shutdown/wait is refused and you must clean up manually.
-
-Each RPC teammate is a full Pi child session. Depending on the active
-profile, tools, MCP servers, language servers, and worktree size, a
-teammate can consume significant memory while it remains alive. Large
-teams should be treated as concurrent processes, not lightweight
-threads: spawn only the parallelism you need, check `/team status`,
-and shut down done teammates promptly with `/team shutdown --done`.
-Team status warns when all tasks are complete but teammate processes
-are still running.
-
-Reusable teammate profiles are JSON files loaded from:
-
-```text
-~/.pi/agent/team-profiles/*.json
-.pi/team-profiles/*.json
-```
-
-Project profiles override user profiles by name. In untrusted mode,
-project profiles are skipped by default via
-`MY_PI_TEAM_PROFILES_PROJECT=skip`; set it to `allow` to opt in for a
-trusted repo. Profile fields include `description`, `model`,
-`thinking`, `system_prompt`, `prompt`, `tools`, and `skills`:
-
-```json
-{
-	"description": "Read-only code reviewer",
-	"model": "anthropic/claude-sonnet-4-5",
-	"thinking": "high",
-	"system_prompt": "Review for correctness and security only.",
-	"prompt": "Review the assigned task and report findings.",
-	"tools": ["read", "bash"],
-	"skills": ["research"]
-}
-```
-
-Use a profile with `/team spawn alice --profile reviewer` or the
-`member_spawn` tool parameter `profile`/`agent`. Explicit
-`/team spawn --model ... --thinking ...` and `member_spawn` `model`,
-`thinking`, and `initial_prompt` override the profile defaults.
-
-Teammate names, assignees, senders, and recipients must be stable file
-IDs: letters, numbers, dots, underscores, and hyphens only. This
-avoids ambiguous local state paths like `alice/dev` and `alice-dev`
-resolving to the same mailbox/member file.
-
-Mailbox messages track three separate states:
-
-- `delivered_at`: the message was injected into a session or accepted
-  by a running teammate's RPC queue.
-- `read_at`: the recipient has reviewed the message, but it may still
-  need action.
-- `acknowledged_at`: the recipient has fully processed the message and
-  it is safe to suppress redelivery.
-
-Use `message_read` to mark reviewed messages without acknowledging
-work, and `message_ack` after acting on them. Both tool actions accept
-optional `message_ids`; without IDs they update the whole inbox for
-the member. `message_send` also supports peer-comms metadata:
-`reply_to` to thread a response to an earlier message, `ttl_ms` to set
-an expiry, and `requires_ack` to make the expected handoff explicit.
-Use `message_wait` with `member`/`to`, optional `from`, optional
-`reply_to`, and `timeout_ms` to block briefly for a matching peer
-reply without polling manually. Command equivalents are
-`/team inbox <member> read [ids...]`,
-`/team inbox <member> ack [ids...]`, `/team read <member> [ids...]`,
-and `/team ack <member> [ids...]`. If a teammate exits after delivery
-but before acknowledgement, unacknowledged deliveries are restored for
-redelivery on the next session.
-
-## Peer-session coordination
-
-Every session that loads the extension registers itself with session
-id, session file, cwd, pid, model, status, and optional observability
-pool/tags and thinking level when available. Active coordination group
-memberships are injected into the Team Mode system prompt with the
-session's thinking level, group role, and alias, so peer sessions know
-when they are acting as a reviewer, teammate, lead, or peer in an
-orchestration group. Each session subscribes to the local push broker
-and also polls its own SQLite inbox as a fallback. Pending peer
-messages are self-injected with `pi.sendUserMessage()`, so delivery
-does not require a lead process to own the recipient.
-
-Useful peer commands:
+## Slash commands
 
 ```text
 /team sessions
-/team session send <session-id-or-name> status?
-/team session inbox
+/team session list
+/team session send <session-id-or-name> <message>
+/team session inbox [--all] [--full]
 /team session read [message-id...]
 /team session ack [message-id...]
-/team group create refactor
+/team group list
+/team group create <name>
 /team group join <group-id-or-name> [alias]
-/team group send <group-id-or-name> please review the refactor
+/team group send <group-id-or-name> <message>
 ```
 
-Equivalent tool actions include `session_list`, `session_send`,
-`session_inbox`, `session_read`, `session_ack`, `session_wait`,
-`artifact_create`, `artifact_get`, `artifact_list`, `group_create`,
-`group_list`, `group_join`, `group_add_session`, and `group_send`.
-Keep mailbox messages compact; put detailed handoffs, plans, findings,
-logs, diffs, and results in coordination artifacts and send the
-artifact id plus a short summary. Compact inbox/artifact views include
-`body_length` and `chunk_count`; retrieve focused context with tool
-parameters such as `message_id`, `artifact_id`, `chunk_index`,
-`before`, and `after`, or use `mode: "full"` when the full body is
-explicitly needed.
+## Tool actions
 
-Fresh sessions that start with natural language such as “standby”,
-“standby for orchestrator”, “you are the subordinate”, or “standby for
-handoff” are automatically marked as standby in the coordination
-registry. `/team sessions` and `session_list` show that standby label,
-and `member_spawn` refuses to create a new same-cwd teammate while
-registered standby sessions exist unless `force` is set.
-
-## Commands
-
-```text
-/team create demo
-/team spawn alice --model anthropic/claude-sonnet-4-5 --thinking high "claim one task and report back"
-/team task add alice: inspect the failing test
-/team task show 1
-/team task block 1 waiting on CI logs
-/team task cancel 1 duplicate work
-/team task reopen 1
-/team task assign 1 bob
-/team task unassign 1
-/team dm alice status?
-/team inbox alice read msg-id
-/team ack alice msg-id
-/team status
-/team shutdown --done
-/team shutdown --all
-/team dashboard
-/team results
-/team teams
-/team switch [team-id-or-name]
-/team ui style badge
-/team resume
-/team detach
-/team delete [team-id-or-name]
-/team prune-stale [days] [--cwd]
-```
-
-Use `/team sessions`, `/team session inbox`, and `/team group list` as
-the source of truth for peer-session coordination. `/team status`
-remains available for spawned RPC teammate process state and task
-compatibility. `/team wait <member>` and the `member_wait` tool do not
-block the lead session; they refresh and return current team status
-while teammate work continues in the background. Teammates also stay
-alive after finishing assigned work so you can inspect, steer, or
-reuse them; run `/team shutdown --done` to free resources once their
-completed results are captured, or `/team shutdown --all` to stop
-every live teammate. See
-[docs/comparison-matrix.md](docs/comparison-matrix.md) for the
-feature-parity gap check against comparable orchestration tools. Use
-`/team dashboard` for a compact modal with members, task groups,
-mailboxes, transcript paths, and available usage totals. Use
-`/team results` to join completed task results into a single summary.
-Assigned tasks stay queued until the assigned teammate claims them, so
-the status view reflects actual work in progress. Use
-`/team task block|cancel <id> [reason]`, `/team task reopen <id>`, and
-`/team task assign|unassign` for manual lifecycle corrections.
-Assigning a task changes ownership only; it does not reopen blocked or
-cancelled work.
-
-## Tool API
-
-The extension also registers the `team` tool for agent-driven
-orchestration. Important actions include:
+The `team` tool exposes peer-only coordination actions:
 
 - `session_list`
 - `session_send`
@@ -328,63 +86,46 @@ orchestration. Important actions include:
 - `group_send`
 - `artifact_create`
 - `artifact_get`
-- `artifact_list` (`query` searches title, summary, and body in the
-  current cwd)
-- `team_create`
-- `team_list`
-- `team_shutdown` (defaults to completed/done teammates; pass
-  `member: "all"` to stop every live teammate)
-- `member_spawn` (`profile`/`agent`, `mutating: true` for file-editing
-  teammates, optional `workspace_mode: "worktree"`, `branch`, and
-  `worktree_path` for explicitly isolated coding work)
-- `member_prompt`
-- `member_follow_up`
-- `member_steer`
-- `member_wait` (non-blocking status refresh; teammate work stays
-  backgrounded)
-- `task_create`
-- `task_get`
-- `task_claim_next`
-- `task_update` (`clear_assignee` and `clear_result` clear optional
-  fields)
+- `artifact_list`
 - `message_send`
 - `message_list`
-- `message_read` to mark messages reviewed and `message_ack` to
-  acknowledge processed mailbox messages; both support optional
-  `message_ids` for partial inbox updates
+- `message_wait`
+- `message_read`
+- `message_ack`
 
-Real work should use `member_spawn` from a lead session. Teammate-role
-sessions reject `member_spawn` and `/team spawn` so nested teams
-cannot be created accidentally. The fake teammate runner is kept out
-of the tool API and is only available to local test harnesses.
+Use artifacts for larger handoffs and send artifact ids in mailbox
+messages instead of pasting long content into peer messages.
 
-## Using from a custom harness
+## Mailbox semantics
 
-```ts
-import teamMode from '@spences10/pi-team-mode';
+Mailbox messages track three separate states:
 
-// pass `teamMode` as an ExtensionFactory to your Pi runtime
-```
+- `delivered_at`: the message was queued or injected into the target
+  session.
+- `read_at`: the recipient has reviewed the message, but it may still
+  need action.
+- `acknowledged_at`: the recipient has fully processed the message and
+  it is safe to suppress redelivery.
 
-`my-pi` imports this package directly and enables it as the built-in
-team mode extension. When `my-pi` spawns a teammate it starts the
-child with `--no-team-mode -e <team-extension>`, so the child loads
-exactly one team-mode extension. Custom harnesses that already bundle
-team mode should use the same pattern: disable the bundled copy when
-also passing this package through `-e`, or avoid `-e` and rely only on
-the bundled factory.
+Use `session_read`/`message_read` after reviewing messages and
+`session_ack`/`message_ack` after acting on them. `message_send`
+supports `reply_to`, `ttl_ms`, and `requires_ack`; `message_wait` can
+briefly wait for a matching peer reply.
+
+## Standby sessions
+
+A session can advertise itself as standby by saying it is standing by
+or available for coordination. The extension records availability,
+intent, and alias metadata so orchestrator sessions can discover and
+message existing sessions before starting new work elsewhere.
 
 ## Development
 
 Package scripts build transitive workspace dependencies first, then
-run local tools through Vite+ with `vp exec`.
+this package:
 
 ```bash
-pnpm --filter @spences10/pi-team-mode run check
-pnpm --filter @spences10/pi-team-mode run test
+pnpm --filter @spences10/pi-team-mode run check:self
+pnpm --filter @spences10/pi-team-mode run test:self
 pnpm --filter @spences10/pi-team-mode run build
 ```
-
-## License
-
-MIT
