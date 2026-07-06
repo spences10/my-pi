@@ -243,11 +243,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 		promptGuidelines: [
 			'Use team session_list to discover registered Pi sessions across projects before sending peer messages.',
 			'If the user mentions standby sessions, existing sessions, subordinates, handoffs, or other active sessions, call session_list and prefer registered standby sessions.',
-			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for compact peer-session mailbox coordination.',
-			'Prefer existing standby sessions for delegation; use session_open only when the user asks to create or open a new headless teammate session.',
-			'Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of large mailbox bodies.',
+			'For session_open, put the teammate alias in member. name is accepted only as a compatibility alias for older prompts.',
+			'Use session_send for handoffs that should appear as normal visible user messages in the teammate session transcript.',
+			'Prefer existing standby sessions for delegation; use session_open only when the user asks to create or resume a teammate session.',
+			'Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of pasting very large bodies.',
 			'Use team group_create, group_add_session, and group_send when one session should coordinate a group of independently running sessions.',
-			'Use session_list, session_inbox, and group_list as the source of truth for peer-session coordination.',
+			'Use session_list and group_list as the source of truth for peer-session coordination.',
 		],
 		parameters: TeamToolParams,
 		async execute(

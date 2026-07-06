@@ -103,7 +103,10 @@ export async function execute_coordination_action(
 			if (!context.headless_runner || !context.headless_defaults)
 				throw new Error('Headless session opening is unavailable.');
 			const from_session_id = require_session_id();
-			const alias = require_arg(params.member, 'member');
+			const alias = require_arg(
+				params.member ?? params.name,
+				'member',
+			);
 			const group_target = params.team_id ?? params.name;
 			const group = group_target
 				? coordination_db.get_group(group_target)
@@ -177,11 +180,11 @@ export async function execute_coordination_action(
 				.resolve_session_targets(target)
 				.map((session) => session.session_id);
 			const message = coordination_db.send_to_session_target({
-				from_session_id: params.from ?? session_id,
+				from_session_id: session_id,
 				target,
 				body: require_arg(params.message, 'message'),
 				urgent: params.urgent,
-				reply_to: params.reply_to,
+				reply_to: params.reply_to ?? params.from,
 				ttl_ms: params.ttl_ms,
 				requires_ack: params.requires_ack,
 			});

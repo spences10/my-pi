@@ -171,7 +171,11 @@ export function validate_team_tool_params(
 		case 'artifact_list':
 			return;
 		case 'session_open':
-			require_tool_field(params, 'member');
+			require_tool_any_field(
+				params,
+				['member', 'name'],
+				'teammate alias (member or name)',
+			);
 			return;
 		case 'session_send':
 		case 'message_send':

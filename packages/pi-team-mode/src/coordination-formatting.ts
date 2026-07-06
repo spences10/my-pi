@@ -195,15 +195,22 @@ export function format_peer_message_for_injection(
 	messages: CoordinationInboxMessage[],
 ): string {
 	return [
-		`You have ${messages.length} coordination message${messages.length === 1 ? '' : 's'} for session ${own_session_id}:`,
+		`Team handoff for session ${own_session_id}:`,
 		'',
-		...messages.flatMap((message) => [
-			`Message ${message.message_id} from ${message.from_agent_name ?? message.from_session_id}${message.requires_ack ? ' (ack required)' : ''}:`,
-			compact_body(message.body),
-			'',
-		]),
-		'Message bodies are compact by default. Use the team tool session_inbox with mode=full for full text, or retrieve referenced artifacts for long handoffs.',
-		'This injected mailbox task is recorded in session visibility state; it will appear in /team sessions and team session_list as delivered/read/acknowledged activity for humans resuming the session.',
-		'Use the team tool session_read after reviewing and session_ack after acting on messages that are complete.',
+		...messages.flatMap((message) => {
+			const reply_target =
+				message.reply_to ?? message.from_session_id;
+			return [
+				`From: ${message.from_agent_name ?? message.from_session_id}`,
+				`Reply target: ${reply_target}`,
+				`Message id: ${message.message_id}`,
+				'',
+				message.body,
+				'',
+				`If you need to answer, send it back with the team tool: {"action":"session_send","to":"${reply_target}","message":"<your reply>","reply_to":"${message.message_id}"}.`,
+				'',
+			];
+		}),
+		'This handoff was injected as a normal user message so it is visible in the session transcript after /resume.',
 	].join('\n');
 }
