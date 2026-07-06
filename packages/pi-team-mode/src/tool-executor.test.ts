@@ -40,7 +40,9 @@ describe('execute_team_tool peer mailbox actions', () => {
 			deps(),
 		);
 
-		expect(result.content[0].text).toContain('Sent coordination message');
+		expect(result.content[0].text).toContain(
+			'Sent coordination message',
+		);
 		expect(notified).toEqual(['alice']);
 		expect(db.list_inbox('alice')[0]?.body).toBe('hello');
 	});
