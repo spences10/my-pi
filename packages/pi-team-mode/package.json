@@ -1,7 +1,7 @@
 {
 	"name": "@spences10/pi-team-mode",
 	"version": "0.0.40",
-	"description": "Local peer-session coordination for Pi with RPC teammates, task tracking, and mailboxes",
+	"description": "Local peer-session coordination for Pi with groups, artifacts, and mailboxes",
 	"keywords": [
 		"agent",
 		"orchestration",
@@ -40,9 +40,7 @@
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {
-		"@spences10/pi-child-env": "workspace:*",
-		"@spences10/pi-redact": "workspace:*",
-		"@spences10/pi-tui-modal": "workspace:*"
+		"@spences10/pi-child-env": "workspace:*"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "catalog:",

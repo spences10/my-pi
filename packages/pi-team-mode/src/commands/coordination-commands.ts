@@ -12,6 +12,15 @@ function require_session_id(deps: TeamCommandDeps): string {
 	return session_id;
 }
 
+function require_headless(deps: TeamCommandDeps) {
+	if (!deps.headless_runner || !deps.headless_defaults)
+		throw new Error('Headless session opening is unavailable.');
+	return {
+		runner: deps.headless_runner,
+		defaults: deps.headless_defaults,
+	};
+}
+
 export async function handle_sessions(
 	deps: TeamCommandDeps,
 ): Promise<void> {
@@ -26,6 +35,41 @@ export async function handle_session_command(
 	const [sub = 'list', ...tail] = rest;
 	if (sub === 'list') {
 		await handle_sessions(deps);
+		return;
+	}
+	if (sub === 'open') {
+		const [alias, ...message_parts] = tail;
+		if (!alias)
+			throw new Error(
+				'Usage: /team session open <alias> [message...]',
+			);
+		const { runner, defaults } = require_headless(deps);
+		const from_session_id = require_session_id(deps);
+		const body = message_parts.join(' ');
+		const opened = await runner.open_or_resume({
+			alias,
+			cwd: deps.ctx.cwd,
+			parent_session_id: from_session_id,
+			message: body || undefined,
+			intent: body || undefined,
+			...defaults,
+		});
+		if (body) {
+			const message = deps.coordination_db.send_to_session_target({
+				from_session_id,
+				target: opened.session.session_id,
+				body,
+				requires_ack: true,
+			});
+			await deps.notify_coordination_messages(
+				[opened.session.session_id],
+				message.message_id,
+			);
+		}
+		deps.ctx.ui.notify(
+			`${opened.resumed ? 'Resumed' : 'Opened'} session ${opened.session.session_id} (${alias})`,
+			'info',
+		);
 		return;
 	}
 	if (sub === 'send') {
@@ -90,7 +134,9 @@ export async function handle_session_command(
 		);
 		return;
 	}
-	throw new Error('Usage: /team session list|send|inbox|read|ack');
+	throw new Error(
+		'Usage: /team session list|open|send|inbox|read|ack',
+	);
 }
 
 export async function handle_group_command(
@@ -137,6 +183,62 @@ export async function handle_group_command(
 		deps.ctx.ui.notify(`Joined ${group.name}`, 'info');
 		return;
 	}
+	if (sub === 'open') {
+		const [group_target, alias, ...message_parts] = tail;
+		if (!group_target || !alias)
+			throw new Error(
+				'Usage: /team group open <group> <alias> [message...]',
+			);
+		const group = deps.coordination_db.get_group(group_target);
+		if (!group) throw new Error(`Unknown group: ${group_target}`);
+		const { runner, defaults } = require_headless(deps);
+		const from_session_id = require_session_id(deps);
+		const body = message_parts.join(' ');
+		const opened = await runner.open_or_resume({
+			alias,
+			cwd: deps.ctx.cwd,
+			parent_session_id: from_session_id,
+			group_id: group.group_id,
+			message: body || undefined,
+			intent: body || undefined,
+			...defaults,
+		});
+		deps.coordination_db.add_group_member({
+			group_id: group.group_id,
+			session_id: opened.session.session_id,
+			alias,
+			role: 'teammate',
+		});
+		const group_message = deps.coordination_db.send_message({
+			from_session_id,
+			to_session_ids: [opened.session.session_id],
+			scope: 'group',
+			target: group.group_id,
+			body: `You have been added to coordination group ${group.name} (${group.group_id}) with alias ${alias}. Treat this as your current coordination identity for related requests.`,
+			requires_ack: true,
+		});
+		await deps.notify_coordination_messages(
+			[opened.session.session_id],
+			group_message.message_id,
+		);
+		if (body) {
+			const handoff = deps.coordination_db.send_to_session_target({
+				from_session_id,
+				target: opened.session.session_id,
+				body,
+				requires_ack: true,
+			});
+			await deps.notify_coordination_messages(
+				[opened.session.session_id],
+				handoff.message_id,
+			);
+		}
+		deps.ctx.ui.notify(
+			`${opened.resumed ? 'Resumed' : 'Opened'} session ${opened.session.session_id} (${alias}) in ${group.name}`,
+			'info',
+		);
+		return;
+	}
 	if (sub === 'send') {
 		const [group_target, ...message_parts] = tail;
 		if (!group_target || message_parts.length === 0)
@@ -161,5 +263,5 @@ export async function handle_group_command(
 		);
 		return;
 	}
-	throw new Error('Usage: /team group list|create|join|send');
+	throw new Error('Usage: /team group list|create|join|open|send');
 }

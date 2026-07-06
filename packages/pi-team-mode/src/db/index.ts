@@ -5,6 +5,10 @@ import { dirname } from 'node:path';
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
 
 import {
+	find_stale_sessions,
+	type ProcessAliveCheck,
+} from '../session-liveness.js';
+import {
 	map_artifact,
 	map_group,
 	map_group_member,
@@ -45,10 +49,6 @@ import {
 	optional,
 	parse_json,
 } from './util.js';
-import {
-	find_stale_sessions,
-	type ProcessAliveCheck,
-} from '../session-liveness.js';
 export { LATEST_TEAM_SCHEMA_VERSION } from './schema.js';
 export type {
 	CoordinationArtifact,
@@ -479,6 +479,11 @@ export class TeamDatabase {
 			session_id,
 			message_ids,
 		);
+		this.record_mailbox_activity(
+			session_id,
+			'delivered',
+			message_ids,
+		);
 	}
 
 	mark_messages_read(
@@ -490,6 +495,7 @@ export class TeamDatabase {
 			session_id,
 			message_ids,
 		);
+		this.record_mailbox_activity(session_id, 'read', message_ids);
 	}
 
 	mark_messages_acknowledged(
@@ -499,6 +505,11 @@ export class TeamDatabase {
 		this.mark_receipts(
 			this.statements.mark_messages_acknowledged,
 			session_id,
+			message_ids,
+		);
+		this.record_mailbox_activity(
+			session_id,
+			'acknowledged',
 			message_ids,
 		);
 	}
@@ -555,6 +566,30 @@ export class TeamDatabase {
 			for (const message_id of message_ids)
 				statement.run(timestamp, message_id, session_id);
 		});
+	}
+
+	private record_mailbox_activity(
+		session_id: string,
+		state: 'delivered' | 'read' | 'acknowledged',
+		message_ids: string[],
+	): void {
+		if (message_ids.length === 0) return;
+		const session = this.get_session(session_id);
+		if (!session) return;
+		const activity = {
+			state,
+			message_ids,
+			message_count: message_ids.length,
+			updated_at: now(),
+		};
+		this.statements.update_session_metadata.run(
+			json({
+				...session.metadata,
+				mailbox_activity: activity,
+			}),
+			now(),
+			session_id,
+		);
 	}
 
 	private list_message_by_id(
