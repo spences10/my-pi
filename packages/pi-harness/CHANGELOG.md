@@ -1,5 +1,12 @@
 # @spences10/pi-harness
 
+## 0.0.3
+
+### Patch Changes
+
+- ba4ceed: Update team orchestration guidance to prefer shared cwd
+  mutation and reserve worktrees for explicit isolation.
+
 ## 0.0.2
 
 ### Patch Changes

@@ -1,5 +1,17 @@
 # @spences10/pi-team-mode
 
+## 0.0.41
+
+### Patch Changes
+
+- 101004a: Serialize RPC teammate lifecycle events and wait for
+  shutdown to prevent temp cleanup races.
+- ba4ceed: Update team orchestration guidance to prefer shared cwd
+  mutation and reserve worktrees for explicit isolation.
+- 454e469: Remove RPC teammate spawning and runner/task orchestration
+  from team mode, leaving peer-session coordination through mailboxes,
+  groups, and artifacts.
+
 ## 0.0.40
 
 ### Patch Changes

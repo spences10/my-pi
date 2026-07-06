@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-mcp",
-	"version": "0.0.44",
+	"version": "0.0.45",
 	"description": "MCP server integration for Pi that exposes configured MCP tools safely and manages large responses",
 	"keywords": [
 		"mcp",

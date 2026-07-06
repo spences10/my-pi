@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.99
+
+### Patch Changes
+
+- ba4ceed: Update team orchestration guidance to prefer shared cwd
+  mutation and reserve worktrees for explicit isolation.
+
 ## 0.1.98
 
 ### Patch Changes

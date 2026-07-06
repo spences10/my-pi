@@ -1,5 +1,12 @@
 # @spences10/pi-context
 
+## 0.1.4
+
+### Patch Changes
+
+- a3ab84c: Improve pi-context scoped dedupe, capture receipts,
+  retrieval guidance, and eval coverage for safer context use.
+
 ## 0.1.3
 
 ### Patch Changes

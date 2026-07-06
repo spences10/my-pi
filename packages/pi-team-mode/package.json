@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-team-mode",
-	"version": "0.0.40",
+	"version": "0.0.41",
 	"description": "Local peer-session coordination for Pi with groups, artifacts, and mailboxes",
 	"keywords": [
 		"agent",
