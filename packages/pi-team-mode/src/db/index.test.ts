@@ -169,20 +169,8 @@ describe('TeamDatabase coordination store', () => {
 			]);
 
 			db.mark_messages_delivered('s2', [message.message_id]);
-			expect(
-				db.get_session('s2')?.metadata.mailbox_activity,
-			).toMatchObject({
-				state: 'delivered',
-				message_ids: [message.message_id],
-			});
 			db.mark_messages_read('s2', [message.message_id]);
 			db.mark_messages_acknowledged('s2', [message.message_id]);
-			expect(
-				db.get_session('s2')?.metadata.mailbox_activity,
-			).toMatchObject({
-				state: 'acknowledged',
-				message_count: 1,
-			});
 			expect(
 				db.list_inbox('s2', {
 					include_read: true,

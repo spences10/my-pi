@@ -1,6 +1,5 @@
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import type { TeamDatabase } from './db/index.js';
-import type { HeadlessSessionRunner } from './headless-runner.js';
 import {
 	validate_team_tool_params,
 	type TeamToolParams as TeamToolParamsType,
@@ -17,12 +16,6 @@ export interface TeamToolExecutorDeps {
 		message_id?: string,
 	) => Promise<void>;
 	get_session_id: () => string | undefined;
-	headless_runner?: HeadlessSessionRunner;
-	headless_defaults?: {
-		team_root: string;
-		coordination_db_path: string;
-		extension_path: string;
-	};
 }
 
 export async function execute_team_tool(
@@ -43,7 +36,5 @@ export async function execute_team_tool(
 		coordination_db: deps.coordination_db,
 		notify_coordination_messages: deps.notify_coordination_messages,
 		require_session_id,
-		headless_runner: deps.headless_runner,
-		headless_defaults: deps.headless_defaults,
 	});
 }

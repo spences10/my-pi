@@ -39,9 +39,7 @@
 		"coverage:self": "vp exec vitest run --coverage",
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
-	"dependencies": {
-		"@spences10/pi-child-env": "workspace:*"
-	},
+	"dependencies": {},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",

@@ -11,7 +11,6 @@ import {
 	format_sessions,
 } from '../coordination-formatting.js';
 import type { TeamDatabase } from '../db/index.js';
-import type { HeadlessSessionRunner } from '../headless-runner.js';
 import type { TeamToolParams } from '../team-tool-params.js';
 
 function require_arg(
@@ -31,12 +30,6 @@ interface CoordinationActionContext {
 		message_id?: string,
 	) => Promise<void>;
 	require_session_id: () => string;
-	headless_runner?: HeadlessSessionRunner;
-	headless_defaults?: {
-		team_root: string;
-		coordination_db_path: string;
-		extension_path: string;
-	};
 }
 
 function has_chunk_request(params: TeamToolParams): boolean {
@@ -99,78 +92,6 @@ export async function execute_coordination_action(
 				details: { sessions },
 			};
 		}
-		case 'session_open': {
-			if (!context.headless_runner || !context.headless_defaults)
-				throw new Error('Headless session opening is unavailable.');
-			const from_session_id = require_session_id();
-			const alias = require_arg(
-				params.member ?? params.name,
-				'member',
-			);
-			const group_target = params.team_id ?? params.name;
-			const group = group_target
-				? coordination_db.get_group(group_target)
-				: undefined;
-			if (group_target && !group)
-				throw new Error('Unknown coordination group');
-			const opened = await context.headless_runner.open_or_resume({
-				alias,
-				cwd: ctx.cwd,
-				parent_session_id: from_session_id,
-				group_id: group?.group_id,
-				message: params.message,
-				intent: params.description ?? params.message,
-				model: params.model,
-				thinking: params.thinking,
-				timeout_ms: params.timeout_ms,
-				...context.headless_defaults,
-			});
-			const notified: string[] = [];
-			if (group) {
-				coordination_db.add_group_member({
-					group_id: group.group_id,
-					session_id: opened.session.session_id,
-					alias,
-					role: params.role ?? 'teammate',
-				});
-				const group_message = coordination_db.send_message({
-					from_session_id,
-					to_session_ids: [opened.session.session_id],
-					scope: 'group',
-					target: group.group_id,
-					body: `You have been added to coordination group ${group.name} (${group.group_id}) with alias ${alias}. Treat this as your current coordination identity for related requests.`,
-					requires_ack: true,
-				});
-				await notify_coordination_messages(
-					[opened.session.session_id],
-					group_message.message_id,
-				);
-				notified.push(group_message.message_id);
-			}
-			if (params.message) {
-				const handoff = coordination_db.send_to_session_target({
-					from_session_id,
-					target: opened.session.session_id,
-					body: params.message,
-					requires_ack: params.requires_ack ?? true,
-					urgent: params.urgent,
-				});
-				await notify_coordination_messages(
-					[opened.session.session_id],
-					handoff.message_id,
-				);
-				notified.push(handoff.message_id);
-			}
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: `${opened.resumed ? 'Resumed' : 'Opened'} headless session ${opened.session.session_id} (${alias})`,
-					},
-				],
-				details: { opened, message_ids: notified },
-			};
-		}
 		case 'session_send':
 		case 'message_send': {
 			coordination_db.mark_stale_sessions_offline();
@@ -180,11 +101,11 @@ export async function execute_coordination_action(
 				.resolve_session_targets(target)
 				.map((session) => session.session_id);
 			const message = coordination_db.send_to_session_target({
-				from_session_id: session_id,
+				from_session_id: params.from ?? session_id,
 				target,
 				body: require_arg(params.message, 'message'),
 				urgent: params.urgent,
-				reply_to: params.reply_to ?? params.from,
+				reply_to: params.reply_to,
 				ttl_ms: params.ttl_ms,
 				requires_ack: params.requires_ack,
 			});

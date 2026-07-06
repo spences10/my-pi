@@ -11,7 +11,6 @@ export const TEAM_ACTIONS = [
 	'session_read',
 	'session_ack',
 	'session_wait',
-	'session_open',
 	'group_create',
 	'group_list',
 	'group_join',
@@ -29,11 +28,7 @@ export const TEAM_ACTIONS = [
 
 export type TeamActionName = (typeof TEAM_ACTIONS)[number];
 
-const CoordinationRoleParam = StringEnum([
-	'lead',
-	'teammate',
-	'peer',
-] as const);
+const CoordinationRoleParam = StringEnum(['lead', 'peer'] as const);
 
 const TeamUiModeParam = StringEnum([
 	'auto',
@@ -85,8 +80,6 @@ export const TeamToolParams = Type.Object({
 	before: Type.Optional(Type.Number()),
 	after: Type.Optional(Type.Number()),
 	style: Type.Optional(TeamUiStyleParam),
-	model: Type.Optional(Type.String()),
-	thinking: Type.Optional(Type.String()),
 });
 
 export type TeamToolParams = {
@@ -94,7 +87,7 @@ export type TeamToolParams = {
 	team_id?: string;
 	name?: string;
 	member?: string;
-	role?: 'lead' | 'teammate' | 'peer';
+	role?: 'lead' | 'peer';
 	from?: string;
 	to?: string;
 	message?: string;
@@ -125,8 +118,6 @@ export type TeamToolParams = {
 	before?: number;
 	after?: number;
 	style?: TeamUiStyle;
-	model?: string;
-	thinking?: string;
 };
 
 function require_tool_field(
@@ -169,13 +160,6 @@ export function validate_team_tool_params(
 		case 'session_wait':
 		case 'group_list':
 		case 'artifact_list':
-			return;
-		case 'session_open':
-			require_tool_any_field(
-				params,
-				['member', 'name'],
-				'teammate alias (member or name)',
-			);
 			return;
 		case 'session_send':
 		case 'message_send':

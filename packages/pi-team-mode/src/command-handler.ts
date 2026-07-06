@@ -7,7 +7,6 @@ import {
 import { show_team_help } from './commands/help.js';
 import type { TeamCommandDeps } from './commands/types.js';
 import type { TeamDatabase } from './db/index.js';
-import type { HeadlessSessionRunner } from './headless-runner.js';
 
 export {
 	append_team_system_prompt,
@@ -23,8 +22,6 @@ export async function handle_team_command(
 		message_id?: string,
 	) => Promise<void> = async () => undefined,
 	get_session_id: () => string | undefined = () => undefined,
-	headless_runner?: HeadlessSessionRunner,
-	headless_defaults?: TeamCommandDeps['headless_defaults'],
 ): Promise<void> {
 	const deps: TeamCommandDeps = {
 		args,
@@ -39,11 +36,7 @@ export async function handle_team_command(
 				coordination_db,
 				notify_coordination_messages,
 				get_session_id,
-				headless_runner,
-				headless_defaults,
 			),
-		headless_runner,
-		headless_defaults,
 	};
 	const trimmed = args.trim();
 	if (!trimmed) {

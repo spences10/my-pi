@@ -25,27 +25,6 @@ function compact_body(body: string): string {
 	return `${normalized.slice(0, COMPACT_BODY_LIMIT - 1).trimEnd()}… [truncated]`;
 }
 
-function format_mailbox_activity(
-	metadata: Record<string, unknown>,
-): string {
-	const activity = metadata.mailbox_activity;
-	if (!activity || typeof activity !== 'object') return '';
-	const state = (activity as { state?: unknown }).state;
-	const count = (activity as { message_count?: unknown })
-		.message_count;
-	const ids = (activity as { message_ids?: unknown }).message_ids;
-	if (typeof state !== 'string') return '';
-	const count_text =
-		typeof count === 'number'
-			? `${count} message${count === 1 ? '' : 's'}`
-			: 'message';
-	const id_text =
-		Array.isArray(ids) && ids.length > 0
-			? ` ${String(ids[0]).slice(0, 12)}${ids.length > 1 ? '…' : ''}`
-			: '';
-	return ` · mailbox ${state} ${count_text}${id_text}`;
-}
-
 export function format_sessions(
 	sessions: CoordinationSession[],
 	options: { full_ids?: boolean } = {},
@@ -73,8 +52,7 @@ export function format_sessions(
 			const thinking = session.thinking_level
 				? ` · thinking ${session.thinking_level}`
 				: '';
-			const mailbox = format_mailbox_activity(session.metadata);
-			return `- ${id}${name}${alias} — ${session.status}${availability}${intent}${standby_text}${mailbox}; ${session.cwd}${model}${thinking}`;
+			return `- ${id}${name}${alias} — ${session.status}${availability}${intent}${standby_text}; ${session.cwd}${model}${thinking}`;
 		})
 		.join('\n');
 }
@@ -195,22 +173,14 @@ export function format_peer_message_for_injection(
 	messages: CoordinationInboxMessage[],
 ): string {
 	return [
-		`Team handoff for session ${own_session_id}:`,
+		`You have ${messages.length} coordination message${messages.length === 1 ? '' : 's'} for session ${own_session_id}:`,
 		'',
-		...messages.flatMap((message) => {
-			const reply_target =
-				message.reply_to ?? message.from_session_id;
-			return [
-				`From: ${message.from_agent_name ?? message.from_session_id}`,
-				`Reply target: ${reply_target}`,
-				`Message id: ${message.message_id}`,
-				'',
-				message.body,
-				'',
-				`If you need to answer, send it back with the team tool: {"action":"session_send","to":"${reply_target}","message":"<your reply>","reply_to":"${message.message_id}"}.`,
-				'',
-			];
-		}),
-		'This handoff was injected as a normal user message so it is visible in the session transcript after /resume.',
+		...messages.flatMap((message) => [
+			`Message ${message.message_id} from ${message.from_agent_name ?? message.from_session_id}${message.requires_ack ? ' (ack required)' : ''}:`,
+			compact_body(message.body),
+			'',
+		]),
+		'Message bodies are compact by default. Use the team tool session_inbox with mode=full for full text, or retrieve referenced artifacts for long handoffs.',
+		'Use the team tool session_read after reviewing and session_ack after acting on messages that are complete.',
 	].join('\n');
 }
