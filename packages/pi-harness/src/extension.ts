@@ -8,11 +8,12 @@ import {
 	check_command_allowed,
 	check_path_allowed,
 } from './enforcement/policy.js';
-import { harness_paths, read_contract } from './runtime/files.js';
 import { HARNESS_SYSTEM_PROMPT } from './prompt.js';
+import { harness_paths, read_contract } from './runtime/files.js';
 import {
 	active_harness_context,
 	create_harness_runtime,
+	format_harness_status_line,
 	format_harness_summary,
 	update_harness_runtime,
 } from './runtime/index.js';
@@ -62,12 +63,11 @@ function update_harness_ui(
 		ctx.ui.setWidget('harness', undefined);
 		return;
 	}
-	const summary = format_harness_summary(harness_dir).split('\n');
 	ctx.ui.setStatus(
 		'harness',
-		`🧪 ${summary[2]?.replace('Status: ', '')}`,
+		format_harness_status_line(harness_dir),
 	);
-	ctx.ui.setWidget('harness', summary.slice(0, 4));
+	ctx.ui.setWidget('harness', undefined);
 }
 
 function parse_command(args: string): {

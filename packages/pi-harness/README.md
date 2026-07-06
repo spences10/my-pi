@@ -41,7 +41,7 @@ pi -e ./packages/pi-harness
 - `harness_read` tool for summaries
 - `before_agent_start` context injection for the active harness
 - `tool_call` enforcement for edit/write paths and forbidden commands
-- TUI status/widget for the active harness
+- compact TUI status for the active harness
 - bundled `create-harness`, `execute-harness`, and `review-harness`
   skills
 
@@ -74,6 +74,9 @@ pi -e ./packages/pi-harness
 
 The create/run/review commands prompt the model to use the bundled
 skills. The tools provide the actual runtime and enforcement layer.
+When a harness is active, the TUI shows a compact footer/status
+indicator; use `/harness status [dir]` or `harness_read` for the full
+contract, task, validation, and outcome details.
 
 Harnesses snapshot dirty files at creation time. Review and outcome
 artifacts focus on changes after that baseline, while still recording

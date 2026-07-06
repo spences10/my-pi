@@ -14,6 +14,7 @@ import harness, {
 	check_command_allowed,
 	check_path_allowed,
 	create_harness_runtime,
+	format_harness_status_line,
 	should_inject_harness_prompt,
 	update_harness_runtime,
 } from './index.js';
@@ -100,6 +101,9 @@ describe('create_harness_runtime', () => {
 
 		expect(status_file.status).toBe('running');
 		expect(status_file.phase).toBe('validation');
+		expect(format_harness_status_line(harness_dir)).toBe(
+			'🧪 running (validation)',
+		);
 		expect(status_file.log.at(-1)?.evidence).toBe('tests passed');
 		expect(status_file.log.at(-1)?.team_status).toBe(
 			'executor completed task #1',
@@ -361,6 +365,27 @@ describe('harness extension', () => {
 		expect(send_user_message).toHaveBeenCalledWith(
 			expect.stringContaining('member_spawn'),
 		);
+
+		const cwd = temp_project();
+		const { harness_dir } = create_harness_runtime(
+			{
+				task: 'This deliberately long task must not appear in the persistent widget',
+			},
+			cwd,
+		);
+		cleanup_paths.push(harness_dir);
+		const ui = {
+			notify: vi.fn(),
+			setStatus: vi.fn(),
+			setWidget: vi.fn(),
+		};
+		commands.get('harness').handler(`use ${harness_dir}`, { ui });
+		expect(ui.setStatus).toHaveBeenCalledWith(
+			'harness',
+			'🧪 created',
+		);
+		expect(ui.setWidget).toHaveBeenCalledWith('harness', undefined);
+		commands.get('harness').handler('clear', { ui });
 
 		await expect(
 			handlers.get('before_agent_start')?.({

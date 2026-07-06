@@ -4,16 +4,19 @@ import {
 	harness_update_params_schema,
 } from './schema.js';
 
-export { default } from './extension.js';
-export { should_inject_harness_prompt } from './extension.js';
 export {
 	check_command_allowed,
 	check_path_allowed,
 } from './enforcement/policy.js';
+export {
+	default,
+	should_inject_harness_prompt,
+} from './extension.js';
 export { HARNESS_SYSTEM_PROMPT } from './prompt.js';
 export {
 	active_harness_context,
 	create_harness_runtime,
+	format_harness_status_line,
 	format_harness_summary,
 	update_harness_runtime,
 } from './runtime/index.js';
@@ -22,6 +25,15 @@ export {
 	render_outcome_markdown,
 	write_outcome_artifacts,
 } from './runtime/outcome.js';
+export {
+	DEFAULT_FORBIDDEN_COMMANDS,
+	harness_create_params_schema,
+	HARNESS_CUSTOM_TYPE,
+	harness_read_params_schema,
+	harness_update_params_schema,
+	HARNESS_VERSION,
+	thinking_levels_schema,
+} from './schema.js';
 export type {
 	HarnessContract,
 	HarnessCreateParams,
@@ -32,15 +44,6 @@ export type {
 	HarnessStatusFile,
 	HarnessThinking,
 	HarnessUpdateParams,
-} from './schema.js';
-export {
-	DEFAULT_FORBIDDEN_COMMANDS,
-	HARNESS_CUSTOM_TYPE,
-	HARNESS_VERSION,
-	harness_create_params_schema,
-	harness_read_params_schema,
-	harness_update_params_schema,
-	thinking_levels_schema,
 } from './schema.js';
 
 export const testing = {

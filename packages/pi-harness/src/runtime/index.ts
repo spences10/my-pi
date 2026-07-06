@@ -2,6 +2,15 @@ import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
+	DEFAULT_FORBIDDEN_COMMANDS,
+	HARNESS_VERSION,
+	type HarnessContract,
+	type HarnessCreateParams,
+	type HarnessLogEntry,
+	type HarnessStatusFile,
+	type HarnessUpdateParams,
+} from '../schema.js';
+import {
 	append_event,
 	harness_paths,
 	read_contract,
@@ -21,15 +30,6 @@ import {
 	build_task_markdown,
 	build_validate_script,
 } from './renderers.js';
-import {
-	DEFAULT_FORBIDDEN_COMMANDS,
-	HARNESS_VERSION,
-	type HarnessContract,
-	type HarnessCreateParams,
-	type HarnessLogEntry,
-	type HarnessStatusFile,
-	type HarnessUpdateParams,
-} from '../schema.js';
 
 function now_iso(): string {
 	return new Date().toISOString();
@@ -162,6 +162,13 @@ export function update_harness_runtime(
 	append_event(params.harness_dir, entry);
 	write_outcome_artifacts(params.harness_dir);
 	return status_file;
+}
+
+export function format_harness_status_line(
+	harness_dir: string,
+): string {
+	const status_file = read_status(harness_dir);
+	return `🧪 ${status_file.status}${status_file.phase ? ` (${status_file.phase})` : ''}`;
 }
 
 export function format_harness_summary(harness_dir: string): string {
