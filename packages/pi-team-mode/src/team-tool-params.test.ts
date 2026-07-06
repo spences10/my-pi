@@ -25,4 +25,17 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 			}),
 		).toThrow(/to/);
 	});
+
+	it('validates session_open alias requirements', () => {
+		expect(TEAM_ACTIONS).toContain('session_open');
+		expect(() =>
+			validate_team_tool_params({ action: 'session_open' }),
+		).toThrow(/member/);
+		expect(() =>
+			validate_team_tool_params({
+				action: 'session_open',
+				member: 'worker',
+			}),
+		).not.toThrow();
+	});
 });

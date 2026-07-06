@@ -261,6 +261,7 @@ export interface TeamDatabaseStatements {
 	list_online_sessions: StatementSync;
 	resolve_session_target: StatementSync;
 	mark_session_status: StatementSync;
+	update_session_metadata: StatementSync;
 	insert_artifact: StatementSync;
 	get_artifact: StatementSync;
 	list_artifacts: StatementSync;
