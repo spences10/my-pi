@@ -293,7 +293,6 @@ export class DefaultHeadlessSessionRunner implements HeadlessSessionRunner {
 		try {
 			child = this.#spawn(command_info.command, args, {
 				cwd: options.cwd,
-				detached: true,
 				shell: false,
 				stdio: ['pipe', 'ignore', 'ignore'],
 				env: create_headless_session_env(
@@ -302,8 +301,6 @@ export class DefaultHeadlessSessionRunner implements HeadlessSessionRunner {
 					this.#source_env,
 				),
 			}) as ChildProcess;
-			child.unref();
-			(child.stdin as { unref?: () => void } | null)?.unref?.();
 		} catch (error) {
 			throw error instanceof Error ? error : new Error(String(error));
 		}

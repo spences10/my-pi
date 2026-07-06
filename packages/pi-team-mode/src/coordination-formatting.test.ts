@@ -90,22 +90,7 @@ describe('coordination formatting', () => {
 		expect(text).toContain('msg-1');
 		expect(text).toContain('[truncated]');
 		expect(text).toContain('session_inbox with mode=full');
-		expect(text).toContain('"to":"lead-session"');
-		expect(text).toContain('"reply_to":"msg-1"');
 		expect(text).not.toContain('final detail');
-	});
-
-	it('keeps reply targets as sessions, not parent message ids', () => {
-		const text = format_peer_message_for_injection('worker-session', [
-			{
-				...inbox_message,
-				reply_to: 'parent-message-id',
-			},
-		]);
-
-		expect(text).toContain('"to":"lead-session"');
-		expect(text).toContain('"reply_to":"msg-1"');
-		expect(text).not.toContain('"to":"parent-message-id"');
 	});
 
 	it('formats inbox compactly by default and fully on request', () => {

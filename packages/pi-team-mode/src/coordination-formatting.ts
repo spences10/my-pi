@@ -198,20 +198,19 @@ export function format_peer_message_for_injection(
 		`Team handoff for session ${own_session_id}:`,
 		'',
 		...messages.flatMap((message) => {
-			const reply_target = message.from_session_id;
+			const reply_target =
+				message.reply_to ?? message.from_session_id;
 			return [
 				`From: ${message.from_agent_name ?? message.from_session_id}`,
 				`Reply target: ${reply_target}`,
 				`Message id: ${message.message_id}`,
 				'',
-				compact_body(message.body),
+				message.body,
 				'',
 				`If you need to answer, send it back with the team tool: {"action":"session_send","to":"${reply_target}","message":"<your reply>","reply_to":"${message.message_id}"}.`,
 				'',
 			];
 		}),
-		'If a message body is truncated, fetch full text before acting: use the team tool session_inbox with mode=full, or retrieve referenced artifacts for long handoffs.',
-		'Use the team tool session_read after reviewing and session_ack after acting on messages that are complete.',
 		'This handoff was injected as a normal user message so it is visible in the session transcript after /resume.',
 	].join('\n');
 }
