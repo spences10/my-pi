@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.42
+
+### Patch Changes
+
+- e9de78a: Create visible resumable Team Mode teammates that wake on
+  sends and preserve auditable two-way session history.
+
 ## 0.0.41
 
 ### Patch Changes

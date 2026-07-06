@@ -1,5 +1,12 @@
 # @spences10/pi-harness
 
+## 0.0.4
+
+### Patch Changes
+
+- 7cc67f7: Render active harness state compactly in the TUI without
+  persistent verbose task summary widget.
+
 ## 0.0.3
 
 ### Patch Changes
