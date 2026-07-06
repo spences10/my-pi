@@ -99,23 +99,24 @@ The `team` tool exposes peer-only coordination actions:
 - `message_read`
 - `message_ack`
 
-Use `session_open` only when you need to create a new teammate session;
-prefer already-registered standby sessions for general delegation. Opened
-sessions are headless Pi processes launched with a restricted
-`team-mode` child environment, registered in the same coordination DB,
-and resumable later through normal Pi session primitives such as
-`/resume` or a direct session id/path. Mailbox injections also update
-session visibility metadata, so `/team sessions` and `team session_list`
-show the latest delivered/read/acknowledged mailbox activity for humans
-opening or resuming the teammate:
+Use `session_open` only when you need to create a new teammate
+session; prefer already-registered standby sessions for general
+delegation. Opened sessions are headless Pi processes launched with a
+restricted `team-mode` child environment, registered in the same
+coordination DB, and resumable later through normal Pi session
+primitives such as `/resume` or a direct session id/path. Mailbox
+injections also update session visibility metadata, so
+`/team sessions` and `team session_list` show the latest
+delivered/read/acknowledged mailbox activity for humans opening or
+resuming the teammate:
 
 ```bash
 pi --session <opened-session-id-or-session-jsonl>
 ```
 
 The launcher uses Pi `--mode rpc` only to keep a non-interactive Pi
-process alive for later resume/inspection; initial work is delivered by
-mailbox, not by private RPC ownership.
+process alive for later resume/inspection; initial work is delivered
+by mailbox, not by private RPC ownership.
 
 Use artifacts for larger handoffs and send artifact ids in mailbox
 messages instead of pasting long content into peer messages.
