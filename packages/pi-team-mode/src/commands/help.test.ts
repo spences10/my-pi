@@ -20,7 +20,9 @@ describe('packages/pi-team-mode/src/commands/help.ts', () => {
 
 		expect(notifications).toHaveLength(1);
 		expect(notifications[0][0]).toContain('/team sessions');
-		expect(notifications[0][0]).toContain('/team group send <group> <message>');
+		expect(notifications[0][0]).toContain(
+			'/team group send <group> <message>',
+		);
 		expect(notifications[0][1]).toBe('warning');
 	});
 });

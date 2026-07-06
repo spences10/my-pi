@@ -38,9 +38,10 @@ pi -e ./packages/pi-team-mode
 - stores larger handoffs, plans, findings, logs, diffs, and results as
   coordination artifacts referenced from mailbox messages
 - creates coordination groups over arbitrary sessions
-- injects active coordination identity into the Team Mode system prompt
-- uses a local HTTP/SSE broker for fast delivery with SQLite polling as
-  durable fallback
+- injects active coordination identity into the Team Mode system
+  prompt
+- uses a local HTTP/SSE broker for fast delivery with SQLite polling
+  as durable fallback
 
 Peer-session coordination state is stored in:
 

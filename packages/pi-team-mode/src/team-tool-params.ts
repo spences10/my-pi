@@ -199,6 +199,8 @@ export function validate_team_tool_params(
 			require_tool_any_field(params, ['member', 'to'], 'member');
 			return;
 		default:
-			throw new Error(`Unsupported team action: ${String(params.action)}`);
+			throw new Error(
+				`Unsupported team action: ${String(params.action)}`,
+			);
 	}
 }

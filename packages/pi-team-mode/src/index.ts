@@ -164,7 +164,8 @@ export default async function team_mode(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand('team', {
-		description: 'Peer session coordination with groups and mailboxes',
+		description:
+			'Peer session coordination with groups and mailboxes',
 		getArgumentCompletions: (prefix) => {
 			const subs = [
 				'sessions',
