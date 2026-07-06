@@ -107,7 +107,7 @@ export async function execute_coordination_action(
 				params.member ?? params.name,
 				'member',
 			);
-			const group_target = params.team_id ?? params.name;
+			const group_target = params.team_id;
 			const group = group_target
 				? coordination_db.get_group(group_target)
 				: undefined;
@@ -273,34 +273,25 @@ export async function execute_coordination_action(
 				params.to ?? params.member ?? require_session_id();
 			const ids =
 				params.message_ids ??
-				coordination_db
-					.list_inbox(target, { include_read: true })
-					.map((message) => message.message_id);
-			if (
+				(params.message_id
+					? [params.message_id]
+					: coordination_db
+							.list_inbox(target, { include_read: true })
+							.map((message) => message.message_id));
+			const read =
 				params.action === 'session_read' ||
-				params.action === 'message_read'
-			)
-				coordination_db.mark_messages_read(target, ids);
+				params.action === 'message_read';
+			if (read) coordination_db.mark_messages_read(target, ids);
 			else coordination_db.mark_messages_acknowledged(target, ids);
-			const messages = coordination_db.list_inbox(target, {
-				include_read: true,
-				include_acknowledged: true,
-			});
-			const chunk_text = format_message_chunk(messages, params);
+			const verb = read ? 'Read' : 'Acknowledged';
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text:
-							chunk_text ??
-							format_inbox(messages, {
-								full: params.mode === 'full',
-							}),
+						text: `${verb} ${ids.length} message${ids.length === 1 ? '' : 's'} for ${target}.`,
 					},
 				],
-				details: {
-					message_ids: messages.map((message) => message.message_id),
-				},
+				details: { message_ids: ids },
 			};
 		}
 		case 'artifact_create': {

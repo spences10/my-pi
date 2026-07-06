@@ -29,7 +29,8 @@ afterEach(() => {
 function fake_child(pid = 1234) {
 	const child = new EventEmitter() as any;
 	child.pid = pid;
-	child.stdin = { write: vi.fn() };
+	child.stdin = { unref: vi.fn() };
+	child.unref = vi.fn();
 	return child;
 }
 
@@ -98,7 +99,7 @@ describe('headless session runner', () => {
 		expect(env.DATABASE_URL).toBeUndefined();
 	});
 
-	it('spawns with shell false and registers parent/session metadata', async () => {
+	it('spawns detached and registers parent/session metadata', async () => {
 		const db = await tmp_db();
 		try {
 			const child = fake_child(4242);
@@ -148,9 +149,13 @@ describe('headless session runner', () => {
 				expect.arrayContaining(['--mode', 'rpc', '-e', '/ext.js']),
 				expect.objectContaining({
 					cwd: '/repo',
+					detached: true,
 					shell: false,
+					stdio: ['pipe', 'ignore', 'ignore'],
 				}),
 			);
+			expect(child.unref).toHaveBeenCalled();
+			expect(child.stdin.unref).toHaveBeenCalled();
 			expect(opened.session.parent_session_id).toBe('lead');
 			expect(opened.session.session_alias).toBe('worker');
 			expect(opened.session.metadata.group_id).toBe('group-1');
