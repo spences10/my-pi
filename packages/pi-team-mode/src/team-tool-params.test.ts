@@ -11,10 +11,16 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 		).resolves.toBeDefined();
 	});
 
-	it('does not expose RPC teammate or task actions', () => {
-		expect(TEAM_ACTIONS).not.toContain('member_spawn' as any);
+	it('exposes visible teammate spawning but not RPC task actions', () => {
+		expect(TEAM_ACTIONS).toContain('member_spawn');
 		expect(TEAM_ACTIONS).not.toContain('team_create' as any);
 		expect(TEAM_ACTIONS).not.toContain('task_create' as any);
+	});
+
+	it('requires a name for visible teammate spawning', () => {
+		expect(() =>
+			validate_team_tool_params({ action: 'member_spawn' }),
+		).toThrow(/name/);
 	});
 
 	it('requires a target for peer mailbox actions', () => {

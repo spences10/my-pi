@@ -24,11 +24,16 @@ export const TEAM_ACTIONS = [
 	'message_wait',
 	'message_read',
 	'message_ack',
+	'member_spawn',
 ] as const;
 
 export type TeamActionName = (typeof TEAM_ACTIONS)[number];
 
-const CoordinationRoleParam = StringEnum(['lead', 'peer'] as const);
+const CoordinationRoleParam = StringEnum([
+	'lead',
+	'teammate',
+	'peer',
+] as const);
 
 const TeamUiModeParam = StringEnum([
 	'auto',
@@ -87,7 +92,7 @@ export type TeamToolParams = {
 	team_id?: string;
 	name?: string;
 	member?: string;
-	role?: 'lead' | 'peer';
+	role?: 'lead' | 'teammate' | 'peer';
 	from?: string;
 	to?: string;
 	message?: string;
@@ -167,6 +172,7 @@ export function validate_team_tool_params(
 			require_tool_field(params, 'message');
 			return;
 		case 'group_create':
+		case 'member_spawn':
 			require_tool_field(params, 'name');
 			return;
 		case 'group_join':

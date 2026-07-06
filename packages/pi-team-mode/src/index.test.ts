@@ -28,12 +28,15 @@ describe('packages/pi-team-mode/src/index.ts', () => {
 		).toBe(false);
 	});
 
-	it('validates peer-only tool params', () => {
+	it('validates team tool params', () => {
 		expect(() =>
 			validate_team_tool_params({ action: 'session_list' }),
 		).not.toThrow();
 		expect(() =>
-			validate_team_tool_params({ action: 'member_spawn' } as never),
-		).toThrow(/Unsupported team action/);
+			validate_team_tool_params({
+				action: 'member_spawn',
+				name: 'teammate-a',
+			}),
+		).not.toThrow();
 	});
 });

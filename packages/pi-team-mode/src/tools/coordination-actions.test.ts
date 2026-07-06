@@ -1,4 +1,10 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
+import {
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -44,6 +50,96 @@ describe('coordination actions', () => {
 			expect(result.content[0]?.text).toContain(
 				'019f0f71-967e-7aed-853c-94ac29fbe7b6',
 			);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('creates visible resumable teammate sessions', async () => {
+		const db = await tmp_db();
+		try {
+			const session_dir = mkdtempSync(
+				join(tmpdir(), 'pi-team-sessions-'),
+			);
+			dirs.push(session_dir);
+			const lead = SessionManager.create('/repo', session_dir);
+			db.register_session({
+				session_id: lead.getSessionId(),
+				session_file: lead.getSessionFile(),
+				cwd: '/repo',
+				role: 'lead',
+			});
+
+			const result = await execute_coordination_action(
+				{
+					action: 'member_spawn',
+					name: 'teammate-a',
+					message: 'Inspect the failing test.',
+				},
+				{
+					ctx: { cwd: '/repo', sessionManager: lead } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => lead.getSessionId(),
+				},
+			);
+
+			const teammate = result.details.teammate as {
+				session_id: string;
+				session_file: string;
+			};
+			expect(db.get_session(teammate.session_id)).toMatchObject({
+				agent_name: 'teammate-a',
+				role: 'teammate',
+				parent_session_id: lead.getSessionId(),
+			});
+			expect(existsSync(teammate.session_file)).toBe(true);
+			expect(readFileSync(teammate.session_file, 'utf8')).toContain(
+				'Inspect the failing test.',
+			);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('writes session sends into target session history', async () => {
+		const db = await tmp_db();
+		try {
+			const session_dir = mkdtempSync(
+				join(tmpdir(), 'pi-team-sessions-'),
+			);
+			dirs.push(session_dir);
+			const lead = SessionManager.create('/repo', session_dir);
+			const worker = SessionManager.create('/repo', session_dir);
+			db.register_session({
+				session_id: lead.getSessionId(),
+				session_file: lead.getSessionFile(),
+				cwd: '/repo',
+			});
+			db.register_session({
+				session_id: worker.getSessionId(),
+				session_file: worker.getSessionFile(),
+				cwd: '/repo',
+				agent_name: 'worker',
+			});
+
+			await execute_coordination_action(
+				{
+					action: 'session_send',
+					to: 'worker',
+					message: 'Please produce the report.',
+				},
+				{
+					ctx: { cwd: '/repo', sessionManager: lead } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => lead.getSessionId(),
+				},
+			);
+
+			expect(
+				readFileSync(worker.getSessionFile()!, 'utf8'),
+			).toContain('Please produce the report.');
 		} finally {
 			db.close();
 		}

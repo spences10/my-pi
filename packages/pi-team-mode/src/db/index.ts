@@ -98,24 +98,28 @@ export class TeamDatabase {
 		input: CoordinationSessionInput,
 	): CoordinationSession {
 		const timestamp = now();
+		const existing = this.get_session(input.session_id);
 		this.statements.register_session.run(
 			input.session_id,
-			input.session_file ?? null,
+			input.session_file ?? existing?.session_file ?? null,
 			input.cwd,
-			input.agent_name ?? null,
-			input.pid ?? null,
-			input.role ?? 'peer',
+			input.agent_name ?? existing?.agent_name ?? null,
+			input.pid ?? existing?.pid ?? null,
+			input.role ?? existing?.role ?? 'peer',
 			input.status ?? 'online',
-			input.model_provider ?? null,
-			input.model_id ?? null,
-			input.thinking_level ?? null,
-			input.availability ?? 'available',
-			input.intent ?? null,
-			input.session_alias ?? null,
-			input.parent_session_id ?? null,
-			input.pool ?? 'default',
-			json(input.tags ?? []),
-			json(input.metadata ?? {}),
+			input.model_provider ?? existing?.model_provider ?? null,
+			input.model_id ?? existing?.model_id ?? null,
+			input.thinking_level ?? existing?.thinking_level ?? null,
+			input.availability ?? existing?.availability ?? 'available',
+			input.intent ?? existing?.intent ?? null,
+			input.session_alias ?? existing?.session_alias ?? null,
+			input.parent_session_id ?? existing?.parent_session_id ?? null,
+			input.pool ?? existing?.pool ?? 'default',
+			json(input.tags ?? existing?.tags ?? []),
+			json({
+				...existing?.metadata,
+				...input.metadata,
+			}),
 			timestamp,
 			timestamp,
 			timestamp,
@@ -152,17 +156,31 @@ export class TeamDatabase {
 	}
 
 	resolve_session_targets(target: string): CoordinationSession[] {
-		const sessions = (
+		const online_sessions = (
 			this.statements.list_online_sessions.all() as unknown as SessionRow[]
 		).map((row) => map_session(row));
-		const exact = sessions.filter(
+		const all_sessions = (
+			this.statements.list_sessions.all() as unknown as SessionRow[]
+		).map((row) => map_session(row));
+		const targetable_sessions = [
+			...online_sessions,
+			...all_sessions.filter(
+				(session) =>
+					session.metadata.created_by ===
+						'team_mode_visible_session' &&
+					!online_sessions.some(
+						(online) => online.session_id === session.session_id,
+					),
+			),
+		];
+		const exact = targetable_sessions.filter(
 			(session) =>
 				session.session_id === target ||
 				session.agent_name === target,
 		);
 		if (exact.length > 0) return exact;
 
-		const prefix_matches = sessions.filter((session) =>
+		const prefix_matches = targetable_sessions.filter((session) =>
 			session.session_id.startsWith(target),
 		);
 		if (prefix_matches.length <= 1) return prefix_matches;

@@ -9,8 +9,9 @@
 
 Local peer-session coordination for Pi. `pi-team-mode` registers Pi
 sessions in a local SQLite coordination bus, sends mailbox-backed peer
-messages, stores larger handoff artifacts, and coordinates groups of
-independently started sessions.
+messages, creates visible resumable teammate sessions, stores larger
+handoff artifacts, and coordinates groups of independently started
+sessions.
 
 ## Installation
 
@@ -33,8 +34,11 @@ pi -e ./packages/pi-team-mode
 - discovers live sessions across projects and working directories
 - marks stale PID-backed session registrations offline before listing
   or targeting peers
+- creates visible teammate sessions that can be resumed as normal Pi
+  sessions
 - sends compact mailbox-backed peer messages between independently
-  started sessions
+  started sessions and records those messages in target session
+  history
 - stores larger handoffs, plans, findings, logs, diffs, and results as
   coordination artifacts referenced from mailbox messages
 - creates coordination groups over arbitrary sessions
@@ -93,6 +97,15 @@ The `team` tool exposes peer-only coordination actions:
 - `message_wait`
 - `message_read`
 - `message_ack`
+- `member_spawn`
+
+Use `member_spawn` with `name` and optional `message` to create a
+session-native teammate. The created session is registered in Team
+Mode and its initial instructions are written to the teammate session
+file, so `/resume` shows the interaction without inspecting the
+mailbox. Sending a message to a spawned teammate wakes that session
+with a normal Pi print turn against the same session file, so any
+work/reply is also auditable in that teammate transcript.
 
 Use artifacts for larger handoffs and send artifact ids in mailbox
 messages instead of pasting long content into peer messages.

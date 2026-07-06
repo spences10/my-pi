@@ -165,7 +165,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 
 	pi.registerCommand('team', {
 		description:
-			'Peer session coordination with groups and mailboxes',
+			'Peer session coordination with visible teammate sessions, groups, and mailboxes',
 		getArgumentCompletions: (prefix) => {
 			const subs = [
 				'sessions',
@@ -178,6 +178,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'group create',
 				'group join',
 				'group send',
+				'member spawn',
 			];
 			return subs
 				.filter((sub) => sub.startsWith(prefix.trim()))
@@ -201,11 +202,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 		name: 'team',
 		label: 'Team',
 		description:
-			'Manage peer session coordination, groups, artifacts, and mailboxes.',
+			'Manage peer session coordination, visible teammates, groups, artifacts, and mailboxes.',
 		promptSnippet:
 			'Manage peer sessions, coordination groups, artifacts, and messages',
 		promptGuidelines: [
 			'Use team session_list to discover registered Pi sessions across projects before sending peer messages.',
+			'Use team member_spawn to create visible resumable teammate sessions when the user asks to create teammates; spawned teammates are normal Pi sessions that can be resumed.',
 			'If the user mentions standby sessions, existing sessions, subordinates, handoffs, or other active sessions, call session_list and prefer registered standby sessions.',
 			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for compact peer-session mailbox coordination.',
 			'Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of large mailbox bodies.',

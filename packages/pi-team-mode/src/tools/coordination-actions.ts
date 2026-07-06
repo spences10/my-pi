@@ -12,6 +12,11 @@ import {
 } from '../coordination-formatting.js';
 import type { TeamDatabase } from '../db/index.js';
 import type { TeamToolParams } from '../team-tool-params.js';
+import {
+	append_visible_team_message,
+	create_visible_teammate_session,
+	wake_visible_teammate_session,
+} from '../visible-sessions.js';
 
 function require_arg(
 	value: string | undefined,
@@ -97,18 +102,50 @@ export async function execute_coordination_action(
 			coordination_db.mark_stale_sessions_offline();
 			const session_id = require_session_id();
 			const target = require_arg(params.to, 'to');
-			const recipients = coordination_db
-				.resolve_session_targets(target)
-				.map((session) => session.session_id);
+			const target_sessions =
+				coordination_db.resolve_session_targets(target);
+			const recipients = target_sessions.map(
+				(session) => session.session_id,
+			);
+			const body = require_arg(params.message, 'message');
 			const message = coordination_db.send_to_session_target({
 				from_session_id: params.from ?? session_id,
 				target,
-				body: require_arg(params.message, 'message'),
+				body,
 				urgent: params.urgent,
 				reply_to: params.reply_to,
 				ttl_ms: params.ttl_ms,
 				requires_ack: params.requires_ack,
 			});
+			for (const target_session of target_sessions) {
+				append_visible_team_message(
+					target_session.session_file,
+					ctx.sessionManager?.getSessionDir?.(),
+					target_session.cwd,
+					`Coordination message from ${message.from_session_id}:\n\n${body}`,
+					{
+						kind: 'coordination_message',
+						message_id: message.message_id,
+						from_session_id: message.from_session_id,
+					},
+				);
+				if (
+					target_session.metadata.created_by ===
+					'team_mode_visible_session'
+				) {
+					await wake_visible_teammate_session({
+						session_file: target_session.session_file,
+						cwd: target_session.cwd,
+						message: body,
+						from_session_id: message.from_session_id,
+						message_id: message.message_id,
+						member:
+							target_session.agent_name ??
+							target_session.session_alias,
+						timeout_ms: params.timeout_ms,
+					});
+				}
+			}
 			await notify_coordination_messages(
 				recipients,
 				message.message_id,
@@ -310,6 +347,39 @@ export async function execute_coordination_action(
 				details: { group },
 			};
 		}
+		case 'member_spawn': {
+			const lead_session_id = require_session_id();
+			const teammate = create_visible_teammate_session(
+				coordination_db,
+				{
+					cwd: ctx.cwd,
+					session_dir: ctx.sessionManager.getSessionDir(),
+					lead_session_id,
+					lead_session_file: ctx.sessionManager.getSessionFile(),
+					name: require_arg(params.name, 'name'),
+					instructions: params.message,
+					role: params.role ?? 'teammate',
+					team_id: params.team_id,
+				},
+			);
+			if (params.team_id) {
+				coordination_db.add_group_member({
+					group_id: params.team_id,
+					session_id: teammate.session_id,
+					alias: teammate.name,
+					role: teammate.role === 'lead' ? 'lead' : 'teammate',
+				});
+			}
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: `Created teammate session ${teammate.name} (${teammate.session_id})`,
+					},
+				],
+				details: { teammate },
+			};
+		}
 		case 'group_list': {
 			const groups = coordination_db.list_groups();
 			const members = new Map(
@@ -401,19 +471,37 @@ export async function execute_coordination_action(
 				'group',
 			);
 			const from_session_id = require_session_id();
-			const recipients = coordination_db
+			const members = coordination_db
 				.list_group_members(group_target)
-				.filter((member) => member.session_id !== from_session_id)
-				.map((member) => member.session_id);
+				.filter((member) => member.session_id !== from_session_id);
+			const recipients = members.map((member) => member.session_id);
+			const body = require_arg(params.message, 'message');
 			const message = coordination_db.send_to_group({
 				from_session_id,
 				target: group_target,
-				body: require_arg(params.message, 'message'),
+				body,
 				urgent: params.urgent,
 				reply_to: params.reply_to,
 				ttl_ms: params.ttl_ms,
 				requires_ack: params.requires_ack,
 			});
+			for (const member of members) {
+				const target_session = coordination_db.get_session(
+					member.session_id,
+				);
+				append_visible_team_message(
+					target_session?.session_file,
+					ctx.sessionManager?.getSessionDir?.(),
+					target_session?.cwd ?? ctx.cwd,
+					`Coordination group message from ${from_session_id} to ${group_target}:\n\n${body}`,
+					{
+						kind: 'coordination_group_message',
+						message_id: message.message_id,
+						from_session_id,
+						group_id: group_target,
+					},
+				);
+			}
 			await notify_coordination_messages(
 				recipients,
 				message.message_id,

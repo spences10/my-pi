@@ -3,6 +3,7 @@ import {
 	format_inbox,
 	format_sessions,
 } from '../coordination-formatting.js';
+import { create_visible_teammate_session } from '../visible-sessions.js';
 import type { TeamCommandDeps } from './types.js';
 
 function require_session_id(deps: TeamCommandDeps): string {
@@ -91,6 +92,32 @@ export async function handle_session_command(
 		return;
 	}
 	throw new Error('Usage: /team session list|send|inbox|read|ack');
+}
+
+export async function handle_member_command(
+	deps: TeamCommandDeps,
+	rest: string[],
+): Promise<void> {
+	const [sub = 'spawn', name, ...message_parts] = rest;
+	if (sub !== 'spawn' || !name)
+		throw new Error(
+			'Usage: /team member spawn <name> [instructions]',
+		);
+	const teammate = create_visible_teammate_session(
+		deps.coordination_db,
+		{
+			cwd: deps.ctx.cwd,
+			session_dir: deps.ctx.sessionManager.getSessionDir(),
+			lead_session_id: require_session_id(deps),
+			lead_session_file: deps.ctx.sessionManager.getSessionFile(),
+			name,
+			instructions: message_parts.join(' ') || undefined,
+		},
+	);
+	deps.ctx.ui.notify(
+		`Created teammate session ${teammate.name} (${teammate.session_id})`,
+		'info',
+	);
 }
 
 export async function handle_group_command(

@@ -1,6 +1,7 @@
 import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 import {
 	handle_group_command,
+	handle_member_command,
 	handle_session_command,
 	handle_sessions,
 } from './commands/coordination-commands.js';
@@ -56,6 +57,9 @@ export async function handle_team_command(
 				break;
 			case 'group':
 				await handle_group_command(deps, rest);
+				break;
+			case 'member':
+				await handle_member_command(deps, rest);
 				break;
 			default:
 				show_team_help(deps);

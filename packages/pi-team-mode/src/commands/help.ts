@@ -14,6 +14,7 @@ export function show_team_help({ ctx }: TeamCommandDeps): void {
 			'/team group create <name> — create a coordination group',
 			'/team group join <group> [alias] — join a coordination group',
 			'/team group send <group> <message> — send a group message',
+			'/team member spawn <name> [instructions] — create a visible resumable teammate session',
 		].join('\n'),
 		'warning',
 	);

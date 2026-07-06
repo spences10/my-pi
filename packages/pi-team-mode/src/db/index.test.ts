@@ -186,6 +186,45 @@ describe('TeamDatabase coordination store', () => {
 		}
 	});
 
+	it('keeps spawned visible teammates targetable after child wake registration and shutdown', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({
+				session_id: 'worker',
+				cwd: '/repo',
+				agent_name: 'teammate',
+				role: 'teammate',
+				parent_session_id: 'lead',
+				metadata: { created_by: 'team_mode_visible_session' },
+			});
+
+			db.register_session({
+				session_id: 'worker',
+				cwd: '/repo',
+				pid: 123,
+				role: 'teammate',
+				status: 'online',
+			});
+			db.mark_session_status('worker', 'offline');
+
+			expect(db.get_session('worker')).toMatchObject({
+				agent_name: 'teammate',
+				parent_session_id: 'lead',
+				metadata: { created_by: 'team_mode_visible_session' },
+				status: 'offline',
+			});
+			expect(db.resolve_session_targets('worker')).toMatchObject([
+				{ session_id: 'worker' },
+			]);
+			expect(db.resolve_session_targets('teammate')).toMatchObject([
+				{ session_id: 'worker' },
+			]);
+		} finally {
+			db.close();
+		}
+	});
+
 	it('creates and searches coordination artifacts', async () => {
 		const db = await TeamDatabase.open(tmp_db());
 		try {
