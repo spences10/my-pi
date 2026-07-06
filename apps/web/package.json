@@ -47,5 +47,5 @@
 		"vitest-browser-svelte": "^2.1.1",
 		"wrangler": "^4.92.0"
 	},
-	"packageManager": "pnpm@11.9.0"
+	"packageManager": "pnpm@11.10.0"
 }
