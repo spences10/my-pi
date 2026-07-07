@@ -1,5 +1,5 @@
 import { SessionManager } from '@earendil-works/pi-coding-agent';
-import { spawn } from 'node:child_process';
+import { exec, spawn } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import {
 	AUTO_INJECT_ENV,
@@ -9,6 +9,8 @@ import {
 import type { TeamDatabase } from './db/index.js';
 
 const CUSTOM_TYPE = 'pi-team-mode:coordination';
+const DEFAULT_WAKE_TIMEOUT_MS = 120_000;
+const DIRECT_COMMAND_MAX_BUFFER = 1024 * 1024;
 
 export interface CreateVisibleTeammateOptions {
 	cwd: string;
@@ -58,16 +60,28 @@ export async function wake_visible_teammate_session(options: {
 	from_session_id: string;
 	message_id?: string;
 	member?: string;
+	report_to_session_ids?: string[];
 	timeout_ms?: number;
 }): Promise<void> {
 	const session_file = options.session_file;
 	const cli = process.argv[1];
 	if (!session_file || !cli) return;
 	await new Promise<void>((resolve) => {
+		const report_targets = [
+			options.from_session_id,
+			...(options.report_to_session_ids ?? []),
+		]
+			.filter(Boolean)
+			.filter(
+				(session_id, index, list) =>
+					list.indexOf(session_id) === index,
+			);
 		const coordination_prompt = [
 			`This prompt was delivered by Team Mode message ${options.message_id ?? '(unrecorded)'} from session ${options.from_session_id}.`,
 			'Handle the user prompt normally inside this resumable Pi session.',
-			'If the prompt asks for a response to the sender, use the team tool action session_send with to set to the sender session id.',
+			`When you have a final result, send a compact report with team session_send to: ${report_targets.join(', ')}. You may also message any other relevant session id directly if the task needs cross-project coordination.`,
+			`If you spawn subordinate teammates, pass reply_to or to=${report_targets.join(',')} so deterministic workers can report directly to the final recipient instead of waiting for a lead relay.`,
+			'If you wait on subordinate teammates, do not stop after receiving their result; immediately relay the final result, subordinate session id, blockers, or artifact id to the requested report recipients.',
 		].join('\n\n');
 		const child = spawn(
 			process.execPath,
@@ -94,7 +108,7 @@ export async function wake_visible_teammate_session(options: {
 		const timer = setTimeout(() => {
 			child.kill('SIGTERM');
 			resolve();
-		}, options.timeout_ms ?? 30_000);
+		}, options.timeout_ms ?? DEFAULT_WAKE_TIMEOUT_MS);
 		child.once('exit', () => {
 			clearTimeout(timer);
 			resolve();
@@ -103,6 +117,50 @@ export async function wake_visible_teammate_session(options: {
 			clearTimeout(timer);
 			resolve();
 		});
+	});
+}
+
+export async function run_direct_teammate_command(options: {
+	cwd: string;
+	command: string;
+	timeout_ms?: number;
+}): Promise<{
+	command: string;
+	exit_code: number | null;
+	stdout: string;
+	stderr: string;
+	timed_out: boolean;
+}> {
+	return await new Promise((resolve) => {
+		exec(
+			options.command,
+			{
+				cwd: options.cwd,
+				timeout: options.timeout_ms ?? DEFAULT_WAKE_TIMEOUT_MS,
+				maxBuffer: DIRECT_COMMAND_MAX_BUFFER,
+			},
+			(error, stdout, stderr) => {
+				const exec_error = error as
+					| (Error & {
+							code?: number | string | null;
+							signal?: NodeJS.Signals | null;
+							killed?: boolean;
+					  })
+					| null;
+				resolve({
+					command: options.command,
+					exit_code:
+						typeof exec_error?.code === 'number'
+							? exec_error.code
+							: exec_error
+								? 1
+								: 0,
+					stdout,
+					stderr,
+					timed_out: exec_error?.killed === true,
+				});
+			},
+		);
 	});
 }
 

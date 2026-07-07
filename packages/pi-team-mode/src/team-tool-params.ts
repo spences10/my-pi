@@ -78,6 +78,7 @@ export const TeamToolParams = Type.Object({
 	description: Type.Optional(Type.String()),
 	body: Type.Optional(Type.String()),
 	body_format: Type.Optional(Type.String()),
+	command: Type.Optional(Type.String()),
 	query: Type.Optional(Type.String()),
 	artifact_id: Type.Optional(Type.String()),
 	message_id: Type.Optional(Type.String()),
@@ -116,6 +117,7 @@ export type TeamToolParams = {
 	description?: string;
 	body?: string;
 	body_format?: string;
+	command?: string;
 	query?: string;
 	artifact_id?: string;
 	message_id?: string;
@@ -198,8 +200,9 @@ export function validate_team_tool_params(
 		case 'artifact_get':
 			require_tool_field(params, 'artifact_id');
 			return;
-		case 'message_list':
 		case 'message_wait':
+			return;
+		case 'message_list':
 		case 'message_read':
 		case 'message_ack':
 			require_tool_any_field(params, ['member', 'to'], 'member');

@@ -100,15 +100,48 @@ The `team` tool exposes peer-only coordination actions:
 - `member_spawn`
 
 Use `member_spawn` with `name` and optional `message` to create a
-session-native teammate. The created session is registered in Team
-Mode and its initial instructions are written to the teammate session
-file, so `/resume` shows the interaction without inspecting the
-mailbox. Sending a message to a spawned teammate wakes that session
-with a normal Pi print turn against the same session file, so any
-work/reply is also auditable in that teammate transcript.
+session-native teammate. Add `reply_to` or comma/space-separated `to`
+recipients when the teammate's final report should go directly to an
+orchestrator, peer, or cross-project session instead of only its
+creator. The created session is registered in Team Mode and its
+initial instructions are written to the teammate session file, so
+`/resume` shows the interaction without inspecting the mailbox.
+Sending a message to a spawned teammate wakes that session with a
+normal Pi print turn against the same session file, so any work/reply
+is also auditable in that teammate transcript.
+
+For deterministic checks that do not need a model turn, `member_spawn`
+also accepts `command`. The command runs in the teammate's project
+cwd, records start/result entries in the teammate transcript, and
+sends the captured exit code/stdout/stderr from the teammate session
+id to the creator plus any `reply_to`/`to` report recipients.
 
 Use artifacts for larger handoffs and send artifact ids in mailbox
 messages instead of pasting long content into peer messages.
+
+`session_wait` waits on the caller's inbox. Pass `from` to wait for a
+specific sender; `to` is also accepted as a sender filter for
+compatibility with older prompts. Use `member` only when intentionally
+reading another registered inbox.
+
+## Three-tier team orchestration
+
+Team Mode supports hierarchical responsibility with flat messaging:
+
+1. A main orchestrator creates the mission group, spawns or adds team
+   leads, and synthesizes final results.
+2. Team leads coordinate focused worker sessions and report compact
+   status, blockers, and artifact ids back to the orchestrator.
+3. Workers do scoped implementation, research, review, or validation
+   tasks and leave resumable session history. Workers may also message
+   the orchestrator or any other relevant session directly when the
+   task asks for direct report recipients or cross-project
+   coordination.
+
+Any session can still message any other session through the local
+coordination bus. Session ids remain targetable after a peer goes
+offline, so spawned teammates can send mailbox replies back to their
+creator or lead even if that session is not currently open.
 
 ## Mailbox semantics
 

@@ -164,29 +164,31 @@ export class TeamDatabase {
 	}
 
 	resolve_session_targets(target: string): CoordinationSession[] {
-		const online_sessions = (
-			this.statements.list_online_sessions.all() as unknown as SessionRow[]
-		).map((row) => map_session(row));
-		const all_sessions = (
+		const targetable_sessions = (
 			this.statements.list_sessions.all() as unknown as SessionRow[]
 		).map((row) => map_session(row));
-		const targetable_sessions = [
-			...online_sessions,
-			...all_sessions.filter(
-				(session) =>
-					session.metadata.created_by ===
-						'team_mode_visible_session' &&
-					!online_sessions.some(
-						(online) => online.session_id === session.session_id,
-					),
-			),
-		];
-		const exact = targetable_sessions.filter(
-			(session) =>
-				session.session_id === target ||
-				session.agent_name === target,
+		const exact_session_id = targetable_sessions.filter(
+			(session) => session.session_id === target,
 		);
-		if (exact.length > 0) return exact;
+		if (exact_session_id.length > 0) return exact_session_id;
+
+		const exact_named = targetable_sessions.filter(
+			(session) =>
+				session.agent_name === target ||
+				session.session_alias === target,
+		);
+		if (exact_named.length === 1) return exact_named;
+		if (exact_named.length > 1) {
+			const active_named = exact_named.filter(
+				(session) => session.status !== 'offline',
+			);
+			if (active_named.length === 1) return active_named;
+			throw new Error(
+				`Ambiguous session target: ${target}. Matching sessions: ${exact_named
+					.map((session) => session.session_id)
+					.join(', ')}`,
+			);
+		}
 
 		const prefix_matches = targetable_sessions.filter((session) =>
 			session.session_id.startsWith(target),
@@ -441,11 +443,14 @@ export class TeamDatabase {
 	): CoordinationMessage {
 		const targets = this.resolve_session_targets(input.target);
 		if (targets.length === 0) {
-			const suggestions = this.list_sessions()
+			const suggestions = this.list_sessions({
+				include_offline: true,
+			})
 				.filter(
 					(session) =>
 						session.session_id.includes(input.target) ||
-						session.agent_name?.includes(input.target),
+						session.agent_name?.includes(input.target) ||
+						session.session_alias?.includes(input.target),
 				)
 				.map((session) => session.session_id);
 			throw new Error(

@@ -255,6 +255,71 @@ describe('TeamDatabase coordination store', () => {
 		}
 	});
 
+	it('prefers a single active named session over stale offline duplicates', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			db.register_session({
+				session_id: 'old-reviewer',
+				cwd: '/repo',
+				agent_name: 'reviewer',
+				status: 'offline',
+			});
+			db.register_session({
+				session_id: 'current-reviewer',
+				cwd: '/repo',
+				agent_name: 'reviewer',
+				status: 'online',
+			});
+
+			expect(db.resolve_session_targets('reviewer')).toMatchObject([
+				{ session_id: 'current-reviewer' },
+			]);
+			expect(
+				db.resolve_session_targets('old-reviewer'),
+			).toMatchObject([
+				{ session_id: 'old-reviewer', status: 'offline' },
+			]);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('keeps offline parent sessions targetable by durable session id', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			db.register_session({
+				session_id: 'lead-session',
+				cwd: '/repo',
+				role: 'lead',
+				status: 'offline',
+			});
+			db.register_session({
+				session_id: 'worker-session',
+				cwd: '/repo',
+				role: 'teammate',
+				parent_session_id: 'lead-session',
+				status: 'online',
+			});
+
+			const message = db.send_to_session_target({
+				from_session_id: 'worker-session',
+				target: 'lead-session',
+				body: 'done',
+			});
+
+			expect(
+				db.resolve_session_targets('lead-session'),
+			).toMatchObject([
+				{ session_id: 'lead-session', status: 'offline' },
+			]);
+			expect(db.list_inbox('lead-session')).toMatchObject([
+				{ message_id: message.message_id, body: 'done' },
+			]);
+		} finally {
+			db.close();
+		}
+	});
+
 	it('creates and searches coordination artifacts', async () => {
 		const db = await TeamDatabase.open(tmp_db());
 		try {

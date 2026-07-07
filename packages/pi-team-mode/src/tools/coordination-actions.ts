@@ -15,6 +15,7 @@ import type { TeamToolParams } from '../team-tool-params.js';
 import {
 	append_visible_team_message,
 	create_visible_teammate_session,
+	run_direct_teammate_command,
 	wake_visible_teammate_session,
 } from '../visible-sessions.js';
 
@@ -25,6 +26,61 @@ function require_arg(
 	const trimmed = value?.trim();
 	if (!trimmed) throw new Error(`${name} is required`);
 	return trimmed;
+}
+
+function split_session_targets(value: string | undefined): string[] {
+	return (value ?? '')
+		.split(/[\s,]+/)
+		.map((target) => target.trim())
+		.filter(Boolean);
+}
+
+function unique_session_ids(session_ids: string[]): string[] {
+	return session_ids.filter(
+		(session_id, index, list) => list.indexOf(session_id) === index,
+	);
+}
+
+function resolve_report_recipients(
+	coordination_db: TeamDatabase,
+	targets: string[],
+): string[] {
+	return unique_session_ids(
+		targets.flatMap((target) =>
+			coordination_db
+				.resolve_session_targets(target)
+				.map((session) => session.session_id),
+		),
+	);
+}
+
+function resolve_sender_filter_ids(
+	coordination_db: TeamDatabase,
+	from_filter: string | undefined,
+): string[] | undefined {
+	if (!from_filter) return undefined;
+	try {
+		const resolved = coordination_db
+			.resolve_session_targets(from_filter)
+			.map((session) => session.session_id);
+		return unique_session_ids([from_filter, ...resolved]);
+	} catch {
+		return [from_filter];
+	}
+}
+
+function format_direct_command_result(
+	result: Awaited<ReturnType<typeof run_direct_teammate_command>>,
+): string {
+	const parts = [
+		`Direct teammate command finished with exit code ${result.exit_code}${result.timed_out ? ' after timing out' : ''}.`,
+		`Command: ${result.command}`,
+	];
+	if (result.stdout.trim())
+		parts.push(`stdout:\n${result.stdout.trim()}`);
+	if (result.stderr.trim())
+		parts.push(`stderr:\n${result.stderr.trim()}`);
+	return parts.join('\n\n');
 }
 
 interface CoordinationActionContext {
@@ -140,6 +196,12 @@ export async function execute_coordination_action(
 						'team_mode_visible_session' &&
 					session.status === 'offline',
 			);
+			const report_recipients = params.reply_to
+				? resolve_report_recipients(coordination_db, [
+						message.from_session_id,
+						params.reply_to,
+					])
+				: [message.from_session_id];
 			for (const target_session of target_sessions) {
 				append_visible_team_message(
 					target_session.session_file,
@@ -170,6 +232,7 @@ export async function execute_coordination_action(
 					message_id: message.message_id,
 					member:
 						target_session.agent_name ?? target_session.session_alias,
+					report_to_session_ids: report_recipients,
 					timeout_ms: params.timeout_ms,
 				});
 			}
@@ -225,17 +288,30 @@ export async function execute_coordination_action(
 		case 'session_wait':
 		case 'message_wait': {
 			const target =
-				params.to ?? params.member ?? require_session_id();
+				params.member ??
+				(params.action === 'message_wait' ? params.to : undefined) ??
+				require_session_id();
+			const from_filter = resolve_sender_filter_ids(
+				coordination_db,
+				params.from ??
+					(params.action === 'session_wait' ? params.to : undefined),
+			);
 			const deadline =
 				Date.now() + Math.max(0, params.timeout_ms ?? 30_000);
-			let messages = coordination_db.list_inbox(target, {
-				include_read: params.include_read,
-			});
+			const list_matching_messages = () =>
+				coordination_db
+					.list_inbox(target, {
+						include_read: params.include_read,
+					})
+					.filter(
+						(message) =>
+							!from_filter ||
+							from_filter.includes(message.from_session_id),
+					);
+			let messages = list_matching_messages();
 			while (messages.length === 0 && Date.now() < deadline) {
 				await new Promise((resolve) => setTimeout(resolve, 250));
-				messages = coordination_db.list_inbox(target, {
-					include_read: params.include_read,
-				});
+				messages = list_matching_messages();
 			}
 			if (messages.length > 0) {
 				const message_ids = messages.map(
@@ -424,13 +500,70 @@ export async function execute_coordination_action(
 					role: teammate.role === 'lead' ? 'lead' : 'teammate',
 				});
 			}
-			if (params.message?.trim()) {
+			const report_recipients = resolve_report_recipients(
+				coordination_db,
+				[
+					lead_session_id,
+					params.reply_to,
+					...split_session_targets(params.to),
+				].filter(Boolean) as string[],
+			);
+			if (params.command?.trim()) {
+				append_visible_team_message(
+					teammate.session_file,
+					ctx.sessionManager?.getSessionDir?.(),
+					ctx.cwd,
+					`Direct teammate command started by ${lead_session_id}:\n\n${params.command}`,
+					{
+						kind: 'direct_teammate_command_started',
+						from_session_id: lead_session_id,
+						report_to_session_ids: report_recipients,
+					},
+				);
+				void (async () => {
+					const result = await run_direct_teammate_command({
+						cwd: ctx.cwd,
+						command: params.command!,
+						timeout_ms: params.timeout_ms,
+					});
+					const body = format_direct_command_result(result);
+					append_visible_team_message(
+						teammate.session_file,
+						ctx.sessionManager?.getSessionDir?.(),
+						ctx.cwd,
+						body,
+						{
+							kind: 'direct_teammate_command_result',
+							from_session_id: teammate.session_id,
+							report_to_session_ids: report_recipients,
+						},
+					);
+					const message = coordination_db.send_message({
+						from_session_id: teammate.session_id,
+						to_session_ids: report_recipients,
+						scope: 'session',
+						target: report_recipients.join(','),
+						body,
+						metadata: {
+							kind: 'direct_teammate_command_result',
+							command: result.command,
+							exit_code: result.exit_code,
+							timed_out: result.timed_out,
+						},
+					});
+					await notify_coordination_messages(
+						report_recipients,
+						message.message_id,
+					);
+				})();
+			} else if (params.message?.trim()) {
 				void wake_teammate({
 					session_file: teammate.session_file,
 					cwd: ctx.cwd,
 					message: params.message,
 					from_session_id: lead_session_id,
 					member: teammate.name,
+					report_to_session_ids: report_recipients,
 					timeout_ms: params.timeout_ms,
 				});
 			}
@@ -438,10 +571,10 @@ export async function execute_coordination_action(
 				content: [
 					{
 						type: 'text' as const,
-						text: `Created teammate session ${teammate.name} (${teammate.session_id})${params.message?.trim() ? '; started background task execution' : ''}`,
+						text: `Created teammate session ${teammate.name} (${teammate.session_id})${params.command?.trim() ? '; started direct command execution' : params.message?.trim() ? '; started background task execution' : ''}`,
 					},
 				],
-				details: { teammate },
+				details: { teammate, report_recipients },
 			};
 		}
 		case 'group_list': {

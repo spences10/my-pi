@@ -109,10 +109,65 @@ describe('coordination actions', () => {
 				message: 'Inspect the failing test.',
 				from_session_id: lead.getSessionId(),
 				member: 'teammate-a',
+				report_to_session_ids: [lead.getSessionId()],
 				timeout_ms: undefined,
 			});
 			expect(result.content[0]?.text).toContain(
 				'started background task execution',
+			);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('runs direct teammate commands and reports to requested recipients', async () => {
+		const db = await tmp_db();
+		try {
+			const session_dir = mkdtempSync(
+				join(tmpdir(), 'pi-team-sessions-'),
+			);
+			dirs.push(session_dir);
+			const cwd = mkdtempSync(join(tmpdir(), 'pi-team-cwd-'));
+			dirs.push(cwd);
+			const lead = SessionManager.create(cwd, session_dir);
+			db.register_session({
+				session_id: lead.getSessionId(),
+				session_file: lead.getSessionFile(),
+				cwd,
+				role: 'lead',
+			});
+			db.register_session({ session_id: 'orchestrator', cwd });
+
+			const result = await execute_coordination_action(
+				{
+					action: 'member_spawn',
+					name: 'fast-worker',
+					command: 'printf direct-ok',
+					reply_to: 'orchestrator',
+				},
+				{
+					ctx: { cwd, sessionManager: lead } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => lead.getSessionId(),
+				},
+			);
+
+			const teammate = result.details.teammate as {
+				session_id: string;
+			};
+			await vi.waitFor(() => {
+				expect(db.list_inbox(lead.getSessionId())).toHaveLength(1);
+				expect(db.list_inbox('orchestrator')).toHaveLength(1);
+			});
+			expect(db.list_inbox(lead.getSessionId())[0]).toMatchObject({
+				from_session_id: teammate.session_id,
+			});
+			expect(db.list_inbox('orchestrator')[0]?.body).toContain(
+				'direct-ok',
+			);
+			expect(result.content[0]?.text).toContain(
+				'started direct command execution',
 			);
 		} finally {
 			db.close();
@@ -213,6 +268,99 @@ describe('coordination actions', () => {
 			expect(
 				readFileSync(worker.getSessionFile()!, 'utf8'),
 			).toContain('Please produce the report.');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('waits on current inbox and treats to as a sender filter', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'parent', cwd: '/repo' });
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			db.send_to_session_target({
+				from_session_id: 'worker',
+				target: 'lead',
+				body: 'worker result',
+			});
+			db.send_to_session_target({
+				from_session_id: 'lead',
+				target: 'parent',
+				body: 'lead result',
+			});
+
+			const result = await execute_coordination_action(
+				{ action: 'session_wait', to: 'lead', timeout_ms: 0 },
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'parent',
+				},
+			);
+
+			expect(result.content[0]?.text).toContain('lead result');
+			expect(result.content[0]?.text).not.toContain('worker result');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('resolves session_wait from aliases before filtering senders', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'parent', cwd: '/repo' });
+			db.register_session({
+				session_id: 'lead-session',
+				cwd: '/repo',
+				agent_name: 'tree-lead',
+			});
+			db.send_to_session_target({
+				from_session_id: 'lead-session',
+				target: 'parent',
+				body: 'lead result',
+			});
+
+			const result = await execute_coordination_action(
+				{ action: 'session_wait', from: 'tree-lead', timeout_ms: 0 },
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'parent',
+				},
+			);
+
+			expect(result.content[0]?.text).toContain('lead result');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('keeps message_wait to as a legacy target inbox', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'parent', cwd: '/repo' });
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			db.send_to_session_target({
+				from_session_id: 'worker',
+				target: 'lead',
+				body: 'worker result',
+			});
+
+			const result = await execute_coordination_action(
+				{ action: 'message_wait', to: 'lead', timeout_ms: 0 },
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'parent',
+				},
+			);
+
+			expect(result.content[0]?.text).toContain('worker result');
 		} finally {
 			db.close();
 		}

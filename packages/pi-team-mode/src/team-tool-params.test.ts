@@ -21,6 +21,13 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 		expect(() =>
 			validate_team_tool_params({ action: 'member_spawn' }),
 		).toThrow(/name/);
+		expect(() =>
+			validate_team_tool_params({
+				action: 'member_spawn',
+				name: 'fast-check',
+				command: 'pnpm test',
+			}),
+		).not.toThrow();
 	});
 
 	it('requires a target for peer mailbox actions', () => {
@@ -30,5 +37,8 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 				message: 'hi',
 			}),
 		).toThrow(/to/);
+		expect(() =>
+			validate_team_tool_params({ action: 'message_wait' }),
+		).not.toThrow();
 	});
 });
