@@ -65,6 +65,24 @@ describe('coordination formatting', () => {
 		).toContain('standby:subordinate');
 	});
 
+	it('hides long session intent in compact session lists', () => {
+		const text = format_sessions([
+			{
+				...session,
+				intent:
+					'Inspect this repo only. Return inventory with files/categories.',
+			},
+		]);
+
+		expect(text).not.toContain('Inspect this repo only');
+		expect(
+			format_sessions(
+				[{ ...session, intent: 'Inspect this repo only.' }],
+				{ full_ids: true },
+			),
+		).toContain('Inspect this repo only.');
+	});
+
 	it('truncates long peer messages for auto-injection', () => {
 		const text = format_peer_message_for_injection('worker-session', [
 			inbox_message,
