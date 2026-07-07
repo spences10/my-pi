@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.44
+
+### Patch Changes
+
+- 459eaff: Team Mode keeps compact session lists and mailbox
+  confirmations terse while preserving explicit full retrieval.
+
 ## 0.0.43
 
 ### Patch Changes
