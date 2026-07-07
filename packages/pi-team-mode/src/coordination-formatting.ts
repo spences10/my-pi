@@ -43,7 +43,10 @@ export function format_sessions(
 				session.availability !== 'available'
 					? ` · ${session.availability}`
 					: '';
-			const intent = session.intent ? ` · ${session.intent}` : '';
+			const intent =
+				options.full_ids && session.intent
+					? ` · ${session.intent}`
+					: '';
 			const standby = session.intent
 				? undefined
 				: standby_label(session.metadata);

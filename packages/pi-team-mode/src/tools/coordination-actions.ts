@@ -193,7 +193,8 @@ export async function execute_coordination_action(
 				params.to ?? params.member ?? require_session_id();
 			const messages = coordination_db.list_inbox(target, {
 				include_read: params.include_read,
-				include_acknowledged: params.include_read,
+				include_acknowledged:
+					params.mode === 'full' || has_chunk_request(params),
 			});
 			const chunk_text = format_message_chunk(messages, params);
 			return {

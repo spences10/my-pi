@@ -306,6 +306,47 @@ describe('coordination actions', () => {
 		}
 	});
 
+	it('does not show acknowledged messages in default or include_read inbox output', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			const message = db.send_to_session_target({
+				from_session_id: 'worker',
+				target: 'lead',
+				body: 'Acknowledged — teammate session is ready.',
+			});
+			db.mark_messages_delivered('lead', [message.message_id]);
+			db.mark_messages_read('lead', [message.message_id]);
+			db.mark_messages_acknowledged('lead', [message.message_id]);
+			const context = {
+				ctx: { cwd: '/repo' } as any,
+				coordination_db: db,
+				notify_coordination_messages: async () => undefined,
+				require_session_id: () => 'lead',
+			};
+
+			const compact = await execute_coordination_action(
+				{ action: 'session_inbox', include_read: true },
+				context,
+			);
+			const full = await execute_coordination_action(
+				{ action: 'session_inbox', include_read: true, mode: 'full' },
+				context,
+			);
+
+			expect(compact.content[0]?.text).not.toContain(
+				'Acknowledged — teammate session is ready.',
+			);
+			expect(full.content[0]?.text).toContain(
+				'Acknowledged — teammate session is ready.',
+			);
+		} finally {
+			db.close();
+		}
+	});
+
+
 	it('starts background delivery for offline visible teammates', async () => {
 		const db = await tmp_db();
 		try {
