@@ -1,5 +1,14 @@
 # @spences10/pi-team-mode
 
+## 0.0.43
+
+### Patch Changes
+
+- 3d146ba: Team Mode now delivers visible teammate messages live or in
+  background across the same resumable session.
+- cb58236: Prevent Team Mode EEXIST crashes, defer broker startup, and
+  throttle heartbeat writes for long sessions.
+
 ## 0.0.42
 
 ### Patch Changes
