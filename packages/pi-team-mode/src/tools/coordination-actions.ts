@@ -35,6 +35,7 @@ interface CoordinationActionContext {
 		message_id?: string,
 	) => Promise<void>;
 	require_session_id: () => string;
+	wake_visible_teammate_session?: typeof wake_visible_teammate_session;
 }
 
 function has_chunk_request(params: TeamToolParams): boolean {
@@ -92,6 +93,8 @@ export async function execute_coordination_action(
 		coordination_db,
 		notify_coordination_messages,
 		require_session_id,
+		wake_visible_teammate_session:
+			wake_teammate = wake_visible_teammate_session,
 	} = context;
 	switch (params.action) {
 		case 'session_list': {
@@ -159,7 +162,7 @@ export async function execute_coordination_action(
 					target_session.session_id,
 					[message.message_id],
 				);
-				void wake_visible_teammate_session({
+				void wake_teammate({
 					session_file: target_session.session_file,
 					cwd: target_session.cwd,
 					message: body,
@@ -421,11 +424,21 @@ export async function execute_coordination_action(
 					role: teammate.role === 'lead' ? 'lead' : 'teammate',
 				});
 			}
+			if (params.message?.trim()) {
+				void wake_teammate({
+					session_file: teammate.session_file,
+					cwd: ctx.cwd,
+					message: params.message,
+					from_session_id: lead_session_id,
+					member: teammate.name,
+					timeout_ms: params.timeout_ms,
+				});
+			}
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text: `Created teammate session ${teammate.name} (${teammate.session_id})`,
+						text: `Created teammate session ${teammate.name} (${teammate.session_id})${params.message?.trim() ? '; started background task execution' : ''}`,
 					},
 				],
 				details: { teammate },

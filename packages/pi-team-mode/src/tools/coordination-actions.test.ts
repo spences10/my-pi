@@ -7,7 +7,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TeamDatabase } from '../db/index.js';
 import { execute_coordination_action } from './coordination-actions.js';
 
@@ -70,6 +70,9 @@ describe('coordination actions', () => {
 				role: 'lead',
 			});
 
+			const wake_visible_teammate_session = vi.fn(
+				async () => undefined,
+			);
 			const result = await execute_coordination_action(
 				{
 					action: 'member_spawn',
@@ -81,6 +84,7 @@ describe('coordination actions', () => {
 					coordination_db: db,
 					notify_coordination_messages: async () => undefined,
 					require_session_id: () => lead.getSessionId(),
+					wake_visible_teammate_session,
 				},
 			);
 
@@ -98,6 +102,17 @@ describe('coordination actions', () => {
 			expect(existsSync(teammate.session_file)).toBe(true);
 			expect(readFileSync(teammate.session_file, 'utf8')).toContain(
 				'Inspect the failing test.',
+			);
+			expect(wake_visible_teammate_session).toHaveBeenCalledWith({
+				session_file: teammate.session_file,
+				cwd: '/repo',
+				message: 'Inspect the failing test.',
+				from_session_id: lead.getSessionId(),
+				member: 'teammate-a',
+				timeout_ms: undefined,
+			});
+			expect(result.content[0]?.text).toContain(
+				'started background task execution',
 			);
 		} finally {
 			db.close();
