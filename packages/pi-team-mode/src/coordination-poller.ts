@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { safe_sqlite_tick } from '@spences10/pi-sqlite-core';
 import type {
 	CoordinationInboxMessage,
 	TeamDatabase,
@@ -40,6 +41,10 @@ export class CoordinationPoller {
 	}
 
 	poll(pi: ExtensionAPI): void {
+		safe_sqlite_tick(() => this.poll_once(pi));
+	}
+
+	private poll_once(pi: ExtensionAPI): void {
 		const session_id = this.options.get_session_id();
 		if (!session_id) return;
 		const now = Date.now();

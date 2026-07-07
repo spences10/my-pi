@@ -37,6 +37,7 @@ with `pi install` directly:
 - `@spences10/pi-project-trust`
 - `@spences10/pi-settings`
 - `@spences10/pi-skill-importer`
+- `@spences10/pi-sqlite-core`
 - `@spences10/pi-tui-modal`
 
 Check each package README before changing install instructions,

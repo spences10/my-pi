@@ -299,7 +299,9 @@ describe('coordination actions', () => {
 			expect(result.content[0]?.text).toBe(
 				`Marked 1 coordination message read: ${message.message_id}`,
 			);
-			expect(result.content[0]?.text).not.toContain('private context');
+			expect(result.content[0]?.text).not.toContain(
+				'private context',
+			);
 			expect(result.content[0]?.text).not.toContain('[truncated]');
 		} finally {
 			db.close();
@@ -345,7 +347,6 @@ describe('coordination actions', () => {
 			db.close();
 		}
 	});
-
 
 	it('starts background delivery for offline visible teammates', async () => {
 		const db = await tmp_db();

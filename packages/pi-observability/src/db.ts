@@ -1,3 +1,7 @@
+import {
+	SQLITE_PERSISTENT_PRAGMAS,
+	sqlite_pragmas,
+} from '@spences10/pi-sqlite-core';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
@@ -18,12 +22,10 @@ const SCHEMA = readFileSync(
 	new URL('./schema.sql', import.meta.url),
 	'utf8',
 );
-const PERSISTENT_PRAGMAS = `
-PRAGMA journal_mode = WAL;
-`;
-const CONNECTION_PRAGMAS = `
-PRAGMA busy_timeout = 5000;
-`;
+const PERSISTENT_PRAGMAS = SQLITE_PERSISTENT_PRAGMAS;
+const CONNECTION_PRAGMAS = sqlite_pragmas({
+	foreign_keys: false,
+}).connection;
 
 export function prepare_db(db_path: string): {
 	db: DatabaseSync;

@@ -59,6 +59,49 @@ describe('CoordinationPoller', () => {
 		expect(db.mark_messages_read).not.toHaveBeenCalled();
 	});
 
+	it('ignores transient SQLite busy errors during polling', () => {
+		const error = Object.assign(new Error('database is locked'), {
+			code: 'ERR_SQLITE_ERROR',
+			errcode: 5,
+		});
+		const db = {
+			heartbeat_session: vi.fn(() => {
+				throw error;
+			}),
+			list_inbox: vi.fn(() => []),
+			mark_messages_delivered: vi.fn(),
+			mark_messages_read: vi.fn(),
+		};
+		const poller = new CoordinationPoller({
+			db: db as any,
+			get_session_id: () => 'session-1',
+			should_auto_inject_messages: () => true,
+		});
+		const pi = { sendUserMessage: vi.fn() } as any;
+
+		expect(() => poller.poll(pi)).not.toThrow();
+		expect(pi.sendUserMessage).not.toHaveBeenCalled();
+	});
+
+	it('rethrows unexpected polling errors', () => {
+		const db = {
+			heartbeat_session: vi.fn(() => {
+				throw new Error('boom');
+			}),
+			list_inbox: vi.fn(() => []),
+			mark_messages_delivered: vi.fn(),
+			mark_messages_read: vi.fn(),
+		};
+		const poller = new CoordinationPoller({
+			db: db as any,
+			get_session_id: () => 'session-1',
+			should_auto_inject_messages: () => true,
+		});
+		const pi = { sendUserMessage: vi.fn() } as any;
+
+		expect(() => poller.poll(pi)).toThrow('boom');
+	});
+
 	it('delivers mailbox messages as raw native user turns', () => {
 		const message = {
 			message_id: 'm1',

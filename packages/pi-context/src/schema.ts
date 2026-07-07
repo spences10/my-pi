@@ -1,3 +1,7 @@
+import {
+	SQLITE_CONNECTION_PRAGMAS,
+	SQLITE_PERSISTENT_PRAGMAS,
+} from '@spences10/pi-sqlite-core';
 import { readFileSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
 
@@ -6,13 +10,8 @@ const SCHEMA = readFileSync(
 	'utf8',
 );
 const LATEST_CONTEXT_SCHEMA_VERSION = 1;
-const PERSISTENT_PRAGMAS = `
-PRAGMA journal_mode = WAL;
-`;
-const CONNECTION_PRAGMAS = `
-PRAGMA foreign_keys = ON;
-PRAGMA busy_timeout = 5000;
-`;
+const PERSISTENT_PRAGMAS = SQLITE_PERSISTENT_PRAGMAS;
+const CONNECTION_PRAGMAS = SQLITE_CONNECTION_PRAGMAS;
 const MIGRATIONS: Record<number, string> = {
 	1: SCHEMA,
 };

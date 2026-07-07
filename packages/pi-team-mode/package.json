@@ -39,7 +39,9 @@
 		"coverage:self": "vp exec vitest run --coverage",
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
-	"dependencies": {},
+	"dependencies": {
+		"@spences10/pi-sqlite-core": "workspace:*"
+	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",

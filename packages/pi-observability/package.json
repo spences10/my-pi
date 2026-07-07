@@ -52,6 +52,7 @@
 	},
 	"dependencies": {
 		"@fontsource/victor-mono": "^5.2.8",
+		"@spences10/pi-sqlite-core": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*"
 	},
 	"devDependencies": {
