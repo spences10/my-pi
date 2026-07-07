@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.46
+
+### Patch Changes
+
+- ef47538: Fix Team Mode routing, wait semantics, direct worker
+  reporting, and reduce nested orchestration latency.
+
 ## 0.0.45
 
 ### Patch Changes
