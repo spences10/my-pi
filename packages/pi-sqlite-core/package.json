@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-sqlite-core",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Shared SQLite helpers for Pi packages, including busy handling and connection pragmas",
 	"keywords": [
 		"pi",

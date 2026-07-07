@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.103
+
+### Patch Changes
+
+- 85f7efb: Add shared SQLite helpers for busy handling and consistent
+  pragmas across Pi database-backed packages.
+
 ## 0.1.102
 
 ## 0.1.101
