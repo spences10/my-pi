@@ -91,6 +91,8 @@ describe('coordination actions', () => {
 			expect(db.get_session(teammate.session_id)).toMatchObject({
 				agent_name: 'teammate-a',
 				role: 'teammate',
+				status: 'offline',
+				availability: 'standby',
 				parent_session_id: lead.getSessionId(),
 			});
 			expect(existsSync(teammate.session_file)).toBe(true);
@@ -102,7 +104,7 @@ describe('coordination actions', () => {
 		}
 	});
 
-	it('writes session sends into target session history', async () => {
+	it('does not create unflushed live target session files on send', async () => {
 		const db = await tmp_db();
 		try {
 			const session_dir = mkdtempSync(
@@ -111,6 +113,62 @@ describe('coordination actions', () => {
 			dirs.push(session_dir);
 			const lead = SessionManager.create('/repo', session_dir);
 			const worker = SessionManager.create('/repo', session_dir);
+			worker.appendMessage({
+				role: 'user',
+				content: 'starting',
+				timestamp: Date.now(),
+			});
+			db.register_session({
+				session_id: lead.getSessionId(),
+				session_file: lead.getSessionFile(),
+				cwd: '/repo',
+			});
+			db.register_session({
+				session_id: worker.getSessionId(),
+				session_file: worker.getSessionFile(),
+				cwd: '/repo',
+				agent_name: 'worker',
+			});
+
+			await execute_coordination_action(
+				{
+					action: 'session_send',
+					to: 'worker',
+					message: 'Please produce the report.',
+				},
+				{
+					ctx: { cwd: '/repo', sessionManager: lead } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => lead.getSessionId(),
+				},
+			);
+
+			expect(existsSync(worker.getSessionFile()!)).toBe(false);
+			expect(() =>
+				worker.appendMessage({
+					role: 'assistant',
+					content: [{ type: 'text', text: 'ok' }],
+				} as any),
+			).not.toThrow();
+		} finally {
+			db.close();
+		}
+	});
+
+	it('writes session sends into existing target session history', async () => {
+		const db = await tmp_db();
+		try {
+			const session_dir = mkdtempSync(
+				join(tmpdir(), 'pi-team-sessions-'),
+			);
+			dirs.push(session_dir);
+			const lead = SessionManager.create('/repo', session_dir);
+			const worker = SessionManager.create('/repo', session_dir);
+			worker.appendMessage({
+				role: 'assistant',
+				content: [{ type: 'text', text: 'ready' }],
+			} as any);
 			db.register_session({
 				session_id: lead.getSessionId(),
 				session_file: lead.getSessionFile(),
@@ -140,6 +198,144 @@ describe('coordination actions', () => {
 			expect(
 				readFileSync(worker.getSessionFile()!, 'utf8'),
 			).toContain('Please produce the report.');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('marks waited messages read so auto-injection does not repeat them', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			db.send_to_session_target({
+				from_session_id: 'worker',
+				target: 'lead',
+				body: 'pong',
+			});
+
+			const result = await execute_coordination_action(
+				{ action: 'session_wait', timeout_ms: 0 },
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'lead',
+				},
+			);
+
+			expect(result.content[0]?.text).toContain('pong');
+			expect(
+				db.list_inbox('lead', {
+					undelivered_only: true,
+					include_read: true,
+				}),
+			).toEqual([]);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('limits read and ack output to requested message ids', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			const first = db.send_to_session_target({
+				from_session_id: 'worker',
+				target: 'lead',
+				body: 'first',
+			});
+			db.send_to_session_target({
+				from_session_id: 'worker',
+				target: 'lead',
+				body: 'second',
+			});
+
+			const result = await execute_coordination_action(
+				{
+					action: 'session_ack',
+					message_ids: [first.message_id],
+				},
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'lead',
+				},
+			);
+
+			expect(result.content[0]?.text).toContain(
+				`Acknowledged 1 coordination message: ${first.message_id}`,
+			);
+			expect(result.content[0]?.text).not.toContain('first');
+			expect(result.content[0]?.text).not.toContain('second');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('does not echo message bodies in read confirmations', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			const message = db.send_to_session_target({
+				from_session_id: 'worker',
+				target: 'lead',
+				body: `please inspect ${'private context '.repeat(40)}final detail`,
+			});
+
+			const result = await execute_coordination_action(
+				{ action: 'session_read' },
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'lead',
+				},
+			);
+
+			expect(result.content[0]?.text).toBe(
+				`Marked 1 coordination message read: ${message.message_id}`,
+			);
+			expect(result.content[0]?.text).not.toContain('private context');
+			expect(result.content[0]?.text).not.toContain('[truncated]');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('starts background delivery for offline visible teammates', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({
+				session_id: 'worker',
+				cwd: '/repo',
+				agent_name: 'worker',
+				status: 'offline',
+				metadata: { created_by: 'team_mode_visible_session' },
+			});
+
+			const result = await execute_coordination_action(
+				{ action: 'session_send', to: 'worker', message: 'Ping.' },
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'lead',
+				},
+			);
+
+			const inbox = db.list_inbox('worker', {
+				undelivered_only: true,
+				include_read: true,
+			});
+			expect(result.content[0]?.text).toContain(
+				'Started background delivery for 1 offline visible teammate',
+			);
+			expect(inbox).toEqual([]);
 		} finally {
 			db.close();
 		}

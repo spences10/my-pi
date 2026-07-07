@@ -80,15 +80,16 @@ export default async function team_mode(pi: ExtensionAPI) {
 	const coordination_db = await TeamDatabase.open(
 		get_coordination_db_path(),
 	);
-	await ensure_coordination_broker();
 	let own_session_id: string | undefined;
 	let current_cwd: string | undefined;
+	let agent_active = false;
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'peer';
 	const own_role = process.env[TEAM_ROLE_ENV] || 'peer';
 	const coordination_poller = new CoordinationPoller({
 		db: coordination_db,
 		get_session_id: () => own_session_id,
 		should_auto_inject_messages,
+		is_agent_active: () => agent_active,
 	});
 	const coordination_broker = new CoordinationBrokerClient({
 		get_session_id: () => own_session_id,
@@ -122,6 +123,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				.map((tag) => tag.trim())
 				.filter(Boolean),
 		});
+		void ensure_coordination_broker();
 		coordination_broker.start();
 		coordination_poller.start(pi);
 		coordination_poller.poll(pi);
@@ -135,6 +137,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 	});
 
 	pi.on('before_agent_start', async (event) => {
+		agent_active = true;
 		const standby_registration = detect_standby_registration(
 			extract_latest_user_text(event),
 		);
@@ -161,6 +164,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 				coordination_identity,
 			}),
 		};
+	});
+
+	pi.on('agent_end', async () => {
+		agent_active = false;
+		coordination_poller.poll(pi);
 	});
 
 	pi.registerCommand('team', {
