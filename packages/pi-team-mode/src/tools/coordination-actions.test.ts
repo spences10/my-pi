@@ -265,8 +265,42 @@ describe('coordination actions', () => {
 				},
 			);
 
-			expect(result.content[0]?.text).toContain('first');
+			expect(result.content[0]?.text).toContain(
+				`Acknowledged 1 coordination message: ${first.message_id}`,
+			);
+			expect(result.content[0]?.text).not.toContain('first');
 			expect(result.content[0]?.text).not.toContain('second');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('does not echo message bodies in read confirmations', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			const message = db.send_to_session_target({
+				from_session_id: 'worker',
+				target: 'lead',
+				body: `please inspect ${'private context '.repeat(40)}final detail`,
+			});
+
+			const result = await execute_coordination_action(
+				{ action: 'session_read' },
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'lead',
+				},
+			);
+
+			expect(result.content[0]?.text).toBe(
+				`Marked 1 coordination message read: ${message.message_id}`,
+			);
+			expect(result.content[0]?.text).not.toContain('private context');
+			expect(result.content[0]?.text).not.toContain('[truncated]');
 		} finally {
 			db.close();
 		}

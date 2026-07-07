@@ -69,6 +69,20 @@ function format_message_chunk(
 	].join('\n');
 }
 
+function format_receipt_confirmation(
+	action: TeamToolParams['action'],
+	message_ids: string[],
+): string {
+	const is_read =
+		action === 'session_read' || action === 'message_read';
+	const count = message_ids.length;
+	const noun = `coordination message${count === 1 ? '' : 's'}`;
+	const ids = count > 0 ? `: ${message_ids.join(', ')}` : '';
+	return is_read
+		? `Marked ${count} ${noun} read${ids}`
+		: `Acknowledged ${count} ${noun}${ids}`;
+}
+
 export async function execute_coordination_action(
 	params: TeamToolParams,
 	context: CoordinationActionContext,
@@ -276,6 +290,9 @@ export async function execute_coordination_action(
 						requested_ids.has(message.message_id),
 					)
 				: all_messages;
+			const message_ids = messages.map(
+				(message) => message.message_id,
+			);
 			const chunk_text = format_message_chunk(messages, params);
 			return {
 				content: [
@@ -283,14 +300,15 @@ export async function execute_coordination_action(
 						type: 'text' as const,
 						text:
 							chunk_text ??
-							format_inbox(messages, {
-								full: params.mode === 'full',
-							}),
+							(params.mode === 'full'
+								? format_inbox(messages, { full: true })
+								: format_receipt_confirmation(
+										params.action,
+										message_ids,
+									)),
 					},
 				],
-				details: {
-					message_ids: messages.map((message) => message.message_id),
-				},
+				details: { message_ids },
 			};
 		}
 		case 'artifact_create': {
