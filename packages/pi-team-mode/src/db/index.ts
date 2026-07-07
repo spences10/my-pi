@@ -1,9 +1,17 @@
+import {
+	with_sqlite_busy_retry,
+	with_sqlite_transaction,
+} from '@spences10/pi-sqlite-core';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
 
+import {
+	find_stale_sessions,
+	type ProcessAliveCheck,
+} from '../session-liveness.js';
 import {
 	map_artifact,
 	map_group,
@@ -45,10 +53,6 @@ import {
 	optional,
 	parse_json,
 } from './util.js';
-import {
-	find_stale_sessions,
-	type ProcessAliveCheck,
-} from '../session-liveness.js';
 export { LATEST_TEAM_SCHEMA_VERSION } from './schema.js';
 export type {
 	CoordinationArtifact,
@@ -99,30 +103,34 @@ export class TeamDatabase {
 	): CoordinationSession {
 		const timestamp = now();
 		const existing = this.get_session(input.session_id);
-		this.statements.register_session.run(
-			input.session_id,
-			input.session_file ?? existing?.session_file ?? null,
-			input.cwd,
-			input.agent_name ?? existing?.agent_name ?? null,
-			input.pid ?? existing?.pid ?? null,
-			input.role ?? existing?.role ?? 'peer',
-			input.status ?? 'online',
-			input.model_provider ?? existing?.model_provider ?? null,
-			input.model_id ?? existing?.model_id ?? null,
-			input.thinking_level ?? existing?.thinking_level ?? null,
-			input.availability ?? existing?.availability ?? 'available',
-			input.intent ?? existing?.intent ?? null,
-			input.session_alias ?? existing?.session_alias ?? null,
-			input.parent_session_id ?? existing?.parent_session_id ?? null,
-			input.pool ?? existing?.pool ?? 'default',
-			json(input.tags ?? existing?.tags ?? []),
-			json({
-				...existing?.metadata,
-				...input.metadata,
-			}),
-			timestamp,
-			timestamp,
-			timestamp,
+		this.write(() =>
+			this.statements.register_session.run(
+				input.session_id,
+				input.session_file ?? existing?.session_file ?? null,
+				input.cwd,
+				input.agent_name ?? existing?.agent_name ?? null,
+				input.pid ?? existing?.pid ?? null,
+				input.role ?? existing?.role ?? 'peer',
+				input.status ?? 'online',
+				input.model_provider ?? existing?.model_provider ?? null,
+				input.model_id ?? existing?.model_id ?? null,
+				input.thinking_level ?? existing?.thinking_level ?? null,
+				input.availability ?? existing?.availability ?? 'available',
+				input.intent ?? existing?.intent ?? null,
+				input.session_alias ?? existing?.session_alias ?? null,
+				input.parent_session_id ??
+					existing?.parent_session_id ??
+					null,
+				input.pool ?? existing?.pool ?? 'default',
+				json(input.tags ?? existing?.tags ?? []),
+				json({
+					...existing?.metadata,
+					...input.metadata,
+				}),
+				timestamp,
+				timestamp,
+				timestamp,
+			),
 		);
 		return this.get_session(input.session_id)!;
 	}
@@ -197,13 +205,15 @@ export class TeamDatabase {
 		status: CoordinationSessionStatus,
 	): void {
 		const timestamp = now();
-		this.statements.mark_session_status.run(
-			status,
-			timestamp,
-			timestamp,
-			status === 'offline' ? timestamp : null,
-			status,
-			session_id,
+		this.write(() =>
+			this.statements.mark_session_status.run(
+				status,
+				timestamp,
+				timestamp,
+				status === 'offline' ? timestamp : null,
+				status,
+				session_id,
+			),
 		);
 	}
 
@@ -222,18 +232,20 @@ export class TeamDatabase {
 			throw new Error('Artifact body is required');
 		const timestamp = now();
 		const artifact_id = `artifact_${Date.now().toString(36)}_${randomUUID().slice(0, 8)}`;
-		this.statements.insert_artifact.run(
-			artifact_id,
-			input.kind,
-			input.owner_session_id,
-			input.cwd,
-			input.title.trim(),
-			input.summary.trim(),
-			input.body.trim(),
-			input.body_format ?? 'markdown',
-			timestamp,
-			timestamp,
-			json(input.metadata ?? {}),
+		this.write(() =>
+			this.statements.insert_artifact.run(
+				artifact_id,
+				input.kind,
+				input.owner_session_id,
+				input.cwd,
+				input.title.trim(),
+				input.summary.trim(),
+				input.body.trim(),
+				input.body_format ?? 'markdown',
+				timestamp,
+				timestamp,
+				json(input.metadata ?? {}),
+			),
 		);
 		return this.get_artifact(artifact_id)!;
 	}
@@ -288,14 +300,16 @@ export class TeamDatabase {
 			.trim()
 			.toLowerCase()
 			.replace(/[^a-z0-9_.-]+/g, '-')}-${Date.now().toString(36)}`;
-		this.statements.insert_group.run(
-			group_id,
-			input.name.trim(),
-			input.cwd ?? null,
-			input.created_by_session_id ?? null,
-			timestamp,
-			timestamp,
-			json(input.metadata ?? {}),
+		this.write(() =>
+			this.statements.insert_group.run(
+				group_id,
+				input.name.trim(),
+				input.cwd ?? null,
+				input.created_by_session_id ?? null,
+				timestamp,
+				timestamp,
+				json(input.metadata ?? {}),
+			),
 		);
 		if (input.created_by_session_id) {
 			this.add_group_member({
@@ -332,14 +346,16 @@ export class TeamDatabase {
 		role?: CoordinationGroupRole;
 	}): CoordinationGroupMember {
 		const timestamp = now();
-		this.statements.upsert_group_member.run(
-			input.group_id,
-			input.session_id,
-			input.alias ?? null,
-			input.role ?? 'peer',
-			'active',
-			timestamp,
-			timestamp,
+		this.write(() =>
+			this.statements.upsert_group_member.run(
+				input.group_id,
+				input.session_id,
+				input.alias ?? null,
+				input.role ?? 'peer',
+				'active',
+				timestamp,
+				timestamp,
+			),
 		);
 		return this.list_group_members(input.group_id).find(
 			(member) => member.session_id === input.session_id,
@@ -528,14 +544,16 @@ export class TeamDatabase {
 		message_id?: string;
 		data?: Record<string, unknown>;
 	}): void {
-		this.statements.insert_event.run(
-			randomUUID(),
-			input.type,
-			input.session_id ?? null,
-			input.group_id ?? null,
-			input.message_id ?? null,
-			now(),
-			json(input.data ?? {}),
+		this.write(() =>
+			this.statements.insert_event.run(
+				randomUUID(),
+				input.type,
+				input.session_id ?? null,
+				input.group_id ?? null,
+				input.message_id ?? null,
+				now(),
+				json(input.data ?? {}),
+			),
 		);
 	}
 
@@ -551,15 +569,17 @@ export class TeamDatabase {
 		this.db.close();
 	}
 
+	private write<T>(fn: () => T): T {
+		return with_sqlite_busy_retry(fn, {
+			operation: 'Update team coordination database',
+		});
+	}
+
 	private transaction(fn: () => void): void {
-		this.db.exec('BEGIN IMMEDIATE');
-		try {
-			fn();
-			this.db.exec('COMMIT');
-		} catch (error) {
-			this.db.exec('ROLLBACK');
-			throw error;
-		}
+		with_sqlite_transaction(this.db, fn, {
+			immediate: true,
+			operation: 'Update team coordination database',
+		});
 	}
 
 	private mark_receipts(

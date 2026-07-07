@@ -1,3 +1,4 @@
+import { with_sqlite_busy_retry } from '@spences10/pi-sqlite-core';
 import { existsSync, statSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
 import { parse_context_retention_policy } from '../policy.js';
@@ -160,7 +161,12 @@ export function context_store_purge_to_max_stored_bytes(
 	let deleted = 0;
 	for (const row of rows) {
 		if (total <= max_bytes) break;
-		const result = delete_source.run(row.id);
+		const result = with_sqlite_busy_retry(
+			() => delete_source.run(row.id),
+			{
+				operation: 'Purge context source',
+			},
+		);
 		if (Number(result.changes ?? 0) > 0) {
 			deleted += 1;
 			total -= row.byte_count;
@@ -203,11 +209,15 @@ export function context_store_purge_with_details(
 	if (filters.length === 0) {
 		return { deleted: 0 };
 	}
-	const result = store.db
-		.prepare(
-			`DELETE FROM context_sources WHERE ${filters.join(' AND ')}`,
-		)
-		.run(...params);
+	const result = with_sqlite_busy_retry(
+		() =>
+			store.db
+				.prepare(
+					`DELETE FROM context_sources WHERE ${filters.join(' AND ')}`,
+				)
+				.run(...params),
+		{ operation: 'Purge context sources' },
+	);
 	return {
 		deleted: Number(result.changes ?? 0),
 		source_id: options.source_id,

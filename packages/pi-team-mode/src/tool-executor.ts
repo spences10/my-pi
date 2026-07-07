@@ -1,4 +1,5 @@
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { SqliteBusyError } from '@spences10/pi-sqlite-core';
 import type { TeamDatabase } from './db/index.js';
 import {
 	validate_team_tool_params,
@@ -31,10 +32,25 @@ export async function execute_team_tool(
 		return session_id;
 	};
 
-	return execute_coordination_action(params, {
-		ctx,
-		coordination_db: deps.coordination_db,
-		notify_coordination_messages: deps.notify_coordination_messages,
-		require_session_id,
-	});
+	try {
+		return await execute_coordination_action(params, {
+			ctx,
+			coordination_db: deps.coordination_db,
+			notify_coordination_messages: deps.notify_coordination_messages,
+			require_session_id,
+		});
+	} catch (error) {
+		if (error instanceof SqliteBusyError) {
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: `${error.message}\nRetry the team action shortly.`,
+					},
+				],
+				details: { retryable: true },
+			};
+		}
+		throw error;
+	}
 }

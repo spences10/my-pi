@@ -1,4 +1,5 @@
 import { redact_text } from '@spences10/pi-redact';
+import { with_sqlite_transaction } from '@spences10/pi-sqlite-core';
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -256,11 +257,17 @@ export class ContextStore {
 			};
 			const receipt = summarize_source(provisional, input.tool_name);
 			const returned_bytes = Buffer.byteLength(receipt, 'utf8');
-			this.db
-				.prepare(
-					'UPDATE context_sources SET returned_byte_count = returned_byte_count + ? WHERE id = ?',
-				)
-				.run(returned_bytes, duplicate.id);
+			with_sqlite_transaction(
+				this.db,
+				() => {
+					this.db
+						.prepare(
+							'UPDATE context_sources SET returned_byte_count = returned_byte_count + ? WHERE id = ?',
+						)
+						.run(returned_bytes, duplicate.id);
+				},
+				{ operation: 'Update context receipt bytes' },
+			);
 			return { ...provisional, receipt, returned_bytes };
 		}
 		const source_id = `ctx_${Date.now().toString(36)}_${randomUUID().slice(0, 8)}`;
@@ -281,53 +288,55 @@ export class ContextStore {
 			UPDATE context_sources SET returned_byte_count = ? WHERE id = ?
 		`);
 
-		this.db.exec('BEGIN');
-		try {
-			insert.run(
-				source_id,
-				session_id,
-				project_path,
-				input.tool_name,
-				input.input_summary ?? null,
-				created_at,
-				bytes,
-				lines,
-				content_hash,
-				preview_bytes,
-			);
-			for (const chunk of chunks) {
-				insert_chunk.run(
-					chunk.id,
-					chunk.source_id,
-					chunk.ordinal,
-					chunk.title,
-					chunk.content,
-					chunk.byte_count,
+		return with_sqlite_transaction(
+			this.db,
+			() => {
+				insert.run(
+					source_id,
+					session_id,
+					project_path,
+					input.tool_name,
+					input.input_summary ?? null,
+					created_at,
+					bytes,
+					lines,
+					content_hash,
+					preview_bytes,
 				);
-			}
-			const provisional: StoredContextOutput = {
-				source_id,
-				bytes,
-				lines,
-				preview,
-				receipt: '',
-				chunk_count: chunks.length,
-				first_chunk_id: chunks[0]?.id ?? null,
-				returned_bytes: 0,
-				project_path,
-				session_id,
-				capture_max_bytes: this.max_bytes,
-				capture_max_lines: this.max_lines,
-			};
-			const receipt = summarize_source(provisional, input.tool_name);
-			const returned_bytes = Buffer.byteLength(receipt, 'utf8');
-			update_returned.run(returned_bytes, source_id);
-			this.db.exec('COMMIT');
-			return { ...provisional, receipt, returned_bytes };
-		} catch (error) {
-			this.db.exec('ROLLBACK');
-			throw error;
-		}
+				for (const chunk of chunks) {
+					insert_chunk.run(
+						chunk.id,
+						chunk.source_id,
+						chunk.ordinal,
+						chunk.title,
+						chunk.content,
+						chunk.byte_count,
+					);
+				}
+				const provisional: StoredContextOutput = {
+					source_id,
+					bytes,
+					lines,
+					preview,
+					receipt: '',
+					chunk_count: chunks.length,
+					first_chunk_id: chunks[0]?.id ?? null,
+					returned_bytes: 0,
+					project_path,
+					session_id,
+					capture_max_bytes: this.max_bytes,
+					capture_max_lines: this.max_lines,
+				};
+				const receipt = summarize_source(
+					provisional,
+					input.tool_name,
+				);
+				const returned_bytes = Buffer.byteLength(receipt, 'utf8');
+				update_returned.run(returned_bytes, source_id);
+				return { ...provisional, receipt, returned_bytes };
+			},
+			{ operation: 'Store context output' },
+		);
 	}
 
 	list(

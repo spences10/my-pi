@@ -1,11 +1,23 @@
 import { existsSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from 'vitest';
 import { TelemetryDatabase } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEST_DB_PATH = join(__dirname, 'telemetry-test.db');
+const busy_error = Object.assign(new Error('database is locked'), {
+	code: 'ERR_SQLITE_ERROR',
+	errcode: 5,
+	errstr: 'database is locked',
+});
 
 describe('TelemetryDatabase', () => {
 	let db: TelemetryDatabase | null;
@@ -49,6 +61,33 @@ describe('TelemetryDatabase', () => {
 			timeout: number;
 		}>('PRAGMA busy_timeout');
 		expect(busy_timeout).toEqual([{ timeout: 5000 }]);
+	});
+
+	it('suppresses transient busy errors for best-effort writes', () => {
+		const run = vi.fn(() => {
+			throw busy_error;
+		});
+		(
+			db as unknown as { stmt_insert_run: { run: typeof run } }
+		).stmt_insert_run = {
+			run,
+		};
+
+		expect(() =>
+			db?.insert_run({
+				id: 'run-busy',
+				session_file: '/tmp/session.jsonl',
+				cwd: '/tmp/project',
+				started_at: 1,
+				model_provider: null,
+				model_id: null,
+				eval_run_id: null,
+				eval_case_id: null,
+				eval_attempt: null,
+				eval_suite: null,
+			}),
+		).not.toThrow();
+		expect(run).toHaveBeenCalledTimes(1);
 	});
 
 	it('records a complete run lifecycle', () => {

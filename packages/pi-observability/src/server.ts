@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+import {
+	SqliteBusyError,
+	with_sqlite_transaction,
+} from '@spences10/pi-sqlite-core';
 import { createServer, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import {
@@ -94,8 +98,10 @@ export function start_observability_server(
 		statements.delete_orphan_sessions.run();
 	}
 
-	function ingest(event: ObservabilityEvent): boolean {
-		if (!valid_event(event)) return false;
+	function ingest(
+		event: ObservabilityEvent,
+	): ObservabilityEvent | null {
+		if (!valid_event(event)) return null;
 		const tags_json = JSON.stringify(event.tags ?? []);
 		const next_seq_row = statements.next_event_seq.get(
 			event.session_id,
@@ -116,7 +122,7 @@ export function start_observability_server(
 			server_event.provider ?? null,
 			server_event.model ?? null,
 		);
-		if (result.changes === 0) return false;
+		if (result.changes === 0) return null;
 		statements.upsert_session.run(
 			server_event.session_id,
 			server_event.pool ?? 'default',
@@ -129,8 +135,7 @@ export function start_observability_server(
 			server_event.ts,
 			tags_json,
 		);
-		broadcast(server_event);
-		return true;
+		return server_event;
 	}
 
 	const server = createServer(async (req, res) => {
@@ -193,19 +198,26 @@ export function start_observability_server(
 					return json(res, 400, { error: 'invalid json' });
 				}
 				const events = Array.isArray(parsed) ? parsed : [parsed];
-				let ingested = 0;
-				db.exec('BEGIN IMMEDIATE');
-				try {
-					for (const event of events) if (ingest(event)) ingested++;
-					if (ingested > 0) prune_events();
-					db.exec('COMMIT');
-				} catch (error) {
-					db.exec('ROLLBACK');
-					throw error;
-				}
+				const ingested_events = with_sqlite_transaction(
+					db,
+					() => {
+						const attempt_events: ObservabilityEvent[] = [];
+						for (const event of events) {
+							const server_event = ingest(event);
+							if (server_event) attempt_events.push(server_event);
+						}
+						if (attempt_events.length > 0) prune_events();
+						return attempt_events;
+					},
+					{
+						immediate: true,
+						operation: 'Ingest observability events',
+					},
+				);
+				for (const event of ingested_events) broadcast(event);
 				return json(res, 200, {
-					ingested,
-					rejected: events.length - ingested,
+					ingested: ingested_events.length,
+					rejected: events.length - ingested_events.length,
 				});
 			}
 			if (req_url.pathname === '/sessions') {
@@ -299,7 +311,7 @@ export function start_observability_server(
 			}
 			return json(res, 404, { error: 'not found' });
 		} catch (error) {
-			return json(res, 500, {
+			return json(res, error instanceof SqliteBusyError ? 503 : 500, {
 				error: error instanceof Error ? error.message : String(error),
 			});
 		}

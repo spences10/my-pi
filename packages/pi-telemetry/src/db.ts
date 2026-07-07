@@ -1,6 +1,8 @@
 import {
 	SQLITE_CONNECTION_PRAGMAS,
 	SQLITE_PERSISTENT_PRAGMAS,
+	safe_sqlite_tick,
+	with_sqlite_transaction,
 } from '@spences10/pi-sqlite-core';
 import {
 	existsSync,
@@ -236,93 +238,113 @@ export class TelemetryDatabase {
 	}
 
 	insert_run(record: TelemetryRunRecord): void {
-		this.stmt_insert_run.run(
-			record.id,
-			record.session_file,
-			record.cwd,
-			record.started_at,
-			record.model_provider,
-			record.model_id,
-			record.eval_run_id,
-			record.eval_case_id,
-			record.eval_attempt,
-			record.eval_suite,
+		this.write(() =>
+			this.stmt_insert_run.run(
+				record.id,
+				record.session_file,
+				record.cwd,
+				record.started_at,
+				record.model_provider,
+				record.model_id,
+				record.eval_run_id,
+				record.eval_case_id,
+				record.eval_attempt,
+				record.eval_suite,
+			),
 		);
 	}
 
 	finish_run(record: TelemetryRunFinish): void {
-		this.stmt_finish_run.run(
-			record.ended_at,
-			record.success === null ? null : record.success ? 1 : 0,
-			record.error_message,
-			record.id,
+		this.write(() =>
+			this.stmt_finish_run.run(
+				record.ended_at,
+				record.success === null ? null : record.success ? 1 : 0,
+				record.error_message,
+				record.id,
+			),
 		);
 	}
 
 	insert_turn(record: TelemetryTurnRecord): void {
-		this.stmt_insert_turn.run(
-			record.id,
-			record.run_id,
-			record.turn_index,
-			record.started_at,
+		this.write(() =>
+			this.stmt_insert_turn.run(
+				record.id,
+				record.run_id,
+				record.turn_index,
+				record.started_at,
+			),
 		);
 	}
 
 	finish_turn(record: TelemetryTurnFinish): void {
-		this.stmt_finish_turn.run(
-			record.ended_at,
-			record.tool_result_count,
-			record.stop_reason,
-			record.id,
+		this.write(() =>
+			this.stmt_finish_turn.run(
+				record.ended_at,
+				record.tool_result_count,
+				record.stop_reason,
+				record.id,
+			),
 		);
 	}
 
 	insert_tool_call(record: TelemetryToolCallRecord): void {
-		this.stmt_insert_tool_call.run(
-			record.tool_call_id,
-			record.run_id,
-			record.turn_id,
-			record.tool_name,
-			record.started_at,
-			record.args_summary_json,
+		this.write(() =>
+			this.stmt_insert_tool_call.run(
+				record.tool_call_id,
+				record.run_id,
+				record.turn_id,
+				record.tool_name,
+				record.started_at,
+				record.args_summary_json,
+			),
 		);
 	}
 
 	note_tool_update(tool_call_id: string): void {
-		this.stmt_tool_call_update.run(tool_call_id);
+		this.write(() => this.stmt_tool_call_update.run(tool_call_id));
 	}
 
 	finish_tool_call(record: TelemetryToolCallFinish): void {
-		this.stmt_finish_tool_call.run(
-			record.ended_at,
-			record.is_error ? 1 : 0,
-			record.result_summary_json,
-			record.error_message,
-			record.tool_call_id,
+		this.write(() =>
+			this.stmt_finish_tool_call.run(
+				record.ended_at,
+				record.is_error ? 1 : 0,
+				record.result_summary_json,
+				record.error_message,
+				record.tool_call_id,
+			),
 		);
 	}
 
 	insert_provider_request(
 		record: TelemetryProviderRequestRecord,
 	): void {
-		this.stmt_insert_provider_request.run(
-			record.id,
-			record.run_id,
-			record.turn_id,
-			record.started_at,
-			record.payload_summary_json,
+		this.write(() =>
+			this.stmt_insert_provider_request.run(
+				record.id,
+				record.run_id,
+				record.turn_id,
+				record.started_at,
+				record.payload_summary_json,
+			),
 		);
 	}
 
 	finish_provider_request(
 		record: TelemetryProviderRequestFinish,
 	): void {
-		this.stmt_finish_provider_request.run(
-			record.ended_at,
-			record.status_code,
-			record.headers_json,
-			record.id,
+		this.write(() =>
+			this.stmt_finish_provider_request.run(
+				record.ended_at,
+				record.status_code,
+				record.headers_json,
+				record.id,
+			),
 		);
+	}
+
+	private write(fn: () => unknown): void {
+		safe_sqlite_tick(fn);
 	}
 
 	private get_user_version(): number {
@@ -354,13 +376,19 @@ export class TelemetryDatabase {
 				);
 			}
 
-			this.db.exec('BEGIN');
 			try {
-				this.db.exec(migration);
-				this.db.exec(`PRAGMA user_version = ${next_version}`);
-				this.db.exec('COMMIT');
+				with_sqlite_transaction(
+					this.db,
+					() => {
+						this.db.exec(migration);
+						this.db.exec(`PRAGMA user_version = ${next_version}`);
+					},
+					{
+						operation: 'Apply telemetry schema migration',
+						retry: false,
+					},
+				);
 			} catch (error) {
-				this.db.exec('ROLLBACK');
 				this.db.close();
 				throw error;
 			}

@@ -1,3 +1,4 @@
+import { with_sqlite_transaction } from '@spences10/pi-sqlite-core';
 import type { DatabaseSync } from 'node:sqlite';
 import {
 	LATEST_TEAM_SCHEMA_VERSION,
@@ -15,15 +16,16 @@ export function apply_migrations(db: DatabaseSync): void {
 		);
 	}
 	if (current_version === 0) {
-		db.exec('BEGIN');
-		try {
-			db.exec(SCHEMA);
-			db.exec(`PRAGMA user_version = ${LATEST_TEAM_SCHEMA_VERSION}`);
-			db.exec('COMMIT');
-		} catch (error) {
-			db.exec('ROLLBACK');
-			throw error;
-		}
+		with_sqlite_transaction(
+			db,
+			() => {
+				db.exec(SCHEMA);
+				db.exec(
+					`PRAGMA user_version = ${LATEST_TEAM_SCHEMA_VERSION}`,
+				);
+			},
+			{ operation: 'Apply team schema migration', retry: false },
+		);
 		return;
 	}
 	for (
@@ -36,14 +38,13 @@ export function apply_migrations(db: DatabaseSync): void {
 			throw new Error(
 				`Missing team coordination migration ${next_version}`,
 			);
-		db.exec('BEGIN');
-		try {
-			db.exec(migration);
-			db.exec(`PRAGMA user_version = ${next_version}`);
-			db.exec('COMMIT');
-		} catch (error) {
-			db.exec('ROLLBACK');
-			throw error;
-		}
+		with_sqlite_transaction(
+			db,
+			() => {
+				db.exec(migration);
+				db.exec(`PRAGMA user_version = ${next_version}`);
+			},
+			{ operation: 'Apply team schema migration', retry: false },
+		);
 	}
 }

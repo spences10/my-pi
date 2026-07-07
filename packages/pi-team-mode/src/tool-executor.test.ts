@@ -1,3 +1,4 @@
+import { SqliteBusyError } from '@spences10/pi-sqlite-core';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -33,6 +34,28 @@ function deps() {
 }
 
 describe('execute_team_tool peer mailbox actions', () => {
+	it('returns retry guidance when the coordination database is busy', async () => {
+		const busy_db = db as unknown as {
+			send_to_session_target: () => never;
+		};
+		busy_db.send_to_session_target = () => {
+			throw new SqliteBusyError(
+				'Update team coordination database',
+				null,
+			);
+		};
+
+		const result = await execute_team_tool(
+			{ action: 'message_send', to: 'alice', message: 'hello' },
+			{ cwd: '/repo' } as any,
+			deps(),
+		);
+
+		expect(result.content[0].text).toContain(
+			'Retry the team action shortly.',
+		);
+	});
+
 	it('sends messages through the coordination bus', async () => {
 		const result = await execute_team_tool(
 			{ action: 'message_send', to: 'alice', message: 'hello' },

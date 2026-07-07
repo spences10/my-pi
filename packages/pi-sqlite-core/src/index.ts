@@ -46,6 +46,22 @@ export function is_sqlite_busy(error: unknown): boolean {
 	);
 }
 
+export function format_sqlite_busy_message(
+	operation = 'SQLite operation',
+): string {
+	return `${operation} could not acquire the database lock. Please retry shortly.`;
+}
+
+export class SqliteBusyError extends Error {
+	readonly cause: unknown;
+
+	constructor(operation: string, cause: unknown) {
+		super(format_sqlite_busy_message(operation));
+		this.name = 'SqliteBusyError';
+		this.cause = cause;
+	}
+}
+
 export function safe_sqlite_tick<T>(fn: () => T): T | undefined {
 	try {
 		return fn();
@@ -55,14 +71,22 @@ export function safe_sqlite_tick<T>(fn: () => T): T | undefined {
 	}
 }
 
+function sleep_sync(ms: number): void {
+	if (ms <= 0) return;
+	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 export function with_sqlite_busy_retry<T>(
 	fn: () => T,
 	options: {
 		attempts?: number;
+		delay_ms?: number;
+		operation?: string;
 		on_busy?: (attempt: number, error: unknown) => void;
 	} = {},
 ): T {
-	const attempts = Math.max(1, options.attempts ?? 2);
+	const attempts = Math.max(1, options.attempts ?? 3);
+	const delay_ms = Math.max(0, options.delay_ms ?? 25);
 	let last_error: unknown;
 	for (let attempt = 1; attempt <= attempts; attempt++) {
 		try {
@@ -71,7 +95,40 @@ export function with_sqlite_busy_retry<T>(
 			if (!is_sqlite_busy(error)) throw error;
 			last_error = error;
 			options.on_busy?.(attempt, error);
+			if (attempt < attempts) sleep_sync(delay_ms * attempt);
 		}
 	}
-	throw last_error;
+	throw new SqliteBusyError(
+		options.operation ?? 'SQLite operation',
+		last_error,
+	);
+}
+
+export function with_sqlite_transaction<T>(
+	db: { exec(sql: string): unknown },
+	fn: () => T,
+	options: {
+		immediate?: boolean;
+		operation?: string;
+		retry?: boolean;
+	} = {},
+): T {
+	const run = (): T => {
+		db.exec(options.immediate ? 'BEGIN IMMEDIATE' : 'BEGIN');
+		try {
+			const result = fn();
+			db.exec('COMMIT');
+			return result;
+		} catch (error) {
+			try {
+				db.exec('ROLLBACK');
+			} catch (rollback_error) {
+				if (!is_sqlite_busy(rollback_error)) throw rollback_error;
+			}
+			throw error;
+		}
+	};
+	return options.retry === false
+		? run()
+		: with_sqlite_busy_retry(run, { operation: options.operation });
 }

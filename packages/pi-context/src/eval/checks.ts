@@ -1,3 +1,4 @@
+import { with_sqlite_busy_retry } from '@spences10/pi-sqlite-core';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -150,9 +151,15 @@ export function run_retention_evals(
 	});
 	if (!old || !fresh)
 		throw new Error('Failed to seed retention eval');
-	store_db(store)
-		.prepare('UPDATE context_sources SET created_at = ? WHERE id = ?')
-		.run(Date.now() - 10 * 24 * 60 * 60 * 1000, old.source_id);
+	with_sqlite_busy_retry(
+		() =>
+			store_db(store)
+				.prepare(
+					'UPDATE context_sources SET created_at = ? WHERE id = ?',
+				)
+				.run(Date.now() - 10 * 24 * 60 * 60 * 1000, old.source_id),
+		{ operation: 'Seed context retention eval' },
+	);
 	const cleanup = store.cleanup({
 		retention_days: 7,
 		purge_on_shutdown: false,

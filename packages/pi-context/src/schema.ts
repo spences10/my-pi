@@ -1,6 +1,7 @@
 import {
 	SQLITE_CONNECTION_PRAGMAS,
 	SQLITE_PERSISTENT_PRAGMAS,
+	with_sqlite_transaction,
 } from '@spences10/pi-sqlite-core';
 import { readFileSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
@@ -48,13 +49,16 @@ export function apply_schema(db: DatabaseSync): void {
 			);
 		}
 
-		db.exec('BEGIN');
 		try {
-			db.exec(migration);
-			db.exec(`PRAGMA user_version = ${next_version}`);
-			db.exec('COMMIT');
+			with_sqlite_transaction(
+				db,
+				() => {
+					db.exec(migration);
+					db.exec(`PRAGMA user_version = ${next_version}`);
+				},
+				{ operation: 'Apply context schema migration', retry: false },
+			);
 		} catch (error) {
-			db.exec('ROLLBACK');
 			db.close();
 			throw error;
 		}

@@ -1,3 +1,4 @@
+import { SqliteBusyError } from '@spences10/pi-sqlite-core';
 import {
 	existsSync,
 	mkdtempSync,
@@ -7,7 +8,14 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from 'vitest';
 import {
 	ContextStore,
 	default_context_db_path,
@@ -18,6 +26,12 @@ import {
 	set_context_sidecar_enabled,
 	should_index_text,
 } from './store.js';
+
+const busy_error = Object.assign(new Error('database is locked'), {
+	code: 'ERR_SQLITE_ERROR',
+	errcode: 5,
+	errstr: 'database is locked',
+});
 
 const original_retention_days =
 	process.env.MY_PI_CONTEXT_RETENTION_DAYS;
@@ -92,6 +106,23 @@ afterEach(() => {
 });
 
 describe('ContextStore', () => {
+	it('returns retryable busy errors for guaranteed writes', () => {
+		const store = create_store({ max_bytes: 10 });
+		const exec = vi.fn(() => {
+			throw busy_error;
+		});
+		(store as unknown as { db: { exec: typeof exec } }).db.exec =
+			exec;
+
+		expect(() =>
+			store.store({
+				tool_name: 'bash',
+				text: 'x'.repeat(100),
+			}),
+		).toThrow(SqliteBusyError);
+		expect(exec).toHaveBeenCalledTimes(3);
+	});
+
 	it('stores oversized output, searches it, and retrieves all and exact chunks', () => {
 		const store = create_store({ max_bytes: 10 });
 		const text = [

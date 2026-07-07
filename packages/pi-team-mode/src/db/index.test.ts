@@ -7,8 +7,14 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TeamDatabase } from './index.js';
+
+const busy_error = Object.assign(new Error('database is locked'), {
+	code: 'ERR_SQLITE_ERROR',
+	errcode: 5,
+	errstr: 'database is locked',
+});
 
 const dirs: string[] = [];
 
@@ -25,6 +31,30 @@ afterEach(() => {
 });
 
 describe('TeamDatabase coordination store', () => {
+	it('retries transient busy errors for coordination writes', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			const run = vi
+				.fn()
+				.mockImplementationOnce(() => {
+					throw busy_error;
+				})
+				.mockReturnValue({ changes: 1 });
+			(
+				db as unknown as {
+					statements: { mark_session_status: { run: typeof run } };
+				}
+			).statements.mark_session_status = { run };
+
+			expect(() =>
+				db.mark_session_status('session-1', 'online'),
+			).not.toThrow();
+			expect(run).toHaveBeenCalledTimes(2);
+		} finally {
+			db.close();
+		}
+	});
+
 	it('creates parent directories, applies pragmas, and migrates schema version', async () => {
 		const db_path = tmp_db();
 		const db = await TeamDatabase.open(db_path);
