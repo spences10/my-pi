@@ -64,16 +64,22 @@ export async function wake_visible_teammate_session(options: {
 	const cli = process.argv[1];
 	if (!session_file || !cli) return;
 	await new Promise<void>((resolve) => {
-		const prompt = [
-			`You received Team Mode coordination message ${options.message_id ?? '(unrecorded)'} from session ${options.from_session_id}.`,
-			'Handle it now inside this normal resumable Pi session.',
-			'If the sender asks for any response, send that response back using the team tool action session_send with to set to the sender session id.',
-			'Message:',
-			options.message,
+		const coordination_prompt = [
+			`This prompt was delivered by Team Mode message ${options.message_id ?? '(unrecorded)'} from session ${options.from_session_id}.`,
+			'Handle the user prompt normally inside this resumable Pi session.',
+			'If the prompt asks for a response to the sender, use the team tool action session_send with to set to the sender session id.',
 		].join('\n\n');
 		const child = spawn(
 			process.execPath,
-			[cli, '--session', session_file, '--print', prompt],
+			[
+				cli,
+				'--session',
+				session_file,
+				'--append-system-prompt',
+				coordination_prompt,
+				'--print',
+				options.message,
+			],
 			{
 				cwd: options.cwd,
 				stdio: ['ignore', 'ignore', 'ignore'],
@@ -140,8 +146,8 @@ export function create_visible_teammate_session(
 				: role === 'teammate'
 					? 'teammate'
 					: 'peer',
-		status: 'idle',
-		availability: 'available',
+		status: 'offline',
+		availability: 'standby',
 		intent: options.instructions,
 		session_alias: options.name,
 		parent_session_id: options.lead_session_id,

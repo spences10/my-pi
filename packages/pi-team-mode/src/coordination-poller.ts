@@ -1,6 +1,14 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { format_peer_message_for_injection } from './coordination-formatting.js';
-import type { TeamDatabase } from './db/index.js';
+import type {
+	CoordinationInboxMessage,
+	TeamDatabase,
+} from './db/index.js';
+
+function format_raw_delivery(
+	messages: CoordinationInboxMessage[],
+): string {
+	return messages.map((message) => message.body).join('\n\n---\n\n');
+}
 
 const HEARTBEAT_INTERVAL_MS = 10_000;
 
@@ -13,6 +21,7 @@ export class CoordinationPoller {
 			db: TeamDatabase;
 			get_session_id: () => string | undefined;
 			should_auto_inject_messages: () => boolean;
+			is_agent_active?: () => boolean;
 		},
 	) {}
 
@@ -38,24 +47,24 @@ export class CoordinationPoller {
 			this.options.db.heartbeat_session(session_id);
 			this.last_heartbeat_at = now;
 		}
-		if (!this.options.should_auto_inject_messages()) return;
+		if (
+			!this.options.should_auto_inject_messages() ||
+			this.options.is_agent_active?.()
+		)
+			return;
 		const messages = this.options.db.list_inbox(session_id, {
 			undelivered_only: true,
 			include_read: true,
 			include_acknowledged: false,
 		});
 		if (messages.length === 0) return;
-		pi.sendUserMessage(
-			format_peer_message_for_injection(session_id, messages),
-			{
-				deliverAs: messages.some((message) => message.urgent)
-					? 'steer'
-					: 'followUp',
-			},
-		);
-		this.options.db.mark_messages_delivered(
-			session_id,
-			messages.map((message) => message.message_id),
-		);
+		pi.sendUserMessage(format_raw_delivery(messages), {
+			deliverAs: messages.some((message) => message.urgent)
+				? 'steer'
+				: 'followUp',
+		});
+		const message_ids = messages.map((message) => message.message_id);
+		this.options.db.mark_messages_delivered(session_id, message_ids);
+		this.options.db.mark_messages_read(session_id, message_ids);
 	}
 }

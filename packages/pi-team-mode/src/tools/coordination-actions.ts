@@ -117,6 +117,12 @@ export async function execute_coordination_action(
 				ttl_ms: params.ttl_ms,
 				requires_ack: params.requires_ack,
 			});
+			const offline_visible_targets = target_sessions.filter(
+				(session) =>
+					session.metadata.created_by ===
+						'team_mode_visible_session' &&
+					session.status === 'offline',
+			);
 			for (const target_session of target_sessions) {
 				append_visible_team_message(
 					target_session.session_file,
@@ -129,32 +135,39 @@ export async function execute_coordination_action(
 						from_session_id: message.from_session_id,
 					},
 				);
-				if (
-					target_session.metadata.created_by ===
-					'team_mode_visible_session'
-				) {
-					await wake_visible_teammate_session({
-						session_file: target_session.session_file,
-						cwd: target_session.cwd,
-						message: body,
-						from_session_id: message.from_session_id,
-						message_id: message.message_id,
-						member:
-							target_session.agent_name ??
-							target_session.session_alias,
-						timeout_ms: params.timeout_ms,
-					});
-				}
+				if (!offline_visible_targets.includes(target_session))
+					continue;
+				coordination_db.mark_messages_delivered(
+					target_session.session_id,
+					[message.message_id],
+				);
+				coordination_db.mark_messages_read(
+					target_session.session_id,
+					[message.message_id],
+				);
+				void wake_visible_teammate_session({
+					session_file: target_session.session_file,
+					cwd: target_session.cwd,
+					message: body,
+					from_session_id: message.from_session_id,
+					message_id: message.message_id,
+					member:
+						target_session.agent_name ?? target_session.session_alias,
+					timeout_ms: params.timeout_ms,
+				});
 			}
 			await notify_coordination_messages(
 				recipients,
 				message.message_id,
 			);
+			const background_note = offline_visible_targets.length
+				? ` Started background delivery for ${offline_visible_targets.length} offline visible teammate${offline_visible_targets.length === 1 ? '' : 's'}; opening the TUI later resumes the same session.`
+				: '';
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text: `Sent coordination message ${message.message_id} to ${target}`,
+						text: `Sent coordination message ${message.message_id} to ${target}.${background_note}`,
 					},
 				],
 				details: { message },
@@ -206,6 +219,19 @@ export async function execute_coordination_action(
 					include_read: params.include_read,
 				});
 			}
+			if (messages.length > 0) {
+				const message_ids = messages.map(
+					(message) => message.message_id,
+				);
+				coordination_db.mark_messages_delivered(target, message_ids);
+				coordination_db.mark_messages_read(target, message_ids);
+				const surfaced_at = new Date().toISOString();
+				messages = messages.map((message) => ({
+					...message,
+					delivered_at: message.delivered_at ?? surfaced_at,
+					read_at: message.read_at ?? surfaced_at,
+				}));
+			}
 			const chunk_text = format_message_chunk(messages, params);
 			return {
 				content: [
@@ -240,10 +266,16 @@ export async function execute_coordination_action(
 			)
 				coordination_db.mark_messages_read(target, ids);
 			else coordination_db.mark_messages_acknowledged(target, ids);
-			const messages = coordination_db.list_inbox(target, {
+			const all_messages = coordination_db.list_inbox(target, {
 				include_read: true,
 				include_acknowledged: true,
 			});
+			const requested_ids = new Set(ids);
+			const messages = params.message_ids
+				? all_messages.filter((message) =>
+						requested_ids.has(message.message_id),
+					)
+				: all_messages;
 			const chunk_text = format_message_chunk(messages, params);
 			return {
 				content: [
