@@ -1,6 +1,6 @@
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { spawn } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import {
 	AUTO_INJECT_ENV,
 	TEAM_MEMBER_ENV,
@@ -39,7 +39,7 @@ export function append_visible_team_message(
 	content: string,
 	details: Record<string, unknown>,
 ): string | undefined {
-	if (!session_file) return undefined;
+	if (!session_file || !existsSync(session_file)) return undefined;
 	const session = SessionManager.open(session_file, session_dir, cwd);
 	const entry_id = session.appendCustomMessageEntry(
 		CUSTOM_TYPE,

@@ -102,7 +102,7 @@ describe('coordination actions', () => {
 		}
 	});
 
-	it('writes session sends into target session history', async () => {
+	it('does not create unflushed live target session files on send', async () => {
 		const db = await tmp_db();
 		try {
 			const session_dir = mkdtempSync(
@@ -111,6 +111,62 @@ describe('coordination actions', () => {
 			dirs.push(session_dir);
 			const lead = SessionManager.create('/repo', session_dir);
 			const worker = SessionManager.create('/repo', session_dir);
+			worker.appendMessage({
+				role: 'user',
+				content: 'starting',
+				timestamp: Date.now(),
+			});
+			db.register_session({
+				session_id: lead.getSessionId(),
+				session_file: lead.getSessionFile(),
+				cwd: '/repo',
+			});
+			db.register_session({
+				session_id: worker.getSessionId(),
+				session_file: worker.getSessionFile(),
+				cwd: '/repo',
+				agent_name: 'worker',
+			});
+
+			await execute_coordination_action(
+				{
+					action: 'session_send',
+					to: 'worker',
+					message: 'Please produce the report.',
+				},
+				{
+					ctx: { cwd: '/repo', sessionManager: lead } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => lead.getSessionId(),
+				},
+			);
+
+			expect(existsSync(worker.getSessionFile()!)).toBe(false);
+			expect(() =>
+				worker.appendMessage({
+					role: 'assistant',
+					content: [{ type: 'text', text: 'ok' }],
+				} as any),
+			).not.toThrow();
+		} finally {
+			db.close();
+		}
+	});
+
+	it('writes session sends into existing target session history', async () => {
+		const db = await tmp_db();
+		try {
+			const session_dir = mkdtempSync(
+				join(tmpdir(), 'pi-team-sessions-'),
+			);
+			dirs.push(session_dir);
+			const lead = SessionManager.create('/repo', session_dir);
+			const worker = SessionManager.create('/repo', session_dir);
+			worker.appendMessage({
+				role: 'assistant',
+				content: [{ type: 'text', text: 'ready' }],
+			} as any);
 			db.register_session({
 				session_id: lead.getSessionId(),
 				session_file: lead.getSessionFile(),

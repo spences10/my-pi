@@ -80,7 +80,6 @@ export default async function team_mode(pi: ExtensionAPI) {
 	const coordination_db = await TeamDatabase.open(
 		get_coordination_db_path(),
 	);
-	await ensure_coordination_broker();
 	let own_session_id: string | undefined;
 	let current_cwd: string | undefined;
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'peer';
@@ -122,6 +121,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				.map((tag) => tag.trim())
 				.filter(Boolean),
 		});
+		void ensure_coordination_broker();
 		coordination_broker.start();
 		coordination_poller.start(pi);
 		coordination_poller.poll(pi);

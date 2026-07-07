@@ -2,8 +2,11 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { format_peer_message_for_injection } from './coordination-formatting.js';
 import type { TeamDatabase } from './db/index.js';
 
+const HEARTBEAT_INTERVAL_MS = 10_000;
+
 export class CoordinationPoller {
 	private timer: NodeJS.Timeout | undefined;
+	private last_heartbeat_at = 0;
 
 	constructor(
 		private readonly options: {
@@ -30,7 +33,11 @@ export class CoordinationPoller {
 	poll(pi: ExtensionAPI): void {
 		const session_id = this.options.get_session_id();
 		if (!session_id) return;
-		this.options.db.heartbeat_session(session_id);
+		const now = Date.now();
+		if (now - this.last_heartbeat_at >= HEARTBEAT_INTERVAL_MS) {
+			this.options.db.heartbeat_session(session_id);
+			this.last_heartbeat_at = now;
+		}
 		if (!this.options.should_auto_inject_messages()) return;
 		const messages = this.options.db.list_inbox(session_id, {
 			undelivered_only: true,
