@@ -160,6 +160,17 @@ describe('assess_bash_command', () => {
 			assess_bash_command('git reset --hard HEAD', cwd)?.reason,
 		).toBe('Discards uncommitted tracked changes');
 	});
+
+	it.each([
+		'git push --force',
+		'git push -f origin main',
+		'git push --force-with-lease',
+		'git push --force-if-includes',
+	])('detects force push command: %s', (command) => {
+		expect(assess_bash_command(command)?.reason).toBe(
+			'Overwrites remote git history',
+		);
+	});
 });
 
 describe('assess_tool_call', () => {

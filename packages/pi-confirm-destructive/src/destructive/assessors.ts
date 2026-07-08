@@ -169,6 +169,25 @@ function assess_git_reset_hard(
 	};
 }
 
+function assess_git_force_push(
+	command: string,
+): DestructiveAction | undefined {
+	if (
+		!/(^|[;&|]\s*)git\s+push\b[^;&|]*(\s--force(?:-with-lease|-if-includes)?\b|\s-[A-Za-z]*f[A-Za-z]*\b)/.test(
+			command,
+		)
+	) {
+		return undefined;
+	}
+
+	return {
+		title: 'Confirm force push?',
+		description: `This can overwrite remote git history: ${preview(command)}`,
+		reason: 'Overwrites remote git history',
+		allow_key: 'bash:git-force-push',
+	};
+}
+
 export function assess_bash_command(
 	command: string,
 	cwd = process.cwd(),
@@ -180,7 +199,8 @@ export function assess_bash_command(
 	const specific =
 		assess_rm_command(normalized, cwd, session_created_paths) ??
 		assess_git_rm_command(normalized, cwd) ??
-		assess_git_reset_hard(normalized, cwd);
+		assess_git_reset_hard(normalized, cwd) ??
+		assess_git_force_push(normalized);
 	if (specific) return specific;
 
 	const match = DESTRUCTIVE_COMMAND_PATTERNS.find(({ pattern }) =>
