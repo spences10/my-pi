@@ -43,14 +43,30 @@ export function create_builtin_disable_cli_args(): BuiltinDisableCliArgs {
 	);
 }
 
+function is_citty_no_flag_set(
+	args: Record<string, unknown>,
+	cli_arg: string,
+): boolean {
+	if (args[cli_arg]) return true;
+
+	const positive_kebab = cli_arg.replace(/^no-/, '');
+	const positive_camel = positive_kebab.replace(
+		/-([a-z])/g,
+		(_, char) => String(char).toUpperCase(),
+	);
+	return (
+		args[positive_kebab] === false || args[positive_camel] === false
+	);
+}
+
 export function resolve_builtin_extension_options(
 	args: Record<string, unknown>,
 ): Partial<Record<BuiltinExtensionOptionName, boolean>> {
-	const no_builtin = Boolean(args['no-builtin']);
+	const no_builtin = is_citty_no_flag_set(args, 'no-builtin');
 	return Object.fromEntries(
 		BUILTIN_EXTENSIONS.map((extension) => [
 			extension.option_name,
-			!no_builtin && !args[extension.cli_arg],
+			!no_builtin && !is_citty_no_flag_set(args, extension.cli_arg),
 		]),
 	) as Partial<Record<BuiltinExtensionOptionName, boolean>>;
 }

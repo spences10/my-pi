@@ -458,6 +458,40 @@ export default function tsExtension(pi: ExtensionAPI) {
 		}
 	});
 
+	it('filters all skills when the skills built-in is disabled', async () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-api-no-skills-'));
+		const agent_dir = join(cwd, 'agent');
+		const project_skill_dir = join(
+			cwd,
+			'.agents',
+			'project-navigation',
+		);
+
+		try {
+			mkdirSync(project_skill_dir, { recursive: true });
+			writeFileSync(
+				join(project_skill_dir, 'SKILL.md'),
+				`---\nname: project-navigation\ndescription: Project navigation test skill.\n---\n\n# Project\n`,
+			);
+
+			const runtime = await create_my_pi({
+				cwd,
+				agent_dir,
+				runtime_mode: 'json',
+				...disabled_builtins,
+			});
+			try {
+				expect(
+					runtime.services.resourceLoader.getSkills().skills,
+				).toEqual([]);
+			} finally {
+				await runtime.dispose();
+			}
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it('injects project .agents skills and honors untrusted project skill gating', async () => {
 		const cwd = mkdtempSync(
 			join(tmpdir(), 'my-pi-api-project-skills-'),

@@ -200,6 +200,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 					managed_inline_paths,
 				),
 				skillsOverride: (base: any) => {
+					if (!skills_builtin_enabled) return { ...base, skills: [] };
 					if (!runtime_skills_manager) return base;
 					runtime_skills_manager.refresh();
 

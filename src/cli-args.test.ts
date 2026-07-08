@@ -122,4 +122,25 @@ describe('CLI arg helpers', () => {
 			session_name: false,
 		});
 	});
+
+	it('handles citty normalized negative boolean flags', () => {
+		expect(
+			resolve_builtin_extension_options({
+				mcp: false,
+				sessionName: false,
+			}),
+		).toMatchObject({
+			mcp: false,
+			session_name: false,
+			recall: true,
+		});
+
+		expect(
+			resolve_builtin_extension_options({ builtin: false }),
+		).toMatchObject({
+			mcp: false,
+			skills: false,
+			session_name: false,
+		});
+	});
 });
