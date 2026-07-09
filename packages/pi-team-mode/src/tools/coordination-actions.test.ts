@@ -273,6 +273,68 @@ describe('coordination actions', () => {
 		}
 	});
 
+	it('falls back to current session for unregistered sender labels', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+
+			await execute_coordination_action(
+				{
+					action: 'session_send',
+					from: 'not-a-session',
+					to: 'worker',
+					message: 'Please report.',
+				},
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'lead',
+				},
+			);
+
+			expect(db.list_inbox('worker')[0]).toMatchObject({
+				from_session_id: 'lead',
+			});
+		} finally {
+			db.close();
+		}
+	});
+
+	it('resolves sender aliases for session sends', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({
+				session_id: 'lead-session',
+				cwd: '/repo',
+				agent_name: 'lead',
+			});
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+
+			await execute_coordination_action(
+				{
+					action: 'session_send',
+					from: 'lead',
+					to: 'worker',
+					message: 'Please report.',
+				},
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'lead-session',
+				},
+			);
+
+			expect(db.list_inbox('worker')[0]).toMatchObject({
+				from_session_id: 'lead-session',
+			});
+		} finally {
+			db.close();
+		}
+	});
+
 	it('waits on current inbox and treats to as a sender filter', async () => {
 		const db = await tmp_db();
 		try {
