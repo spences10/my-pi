@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.47
+
+### Patch Changes
+
+- 0976aa8: Fix team-mode sender labels to avoid foreign-key failures
+  during teammate session messaging.
+
 ## 0.0.46
 
 ### Patch Changes
