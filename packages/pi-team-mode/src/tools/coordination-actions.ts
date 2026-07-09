@@ -69,6 +69,31 @@ function resolve_sender_filter_ids(
 	}
 }
 
+function resolve_message_sender_id(
+	coordination_db: TeamDatabase,
+	current_session_id: string,
+	from: string | undefined,
+): string {
+	const sender = from?.trim();
+	if (!sender) return current_session_id;
+	try {
+		const resolved = coordination_db.resolve_session_targets(sender);
+		if (resolved.length === 1) return resolved[0]!.session_id;
+		if (
+			resolved.some(
+				(session) => session.session_id === current_session_id,
+			)
+		)
+			return current_session_id;
+	} catch {
+		// `from` is often used as a human-friendly label such as
+		// "lead" or a group id. Messages must still be owned by a real
+		// registered session, so fall back to the current session instead
+		// of surfacing a low-level SQLite foreign-key error.
+	}
+	return current_session_id;
+}
+
 function format_direct_command_result(
 	result: Awaited<ReturnType<typeof run_direct_teammate_command>>,
 ): string {
@@ -174,6 +199,11 @@ export async function execute_coordination_action(
 		case 'message_send': {
 			coordination_db.mark_stale_sessions_offline();
 			const session_id = require_session_id();
+			const from_session_id = resolve_message_sender_id(
+				coordination_db,
+				session_id,
+				params.from,
+			);
 			const target = require_arg(params.to, 'to');
 			const target_sessions =
 				coordination_db.resolve_session_targets(target);
@@ -182,7 +212,7 @@ export async function execute_coordination_action(
 			);
 			const body = require_arg(params.message, 'message');
 			const message = coordination_db.send_to_session_target({
-				from_session_id: params.from ?? session_id,
+				from_session_id,
 				target,
 				body,
 				urgent: params.urgent,
