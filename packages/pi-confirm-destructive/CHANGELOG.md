@@ -1,5 +1,12 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.17
+
+### Patch Changes
+
+- 822d6f7: Add force push detection to destructive confirmation guard,
+  covering force-with-lease and related Git push flags.
+
 ## 0.0.16
 
 ### Patch Changes

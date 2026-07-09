@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.105
+
+### Patch Changes
+
+- 1b176ec: Fix disabled built-in flag handling and prevent skills from
+  loading when disabled via CLI flags.
+
 ## 0.1.104
 
 ## 0.1.103
