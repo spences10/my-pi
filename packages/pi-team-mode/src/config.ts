@@ -10,6 +10,8 @@ export const EXTENSION_PATH_ENV = 'MY_PI_TEAM_EXTENSION_PATH';
 export const AUTO_INJECT_ENV = 'MY_PI_TEAM_AUTO_INJECT_MESSAGES';
 export const COORDINATION_DB_ENV = 'MY_PI_COORDINATION_DB';
 export const TEAM_THINKING_ENV = 'MY_PI_TEAM_THINKING';
+export const TEAM_CHILD_ENV_ALLOWLIST_ENV =
+	'MY_PI_TEAM_MODE_ENV_ALLOWLIST';
 
 let current_extension_path: string | undefined;
 

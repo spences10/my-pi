@@ -2,7 +2,6 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 
 export type TeamUiMode = 'auto' | 'compact' | 'full' | 'off';
-export type TeamUiStyle = 'plain' | 'badge' | 'color';
 
 export const TEAM_ACTIONS = [
 	'session_list',
@@ -41,11 +40,6 @@ const TeamUiModeParam = StringEnum([
 	'full',
 	'off',
 ] as const);
-const TeamUiStyleParam = StringEnum([
-	'plain',
-	'badge',
-	'color',
-] as const);
 const ArtifactKindParam = StringEnum([
 	'summary',
 	'handoff',
@@ -56,37 +50,39 @@ const ArtifactKindParam = StringEnum([
 	'diff',
 ] as const);
 
-export const TeamToolParams = Type.Object({
-	action: StringEnum(TEAM_ACTIONS),
-	team_id: Type.Optional(Type.String()),
-	name: Type.Optional(Type.String()),
-	member: Type.Optional(Type.String()),
-	role: Type.Optional(CoordinationRoleParam),
-	from: Type.Optional(Type.String()),
-	to: Type.Optional(Type.String()),
-	message: Type.Optional(Type.String()),
-	message_ids: Type.Optional(Type.Array(Type.String())),
-	reply_to: Type.Optional(Type.String()),
-	ttl_ms: Type.Optional(Type.Number()),
-	requires_ack: Type.Optional(Type.Boolean()),
-	include_read: Type.Optional(Type.Boolean()),
-	urgent: Type.Optional(Type.Boolean()),
-	timeout_ms: Type.Optional(Type.Number()),
-	mode: Type.Optional(TeamUiModeParam),
-	kind: Type.Optional(ArtifactKindParam),
-	title: Type.Optional(Type.String()),
-	description: Type.Optional(Type.String()),
-	body: Type.Optional(Type.String()),
-	body_format: Type.Optional(Type.String()),
-	command: Type.Optional(Type.String()),
-	query: Type.Optional(Type.String()),
-	artifact_id: Type.Optional(Type.String()),
-	message_id: Type.Optional(Type.String()),
-	chunk_index: Type.Optional(Type.Number()),
-	before: Type.Optional(Type.Number()),
-	after: Type.Optional(Type.Number()),
-	style: Type.Optional(TeamUiStyleParam),
-});
+export const TeamToolParams = Type.Object(
+	{
+		action: StringEnum(TEAM_ACTIONS),
+		team_id: Type.Optional(Type.String()),
+		name: Type.Optional(Type.String()),
+		member: Type.Optional(Type.String()),
+		role: Type.Optional(CoordinationRoleParam),
+		from: Type.Optional(Type.String()),
+		to: Type.Optional(Type.String()),
+		message: Type.Optional(Type.String()),
+		message_ids: Type.Optional(Type.Array(Type.String())),
+		reply_to: Type.Optional(Type.String()),
+		ttl_ms: Type.Optional(Type.Number()),
+		requires_ack: Type.Optional(Type.Boolean()),
+		include_read: Type.Optional(Type.Boolean()),
+		urgent: Type.Optional(Type.Boolean()),
+		timeout_ms: Type.Optional(Type.Number()),
+		mode: Type.Optional(TeamUiModeParam),
+		kind: Type.Optional(ArtifactKindParam),
+		title: Type.Optional(Type.String()),
+		description: Type.Optional(Type.String()),
+		body: Type.Optional(Type.String()),
+		body_format: Type.Optional(Type.String()),
+		command: Type.Optional(Type.String()),
+		query: Type.Optional(Type.String()),
+		artifact_id: Type.Optional(Type.String()),
+		message_id: Type.Optional(Type.String()),
+		chunk_index: Type.Optional(Type.Number()),
+		before: Type.Optional(Type.Number()),
+		after: Type.Optional(Type.Number()),
+	},
+	{ additionalProperties: false },
+);
 
 export type TeamToolParams = {
 	action: TeamActionName;
@@ -124,8 +120,134 @@ export type TeamToolParams = {
 	chunk_index?: number;
 	before?: number;
 	after?: number;
-	style?: TeamUiStyle;
 };
+
+const ACTION_ALLOWED_FIELDS = {
+	session_list: ['action', 'include_read', 'mode'],
+	session_send: [
+		'action',
+		'from',
+		'to',
+		'message',
+		'reply_to',
+		'ttl_ms',
+		'requires_ack',
+		'urgent',
+		'timeout_ms',
+	],
+	session_inbox: [
+		'action',
+		'include_read',
+		'mode',
+		'message_id',
+		'message_ids',
+		'chunk_index',
+		'before',
+		'after',
+	],
+	session_read: ['action', 'message_ids', 'mode'],
+	session_ack: ['action', 'message_ids', 'mode'],
+	session_wait: [
+		'action',
+		'from',
+		'timeout_ms',
+		'include_read',
+		'mode',
+		'message_id',
+		'message_ids',
+		'chunk_index',
+		'before',
+		'after',
+	],
+	group_create: ['action', 'name'],
+	group_list: ['action'],
+	group_join: ['action', 'team_id', 'name', 'member', 'role'],
+	group_add_session: [
+		'action',
+		'team_id',
+		'name',
+		'to',
+		'member',
+		'role',
+	],
+	group_send: [
+		'action',
+		'team_id',
+		'name',
+		'to',
+		'message',
+		'urgent',
+		'reply_to',
+		'ttl_ms',
+		'requires_ack',
+	],
+	artifact_create: [
+		'action',
+		'kind',
+		'title',
+		'description',
+		'body',
+		'body_format',
+	],
+	artifact_get: [
+		'action',
+		'artifact_id',
+		'mode',
+		'chunk_index',
+		'before',
+		'after',
+	],
+	artifact_list: ['action', 'query', 'kind'],
+	message_send: [
+		'action',
+		'from',
+		'to',
+		'message',
+		'reply_to',
+		'ttl_ms',
+		'requires_ack',
+		'urgent',
+		'timeout_ms',
+	],
+	message_list: [
+		'action',
+		'include_read',
+		'mode',
+		'message_id',
+		'message_ids',
+		'chunk_index',
+		'before',
+		'after',
+	],
+	message_wait: [
+		'action',
+		'from',
+		'timeout_ms',
+		'include_read',
+		'mode',
+		'message_id',
+		'message_ids',
+		'chunk_index',
+		'before',
+		'after',
+	],
+	message_read: ['action', 'message_ids', 'mode'],
+	message_ack: ['action', 'message_ids', 'mode'],
+	member_spawn: [
+		'action',
+		'name',
+		'role',
+		'message',
+		'command',
+		'team_id',
+		'reply_to',
+		'to',
+		'timeout_ms',
+	],
+} as const satisfies Record<
+	TeamActionName,
+	readonly (keyof TeamToolParams)[]
+>;
 
 function require_tool_field(
 	params: TeamToolParams,
@@ -156,9 +278,25 @@ function require_tool_any_field(
 	);
 }
 
+function reject_inapplicable_fields(params: TeamToolParams): void {
+	const allowed = ACTION_ALLOWED_FIELDS[params.action];
+	if (!allowed)
+		throw new Error(`Unsupported team action: ${String(params.action)}`);
+	const allowed_fields = new Set<string>(allowed);
+	const invalid = Object.keys(params).filter(
+		(field) => !allowed_fields.has(field),
+	);
+	if (invalid.length > 0) {
+		throw new Error(
+			`Invalid team tool action ${params.action}: field ${invalid[0]} is not allowed`,
+		);
+	}
+}
+
 export function validate_team_tool_params(
 	params: TeamToolParams,
 ): void {
+	reject_inapplicable_fields(params);
 	switch (params.action) {
 		case 'session_list':
 		case 'session_inbox':
@@ -167,6 +305,10 @@ export function validate_team_tool_params(
 		case 'session_wait':
 		case 'group_list':
 		case 'artifact_list':
+		case 'message_list':
+		case 'message_wait':
+		case 'message_read':
+		case 'message_ack':
 			return;
 		case 'session_send':
 		case 'message_send':
@@ -200,16 +342,5 @@ export function validate_team_tool_params(
 		case 'artifact_get':
 			require_tool_field(params, 'artifact_id');
 			return;
-		case 'message_wait':
-			return;
-		case 'message_list':
-		case 'message_read':
-		case 'message_ack':
-			require_tool_any_field(params, ['member', 'to'], 'member');
-			return;
-		default:
-			throw new Error(
-				`Unsupported team action: ${String(params.action)}`,
-			);
 	}
 }
