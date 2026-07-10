@@ -1,14 +1,9 @@
-import {
-	existsSync,
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	rmSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TeamDatabase } from './index.js';
+import { MIGRATIONS } from './schema.js';
 
 const busy_error = Object.assign(new Error('database is locked'), {
 	code: 'ERR_SQLITE_ERROR',
@@ -86,27 +81,8 @@ describe('TeamDatabase coordination store', () => {
 		const { DatabaseSync } = await import('node:sqlite');
 		const v3_db = new DatabaseSync(db_path);
 		try {
-			const v3_schema = readFileSync(
-				new URL('./schema.sql', import.meta.url),
-				'utf8',
-			)
-				.replace(
-					/CREATE TABLE IF NOT EXISTS session_runtimes \([\s\S]*?\);\n\n/,
-					'',
-				)
-				.replace(
-					/CREATE TABLE IF NOT EXISTS runtime_events \([\s\S]*?\);\n\n/,
-					'',
-				)
-				.replace(
-					'CREATE INDEX IF NOT EXISTS idx_session_runtimes_state ON session_runtimes(state, lease_expires_at);\n',
-					'',
-				)
-				.replace(
-					'CREATE INDEX IF NOT EXISTS idx_runtime_events_session ON runtime_events(session_id, created_at);\n',
-					'',
-				);
-			v3_db.exec(v3_schema);
+			for (const migration of MIGRATIONS.slice(0, 3))
+				v3_db.exec(migration.sql);
 			v3_db.exec('PRAGMA user_version = 3;');
 		} finally {
 			v3_db.close();
@@ -133,48 +109,7 @@ describe('TeamDatabase coordination store', () => {
 		const { DatabaseSync } = await import('node:sqlite');
 		const v1_db = new DatabaseSync(db_path);
 		try {
-			const current_schema = readFileSync(
-				new URL('./schema.sql', import.meta.url),
-				'utf8',
-			);
-			const v1_schema = current_schema
-				.replace('\n\tthinking_level TEXT,', '')
-				.replace(
-					"\n\tavailability TEXT NOT NULL DEFAULT 'available' CHECK (availability IN ('available', 'busy', 'standby', 'handoff', 'offline')),",
-					'',
-				)
-				.replace('\n\tintent TEXT,', '')
-				.replace('\n\tsession_alias TEXT,', '')
-				.replace('\n\tparent_session_id TEXT,', '')
-				.replace(
-					/CREATE TABLE IF NOT EXISTS coordination_artifacts \([\s\S]*?\);\n\n/,
-					'',
-				)
-				.replace(
-					'CREATE INDEX IF NOT EXISTS idx_sessions_availability ON sessions(availability);\n',
-					'',
-				)
-				.replace(
-					'CREATE INDEX IF NOT EXISTS idx_sessions_intent ON sessions(intent);\n',
-					'',
-				)
-				.replace(
-					'CREATE INDEX IF NOT EXISTS idx_sessions_session_alias ON sessions(session_alias);\n',
-					'',
-				)
-				.replace(
-					'CREATE INDEX IF NOT EXISTS idx_coordination_artifacts_owner ON coordination_artifacts(owner_session_id);\n',
-					'',
-				)
-				.replace(
-					'CREATE INDEX IF NOT EXISTS idx_coordination_artifacts_cwd_kind ON coordination_artifacts(cwd, kind);\n',
-					'',
-				)
-				.replace(
-					'CREATE INDEX IF NOT EXISTS idx_coordination_artifacts_updated ON coordination_artifacts(updated_at);\n',
-					'',
-				);
-			v1_db.exec(v1_schema);
+			v1_db.exec(MIGRATIONS[0]!.sql);
 			v1_db.exec('PRAGMA user_version = 1;');
 		} finally {
 			v1_db.close();
