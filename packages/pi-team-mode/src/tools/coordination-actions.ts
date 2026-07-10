@@ -76,22 +76,23 @@ function resolve_message_sender_id(
 ): string {
 	const sender = from?.trim();
 	if (!sender) return current_session_id;
+	let resolved;
 	try {
-		const resolved = coordination_db.resolve_session_targets(sender);
-		if (resolved.length === 1) return resolved[0]!.session_id;
-		if (
-			resolved.some(
-				(session) => session.session_id === current_session_id,
-			)
-		)
-			return current_session_id;
+		resolved = coordination_db.resolve_session_targets(sender);
 	} catch {
-		// `from` is often used as a human-friendly label such as
-		// "lead" or a group id. Messages must still be owned by a real
-		// registered session, so fall back to the current session instead
-		// of surfacing a low-level SQLite foreign-key error.
+		throw new Error(
+			'Team message from is bound to the current session and cannot be an unregistered label.',
+		);
 	}
-	return current_session_id;
+	if (
+		resolved.length === 1 &&
+		resolved[0]?.session_id === current_session_id
+	) {
+		return current_session_id;
+	}
+	throw new Error(
+		'Team message from is bound to the current session; sender spoofing is not allowed.',
+	);
 }
 
 function format_direct_command_result(
@@ -285,8 +286,7 @@ export async function execute_coordination_action(
 		}
 		case 'session_inbox':
 		case 'message_list': {
-			const target =
-				params.to ?? params.member ?? require_session_id();
+			const target = require_session_id();
 			const messages = coordination_db.list_inbox(target, {
 				include_read: params.include_read,
 				include_acknowledged:
@@ -317,14 +317,10 @@ export async function execute_coordination_action(
 		}
 		case 'session_wait':
 		case 'message_wait': {
-			const target =
-				params.member ??
-				(params.action === 'message_wait' ? params.to : undefined) ??
-				require_session_id();
+			const target = require_session_id();
 			const from_filter = resolve_sender_filter_ids(
 				coordination_db,
-				params.from ??
-					(params.action === 'session_wait' ? params.to : undefined),
+				params.from,
 			);
 			const deadline =
 				Date.now() + Math.max(0, params.timeout_ms ?? 30_000);
@@ -377,8 +373,7 @@ export async function execute_coordination_action(
 		case 'session_ack':
 		case 'message_read':
 		case 'message_ack': {
-			const target =
-				params.to ?? params.member ?? require_session_id();
+			const target = require_session_id();
 			const ids =
 				params.message_ids ??
 				coordination_db

@@ -11,15 +11,23 @@ describe('detect_standby_registration', () => {
 		).toEqual({ availability: 'standby', intent: 'subordinate' });
 	});
 
-	it('detects handoff targets', () => {
+	it('detects handoff targets and explicit coordination availability', () => {
 		expect(
 			detect_standby_registration('standby for handoff'),
 		).toEqual({ availability: 'standby', intent: 'handoff-target' });
+		expect(
+			detect_standby_registration('available for coordination'),
+		).toEqual({ availability: 'standby', intent: 'standby' });
 	});
 
-	it('ignores normal prompts', () => {
+	it('ignores normal prompts and teammate planning language', () => {
 		expect(
 			detect_standby_registration('please inspect this diff'),
+		).toBeUndefined();
+		expect(
+			detect_standby_registration(
+				'create a teammate to inspect this and prepare a handoff',
+			),
 		).toBeUndefined();
 	});
 });

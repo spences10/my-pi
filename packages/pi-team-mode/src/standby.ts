@@ -23,22 +23,23 @@ export function detect_standby_registration(
 	const mentions_standby = /\bstand\s*by\b|\bstandby\b/.test(
 		normalized,
 	);
+	const mentions_available =
+		/\bavailable\s+(?:for|to)\s+(?:coordination|coordinate|handoff)\b/.test(
+			normalized,
+		) ||
+		/\bready\s+(?:for|to)\s+(?:coordination|coordinate|handoff)\b/.test(
+			normalized,
+		);
 	const mentions_subordinate =
 		/\bsubordinate\b|\bsubordonate\b|\bteammate\b/.test(normalized);
 	const mentions_handoff = /\bhandoff\b|\btake over\b/.test(
 		normalized,
 	);
-	const mentions_coordination =
-		/\bcoordination session\b|\bcoordinator session\b/.test(
-			normalized,
-		);
 	const mentions_orchestrator = /\borchestrator\b/.test(normalized);
 
 	if (
 		!mentions_standby &&
-		!mentions_subordinate &&
-		!mentions_handoff &&
-		!mentions_coordination
+		!mentions_available
 	) {
 		return undefined;
 	}

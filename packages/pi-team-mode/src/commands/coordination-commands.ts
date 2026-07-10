@@ -16,6 +16,7 @@ function require_session_id(deps: TeamCommandDeps): string {
 export async function handle_sessions(
 	deps: TeamCommandDeps,
 ): Promise<void> {
+	deps.coordination_db.mark_stale_sessions_offline();
 	const sessions = deps.coordination_db.list_sessions();
 	deps.ctx.ui.notify(format_sessions(sessions), 'info');
 }
@@ -30,6 +31,7 @@ export async function handle_session_command(
 		return;
 	}
 	if (sub === 'send') {
+		deps.coordination_db.mark_stale_sessions_offline();
 		const [target, ...message_parts] = tail;
 		if (!target || message_parts.length === 0)
 			throw new Error(

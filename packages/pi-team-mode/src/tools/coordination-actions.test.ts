@@ -273,30 +273,42 @@ describe('coordination actions', () => {
 		}
 	});
 
-	it('falls back to current session for unregistered sender labels', async () => {
+	it('rejects unregistered and foreign send-side identities', async () => {
 		const db = await tmp_db();
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'victim', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			const context = {
+				ctx: { cwd: '/repo' } as any,
+				coordination_db: db,
+				notify_coordination_messages: async () => undefined,
+				require_session_id: () => 'lead',
+			};
 
-			await execute_coordination_action(
-				{
-					action: 'session_send',
-					from: 'not-a-session',
-					to: 'worker',
-					message: 'Please report.',
-				},
-				{
-					ctx: { cwd: '/repo' } as any,
-					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
-					require_session_id: () => 'lead',
-				},
-			);
-
-			expect(db.list_inbox('worker')[0]).toMatchObject({
-				from_session_id: 'lead',
-			});
+			await expect(
+				execute_coordination_action(
+					{
+						action: 'session_send',
+						from: 'not-a-session',
+						to: 'worker',
+						message: 'Please report.',
+					},
+					context,
+				),
+			).rejects.toThrow(/bound to the current session/);
+			await expect(
+				execute_coordination_action(
+					{
+						action: 'session_send',
+						from: 'victim',
+						to: 'worker',
+						message: 'Please report.',
+					},
+					context,
+				),
+			).rejects.toThrow(/sender spoofing/);
+			expect(db.list_inbox('worker')).toEqual([]);
 		} finally {
 			db.close();
 		}
@@ -335,7 +347,7 @@ describe('coordination actions', () => {
 		}
 	});
 
-	it('waits on current inbox and treats to as a sender filter', async () => {
+	it('waits on the current inbox even when a foreign to is supplied', async () => {
 		const db = await tmp_db();
 		try {
 			db.register_session({ session_id: 'parent', cwd: '/repo' });
@@ -400,7 +412,7 @@ describe('coordination actions', () => {
 		}
 	});
 
-	it('keeps message_wait to as a legacy target inbox', async () => {
+	it('does not let message_wait select another inbox', async () => {
 		const db = await tmp_db();
 		try {
 			db.register_session({ session_id: 'parent', cwd: '/repo' });
@@ -422,7 +434,10 @@ describe('coordination actions', () => {
 				},
 			);
 
-			expect(result.content[0]?.text).toContain('worker result');
+			expect(result.content[0]?.text).not.toContain('worker result');
+			expect(result.content[0]?.text).toContain(
+				'No matching inbox messages.',
+			);
 		} finally {
 			db.close();
 		}
