@@ -43,8 +43,9 @@
 	"scripts": {
 		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
 		"build:self": "vp exec vite build && vp exec tsc -p tsconfig.build.json && cp src/schema.sql dist/ && mkdir -p dist/fonts && cp node_modules/@fontsource/victor-mono/files/victor-mono-latin-400-normal.woff2 node_modules/@fontsource/victor-mono/files/victor-mono-latin-700-normal.woff2 dist/fonts/",
-		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
-		"check:self": "vp exec vite build && vp exec svelte-check --tsconfig src/web/tsconfig.json && vp exec tsc --noEmit -p tsconfig.json",
+		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self && pnpm run check:web",
+		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
+		"check:web": "vp exec vite build && vp exec svelte-check --tsconfig src/web/tsconfig.json",
 		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
 		"test:self": "vp exec vitest run",
 		"coverage:self": "vp exec vitest run --coverage",
@@ -61,7 +62,7 @@
 		"@sveltejs/vite-plugin-svelte": "catalog:",
 		"@types/node": "catalog:",
 		"svelte": "catalog:",
-		"svelte-check": "^4.4.8",
+		"svelte-check": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
 		"vitest": "catalog:"
