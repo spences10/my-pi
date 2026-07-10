@@ -32,7 +32,10 @@ export const MIGRATIONS: Record<number, string> = {
 		'utf-8',
 	),
 	4: readFileSync(
-		new URL('./migrations/004_persistent_runtimes.sql', import.meta.url),
+		new URL(
+			'./migrations/004_persistent_runtimes.sql',
+			import.meta.url,
+		),
 		'utf-8',
 	),
 };

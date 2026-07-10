@@ -36,11 +36,12 @@ pi -e ./packages/pi-team-mode
 - discovers live sessions across projects and working directories
 - tracks PID-backed registrations and marks stale peers offline on
   supported tool paths
-- creates visible teammate sessions that can be resumed as normal Pi
-  sessions
+- creates visible teammate sessions with an experimental persistent
+  single-owner runtime
+- routes accepted persistent-runtime messages as native Pi prompt,
+  steering, or follow-up turns
 - sends compact mailbox-backed peer messages between independently
-  started sessions and records those messages in target session
-  history
+  started sessions
 - stores larger handoffs, plans, findings, logs, diffs, and results as
   coordination artifacts referenced from mailbox messages
 - creates coordination groups over arbitrary sessions
@@ -49,15 +50,30 @@ pi -e ./packages/pi-team-mode
 - uses a local HTTP/SSE broker for fast delivery with SQLite polling
   as durable fallback
 
-## Experimental persistent-runtime direction
+## Experimental persistent runtime
 
-The target architecture gives each teammate session one long-lived
-owner process. Messages become native Pi turns on that runtime, with
-explicit readiness, completion/failure, receipt recovery, recursive
-team limits, and defined environment/workspace boundaries. The
-existing coordination bus, groups, artifacts, and mailboxes are the
-foundation, but do not by themselves prove those runtime guarantees.
-See the [comparison matrix](./docs/comparison-matrix.md) and
+Enable the opt-in persistent path before starting the lead Pi process:
+
+```bash
+MY_PI_TEAM_RUNTIME=persistent pnpm start
+# or: MY_PI_TEAM_RUNTIME=persistent pi -e ./packages/pi-team-mode
+```
+
+In this mode, `member_spawn` starts one detached SDK runtime that owns
+the teammate session, waits for runtime readiness and initial-prompt
+acceptance, and returns structured runtime status. Later
+`session_send` calls route to that owner as native prompt, steering,
+or follow-up turns. Runtime generations, ownership leases, process
+identity, state transitions, and bounded diagnostics are persisted in
+SQLite. Child runtimes receive a minimal environment; add explicitly
+required variables with `MY_PI_TEAM_MODE_ENV_ALLOWLIST` or
+`MY_PI_CHILD_ENV_ALLOWLIST`.
+
+The legacy wake path remains the default during dogfood. The
+persistent path is still experimental: live `/resume` attachment,
+crash-safe exactly-once delivery, managed workspace isolation, and
+recursive depth/concurrency limits are not complete. See the
+[comparison matrix](./docs/comparison-matrix.md) and
 [release/dogfood checklist](./docs/release-checklist.md) for the exact
 status and release gates.
 
@@ -128,11 +144,12 @@ visible teammate session. Add `reply_to` or comma/space-separated `to`
 recipients when the teammate's final report should go directly to an
 orchestrator, peer, or cross-project session instead of only its
 creator. Initial instructions and later native turns are recorded in
-the teammate transcript. The current wake path is transitional while
-the single-owner persistent runtime is implemented; mailbox state or a
-session file alone is not evidence that a model turn completed. Do not
-use `/resume` as an attachment mechanism while that runtime is active;
-see the known limitation above.
+the teammate transcript. With `MY_PI_TEAM_RUNTIME=persistent`, spawn
+waits for runtime readiness and Pi prompt preflight acceptance; that
+is not the same as successful task completion. Mailbox state or a
+session file alone is never evidence that a model turn completed. Do
+not use `/resume` as an attachment mechanism while the persistent
+runtime is active; see the known limitation above.
 
 For deterministic checks that do not need a model turn, `member_spawn`
 also accepts `command`. The command runs in the teammate's project
@@ -179,11 +196,12 @@ Mailbox messages expose three separate receipt fields:
   it is safe to suppress redelivery.
 
 Use `session_read`/`message_read` after reviewing messages and
-`session_ack`/`message_ack` after acting on them. The current
-automated wake path may advance delivery/read while queueing work, so
-receipt fields are not yet an exactly-once execution guarantee.
-`message_send` supports `reply_to`, `ttl_ms`, and `requires_ack`;
-`message_wait` can briefly wait for a matching peer reply.
+`session_ack`/`message_ack` after acting on them. Persistent delivery
+sets `delivered_at` only after the owning runtime accepts the native
+turn; read and acknowledgement remain explicit. Receipt fields are not
+yet a crash-safe exactly-once execution guarantee. `message_send`
+supports `reply_to`, `ttl_ms`, and `requires_ack`; `message_wait` can
+briefly wait for a matching peer reply.
 
 ## Standby sessions
 

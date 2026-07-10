@@ -37,10 +37,7 @@ export function detect_standby_registration(
 	);
 	const mentions_orchestrator = /\borchestrator\b/.test(normalized);
 
-	if (
-		!mentions_standby &&
-		!mentions_available
-	) {
+	if (!mentions_standby && !mentions_available) {
 		return undefined;
 	}
 

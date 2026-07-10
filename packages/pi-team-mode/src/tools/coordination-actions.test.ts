@@ -35,7 +35,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	if (original_runtime === undefined) delete process.env[TEAM_RUNTIME_ENV];
+	if (original_runtime === undefined)
+		delete process.env[TEAM_RUNTIME_ENV];
 	else process.env[TEAM_RUNTIME_ENV] = original_runtime;
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
@@ -242,7 +243,9 @@ describe('coordination actions', () => {
 					runtime_id: 'runtime',
 					endpoint: '/tmp/runtime.sock',
 					state,
-					lease_expires_at: new Date(Date.now() + 60_000).toISOString(),
+					lease_expires_at: new Date(
+						Date.now() + 60_000,
+					).toISOString(),
 				})!;
 				const deliver_runtime_message = vi.fn(async () => runtime);
 

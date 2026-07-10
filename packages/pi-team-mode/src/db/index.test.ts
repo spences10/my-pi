@@ -90,10 +90,22 @@ describe('TeamDatabase coordination store', () => {
 				new URL('./schema.sql', import.meta.url),
 				'utf8',
 			)
-				.replace(/CREATE TABLE IF NOT EXISTS session_runtimes \([\s\S]*?\);\n\n/, '')
-				.replace(/CREATE TABLE IF NOT EXISTS runtime_events \([\s\S]*?\);\n\n/, '')
-				.replace('CREATE INDEX IF NOT EXISTS idx_session_runtimes_state ON session_runtimes(state, lease_expires_at);\n', '')
-				.replace('CREATE INDEX IF NOT EXISTS idx_runtime_events_session ON runtime_events(session_id, created_at);\n', '');
+				.replace(
+					/CREATE TABLE IF NOT EXISTS session_runtimes \([\s\S]*?\);\n\n/,
+					'',
+				)
+				.replace(
+					/CREATE TABLE IF NOT EXISTS runtime_events \([\s\S]*?\);\n\n/,
+					'',
+				)
+				.replace(
+					'CREATE INDEX IF NOT EXISTS idx_session_runtimes_state ON session_runtimes(state, lease_expires_at);\n',
+					'',
+				)
+				.replace(
+					'CREATE INDEX IF NOT EXISTS idx_runtime_events_session ON runtime_events(session_id, created_at);\n',
+					'',
+				);
 			v3_db.exec(v3_schema);
 			v3_db.exec('PRAGMA user_version = 3;');
 		} finally {
@@ -106,7 +118,10 @@ describe('TeamDatabase coordination store', () => {
 				db.read_rows<{ name: string }>(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('session_runtimes', 'runtime_events') ORDER BY name",
 				),
-			).toEqual([{ name: 'runtime_events' }, { name: 'session_runtimes' }]);
+			).toEqual([
+				{ name: 'runtime_events' },
+				{ name: 'session_runtimes' },
+			]);
 		} finally {
 			db.close();
 		}

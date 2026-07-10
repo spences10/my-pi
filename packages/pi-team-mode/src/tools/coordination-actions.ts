@@ -156,9 +156,9 @@ function is_live_runtime(
 ): boolean {
 	return Boolean(
 		runtime &&
-			['ready', 'idle', 'running', 'waiting', 'blocked'].includes(
-				runtime.state,
-			),
+		['ready', 'idle', 'running', 'waiting', 'blocked'].includes(
+			runtime.state,
+		),
 	);
 }
 
@@ -297,7 +297,9 @@ export async function execute_coordination_action(
 			}> = [];
 			for (const target_session of target_sessions) {
 				const persistent_runtime =
-					coordination_db.get_session_runtime(target_session.session_id);
+					coordination_db.get_session_runtime(
+						target_session.session_id,
+					);
 				if (
 					persistent_runtime &&
 					is_live_runtime(persistent_runtime)
@@ -357,7 +359,9 @@ export async function execute_coordination_action(
 				) {
 					const accepted = await wake_teammate(wake_options);
 					if (!accepted?.accepted)
-						throw new Error('Persistent runtime did not accept the message');
+						throw new Error(
+							'Persistent runtime did not accept the message',
+						);
 					coordination_db.mark_messages_delivered(
 						target_session.session_id,
 						[message.message_id],
@@ -379,7 +383,9 @@ export async function execute_coordination_action(
 				if (should_use_persistent_team_runtime()) {
 					const accepted = await wake_teammate(wake_options);
 					if (!accepted?.accepted)
-						throw new Error('Persistent runtime did not accept the message');
+						throw new Error(
+							'Persistent runtime did not accept the message',
+						);
 					coordination_db.mark_messages_delivered(
 						target_session.session_id,
 						[message.message_id],
@@ -724,11 +730,9 @@ export async function execute_coordination_action(
 							signal: result.signal,
 							timed_out: result.timed_out,
 							stdout_bytes: result.diagnostics.stdout.bytes,
-							stdout_truncated:
-								result.diagnostics.stdout.truncated,
+							stdout_truncated: result.diagnostics.stdout.truncated,
 							stderr_bytes: result.diagnostics.stderr.bytes,
-							stderr_truncated:
-								result.diagnostics.stderr.truncated,
+							stderr_truncated: result.diagnostics.stderr.truncated,
 						},
 					});
 					await notify_coordination_messages(

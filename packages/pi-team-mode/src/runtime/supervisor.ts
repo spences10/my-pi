@@ -21,10 +21,7 @@ import {
 } from '../config.js';
 import type { CoordinationSessionRuntime } from '../db/index.js';
 import { TeamDatabase } from '../db/index.js';
-import {
-	prompt_runtime,
-	wait_for_runtime_ready,
-} from './client.js';
+import { prompt_runtime, wait_for_runtime_ready } from './client.js';
 import {
 	DEFAULT_RUNTIME_LEASE_MS,
 	reserve_runtime_ownership,
@@ -32,7 +29,10 @@ import {
 } from './ownership.js';
 import type { RuntimeHostConfig } from './protocol.js';
 
-function runtime_endpoint(session_id: string, runtime_id: string): string {
+function runtime_endpoint(
+	session_id: string,
+	runtime_id: string,
+): string {
 	const key = createHash('sha256')
 		.update(`${session_id}:${runtime_id}`)
 		.digest('hex')
@@ -40,11 +40,17 @@ function runtime_endpoint(session_id: string, runtime_id: string): string {
 	return join(tmpdir(), `pi-team-runtime-${key}.sock`);
 }
 
-export function encode_runtime_host_config(config: RuntimeHostConfig): string {
-	return Buffer.from(JSON.stringify(config), 'utf8').toString('base64url');
+export function encode_runtime_host_config(
+	config: RuntimeHostConfig,
+): string {
+	return Buffer.from(JSON.stringify(config), 'utf8').toString(
+		'base64url',
+	);
 }
 
-export function decode_runtime_host_config(value: string): RuntimeHostConfig {
+export function decode_runtime_host_config(
+	value: string,
+): RuntimeHostConfig {
 	const parsed = JSON.parse(
 		Buffer.from(value, 'base64url').toString('utf8'),
 	) as RuntimeHostConfig;
@@ -67,11 +73,15 @@ export function write_runtime_host_config(
 ): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-team-runtime-config-'));
 	const path = join(dir, 'config');
-	writeFileSync(path, encode_runtime_host_config(config), { mode: 0o600 });
+	writeFileSync(path, encode_runtime_host_config(config), {
+		mode: 0o600,
+	});
 	return path;
 }
 
-export function consume_runtime_host_config(path: string): RuntimeHostConfig {
+export function consume_runtime_host_config(
+	path: string,
+): RuntimeHostConfig {
 	try {
 		return decode_runtime_host_config(readFileSync(path, 'utf8'));
 	} finally {
@@ -145,7 +155,8 @@ export async function start_persistent_runtime(
 		heartbeat_ms: options.heartbeat_ms,
 	};
 	const host_module =
-		options.host_module ?? fileURLToPath(new URL('./host.js', import.meta.url));
+		options.host_module ??
+		fileURLToPath(new URL('./host.js', import.meta.url));
 	const config_path = write_runtime_host_config(config);
 	const child = spawn(
 		process.execPath,

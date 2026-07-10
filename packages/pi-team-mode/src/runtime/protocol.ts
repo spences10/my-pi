@@ -47,7 +47,9 @@ export interface RuntimeHostConfig {
 	heartbeat_ms?: number;
 }
 
-export function parse_runtime_request(value: unknown): RuntimeRequest {
+export function parse_runtime_request(
+	value: unknown,
+): RuntimeRequest {
 	if (!value || typeof value !== 'object')
 		throw new Error('Runtime request must be an object');
 	const request = value as Record<string, unknown>;

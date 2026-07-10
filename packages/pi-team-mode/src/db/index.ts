@@ -113,7 +113,9 @@ function map_session_runtime(
 	};
 }
 
-function map_runtime_event(row: RuntimeEventRow): CoordinationRuntimeEvent {
+function map_runtime_event(
+	row: RuntimeEventRow,
+): CoordinationRuntimeEvent {
 	return {
 		event_id: row.event_id,
 		session_id: row.session_id,
@@ -633,9 +635,7 @@ export class TeamDatabase {
 				input.session_id,
 				input.runtime_id,
 				input.pid ?? null,
-				input.process_identity
-					? json(input.process_identity)
-					: null,
+				input.process_identity ? json(input.process_identity) : null,
 				input.endpoint ?? null,
 				input.state,
 				input.autonomous === false ? 0 : 1,
@@ -669,9 +669,7 @@ export class TeamDatabase {
 			const result = this.statements.replace_session_runtime.run(
 				input.runtime_id,
 				input.pid ?? null,
-				input.process_identity
-					? json(input.process_identity)
-					: null,
+				input.process_identity ? json(input.process_identity) : null,
 				input.endpoint ?? null,
 				input.state,
 				input.autonomous === false ? 0 : 1,
@@ -705,9 +703,7 @@ export class TeamDatabase {
 		const changes = this.transaction(() => {
 			const result = this.statements.adopt_session_runtime.run(
 				input.pid ?? null,
-				input.process_identity
-					? json(input.process_identity)
-					: null,
+				input.process_identity ? json(input.process_identity) : null,
 				input.endpoint ?? null,
 				input.state,
 				input.heartbeat_at ?? null,
@@ -776,7 +772,9 @@ export class TeamDatabase {
 		});
 	}
 
-	list_runtime_events(session_id: string): CoordinationRuntimeEvent[] {
+	list_runtime_events(
+		session_id: string,
+	): CoordinationRuntimeEvent[] {
 		const rows = this.statements.list_runtime_events.all(
 			session_id,
 		) as unknown as RuntimeEventRow[];

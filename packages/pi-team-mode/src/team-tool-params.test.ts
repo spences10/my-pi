@@ -15,8 +15,11 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 	it('exposes visible teammate spawning but not RPC task actions', () => {
 		expect(TEAM_ACTIONS).toContain('member_spawn');
 		expect(
-			(TeamToolParams as unknown as { additionalProperties?: boolean })
-				.additionalProperties,
+			(
+				TeamToolParams as unknown as {
+					additionalProperties?: boolean;
+				}
+			).additionalProperties,
 		).toBe(false);
 		expect(TEAM_ACTIONS).not.toContain('team_create' as any);
 		expect(TEAM_ACTIONS).not.toContain('task_create' as any);

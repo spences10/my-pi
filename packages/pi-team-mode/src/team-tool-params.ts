@@ -281,7 +281,9 @@ function require_tool_any_field(
 function reject_inapplicable_fields(params: TeamToolParams): void {
 	const allowed = ACTION_ALLOWED_FIELDS[params.action];
 	if (!allowed)
-		throw new Error(`Unsupported team action: ${String(params.action)}`);
+		throw new Error(
+			`Unsupported team action: ${String(params.action)}`,
+		);
 	const allowed_fields = new Set<string>(allowed);
 	const invalid = Object.keys(params).filter(
 		(field) => !allowed_fields.has(field),

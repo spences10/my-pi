@@ -78,11 +78,15 @@ export async function accept_agent_prompt(
 			preflightResult: (success) => {
 				accepted = success;
 				if (success) resolve();
-				else reject(new Error('Runtime prompt was rejected during preflight'));
+				else
+					reject(
+						new Error('Runtime prompt was rejected during preflight'),
+					);
 			},
 		});
 		void completion.catch((error: unknown) => {
-			const failure = error instanceof Error ? error : new Error(String(error));
+			const failure =
+				error instanceof Error ? error : new Error(String(error));
 			if (accepted) options.on_background_error?.(failure);
 			else reject(failure);
 		});
@@ -93,7 +97,9 @@ function reply(socket: Socket, response: RuntimeResponse): void {
 	socket.end(`${JSON.stringify(response)}\n`);
 }
 
-export async function run_runtime_host(config: RuntimeHostConfig): Promise<void> {
+export async function run_runtime_host(
+	config: RuntimeHostConfig,
+): Promise<void> {
 	const db = await TeamDatabase.open(config.db_path);
 	let stopping = false;
 	let heartbeat: NodeJS.Timeout | undefined;
@@ -103,8 +109,11 @@ export async function run_runtime_host(config: RuntimeHostConfig): Promise<void>
 		runtime_id: config.runtime_id,
 		generation: config.generation,
 	};
-	const create_runtime: CreateAgentSessionRuntimeFactory = async (options) => {
-		const coordination_prompt = persistent_coordination_prompt(config);
+	const create_runtime: CreateAgentSessionRuntimeFactory = async (
+		options,
+	) => {
+		const coordination_prompt =
+			persistent_coordination_prompt(config);
 		const services = await createAgentSessionServices({
 			cwd: options.cwd,
 			resourceLoaderOptions: {
@@ -124,11 +133,15 @@ export async function run_runtime_host(config: RuntimeHostConfig): Promise<void>
 			diagnostics: services.diagnostics,
 		};
 	};
-	let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
+	let runtime:
+		| Awaited<ReturnType<typeof createAgentSessionRuntime>>
+		| undefined;
 	const server = createServer();
 	const current = () => db.get_session_runtime(config.session_id)!;
-	const set_state = (state: Parameters<typeof transition_runtime>[1]['state'], error?: string) =>
-		transition_runtime(db, { ...owner, state, error });
+	const set_state = (
+		state: Parameters<typeof transition_runtime>[1]['state'],
+		error?: string,
+	) => transition_runtime(db, { ...owner, state, error });
 
 	const shutdown = async (failed?: Error) => {
 		if (stopping) return;
@@ -144,38 +157,60 @@ export async function run_runtime_host(config: RuntimeHostConfig): Promise<void>
 				set_state('offline');
 			}
 		} catch {}
-		if (existsSync(config.endpoint)) rmSync(config.endpoint, { force: true });
+		if (existsSync(config.endpoint))
+			rmSync(config.endpoint, { force: true });
 		db.close();
 	};
 
-	async function handle_request(value: unknown, socket: Socket): Promise<void> {
+	async function handle_request(
+		value: unknown,
+		socket: Socket,
+	): Promise<void> {
 		let request: RuntimeRequest | undefined;
 		try {
 			request = parse_runtime_request(value);
 			assert_runtime_owner(db, owner);
 			if (request.method === 'status') {
-				reply(socket, { id: request.id, version: TEAM_RUNTIME_PROTOCOL_VERSION, ok: true, runtime: current() });
+				reply(socket, {
+					id: request.id,
+					version: TEAM_RUNTIME_PROTOCOL_VERSION,
+					ok: true,
+					runtime: current(),
+				});
 				return;
 			}
 			if (request.method === 'shutdown') {
-				reply(socket, { id: request.id, version: TEAM_RUNTIME_PROTOCOL_VERSION, ok: true, runtime: current() });
+				reply(socket, {
+					id: request.id,
+					version: TEAM_RUNTIME_PROTOCOL_VERSION,
+					ok: true,
+					runtime: current(),
+				});
 				void shutdown();
 				return;
 			}
 			if (request.method === 'abort') await runtime!.session.abort();
-			else if (request.method === 'steer') await runtime!.session.steer(request.message);
-			else if (request.method === 'follow_up') await runtime!.session.followUp(request.message);
+			else if (request.method === 'steer')
+				await runtime!.session.steer(request.message);
+			else if (request.method === 'follow_up')
+				await runtime!.session.followUp(request.message);
 			else if (request.method === 'prompt') {
 				await accept_agent_prompt(runtime!.session, request.message, {
 					streamingBehavior: runtime!.session.isStreaming
 						? 'followUp'
 						: undefined,
 					on_background_error: (error) => {
-						if (!stopping) set_state('failed', error.stack ?? error.message);
+						if (!stopping)
+							set_state('failed', error.stack ?? error.message);
 					},
 				});
 			}
-			reply(socket, { id: request.id, version: TEAM_RUNTIME_PROTOCOL_VERSION, ok: true, runtime: current() });
+			reply(socket, {
+				id: request.id,
+				version: TEAM_RUNTIME_PROTOCOL_VERSION,
+				ok: true,
+				runtime: current(),
+			});
 		} catch (error) {
 			reply(socket, {
 				id: request?.id ?? 'invalid',
@@ -196,7 +231,11 @@ export async function run_runtime_host(config: RuntimeHostConfig): Promise<void>
 		runtime = await createAgentSessionRuntime(create_runtime, {
 			cwd: config.cwd,
 			agentDir: getAgentDir(),
-			sessionManager: SessionManager.open(config.session_file, undefined, config.cwd),
+			sessionManager: SessionManager.open(
+				config.session_file,
+				undefined,
+				config.cwd,
+			),
 		});
 		await runtime.session.bindExtensions({});
 		unsubscribe = runtime.session.subscribe((event) => {
@@ -210,7 +249,8 @@ export async function run_runtime_host(config: RuntimeHostConfig): Promise<void>
 			)
 				set_state('idle');
 		});
-		if (existsSync(config.endpoint)) rmSync(config.endpoint, { force: true });
+		if (existsSync(config.endpoint))
+			rmSync(config.endpoint, { force: true });
 		server.on('connection', (socket) => {
 			socket.setEncoding('utf8');
 			let body = '';
@@ -220,9 +260,17 @@ export async function run_runtime_host(config: RuntimeHostConfig): Promise<void>
 				const newline = body.indexOf('\n');
 				if (newline === -1) return;
 				try {
-					void handle_request(JSON.parse(body.slice(0, newline)) as unknown, socket);
+					void handle_request(
+						JSON.parse(body.slice(0, newline)) as unknown,
+						socket,
+					);
 				} catch (error) {
-					reply(socket, { id: 'invalid', version: 1, ok: false, error: (error as Error).message });
+					reply(socket, {
+						id: 'invalid',
+						version: 1,
+						ok: false,
+						error: (error as Error).message,
+					});
 				}
 			});
 		});
@@ -230,13 +278,20 @@ export async function run_runtime_host(config: RuntimeHostConfig): Promise<void>
 			server.once('error', reject);
 			server.listen(config.endpoint, resolve);
 		});
-		heartbeat = setInterval(() => {
-			try {
-				heartbeat_runtime_ownership(db, { ...owner, lease_ms: config.lease_ms });
-			} catch (error) {
-				void shutdown(error as Error);
-			}
-		}, config.heartbeat_ms ?? Math.max(250, Math.floor((config.lease_ms ?? 15_000) / 3)));
+		heartbeat = setInterval(
+			() => {
+				try {
+					heartbeat_runtime_ownership(db, {
+						...owner,
+						lease_ms: config.lease_ms,
+					});
+				} catch (error) {
+					void shutdown(error as Error);
+				}
+			},
+			config.heartbeat_ms ??
+				Math.max(250, Math.floor((config.lease_ms ?? 15_000) / 3)),
+		);
 		heartbeat.unref();
 		db.register_session({
 			session_id: config.session_id,
@@ -260,11 +315,15 @@ export async function run_runtime_host(config: RuntimeHostConfig): Promise<void>
 
 function config_file_argument(argv: string[]): string {
 	const index = argv.indexOf('--config-file');
-	if (index < 0 || !argv[index + 1]) throw new Error('Missing --config-file');
+	if (index < 0 || !argv[index + 1])
+		throw new Error('Missing --config-file');
 	return argv[index + 1];
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+	process.argv[1] &&
+	import.meta.url === pathToFileURL(process.argv[1]).href
+) {
 	run_runtime_host(
 		consume_runtime_host_config(config_file_argument(process.argv)),
 	).catch((error) => {

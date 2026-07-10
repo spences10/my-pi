@@ -13,14 +13,52 @@ import {
 
 export const DEFAULT_RUNTIME_LEASE_MS = 15_000;
 
-const allowed_transitions: Record<RuntimeLifecycleState, RuntimeLifecycleState[]> = {
+const allowed_transitions: Record<
+	RuntimeLifecycleState,
+	RuntimeLifecycleState[]
+> = {
 	created: ['starting', 'offline', 'failed'],
-	starting: ['ready', 'idle', 'running', 'stopping', 'offline', 'failed'],
+	starting: [
+		'ready',
+		'idle',
+		'running',
+		'stopping',
+		'offline',
+		'failed',
+	],
 	ready: ['idle', 'running', 'stopping', 'offline', 'failed'],
-	idle: ['running', 'waiting', 'blocked', 'stopping', 'offline', 'failed'],
-	running: ['idle', 'waiting', 'blocked', 'stopping', 'offline', 'failed'],
-	waiting: ['idle', 'running', 'blocked', 'stopping', 'offline', 'failed'],
-	blocked: ['idle', 'running', 'waiting', 'stopping', 'offline', 'failed'],
+	idle: [
+		'running',
+		'waiting',
+		'blocked',
+		'stopping',
+		'offline',
+		'failed',
+	],
+	running: [
+		'idle',
+		'waiting',
+		'blocked',
+		'stopping',
+		'offline',
+		'failed',
+	],
+	waiting: [
+		'idle',
+		'running',
+		'blocked',
+		'stopping',
+		'offline',
+		'failed',
+	],
+	blocked: [
+		'idle',
+		'running',
+		'waiting',
+		'stopping',
+		'offline',
+		'failed',
+	],
 	stopping: ['offline', 'failed'],
 	offline: [],
 	failed: ['offline'],
@@ -95,7 +133,9 @@ export function reserve_runtime_ownership(
 
 	const current = db.get_session_runtime(options.session_id);
 	if (!current)
-		throw new RuntimeOwnershipError('Runtime ownership changed while reserving');
+		throw new RuntimeOwnershipError(
+			'Runtime ownership changed while reserving',
+		);
 	if (current.runtime_id === runtime_id) return current;
 	if (Date.parse(current.lease_expires_at) > now_ms)
 		throw new RuntimeOwnershipError(
@@ -227,7 +267,9 @@ export function heartbeat_runtime_ownership(
 		),
 	});
 	if (!updated)
-		throw new RuntimeOwnershipError('Runtime lost ownership while heartbeating');
+		throw new RuntimeOwnershipError(
+			'Runtime lost ownership while heartbeating',
+		);
 	return db.get_session_runtime(options.session_id)!;
 }
 
@@ -263,7 +305,8 @@ export function transition_runtime(
 			`Invalid runtime state transition ${current.state} -> ${options.state}`,
 		);
 	const now_ms = options.now_ms ?? Date.now();
-	const terminal = options.state === 'offline' || options.state === 'failed';
+	const terminal =
+		options.state === 'offline' || options.state === 'failed';
 	const timestamp = new Date(now_ms).toISOString();
 	const updated = db.transition_session_runtime({
 		session_id: options.session_id,
@@ -286,6 +329,8 @@ export function transition_runtime(
 		data: options.data,
 	});
 	if (!updated)
-		throw new RuntimeOwnershipError('Runtime lost ownership while changing state');
+		throw new RuntimeOwnershipError(
+			'Runtime lost ownership while changing state',
+		);
 	return db.get_session_runtime(options.session_id)!;
 }
