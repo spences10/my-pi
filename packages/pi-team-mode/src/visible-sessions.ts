@@ -29,7 +29,10 @@ const DIRECT_COMMAND_MAX_BUFFER = 1024 * 1024;
 export const TEAM_RUNTIME_ENV = 'MY_PI_TEAM_RUNTIME';
 
 export function should_use_persistent_team_runtime(): boolean {
-	return process.env[TEAM_RUNTIME_ENV]?.trim().toLowerCase() === 'persistent';
+	return (
+		process.env[TEAM_RUNTIME_ENV]?.trim().toLowerCase() ===
+		'persistent'
+	);
 }
 
 export interface VisibleTeammateWakeResult {
@@ -142,7 +145,10 @@ export async function wake_visible_teammate_session(options: {
 				runtime,
 			};
 		}
-		if (existing && ['created', 'starting'].includes(existing.state)) {
+		if (
+			existing &&
+			['created', 'starting'].includes(existing.state)
+		) {
 			const ready = await wait_for_runtime_ready({
 				db_path,
 				session_id: existing.session_id,
@@ -278,7 +284,9 @@ export async function run_direct_teammate_command(options: {
 			if (Buffer.byteLength(next) <= DIRECT_COMMAND_MAX_BUFFER)
 				return next;
 			child.kill('SIGTERM');
-			return Buffer.from(next).subarray(0, DIRECT_COMMAND_MAX_BUFFER).toString('utf8');
+			return Buffer.from(next)
+				.subarray(0, DIRECT_COMMAND_MAX_BUFFER)
+				.toString('utf8');
 		};
 		child.stdout?.on('data', (chunk: Buffer) => {
 			stdout = append(stdout, chunk);

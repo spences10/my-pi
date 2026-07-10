@@ -37,7 +37,9 @@ describe('verify_process_identity', () => {
 	});
 
 	it('fails closed for missing, dead, or uncapturable identities', () => {
-		expect(verify_process_identity(undefined, verifier(undefined))).toEqual({
+		expect(
+			verify_process_identity(undefined, verifier(undefined)),
+		).toEqual({
 			ok: false,
 			reason: 'missing persisted process identity',
 		});

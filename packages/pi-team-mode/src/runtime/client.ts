@@ -42,7 +42,8 @@ async function send_request(
 			else resolve(response!);
 		};
 		const timer = setTimeout(
-			() => finish(new RuntimeClientError('Runtime request timed out')),
+			() =>
+				finish(new RuntimeClientError('Runtime request timed out')),
 			timeout_ms,
 		);
 		socket.setEncoding('utf8');
@@ -52,13 +53,18 @@ async function send_request(
 		socket.on('data', (chunk: string) => {
 			body += chunk;
 			if (body.length > MAX_RESPONSE_BYTES) {
-				finish(new RuntimeClientError('Runtime response was too large'));
+				finish(
+					new RuntimeClientError('Runtime response was too large'),
+				);
 				return;
 			}
 			const newline = body.indexOf('\n');
 			if (newline === -1) return;
 			try {
-				finish(undefined, JSON.parse(body.slice(0, newline)) as RuntimeResponse);
+				finish(
+					undefined,
+					JSON.parse(body.slice(0, newline)) as RuntimeResponse,
+				);
 			} catch (error) {
 				finish(
 					new RuntimeClientError(
@@ -81,7 +87,10 @@ async function call_runtime(
 	timeout_ms?: number,
 ): Promise<CoordinationSessionRuntime> {
 	if (!runtime.endpoint)
-		throw new RuntimeClientError('Runtime has no control endpoint', runtime.state);
+		throw new RuntimeClientError(
+			'Runtime has no control endpoint',
+			runtime.state,
+		);
 	const response = await send_request(
 		runtime.endpoint,
 		{
@@ -97,7 +106,9 @@ async function call_runtime(
 		response.runtime.runtime_id !== runtime.runtime_id ||
 		response.runtime.generation !== runtime.generation
 	)
-		throw new RuntimeClientError('Runtime ownership changed during request');
+		throw new RuntimeClientError(
+			'Runtime ownership changed during request',
+		);
 	return response.runtime;
 }
 
@@ -105,7 +116,11 @@ export async function get_runtime_status(
 	runtime: CoordinationSessionRuntime,
 	timeout_ms?: number,
 ): Promise<CoordinationSessionRuntime> {
-	return await call_runtime(runtime, { method: 'status' }, timeout_ms);
+	return await call_runtime(
+		runtime,
+		{ method: 'status' },
+		timeout_ms,
+	);
 }
 
 export async function prompt_runtime(
@@ -113,7 +128,11 @@ export async function prompt_runtime(
 	message: string,
 	timeout_ms?: number,
 ): Promise<CoordinationSessionRuntime> {
-	return await call_runtime(runtime, { method: 'prompt', message }, timeout_ms);
+	return await call_runtime(
+		runtime,
+		{ method: 'prompt', message },
+		timeout_ms,
+	);
 }
 
 export async function steer_runtime(
@@ -121,7 +140,11 @@ export async function steer_runtime(
 	message: string,
 	timeout_ms?: number,
 ): Promise<CoordinationSessionRuntime> {
-	return await call_runtime(runtime, { method: 'steer', message }, timeout_ms);
+	return await call_runtime(
+		runtime,
+		{ method: 'steer', message },
+		timeout_ms,
+	);
 }
 
 export async function follow_up_runtime(
@@ -129,7 +152,11 @@ export async function follow_up_runtime(
 	message: string,
 	timeout_ms?: number,
 ): Promise<CoordinationSessionRuntime> {
-	return await call_runtime(runtime, { method: 'follow_up', message }, timeout_ms);
+	return await call_runtime(
+		runtime,
+		{ method: 'follow_up', message },
+		timeout_ms,
+	);
 }
 
 export async function abort_runtime(
@@ -143,7 +170,11 @@ export async function shutdown_runtime(
 	runtime: CoordinationSessionRuntime,
 	timeout_ms?: number,
 ): Promise<CoordinationSessionRuntime> {
-	return await call_runtime(runtime, { method: 'shutdown' }, timeout_ms);
+	return await call_runtime(
+		runtime,
+		{ method: 'shutdown' },
+		timeout_ms,
+	);
 }
 
 export async function wait_for_runtime_ready(options: {
@@ -180,7 +211,9 @@ export async function wait_for_runtime_ready(options: {
 				setTimeout(resolve, options.poll_ms ?? 25),
 			);
 		}
-		throw new RuntimeClientError('Timed out waiting for runtime readiness');
+		throw new RuntimeClientError(
+			'Timed out waiting for runtime readiness',
+		);
 	} finally {
 		db.close();
 	}

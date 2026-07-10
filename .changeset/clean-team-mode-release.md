@@ -3,6 +3,9 @@
 'my-pi': patch
 ---
 
-Clean Team Mode build output before compilation, add deterministic
-package and coverage release gates, and document the experimental
-persistent-runtime direction and `/resume` attach limitation.
+Add the opt-in persistent teammate runtime with single-owner leases,
+native prompt/steer/follow-up delivery, recursive report routing,
+caller-bound APIs, safe child environments, bounded diagnostics, and
+structured readiness. Clean package output, add deterministic release
+gates, and document the remaining `/resume` attach and crash-safe
+exactly-once limitations.

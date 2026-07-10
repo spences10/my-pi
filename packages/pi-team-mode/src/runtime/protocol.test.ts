@@ -23,7 +23,9 @@ describe('persistent runtime protocol', () => {
 			member: 'worker',
 			role: 'peer' as const,
 		};
-		expect(decode_runtime_host_config(encode_runtime_host_config(config))).toEqual(config);
+		expect(
+			decode_runtime_host_config(encode_runtime_host_config(config)),
+		).toEqual(config);
 	});
 
 	it('passes only a 0600 config path to the host and removes it on consume', () => {
@@ -48,11 +50,20 @@ describe('persistent runtime protocol', () => {
 	});
 
 	it('rejects unsupported versions and empty native prompts', () => {
-		expect(() => parse_runtime_request({ id: '1', version: 2, method: 'status' })).toThrow(
-			'Unsupported runtime protocol version',
-		);
 		expect(() =>
-			parse_runtime_request({ id: '1', version: 1, method: 'prompt', message: ' ' }),
+			parse_runtime_request({
+				id: '1',
+				version: 2,
+				method: 'status',
+			}),
+		).toThrow('Unsupported runtime protocol version');
+		expect(() =>
+			parse_runtime_request({
+				id: '1',
+				version: 1,
+				method: 'prompt',
+				message: ' ',
+			}),
 		).toThrow('Runtime message is required');
 	});
 });

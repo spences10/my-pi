@@ -1,4 +1,9 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -15,11 +20,14 @@ const original_runtime = process.env[TEAM_RUNTIME_ENV];
 const original_canary = process.env.MY_PI_PRIVATE_CANARY;
 
 afterEach(() => {
-	if (original_runtime === undefined) delete process.env[TEAM_RUNTIME_ENV];
+	if (original_runtime === undefined)
+		delete process.env[TEAM_RUNTIME_ENV];
 	else process.env[TEAM_RUNTIME_ENV] = original_runtime;
-	if (original_canary === undefined) delete process.env.MY_PI_PRIVATE_CANARY;
+	if (original_canary === undefined)
+		delete process.env.MY_PI_PRIVATE_CANARY;
 	else process.env.MY_PI_PRIVATE_CANARY = original_canary;
-	for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+	for (const dir of dirs.splice(0))
+		rmSync(dir, { recursive: true, force: true });
 });
 
 describe('experimental persistent visible sessions', () => {
@@ -64,11 +72,18 @@ describe('experimental persistent visible sessions', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'pi-visible-'));
 		dirs.push(dir);
 		const session_file = join(dir, 'session.jsonl');
-		const original = '{"type":"session","version":3,"id":"session","timestamp":"2026-01-01T00:00:00.000Z","cwd":"/tmp"}\n';
+		const original =
+			'{"type":"session","version":3,"id":"session","timestamp":"2026-01-01T00:00:00.000Z","cwd":"/tmp"}\n';
 		writeFileSync(session_file, original);
 		process.env[TEAM_RUNTIME_ENV] = 'persistent';
 		expect(
-			append_visible_team_message(session_file, dir, '/tmp', 'message', {}),
+			append_visible_team_message(
+				session_file,
+				dir,
+				'/tmp',
+				'message',
+				{},
+			),
 		).toBeUndefined();
 		expect(readFileSync(session_file, 'utf8')).toBe(original);
 	});
