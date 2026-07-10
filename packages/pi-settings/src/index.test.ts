@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+	extract_input_strings,
 	get_settings_path,
 	read_package_settings,
 	read_settings,
@@ -59,6 +60,16 @@ describe('@spences10/pi-settings', () => {
 			version: 1,
 			extensions: { enabled: { mcp: false } },
 		});
+	});
+
+	it('extracts nested input strings from arrays and objects', () => {
+		expect(
+			extract_input_strings({
+				command: 'pnpm test',
+				meta: [{ path: 'src/App.svelte' }, false, null],
+				count: 1,
+			}),
+		).toEqual(['pnpm test', 'src/App.svelte']);
 	});
 
 	it('reads and writes package and trust sections', () => {

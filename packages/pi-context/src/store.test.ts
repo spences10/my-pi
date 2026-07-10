@@ -1,12 +1,5 @@
 import { SqliteBusyError } from '@spences10/pi-sqlite-core';
-import {
-	existsSync,
-	mkdtempSync,
-	readFileSync,
-	rmSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import {
 	afterEach,
@@ -16,6 +9,11 @@ import {
 	it,
 	vi,
 } from 'vitest';
+import {
+	create_context_store,
+	temp_config,
+	temp_db,
+} from '../test/support.js';
 import {
 	ContextStore,
 	default_context_db_path,
@@ -39,27 +37,10 @@ const original_purge_on_shutdown =
 	process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
 const original_max_mb = process.env.MY_PI_CONTEXT_MAX_MB;
 const original_context_config = process.env.MY_PI_CONTEXT_CONFIG;
-let dirs: string[] = [];
-let stores: ContextStore[] = [];
-
-function temp_db(): string {
-	const dir = mkdtempSync(join(tmpdir(), 'pi-context-'));
-	dirs.push(dir);
-	return join(dir, 'context.db');
-}
-
-function temp_config(): string {
-	const dir = mkdtempSync(join(tmpdir(), 'pi-context-config-'));
-	dirs.push(dir);
-	return join(dir, 'context.json');
-}
-
 function create_store(
 	options: ConstructorParameters<typeof ContextStore>[0] = {},
 ): ContextStore {
-	const store = new ContextStore({ db_path: temp_db(), ...options });
-	stores.push(store);
-	return store;
+	return create_context_store(options);
 }
 
 function close_db(db: DatabaseSync): void {
@@ -92,17 +73,6 @@ afterEach(() => {
 	if (original_context_config === undefined)
 		delete process.env.MY_PI_CONTEXT_CONFIG;
 	else process.env.MY_PI_CONTEXT_CONFIG = original_context_config;
-	for (const store of stores) {
-		try {
-			store.close();
-		} catch {
-			// already closed
-		}
-	}
-	stores = [];
-	for (const dir of dirs)
-		rmSync(dir, { recursive: true, force: true });
-	dirs = [];
 });
 
 describe('ContextStore', () => {

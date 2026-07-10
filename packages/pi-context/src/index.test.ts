@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { temp_config, temp_db } from '../test/support.js';
 import context_sidecar, {
 	get_context_store,
 	is_context_sidecar_enabled,
@@ -64,18 +65,6 @@ const original_purge_on_shutdown =
 	process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
 const original_max_mb = process.env.MY_PI_CONTEXT_MAX_MB;
 const original_context_config = process.env.MY_PI_CONTEXT_CONFIG;
-
-function temp_db(): string {
-	const dir = mkdtempSync(join(tmpdir(), 'pi-context-ext-'));
-	dirs.push(dir);
-	return join(dir, 'context.db');
-}
-
-function temp_config(): string {
-	const dir = mkdtempSync(join(tmpdir(), 'pi-context-settings-'));
-	dirs.push(dir);
-	return join(dir, 'context.json');
-}
 
 function create_fake_pi(): {
 	pi: ExtensionAPI;

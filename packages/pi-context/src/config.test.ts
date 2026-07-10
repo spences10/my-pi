@@ -1,7 +1,5 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { temp_config } from '../test/support.js';
 import {
 	context_settings_from_preset,
 	get_context_capture_limits,
@@ -11,7 +9,6 @@ import {
 } from './config.js';
 import { parse_context_retention_policy } from './policy.js';
 
-let dirs: string[] = [];
 const original_config = process.env.MY_PI_CONTEXT_CONFIG;
 const original_retention_days =
 	process.env.MY_PI_CONTEXT_RETENTION_DAYS;
@@ -22,12 +19,6 @@ const original_capture_max_kb =
 	process.env.MY_PI_CONTEXT_CAPTURE_MAX_KB;
 const original_capture_max_lines =
 	process.env.MY_PI_CONTEXT_CAPTURE_MAX_LINES;
-
-function temp_config(): string {
-	const dir = mkdtempSync(join(tmpdir(), 'pi-context-config-'));
-	dirs.push(dir);
-	return join(dir, 'context.json');
-}
 
 afterEach(() => {
 	if (original_config === undefined)
@@ -56,9 +47,6 @@ afterEach(() => {
 	else
 		process.env.MY_PI_CONTEXT_CAPTURE_MAX_LINES =
 			original_capture_max_lines;
-	for (const dir of dirs)
-		rmSync(dir, { recursive: true, force: true });
-	dirs = [];
 });
 
 describe('context settings config', () => {

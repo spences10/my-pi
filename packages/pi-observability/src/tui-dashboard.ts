@@ -65,7 +65,7 @@ async function fetch_json<T>(
 	return (await response.json()) as T;
 }
 
-export async function fetch_observability_snapshot(
+async function fetch_observability_snapshot(
 	server_url: string,
 	token?: string,
 	limit = 40,

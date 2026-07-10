@@ -1,40 +1,17 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { create_context_store } from '../../test/support.js';
 import { ContextStore } from '../store.js';
 import {
 	context_store_purge_with_details,
 	context_store_stats,
 } from './maintenance.js';
 
-const stores: ContextStore[] = [];
-const dirs: string[] = [];
-
 function create_store(): ContextStore {
-	const dir = mkdtempSync(join(tmpdir(), 'pi-context-maintenance-'));
-	dirs.push(dir);
-	const store = new ContextStore({
-		db_path: join(dir, 'context.db'),
-		max_bytes: 10,
-		project_path: '/project-a',
-	});
-	stores.push(store);
-	return store;
+	return create_context_store(
+		{ max_bytes: 10, project_path: '/project-a' },
+		'pi-context-maintenance-',
+	);
 }
-
-afterEach(() => {
-	for (const store of stores.splice(0)) {
-		try {
-			store.close();
-		} catch {
-			// already closed
-		}
-	}
-	for (const dir of dirs.splice(0)) {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
 
 describe('context store maintenance helpers', () => {
 	it('reports scoped stats and purges matching sources with details', () => {

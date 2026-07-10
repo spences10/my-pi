@@ -52,6 +52,16 @@ export function write_settings(settings: MyPiSettingsFile): void {
 	renameSync(tmp, path);
 }
 
+export function extract_input_strings(value: unknown): string[] {
+	if (typeof value === 'string') return [value];
+	if (Array.isArray(value))
+		return value.flatMap(extract_input_strings);
+	if (!value || typeof value !== 'object') return [];
+	return Object.values(value as Record<string, unknown>).flatMap(
+		extract_input_strings,
+	);
+}
+
 export function read_settings_section<T>(
 	key: keyof MyPiSettingsFile,
 	fallback: T,

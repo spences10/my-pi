@@ -1,12 +1,13 @@
-// Config-driven coding workflow preferences for Pi agents.
-
 import {
 	getAgentDir,
 	type ExtensionAPI,
 	type ToolCallEvent,
 	type ToolCallEventResult,
 } from '@earendil-works/pi-coding-agent';
-import { read_settings_section } from '@spences10/pi-settings';
+import {
+	extract_input_strings,
+	read_settings_section,
+} from '@spences10/pi-settings';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -63,15 +64,6 @@ function input_record(event: ToolCallEvent): Record<string, unknown> {
 	return event.input as Record<string, unknown>;
 }
 
-function input_strings(value: unknown): string[] {
-	if (typeof value === 'string') return [value];
-	if (Array.isArray(value)) return value.flatMap(input_strings);
-	if (!value || typeof value !== 'object') return [];
-	return Object.values(value as Record<string, unknown>).flatMap(
-		input_strings,
-	);
-}
-
 function path_from(event: ToolCallEvent): string | undefined {
 	const input = input_record(event);
 	for (const key of ['path', 'file_path', 'filePath']) {
@@ -94,7 +86,7 @@ function target_values(
 		return command_from(event) ? [command_from(event)!] : [];
 	if (target === 'path')
 		return path_from(event) ? [path_from(event)!] : [];
-	return input_strings(event.input);
+	return extract_input_strings(event.input);
 }
 
 export function get_global_config_path(): string {

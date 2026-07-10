@@ -1,10 +1,9 @@
-// Svelte guardrails for Pi agents.
-
 import type {
 	ExtensionAPI,
 	ToolCallEvent,
 	ToolCallEventResult,
 } from '@earendil-works/pi-coding-agent';
+import { extract_input_strings } from '@spences10/pi-settings';
 import {
 	is_path_allowed,
 	load_svelte_guardrails_config,
@@ -31,15 +30,6 @@ export function find_svelte_path(
 			return value;
 	}
 	return undefined;
-}
-
-function input_strings(value: unknown): string[] {
-	if (typeof value === 'string') return [value];
-	if (Array.isArray(value)) return value.flatMap(input_strings);
-	if (!value || typeof value !== 'object') return [];
-	return Object.values(value as Record<string, unknown>).flatMap(
-		input_strings,
-	);
 }
 
 export function extract_bash_svelte_path(
@@ -82,7 +72,9 @@ export function assess_svelte_effect(
 		const path = find_svelte_path(input);
 		if (!path || is_path_allowed(path, config.allow))
 			return undefined;
-		if (!input_strings(input).some(contains_disallowed_effect))
+		if (
+			!extract_input_strings(input).some(contains_disallowed_effect)
+		)
 			return undefined;
 		return { mode: config.mode, reason: block_reason(path) };
 	}

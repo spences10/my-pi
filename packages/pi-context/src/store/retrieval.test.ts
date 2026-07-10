@@ -1,39 +1,17 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { create_context_store } from '../../test/support.js';
 import { ContextStore } from '../store.js';
 import {
 	context_store_chunk_summary,
 	context_store_get,
 } from './retrieval.js';
 
-const stores: ContextStore[] = [];
-const dirs: string[] = [];
-
 function create_store(): ContextStore {
-	const dir = mkdtempSync(join(tmpdir(), 'pi-context-retrieval-'));
-	dirs.push(dir);
-	const store = new ContextStore({
-		db_path: join(dir, 'context.db'),
-		max_bytes: 10,
-	});
-	stores.push(store);
-	return store;
+	return create_context_store(
+		{ max_bytes: 10 },
+		'pi-context-retrieval-',
+	);
 }
-
-afterEach(() => {
-	for (const store of stores.splice(0)) {
-		try {
-			store.close();
-		} catch {
-			// already closed
-		}
-	}
-	for (const dir of dirs.splice(0)) {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
 
 describe('context store retrieval helpers', () => {
 	it('summarizes chunks and resolves numeric chunk references', () => {
