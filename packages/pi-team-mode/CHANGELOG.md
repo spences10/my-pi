@@ -1,5 +1,18 @@
 # @spences10/pi-team-mode
 
+## 0.0.48
+
+### Patch Changes
+
+- 8c59abf: Add the opt-in persistent teammate runtime with
+  single-owner leases, native prompt/steer/follow-up delivery,
+  recursive report routing, caller-bound APIs, safe child
+  environments, bounded diagnostics, and structured readiness. Use
+  automatically discovered immutable numbered migrations for fresh
+  installs and upgrades, generate the packaged schema snapshot, clean
+  package output, add deterministic release gates, and document the
+  remaining `/resume` attach and crash-safe exactly-once limitations.
+
 ## 0.0.47
 
 ### Patch Changes
