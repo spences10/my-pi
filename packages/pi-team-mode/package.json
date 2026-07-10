@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-team-mode",
-	"version": "0.0.47",
+	"version": "0.0.48",
 	"description": "Experimental persistent Pi teammate coordination with groups, artifacts, and mailboxes",
 	"keywords": [
 		"agent",
