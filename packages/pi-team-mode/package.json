@@ -1,7 +1,7 @@
 {
 	"name": "@spences10/pi-team-mode",
 	"version": "0.0.47",
-	"description": "Local peer-session coordination for Pi with groups, artifacts, and mailboxes",
+	"description": "Experimental persistent Pi teammate coordination with groups, artifacts, and mailboxes",
 	"keywords": [
 		"agent",
 		"orchestration",
@@ -31,12 +31,14 @@
 	},
 	"scripts": {
 		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
-		"build:self": "vp exec tsc -p tsconfig.build.json && mkdir -p dist/db/migrations && cp src/db/schema.sql dist/db/ && cp src/db/migrations/*.sql dist/db/migrations/",
+		"build:self": "rm -rf dist && vp exec tsc -p tsconfig.build.json && mkdir -p dist/db/migrations && cp src/db/schema.sql dist/db/ && cp src/db/migrations/*.sql dist/db/migrations/",
 		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
 		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
 		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
-		"test:self": "vp exec vitest run",
-		"coverage:self": "vp exec vitest run --coverage",
+		"test:self": "vitest run --config vitest.config.mjs",
+		"test:pack": "node scripts/pack-smoke.mjs",
+		"test:release": "pnpm run check:self && pnpm run test:self && pnpm run coverage:self && pnpm run test:pack",
+		"coverage:self": "vitest run --config vitest.config.mjs --coverage",
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {
@@ -47,6 +49,7 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
 		"@types/node": "catalog:",
+		"@vitest/coverage-v8": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
 	},

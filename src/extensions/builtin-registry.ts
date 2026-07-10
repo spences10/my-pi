@@ -431,7 +431,7 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		label: 'Team mode',
 		docs_label: 'Team mode',
 		description:
-			'Experimental orchestrator/team mode with RPC teammates, tasks, and mailboxes',
+			'Experimental persistent teammate coordination with groups, artifacts, and mailboxes',
 		default_enabled: true,
 		option_name: 'team_mode',
 		cli_arg: 'no-team-mode',

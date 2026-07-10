@@ -73,8 +73,8 @@ instructions, commands, configuration, and runtime behavior.
   prior-session lookup, evals, latency analysis, live event streams,
   and operational debugging.
 - **Git UI** — interactive source-control staging and commit support.
-- **Team mode** — local RPC teammate orchestration with tasks and
-  mailboxes.
+- **Team mode** — experimental persistent teammate coordination with
+  groups, artifacts, and mailboxes.
 - **Themes and TUI helpers** — visual polish and shared modal
   primitives.
 
@@ -160,7 +160,7 @@ Full package list here:
 | [`@spences10/pi-skills`](./packages/pi-skills/README.md)                           | Skill management, import, and sync                         |
 | [`@spences10/pi-sqlite-tools`](./packages/pi-sqlite-tools/README.md)               | `mcp-sqlite-tools` reminder for safer SQLite database work |
 | [`@spences10/pi-svelte-guardrails`](./packages/pi-svelte-guardrails/README.md)     | Svelte pattern guardrails                                  |
-| [`@spences10/pi-team-mode`](./packages/pi-team-mode/README.md)                     | Local team mode with RPC teammates, tasks, and mailboxes   |
+| [`@spences10/pi-team-mode`](./packages/pi-team-mode/README.md)                     | Experimental persistent teammate coordination              |
 | [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md)                     | Local SQLite telemetry and `/telemetry`                    |
 | [`@spences10/pi-themes`](./packages/pi-themes/README.md)                           | Bundled theme pack for Pi                                  |
 

@@ -1,75 +1,51 @@
-# Team mode comparison matrix
+# Team Mode comparison matrix
 
-This matrix is a practical gap check, not a positioning exercise. It
-compares `pi-team-mode` against common orchestration patterns as of
-2026-05-01.
+This is a release-status matrix for the experimental
+persistent-runtime direction as of 2026-07-10. “Target” is design
+intent, not shipped behavior. A capability moves to “release evidence”
+only after the corresponding automated and dogfood gates in the
+[release checklist](./release-checklist.md) pass.
 
-## Sources checked
+## Status
 
-- Claude Code subagents / Agent SDK: context isolation, parallel
-  subagents, tool restrictions, resumable subagent transcripts, and no
-  nested subagents.
-- OpenAI Codex CLI / Cloud: local repo editing, subagents, Cloud
-  tasks, approval modes, sandboxing, MCP, and applying cloud diffs
-  locally.
-- CrewAI: agents, crews, flows, guardrails, memory, knowledge,
-  observability, sequential/hierarchical/hybrid processes, callbacks,
-  and HITL triggers.
-- Microsoft Agent Framework / AutoGen successor: session state,
-  middleware, telemetry, MCP clients, graph workflows, checkpointing,
-  and HITL support.
-- aider: terminal pair-programming, repo map, chat commands, lint/test
-  loops, broad model support, and tight git integration.
-- tmux / claude-squad-style local runners: multiple terminal sessions,
-  worktrees, status detection, switching, and PR-oriented workflows.
+| Capability           | Current package foundation                                                                                           | Persistent-runtime target                                                                          | Evidence required before release                                                                |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Session model        | Visible Pi session files plus local session registration and wake-up processes.                                      | One long-lived owning Pi process per teammate session and stable session id.                       | A: readiness, three native outcomes, stable ids, one owner per session.                         |
+| Native turns         | Initial instructions and wake turns are recorded in Pi session history.                                              | Prompt, steer, and follow-up are native turns on the same runtime.                                 | A/B: native history and structured completion/failure, not mailbox rows alone.                  |
+| Interactive resume   | `/resume` can open a session file as another process. It does **not** attach to a running owner.                     | Safe attach/detach to the owning runtime without replacing it.                                     | B: unchanged owner identity/PID and one JSONL writer. Blocked until upstream Pi exposes attach. |
+| Coordination         | Global local SQLite sessions, groups, artifacts, messages, and receipt fields; HTTP/SSE hints with polling fallback. | Outcome-based delivery with monotonic durable receipts and idempotent recovery.                    | D: concurrent delivery, crash/restart, exactly-once recovery, timeout/cancel, malformed input.  |
+| Recursive teams      | Any registered session can coordinate or report to another session.                                                  | Lead-to-lead-to-worker trees with explicit depth and concurrency limits.                           | C: nested routing, closure behavior, graph/status, enforced limits.                             |
+| Workspace isolation  | Sessions record a cwd; independently started peers may share it. No managed worktree guarantee.                      | Explicit collision rejection or deliberate workspace isolation.                                    | E: deterministic collision/isolation evidence.                                                  |
+| Environment boundary | No release claim for a teammate environment allowlist. Shell commands inherit normal process trust boundaries.       | Minimal child environment plus explicit allowlist; bounded/redacted diagnostics.                   | E: non-secret sentinel excluded and allowlisted variables preserved.                            |
+| Sender identity      | Session ids and aliases address peers over the coordination bus.                                                     | Caller-bound sender identity with unknown-field rejection.                                         | E: spoofed sender and malformed fields rejected.                                                |
+| Failure recovery     | SQLite state and session history survive process exits; current wake behavior is transitional.                       | Lease/start identity checks, durable pending work, restart on the same session, one active writer. | D plus adversarial fault injection at each lifecycle milestone.                                 |
+| Packaging            | Package publishes `dist`, docs, and README.                                                                          | Every build starts from an empty `dist`; clean and stale-seeded packs are identical.               | `test:pack`: equal tar lists and no forbidden removed runtime paths.                            |
+| Hosted execution     | Local-only.                                                                                                          | Local-only.                                                                                        | Explicit non-goal.                                                                              |
+| Git/PR automation    | No automatic push or PR creation.                                                                                    | No automatic push or PR creation.                                                                  | Explicit non-goal.                                                                              |
 
-## Matrix
+## Comparison with common alternatives
 
-| Capability               | pi-team-mode                                                                                                  | Claude Code subagents                                                             | Codex CLI/Cloud                                                                           | CrewAI / Agent Framework                                                 | aider                                                                                              | tmux local runners                                         |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Context isolation        | Separate RPC Pi sessions with separate transcripts.                                                           | Fresh subagent conversations; parent receives final result.                       | Separate CLI/cloud agent sessions.                                                        | Per-agent/session state and workflow state.                              | Single main chat unless user starts separate sessions.                                             | Separate terminal processes.                               |
-| Workspace isolation      | Shared cwd or managed git worktrees; collision guards for mutating work.                                      | Same project workspace; tool restrictions reduce risk but do not imply worktrees. | Local sandbox/approval modes and cloud task environments.                                 | App-defined; can integrate sandboxes but not inherently repo worktrees.  | Edits local repo directly; git helps review/undo.                                                  | Strong if each pane uses a worktree; usually user-managed. |
-| Process supervision      | Spawn, wait, shutdown, orphan detection, PID identity checks, startup-failure handling.                       | SDK manages subagent lifecycle inside the parent run.                             | Product-managed for cloud; CLI manages local session.                                     | Framework runtime manages workflows, not local terminal child processes. | Single process; no multi-agent supervision focus.                                                  | tmux supervises panes but semantic health is heuristic.    |
-| Task lifecycle           | Durable create/claim/assign/block/cancel/reopen/complete with dependency checks and concurrent claim locking. | Prompt-level delegation; no durable local task board.                             | Cloud tasks have product task lifecycle; CLI is prompt/session oriented.                  | First-class tasks/processes/workflows with callbacks/guardrails.         | Chat/task convention, not durable team task lifecycle.                                             | Usually ad-hoc session names/branches.                     |
-| Steering                 | Prompt, follow-up, steer, wait, shutdown, DM.                                                                 | Parent can invoke/resume subagents; not an operator mailbox.                      | Interactive CLI and Cloud task review/apply flow.                                         | Workflow/HITL hooks and callbacks.                                       | Interactive chat commands.                                                                         | Direct pane interaction.                                   |
-| Mailbox semantics        | Durable delivered/read/ack states with partial message IDs and redelivery if unacknowledged.                  | No equivalent durable mailbox.                                                    | Product notifications/review flow, not a local mailbox protocol.                          | App-defined messaging possible.                                          | No mailbox.                                                                                        | No mailbox beyond terminal text.                           |
-| Observability            | Status/dashboard/results, transcripts, usage summaries, events JSONL, UI status widget.                       | Subagent transcripts and SDK message stream.                                      | CLI UI, Cloud task details, review/diff surfaces.                                         | Telemetry and observability are core framework concepts.                 | Chat transcript, git diff, lint/test output.                                                       | Pane status heuristics and previews.                       |
-| Permissions / sandboxing | Child environment allowlist, profile tool/skill restrictions, no nested teammate spawn, worktree guards.      | Tool restrictions, permission modes, no nested subagents.                         | Approval modes, sandboxing, MCP controls.                                                 | Guardrails, middleware, type-safe workflow boundaries.                   | User-controlled repo/files; supports model/provider config but less orchestration guardrail focus. | Shell permissions unless wrapped by external sandboxing.   |
-| Git / PR workflow        | Worktree branch assignment; no built-in PR creation/review workflow.                                          | Depends on tools available to parent/subagent.                                    | Cloud/app workflows center on diffs and review/apply; GitHub issue/PR integrations exist. | App-defined.                                                             | Strong git integration and auto-commit behavior.                                                   | Often strong via worktrees and `gh`, but tool-specific.    |
-| Failure recovery         | Stale locks, corrupt state quarantine, orphan recovery, delivery redelivery, child death blocks tasks.        | SDK/session recovery through resume; less local process recovery exposed.         | Cloud product handles task failures; local CLI handles session errors.                    | Checkpointing/state/HITL available in framework workflows.               | Git undo and retry; limited multi-agent failure semantics.                                         | tmux keeps panes alive; recovery is manual.                |
-| Docs honesty             | README documents guarantees, command/API surface, env limits, and local-state behavior.                       | Official docs document subagent inheritance, restrictions, and troubleshooting.   | Official docs cover CLI, Cloud, sandbox/approval concepts.                                | Official docs cover capabilities and framework fit.                      | Official docs are clear about pair-programming model.                                              | READMEs document status heuristics and session model.      |
+- Pi Team Mode is a local coordination extension, not a hosted task
+  service or general workflow engine.
+- Unlike a terminal multiplexer, it provides SQLite-backed identities,
+  groups, artifacts, and mailboxes. It does not claim terminal,
+  worktree, or OS-level sandbox supervision.
+- Unlike prompt-only subagents, the persistent-runtime target keeps a
+  native Pi session as the durable teammate history. The release gate
+  requires process and transcript evidence, not merely a successful
+  send action.
+- Strong sandboxing belongs to a project harness, container, or OS
+  boundary. Team Mode's target environment filtering is defense in
+  depth, not a shell sandbox.
 
-## Gaps and decisions
+## Known limitation and non-goals
 
-### Closed by linked issues
+Upstream Pi currently has no supported way for `/resume` to attach an
+interactive TUI to an already-running process. Starting another
+process against the same session would create competing
+owners/writers, so live attach remains unavailable until that upstream
+primitive exists.
 
-- Mailbox read/ack ambiguity and partial acknowledgement: covered by
-  issue #48.
-- Adversarial deterministic reliability coverage: covered by issue
-  #49.
-- This comparison matrix and gap ledger: covered by issue #50.
-
-### Explicit non-goals for this epic
-
-- Cloud-hosted task execution. Team mode is local-first; Codex
-  Cloud-style hosted workers would be a separate product direction.
-- Full workflow-engine parity with CrewAI or Microsoft Agent
-  Framework. Team mode should coordinate coding sessions, not become a
-  general graph workflow runtime.
-- Auto-opening PRs or auto-pushing branches. Worktree/branch metadata
-  is tracked, but publishing code should remain an explicit
-  user/project workflow.
-- Shell sandboxing beyond child environment filtering and workspace
-  isolation. Strong OS/container sandboxes should be supplied by the
-  harness or project.
-- Replacing pair-programming tools like aider. Team mode complements
-  single-agent coding loops by supervising multiple Pi sessions.
-
-### Future candidates outside the epic
-
-- Optional PR helper command that summarizes completed task results
-  and prepares a `gh pr create` draft without pushing automatically.
-- Optional per-profile permission presets that map to Pi tool
-  selections more visibly in the dashboard.
-- Exportable team run report combining events, task results, usage,
-  and branch metadata for post-run review.
+The persistent-runtime work does not target cloud-hosted execution,
+CrewAI-style general graph workflows, automatic pushes/PRs, or a
+replacement for single-session pair-programming tools.
