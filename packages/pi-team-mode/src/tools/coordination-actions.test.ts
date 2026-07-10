@@ -7,11 +7,20 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from 'vitest';
 import { TeamDatabase } from '../db/index.js';
+import { TEAM_RUNTIME_ENV } from '../visible-sessions.js';
 import { execute_coordination_action } from './coordination-actions.js';
 
 const dirs: string[] = [];
+const original_runtime = process.env[TEAM_RUNTIME_ENV];
 
 async function tmp_db(): Promise<TeamDatabase> {
 	const dir = mkdtempSync(
@@ -21,7 +30,13 @@ async function tmp_db(): Promise<TeamDatabase> {
 	return TeamDatabase.open(join(dir, 'coordination.db'));
 }
 
+beforeEach(() => {
+	delete process.env[TEAM_RUNTIME_ENV];
+});
+
 afterEach(() => {
+	if (original_runtime === undefined) delete process.env[TEAM_RUNTIME_ENV];
+	else process.env[TEAM_RUNTIME_ENV] = original_runtime;
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs.length = 0;
@@ -109,12 +124,255 @@ describe('coordination actions', () => {
 				message: 'Inspect the failing test.',
 				from_session_id: lead.getSessionId(),
 				member: 'teammate-a',
+				role: 'teammate',
 				report_to_session_ids: [lead.getSessionId()],
 				timeout_ms: undefined,
 			});
 			expect(result.content[0]?.text).toContain(
 				'started background task execution',
 			);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('awaits persistent member readiness and returns structured acceptance', async () => {
+		const db = await tmp_db();
+		try {
+			process.env[TEAM_RUNTIME_ENV] = 'persistent';
+			const session_dir = mkdtempSync(
+				join(tmpdir(), 'pi-team-sessions-'),
+			);
+			dirs.push(session_dir);
+			const lead = SessionManager.create('/repo', session_dir);
+			db.register_session({
+				session_id: lead.getSessionId(),
+				session_file: lead.getSessionFile(),
+				cwd: '/repo',
+				role: 'lead',
+			});
+			const wake_visible_teammate_session = vi.fn(async () => ({
+				mode: 'persistent' as const,
+				accepted: true,
+				method: 'start' as const,
+				runtime: { state: 'running' as const },
+			}));
+
+			const result = await execute_coordination_action(
+				{
+					action: 'member_spawn',
+					name: 'persistent-worker',
+					message: 'Start the task.',
+					role: 'peer',
+				},
+				{
+					ctx: { cwd: '/repo', sessionManager: lead } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => lead.getSessionId(),
+					wake_visible_teammate_session:
+						wake_visible_teammate_session as any,
+				},
+			);
+
+			expect(wake_visible_teammate_session).toHaveBeenCalledWith(
+				expect.objectContaining({
+					message: 'Start the task.',
+					role: 'peer',
+				}),
+			);
+			expect(result.details.runtime).toEqual({
+				mode: 'persistent',
+				accepted: true,
+				method: 'start',
+				state: 'running',
+			});
+			expect(result.content[0]?.text).toContain(
+				'persistent runtime accepted initial prompt',
+			);
+
+			wake_visible_teammate_session.mockRejectedValueOnce(
+				new Error('host failed readiness'),
+			);
+			const failure = await execute_coordination_action(
+				{
+					action: 'member_spawn',
+					name: 'failed-worker',
+					message: 'Start the task.',
+				},
+				{
+					ctx: { cwd: '/repo', sessionManager: lead } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => lead.getSessionId(),
+					wake_visible_teammate_session:
+						wake_visible_teammate_session as any,
+				},
+			);
+			expect(failure.details.runtime).toEqual({
+				mode: 'persistent',
+				accepted: false,
+				error: 'host failed readiness',
+			});
+			expect(failure.content[0]?.text).toContain(
+				'persistent runtime failed: host failed readiness',
+			);
+		} finally {
+			db.close();
+		}
+	});
+
+	it.each([
+		['running', false, 'follow_up'],
+		['idle', false, 'prompt'],
+		['running', true, 'steer'],
+	] as const)(
+		'delivers natively to a %s runtime with urgent=%s via %s',
+		async (state, urgent, method) => {
+			const db = await tmp_db();
+			try {
+				db.register_session({ session_id: 'lead', cwd: '/repo' });
+				db.register_session({
+					session_id: 'worker',
+					cwd: '/repo',
+					status: 'online',
+				});
+				const runtime = db.create_session_runtime({
+					session_id: 'worker',
+					runtime_id: 'runtime',
+					endpoint: '/tmp/runtime.sock',
+					state,
+					lease_expires_at: new Date(Date.now() + 60_000).toISOString(),
+				})!;
+				const deliver_runtime_message = vi.fn(async () => runtime);
+
+				const result = await execute_coordination_action(
+					{
+						action: 'session_send',
+						to: 'worker',
+						message: 'Native delivery.',
+						urgent,
+					},
+					{
+						ctx: { cwd: '/repo' } as any,
+						coordination_db: db,
+						notify_coordination_messages: async () => undefined,
+						require_session_id: () => 'lead',
+						deliver_runtime_message,
+					},
+				);
+
+				expect(deliver_runtime_message).toHaveBeenCalledWith(
+					runtime,
+					'Native delivery.',
+					method,
+					undefined,
+				);
+				const receipt = db.list_inbox('worker', {
+					include_read: true,
+				})[0];
+				expect(receipt?.delivered_at).toEqual(expect.any(String));
+				expect(receipt?.read_at).toBeUndefined();
+				expect(receipt?.acknowledged_at).toBeUndefined();
+				expect(result.details.runtime_deliveries).toEqual([
+					expect.objectContaining({ method, accepted: true }),
+				]);
+			} finally {
+				db.close();
+			}
+		},
+	);
+
+	it('restarts a terminal persistent runtime instead of rejecting its row', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			db.create_session_runtime({
+				session_id: 'worker',
+				runtime_id: 'failed-runtime',
+				endpoint: '/tmp/runtime.sock',
+				state: 'failed',
+				lease_expires_at: new Date(0).toISOString(),
+			});
+			const wake_visible_teammate_session = vi.fn(async () => ({
+				mode: 'persistent' as const,
+				accepted: true,
+				method: 'start' as const,
+				runtime: { state: 'ready' as const },
+			}));
+
+			const result = await execute_coordination_action(
+				{
+					action: 'session_send',
+					to: 'worker',
+					message: 'Recover and continue.',
+				},
+				{
+					ctx: { cwd: '/repo' } as any,
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => 'lead',
+					wake_visible_teammate_session:
+						wake_visible_teammate_session as any,
+				},
+			);
+
+			expect(wake_visible_teammate_session).toHaveBeenCalledWith(
+				expect.objectContaining({ message: 'Recover and continue.' }),
+			);
+			expect(result.details.runtime_deliveries).toEqual([
+				expect.objectContaining({
+					method: 'start',
+					accepted: true,
+				}),
+			]);
+			const receipt = db.list_inbox('worker', {
+				include_read: true,
+			})[0];
+			expect(receipt?.delivered_at).toEqual(expect.any(String));
+			expect(receipt?.read_at).toBeUndefined();
+		} finally {
+			db.close();
+		}
+	});
+
+	it('leaves a runtime receipt undelivered when native acceptance fails', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			db.create_session_runtime({
+				session_id: 'worker',
+				runtime_id: 'runtime',
+				endpoint: '/tmp/runtime.sock',
+				state: 'idle',
+				lease_expires_at: new Date(Date.now() + 60_000).toISOString(),
+			});
+
+			await expect(
+				execute_coordination_action(
+					{
+						action: 'session_send',
+						to: 'worker',
+						message: 'Retry me.',
+					},
+					{
+						ctx: { cwd: '/repo' } as any,
+						coordination_db: db,
+						notify_coordination_messages: async () => undefined,
+						require_session_id: () => 'lead',
+						deliver_runtime_message: async () => {
+							throw new Error('runtime rejected');
+						},
+					},
+				),
+			).rejects.toThrow('runtime rejected');
+			expect(
+				db.list_inbox('worker', {
+					include_read: true,
+				})[0]?.delivered_at,
+			).toBeUndefined();
 		} finally {
 			db.close();
 		}
@@ -618,6 +876,9 @@ describe('coordination actions', () => {
 				'Started background delivery for 1 offline visible teammate',
 			);
 			expect(inbox).toEqual([]);
+			expect(
+				db.list_inbox('worker', { include_read: true })[0]?.read_at,
+			).toBeUndefined();
 		} finally {
 			db.close();
 		}

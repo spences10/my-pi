@@ -38,8 +38,9 @@ export interface RuntimeHostConfig {
 	runtime_id: string;
 	generation: number;
 	endpoint: string;
-	initial_prompt?: string;
+	extension_path: string;
 	member?: string;
+	role?: 'lead' | 'teammate' | 'peer';
 	from_session_id?: string;
 	report_to_session_ids?: string[];
 	lease_ms?: number;

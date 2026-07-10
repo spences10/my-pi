@@ -109,11 +109,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 				(process.env[TEAM_MEMBER_ENV] ? own_member : undefined),
 			pid: process.pid,
 			role: process.env[TEAM_ROLE_ENV]
-				? own_role === 'teammate'
-					? 'teammate'
-					: 'lead'
+				? own_role === 'lead' || own_role === 'teammate'
+					? own_role
+					: 'peer'
 				: 'peer',
 			status: 'online',
+			availability: 'available',
 			model_provider: ctx.model?.provider,
 			model_id: ctx.model?.id,
 			thinking_level: get_current_thinking_level(),

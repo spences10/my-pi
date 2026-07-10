@@ -1,13 +1,21 @@
 import { SessionManager } from '@earendil-works/pi-coding-agent';
-import { exec, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
+import { create_team_child_env } from './child-env.js';
 import {
 	AUTO_INJECT_ENV,
 	get_coordination_db_path,
 	TEAM_MEMBER_ENV,
 	TEAM_ROLE_ENV,
 } from './config.js';
-import type { TeamDatabase } from './db/index.js';
+import type {
+	CoordinationSessionRuntime,
+	TeamDatabase,
+} from './db/index.js';
+import {
+	sanitize_process_diagnostics,
+	type SafeProcessDiagnostics,
+} from './diagnostics.js';
 import {
 	find_session_runtime,
 	prompt_runtime,
@@ -22,6 +30,13 @@ export const TEAM_RUNTIME_ENV = 'MY_PI_TEAM_RUNTIME';
 
 export function should_use_persistent_team_runtime(): boolean {
 	return process.env[TEAM_RUNTIME_ENV]?.trim().toLowerCase() === 'persistent';
+}
+
+export interface VisibleTeammateWakeResult {
+	mode: 'persistent' | 'legacy';
+	accepted: boolean;
+	method: 'ready' | 'prompt' | 'start' | 'legacy';
+	runtime?: CoordinationSessionRuntime;
 }
 
 export interface CreateVisibleTeammateOptions {
@@ -66,16 +81,32 @@ export function append_visible_team_message(
 	return entry_id;
 }
 
+export function legacy_wake_args(
+	cli: string,
+	session_file: string,
+	coordination_prompt: string,
+): string[] {
+	return [
+		cli,
+		'--session',
+		session_file,
+		'--append-system-prompt',
+		coordination_prompt,
+		'--print',
+	];
+}
+
 export async function wake_visible_teammate_session(options: {
 	session_file?: string;
 	cwd: string;
-	message: string;
+	message?: string;
 	from_session_id: string;
 	message_id?: string;
 	member?: string;
+	role?: 'lead' | 'teammate' | 'peer';
 	report_to_session_ids?: string[];
 	timeout_ms?: number;
-}): Promise<void> {
+}): Promise<VisibleTeammateWakeResult | undefined> {
 	const session_file = options.session_file;
 	if (!session_file) return;
 	if (should_use_persistent_team_runtime()) {
@@ -86,9 +117,30 @@ export async function wake_visible_teammate_session(options: {
 			options.cwd,
 		).getSessionId();
 		const existing = await find_session_runtime(db_path, session_id);
-		if (existing && ['ready', 'idle', 'running'].includes(existing.state)) {
-			await prompt_runtime(existing, options.message, options.timeout_ms);
-			return;
+		if (
+			existing &&
+			['ready', 'idle', 'running', 'waiting', 'blocked'].includes(
+				existing.state,
+			)
+		) {
+			if (!options.message?.trim())
+				return {
+					mode: 'persistent',
+					accepted: true,
+					method: 'ready',
+					runtime: existing,
+				};
+			const runtime = await prompt_runtime(
+				existing,
+				options.message,
+				options.timeout_ms,
+			);
+			return {
+				mode: 'persistent',
+				accepted: true,
+				method: 'prompt',
+				runtime,
+			};
 		}
 		if (existing && ['created', 'starting'].includes(existing.state)) {
 			const ready = await wait_for_runtime_ready({
@@ -98,21 +150,43 @@ export async function wake_visible_teammate_session(options: {
 				generation: existing.generation,
 				timeout_ms: options.timeout_ms,
 			});
-			await prompt_runtime(ready, options.message, options.timeout_ms);
-			return;
+			if (!options.message?.trim())
+				return {
+					mode: 'persistent',
+					accepted: true,
+					method: 'ready',
+					runtime: ready,
+				};
+			const runtime = await prompt_runtime(
+				ready,
+				options.message,
+				options.timeout_ms,
+			);
+			return {
+				mode: 'persistent',
+				accepted: true,
+				method: 'prompt',
+				runtime,
+			};
 		}
-		await start_persistent_runtime({
+		const runtime = await start_persistent_runtime({
 			db_path,
 			session_id,
 			session_file,
 			cwd: options.cwd,
 			initial_prompt: options.message,
 			member: options.member,
+			role: options.role,
 			from_session_id: options.from_session_id,
 			report_to_session_ids: options.report_to_session_ids,
 			timeout_ms: options.timeout_ms,
 		});
-		return;
+		return {
+			mode: 'persistent',
+			accepted: true,
+			method: 'start',
+			runtime,
+		};
 	}
 	const cli = process.argv[1];
 	if (!cli) return;
@@ -135,26 +209,20 @@ export async function wake_visible_teammate_session(options: {
 		].join('\n\n');
 		const child = spawn(
 			process.execPath,
-			[
-				cli,
-				'--session',
-				session_file,
-				'--append-system-prompt',
-				coordination_prompt,
-				'--print',
-				options.message,
-			],
+			legacy_wake_args(cli, session_file, coordination_prompt),
 			{
 				cwd: options.cwd,
-				stdio: ['ignore', 'ignore', 'ignore'],
-				env: {
-					...process.env,
-					[AUTO_INJECT_ENV]: 'false',
-					[TEAM_ROLE_ENV]: 'teammate',
-					[TEAM_MEMBER_ENV]: options.member ?? 'teammate',
-				},
+				stdio: ['pipe', 'ignore', 'ignore'],
+				env: create_team_child_env({
+					explicit_env: {
+						[AUTO_INJECT_ENV]: 'false',
+						[TEAM_ROLE_ENV]: options.role ?? 'teammate',
+						[TEAM_MEMBER_ENV]: options.member ?? 'teammate',
+					},
+				}),
 			},
 		);
+		child.stdin?.end(options.message ?? '');
 		const timer = setTimeout(() => {
 			child.kill('SIGTERM');
 			resolve();
@@ -168,49 +236,91 @@ export async function wake_visible_teammate_session(options: {
 			resolve();
 		});
 	});
+	return {
+		mode: 'legacy',
+		accepted: true,
+		method: 'legacy',
+	};
 }
 
 export async function run_direct_teammate_command(options: {
 	cwd: string;
 	command: string;
 	timeout_ms?: number;
+	member?: string;
+	role?: 'lead' | 'teammate' | 'peer';
 }): Promise<{
 	command: string;
 	exit_code: number | null;
 	stdout: string;
 	stderr: string;
 	timed_out: boolean;
+	signal?: NodeJS.Signals | null;
+	diagnostics: SafeProcessDiagnostics;
 }> {
 	return await new Promise((resolve) => {
-		exec(
-			options.command,
-			{
-				cwd: options.cwd,
-				timeout: options.timeout_ms ?? DEFAULT_WAKE_TIMEOUT_MS,
-				maxBuffer: DIRECT_COMMAND_MAX_BUFFER,
-			},
-			(error, stdout, stderr) => {
-				const exec_error = error as
-					| (Error & {
-							code?: number | string | null;
-							signal?: NodeJS.Signals | null;
-							killed?: boolean;
-					  })
-					| null;
-				resolve({
-					command: options.command,
-					exit_code:
-						typeof exec_error?.code === 'number'
-							? exec_error.code
-							: exec_error
-								? 1
-								: 0,
-					stdout,
-					stderr,
-					timed_out: exec_error?.killed === true,
-				});
-			},
-		);
+		let stdout = '';
+		let stderr = '';
+		let timed_out = false;
+		let settled = false;
+		const child = spawn(process.env.SHELL || '/bin/sh', [], {
+			cwd: options.cwd,
+			stdio: ['pipe', 'pipe', 'pipe'],
+			env: create_team_child_env({
+				explicit_env: {
+					[TEAM_ROLE_ENV]: options.role ?? 'teammate',
+					[TEAM_MEMBER_ENV]: options.member ?? 'teammate',
+				},
+			}),
+		});
+		const append = (current: string, chunk: Buffer): string => {
+			const next = current + chunk.toString('utf8');
+			if (Buffer.byteLength(next) <= DIRECT_COMMAND_MAX_BUFFER)
+				return next;
+			child.kill('SIGTERM');
+			return Buffer.from(next).subarray(0, DIRECT_COMMAND_MAX_BUFFER).toString('utf8');
+		};
+		child.stdout?.on('data', (chunk: Buffer) => {
+			stdout = append(stdout, chunk);
+		});
+		child.stderr?.on('data', (chunk: Buffer) => {
+			stderr = append(stderr, chunk);
+		});
+		const finish = (
+			exit_code: number | null,
+			signal?: NodeJS.Signals | null,
+		) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			const diagnostics = sanitize_process_diagnostics({
+				command: options.command,
+				exit_code,
+				signal,
+				timed_out,
+				stdout,
+				stderr,
+			});
+			resolve({
+				command: diagnostics.command ?? '',
+				exit_code,
+				stdout: diagnostics.stdout.text,
+				stderr: diagnostics.stderr.text,
+				timed_out: diagnostics.timed_out,
+				signal: diagnostics.signal,
+				diagnostics,
+			});
+		};
+		const timer = setTimeout(() => {
+			timed_out = true;
+			child.kill('SIGTERM');
+		}, options.timeout_ms ?? DEFAULT_WAKE_TIMEOUT_MS);
+		child.once('error', (error) => {
+			stderr = append(stderr, Buffer.from(error.message));
+			finish(1);
+		});
+		child.once('close', (code, signal) => finish(code, signal));
+		child.stdin?.end(options.command);
 	});
 }
 

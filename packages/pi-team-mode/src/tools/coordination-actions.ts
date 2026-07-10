@@ -10,12 +10,22 @@ import {
 	format_inbox,
 	format_sessions,
 } from '../coordination-formatting.js';
-import type { TeamDatabase } from '../db/index.js';
+import type {
+	CoordinationSessionRuntime,
+	TeamDatabase,
+} from '../db/index.js';
+import { sanitize_diagnostic_stream } from '../diagnostics.js';
+import {
+	follow_up_runtime,
+	prompt_runtime,
+	steer_runtime,
+} from '../runtime/client.js';
 import type { TeamToolParams } from '../team-tool-params.js';
 import {
 	append_visible_team_message,
 	create_visible_teammate_session,
 	run_direct_teammate_command,
+	should_use_persistent_team_runtime,
 	wake_visible_teammate_session,
 } from '../visible-sessions.js';
 
@@ -109,6 +119,49 @@ function format_direct_command_result(
 	return parts.join('\n\n');
 }
 
+type RuntimeDeliveryMethod = 'prompt' | 'steer' | 'follow_up';
+
+type DeliverRuntimeMessage = (
+	runtime: CoordinationSessionRuntime,
+	message: string,
+	method: RuntimeDeliveryMethod,
+	timeout_ms?: number,
+) => Promise<CoordinationSessionRuntime>;
+
+async function deliver_runtime_message(
+	runtime: CoordinationSessionRuntime,
+	message: string,
+	method: RuntimeDeliveryMethod,
+	timeout_ms?: number,
+): Promise<CoordinationSessionRuntime> {
+	if (method === 'steer')
+		return await steer_runtime(runtime, message, timeout_ms);
+	if (method === 'follow_up')
+		return await follow_up_runtime(runtime, message, timeout_ms);
+	return await prompt_runtime(runtime, message, timeout_ms);
+}
+
+function runtime_delivery_method(
+	runtime: CoordinationSessionRuntime,
+	urgent: boolean | undefined,
+): RuntimeDeliveryMethod {
+	if (urgent) return 'steer';
+	return ['running', 'waiting', 'blocked'].includes(runtime.state)
+		? 'follow_up'
+		: 'prompt';
+}
+
+function is_live_runtime(
+	runtime: CoordinationSessionRuntime | undefined,
+): boolean {
+	return Boolean(
+		runtime &&
+			['ready', 'idle', 'running', 'waiting', 'blocked'].includes(
+				runtime.state,
+			),
+	);
+}
+
 interface CoordinationActionContext {
 	ctx: ExtensionContext;
 	coordination_db: TeamDatabase;
@@ -118,6 +171,7 @@ interface CoordinationActionContext {
 	) => Promise<void>;
 	require_session_id: () => string;
 	wake_visible_teammate_session?: typeof wake_visible_teammate_session;
+	deliver_runtime_message?: DeliverRuntimeMessage;
 }
 
 function has_chunk_request(params: TeamToolParams): boolean {
@@ -177,6 +231,8 @@ export async function execute_coordination_action(
 		require_session_id,
 		wake_visible_teammate_session:
 			wake_teammate = wake_visible_teammate_session,
+		deliver_runtime_message:
+			deliver_to_runtime = deliver_runtime_message,
 	} = context;
 	switch (params.action) {
 		case 'session_list': {
@@ -233,29 +289,55 @@ export async function execute_coordination_action(
 						params.reply_to,
 					])
 				: [message.from_session_id];
+			const runtime_deliveries: Array<{
+				session_id: string;
+				method: RuntimeDeliveryMethod | 'start';
+				state?: string;
+				accepted: boolean;
+			}> = [];
 			for (const target_session of target_sessions) {
-				append_visible_team_message(
-					target_session.session_file,
-					ctx.sessionManager?.getSessionDir?.(),
-					target_session.cwd,
-					`Coordination message from ${message.from_session_id}:\n\n${body}`,
-					{
-						kind: 'coordination_message',
-						message_id: message.message_id,
-						from_session_id: message.from_session_id,
-					},
-				);
-				if (!offline_visible_targets.includes(target_session))
+				const persistent_runtime =
+					coordination_db.get_session_runtime(target_session.session_id);
+				if (
+					persistent_runtime &&
+					is_live_runtime(persistent_runtime)
+				) {
+					const method = runtime_delivery_method(
+						persistent_runtime,
+						params.urgent,
+					);
+					const accepted = await deliver_to_runtime(
+						persistent_runtime,
+						body,
+						method,
+						params.timeout_ms,
+					);
+					coordination_db.mark_messages_delivered(
+						target_session.session_id,
+						[message.message_id],
+					);
+					runtime_deliveries.push({
+						session_id: target_session.session_id,
+						method,
+						state: accepted.state,
+						accepted: true,
+					});
 					continue;
-				coordination_db.mark_messages_delivered(
-					target_session.session_id,
-					[message.message_id],
-				);
-				coordination_db.mark_messages_read(
-					target_session.session_id,
-					[message.message_id],
-				);
-				void wake_teammate({
+				}
+				if (!persistent_runtime) {
+					append_visible_team_message(
+						target_session.session_file,
+						ctx.sessionManager?.getSessionDir?.(),
+						target_session.cwd,
+						`Coordination message from ${message.from_session_id}:\n\n${body}`,
+						{
+							kind: 'coordination_message',
+							message_id: message.message_id,
+							from_session_id: message.from_session_id,
+						},
+					);
+				}
+				const wake_options = {
 					session_file: target_session.session_file,
 					cwd: target_session.cwd,
 					message: body,
@@ -263,9 +345,61 @@ export async function execute_coordination_action(
 					message_id: message.message_id,
 					member:
 						target_session.agent_name ?? target_session.session_alias,
+					role: target_session.role,
 					report_to_session_ids: report_recipients,
 					timeout_ms: params.timeout_ms,
-				});
+				};
+				if (
+					persistent_runtime &&
+					['created', 'starting', 'offline', 'failed'].includes(
+						persistent_runtime.state,
+					)
+				) {
+					const accepted = await wake_teammate(wake_options);
+					if (!accepted?.accepted)
+						throw new Error('Persistent runtime did not accept the message');
+					coordination_db.mark_messages_delivered(
+						target_session.session_id,
+						[message.message_id],
+					);
+					runtime_deliveries.push({
+						session_id: target_session.session_id,
+						method: 'start',
+						state: accepted.runtime?.state,
+						accepted: true,
+					});
+					continue;
+				}
+				if (persistent_runtime)
+					throw new Error(
+						`Persistent runtime is not available (${persistent_runtime.state})`,
+					);
+				if (!offline_visible_targets.includes(target_session))
+					continue;
+				if (should_use_persistent_team_runtime()) {
+					const accepted = await wake_teammate(wake_options);
+					if (!accepted?.accepted)
+						throw new Error('Persistent runtime did not accept the message');
+					coordination_db.mark_messages_delivered(
+						target_session.session_id,
+						[message.message_id],
+					);
+					runtime_deliveries.push({
+						session_id: target_session.session_id,
+						method: 'start',
+						state: accepted.runtime?.state,
+						accepted: true,
+					});
+				} else {
+					void wake_teammate(wake_options)
+						.then(() => {
+							coordination_db.mark_messages_delivered(
+								target_session.session_id,
+								[message.message_id],
+							);
+						})
+						.catch(() => undefined);
+				}
 			}
 			await notify_coordination_messages(
 				recipients,
@@ -281,7 +415,7 @@ export async function execute_coordination_action(
 						text: `Sent coordination message ${message.message_id} to ${target}.${background_note}`,
 					},
 				],
-				details: { message },
+				details: { message, runtime_deliveries },
 			};
 		}
 		case 'session_inbox':
@@ -522,7 +656,7 @@ export async function execute_coordination_action(
 					group_id: params.team_id,
 					session_id: teammate.session_id,
 					alias: teammate.name,
-					role: teammate.role === 'lead' ? 'lead' : 'teammate',
+					role: teammate.role,
 				});
 			}
 			const report_recipients = resolve_report_recipients(
@@ -533,12 +667,24 @@ export async function execute_coordination_action(
 					...split_session_targets(params.to),
 				].filter(Boolean) as string[],
 			);
+			let runtime_status:
+				| {
+						mode: 'persistent';
+						accepted: boolean;
+						method?: string;
+						state?: string;
+						error?: string;
+				  }
+				| undefined;
 			if (params.command?.trim()) {
+				const safe_command = sanitize_diagnostic_stream(
+					params.command,
+				).text;
 				append_visible_team_message(
 					teammate.session_file,
 					ctx.sessionManager?.getSessionDir?.(),
 					ctx.cwd,
-					`Direct teammate command started by ${lead_session_id}:\n\n${params.command}`,
+					`Direct teammate command started by ${lead_session_id}:\n\n${safe_command}`,
 					{
 						kind: 'direct_teammate_command_started',
 						from_session_id: lead_session_id,
@@ -550,6 +696,8 @@ export async function execute_coordination_action(
 						cwd: ctx.cwd,
 						command: params.command!,
 						timeout_ms: params.timeout_ms,
+						member: teammate.name,
+						role: teammate.role,
 					});
 					const body = format_direct_command_result(result);
 					append_visible_team_message(
@@ -573,7 +721,14 @@ export async function execute_coordination_action(
 							kind: 'direct_teammate_command_result',
 							command: result.command,
 							exit_code: result.exit_code,
+							signal: result.signal,
 							timed_out: result.timed_out,
+							stdout_bytes: result.diagnostics.stdout.bytes,
+							stdout_truncated:
+								result.diagnostics.stdout.truncated,
+							stderr_bytes: result.diagnostics.stderr.bytes,
+							stderr_truncated:
+								result.diagnostics.stderr.truncated,
 						},
 					});
 					await notify_coordination_messages(
@@ -581,25 +736,49 @@ export async function execute_coordination_action(
 						message.message_id,
 					);
 				})();
-			} else if (params.message?.trim()) {
-				void wake_teammate({
+			} else {
+				const wake_options = {
 					session_file: teammate.session_file,
 					cwd: ctx.cwd,
 					message: params.message,
 					from_session_id: lead_session_id,
 					member: teammate.name,
+					role: teammate.role,
 					report_to_session_ids: report_recipients,
 					timeout_ms: params.timeout_ms,
-				});
+				};
+				if (should_use_persistent_team_runtime()) {
+					try {
+						const status = await wake_teammate(wake_options);
+						runtime_status = {
+							mode: 'persistent',
+							accepted: status?.accepted === true,
+							method: status?.method,
+							state: status?.runtime?.state,
+						};
+					} catch (error) {
+						runtime_status = {
+							mode: 'persistent',
+							accepted: false,
+							error: (error as Error).message,
+						};
+					}
+				} else if (params.message?.trim()) {
+					void wake_teammate(wake_options);
+				}
 			}
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text: `Created teammate session ${teammate.name} (${teammate.session_id})${params.command?.trim() ? '; started direct command execution' : params.message?.trim() ? '; started background task execution' : ''}`,
+						text: `Created teammate session ${teammate.name} (${teammate.session_id})${params.command?.trim() ? '; started direct command execution' : runtime_status?.accepted ? '; persistent runtime accepted initial prompt' : runtime_status?.error ? `; persistent runtime failed: ${runtime_status.error}` : params.message?.trim() ? '; started background task execution' : ''}`,
 					},
 				],
-				details: { teammate, report_recipients },
+				details: {
+					teammate,
+					report_recipients,
+					runtime: runtime_status,
+				},
 			};
 		}
 		case 'group_list': {
