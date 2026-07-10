@@ -320,7 +320,8 @@ export function transition_runtime(
 					options.lease_ms ?? DEFAULT_RUNTIME_LEASE_MS,
 				),
 		ready_at:
-			options.state === 'ready' || options.state === 'idle'
+			!current.ready_at &&
+			(options.state === 'ready' || options.state === 'idle')
 				? timestamp
 				: undefined,
 		stopped_at: terminal ? timestamp : undefined,

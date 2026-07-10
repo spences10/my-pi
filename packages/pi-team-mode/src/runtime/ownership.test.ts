@@ -129,12 +129,28 @@ describe('persistent runtime ownership', () => {
 				},
 				verifier,
 			);
-			transition_runtime(db, {
+			const ready = transition_runtime(db, {
 				session_id: 'session',
 				runtime_id: 'owner',
 				generation: reserved.generation,
 				state: 'ready',
+				now_ms: 1_000,
 			});
+			transition_runtime(db, {
+				session_id: 'session',
+				runtime_id: 'owner',
+				generation: reserved.generation,
+				state: 'running',
+				now_ms: 2_000,
+			});
+			const idle = transition_runtime(db, {
+				session_id: 'session',
+				runtime_id: 'owner',
+				generation: reserved.generation,
+				state: 'idle',
+				now_ms: 3_000,
+			});
+			expect(idle.ready_at).toBe(ready.ready_at);
 			expect(() =>
 				transition_runtime(db, {
 					session_id: 'session',
@@ -145,7 +161,7 @@ describe('persistent runtime ownership', () => {
 			).toThrow('Invalid runtime state transition');
 			expect(
 				db.list_runtime_events('session').map((event) => event.state),
-			).toEqual(['created', 'starting', 'ready']);
+			).toEqual(['created', 'starting', 'ready', 'running', 'idle']);
 		} finally {
 			db.close();
 		}
