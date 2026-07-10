@@ -3,14 +3,26 @@ import { exec, spawn } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import {
 	AUTO_INJECT_ENV,
+	get_coordination_db_path,
 	TEAM_MEMBER_ENV,
 	TEAM_ROLE_ENV,
 } from './config.js';
 import type { TeamDatabase } from './db/index.js';
+import {
+	find_session_runtime,
+	prompt_runtime,
+	wait_for_runtime_ready,
+} from './runtime/client.js';
+import { start_persistent_runtime } from './runtime/supervisor.js';
 
 const CUSTOM_TYPE = 'pi-team-mode:coordination';
 const DEFAULT_WAKE_TIMEOUT_MS = 120_000;
 const DIRECT_COMMAND_MAX_BUFFER = 1024 * 1024;
+export const TEAM_RUNTIME_ENV = 'MY_PI_TEAM_RUNTIME';
+
+export function should_use_persistent_team_runtime(): boolean {
+	return process.env[TEAM_RUNTIME_ENV]?.trim().toLowerCase() === 'persistent';
+}
 
 export interface CreateVisibleTeammateOptions {
 	cwd: string;
@@ -41,6 +53,7 @@ export function append_visible_team_message(
 	content: string,
 	details: Record<string, unknown>,
 ): string | undefined {
+	if (should_use_persistent_team_runtime()) return undefined;
 	if (!session_file || !existsSync(session_file)) return undefined;
 	const session = SessionManager.open(session_file, session_dir, cwd);
 	const entry_id = session.appendCustomMessageEntry(
@@ -64,8 +77,45 @@ export async function wake_visible_teammate_session(options: {
 	timeout_ms?: number;
 }): Promise<void> {
 	const session_file = options.session_file;
+	if (!session_file) return;
+	if (should_use_persistent_team_runtime()) {
+		const db_path = get_coordination_db_path();
+		const session_id = SessionManager.open(
+			session_file,
+			undefined,
+			options.cwd,
+		).getSessionId();
+		const existing = await find_session_runtime(db_path, session_id);
+		if (existing && ['ready', 'idle', 'running'].includes(existing.state)) {
+			await prompt_runtime(existing, options.message, options.timeout_ms);
+			return;
+		}
+		if (existing && ['created', 'starting'].includes(existing.state)) {
+			const ready = await wait_for_runtime_ready({
+				db_path,
+				session_id: existing.session_id,
+				runtime_id: existing.runtime_id,
+				generation: existing.generation,
+				timeout_ms: options.timeout_ms,
+			});
+			await prompt_runtime(ready, options.message, options.timeout_ms);
+			return;
+		}
+		await start_persistent_runtime({
+			db_path,
+			session_id,
+			session_file,
+			cwd: options.cwd,
+			initial_prompt: options.message,
+			member: options.member,
+			from_session_id: options.from_session_id,
+			report_to_session_ids: options.report_to_session_ids,
+			timeout_ms: options.timeout_ms,
+		});
+		return;
+	}
 	const cli = process.argv[1];
-	if (!session_file || !cli) return;
+	if (!cli) return;
 	await new Promise<void>((resolve) => {
 		const report_targets = [
 			options.from_session_id,

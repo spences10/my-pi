@@ -4,7 +4,7 @@ import {
 } from '@spences10/pi-sqlite-core';
 import { readFileSync } from 'node:fs';
 
-export const LATEST_TEAM_SCHEMA_VERSION = 3;
+export const LATEST_TEAM_SCHEMA_VERSION = 4;
 
 export const SCHEMA = readFileSync(
 	new URL('./schema.sql', import.meta.url),
@@ -29,6 +29,10 @@ export const MIGRATIONS: Record<number, string> = {
 			'./migrations/003_session_availability_artifacts.sql',
 			import.meta.url,
 		),
+		'utf-8',
+	),
+	4: readFileSync(
+		new URL('./migrations/004_persistent_runtimes.sql', import.meta.url),
 		'utf-8',
 	),
 };

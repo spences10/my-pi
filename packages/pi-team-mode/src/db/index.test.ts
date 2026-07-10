@@ -60,7 +60,7 @@ describe('TeamDatabase coordination store', () => {
 		const db = await TeamDatabase.open(db_path);
 		try {
 			expect(existsSync(db_path)).toBe(true);
-			expect(db.get_schema_version()).toBe(3);
+			expect(db.get_schema_version()).toBe(4);
 			expect(
 				db.read_rows<{ name: string }>(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'message_receipts'",
@@ -75,6 +75,38 @@ describe('TeamDatabase coordination store', () => {
 			expect(
 				db.read_rows<{ timeout: number }>('PRAGMA busy_timeout'),
 			).toEqual([{ timeout: 5000 }]);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('additively migrates v3 databases with persistent runtime tables', async () => {
+		const db_path = tmp_db();
+		mkdirSync(join(db_path, '..'), { recursive: true });
+		const { DatabaseSync } = await import('node:sqlite');
+		const v3_db = new DatabaseSync(db_path);
+		try {
+			const v3_schema = readFileSync(
+				new URL('./schema.sql', import.meta.url),
+				'utf8',
+			)
+				.replace(/CREATE TABLE IF NOT EXISTS session_runtimes \([\s\S]*?\);\n\n/, '')
+				.replace(/CREATE TABLE IF NOT EXISTS runtime_events \([\s\S]*?\);\n\n/, '')
+				.replace('CREATE INDEX IF NOT EXISTS idx_session_runtimes_state ON session_runtimes(state, lease_expires_at);\n', '')
+				.replace('CREATE INDEX IF NOT EXISTS idx_runtime_events_session ON runtime_events(session_id, created_at);\n', '');
+			v3_db.exec(v3_schema);
+			v3_db.exec('PRAGMA user_version = 3;');
+		} finally {
+			v3_db.close();
+		}
+		const db = await TeamDatabase.open(db_path);
+		try {
+			expect(db.get_schema_version()).toBe(4);
+			expect(
+				db.read_rows<{ name: string }>(
+					"SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('session_runtimes', 'runtime_events') ORDER BY name",
+				),
+			).toEqual([{ name: 'runtime_events' }, { name: 'session_runtimes' }]);
 		} finally {
 			db.close();
 		}
@@ -135,7 +167,7 @@ describe('TeamDatabase coordination store', () => {
 
 		const db = await TeamDatabase.open(db_path);
 		try {
-			expect(db.get_schema_version()).toBe(3);
+			expect(db.get_schema_version()).toBe(4);
 			expect(
 				db.read_rows<{ name: string }>(
 					"SELECT name FROM pragma_table_info('sessions') WHERE name IN ('thinking_level', 'availability') ORDER BY name",
