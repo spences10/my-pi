@@ -7,11 +7,13 @@
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
 
-Local peer-session coordination for Pi. `pi-team-mode` registers Pi
-sessions in a local SQLite coordination bus, sends mailbox-backed peer
-messages, creates visible resumable teammate sessions, stores larger
-handoff artifacts, and coordinates groups of independently started
-sessions.
+Experimental persistent teammate coordination for Pi. `pi-team-mode`
+registers Pi sessions in a local SQLite coordination bus, sends
+mailbox-backed peer messages, creates visible teammate sessions,
+stores larger handoff artifacts, and coordinates groups of
+independently started sessions. The package is moving toward one
+persistent owning runtime per teammate; that runtime is not a stable
+release guarantee yet.
 
 ## Installation
 
@@ -32,8 +34,8 @@ pi -e ./packages/pi-team-mode
 
 - registers every running session in a global local coordination bus
 - discovers live sessions across projects and working directories
-- marks stale PID-backed session registrations offline before listing
-  or targeting peers
+- tracks PID-backed registrations and marks stale peers offline on
+  supported tool paths
 - creates visible teammate sessions that can be resumed as normal Pi
   sessions
 - sends compact mailbox-backed peer messages between independently
@@ -46,6 +48,28 @@ pi -e ./packages/pi-team-mode
   prompt
 - uses a local HTTP/SSE broker for fast delivery with SQLite polling
   as durable fallback
+
+## Experimental persistent-runtime direction
+
+The target architecture gives each teammate session one long-lived
+owner process. Messages become native Pi turns on that runtime, with
+explicit readiness, completion/failure, receipt recovery, recursive
+team limits, and defined environment/workspace boundaries. The
+existing coordination bus, groups, artifacts, and mailboxes are the
+foundation, but do not by themselves prove those runtime guarantees.
+See the [comparison matrix](./docs/comparison-matrix.md) and
+[release/dogfood checklist](./docs/release-checklist.md) for the exact
+status and release gates.
+
+### Known `/resume` attach limitation
+
+Upstream Pi's `/resume` starts a session process; it cannot attach an
+interactive TUI to an already-running process that owns the same
+session. Until upstream exposes an attach primitive, `/resume` must
+not be described or used as a live attach operation for an active
+persistent teammate. Stop/detach the owner before resuming the session
+interactively, and do not run two writers against one session file.
+Live attach/detach remains blocked by this upstream limitation.
 
 Peer-session coordination state is stored in:
 
@@ -100,15 +124,15 @@ The `team` tool exposes peer-only coordination actions:
 - `member_spawn`
 
 Use `member_spawn` with `name` and optional `message` to create a
-session-native teammate. Add `reply_to` or comma/space-separated `to`
+visible teammate session. Add `reply_to` or comma/space-separated `to`
 recipients when the teammate's final report should go directly to an
 orchestrator, peer, or cross-project session instead of only its
-creator. The created session is registered in Team Mode and its
-initial instructions are written to the teammate session file, so
-`/resume` shows the interaction without inspecting the mailbox.
-Sending a message to a spawned teammate wakes that session with a
-normal Pi print turn against the same session file, so any work/reply
-is also auditable in that teammate transcript.
+creator. Initial instructions and later native turns are recorded in
+the teammate transcript. The current wake path is transitional while
+the single-owner persistent runtime is implemented; mailbox state or a
+session file alone is not evidence that a model turn completed. Do not
+use `/resume` as an attachment mechanism while that runtime is active;
+see the known limitation above.
 
 For deterministic checks that do not need a model turn, `member_spawn`
 also accepts `command`. The command runs in the teammate's project
@@ -145,7 +169,7 @@ creator or lead even if that session is not currently open.
 
 ## Mailbox semantics
 
-Mailbox messages track three separate states:
+Mailbox messages expose three separate receipt fields:
 
 - `delivered_at`: the message was queued or injected into the target
   session.
@@ -155,16 +179,18 @@ Mailbox messages track three separate states:
   it is safe to suppress redelivery.
 
 Use `session_read`/`message_read` after reviewing messages and
-`session_ack`/`message_ack` after acting on them. `message_send`
-supports `reply_to`, `ttl_ms`, and `requires_ack`; `message_wait` can
-briefly wait for a matching peer reply.
+`session_ack`/`message_ack` after acting on them. The current
+automated wake path may advance delivery/read while queueing work, so
+receipt fields are not yet an exactly-once execution guarantee.
+`message_send` supports `reply_to`, `ttl_ms`, and `requires_ack`;
+`message_wait` can briefly wait for a matching peer reply.
 
 ## Standby sessions
 
-A session can advertise itself as standby by saying it is standing by
-or available for coordination. The extension records availability,
-intent, and alias metadata so orchestrator sessions can discover and
-message existing sessions before starting new work elsewhere.
+A session can advertise itself with an explicit stand-by or
+coordination prompt. The extension records availability and intent so
+orchestrator sessions can discover existing sessions before starting
+new work elsewhere. Standby phrase recognition remains experimental.
 
 ## Development
 
@@ -174,5 +200,8 @@ this package:
 ```bash
 pnpm --filter @spences10/pi-team-mode run check:self
 pnpm --filter @spences10/pi-team-mode run test:self
+pnpm --filter @spences10/pi-team-mode run coverage:self
+pnpm --filter @spences10/pi-team-mode run test:pack
+pnpm --filter @spences10/pi-team-mode run test:release
 pnpm --filter @spences10/pi-team-mode run build
 ```
