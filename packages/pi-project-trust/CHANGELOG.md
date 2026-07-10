@@ -1,5 +1,12 @@
 # @spences10/pi-project-trust
 
+## 0.0.15
+
+### Patch Changes
+
+- Updated dependencies [7bdc98e]
+  - @spences10/pi-settings@0.0.2
+
 ## 0.0.14
 
 ### Patch Changes

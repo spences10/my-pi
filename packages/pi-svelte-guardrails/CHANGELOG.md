@@ -1,5 +1,14 @@
 # @spences10/pi-svelte-guardrails
 
+## 0.0.13
+
+### Patch Changes
+
+- 7bdc98e: Deduplicate shared input string extraction, simplify
+  observability internals, and centralize pi-context test helpers.
+- Updated dependencies [7bdc98e]
+  - @spences10/pi-settings@0.0.2
+
 ## 0.0.12
 
 ### Patch Changes

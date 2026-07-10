@@ -1,5 +1,11 @@
 # @spences10/pi-lsp
 
+## 0.0.36
+
+### Patch Changes
+
+- @spences10/pi-project-trust@0.0.15
+
 ## 0.0.35
 
 ### Patch Changes

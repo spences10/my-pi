@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-coding-preferences",
-	"version": "0.0.11",
+	"version": "0.0.12",
 	"description": "Configurable Pi guardrails that keep agents aligned with local coding workflow preferences before bad commands run",
 	"keywords": [
 		"agent-guardrails",

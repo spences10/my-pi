@@ -1,5 +1,12 @@
 # @spences10/pi-settings
 
+## 0.0.2
+
+### Patch Changes
+
+- 7bdc98e: Deduplicate shared input string extraction, simplify
+  observability internals, and centralize pi-context test helpers.
+
 ## 0.0.1
 
 ### Patch Changes

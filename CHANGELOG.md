@@ -1,5 +1,15 @@
 # my-pi
 
+## 0.1.106
+
+### Patch Changes
+
+- 1254034: Update upstream Pi packages to 0.80.6 for GPT-5.6 Codex
+  model availability.
+- Updated dependencies [7bdc98e]
+  - @spences10/pi-settings@0.0.2
+  - @spences10/pi-project-trust@0.0.15
+
 ## 0.1.105
 
 ### Patch Changes

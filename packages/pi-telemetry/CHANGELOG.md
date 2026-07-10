@@ -1,5 +1,12 @@
 # @spences10/pi-telemetry
 
+## 0.0.27
+
+### Patch Changes
+
+- Updated dependencies [7bdc98e]
+  - @spences10/pi-settings@0.0.2
+
 ## 0.0.26
 
 ### Patch Changes
