@@ -31,7 +31,7 @@
 	},
 	"scripts": {
 		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
-		"build:self": "rm -rf dist && vp exec tsc -p tsconfig.build.json && mkdir -p dist/db/migrations && cp src/db/schema.sql dist/db/ && cp src/db/migrations/*.sql dist/db/migrations/",
+		"build:self": "rm -rf dist && vp exec tsc -p tsconfig.build.json && mkdir -p dist/db/migrations && cp src/db/migrations/*.sql dist/db/migrations/ && node scripts/generate-schema-snapshot.mjs dist/db/migrations dist/db/schema.sql",
 		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
 		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
 		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",

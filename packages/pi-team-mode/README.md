@@ -55,9 +55,15 @@ pi -e ./packages/pi-team-mode
 Enable the opt-in persistent path before starting the lead Pi process:
 
 ```bash
-MY_PI_TEAM_RUNTIME=persistent pnpm start
-# or: MY_PI_TEAM_RUNTIME=persistent pi -e ./packages/pi-team-mode
+# Use an isolated DB while switching between local and published builds.
+MY_PI_TEAM_RUNTIME=persistent \
+MY_PI_COORDINATION_DB=/tmp/pi-team-mode-dogfood.db \
+pnpm start
 ```
+
+Released upgrades use the normal shared database and numbered
+migrations. Do not point an older published build at a database
+already upgraded by unreleased local code.
 
 In this mode, `member_spawn` starts one detached SDK runtime that owns
 the teammate session, waits for runtime readiness and initial-prompt
@@ -94,10 +100,13 @@ Peer-session coordination state is stored in:
 ```
 
 Set `MY_PI_COORDINATION_DB` to use a different SQLite database path.
-The database uses WAL mode with schema and migrations under `src/db/`.
-Sessions also connect to a local HTTP/SSE push broker on port `43191`
-by default; set `MY_PI_COORDINATION_BROKER_PORT` to use another port.
-SQLite remains the durable fallback if the broker is unavailable.
+The database uses WAL mode. Immutable numbered files under
+`src/db/migrations/` are the schema source of truth for both fresh and
+existing databases; builds generate `dist/db/schema.sql` as an
+inspection snapshot. Sessions also connect to a local HTTP/SSE push
+broker on port `43191` by default; set
+`MY_PI_COORDINATION_BROKER_PORT` to use another port. SQLite remains
+the durable fallback if the broker is unavailable.
 
 ## Slash commands
 
