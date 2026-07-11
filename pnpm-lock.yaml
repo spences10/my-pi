@@ -30,9 +30,6 @@ catalogs:
     svelte-check:
       specifier: ^4.7.2
       version: 4.7.2
-    typebox:
-      specifier: ^1.1.38
-      version: 1.3.5
     typescript:
       specifier: ^7.0.2
       version: 7.0.2
@@ -81,7 +78,7 @@ importers:
         version: 0.2.2
       typebox:
         specifier: 'catalog:'
-        version: 1.3.5
+        version: 1.3.6
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.0
@@ -402,7 +399,7 @@ importers:
         version: 25.9.4
       typebox:
         specifier: 'catalog:'
-        version: 1.3.5
+        version: 1.3.6
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -3742,8 +3739,8 @@ packages:
   typebox@1.1.38:
     resolution: {integrity: sha512-pZ0aQPmMmXoUvSbeuWf/Hzsc+avNw/Zd6VeE8CFgkVGWyuHPJvqeJJDeJqLve+K70LvjYIoleGcoJHPT17cWoA==}
 
-  typebox@1.3.5:
-    resolution: {integrity: sha512-Va+8RjPkXCy5j+K6TXtaqrXlu+H5ijaw1mAZN6ql26MW4atY4T1Md/4CVvLCAKpb61hzVv1Xq0RxnaJ3UYq2jQ==}
+  typebox@1.3.6:
+    resolution: {integrity: sha512-Sc8RA0NCMEFmApHNU9ZMzqcpQj46She44J8ffpLM/bdhLNUZKq7DJumcLcsFx1gRmDfQPgCgOmFFJ7rcnfWNyA==}
 
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
@@ -6750,7 +6747,7 @@ snapshots:
 
   typebox@1.1.38: {}
 
-  typebox@1.3.5: {}
+  typebox@1.3.6: {}
 
   typescript@6.0.3:
     optional: true
