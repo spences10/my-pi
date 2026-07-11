@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -60,6 +61,44 @@ describe('teammate workspace policy', () => {
 				path: isolated,
 			}),
 		).toThrow(/already owned.*owner/);
+		db.close();
+	});
+
+	it('accepts non-git directories as isolated workspaces', async () => {
+		const { db, root } = await setup();
+		const isolated = mkdtempSync(join(tmpdir(), 'pi-team-non-git-'));
+		dirs.push(isolated);
+		expect(
+			resolve_teammate_workspace({
+				db,
+				lead_cwd: root,
+				mode: 'isolated',
+				path: isolated,
+			}),
+		).toBe(isolated);
+		db.close();
+	});
+
+	it('accepts dirty git worktrees without modifying them', async () => {
+		const { db, root } = await setup();
+		const isolated = mkdtempSync(join(tmpdir(), 'pi-team-dirty-git-'));
+		dirs.push(isolated);
+		execFileSync('git', ['init', '--quiet'], { cwd: isolated });
+		writeFileSync(join(isolated, 'uncommitted.txt'), 'dirty\n');
+		expect(
+			resolve_teammate_workspace({
+				db,
+				lead_cwd: root,
+				mode: 'isolated',
+				path: isolated,
+			}),
+		).toBe(isolated);
+		expect(
+			execFileSync('git', ['status', '--short'], {
+				cwd: isolated,
+				encoding: 'utf8',
+			}),
+		).toContain('?? uncommitted.txt');
 		db.close();
 	});
 

@@ -77,8 +77,8 @@ required variables with `MY_PI_TEAM_MODE_ENV_ALLOWLIST` or
 
 The legacy wake path remains the default during dogfood. The
 persistent path is still experimental: live `/resume` attachment,
-crash-safe exactly-once delivery, managed workspace isolation, and
-recursive depth/concurrency limits are not complete. See the
+crash-safe exactly-once delivery and atomic recursive
+spawn/concurrency reservations are not complete. See the
 [comparison matrix](./docs/comparison-matrix.md) and
 [release/dogfood checklist](./docs/release-checklist.md) for the exact
 status and release gates.
@@ -152,7 +152,20 @@ Use `member_spawn` with `name`, `workspace_mode`, and optional
 `instructions` to create a visible teammate session. Choose `shared`
 explicitly to reuse the lead cwd. Choose `isolated` with an absolute
 `workspace_path` to use a distinct directory; active sessions cannot
-claim the same isolated path. Add `reply_to` or comma/space-separated
+claim the same isolated path.
+
+### Workspace and trust boundaries
+
+`shared` is an explicit acknowledgement that teammates may read and
+mutate the lead's cwd concurrently. `isolated` provides coordination
+ownership for a caller-provided directory; it does not create a
+worktree, container, branch, or OS sandbox. Both Git worktrees
+(including dirty worktrees) and non-Git directories are supported, and
+Team Mode never cleans or deletes them. The caller remains responsible
+for creating the directory, choosing branch/worktree boundaries, and
+reviewing mutations. Environment allowlisting and diagnostic redaction
+reduce accidental credential exposure but do not make untrusted model
+or shell execution safe. Add `reply_to` or comma/space-separated
 `to` recipients when the teammate's final report should go directly to
 an orchestrator, peer, or cross-project session instead of only its
 creator. Initial instructions and later native turns are recorded in
