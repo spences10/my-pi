@@ -44,12 +44,28 @@ afterEach(() => {
 });
 
 describe('coordination actions', () => {
-	it('prints full session ids when session_list mode is full', async () => {
+	it('prints full session ids and terminal runtime diagnostics in full mode', async () => {
 		const db = await tmp_db();
 		try {
-			db.register_session({
-				session_id: '019f0f71-967e-7aed-853c-94ac29fbe7b6',
-				cwd: '/repo',
+			const session_id = '019f0f71-967e-7aed-853c-94ac29fbe7b6';
+			db.register_session({ session_id, cwd: '/repo' });
+			db.mark_session_status(session_id, 'offline');
+			const runtime = db.create_session_runtime({
+				session_id,
+				runtime_id: 'runtime-failed',
+				pid: 4321,
+				state: 'starting',
+				lease_expires_at: new Date(Date.now() + 60_000).toISOString(),
+			})!;
+			db.transition_session_runtime({
+				session_id,
+				runtime_id: runtime.runtime_id,
+				generation: runtime.generation,
+				state: 'failed',
+				lease_expires_at: new Date().toISOString(),
+				exit_signal: 'SIGKILL',
+				error: 'Runtime host exited unexpectedly',
+				diagnostics: ['bounded stderr'],
 			});
 
 			const result = await execute_coordination_action(
@@ -58,14 +74,22 @@ describe('coordination actions', () => {
 					ctx: { cwd: '/repo' } as any,
 					coordination_db: db,
 					notify_coordination_messages: async () => undefined,
-					require_session_id: () =>
-						'019f0f71-967e-7aed-853c-94ac29fbe7b6',
+					require_session_id: () => session_id,
 				},
 			);
 
+			expect(result.content[0]?.text).toContain(session_id);
 			expect(result.content[0]?.text).toContain(
-				'019f0f71-967e-7aed-853c-94ac29fbe7b6',
+				'runtime runtime-failed generation 1 pid 4321',
 			);
+			expect(result.content[0]?.text).toContain('signal SIGKILL');
+			expect(result.content[0]?.text).toContain(
+				'error Runtime host exited unexpectedly',
+			);
+			expect(result.content[0]?.text).toContain(
+				'diagnostics bounded stderr',
+			);
+			expect(result.details.runtimes).toHaveProperty(session_id);
 		} finally {
 			db.close();
 		}
@@ -157,7 +181,13 @@ describe('coordination actions', () => {
 				mode: 'persistent' as const,
 				accepted: true,
 				method: 'start' as const,
-				runtime: { state: 'running' as const },
+				runtime: {
+					state: 'running' as const,
+					runtime_id: 'runtime-1',
+					generation: 2,
+					pid: 1234,
+					diagnostics: [],
+				},
 			}));
 
 			const result = await execute_coordination_action(
@@ -189,9 +219,14 @@ describe('coordination actions', () => {
 				accepted: true,
 				method: 'start',
 				state: 'running',
+				runtime_id: 'runtime-1',
+				generation: 2,
+				pid: 1234,
+				error: undefined,
+				diagnostics: [],
 			});
 			expect(result.content[0]?.text).toContain(
-				'persistent runtime accepted initial prompt',
+				'persistent runtime runtime-1 generation 2 pid 1234 is running and accepted the initial prompt via start',
 			);
 
 			wake_visible_teammate_session.mockRejectedValueOnce(
@@ -216,10 +251,15 @@ describe('coordination actions', () => {
 			expect(failure.details.runtime).toEqual({
 				mode: 'persistent',
 				accepted: false,
+				state: undefined,
+				runtime_id: undefined,
+				generation: undefined,
+				pid: undefined,
 				error: 'host failed readiness',
+				diagnostics: undefined,
 			});
 			expect(failure.content[0]?.text).toContain(
-				'persistent runtime failed: host failed readiness',
+				'persistent failed: host failed readiness',
 			);
 		} finally {
 			db.close();

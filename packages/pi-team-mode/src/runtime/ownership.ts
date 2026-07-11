@@ -284,6 +284,8 @@ export function transition_runtime(
 		now_ms?: number;
 		error?: string;
 		diagnostics?: string[];
+		exit_code?: number;
+		exit_signal?: string;
 		data?: Record<string, unknown>;
 	},
 ): CoordinationSessionRuntime {
@@ -327,6 +329,8 @@ export function transition_runtime(
 		stopped_at: terminal ? timestamp : undefined,
 		error: options.error,
 		diagnostics: options.diagnostics,
+		exit_code: options.exit_code,
+		exit_signal: options.exit_signal,
 		data: options.data,
 	});
 	if (!updated)

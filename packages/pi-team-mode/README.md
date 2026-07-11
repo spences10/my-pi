@@ -71,8 +71,14 @@ acceptance, and returns structured runtime status. Later
 `session_send` calls route to that owner as native prompt, steering,
 or follow-up turns. Runtime generations, ownership leases, process
 identity, state transitions, and bounded diagnostics are persisted in
-SQLite. Child runtimes receive a minimal environment; add explicitly
-required variables with `MY_PI_TEAM_MODE_ENV_ALLOWLIST` or
+SQLite. The launcher supervises the detached host while it is running:
+startup crashes fail readiness immediately, readiness timeouts
+terminate the unready host, and later exit codes or signals move the
+runtime to `failed` with bounded, redacted stderr. Graceful shutdown
+moves it to `offline`; a subsequent spawn recovers the same session id
+with a new runtime generation after proving the prior owner dead.
+Child runtimes receive a minimal environment; add explicitly required
+variables with `MY_PI_TEAM_MODE_ENV_ALLOWLIST` or
 `MY_PI_CHILD_ENV_ALLOWLIST`.
 
 The legacy wake path remains the default during dogfood. The
@@ -125,7 +131,10 @@ the durable fallback if the broker is unavailable.
 
 ## Tool actions
 
-The `team` tool exposes peer-only coordination actions:
+The `team` tool exposes peer-only coordination actions. Use
+`session_list` with `mode=full` to include offline sessions plus
+persistent runtime ids, generations, PIDs, terminal signals/errors,
+and bounded diagnostics.
 
 - `session_list`
 - `session_send`
@@ -165,9 +174,9 @@ Team Mode never cleans or deletes them. The caller remains responsible
 for creating the directory, choosing branch/worktree boundaries, and
 reviewing mutations. Environment allowlisting and diagnostic redaction
 reduce accidental credential exposure but do not make untrusted model
-or shell execution safe. Add `reply_to` or comma/space-separated
-`to` recipients when the teammate's final report should go directly to
-an orchestrator, peer, or cross-project session instead of only its
+or shell execution safe. Add `reply_to` or comma/space-separated `to`
+recipients when the teammate's final report should go directly to an
+orchestrator, peer, or cross-project session instead of only its
 creator. Initial instructions and later native turns are recorded in
 the teammate transcript. With `MY_PI_TEAM_RUNTIME=persistent`, spawn
 waits for runtime readiness and Pi prompt preflight acceptance; that

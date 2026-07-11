@@ -21,6 +21,7 @@ import {
 } from '../config.js';
 import type { CoordinationSessionRuntime } from '../db/index.js';
 import { TeamDatabase } from '../db/index.js';
+import { sanitize_diagnostic_stream } from '../diagnostics.js';
 import { prompt_runtime, wait_for_runtime_ready } from './client.js';
 import {
 	DEFAULT_RUNTIME_LEASE_MS,
@@ -104,6 +105,50 @@ export function runtime_host_args(
 	];
 }
 
+const TERMINAL_RUNTIME_STATES = new Set(['failed', 'offline']);
+
+export async function record_runtime_process_failure(options: {
+	db_path: string;
+	session_id: string;
+	runtime_id: string;
+	generation: number;
+	error: string;
+	stderr?: string;
+	exit_code?: number;
+	exit_signal?: string;
+}): Promise<void> {
+	const db = await TeamDatabase.open(options.db_path);
+	try {
+		const current = db.get_session_runtime(options.session_id);
+		if (
+			!current ||
+			current.runtime_id !== options.runtime_id ||
+			current.generation !== options.generation ||
+			TERMINAL_RUNTIME_STATES.has(current.state)
+		)
+			return;
+		const stderr = sanitize_diagnostic_stream(options.stderr);
+		transition_runtime(db, {
+			session_id: options.session_id,
+			runtime_id: options.runtime_id,
+			generation: options.generation,
+			state: 'failed',
+			error: options.error,
+			diagnostics: stderr.text ? [stderr.text] : [],
+			exit_code: options.exit_code,
+			exit_signal: options.exit_signal,
+			data: {
+				stderr_bytes: stderr.bytes,
+				stderr_stored_bytes: stderr.stored_bytes,
+				stderr_truncated: stderr.truncated,
+				stderr_redaction_count: stderr.redaction_count,
+			},
+		});
+	} finally {
+		db.close();
+	}
+}
+
 export interface StartPersistentRuntimeOptions {
 	db_path: string;
 	session_id: string;
@@ -164,7 +209,7 @@ export async function start_persistent_runtime(
 		{
 			cwd: options.cwd,
 			detached: true,
-			stdio: 'ignore',
+			stdio: ['ignore', 'ignore', 'pipe'],
 			env: create_team_child_env({
 				explicit_env: {
 					[AUTO_INJECT_ENV]: 'false',
@@ -177,34 +222,65 @@ export async function start_persistent_runtime(
 			}),
 		},
 	);
+	let stderr = '';
+	child.stderr?.setEncoding('utf8');
+	child.stderr?.on('data', (chunk: string) => {
+		stderr = sanitize_diagnostic_stream(`${stderr}${chunk}`).text;
+	});
+	(
+		child.stderr as
+			| (NodeJS.ReadableStream & { unref?: () => void })
+			| null
+	)?.unref?.();
 	child.unref();
 	child.once('error', (error) => {
 		rmSync(config_path, { force: true });
 		try {
 			rmdirSync(dirname(config_path));
 		} catch {}
-		void TeamDatabase.open(options.db_path).then((failure_db) => {
-			try {
-				transition_runtime(failure_db, {
-					session_id: options.session_id,
-					runtime_id,
-					generation: reserved.generation,
-					state: 'failed',
-					error: `Runtime host spawn failed: ${error.message}`,
-					diagnostics: [error.stack ?? error.message],
-				});
-			} finally {
-				failure_db.close();
-			}
+		void record_runtime_process_failure({
+			db_path: options.db_path,
+			session_id: options.session_id,
+			runtime_id,
+			generation: reserved.generation,
+			error: `Runtime host spawn failed: ${error.message}`,
+			stderr: `${stderr}\n${error.stack ?? error.message}`,
 		});
 	});
-	const ready = await wait_for_runtime_ready({
-		db_path: options.db_path,
-		session_id: options.session_id,
-		runtime_id,
-		generation: reserved.generation,
-		timeout_ms: options.timeout_ms,
+	child.once('exit', (code, signal) => {
+		void record_runtime_process_failure({
+			db_path: options.db_path,
+			session_id: options.session_id,
+			runtime_id,
+			generation: reserved.generation,
+			error: `Runtime host exited unexpectedly (${signal ? `signal ${signal}` : `code ${code ?? 'unknown'}`})`,
+			stderr,
+			exit_code: code ?? undefined,
+			exit_signal: signal ?? undefined,
+		});
 	});
+	let ready: CoordinationSessionRuntime;
+	try {
+		ready = await wait_for_runtime_ready({
+			db_path: options.db_path,
+			session_id: options.session_id,
+			runtime_id,
+			generation: reserved.generation,
+			timeout_ms: options.timeout_ms,
+		});
+	} catch (error) {
+		await record_runtime_process_failure({
+			db_path: options.db_path,
+			session_id: options.session_id,
+			runtime_id,
+			generation: reserved.generation,
+			error: `Runtime readiness failed: ${(error as Error).message}`,
+			stderr,
+		});
+		if (child.exitCode === null && child.signalCode === null)
+			child.kill('SIGTERM');
+		throw error;
+	}
 	return options.initial_prompt?.trim()
 		? await prompt_runtime(
 				ready,

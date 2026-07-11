@@ -123,6 +123,30 @@ function format_direct_command_result(
 
 type RuntimeDeliveryMethod = 'prompt' | 'steer' | 'follow_up';
 
+export interface SpawnRuntimeStatus {
+	mode: 'persistent';
+	accepted: boolean;
+	method?: string;
+	state?: string;
+	runtime_id?: string;
+	generation?: number;
+	pid?: number;
+	error?: string;
+	diagnostics?: string[];
+}
+
+function format_spawn_runtime_status(
+	status: SpawnRuntimeStatus | undefined,
+): string {
+	if (!status) return '';
+	const identity = status.runtime_id
+		? ` runtime ${status.runtime_id} generation ${status.generation ?? 'unknown'}${status.pid ? ` pid ${status.pid}` : ''}`
+		: '';
+	if (status.accepted)
+		return `; persistent${identity} is ${status.state ?? 'ready'} and accepted the initial prompt via ${status.method ?? 'runtime'}`;
+	return `; persistent${identity} failed: ${status.error ?? 'unknown runtime failure'}`;
+}
+
 type DeliverRuntimeMessage = (
 	runtime: CoordinationSessionRuntime,
 	message: string,
@@ -239,19 +263,34 @@ export async function execute_coordination_action(
 	switch (params.action) {
 		case 'session_list': {
 			coordination_db.mark_stale_sessions_offline();
+			const full = params.mode === 'full';
 			const sessions = coordination_db.list_sessions({
-				include_offline: params.include_read,
+				include_offline: full || params.include_read,
 			});
+			const runtimes = new Map(
+				sessions.flatMap((session) => {
+					const runtime = coordination_db.get_session_runtime(
+						session.session_id,
+					);
+					return runtime
+						? ([[session.session_id, runtime]] as const)
+						: [];
+				}),
+			);
 			return {
 				content: [
 					{
 						type: 'text' as const,
 						text: format_sessions(sessions, {
-							full_ids: params.mode === 'full',
+							full_ids: full,
+							runtimes,
 						}),
 					},
 				],
-				details: { sessions },
+				details: {
+					sessions,
+					runtimes: Object.fromEntries(runtimes),
+				},
 			};
 		}
 		case 'session_send':
@@ -682,15 +721,7 @@ export async function execute_coordination_action(
 					...split_session_targets(params.to),
 				].filter(Boolean) as string[],
 			);
-			let runtime_status:
-				| {
-						mode: 'persistent';
-						accepted: boolean;
-						method?: string;
-						state?: string;
-						error?: string;
-				  }
-				| undefined;
+			let runtime_status: SpawnRuntimeStatus | undefined;
 			if (params.command?.trim()) {
 				const safe_command = sanitize_diagnostic_stream(
 					params.command,
@@ -763,17 +794,34 @@ export async function execute_coordination_action(
 				if (should_use_persistent_team_runtime()) {
 					try {
 						const status = await wake_teammate(wake_options);
+						const runtime = status?.runtime;
 						runtime_status = {
 							mode: 'persistent',
 							accepted: status?.accepted === true,
 							method: status?.method,
-							state: status?.runtime?.state,
+							state: runtime?.state,
+							runtime_id: runtime?.runtime_id,
+							generation: runtime?.generation,
+							pid: runtime?.pid,
+							error: runtime?.error,
+							diagnostics: runtime?.diagnostics,
 						};
 					} catch (error) {
+						const runtime = coordination_db.get_session_runtime(
+							teammate.session_id,
+						);
+						const safe_error = sanitize_diagnostic_stream(
+							(error as Error).message,
+						).text;
 						runtime_status = {
 							mode: 'persistent',
 							accepted: false,
-							error: (error as Error).message,
+							state: runtime?.state,
+							runtime_id: runtime?.runtime_id,
+							generation: runtime?.generation,
+							pid: runtime?.pid,
+							error: safe_error,
+							diagnostics: runtime?.diagnostics,
 						};
 					}
 				} else if (params.instructions?.trim()) {
@@ -784,7 +832,7 @@ export async function execute_coordination_action(
 				content: [
 					{
 						type: 'text' as const,
-						text: `Created teammate session ${teammate.name} (${teammate.session_id})${params.command?.trim() ? '; started direct command execution' : runtime_status?.accepted ? '; persistent runtime accepted initial prompt' : runtime_status?.error ? `; persistent runtime failed: ${runtime_status.error}` : params.instructions?.trim() ? '; started background task execution' : ''}`,
+						text: `Created teammate session ${teammate.name} (${teammate.session_id})${params.command?.trim() ? '; started direct command execution' : runtime_status ? format_spawn_runtime_status(runtime_status) : params.instructions?.trim() ? '; started background task execution' : ''}`,
 					},
 				],
 				details: {

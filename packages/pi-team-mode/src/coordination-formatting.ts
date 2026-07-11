@@ -10,6 +10,7 @@ import type {
 	CoordinationGroupMembership,
 	CoordinationInboxMessage,
 	CoordinationSession,
+	CoordinationSessionRuntime,
 } from './db/index.js';
 import { standby_label } from './standby.js';
 
@@ -25,9 +26,42 @@ function compact_body(body: string): string {
 	return `${normalized.slice(0, COMPACT_BODY_LIMIT - 1).trimEnd()}… [truncated]`;
 }
 
+function compact_runtime_detail(value: string): string {
+	const normalized = value.replace(/\s+/g, ' ').trim();
+	return normalized.length <= COMPACT_BODY_LIMIT
+		? normalized
+		: `${normalized.slice(0, COMPACT_BODY_LIMIT - 1).trimEnd()}…`;
+}
+
+function format_runtime(
+	runtime: CoordinationSessionRuntime | undefined,
+	full: boolean,
+): string {
+	if (!runtime) return '';
+	const identity = full
+		? ` · runtime ${runtime.runtime_id} generation ${runtime.generation}${runtime.pid ? ` pid ${runtime.pid}` : ''}`
+		: ` · runtime ${runtime.state} g${runtime.generation}`;
+	const terminal = runtime.exit_signal
+		? ` · signal ${runtime.exit_signal}`
+		: runtime.exit_code !== undefined
+			? ` · exit ${runtime.exit_code}`
+			: '';
+	const error = runtime.error
+		? ` · error ${compact_runtime_detail(runtime.error)}`
+		: '';
+	const diagnostics =
+		full && runtime.diagnostics.length > 0
+			? ` · diagnostics ${compact_runtime_detail(runtime.diagnostics.join(' | '))}`
+			: '';
+	return `${identity}${terminal}${error}${diagnostics}`;
+}
+
 export function format_sessions(
 	sessions: CoordinationSession[],
-	options: { full_ids?: boolean } = {},
+	options: {
+		full_ids?: boolean;
+		runtimes?: ReadonlyMap<string, CoordinationSessionRuntime>;
+	} = {},
 ): string {
 	if (sessions.length === 0) return 'No registered sessions.';
 	return sessions
@@ -51,11 +85,15 @@ export function format_sessions(
 				? undefined
 				: standby_label(session.metadata);
 			const standby_text = standby ? ` · ${standby}` : '';
+			const runtime = format_runtime(
+				options.runtimes?.get(session.session_id),
+				options.full_ids === true,
+			);
 			const model = session.model_id ? ` · ${session.model_id}` : '';
 			const thinking = session.thinking_level
 				? ` · thinking ${session.thinking_level}`
 				: '';
-			return `- ${id}${name}${alias} — ${session.status}${availability}${intent}${standby_text}; ${session.cwd}${model}${thinking}`;
+			return `- ${id}${name}${alias} — ${session.status}${availability}${intent}${standby_text}${runtime}; ${session.cwd}${model}${thinking}`;
 		})
 		.join('\n');
 }

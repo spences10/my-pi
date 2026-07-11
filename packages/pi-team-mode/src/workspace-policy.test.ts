@@ -81,7 +81,9 @@ describe('teammate workspace policy', () => {
 
 	it('accepts dirty git worktrees without modifying them', async () => {
 		const { db, root } = await setup();
-		const isolated = mkdtempSync(join(tmpdir(), 'pi-team-dirty-git-'));
+		const isolated = mkdtempSync(
+			join(tmpdir(), 'pi-team-dirty-git-'),
+		);
 		dirs.push(isolated);
 		execFileSync('git', ['init', '--quiet'], { cwd: isolated });
 		writeFileSync(join(isolated, 'uncommitted.txt'), 'dirty\n');
