@@ -29,6 +29,7 @@ import {
 	should_use_persistent_team_runtime,
 	wake_visible_teammate_session,
 } from '../visible-sessions.js';
+import { resolve_teammate_workspace } from '../workspace-policy.js';
 
 function require_arg(
 	value: string | undefined,
@@ -646,10 +647,16 @@ export async function execute_coordination_action(
 		case 'member_spawn': {
 			const lead_session_id = require_session_id();
 			assert_teammate_spawn_allowed(coordination_db, lead_session_id);
+			const teammate_cwd = resolve_teammate_workspace({
+				db: coordination_db,
+				lead_cwd: ctx.cwd,
+				mode: params.workspace_mode!,
+				path: params.workspace_path,
+			});
 			const teammate = create_visible_teammate_session(
 				coordination_db,
 				{
-					cwd: ctx.cwd,
+					cwd: teammate_cwd,
 					session_dir: ctx.sessionManager.getSessionDir(),
 					lead_session_id,
 					lead_session_file: ctx.sessionManager.getSessionFile(),
@@ -691,7 +698,7 @@ export async function execute_coordination_action(
 				append_visible_team_message(
 					teammate.session_file,
 					ctx.sessionManager?.getSessionDir?.(),
-					ctx.cwd,
+					teammate_cwd,
 					`Direct teammate command started by ${lead_session_id}:\n\n${safe_command}`,
 					{
 						kind: 'direct_teammate_command_started',
@@ -701,7 +708,7 @@ export async function execute_coordination_action(
 				);
 				void (async () => {
 					const result = await run_direct_teammate_command({
-						cwd: ctx.cwd,
+						cwd: teammate_cwd,
 						command: params.command!,
 						timeout_ms: params.timeout_ms,
 						member: teammate.name,
@@ -711,7 +718,7 @@ export async function execute_coordination_action(
 					append_visible_team_message(
 						teammate.session_file,
 						ctx.sessionManager?.getSessionDir?.(),
-						ctx.cwd,
+						teammate_cwd,
 						body,
 						{
 							kind: 'direct_teammate_command_result',
@@ -745,7 +752,7 @@ export async function execute_coordination_action(
 			} else {
 				const wake_options = {
 					session_file: teammate.session_file,
-					cwd: ctx.cwd,
+					cwd: teammate_cwd,
 					message: params.instructions,
 					from_session_id: lead_session_id,
 					member: teammate.name,

@@ -36,6 +36,7 @@ describe('packages/pi-team-mode/src/index.ts', () => {
 			validate_team_tool_params({
 				action: 'member_spawn',
 				name: 'teammate-a',
+				workspace_mode: 'shared',
 			}),
 		).not.toThrow();
 	});

@@ -33,6 +33,7 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 			validate_team_tool_params({
 				action: 'member_spawn',
 				name: 'fast-check',
+				workspace_mode: 'shared',
 				command: 'pnpm test',
 			}),
 		).not.toThrow();
@@ -43,6 +44,7 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 			validate_team_tool_params({
 				action: 'member_spawn',
 				name: 'worker',
+				workspace_mode: 'shared',
 				message: 'ambiguous task text',
 			}),
 		).toThrow(/message is not allowed/);
@@ -50,6 +52,7 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 			validate_team_tool_params({
 				action: 'member_spawn',
 				name: 'worker',
+				workspace_mode: 'shared',
 				instructions: 'Run the task',
 				command: 'pnpm test',
 			}),

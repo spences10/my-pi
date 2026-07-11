@@ -148,10 +148,13 @@ The `team` tool exposes peer-only coordination actions:
 - `message_ack`
 - `member_spawn`
 
-Use `member_spawn` with `name` and optional `instructions` to create a
-visible teammate session. Add `reply_to` or comma/space-separated `to`
-recipients when the teammate's final report should go directly to an
-orchestrator, peer, or cross-project session instead of only its
+Use `member_spawn` with `name`, `workspace_mode`, and optional
+`instructions` to create a visible teammate session. Choose `shared`
+explicitly to reuse the lead cwd. Choose `isolated` with an absolute
+`workspace_path` to use a distinct directory; active sessions cannot
+claim the same isolated path. Add `reply_to` or comma/space-separated
+`to` recipients when the teammate's final report should go directly to
+an orchestrator, peer, or cross-project session instead of only its
 creator. Initial instructions and later native turns are recorded in
 the teammate transcript. With `MY_PI_TEAM_RUNTIME=persistent`, spawn
 waits for runtime readiness and Pi prompt preflight acceptance; that

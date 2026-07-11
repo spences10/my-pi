@@ -40,6 +40,10 @@ const TeamUiModeParam = StringEnum([
 	'full',
 	'off',
 ] as const);
+const WorkspaceModeParam = StringEnum([
+	'shared',
+	'isolated',
+] as const);
 const ArtifactKindParam = StringEnum([
 	'summary',
 	'handoff',
@@ -57,6 +61,8 @@ export const TeamToolParams = Type.Object(
 		name: Type.Optional(Type.String()),
 		member: Type.Optional(Type.String()),
 		role: Type.Optional(CoordinationRoleParam),
+		workspace_mode: Type.Optional(WorkspaceModeParam),
+		workspace_path: Type.Optional(Type.String()),
 		from: Type.Optional(Type.String()),
 		to: Type.Optional(Type.String()),
 		message: Type.Optional(Type.String()),
@@ -91,6 +97,8 @@ export type TeamToolParams = {
 	name?: string;
 	member?: string;
 	role?: 'lead' | 'teammate' | 'peer';
+	workspace_mode?: 'shared' | 'isolated';
+	workspace_path?: string;
 	from?: string;
 	to?: string;
 	message?: string;
@@ -239,6 +247,8 @@ const ACTION_ALLOWED_FIELDS = {
 		'action',
 		'name',
 		'role',
+		'workspace_mode',
+		'workspace_path',
 		'instructions',
 		'command',
 		'team_id',
@@ -324,6 +334,13 @@ export function validate_team_tool_params(
 			return;
 		case 'member_spawn':
 			require_tool_field(params, 'name');
+			require_tool_field(params, 'workspace_mode');
+			if (params.workspace_mode === 'shared' && params.workspace_path)
+				throw new Error(
+					'Invalid team tool action member_spawn: workspace_path is only allowed with isolated workspace mode',
+				);
+			if (params.workspace_mode === 'isolated')
+				require_tool_field(params, 'workspace_path');
 			if (params.instructions?.trim() && params.command?.trim())
 				throw new Error(
 					'Invalid team tool action member_spawn: instructions and command are mutually exclusive',

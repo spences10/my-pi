@@ -93,6 +93,7 @@ describe('coordination actions', () => {
 				{
 					action: 'member_spawn',
 					name: 'teammate-a',
+					workspace_mode: 'shared',
 					instructions: 'Inspect the failing test.',
 				},
 				{
@@ -163,6 +164,7 @@ describe('coordination actions', () => {
 				{
 					action: 'member_spawn',
 					name: 'persistent-worker',
+					workspace_mode: 'shared',
 					instructions: 'Start the task.',
 					role: 'peer',
 				},
@@ -199,6 +201,7 @@ describe('coordination actions', () => {
 				{
 					action: 'member_spawn',
 					name: 'failed-worker',
+					workspace_mode: 'shared',
 					instructions: 'Start the task.',
 				},
 				{
@@ -403,6 +406,7 @@ describe('coordination actions', () => {
 				{
 					action: 'member_spawn',
 					name: 'fast-worker',
+					workspace_mode: 'shared',
 					command: 'printf direct-ok',
 					reply_to: 'orchestrator',
 				},
