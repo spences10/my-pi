@@ -148,7 +148,7 @@ The `team` tool exposes peer-only coordination actions:
 - `message_ack`
 - `member_spawn`
 
-Use `member_spawn` with `name` and optional `message` to create a
+Use `member_spawn` with `name` and optional `instructions` to create a
 visible teammate session. Add `reply_to` or comma/space-separated `to`
 recipients when the teammate's final report should go directly to an
 orchestrator, peer, or cross-project session instead of only its
@@ -161,10 +161,13 @@ not use `/resume` as an attachment mechanism while the persistent
 runtime is active; see the known limitation above.
 
 For deterministic checks that do not need a model turn, `member_spawn`
-also accepts `command`. The command runs in the teammate's project
-cwd, records start/result entries in the teammate transcript, and
-sends the captured exit code/stdout/stderr from the teammate session
-id to the creator plus any `reply_to`/`to` report recipients.
+accepts `command` instead of `instructions`; the two fields are
+mutually exclusive, and `command` must contain executable shell text
+rather than natural-language task instructions. The command runs in
+the teammate's project cwd, records start/result entries in the
+teammate transcript, and sends the captured exit code/stdout/stderr
+from the teammate session id to the creator plus any `reply_to`/`to`
+report recipients.
 
 Use artifacts for larger handoffs and send artifact ids in mailbox
 messages instead of pasting long content into peer messages.

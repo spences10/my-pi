@@ -60,6 +60,7 @@ export const TeamToolParams = Type.Object(
 		from: Type.Optional(Type.String()),
 		to: Type.Optional(Type.String()),
 		message: Type.Optional(Type.String()),
+		instructions: Type.Optional(Type.String()),
 		message_ids: Type.Optional(Type.Array(Type.String())),
 		reply_to: Type.Optional(Type.String()),
 		ttl_ms: Type.Optional(Type.Number()),
@@ -93,6 +94,7 @@ export type TeamToolParams = {
 	from?: string;
 	to?: string;
 	message?: string;
+	instructions?: string;
 	message_ids?: string[];
 	reply_to?: string;
 	ttl_ms?: number;
@@ -237,7 +239,7 @@ const ACTION_ALLOWED_FIELDS = {
 		'action',
 		'name',
 		'role',
-		'message',
+		'instructions',
 		'command',
 		'team_id',
 		'reply_to',
@@ -318,8 +320,14 @@ export function validate_team_tool_params(
 			require_tool_field(params, 'message');
 			return;
 		case 'group_create':
+			require_tool_field(params, 'name');
+			return;
 		case 'member_spawn':
 			require_tool_field(params, 'name');
+			if (params.instructions?.trim() && params.command?.trim())
+				throw new Error(
+					'Invalid team tool action member_spawn: instructions and command are mutually exclusive',
+				);
 			return;
 		case 'group_join':
 			require_tool_any_field(params, ['team_id', 'name'], 'group');

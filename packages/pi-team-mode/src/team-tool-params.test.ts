@@ -38,6 +38,24 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 		).not.toThrow();
 	});
 
+	it('separates teammate instructions from deterministic commands', () => {
+		expect(() =>
+			validate_team_tool_params({
+				action: 'member_spawn',
+				name: 'worker',
+				message: 'ambiguous task text',
+			}),
+		).toThrow(/message is not allowed/);
+		expect(() =>
+			validate_team_tool_params({
+				action: 'member_spawn',
+				name: 'worker',
+				instructions: 'Run the task',
+				command: 'pnpm test',
+			}),
+		).toThrow(/mutually exclusive/);
+	});
+
 	it('requires a target for peer mailbox actions', () => {
 		expect(() =>
 			validate_team_tool_params({

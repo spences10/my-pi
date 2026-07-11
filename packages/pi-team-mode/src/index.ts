@@ -216,7 +216,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 			'Manage peer sessions, coordination groups, artifacts, and messages',
 		promptGuidelines: [
 			'Use team session_list to discover registered Pi sessions across projects before sending peer messages.',
-			'Use team member_spawn to create visible resumable teammate sessions when the user asks to create teammates; spawned teammates are normal Pi sessions that can be resumed. Use command for deterministic checks that should report without a full model turn.',
+			'Use team member_spawn with instructions to create visible resumable teammate sessions; use command only for executable deterministic shell checks. instructions and command are mutually exclusive.',
 			'If the user mentions standby sessions, existing sessions, subordinates, handoffs, or other active sessions, call session_list and prefer registered standby sessions.',
 			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for compact peer-session mailbox coordination.',
 			'Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of large mailbox bodies.',

@@ -93,7 +93,7 @@ describe('coordination actions', () => {
 				{
 					action: 'member_spawn',
 					name: 'teammate-a',
-					message: 'Inspect the failing test.',
+					instructions: 'Inspect the failing test.',
 				},
 				{
 					ctx: { cwd: '/repo', sessionManager: lead } as any,
@@ -163,7 +163,7 @@ describe('coordination actions', () => {
 				{
 					action: 'member_spawn',
 					name: 'persistent-worker',
-					message: 'Start the task.',
+					instructions: 'Start the task.',
 					role: 'peer',
 				},
 				{
@@ -199,7 +199,7 @@ describe('coordination actions', () => {
 				{
 					action: 'member_spawn',
 					name: 'failed-worker',
-					message: 'Start the task.',
+					instructions: 'Start the task.',
 				},
 				{
 					ctx: { cwd: '/repo', sessionManager: lead } as any,

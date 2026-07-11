@@ -654,7 +654,7 @@ export async function execute_coordination_action(
 					lead_session_id,
 					lead_session_file: ctx.sessionManager.getSessionFile(),
 					name: require_arg(params.name, 'name'),
-					instructions: params.message,
+					instructions: params.instructions,
 					role: params.role ?? 'teammate',
 					team_id: params.team_id,
 				},
@@ -746,7 +746,7 @@ export async function execute_coordination_action(
 				const wake_options = {
 					session_file: teammate.session_file,
 					cwd: ctx.cwd,
-					message: params.message,
+					message: params.instructions,
 					from_session_id: lead_session_id,
 					member: teammate.name,
 					role: teammate.role,
@@ -769,7 +769,7 @@ export async function execute_coordination_action(
 							error: (error as Error).message,
 						};
 					}
-				} else if (params.message?.trim()) {
+				} else if (params.instructions?.trim()) {
 					void wake_teammate(wake_options);
 				}
 			}
@@ -777,7 +777,7 @@ export async function execute_coordination_action(
 				content: [
 					{
 						type: 'text' as const,
-						text: `Created teammate session ${teammate.name} (${teammate.session_id})${params.command?.trim() ? '; started direct command execution' : runtime_status?.accepted ? '; persistent runtime accepted initial prompt' : runtime_status?.error ? `; persistent runtime failed: ${runtime_status.error}` : params.message?.trim() ? '; started background task execution' : ''}`,
+						text: `Created teammate session ${teammate.name} (${teammate.session_id})${params.command?.trim() ? '; started direct command execution' : runtime_status?.accepted ? '; persistent runtime accepted initial prompt' : runtime_status?.error ? `; persistent runtime failed: ${runtime_status.error}` : params.instructions?.trim() ? '; started background task execution' : ''}`,
 					},
 				],
 				details: {
