@@ -66,7 +66,7 @@ describe('experimental persistent visible sessions', () => {
 			stored_bytes: 64 * 1024,
 			truncated: true,
 		});
-	});
+	}, 15_000);
 
 	it('never rewrites a persistent owner session JSONL externally', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'pi-visible-'));

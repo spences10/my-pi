@@ -20,6 +20,7 @@ import {
 	prompt_runtime,
 	steer_runtime,
 } from '../runtime/client.js';
+import { assert_teammate_spawn_allowed } from '../spawn-limits.js';
 import type { TeamToolParams } from '../team-tool-params.js';
 import {
 	append_visible_team_message,
@@ -644,6 +645,7 @@ export async function execute_coordination_action(
 		}
 		case 'member_spawn': {
 			const lead_session_id = require_session_id();
+			assert_teammate_spawn_allowed(coordination_db, lead_session_id);
 			const teammate = create_visible_teammate_session(
 				coordination_db,
 				{
