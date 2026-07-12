@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import {
+import { describe, expect, it, vi } from 'vitest';
+import observability, {
 	create_event_envelope,
 	parse_tags,
 	resolve_dashboard_command,
@@ -7,6 +7,56 @@ import {
 	summarize_payload,
 } from './index.js';
 import { redact_value, truncate_json_value } from './redact.js';
+import type { ObservabilityEvent } from './types.js';
+
+function observability_harness(options?: {
+	configured_name?: string;
+	session_name?: string;
+}) {
+	const handlers = new Map<
+		string,
+		(event: unknown, ctx: unknown) => Promise<void>
+	>();
+	let session_name = options?.session_name;
+	const sent: ObservabilityEvent[] = [];
+	const fetch_mock = vi
+		.spyOn(globalThis, 'fetch')
+		.mockImplementation(async (_input, init) => {
+			if (typeof init?.body !== 'string')
+				throw new TypeError('Expected a JSON request body');
+			sent.push(...(JSON.parse(init.body) as ObservabilityEvent[]));
+			return new Response(null, { status: 200 });
+		});
+	const flags = new Map<string, unknown>([
+		['observability-url', 'http://observability.test'],
+		...(options?.configured_name
+			? ([['observability-name', options.configured_name]] as const)
+			: []),
+	]);
+	const pi = {
+		registerFlag: vi.fn(),
+		registerCommand: vi.fn(),
+		getFlag: (name: string) => flags.get(name),
+		on: (name: string, handler: never) => handlers.set(name, handler),
+	};
+	observability(pi as never);
+	const ctx = {
+		cwd: '/repo',
+		model: undefined,
+		sessionManager: {
+			getSessionId: () => 'session-1',
+			getSessionFile: () => '/sessions/session-1.jsonl',
+			getSessionName: () => session_name,
+		},
+	};
+	return {
+		fetch_mock,
+		sent,
+		set_session_name: (name: string) => (session_name = name),
+		trigger: async (name: string, event: unknown = {}) =>
+			handlers.get(name)?.(event, ctx),
+	};
+}
 
 describe('parse_tags', () => {
 	it('splits comma-separated values', () => {
@@ -141,6 +191,57 @@ describe('payload safety', () => {
 		expect(
 			truncate_json_value({ text: 'x'.repeat(100) }, 20),
 		).toEqual(expect.objectContaining({ truncated: true }));
+	});
+});
+
+describe('session names', () => {
+	it('uses the current name for initial and resumed sessions', async () => {
+		const harness = observability_harness({ session_name: 'derek' });
+		await harness.trigger('session_start');
+		await harness.trigger('session_shutdown');
+		expect(harness.sent[0]).toMatchObject({
+			type: 'session_start',
+			session_name: 'derek',
+		});
+		expect(harness.sent[0]?.agent_name).toBeUndefined();
+		harness.fetch_mock.mockRestore();
+	});
+
+	it('emits renamed session metadata for normal persistence', async () => {
+		const harness = observability_harness({ session_name: 'before' });
+		await harness.trigger('session_start');
+		harness.set_session_name('after');
+		await harness.trigger('session_info_changed', { name: 'after' });
+		await harness.trigger('session_shutdown');
+		expect(harness.sent).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					type: 'session_info_changed',
+					session_name: 'after',
+				}),
+			]),
+		);
+		harness.fetch_mock.mockRestore();
+	});
+
+	it('keeps an explicit observability name across session renames', async () => {
+		const harness = observability_harness({
+			configured_name: 'override',
+			session_name: 'before',
+		});
+		await harness.trigger('session_start');
+		harness.set_session_name('after');
+		await harness.trigger('session_info_changed', { name: 'after' });
+		await harness.trigger('session_shutdown');
+		expect(
+			harness.sent.find(
+				(event) => event.type === 'session_info_changed',
+			),
+		).toMatchObject({
+			agent_name: 'override',
+			session_name: 'after',
+		});
+		harness.fetch_mock.mockRestore();
 	});
 });
 

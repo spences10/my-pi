@@ -252,6 +252,7 @@ export function create_event_envelope(
 		session_file: session.session_file,
 		cwd: session.cwd,
 		agent_name: session.agent_name,
+		session_name: session.session_name,
 		pool: session.pool,
 		tags: session.tags,
 		provider: session.provider,
@@ -493,6 +494,7 @@ export default function observability(pi: ExtensionAPI) {
 			session_file: ctx.sessionManager.getSessionFile(),
 			cwd: ctx.cwd,
 			agent_name: config.agent_name,
+			session_name: ctx.sessionManager.getSessionName(),
 			pool: config.pool,
 			tags: config.tags,
 			provider: ctx.model?.provider,
@@ -517,6 +519,12 @@ export default function observability(pi: ExtensionAPI) {
 	observe('after_provider_response', 'provider_response');
 	observe('session_compact', 'compaction');
 	observe('session_tree', 'branch_nav');
+
+	pi.on('session_info_changed', async (event, ctx) => {
+		if (session)
+			session.session_name = ctx.sessionManager.getSessionName();
+		emit('session_info_changed', event);
+	});
 
 	pi.on('model_select', async (event, ctx) => {
 		if (session) {

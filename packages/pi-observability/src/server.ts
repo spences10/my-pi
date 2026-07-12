@@ -31,6 +31,7 @@ import type {
 	ObservabilityServerOptions,
 	RunningObservabilityServer,
 } from './server-options.js';
+import { resolve_session_name } from './session-name.js';
 import { trace_summary } from './trace-summary.js';
 import type { ObservabilityEvent } from './types.js';
 
@@ -52,6 +53,17 @@ const DEFAULT_MAX_BODY_BYTES = 1_048_576;
 const REQUEST_TIMEOUT_MS = 30_000;
 const HEADERS_TIMEOUT_MS = 10_000;
 const KEEP_ALIVE_TIMEOUT_MS = 5_000;
+const MAX_TRACE_EVENTS = 10_000;
+
+function bounded_limit(
+	value: string | null,
+	fallback: number,
+	maximum: number,
+): number {
+	const parsed = Number(value ?? fallback);
+	if (!Number.isInteger(parsed) || parsed < 1) return fallback;
+	return Math.min(parsed, maximum);
+}
 
 export function start_observability_server(
 	options: ObservabilityServerOptions = resolve_observability_server_options(),
@@ -127,6 +139,7 @@ export function start_observability_server(
 			server_event.session_id,
 			server_event.pool ?? 'default',
 			server_event.agent_name ?? null,
+			server_event.session_name ?? null,
 			server_event.cwd ?? '',
 			server_event.session_file ?? null,
 			server_event.provider ?? null,
@@ -221,8 +234,9 @@ export function start_observability_server(
 				});
 			}
 			if (req_url.pathname === '/sessions') {
-				const limit = Math.min(
-					Number(req_url.searchParams.get('limit') ?? 100),
+				const limit = bounded_limit(
+					req_url.searchParams.get('limit'),
+					100,
 					500,
 				);
 				const pool = req_url.searchParams.get('pool') ?? '';
@@ -232,10 +246,13 @@ export function start_observability_server(
 					limit,
 				) as Record<string, unknown>[];
 				const tag = req_url.searchParams.get('tag');
-				const sessions = rows.map(to_session_row).filter((row) => {
-					if (!tag) return true;
-					return (row as { tags?: string[] }).tags?.includes(tag);
-				});
+				const sessions = rows
+					.map(to_session_row)
+					.map(resolve_session_name)
+					.filter((row) => {
+						if (!tag) return true;
+						return row.tags?.includes(tag);
+					});
 				return json(res, 200, { sessions });
 			}
 			const session_route = req_url.pathname.match(
@@ -243,27 +260,24 @@ export function start_observability_server(
 			);
 			if (session_route) {
 				const session_id = decodeURIComponent(session_route[1]);
-				const limit = Math.min(
-					Number(req_url.searchParams.get('limit') ?? 500),
-					1000,
+				const is_trace = session_route[2] === 'trace';
+				const limit = bounded_limit(
+					req_url.searchParams.get('limit'),
+					is_trace ? MAX_TRACE_EVENTS : 500,
+					is_trace ? MAX_TRACE_EVENTS : 1000,
 				);
 				const rows = statements.list_events.all(
 					session_id,
 					limit,
 				) as Record<string, unknown>[];
 				const events = rows.map(to_row_event);
-				if (session_route[2] === 'events') {
-					return json(res, 200, { events });
-				}
-				const session =
-					(
-						statements.list_sessions.all('', '', 500) as Record<
-							string,
-							unknown
-						>[]
-					)
-						.map(to_session_row)
-						.find((row) => row.session_id === session_id) ?? null;
+				if (!is_trace) return json(res, 200, { events });
+				const session_row = statements.get_session.get(session_id) as
+					| Record<string, unknown>
+					| undefined;
+				const session = session_row
+					? resolve_session_name(to_session_row(session_row))
+					: null;
 				return json(res, 200, trace_summary(session, events));
 			}
 			if (req_url.pathname === '/events/search') {
@@ -271,8 +285,9 @@ export function start_observability_server(
 				const type = req_url.searchParams.get('type') ?? '';
 				const session_id =
 					req_url.searchParams.get('session_id') ?? '';
-				const limit = Math.min(
-					Number(req_url.searchParams.get('limit') ?? 200),
+				const limit = bounded_limit(
+					req_url.searchParams.get('limit'),
+					200,
 					1000,
 				);
 				const rows = statements.search_events.all(

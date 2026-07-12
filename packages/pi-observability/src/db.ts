@@ -11,6 +11,7 @@ export interface PreparedStatements {
 	insert_event: StatementSync;
 	upsert_session: StatementSync;
 	list_sessions: StatementSync;
+	get_session: StatementSync;
 	list_events: StatementSync;
 	search_events: StatementSync;
 	delete_old_events: StatementSync;
@@ -36,6 +37,13 @@ export function prepare_db(db_path: string): {
 	db.exec(PERSISTENT_PRAGMAS);
 	db.exec(CONNECTION_PRAGMAS);
 	db.exec(SCHEMA);
+	const session_columns = db
+		.prepare('PRAGMA table_info(sessions)')
+		.all() as Array<{ name: string }>;
+	if (
+		!session_columns.some((column) => column.name === 'session_name')
+	)
+		db.exec('ALTER TABLE sessions ADD COLUMN session_name TEXT');
 	return {
 		db,
 		statements: {
@@ -51,11 +59,12 @@ export function prepare_db(db_path: string): {
 			`),
 			upsert_session: db.prepare(`
 				INSERT INTO sessions
-				(session_id, pool, agent_name, cwd, session_file, provider, model, first_ts, last_ts, event_count, tags_json)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+				(session_id, pool, agent_name, session_name, cwd, session_file, provider, model, first_ts, last_ts, event_count, tags_json)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
 				ON CONFLICT(session_id) DO UPDATE SET
 					pool = excluded.pool,
 					agent_name = COALESCE(excluded.agent_name, sessions.agent_name),
+					session_name = COALESCE(excluded.session_name, sessions.session_name),
 					cwd = COALESCE(excluded.cwd, sessions.cwd),
 					session_file = COALESCE(excluded.session_file, sessions.session_file),
 					provider = COALESCE(excluded.provider, sessions.provider),
@@ -69,6 +78,9 @@ export function prepare_db(db_path: string): {
 				WHERE (? = '' OR pool = ?)
 				ORDER BY last_ts DESC
 				LIMIT ?
+			`),
+			get_session: db.prepare(`
+				SELECT * FROM sessions WHERE session_id = ?
 			`),
 			list_events: db.prepare(`
 				SELECT * FROM events

@@ -36,9 +36,10 @@
 	--font-mono:
 		'Victor Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
 		monospace;
-	--font-size-ui: 14px;
+	--font-size-ui: 13px;
 	--font-size-compact: 12px;
-	--font-size-label: 11px;
+	--font-size-label: 10px;
+	--topbar-height: 54px;
 }
 .light {
 	color-scheme: light;
@@ -60,36 +61,15 @@
 * {
 	box-sizing: border-box;
 }
+html {
+	background: var(--bg);
+}
 body {
 	margin: 0;
 	background: var(--bg);
 	color: var(--text);
 	font: var(--font-size-ui) / 1.45 var(--font-sans);
-}
-pre,
-code,
-.pill,
-.compact-row,
-.session,
-.timeline-panel,
-.trace-layout {
-	font-family: var(--font-mono);
-}
-.app-shell {
-	min-height: 100vh;
-	color: var(--text);
-	background:
-		radial-gradient(
-			circle at 18% -12%,
-			color-mix(in srgb, var(--focus), transparent 88%),
-			transparent 28rem
-		),
-		radial-gradient(
-			circle at 82% -8%,
-			color-mix(in srgb, var(--selected), transparent 90%),
-			transparent 24rem
-		),
-		var(--bg);
+	-webkit-font-smoothing: antialiased;
 }
 button,
 input,
@@ -97,169 +77,143 @@ select {
 	font: inherit;
 }
 button {
+	min-height: 34px;
 	border: 1px solid var(--border-muted);
 	background: var(--surface);
 	color: var(--text);
-	border-radius: 12px;
-	padding: 9px 12px;
+	border-radius: 6px;
+	padding: 7px 10px;
 	cursor: pointer;
 }
 button:hover,
 button.active {
-	border-color: var(--focus);
-	background: color-mix(in srgb, var(--focus), var(--surface) 86%);
+	border-color: color-mix(
+		in srgb,
+		var(--focus),
+		var(--border-muted) 28%
+	);
+	background: color-mix(in srgb, var(--focus), var(--surface) 91%);
 	box-shadow: 0 0 0 1px
-		color-mix(in srgb, var(--focus), transparent 70%);
+		color-mix(in srgb, var(--focus), transparent 82%);
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+	outline: 2px solid var(--selected);
+	outline-offset: 2px;
 }
 input,
 select {
 	width: 100%;
+	min-height: 34px;
 	border: 1px solid var(--border-muted);
 	background: var(--bg);
 	color: var(--text);
-	border-radius: 12px;
-	padding: 10px 12px;
+	border-radius: 6px;
+	padding: 7px 10px;
 }
-header {
-	height: 76px;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0 24px;
-	border-bottom: 1px solid var(--border-muted);
-	background: color-mix(in srgb, var(--bg), transparent 8%);
-	backdrop-filter: blur(18px);
-	position: sticky;
-	top: 0;
-	z-index: 4;
+input::placeholder {
+	color: color-mix(in srgb, var(--muted), transparent 20%);
+}
+select {
+	cursor: pointer;
+}
+pre,
+code {
+	font-family: var(--font-mono);
 }
 h1,
 h2,
 h3,
+h4,
 p {
 	margin: 0;
 }
-.eyebrow {
-	color: var(--focus);
-	text-transform: uppercase;
-	font-size: var(--font-size-label);
-	letter-spacing: 0.14em;
-}
-.toolbar {
-	display: flex;
-	gap: 12px;
-	align-items: center;
-}
-.status {
-	border: 1px solid var(--yellow);
-	border-radius: 999px;
-	padding: 7px 11px;
-	color: var(--yellow);
-}
-.status.live {
-	color: var(--green);
-	border-color: var(--green);
+.app-shell {
+	min-height: 100vh;
+	color: var(--text);
+	background:
+		linear-gradient(
+			90deg,
+			transparent 0,
+			transparent calc(100% - 1px),
+			color-mix(in srgb, var(--border-muted), transparent 88%) 100%
+		),
+		radial-gradient(
+			circle at 72% -20%,
+			color-mix(in srgb, var(--focus), transparent 94%),
+			transparent 34rem
+		),
+		var(--bg);
+	background-size:
+		32px 100%,
+		auto,
+		auto;
 }
 main {
 	display: grid;
-	grid-template-columns: minmax(380px, 24vw) minmax(0, 1fr);
-	min-height: calc(100vh - 76px);
+	grid-template-columns: minmax(300px, 20vw) minmax(0, 1fr);
+	min-height: calc(100vh - var(--topbar-height));
 }
 .content {
-	height: calc(100vh - 76px);
+	height: calc(100vh - var(--topbar-height));
+	min-width: 0;
 	min-height: 0;
-	padding: 20px;
+	padding: 18px clamp(16px, 2vw, 30px) 0;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
 }
-.panel {
-	background: color-mix(in srgb, var(--surface), transparent 4%);
-	border: 1px solid var(--border-muted);
-	border-radius: 18px;
-	box-shadow: none;
-}
-.panel-head {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	padding: 16px;
-	border-bottom: 1px solid var(--border-muted);
-}
-.panel-head span {
-	color: var(--muted);
-}
-.filters {
-	display: flex;
-	gap: 10px;
-	min-width: min(520px, 60%);
-}
-.filters select {
-	max-width: 180px;
-}
-.compact-row {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	align-items: center;
-	gap: 12px;
-	width: 100%;
-	max-width: 100%;
-	min-width: 0;
-	overflow: hidden;
-	border-width: 0 0 1px;
-	border-radius: 0;
-	background: transparent;
-	padding: 12px 16px;
-	text-align: left;
-}
-.compact-row strong {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-.compact-row span {
-	color: var(--muted);
-	white-space: nowrap;
-}
-.artifact {
-	cursor: pointer;
-}
-.pill {
-	background: color-mix(in srgb, var(--selected), var(--surface) 78%);
-	color: var(--cyan);
-	border-radius: 999px;
-	padding: 2px 7px;
+.eyebrow {
+	color: var(--focus);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-label);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.11em;
 }
 .empty {
-	padding: 24px;
+	padding: 22px 14px;
 	color: var(--muted);
+	font-size: var(--font-size-compact);
 }
+.empty.compact,
 .compact {
-	padding: 14px 16px;
+	padding: 12px;
 }
-@media (max-width: 720px) {
+::selection {
+	background: color-mix(in srgb, var(--focus), transparent 54%);
+	color: var(--text);
+}
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border-muted) transparent;
+}
+@media (max-width: 900px) {
+	main {
+		display: block;
+	}
 	.content {
 		height: auto;
+		min-height: calc(100vh - var(--topbar-height));
 		overflow: visible;
+		padding-bottom: 24px;
 	}
-	header {
-		height: auto;
-		align-items: flex-start;
-		gap: 12px;
-		flex-direction: column;
-		padding: 16px;
+}
+@media (max-width: 620px) {
+	:root {
+		--font-size-ui: 12px;
 	}
-	.toolbar {
-		flex-wrap: wrap;
+	.content {
+		padding-inline: 12px;
 	}
-	.filters {
-		min-width: 0;
-		display: grid;
-	}
-	.panel-head {
-		align-items: stretch;
-		flex-direction: column;
+}
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		scroll-behavior: auto !important;
+		transition-duration: 0.01ms !important;
 	}
 }

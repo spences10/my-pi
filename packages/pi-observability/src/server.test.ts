@@ -241,6 +241,69 @@ describe('start_observability_server', () => {
 		});
 	});
 
+	it('resolves an existing session name from its JSONL source', async () => {
+		const db_path = tmp_db_path();
+		const session_file = join(
+			mkdtempSync(join(tmpdir(), 'pi-obs-session-')),
+			'session.jsonl',
+		);
+		writeFileSync(
+			session_file,
+			`${JSON.stringify({ type: 'session_info', name: 'derek' })}\n${`${JSON.stringify({ type: 'message', text: 'x'.repeat(1024) })}\n`.repeat(300)}`,
+		);
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: '',
+			db_path,
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+		await fetch(`${server.url}/events`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ ...event(), session_file }),
+		});
+
+		const response = await fetch(`${server.url}/sessions`);
+		const body = (await response.json()) as {
+			sessions: Array<{ session_name?: string }>;
+		};
+		expect(body.sessions[0]?.session_name).toBe('derek');
+	});
+
+	it('persists a live session rename separately from agent_name', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: '',
+			db_path: tmp_db_path(),
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+		await fetch(`${server.url}/events`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				...event(),
+				agent_name: 'worker-a',
+				session_name: 'derek',
+				type: 'session_info_changed',
+			}),
+		});
+
+		const response = await fetch(`${server.url}/sessions`);
+		const body = (await response.json()) as {
+			sessions: Array<{ agent_name?: string; session_name?: string }>;
+		};
+		expect(body.sessions[0]).toMatchObject({
+			agent_name: 'worker-a',
+			session_name: 'derek',
+		});
+	});
+
 	it('serves the dashboard shell', async () => {
 		const server = start_observability_server({
 			host: '127.0.0.1',

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 	session_id TEXT PRIMARY KEY,
 	pool TEXT NOT NULL DEFAULT 'default',
 	agent_name TEXT,
+	session_name TEXT,
 	cwd TEXT,
 	session_file TEXT,
 	provider TEXT,
