@@ -47,9 +47,9 @@ Keep skill metadata activation-friendly:
 ## Commit and Changeset ownership
 
 Do not commit changes or create a Changeset unless the user explicitly
-requests that action. By default, stop after validation so the user can
-review the implementation, then let the user create the Changeset or
-request that it be created and committed.
+requests that action. By default, stop after validation so the user
+can review the implementation, then let the user create the Changeset
+or request that it be created and committed.
 
 ## Validation
 
