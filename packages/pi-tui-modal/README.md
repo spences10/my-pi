@@ -32,7 +32,10 @@ footers remain visible on small terminals.
 - `show_picker_modal(ctx, options)` — select one item from a themed
   modal list.
 - `show_settings_modal(ctx, options)` — toggle/update settings with
-  optional search, metadata, and stable-width selection cursor.
+  optional search, metadata, and stable-width selection cursor. Use
+  up/down to navigate, left/right to choose previous/next values, or
+  Enter/Space to advance; left/right continue to edit an active search
+  query when it contains text.
 - `show_text_modal(ctx, options)` — show scrollable read-only output.
 - `show_input_modal(ctx, options)` — collect a single text value with
   IME-safe focus propagation.

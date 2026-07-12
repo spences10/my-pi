@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { test_theme } from '../test-utils.js';
-import { render_footer_status_line } from './status-line.js';
+import type { FooterTheme } from '../theme/tokens.js';
+import {
+	render_footer_status_line,
+	render_footer_three_column_line,
+} from './status-line.js';
+
+const plain_theme = {
+	fg: (_color: string, text: string) => text,
+	bold: (text: string) => text,
+} as FooterTheme;
 
 describe('render_footer_status_line', () => {
 	it('renders left-only status using the selected tone', () => {
@@ -24,6 +33,21 @@ describe('render_footer_status_line', () => {
 		);
 		expect(line).toContain('prompt:terse');
 		expect(line?.startsWith(' ')).toBe(true);
+	});
+
+	it('anchors center content while preserving left and right zones', () => {
+		const line = render_footer_three_column_line(
+			plain_theme,
+			30,
+			['left'],
+			['middle'],
+			['right'],
+		);
+
+		expect(line?.indexOf('middle')).toBe(12);
+		expect(line?.startsWith('left')).toBe(true);
+		expect(line?.endsWith('right')).toBe(true);
+		expect(line?.length).toBeLessThanOrEqual(30);
 	});
 
 	it('returns undefined when no status text exists', () => {

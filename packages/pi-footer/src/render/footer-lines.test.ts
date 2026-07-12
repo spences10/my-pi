@@ -53,4 +53,66 @@ describe('render_footer_lines', () => {
 		);
 		expect(lines.join('\n')).toContain('mcp:MCP 6/6 connected');
 	});
+
+	it('splits task state from service and usage telemetry', () => {
+		const lines = render_footer_lines(
+			make_context(),
+			test_theme,
+			make_footer_data({
+				getExtensionStatuses: vi.fn(
+					() =>
+						new Map([
+							['mcp', 'MCP 5/5 connected'],
+							['codex-usage', 'codex-usage:cx 3h 6%'],
+							['harness', 'harness: running'],
+							['preset', 'prompt:terse'],
+						]),
+				),
+			}),
+			DEFAULT_FOOTER_STATE,
+			160,
+		);
+
+		expect(lines).toHaveLength(4);
+		expect(lines[2]).toContain('harness: running');
+		expect(lines[2]).toContain('prompt:terse');
+		expect(lines[3]).toContain('MCP 5/5 connected');
+		expect(lines[3]).toContain('codex-usage:cx 3h 6%');
+	});
+
+	it('supports custom placement and hiding', () => {
+		const lines = render_footer_lines(
+			make_context(),
+			test_theme,
+			make_footer_data({
+				getExtensionStatuses: vi.fn(
+					() =>
+						new Map([
+							['custom', 'ready'],
+							['mcp', 'MCP 5/5 connected'],
+						]),
+				),
+			}),
+			{
+				...DEFAULT_FOOTER_STATE,
+				status_layout: {
+					...DEFAULT_FOOTER_STATE.status_layout,
+					custom: {
+						row: 3,
+						alignment: 'center',
+						hidden: false,
+					},
+					mcp: {
+						row: 2,
+						alignment: 'left',
+						hidden: true,
+					},
+				},
+			},
+			120,
+		);
+
+		expect(lines.join('\n')).toContain('custom:ready');
+		expect(lines.join('\n')).not.toContain('MCP 5/5 connected');
+	});
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	count_text_lines,
+	cycle_setting_value,
 	fit_visible_items,
 	get_border_line_count,
 	get_modal_body_line_budget,
@@ -49,6 +50,18 @@ describe('modal layout helpers', () => {
 		expect(fit_visible_items(20, 10, 5)).toBe(4);
 		expect(fit_visible_items(3, 10, 5)).toBe(3);
 		expect(fit_visible_items(0, 10, 0)).toBe(1);
+	});
+
+	it('cycles setting values in either direction with wrapping', () => {
+		const item = {
+			id: 'alignment',
+			label: 'Alignment',
+			currentValue: 'left',
+			values: ['left', 'center', 'right'],
+		};
+
+		expect(cycle_setting_value(item, -1)).toBe('right');
+		expect(cycle_setting_value(item, 1)).toBe('left');
 	});
 
 	it('handles margins, borders, text lines, metadata, and value colors', () => {

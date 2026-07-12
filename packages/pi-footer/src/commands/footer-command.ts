@@ -6,6 +6,7 @@ import type {
 import { SelectList, type SettingItem } from '@earendil-works/pi-tui';
 import {
 	show_modal,
+	show_picker_modal,
 	show_settings_modal,
 } from '@spences10/pi-tui-modal';
 import { save_footer_state } from '../config.js';
@@ -16,6 +17,7 @@ import {
 import {
 	FOOTER_DENSITIES,
 	FOOTER_PRESETS,
+	FOOTER_STATUS_ALIGNMENTS,
 	FOOTER_TONES,
 	FOOTER_WIDGETS,
 	GIT_ICON_MODES,
@@ -23,6 +25,8 @@ import {
 	type FooterDensity,
 	type FooterPreset,
 	type FooterState,
+	type FooterStatusAlignment,
+	type FooterStatusPlacement,
 	type FooterTone,
 	type FooterWidget,
 	type GitIconMode,
@@ -45,28 +49,39 @@ async function configure_footer(
 	ctx: ExtensionCommandContext,
 	state: FooterState,
 ): Promise<void> {
-	let open_widgets = false;
-	await show_settings_modal(ctx, {
-		title: 'Footer settings',
-		subtitle:
-			'Changes apply live and persist to ~/.pi/agent/extensions/pi-footer.json.',
-		footer: 'space/enter cycles values • esc close',
-		items: get_footer_settings(state),
-		enable_search: true,
-		detail: (item) => get_setting_detail(item.id),
-		metadata: (item) => get_setting_metadata(item?.id, state),
-		on_change: (id, new_value) => {
-			if (id === 'widgets') {
-				open_widgets = true;
-				return true;
-			}
-			apply_footer_setting(state, id, new_value);
-			save_footer_state(state);
-			install_footer(ctx, state);
-			return false;
-		},
-	});
-	if (open_widgets) await configure_footer_widgets(ctx, state);
+	while (true) {
+		let next_panel: 'widgets' | 'status-layout' | undefined;
+		await show_settings_modal(ctx, {
+			title: 'Footer settings',
+			subtitle:
+				'Changes apply live and persist to ~/.pi/agent/extensions/pi-footer.json.',
+			footer:
+				'↑/↓ navigate • ←/→ change • enter/space next • esc close',
+			items: get_footer_settings(state),
+			enable_search: true,
+			detail: (item) => get_setting_detail(item.id),
+			metadata: (item) => get_setting_metadata(item?.id, ctx, state),
+			on_change: (id, new_value) => {
+				if (id === 'widgets' || id === 'status-layout') {
+					next_panel = id;
+					return true;
+				}
+				apply_footer_setting(state, id, new_value);
+				save_footer_state(state);
+				install_footer(ctx, state);
+				return false;
+			},
+		});
+		if (next_panel === 'widgets') {
+			await configure_footer_widgets(ctx, state);
+			continue;
+		}
+		if (next_panel === 'status-layout') {
+			await configure_footer_status_layout(ctx, state);
+			continue;
+		}
+		return;
+	}
 }
 
 function get_footer_settings(state: FooterState): SettingItem[] {
@@ -108,10 +123,17 @@ function get_footer_settings(state: FooterState): SettingItem[] {
 		},
 		{
 			id: 'widgets',
-			label: 'Widgets',
-			description: 'Open widget visibility settings',
-			currentValue: `${get_enabled_widget_count(state)}/${FOOTER_WIDGETS.length} on`,
-			values: ['open'],
+			label: 'Visible content',
+			description: 'Choose core footer widgets',
+			currentValue: `${get_enabled_widget_count(state)}/${FOOTER_WIDGETS.length} shown`,
+			values: ['configure'],
+		},
+		{
+			id: 'status-layout',
+			label: 'Extension status layout',
+			description: 'Place MCP, harness, usage, and other statuses',
+			currentValue: 'configure',
+			values: ['configure'],
 		},
 	];
 }
@@ -164,6 +186,148 @@ async function configure_footer_widgets(
 			};
 		},
 	);
+}
+
+async function configure_footer_status_layout(
+	ctx: ExtensionCommandContext,
+	state: FooterState,
+): Promise<void> {
+	while (true) {
+		const footer_data = get_current_footer_data();
+		const live_statuses = new Map(
+			footer_data?.getExtensionStatuses() ?? [],
+		);
+		const keys = Array.from(
+			new Set([
+				...Object.keys(state.status_layout),
+				...live_statuses.keys(),
+				'preset',
+			]),
+		);
+		const selected = await show_picker_modal(ctx, {
+			title: 'Extension status layout',
+			subtitle:
+				'Choose a status, then assign any row and left, center, or right alignment.',
+			footer: 'enter configures • search filters • esc back',
+			items: keys.map((key) => ({
+				value: key,
+				label: key,
+				description:
+					live_statuses.get(key) ??
+					(key === 'preset'
+						? 'Active prompt preset status'
+						: 'Not currently published'),
+			})),
+			empty_message: 'No extension statuses available',
+			selected_footer: (item) => {
+				if (!item) return undefined;
+				return format_status_placement(
+					status_placement_for(state, item.value),
+				);
+			},
+		});
+		if (!selected) return;
+		await configure_footer_status(ctx, state, selected, keys.length);
+		compact_status_rows(state);
+		save_footer_state(state);
+		install_footer(ctx, state);
+	}
+}
+
+async function configure_footer_status(
+	ctx: ExtensionCommandContext,
+	state: FooterState,
+	key: string,
+	status_count: number,
+): Promise<void> {
+	const placement = status_placement_for(state, key);
+	const row_count = Math.max(status_count, placement.row, 1);
+	await show_settings_modal(ctx, {
+		title: `Status: ${key}`,
+		subtitle:
+			'Rows appear only when populated; empty rows are removed automatically.',
+		footer: '↑/↓ navigate • ←/→ change • enter/space next • esc back',
+		items: [
+			{
+				id: 'row',
+				label: 'Row',
+				description: 'Vertical status row',
+				currentValue: String(placement.row),
+				values: Array.from({ length: row_count }, (_, index) =>
+					String(index + 1),
+				),
+			},
+			{
+				id: 'alignment',
+				label: 'Alignment',
+				description: 'Horizontal position within the row',
+				currentValue: placement.alignment,
+				values: [...FOOTER_STATUS_ALIGNMENTS],
+			},
+			{
+				id: 'visibility',
+				label: 'Visibility',
+				description: 'Show or hide this status',
+				currentValue: placement.hidden ? 'hidden' : 'shown',
+				values: ['shown', 'hidden'],
+			},
+		],
+		metadata: () => get_footer_preview(ctx, state),
+		on_change: (id, new_value) => {
+			if (id === 'row') placement.row = Number(new_value);
+			if (
+				id === 'alignment' &&
+				FOOTER_STATUS_ALIGNMENTS.includes(
+					new_value as FooterStatusAlignment,
+				)
+			) {
+				placement.alignment = new_value as FooterStatusAlignment;
+			}
+			if (id === 'visibility')
+				placement.hidden = new_value === 'hidden';
+			state.status_layout[key] = placement;
+			save_footer_state(state);
+			install_footer(ctx, state);
+		},
+	});
+}
+
+function status_placement_for(
+	state: FooterState,
+	key: string,
+): FooterStatusPlacement {
+	return (
+		state.status_layout[key] ?? {
+			row: 1,
+			alignment: 'left',
+			hidden: false,
+		}
+	);
+}
+
+function compact_status_rows(state: FooterState): void {
+	const occupied_rows = Array.from(
+		new Set(
+			Object.values(state.status_layout)
+				.filter((placement) => !placement.hidden)
+				.map((placement) => placement.row),
+		),
+	).sort((a, b) => a - b);
+	const row_map = new Map(
+		occupied_rows.map((row, index) => [row, index + 1]),
+	);
+	for (const placement of Object.values(state.status_layout)) {
+		if (!placement.hidden)
+			placement.row = row_map.get(placement.row) ?? placement.row;
+	}
+}
+
+function format_status_placement(
+	placement: FooterStatusPlacement,
+): string {
+	return placement.hidden
+		? 'hidden'
+		: `row ${placement.row} • ${placement.alignment}`;
 }
 
 function get_enabled_widget_count(state: FooterState): number {
@@ -251,31 +415,57 @@ function get_setting_detail(id: string): string | undefined {
 	if (id === 'git-icons')
 		return 'Nerd uses terminal font glyphs; plain uses ASCII-safe symbols.';
 	if (id === 'widgets')
-		return 'Open a dedicated picker for footer building blocks.';
+		return 'Open a dedicated picker for core footer building blocks.';
+	if (id === 'status-layout')
+		return 'Assign each published extension status to any dynamic row with left, center, or right alignment, or hide it.';
+}
+
+function get_footer_preview(
+	ctx: ExtensionCommandContext,
+	state: FooterState,
+): string[] {
+	const footer_data = get_current_footer_data();
+	if (!footer_data)
+		return ['Preview unavailable before footer setup.'];
+	const lines = render_footer_lines(
+		ctx as ExtensionContext,
+		ctx.ui.theme,
+		footer_data,
+		state,
+		72,
+	);
+	return [
+		'Preview:',
+		...(lines.length > 0
+			? lines.map((line) => `  ${line}`)
+			: ['  —']),
+	];
 }
 
 function get_setting_metadata(
 	id: string | undefined,
+	ctx: ExtensionCommandContext,
 	state: FooterState,
 ): string[] {
-	const lines = [
-		`Current preset: ${state.preset}`,
-		`Density: ${state.density}`,
-		`Tone: ${state.tone}`,
-		`Status labels: ${state.status_label_mode}`,
-		`Git icons: ${state.git_icon_mode}`,
-	];
+	const lines = get_footer_preview(ctx, state);
 	if (id === 'widgets') {
-		lines.push('', 'Enabled widgets:');
+		lines.push('', 'Shown widgets:');
 		for (const widget of FOOTER_WIDGETS.filter(
 			(widget) => state.widgets[widget],
 		)) {
 			lines.push(`• ${widget}`);
 		}
 	}
+	if (id === 'status-layout') {
+		lines.push(
+			'',
+			'Rows are created from visible status placements.',
+			'Empty rows collapse automatically.',
+		);
+	}
 	if (id === 'preset') {
-		lines.push('', 'Research references to fold in:');
-		for (const reference of FOOTER_RESEARCH_REFERENCES.slice(0, 4)) {
+		lines.push('', 'Layout references:');
+		for (const reference of FOOTER_RESEARCH_REFERENCES.slice(0, 3)) {
 			lines.push(`• ${reference.name}: ${reference.takeaways[0]}`);
 		}
 	}

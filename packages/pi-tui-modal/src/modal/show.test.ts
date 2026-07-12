@@ -4,6 +4,7 @@ import {
 	show_input_modal,
 	show_modal,
 	show_picker_modal,
+	show_settings_modal,
 	show_text_modal,
 } from './show.js';
 
@@ -64,6 +65,24 @@ describe('show modal helpers', () => {
 		).resolves.toBeUndefined();
 		expect(notify).toHaveBeenCalledWith('Empty');
 		expect(custom).not.toHaveBeenCalled();
+	});
+
+	it('cycles stock SettingsList values with left and right arrows', async () => {
+		const on_change = vi.fn();
+		await show_settings_modal(create_ctx(undefined, '\u001b[D').ctx, {
+			title: 'Settings',
+			items: [
+				{
+					id: 'alignment',
+					label: 'Alignment',
+					currentValue: 'left',
+					values: ['left', 'center', 'right'],
+				},
+			],
+			on_change,
+		});
+
+		expect(on_change).toHaveBeenCalledWith('alignment', 'right');
 	});
 
 	it('wraps picker, text, input, and confirm flows', async () => {

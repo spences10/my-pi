@@ -219,6 +219,7 @@ export type SettingsListInternals = {
 	filteredItems: SettingItem[];
 	selectedIndex: number;
 	searchEnabled: boolean;
+	searchInput?: { getValue(): string };
 };
 
 export function get_selected_setting(
@@ -229,6 +230,29 @@ export function get_selected_setting(
 		? internals.filteredItems
 		: internals.items;
 	return items[internals.selectedIndex];
+}
+
+export function has_active_settings_search(
+	list: SettingsList,
+): boolean {
+	const internals = list as unknown as SettingsListInternals;
+	return Boolean(internals.searchInput?.getValue());
+}
+
+export function cycle_setting_value(
+	item: SettingItem | undefined,
+	direction: -1 | 1,
+): string | undefined {
+	if (!item?.values || item.values.length === 0) return undefined;
+	const current_index = item.values.indexOf(item.currentValue);
+	const start_index =
+		current_index === -1 ? (direction === 1 ? -1 : 0) : current_index;
+	const next_index =
+		(start_index + direction + item.values.length) %
+		item.values.length;
+	const new_value = item.values[next_index];
+	item.currentValue = new_value;
+	return new_value;
 }
 
 export function make_settings_theme(

@@ -1,6 +1,8 @@
 import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 import {
 	Box,
+	Key,
+	matchesKey,
 	SelectList,
 	SettingsList,
 	Text,
@@ -14,10 +16,12 @@ import {
 } from './bodies.js';
 import { render_framed_modal } from './frame.js';
 import {
+	cycle_setting_value,
 	default_overlay_options,
 	fit_visible_items,
 	get_modal_body_line_budget,
 	get_selected_setting,
+	has_active_settings_search,
 	is_focusable,
 	make_select_theme,
 	make_settings_theme,
@@ -293,7 +297,7 @@ export async function show_settings_modal(
 			subtitle: options.subtitle,
 			footer:
 				options.footer ??
-				'search filters • enter toggles • esc close',
+				'↑/↓ navigate • ←/→ change • enter/space next • esc close',
 			overlay_options: options.overlay_options,
 			style: options.style,
 		},
@@ -367,7 +371,24 @@ export async function show_settings_modal(
 					];
 				},
 				invalidate: () => list.invalidate(),
-				handleInput: (data: string) => list.handleInput(data),
+				handleInput: (data: string) => {
+					if (
+						list instanceof SettingsList &&
+						!has_active_settings_search(list) &&
+						(matchesKey(data, Key.left) ||
+							matchesKey(data, Key.right))
+					) {
+						const item = get_selected_setting(list);
+						const new_value = cycle_setting_value(
+							item,
+							matchesKey(data, Key.left) ? -1 : 1,
+						);
+						if (item && new_value !== undefined)
+							handle_change(item.id, new_value);
+						return;
+					}
+					list.handleInput(data);
+				},
 			};
 		},
 	);

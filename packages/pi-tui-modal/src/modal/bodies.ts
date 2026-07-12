@@ -11,7 +11,7 @@ import {
 	type SettingItem,
 	type SettingsListTheme,
 } from '@earendil-works/pi-tui';
-import { normalize_text } from './layout.js';
+import { cycle_setting_value, normalize_text } from './layout.js';
 import type {
 	InputModalOptions,
 	ModalBody,
@@ -301,10 +301,20 @@ export class DetailedSettingsList implements ModalBody {
 					? 0
 					: this.selected_index + 1;
 		} else if (
+			!this.search_input?.getValue() &&
+			matchesKey(data, Key.left)
+		) {
+			this.cycle_selected_item(-1);
+		} else if (
+			!this.search_input?.getValue() &&
+			matchesKey(data, Key.right)
+		) {
+			this.cycle_selected_item(1);
+		} else if (
 			keybindings.matches(data, 'tui.select.confirm') ||
 			data === ' '
 		) {
-			this.activate_item();
+			this.cycle_selected_item(1);
 		} else if (keybindings.matches(data, 'tui.select.cancel')) {
 			this.on_cancel();
 		} else if (this.search_input) {
@@ -350,14 +360,11 @@ export class DetailedSettingsList implements ModalBody {
 		return truncateToWidth(line, width);
 	}
 
-	private activate_item(): void {
+	private cycle_selected_item(direction: -1 | 1): void {
 		const item = this.get_selected_item();
-		if (!item?.values || item.values.length === 0) return;
-		const current_index = item.values.indexOf(item.currentValue);
-		const next_index = (current_index + 1) % item.values.length;
-		const new_value = item.values[next_index];
-		item.currentValue = new_value;
-		this.on_change(item.id, new_value);
+		const new_value = cycle_setting_value(item, direction);
+		if (item && new_value !== undefined)
+			this.on_change(item.id, new_value);
 	}
 
 	private apply_filter(query: string): void {
@@ -380,8 +387,8 @@ export class DetailedSettingsList implements ModalBody {
 			truncateToWidth(
 				this.theme.hint(
 					this.search_input
-						? '  Type to search · Enter/Space to change · Esc to cancel'
-						: '  Enter/Space to change · Esc to cancel',
+						? '  Type to search · ←/→ change · Enter/Space next · Esc cancel'
+						: '  ←/→ change · Enter/Space next · Esc cancel',
 				),
 				width,
 			),

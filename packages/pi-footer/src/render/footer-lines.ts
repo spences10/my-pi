@@ -10,19 +10,33 @@ import {
 	build_footer_model,
 	type FooterModel,
 } from '../model/footer-model.js';
-import type { FooterState } from '../presets/types.js';
+import type {
+	FooterState,
+	FooterStatusPlacement,
+} from '../presets/types.js';
 import {
 	muted,
 	themed_text,
 	type FooterTheme,
 } from '../theme/tokens.js';
 import { sanitize_status_text } from '../utils/text.js';
-import { render_footer_status_line } from './status-line.js';
+import {
+	render_footer_status_line,
+	render_footer_three_column_line,
+} from './status-line.js';
+
+interface StatusRow {
+	left: string[];
+	center: string[];
+	right: string[];
+}
 
 function enabled_items(
 	items: Array<[string, boolean | undefined]>,
 ): string[] {
-	return items.filter(([, enabled]) => enabled).map(([text]) => text);
+	return items
+		.filter(([text, enabled]) => enabled && Boolean(text))
+		.map(([text]) => text);
 }
 
 function render_stats_line(
@@ -98,7 +112,15 @@ function render_status_label(
 function prioritized_statuses(
 	statuses: Map<string, string>,
 ): Array<[string, string]> {
-	const priority = ['mcp', 'team', 'lsp', 'recall', 'nopeek'];
+	const priority = [
+		'harness',
+		'mcp',
+		'team',
+		'lsp',
+		'recall',
+		'nopeek',
+		'codex-usage',
+	];
 	return Array.from(statuses.entries()).sort(([a], [b]) => {
 		const a_index = priority.indexOf(a);
 		const b_index = priority.indexOf(b);
@@ -112,24 +134,70 @@ function prioritized_statuses(
 	});
 }
 
-function render_statuses(
+function status_placement(
+	key: string,
+	state: FooterState,
+): FooterStatusPlacement {
+	return (
+		state.status_layout[key] ?? {
+			row: 1,
+			alignment: 'left',
+			hidden: false,
+		}
+	);
+}
+
+function add_status(
+	rows: Map<number, StatusRow>,
+	placement: FooterStatusPlacement,
+	text: string,
+): void {
+	if (placement.hidden) return;
+	const row = rows.get(placement.row) ?? {
+		left: [],
+		center: [],
+		right: [],
+	};
+	row[placement.alignment].push(text);
+	rows.set(placement.row, row);
+}
+
+function build_status_rows(
 	model: FooterModel,
+	state: FooterState,
+): Map<number, StatusRow> {
+	const rows = new Map<number, StatusRow>();
+	if (state.widgets.statuses) {
+		for (const [key, text] of prioritized_statuses(model.statuses)) {
+			add_status(
+				rows,
+				status_placement(key, state),
+				render_status_label(key, text, state),
+			);
+		}
+	}
+	if (state.widgets.preset && model.preset_status) {
+		add_status(
+			rows,
+			status_placement('preset', state),
+			sanitize_status_text(model.preset_status),
+		);
+	}
+	return rows;
+}
+
+function render_status_row(
 	theme: FooterTheme,
 	state: FooterState,
 	width: number,
+	row: StatusRow,
 ): string | undefined {
-	if (!state.widgets.statuses && !state.widgets.preset)
-		return undefined;
-	const other_statuses = state.widgets.statuses
-		? prioritized_statuses(model.statuses).map(([key, text]) =>
-				render_status_label(key, text, state),
-			)
-		: [];
-	return render_footer_status_line(
+	return render_footer_three_column_line(
 		theme,
 		width,
-		other_statuses,
-		state.widgets.preset ? model.preset_status : undefined,
+		row.left,
+		row.center,
+		row.right,
 		state.tone,
 	);
 }
@@ -159,6 +227,25 @@ function render_path_line(
 	);
 }
 
+function compact_items(
+	model: FooterModel,
+	state: FooterState,
+): string[] {
+	return enabled_items([
+		[model.path_text, state.widgets.path],
+		[
+			model.git_text ? `(${model.git_text})` : '',
+			state.widgets.git && Boolean(model.git_text),
+		],
+		[model.session_text ?? '', state.widgets.session],
+		[model.token_parts.join(' '), state.widgets.tokens],
+		[model.cost_text ?? '', state.widgets.cost],
+		[model.context_text, state.widgets.context],
+		[model.model_name, state.widgets.model],
+		[model.thinking_text ?? '', state.widgets.thinking],
+	]);
+}
+
 export function render_footer_lines(
 	ctx: ExtensionContext,
 	theme: FooterTheme,
@@ -172,24 +259,30 @@ export function render_footer_lines(
 		theme,
 		state.git_icon_mode,
 	);
-	const lines: string[] = [];
-	const path_line = render_path_line(model, theme, state, width);
-	const stats_line = render_stats_line(model, theme, state, width);
-	const status_line = render_statuses(model, theme, state, width);
+	const status_rows = build_status_rows(model, state);
 
 	if (state.density === 'compact' || state.preset === 'minimal') {
-		const compact_left = [path_line, stats_line]
-			.filter(Boolean)
-			.join(' ');
-		const compact = render_footer_status_line(
+		const first_status_row = status_rows.get(
+			Math.min(...status_rows.keys()),
+		) ?? { left: [], center: [], right: [] };
+		const compact = render_footer_three_column_line(
 			theme,
 			width,
-			[compact_left],
-			status_line,
+			[...compact_items(model, state), ...first_status_row.left],
+			first_status_row.center,
+			first_status_row.right,
 			state.tone,
 		);
 		return compact ? [compact] : [];
 	}
+
+	const lines: string[] = [];
+	const path_line = render_path_line(model, theme, state, width);
+	const stats_line = render_stats_line(model, theme, state, width);
+	const rendered_status_rows = Array.from(status_rows.entries())
+		.sort(([a], [b]) => a - b)
+		.map(([, row]) => render_status_row(theme, state, width, row))
+		.filter((line): line is string => Boolean(line));
 
 	if (path_line)
 		lines.push(
@@ -199,7 +292,7 @@ export function render_footer_lines(
 		lines.push(
 			truncateToWidth(stats_line, width, muted(theme, '...')),
 		);
-	if (status_line) lines.push(status_line);
+	lines.push(...rendered_status_rows);
 
 	if (state.density === 'expanded' || state.preset === 'power') {
 		const footer_mode = themed_text(

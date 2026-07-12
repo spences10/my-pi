@@ -4,14 +4,17 @@ import {
 } from '@spences10/pi-settings';
 import {
 	DEFAULT_FOOTER_STATE,
+	DEFAULT_FOOTER_STATUS_LAYOUT,
 	DEFAULT_FOOTER_WIDGETS,
 	FOOTER_DENSITIES,
 	FOOTER_PRESETS,
+	FOOTER_STATUS_ALIGNMENTS,
 	FOOTER_TONES,
 	FOOTER_WIDGETS,
 	GIT_ICON_MODES,
 	STATUS_LABEL_MODES,
 	type FooterState,
+	type FooterStatusPlacement,
 } from './presets/types.js';
 
 export function load_footer_state(): FooterState {
@@ -45,6 +48,7 @@ export function normalize_footer_state(
 		)
 			? state.status_label_mode!
 			: DEFAULT_FOOTER_STATE.status_label_mode,
+		status_layout: normalize_status_layout(state.status_layout),
 		tone: FOOTER_TONES.includes(state.tone as never)
 			? state.tone!
 			: DEFAULT_FOOTER_STATE.tone,
@@ -61,6 +65,55 @@ export function normalize_footer_state(
 				),
 			),
 		},
+	};
+}
+
+function normalize_status_layout(
+	layout: unknown,
+): FooterState['status_layout'] {
+	const normalized = Object.fromEntries(
+		Object.entries(DEFAULT_FOOTER_STATUS_LAYOUT).map(
+			([key, placement]) => [key, { ...placement }],
+		),
+	);
+	if (!layout || typeof layout !== 'object') return normalized;
+	for (const [key, value] of Object.entries(layout)) {
+		const placement = normalize_status_placement(value);
+		if (key.length > 0 && placement) normalized[key] = placement;
+	}
+	return normalized;
+}
+
+function normalize_status_placement(
+	value: unknown,
+): FooterStatusPlacement | undefined {
+	if (typeof value === 'string') {
+		const legacy: Record<string, FooterStatusPlacement> = {
+			'primary-left': { row: 1, alignment: 'left', hidden: false },
+			'primary-right': { row: 1, alignment: 'right', hidden: false },
+			'secondary-left': { row: 2, alignment: 'left', hidden: false },
+			'secondary-right': {
+				row: 2,
+				alignment: 'right',
+				hidden: false,
+			},
+			hidden: { row: 1, alignment: 'left', hidden: true },
+		};
+		return legacy[value];
+	}
+	if (!value || typeof value !== 'object') return undefined;
+	const candidate = value as Partial<FooterStatusPlacement>;
+	if (
+		!Number.isInteger(candidate.row) ||
+		(candidate.row ?? 0) < 1 ||
+		(candidate.row ?? 0) > 99 ||
+		!FOOTER_STATUS_ALIGNMENTS.includes(candidate.alignment as never)
+	)
+		return undefined;
+	return {
+		row: candidate.row!,
+		alignment: candidate.alignment!,
+		hidden: candidate.hidden === true,
 	};
 }
 

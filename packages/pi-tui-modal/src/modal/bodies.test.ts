@@ -76,10 +76,17 @@ describe('modal bodies', () => {
 		expect(rendered).toContain('id:theme');
 
 		body.handleInput(' ');
-		expect(on_change).toHaveBeenCalledWith('theme', 'dark');
+		expect(on_change).toHaveBeenLastCalledWith('theme', 'dark');
+		body.handleInput('\u001b[D');
+		expect(on_change).toHaveBeenLastCalledWith('theme', 'light');
+		body.handleInput('\u001b[C');
+		expect(on_change).toHaveBeenLastCalledWith('theme', 'dark');
 
 		body.handleInput('sound');
 		expect(body.get_selected_item()?.id).toBe('sound');
+		const change_count = on_change.mock.calls.length;
+		body.handleInput('\u001b[D');
+		expect(on_change).toHaveBeenCalledTimes(change_count);
 
 		body.handleInput('\u001b');
 		expect(on_cancel).toHaveBeenCalledOnce();

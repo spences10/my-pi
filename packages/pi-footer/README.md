@@ -17,7 +17,18 @@ extension statuses published by other extensions with
 
 ## Commands
 
-- `/footer` — pick a footer preset with a modal.
+- `/footer` — configure layout, density, appearance, visible content,
+  and extension-status placement with a live preview.
+
+Extension statuses published through `ctx.ui.setStatus(...)` can be
+assigned independently to any numbered row, aligned left, center, or
+right, or hidden. Populated rows render in order; empty rows collapse
+automatically. Compact density renders the first populated status row.
+
+The default layout keeps harness and prompt state on row 1, then
+places MCP/service health on row 2 left and Codex usage on row 2
+right. Per-status choices persist in
+`~/.pi/agent/extensions/pi-footer.json`.
 
 ## Presets
 
