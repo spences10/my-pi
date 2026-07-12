@@ -1,5 +1,12 @@
 # @spences10/pi-tui-modal
 
+## 0.0.21
+
+### Patch Changes
+
+- 6421930: Add configurable dynamic footer rows, three-way alignment,
+  and arrow-key navigation across shared modal settings interfaces.
+
 ## 0.0.20
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @spences10/pi-observability
 
+## 0.0.17
+
+### Patch Changes
+
+- cabc024: Improve observability dashboard usefulness with accurate
+  metrics, session names, tool insights, and modern responsive layout.
+- Updated dependencies [6421930]
+  - @spences10/pi-tui-modal@0.0.21
+
 ## 0.0.16
 
 ### Patch Changes
