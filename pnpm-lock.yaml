@@ -212,7 +212,7 @@ importers:
         version: 1.61.1
       shadcn-svelte:
         specifier: ^1.2.7
-        version: 1.4.0(svelte@5.56.4)
+        version: 1.4.1(svelte@5.56.4)
       svead:
         specifier: ^0.0.16
         version: 0.0.16(svelte@5.56.4)(typescript@7.0.2)
@@ -3535,8 +3535,8 @@ packages:
   set-cookie-parser@3.1.1:
     resolution: {integrity: sha512-vM9SUhjsUYs6UeJUmygc5Ofm5eQGe85riob5ju6XCgFGJI5PLV4nrDAQpQjd+LkFBpAkADn5BQQpZ9EUNkyLuA==}
 
-  shadcn-svelte@1.4.0:
-    resolution: {integrity: sha512-7yEi4wurfKhfMuTCpTTdJrpQAePgfbwejij6jZplU1ydJrxGd+bEco+yTe+atUzaEosKUbQwz6RT5As+e3lE+Q==}
+  shadcn-svelte@1.4.1:
+    resolution: {integrity: sha512-lpvnuHJOMf/CRlOMo5h7HpmdpcWmqVoPyvnCcgpJWJWzVkiwmisF80mR54GIAExSTSk1g4+ere3QrSty2PCIIg==}
     hasBin: true
     peerDependencies:
       svelte: ^5.0.0
@@ -6408,7 +6408,7 @@ snapshots:
 
   set-cookie-parser@3.1.1: {}
 
-  shadcn-svelte@1.4.0(svelte@5.56.4):
+  shadcn-svelte@1.4.1(svelte@5.56.4):
     dependencies:
       commander: 14.0.3
       node-fetch-native: 1.6.7
