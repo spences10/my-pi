@@ -1,5 +1,13 @@
 # my-pi
 
+## 0.1.108
+
+### Patch Changes
+
+- 910a0af: Return Team Mode to peer-only coordination, removing
+  autonomous spawning while preserving messaging, groups, and
+  artifacts.
+
 ## 0.1.107
 
 ### Patch Changes
