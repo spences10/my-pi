@@ -44,6 +44,13 @@ Keep skill metadata activation-friendly:
 3. Root `README.md` for distribution positioning and commands.
 4. Source/tests for implementation details when docs are incomplete.
 
+## Commit and Changeset ownership
+
+Do not commit changes or create a Changeset unless the user explicitly
+requests that action. By default, stop after validation so the user can
+review the implementation, then let the user create the Changeset or
+request that it be created and committed.
+
 ## Validation
 
 Before reporting implementation completion:
