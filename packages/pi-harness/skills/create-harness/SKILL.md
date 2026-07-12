@@ -20,15 +20,25 @@ after context gathering.
    or evidence the harness is grounded in.
 3. Challenge assumptions: identify uncertainties and whether the
    executor may decide or must escalate.
-4. Define the execution contract: allowed paths, forbidden paths,
-   validation commands, test-change policy, and forbidden shortcuts.
+4. Define both layers: the outer policy contains workspace/verifier
+   protections; the inner scaffold contains task scope, validation,
+   test strategy, and model roles.
 5. Call `harness_create` with the task and contract fields.
 6. If the `team` tool is available, create or reuse a team and call
    `task_create` with the harness directory in the description.
 7. Read back the created harness path and report how to run it with
    `/harness run <dir>`.
 
-## Contract Guidance
+## Policy and Scaffold Guidance
+
+- Outer policy fields (`cwd`, forbidden paths/commands, tool surface,
+  dirty baseline) are runtime-owned and cannot be weakened by
+  `harness_amend`.
+- Inner scaffold fields (task, allowed paths, validation, test policy,
+  model roles, escalation rules) are versioned and amendable when user
+  direction or evidence changes.
+- The scaffold is subordinate to system, developer, and current user
+  instructions.
 
 - Keep `allowed_paths` narrow. Use `.` only when the task genuinely
   spans the repo.

@@ -10,7 +10,9 @@
 Build and run ephemeral task harnesses with my-pi primitives. A
 harness is a `/tmp` runtime containing a machine-readable contract,
 executor prompt, task brief, validation script, review script, logs,
-status, and runtime enforcement.
+status, and runtime enforcement. Inspired by Ornith's self-scaffolding
+design, the runtime separates an immutable outer policy from a
+versioned, amendable inner scaffold.
 
 ## Installation
 
@@ -33,6 +35,8 @@ pi -e ./packages/pi-harness
 
 - `/harness` command for create, run, review, status, use, and clear
 - `harness_create` tool to create `/tmp/my-pi-harness-*` runtimes
+- `harness_amend` tool for audited, versioned changes to the inner
+  scaffold
 - `harness_update` tool for phase/status/evidence logging
 - generated `OUTCOME.md` and `outcome.json` review artifacts
 - dirty-baseline tracking so pre-existing repo changes are reported
@@ -49,7 +53,7 @@ pi -e ./packages/pi-harness
 
 ```text
 /tmp/my-pi-harness-<id>/
-  harness.json      # execution contract
+  harness.json      # outer policy, versioned inner scaffold, amendment history
   SYSTEM.md         # executor system prompt
   TASK.md           # task brief and required loop
   status.json       # phase/status/evidence log
@@ -74,9 +78,24 @@ pi -e ./packages/pi-harness
 
 The create/run/review commands prompt the model to use the bundled
 skills. The tools provide the actual runtime and enforcement layer.
-When a harness is active, the TUI shows a compact footer/status
-indicator; use `/harness status [dir]` or `harness_read` for the full
-contract, task, validation, and outcome details.
+
+`harness.json` contains two deliberately different layers:
+
+- `policy`: runtime-owned workspace and verifier protections such as
+  cwd, forbidden paths/commands, available tools, and the dirty
+  baseline. Executors cannot weaken these through amendments.
+- `scaffold`: the model's task interpretation and execution strategy,
+  including allowed paths, validation, test policy, and model roles.
+  It is subordinate to system, developer, and current user
+  instructions and can be revised with `harness_amend`.
+
+Every scaffold amendment increments its version, records its reason
+and requester, regenerates runtime prompts/scripts, and appends an
+audit event. A harness enforcement block reports a contract mismatch;
+it is not a platform-policy refusal. When a harness is active, the TUI
+shows a compact footer/status indicator; use `/harness status [dir]`
+or `harness_read` for the full contract, task, validation, and outcome
+details.
 
 Harnesses snapshot dirty files at creation time. Review and outcome
 artifacts focus on changes after that baseline, while still recording

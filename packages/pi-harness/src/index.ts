@@ -1,4 +1,5 @@
 import {
+	harness_amend_params_schema,
 	harness_create_params_schema,
 	harness_read_params_schema,
 	harness_update_params_schema,
@@ -15,6 +16,7 @@ export {
 export { HARNESS_SYSTEM_PROMPT } from './prompt.js';
 export {
 	active_harness_context,
+	amend_harness_runtime,
 	create_harness_runtime,
 	format_harness_status_line,
 	format_harness_summary,
@@ -27,6 +29,7 @@ export {
 } from './runtime/outcome.js';
 export {
 	DEFAULT_FORBIDDEN_COMMANDS,
+	harness_amend_params_schema,
 	harness_create_params_schema,
 	HARNESS_CUSTOM_TYPE,
 	harness_read_params_schema,
@@ -35,11 +38,15 @@ export {
 	thinking_levels_schema,
 } from './schema.js';
 export type {
+	HarnessAmendment,
+	HarnessAmendParams,
 	HarnessContract,
 	HarnessCreateParams,
 	HarnessLogEntry,
 	HarnessOutcome,
+	HarnessPolicy,
 	HarnessReadParams,
+	HarnessScaffold,
 	HarnessStatus,
 	HarnessStatusFile,
 	HarnessThinking,
@@ -47,6 +54,7 @@ export type {
 } from './schema.js';
 
 export const testing = {
+	harness_amend_params_schema,
 	harness_create_params_schema,
 	harness_read_params_schema,
 	harness_update_params_schema,

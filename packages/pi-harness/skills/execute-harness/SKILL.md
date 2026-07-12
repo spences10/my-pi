@@ -8,8 +8,10 @@ compatibility:
 
 # Execute Harness
 
-Run the task through an existing my-pi harness. The harness is the
-execution contract.
+Run the task through an existing my-pi harness. Its outer policy is
+the runtime trust boundary; its versioned inner scaffold is an
+amendable execution plan subordinate to system, developer, and current
+user instructions.
 
 ## Workflow
 
@@ -30,8 +32,10 @@ execution contract.
    evidence, and report changed files plus risks. If using a worktree,
    set `HARNESS_CWD` to that worktree for validation and review.
 6. Recover any remaining source-of-truth context needed to act safely.
-7. Execute surgically inside `allowed_paths`; do not fight
-   enforcement.
+7. Execute surgically inside `scaffold.allowed_paths`. If user
+   direction or source evidence changes legitimate scope or strategy,
+   use `harness_amend` and record the reason rather than treating the
+   scaffold as immutable.
 8. Record decisions, phase changes, and validation evidence with
    `harness_update`, including team status and remaining risks when
    known.
@@ -47,10 +51,12 @@ execution contract.
 
 ## Rules
 
-- Do not edit outside the harness contract.
+- Do not bypass the outer policy. Do not edit outside the active
+  scaffold without first recording an authorized amendment.
 - Do not weaken tests, fake outputs, or bypass validation.
-- If enforcement blocks an action, update the harness as failed or ask
-  for a planner/user amendment.
+- An enforcement block is a harness mismatch, not a platform-policy
+  refusal. Amend the scaffold when authorized; otherwise ask the user.
+  Mark failed only when the task cannot proceed.
 - If validation fails after one focused fix attempt, escalate.
 - If team mode is unavailable, run the harness directly in the current
   session and say that no teammate was spawned.

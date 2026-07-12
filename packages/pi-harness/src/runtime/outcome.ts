@@ -1,13 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { HarnessLogEntry, HarnessOutcome } from '../schema.js';
 import {
 	harness_paths,
 	json_write,
 	read_contract,
 	read_status,
 } from './files.js';
-import type { HarnessLogEntry, HarnessOutcome } from '../schema.js';
 
 function now_iso(): string {
 	return new Date().toISOString();
@@ -72,7 +72,7 @@ export function collect_harness_outcome(
 ): HarnessOutcome {
 	const contract = read_contract(harness_dir);
 	const status_file = read_status(harness_dir);
-	const execution_cwd = resolve(cwd ?? contract.cwd);
+	const execution_cwd = resolve(cwd ?? contract.policy.cwd);
 	const validation_evidence = status_file.log
 		.filter((entry) => entry.evidence)
 		.map((entry) => ({
@@ -90,18 +90,18 @@ export function collect_harness_outcome(
 		id: contract.id,
 		status: status_file.status,
 		phase: status_file.phase,
-		task: contract.task,
-		cwd: contract.cwd,
+		task: contract.scaffold.task,
+		cwd: contract.policy.cwd,
 		execution_cwd,
 		generated_at: now_iso(),
 		changed_files: changed_files(
 			execution_cwd,
 			status_file.log,
-			contract.baseline_changed_files,
+			contract.policy.baseline_changed_files,
 		),
-		baseline_changed_files: contract.baseline_changed_files,
+		baseline_changed_files: contract.policy.baseline_changed_files,
 		validation: {
-			commands: contract.validation_commands,
+			commands: contract.scaffold.validation_commands,
 			evidence: validation_evidence,
 		},
 		team_status:

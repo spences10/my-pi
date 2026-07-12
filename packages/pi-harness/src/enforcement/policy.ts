@@ -61,7 +61,7 @@ export function check_path_allowed(
 	contract: HarnessContract,
 	input_path: string,
 ): { ok: true } | { ok: false; reason: string } {
-	const cwd = resolve(contract.cwd);
+	const cwd = resolve(contract.policy.cwd);
 	const absolute_path = resolve_project_path(cwd, input_path);
 	const inside_cwd =
 		absolute_path === cwd || absolute_path.startsWith(`${cwd}/`);
@@ -72,7 +72,7 @@ export function check_path_allowed(
 		};
 	}
 	if (
-		contract.forbidden_paths.some((pattern) =>
+		contract.policy.forbidden_paths.some((pattern) =>
 			pattern_matches(cwd, pattern, absolute_path),
 		)
 	) {
@@ -81,14 +81,17 @@ export function check_path_allowed(
 			reason: `Harness ${contract.id}: path is forbidden: ${input_path}`,
 		};
 	}
-	if (!contract.allow_test_changes && is_test_path(absolute_path)) {
+	if (
+		!contract.scaffold.allow_test_changes &&
+		is_test_path(absolute_path)
+	) {
 		return {
 			ok: false,
 			reason: `Harness ${contract.id}: test changes are not allowed by harness.json`,
 		};
 	}
 	if (
-		!contract.allowed_paths.some((pattern) =>
+		!contract.scaffold.allowed_paths.some((pattern) =>
 			pattern_matches(cwd, pattern, absolute_path),
 		)
 	) {
@@ -104,7 +107,7 @@ export function check_command_allowed(
 	contract: HarnessContract,
 	command: string,
 ): { ok: true } | { ok: false; reason: string } {
-	const blocked = contract.forbidden_commands.find((needle) =>
+	const blocked = contract.policy.forbidden_commands.find((needle) =>
 		command.includes(needle),
 	);
 	if (blocked) {
@@ -114,7 +117,7 @@ export function check_command_allowed(
 		};
 	}
 	if (
-		!contract.allow_test_changes &&
+		!contract.scaffold.allow_test_changes &&
 		/\brm\b.*((^|\/)(__tests__|tests?)\/|\.(test|spec)\.)/.test(
 			command,
 		)

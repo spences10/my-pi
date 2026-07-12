@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import harness, {
 	HARNESS_SYSTEM_PROMPT,
+	amend_harness_runtime,
 	check_command_allowed,
 	check_path_allowed,
 	create_harness_runtime,
@@ -50,11 +51,13 @@ describe('create_harness_runtime', () => {
 		cleanup_paths.push(harness_dir);
 
 		expect(harness_dir).toContain('my-pi-harness-harness-tests');
-		expect(contract.task).toBe('Add harness tests');
-		expect(contract.allowed_paths).toEqual(['src/**']);
+		expect(contract.scaffold.task).toBe('Add harness tests');
+		expect(contract.scaffold.allowed_paths).toEqual(['src/**']);
+		expect(contract.scaffold.version).toBe(1);
+		expect(contract.policy.cwd).toBe(cwd);
 		expect(
 			readFileSync(join(harness_dir, 'SYSTEM.md'), 'utf8'),
-		).toContain('Execution contract');
+		).toContain('Outer policy');
 		expect(
 			readFileSync(join(harness_dir, 'TASK.md'), 'utf8'),
 		).toContain('Context recovery');
@@ -79,6 +82,53 @@ describe('create_harness_runtime', () => {
 		expect(
 			readFileSync(join(harness_dir, 'outcome.json'), 'utf8'),
 		).toContain('changed_files');
+	});
+
+	it('amends only the inner scaffold and records version history', () => {
+		const cwd = temp_project();
+		const { harness_dir, contract: original } =
+			create_harness_runtime(
+				{ task: 'Initial task', forbidden_paths: ['.git/**'] },
+				cwd,
+			);
+		cleanup_paths.push(harness_dir);
+		const amended = amend_harness_runtime({
+			harness_dir,
+			reason: 'User requested test coverage',
+			requested_by: 'user',
+			allowed_paths: ['src/**', 'tests/**'],
+			allow_test_changes: true,
+		});
+		expect(amended.scaffold.version).toBe(2);
+		expect(amended.scaffold.allow_test_changes).toBe(true);
+		expect(amended.policy).toEqual(original.policy);
+		expect(amended.amendments.at(-1)).toMatchObject({
+			requested_by: 'user',
+			from_version: 1,
+			to_version: 2,
+			changes: ['allowed_paths', 'allow_test_changes'],
+		});
+		expect(
+			readFileSync(join(harness_dir, 'SYSTEM.md'), 'utf8'),
+		).toContain('Inner scaffold v2');
+		expect(
+			readFileSync(join(harness_dir, 'status.json'), 'utf8'),
+		).toContain('User requested test coverage');
+	});
+
+	it('rejects an empty scaffold amendment', () => {
+		const cwd = temp_project();
+		const { harness_dir } = create_harness_runtime(
+			{ task: 'Task' },
+			cwd,
+		);
+		cleanup_paths.push(harness_dir);
+		expect(() =>
+			amend_harness_runtime({
+				harness_dir,
+				reason: 'No actual change',
+			}),
+		).toThrow('no scaffold changes');
 	});
 
 	it('updates status and appends evidence', () => {
@@ -363,7 +413,9 @@ describe('harness extension', () => {
 			ui: { notify: vi.fn(), setStatus: vi.fn(), setWidget: vi.fn() },
 		});
 		expect(send_user_message).toHaveBeenCalledWith(
-			expect.stringContaining('member_spawn'),
+			expect.stringContaining(
+				'one mutating teammate only when useful',
+			),
 		);
 
 		const cwd = temp_project();

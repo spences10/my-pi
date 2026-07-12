@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import {
 	DEFAULT_FORBIDDEN_COMMANDS,
 	HARNESS_VERSION,
+	type HarnessAmendParams,
 	type HarnessContract,
 	type HarnessCreateParams,
 	type HarnessLogEntry,
@@ -36,12 +37,31 @@ function now_iso(): string {
 }
 
 function slugify(input: string): string {
-	const slug = input
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-+|-+$/g, '')
-		.slice(0, 48);
-	return slug || 'task';
+	return (
+		input
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '')
+			.slice(0, 48) || 'task'
+	);
+}
+
+function write_generated_runtime(
+	harness_dir: string,
+	contract: HarnessContract,
+): void {
+	const paths = harness_paths(harness_dir);
+	writeFileSync(paths.system, build_system_markdown(contract));
+	writeFileSync(paths.task, build_task_markdown(contract));
+	writeFileSync(paths.validate, build_validate_script(contract));
+	writeFileSync(paths.guard, build_guard_script());
+	writeFileSync(paths.outcome_script, build_outcome_script());
+	writeFileSync(
+		paths.review,
+		build_review_script(contract, paths.guard, paths.outcome_script),
+	);
+	chmodSync(paths.validate, 0o755);
+	chmodSync(paths.review, 0o755);
 }
 
 export function create_harness_runtime(
@@ -49,98 +69,171 @@ export function create_harness_runtime(
 	default_cwd: string,
 ): { harness_dir: string; contract: HarnessContract } {
 	const cwd = resolve(params.cwd ?? default_cwd);
-	const slug = slugify(params.slug ?? params.task);
-	const id = `${slug}-${Date.now().toString(36)}`;
+	const id = `${slugify(params.slug ?? params.task)}-${Date.now().toString(36)}`;
 	const harness_dir = join(tmpdir(), `my-pi-harness-${id}`);
 	const paths = harness_paths(harness_dir);
 	mkdirSync(paths.logs, { recursive: true });
-
+	const created_at = now_iso();
 	const contract: HarnessContract = {
 		version: HARNESS_VERSION,
 		id,
-		task: params.task,
-		cwd,
-		created_at: now_iso(),
+		created_at,
 		status: 'created',
-		planner: {
-			model: params.planner_model,
-			thinking: params.planner_thinking,
+		policy: {
+			cwd,
+			forbidden_paths: params.forbidden_paths ?? [
+				'.git/**',
+				'node_modules/**',
+				'dist/**',
+				'.env',
+				'.env.*',
+			],
+			allowed_tools: [
+				'read',
+				'bash',
+				'edit',
+				'write',
+				'lsp_diagnostics',
+			],
+			forbidden_commands: [
+				...DEFAULT_FORBIDDEN_COMMANDS,
+				...(params.forbidden_commands ?? []),
+			],
+			baseline_changed_files: collect_git_changed_files(cwd),
 		},
-		executor: {
-			model: params.executor_model,
-			thinking: params.executor_thinking ?? 'low',
+		scaffold: {
+			version: 1,
+			task: params.task,
+			planner: {
+				model: params.planner_model,
+				thinking: params.planner_thinking,
+			},
+			executor: {
+				model: params.executor_model,
+				thinking: params.executor_thinking ?? 'low',
+			},
+			reviewer: {
+				model: params.reviewer_model,
+				thinking: params.reviewer_thinking ?? 'high',
+			},
+			allowed_paths: params.allowed_paths ?? ['.'],
+			validation_commands: params.validation_commands ?? [],
+			allow_test_changes: params.allow_test_changes ?? false,
+			escalation_rules: [
+				'Required context contradicts the active scaffold or TASK.md.',
+				'Implementation needs edits outside scaffold.allowed_paths.',
+				'Validation requires weakening tests or changing public behavior outside the scaffold.',
+				'Validation still fails after one focused fix attempt.',
+			],
 		},
-		reviewer: {
-			model: params.reviewer_model,
-			thinking: params.reviewer_thinking ?? 'high',
-		},
-		allowed_paths: params.allowed_paths ?? ['.'],
-		forbidden_paths: params.forbidden_paths ?? [
-			'.git/**',
-			'node_modules/**',
-			'dist/**',
-			'.env',
-			'.env.*',
-		],
-		allowed_tools: [
-			'read',
-			'bash',
-			'edit',
-			'write',
-			'lsp_diagnostics',
-		],
-		validation_commands: params.validation_commands ?? [],
-		forbidden_commands: [
-			...DEFAULT_FORBIDDEN_COMMANDS,
-			...(params.forbidden_commands ?? []),
-		],
-		allow_test_changes: params.allow_test_changes ?? false,
-		baseline_changed_files: collect_git_changed_files(cwd),
-		escalation_rules: [
-			'Required context contradicts harness.json or TASK.md.',
-			'Implementation needs edits outside allowed_paths.',
-			'Validation requires weakening tests or changing public behavior outside the contract.',
-			'Validation still fails after one focused fix attempt.',
-		],
+		amendments: [],
 	};
-
 	write_contract(harness_dir, contract);
-	writeFileSync(paths.system, build_system_markdown(contract));
-	writeFileSync(paths.task, build_task_markdown(contract));
 	write_status(harness_dir, {
 		id,
 		status: 'created',
 		log: [
 			{
-				timestamp: contract.created_at,
+				timestamp: created_at,
 				status: 'created',
 				note: 'Harness created',
 			},
 		],
 	});
-	writeFileSync(paths.validate, build_validate_script(contract));
-	writeFileSync(paths.guard, build_guard_script());
-	writeFileSync(paths.outcome_script, build_outcome_script());
+	write_generated_runtime(harness_dir, contract);
 	write_outcome_artifacts(harness_dir);
-	writeFileSync(
-		paths.review,
-		build_review_script(contract, paths.guard, paths.outcome_script),
-	);
-	chmodSync(paths.validate, 0o755);
-	chmodSync(paths.review, 0o755);
 	append_event(harness_dir, {
-		timestamp: contract.created_at,
+		timestamp: created_at,
 		status: 'created',
 		note: 'Harness runtime initialized',
 	});
 	return { harness_dir, contract };
 }
 
+export function amend_harness_runtime(
+	params: HarnessAmendParams,
+): HarnessContract {
+	const contract = read_contract(params.harness_dir);
+	const scaffold = contract.scaffold;
+	const changes: string[] = [];
+	const assign = <K extends keyof typeof scaffold>(
+		key: K,
+		value: (typeof scaffold)[K] | undefined,
+	) => {
+		if (value !== undefined) {
+			scaffold[key] = value;
+			changes.push(String(key));
+		}
+	};
+	assign('task', params.task);
+	assign('allowed_paths', params.allowed_paths);
+	assign('validation_commands', params.validation_commands);
+	assign('allow_test_changes', params.allow_test_changes);
+	assign('escalation_rules', params.escalation_rules);
+	if (
+		params.planner_model !== undefined ||
+		params.planner_thinking !== undefined
+	) {
+		scaffold.planner = {
+			model: params.planner_model ?? scaffold.planner.model,
+			thinking: params.planner_thinking ?? scaffold.planner.thinking,
+		};
+		changes.push('planner');
+	}
+	if (
+		params.executor_model !== undefined ||
+		params.executor_thinking !== undefined
+	) {
+		scaffold.executor = {
+			model: params.executor_model ?? scaffold.executor.model,
+			thinking:
+				params.executor_thinking ?? scaffold.executor.thinking,
+		};
+		changes.push('executor');
+	}
+	if (
+		params.reviewer_model !== undefined ||
+		params.reviewer_thinking !== undefined
+	) {
+		scaffold.reviewer = {
+			model: params.reviewer_model ?? scaffold.reviewer.model,
+			thinking:
+				params.reviewer_thinking ?? scaffold.reviewer.thinking,
+		};
+		changes.push('reviewer');
+	}
+	if (!changes.length)
+		throw new Error('Harness amendment contains no scaffold changes');
+	const from_version = scaffold.version;
+	scaffold.version += 1;
+	const timestamp = now_iso();
+	contract.amendments.push({
+		timestamp,
+		requested_by: params.requested_by ?? 'user',
+		reason: params.reason,
+		from_version,
+		to_version: scaffold.version,
+		changes,
+	});
+	write_contract(params.harness_dir, contract);
+	write_generated_runtime(params.harness_dir, contract);
+	const entry: HarnessLogEntry = {
+		timestamp,
+		note: `Scaffold amended v${from_version} → v${scaffold.version}: ${params.reason}`,
+	};
+	const status = read_status(params.harness_dir);
+	status.log.push(entry);
+	write_status(params.harness_dir, status);
+	append_event(params.harness_dir, entry);
+	write_outcome_artifacts(params.harness_dir);
+	return contract;
+}
+
 export function update_harness_runtime(
 	params: HarnessUpdateParams,
 ): HarnessStatusFile {
 	const contract = read_contract(params.harness_dir);
-	const status_file = read_status(params.harness_dir);
+	const status = read_status(params.harness_dir);
 	const entry: HarnessLogEntry = {
 		timestamp: now_iso(),
 		status: params.status,
@@ -152,35 +245,36 @@ export function update_harness_runtime(
 		changed_files: params.changed_files,
 	};
 	if (params.status) {
-		status_file.status = params.status;
+		status.status = params.status;
 		contract.status = params.status;
 	}
-	if (params.phase) status_file.phase = params.phase;
-	status_file.log.push(entry);
-	write_status(params.harness_dir, status_file);
+	if (params.phase) status.phase = params.phase;
+	status.log.push(entry);
+	write_status(params.harness_dir, status);
 	write_contract(params.harness_dir, contract);
 	append_event(params.harness_dir, entry);
 	write_outcome_artifacts(params.harness_dir);
-	return status_file;
+	return status;
 }
 
 export function format_harness_status_line(
 	harness_dir: string,
 ): string {
-	const status_file = read_status(harness_dir);
-	return `🧪 ${status_file.status}${status_file.phase ? ` (${status_file.phase})` : ''}`;
+	const status = read_status(harness_dir);
+	return `🧪 ${status.status}${status.phase ? ` (${status.phase})` : ''}`;
 }
 
 export function format_harness_summary(harness_dir: string): string {
 	const contract = read_contract(harness_dir);
-	const status_file = read_status(harness_dir);
+	const status = read_status(harness_dir);
 	return [
 		`Harness: ${contract.id}`,
 		`Directory: ${harness_dir}`,
-		`Status: ${status_file.status}${status_file.phase ? ` (${status_file.phase})` : ''}`,
-		`Task: ${contract.task}`,
-		`Allowed paths: ${contract.allowed_paths.join(', ') || '(none)'}`,
-		`Validation: ${contract.validation_commands.join(' && ') || '(none)'}`,
+		`Status: ${status.status}${status.phase ? ` (${status.phase})` : ''}`,
+		`Scaffold: v${contract.scaffold.version} (${contract.amendments.length} amendments)`,
+		`Task: ${contract.scaffold.task}`,
+		`Allowed paths: ${contract.scaffold.allowed_paths.join(', ') || '(none)'}`,
+		`Validation: ${contract.scaffold.validation_commands.join(' && ') || '(none)'}`,
 		`Outcome: ${harness_paths(harness_dir).outcome_markdown}`,
 	].join('\n');
 }
@@ -188,13 +282,6 @@ export function format_harness_summary(harness_dir: string): string {
 export function active_harness_context(harness_dir: string): string {
 	const paths = harness_paths(harness_dir);
 	const contract = read_contract(harness_dir);
-	const status_file = read_status(harness_dir);
-	return `## Active my-pi harness
-
-Harness directory: \`${harness_dir}\`
-Harness id: \`${contract.id}\`
-Status: \`${status_file.status}\`
-Project cwd: \`${contract.cwd}\`
-
-Read \`${paths.system}\`, \`${paths.task}\`, and \`${paths.contract}\` before work. Use \`harness_update\` to record phase changes, decisions, validation evidence, team status, remaining risks, and completion. Run \`${paths.validate}\` before declaring completion and \`${paths.review}\` before final review. Review \`${paths.outcome_markdown}\` or \`${paths.outcome}\` for the final outcome artifact.`;
+	const status = read_status(harness_dir);
+	return `## Active my-pi harness\n\nHarness directory: \`${harness_dir}\`\nHarness id: \`${contract.id}\`\nStatus: \`${status.status}\`\nProject cwd: \`${contract.policy.cwd}\`\nScaffold version: \`${contract.scaffold.version}\`\n\nThe outer policy is runtime-enforced. The inner scaffold is an amendable execution plan subordinate to system, developer, and current user instructions. If the user changes scope or evidence contradicts the scaffold, use \`harness_amend\`; a harness block is not a platform-policy refusal. Read \`${paths.system}\`, \`${paths.task}\`, and \`${paths.contract}\` before work. Use \`harness_update\` for progress and evidence. Run \`${paths.validate}\` and \`${paths.review}\` before completion.`;
 }

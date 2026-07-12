@@ -1,6 +1,6 @@
 import { Type, type Static } from 'typebox';
 
-export const HARNESS_VERSION = 1;
+export const HARNESS_VERSION = 2;
 export const HARNESS_CUSTOM_TYPE = 'pi-harness-state';
 export const DEFAULT_FORBIDDEN_COMMANDS = [
 	'rm -rf .git',
@@ -90,6 +90,33 @@ export type HarnessUpdateParams = Static<
 	typeof harness_update_params_schema
 >;
 
+export const harness_amend_params_schema = Type.Object({
+	harness_dir: Type.String({
+		description: 'Harness directory in /tmp',
+	}),
+	reason: Type.String({
+		description: 'Why the scaffold must change',
+	}),
+	requested_by: Type.Optional(
+		Type.Union([Type.Literal('user'), Type.Literal('planner')]),
+	),
+	task: Type.Optional(Type.String()),
+	allowed_paths: Type.Optional(Type.Array(Type.String())),
+	validation_commands: Type.Optional(Type.Array(Type.String())),
+	allow_test_changes: Type.Optional(Type.Boolean()),
+	escalation_rules: Type.Optional(Type.Array(Type.String())),
+	planner_model: Type.Optional(Type.String()),
+	planner_thinking: Type.Optional(thinking_levels_schema),
+	executor_model: Type.Optional(Type.String()),
+	executor_thinking: Type.Optional(thinking_levels_schema),
+	reviewer_model: Type.Optional(Type.String()),
+	reviewer_thinking: Type.Optional(thinking_levels_schema),
+});
+
+export type HarnessAmendParams = Static<
+	typeof harness_amend_params_schema
+>;
+
 export const harness_read_params_schema = Type.Object({
 	harness_dir: Type.String({
 		description: 'Harness directory in /tmp',
@@ -108,24 +135,43 @@ export type HarnessStatus =
 	| 'failed';
 export type HarnessThinking = Static<typeof thinking_levels_schema>;
 
-export interface HarnessContract {
-	version: typeof HARNESS_VERSION;
-	id: string;
-	task: string;
+export interface HarnessPolicy {
 	cwd: string;
-	created_at: string;
-	status: HarnessStatus;
+	forbidden_paths: string[];
+	allowed_tools: string[];
+	forbidden_commands: string[];
+	baseline_changed_files: string[];
+}
+
+export interface HarnessScaffold {
+	version: number;
+	task: string;
 	planner: { model?: string; thinking?: HarnessThinking };
 	executor: { model?: string; thinking?: HarnessThinking };
 	reviewer: { model?: string; thinking?: HarnessThinking };
 	allowed_paths: string[];
-	forbidden_paths: string[];
-	allowed_tools: string[];
 	validation_commands: string[];
-	forbidden_commands: string[];
 	allow_test_changes: boolean;
 	escalation_rules: string[];
-	baseline_changed_files: string[];
+}
+
+export interface HarnessAmendment {
+	timestamp: string;
+	requested_by: 'user' | 'planner';
+	reason: string;
+	from_version: number;
+	to_version: number;
+	changes: string[];
+}
+
+export interface HarnessContract {
+	version: typeof HARNESS_VERSION;
+	id: string;
+	created_at: string;
+	status: HarnessStatus;
+	policy: HarnessPolicy;
+	scaffold: HarnessScaffold;
+	amendments: HarnessAmendment[];
 }
 
 export interface HarnessLogEntry {

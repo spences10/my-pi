@@ -1,29 +1,35 @@
-import { shell_quote } from './files.js';
 import type { HarnessContract } from '../schema.js';
+import { shell_quote } from './files.js';
 
 export function build_system_markdown(
 	contract: HarnessContract,
 ): string {
 	return `# Executor system prompt: ${contract.id}
 
-You are working inside a my-pi task harness. The harness directory is external control state, not the project source.
+You are working inside a my-pi task harness. The harness directory is external control state, not project source. System, developer, and current user instructions remain authoritative.
 
-## Execution contract
+## Outer policy (runtime-enforced)
 
-- Project cwd: \`${contract.cwd}\`
-- Allowed edit paths: ${contract.allowed_paths.map((path) => `\`${path}\``).join(', ') || 'none'}
-- Forbidden edit paths: ${contract.forbidden_paths.map((path) => `\`${path}\``).join(', ') || 'none'}
-- Test changes allowed: ${contract.allow_test_changes ? 'yes' : 'no'}
-- Validation: ${contract.validation_commands.map((command) => `\`${command}\``).join(', ') || 'none'}
+- Project cwd: \`${contract.policy.cwd}\`
+- Forbidden edit paths: ${contract.policy.forbidden_paths.map((path) => `\`${path}\``).join(', ') || 'none'}
+
+The outer policy protects the workspace and verifier. It cannot be weakened by the executor or by \`harness_amend\`.
+
+## Inner scaffold v${contract.scaffold.version} (amendable execution plan)
+
+- Allowed edit paths: ${contract.scaffold.allowed_paths.map((path) => `\`${path}\``).join(', ') || 'none'}
+- Test changes allowed: ${contract.scaffold.allow_test_changes ? 'yes' : 'no'}
+- Validation: ${contract.scaffold.validation_commands.map((command) => `\`${command}\``).join(', ') || 'none'}
 
 ## Rules
 
 1. Recover context from source-of-truth files before editing.
-2. Challenge assumptions and record decisions in \`status.json\` through \`harness_update\`.
-3. Edit only allowed paths.
-4. Do not weaken tests, fake outputs, or bypass validation.
-5. Run \`validate.sh\` before completion.
-6. Escalate instead of silently expanding scope.
+2. Challenge assumptions and record decisions through \`harness_update\`.
+3. Treat the scaffold as subordinate to later user instructions. Use \`harness_amend\` when legitimate scope or strategy changes; a harness block is not a platform-policy refusal.
+4. Edit only allowed paths.
+5. Do not weaken tests, fake outputs, or bypass validation.
+6. Run \`validate.sh\` before completion.
+7. Escalate instead of silently expanding the outer policy.
 `;
 }
 
@@ -34,7 +40,7 @@ export function build_task_markdown(
 
 ## Task
 
-${contract.task}
+${contract.scaffold.task}
 
 ## Required loop
 
@@ -49,21 +55,23 @@ ${contract.task}
 
 ## Escalation rules
 
-${contract.escalation_rules.map((rule) => `- ${rule}`).join('\n')}
+${contract.scaffold.escalation_rules.map((rule) => `- ${rule}`).join('\n')}
 `;
 }
 
 function build_resolve_cwd_script(contract: HarnessContract): string {
-	return `contract_cwd=${shell_quote(contract.cwd)}
-run_cwd="\${HARNESS_CWD:-$(pwd)}"
-if git -C "$run_cwd" rev-parse --git-common-dir >/dev/null 2>&1 && git -C "$contract_cwd" rev-parse --git-common-dir >/dev/null 2>&1; then
-  run_common=$(git -C "$run_cwd" rev-parse --path-format=absolute --git-common-dir)
-  contract_common=$(git -C "$contract_cwd" rev-parse --path-format=absolute --git-common-dir)
-  if [ "$run_common" != "$contract_common" ]; then
+	return `contract_cwd=${shell_quote(contract.policy.cwd)}
+run_cwd="$(pwd)"
+contract_common=$(git -C "$contract_cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+run_common=$(git -C "$run_cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+if [ -z "$contract_common" ] || [ "$run_common" != "$contract_common" ]; then
+  candidate="\${HARNESS_CWD:-$contract_cwd}"
+  candidate_common=$(git -C "$candidate" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  if [ -n "$contract_common" ] && [ "$candidate_common" = "$contract_common" ]; then
+    run_cwd="$candidate"
+  else
     run_cwd="$contract_cwd"
   fi
-else
-  run_cwd="$contract_cwd"
 fi
 export HARNESS_CWD="$run_cwd"`;
 }
@@ -71,8 +79,8 @@ export HARNESS_CWD="$run_cwd"`;
 export function build_validate_script(
 	contract: HarnessContract,
 ): string {
-	const commands = contract.validation_commands.length
-		? contract.validation_commands
+	const commands = contract.scaffold.validation_commands.length
+		? contract.scaffold.validation_commands
 		: ['echo "No validation commands configured"'];
 	return `#!/usr/bin/env bash
 set -euo pipefail
@@ -96,8 +104,20 @@ import { readFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
 const contract = JSON.parse(readFileSync(new URL('./harness.json', import.meta.url), 'utf8'));
-const cwd = resolve(process.env.HARNESS_CWD || contract.cwd);
-const baseline = new Set(contract.baseline_changed_files || []);
+
+function resolve_cwd() {
+  const contract_cwd = resolve(contract.policy.cwd);
+  const candidate = process.env.HARNESS_CWD ? resolve(process.env.HARNESS_CWD) : contract_cwd;
+  try {
+    const common = (cwd) => execFileSync('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8' }).trim();
+    return common(candidate) === common(contract_cwd) ? candidate : contract_cwd;
+  } catch {
+    return contract_cwd;
+  }
+}
+
+const cwd = resolve_cwd();
+const baseline = new Set(contract.policy.baseline_changed_files || []);
 
 function changed_paths() {
   const status = execFileSync('git', ['-C', cwd, 'status', '--short', '--untracked-files=all'], { encoding: 'utf8' })
@@ -145,9 +165,9 @@ for (const path of changed_paths()) {
   if (baseline.has(path)) continue;
   const absolute_path = resolve(cwd, path);
   if (absolute_path !== cwd && !absolute_path.startsWith(cwd + '/')) violations.push(path + ' is outside cwd');
-  if (contract.forbidden_paths.some((pattern) => pattern_matches(pattern, path))) violations.push(path + ' matches forbidden_paths');
-  if (!contract.allow_test_changes && is_test_path(path)) violations.push(path + ' is a test change but allow_test_changes is false');
-  if (!contract.allowed_paths.some((pattern) => pattern_matches(pattern, path))) violations.push(path + ' is outside allowed_paths');
+  if (contract.policy.forbidden_paths.some((pattern) => pattern_matches(pattern, path))) violations.push(path + ' matches forbidden_paths');
+  if (!contract.scaffold.allow_test_changes && is_test_path(path)) violations.push(path + ' is a test change but allow_test_changes is false');
+  if (!contract.scaffold.allowed_paths.some((pattern) => pattern_matches(pattern, path))) violations.push(path + ' is outside allowed_paths');
 }
 
 if (violations.length) {
@@ -162,14 +182,25 @@ console.log('Harness guard passed');
 export function build_outcome_script(): string {
 	return `import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const harness_dir = dirname(fileURLToPath(import.meta.url));
 const contract = JSON.parse(readFileSync(join(harness_dir, 'harness.json'), 'utf8'));
 const status = JSON.parse(readFileSync(join(harness_dir, 'status.json'), 'utf8'));
-const cwd = process.env.HARNESS_CWD || contract.cwd;
-const baseline = new Set(contract.baseline_changed_files || []);
+function resolve_cwd() {
+  const contract_cwd = resolve(contract.policy.cwd);
+  const candidate = process.env.HARNESS_CWD ? resolve(process.env.HARNESS_CWD) : contract_cwd;
+  try {
+    const common = (cwd) => execFileSync('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8' }).trim();
+    return common(candidate) === common(contract_cwd) ? candidate : contract_cwd;
+  } catch {
+    return contract_cwd;
+  }
+}
+
+const cwd = resolve_cwd();
+const baseline = new Set(contract.policy.baseline_changed_files || []);
 
 function git_lines(args) {
   try {
@@ -194,14 +225,14 @@ const outcome = {
   id: contract.id,
   status: status.status,
   phase: status.phase,
-  task: contract.task,
-  cwd: contract.cwd,
+  task: contract.scaffold.task,
+  cwd: contract.policy.cwd,
   execution_cwd: cwd,
   generated_at: new Date().toISOString(),
   changed_files: unique([...status_files, ...diff_files, ...logged_files]).filter((file) => !baseline.has(file)).sort(),
-  baseline_changed_files: contract.baseline_changed_files || [],
+  baseline_changed_files: contract.policy.baseline_changed_files || [],
   validation: {
-    commands: contract.validation_commands,
+    commands: contract.scaffold.validation_commands,
     evidence: status.log
       .filter((entry) => entry.evidence)
       .map((entry) => ({ timestamp: entry.timestamp, phase: entry.phase, evidence: entry.evidence })),

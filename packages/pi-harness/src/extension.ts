@@ -12,6 +12,7 @@ import { HARNESS_SYSTEM_PROMPT } from './prompt.js';
 import { harness_paths, read_contract } from './runtime/files.js';
 import {
 	active_harness_context,
+	amend_harness_runtime,
 	create_harness_runtime,
 	format_harness_status_line,
 	format_harness_summary,
@@ -19,6 +20,7 @@ import {
 } from './runtime/index.js';
 import {
 	HARNESS_CUSTOM_TYPE,
+	harness_amend_params_schema,
 	harness_create_params_schema,
 	harness_read_params_schema,
 	harness_update_params_schema,
@@ -143,7 +145,7 @@ export default async function harness(pi: ExtensionAPI) {
 				}
 				set_active_harness(harness_dir, ctx);
 				pi.sendUserMessage(
-					`Use the execute-harness skill to run this harness until validation completes: ${harness_dir}. If the team tool is available, create or reuse a team, create a task for this harness, spawn one worktree mutating teammate with member_spawn, and have that teammate execute the harness. Then inspect team status/results before reporting.`,
+					`Use the execute-harness skill to run this harness until validation completes: ${harness_dir}. If the team tool is available, create or reuse a team and create a task for this harness. Use one mutating teammate only when useful; use a worktree only when isolation and merge ownership are explicit. Then inspect team status/results before reporting.`,
 				);
 				return;
 			}
@@ -186,6 +188,27 @@ export default async function harness(pi: ExtensionAPI) {
 			set_active_harness(harness_dir, ctx);
 			return tool_text(
 				`Created harness ${contract.id}\n${format_harness_summary(harness_dir)}`,
+			);
+		},
+	});
+
+	pi.registerTool({
+		name: 'harness_amend',
+		label: 'Amend Harness Scaffold',
+		description:
+			'Amend the active execution scaffold with an audited version change. Cannot weaken the outer runtime policy.',
+		promptSnippet:
+			'Amend task scope, validation, test policy, or model strategy when user direction or evidence changes',
+		promptGuidelines: [
+			'Use harness_amend for legitimate changes to the inner scaffold instead of treating the active harness as immutable.',
+			'Outer policy fields such as cwd, forbidden paths, forbidden commands, and tool availability cannot be amended.',
+		],
+		parameters: harness_amend_params_schema,
+		async execute(_tool_call_id, params, _signal, _on_update, ctx) {
+			const contract = amend_harness_runtime(params);
+			set_active_harness(params.harness_dir, ctx);
+			return tool_text(
+				`Amended harness ${contract.id} scaffold to v${contract.scaffold.version}`,
 			);
 		},
 	});
