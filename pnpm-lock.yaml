@@ -704,9 +704,6 @@ importers:
 
   packages/pi-team-mode:
     dependencies:
-      '@spences10/pi-child-env':
-        specifier: workspace:*
-        version: link:../pi-child-env
       '@spences10/pi-sqlite-core':
         specifier: workspace:*
         version: link:../pi-sqlite-core

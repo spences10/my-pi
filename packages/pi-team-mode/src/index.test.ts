@@ -34,9 +34,9 @@ describe('packages/pi-team-mode/src/index.ts', () => {
 		).not.toThrow();
 		expect(() =>
 			validate_team_tool_params({
-				action: 'member_spawn',
-				name: 'teammate-a',
-				workspace_mode: 'shared',
+				action: 'session_send',
+				to: 'peer-a',
+				message: 'hello',
 			}),
 		).not.toThrow();
 	});

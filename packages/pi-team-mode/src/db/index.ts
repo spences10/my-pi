@@ -37,19 +37,12 @@ import type {
 	CoordinationSession,
 	CoordinationSessionInput,
 	CoordinationSessionStatus,
-	CoordinationSessionRuntime,
-	CoordinationRuntimeEvent,
 	DatabaseSyncConstructor,
 	GroupMemberRow,
 	GroupMembershipRow,
 	GroupRow,
 	InboxRow,
-	RuntimeEventRow,
-	RuntimeLifecycleState,
-	RuntimeTransitionInput,
 	SessionRow,
-	SessionRuntimeRow,
-	SessionRuntimeWrite,
 	TeamDatabaseStatements,
 } from './types.js';
 import {
@@ -77,56 +70,8 @@ export type {
 	CoordinationSessionAvailability,
 	CoordinationSessionInput,
 	CoordinationSessionStatus,
-	CoordinationSessionRuntime,
-	CoordinationRuntimeEvent,
 	CoordinationTaskStatus,
-	RuntimeLifecycleState,
-	RuntimeTransitionInput,
-	SessionRuntimeWrite,
 } from './types.js';
-
-function map_session_runtime(
-	row: SessionRuntimeRow,
-): CoordinationSessionRuntime {
-	return {
-		session_id: row.session_id,
-		runtime_id: row.runtime_id,
-		generation: row.generation,
-		pid: optional(row.pid),
-		process_identity: row.process_identity_json
-			? parse_json(row.process_identity_json, {})
-			: undefined,
-		endpoint: optional(row.endpoint),
-		state: row.state,
-		autonomous: bool(row.autonomous),
-		control_owner: optional(row.control_owner),
-		heartbeat_at: optional(row.heartbeat_at),
-		lease_expires_at: row.lease_expires_at,
-		ready_at: optional(row.ready_at),
-		stopped_at: optional(row.stopped_at),
-		exit_code: optional(row.exit_code),
-		exit_signal: optional(row.exit_signal),
-		error: optional(row.error),
-		diagnostics: parse_json(row.diagnostics_json, []),
-		created_at: row.created_at,
-		updated_at: row.updated_at,
-	};
-}
-
-function map_runtime_event(
-	row: RuntimeEventRow,
-): CoordinationRuntimeEvent {
-	return {
-		event_id: row.event_id,
-		session_id: row.session_id,
-		runtime_id: row.runtime_id,
-		generation: row.generation,
-		state: row.state,
-		created_at: row.created_at,
-		diagnostics: parse_json(row.diagnostics_json, []),
-		data: parse_json(row.data_json, {}),
-	};
-}
 
 export class TeamDatabase {
 	readonly statements: TeamDatabaseStatements;
@@ -617,170 +562,6 @@ export class TeamDatabase {
 		);
 	}
 
-	get_session_runtime(
-		session_id: string,
-	): CoordinationSessionRuntime | undefined {
-		const row = this.statements.get_session_runtime.get(
-			session_id,
-		) as SessionRuntimeRow | undefined;
-		return row ? map_session_runtime(row) : undefined;
-	}
-
-	create_session_runtime(
-		input: SessionRuntimeWrite,
-	): CoordinationSessionRuntime | undefined {
-		const timestamp = now();
-		const changes = this.transaction(() => {
-			const result = this.statements.insert_session_runtime.run(
-				input.session_id,
-				input.runtime_id,
-				input.pid ?? null,
-				input.process_identity ? json(input.process_identity) : null,
-				input.endpoint ?? null,
-				input.state,
-				input.autonomous === false ? 0 : 1,
-				input.control_owner ?? null,
-				input.heartbeat_at ?? null,
-				input.lease_expires_at,
-				json(input.diagnostics ?? []),
-				timestamp,
-				timestamp,
-			);
-			if (result.changes === 1)
-				this.insert_runtime_event_row({
-					...input,
-					generation: 1,
-					created_at: timestamp,
-				});
-			return result.changes;
-		});
-		return changes === 1
-			? this.get_session_runtime(input.session_id)
-			: undefined;
-	}
-
-	replace_session_runtime(
-		input: SessionRuntimeWrite,
-		expected_generation: number,
-		expired_at: string,
-	): CoordinationSessionRuntime | undefined {
-		const timestamp = now();
-		const changes = this.transaction(() => {
-			const result = this.statements.replace_session_runtime.run(
-				input.runtime_id,
-				input.pid ?? null,
-				input.process_identity ? json(input.process_identity) : null,
-				input.endpoint ?? null,
-				input.state,
-				input.autonomous === false ? 0 : 1,
-				input.control_owner ?? null,
-				input.heartbeat_at ?? null,
-				input.lease_expires_at,
-				json(input.diagnostics ?? []),
-				timestamp,
-				input.session_id,
-				expected_generation,
-				expired_at,
-			);
-			if (result.changes === 1)
-				this.insert_runtime_event_row({
-					...input,
-					generation: expected_generation + 1,
-					created_at: timestamp,
-					data: { recovered_from_generation: expected_generation },
-				});
-			return result.changes;
-		});
-		return changes === 1
-			? this.get_session_runtime(input.session_id)
-			: undefined;
-	}
-
-	adopt_session_runtime(
-		input: SessionRuntimeWrite & { generation: number },
-	): CoordinationSessionRuntime | undefined {
-		const timestamp = now();
-		const changes = this.transaction(() => {
-			const result = this.statements.adopt_session_runtime.run(
-				input.pid ?? null,
-				input.process_identity ? json(input.process_identity) : null,
-				input.endpoint ?? null,
-				input.state,
-				input.heartbeat_at ?? null,
-				input.lease_expires_at,
-				json(input.diagnostics ?? []),
-				timestamp,
-				input.session_id,
-				input.runtime_id,
-				input.generation,
-			);
-			if (result.changes === 1)
-				this.insert_runtime_event_row({
-					...input,
-					created_at: timestamp,
-				});
-			return result.changes;
-		});
-		return changes === 1
-			? this.get_session_runtime(input.session_id)
-			: undefined;
-	}
-
-	heartbeat_session_runtime(input: {
-		session_id: string;
-		runtime_id: string;
-		generation: number;
-		heartbeat_at: string;
-		lease_expires_at: string;
-	}): boolean {
-		const result = this.write(() =>
-			this.statements.heartbeat_session_runtime.run(
-				input.heartbeat_at,
-				input.lease_expires_at,
-				input.heartbeat_at,
-				input.session_id,
-				input.runtime_id,
-				input.generation,
-			),
-		);
-		return result.changes === 1;
-	}
-
-	transition_session_runtime(input: RuntimeTransitionInput): boolean {
-		const timestamp = now();
-		return this.transaction(() => {
-			const result = this.statements.transition_session_runtime.run(
-				input.state,
-				input.ready_at ?? null,
-				input.stopped_at ?? null,
-				input.exit_code ?? null,
-				input.exit_signal ?? null,
-				input.error ?? null,
-				json(input.diagnostics ?? []),
-				input.lease_expires_at,
-				timestamp,
-				input.session_id,
-				input.runtime_id,
-				input.generation,
-			);
-			if (result.changes === 1)
-				this.insert_runtime_event_row({
-					...input,
-					created_at: timestamp,
-				});
-			return result.changes === 1;
-		});
-	}
-
-	list_runtime_events(
-		session_id: string,
-	): CoordinationRuntimeEvent[] {
-		const rows = this.statements.list_runtime_events.all(
-			session_id,
-		) as unknown as RuntimeEventRow[];
-		return rows.map(map_runtime_event);
-	}
-
 	get_schema_version(): number {
 		return get_user_version(this.db);
 	}
@@ -791,27 +572,6 @@ export class TeamDatabase {
 
 	close(): void {
 		this.db.close();
-	}
-
-	private insert_runtime_event_row(input: {
-		session_id: string;
-		runtime_id: string;
-		generation: number;
-		state: RuntimeLifecycleState;
-		created_at: string;
-		diagnostics?: string[];
-		data?: Record<string, unknown>;
-	}): void {
-		this.statements.insert_runtime_event.run(
-			randomUUID(),
-			input.session_id,
-			input.runtime_id,
-			input.generation,
-			input.state,
-			input.created_at,
-			json(input.diagnostics ?? []),
-			json(input.data ?? {}),
-		);
 	}
 
 	private write<T>(fn: () => T): T {

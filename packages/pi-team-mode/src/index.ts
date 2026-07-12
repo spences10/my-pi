@@ -1,5 +1,4 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { fileURLToPath } from 'node:url';
 import {
 	append_team_system_prompt,
 	handle_team_command,
@@ -8,7 +7,6 @@ import {
 import {
 	get_coordination_db_path,
 	get_current_thinking_level,
-	set_current_extension_path,
 	should_auto_inject_messages,
 	TEAM_MEMBER_ENV,
 	TEAM_ROLE_ENV,
@@ -76,7 +74,6 @@ export {
 };
 
 export default async function team_mode(pi: ExtensionAPI) {
-	set_current_extension_path(fileURLToPath(import.meta.url));
 	const coordination_db = await TeamDatabase.open(
 		get_coordination_db_path(),
 	);
@@ -174,7 +171,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 
 	pi.registerCommand('team', {
 		description:
-			'Peer session coordination with visible teammate sessions, groups, and mailboxes',
+			'Peer session coordination with groups, artifacts, and durable mailboxes',
 		getArgumentCompletions: (prefix) => {
 			const subs = [
 				'sessions',
@@ -187,7 +184,6 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'group create',
 				'group join',
 				'group send',
-				'member spawn',
 			];
 			return subs
 				.filter((sub) => sub.startsWith(prefix.trim()))
@@ -211,16 +207,15 @@ export default async function team_mode(pi: ExtensionAPI) {
 		name: 'team',
 		label: 'Team',
 		description:
-			'Manage peer session coordination, visible teammates, groups, artifacts, and mailboxes.',
+			'Manage peer session coordination, groups, artifacts, and durable mailboxes.',
 		promptSnippet:
 			'Manage peer sessions, coordination groups, artifacts, and messages',
 		promptGuidelines: [
-			'Use team session_list to discover registered Pi sessions across projects before sending peer messages.',
-			'Use team member_spawn with instructions to create visible resumable teammate sessions; use command only for executable deterministic shell checks. instructions and command are mutually exclusive. Every spawn must explicitly choose workspace_mode shared or isolated; isolated also requires an absolute workspace_path.',
-			'If the user mentions standby sessions, existing sessions, subordinates, handoffs, or other active sessions, call session_list and prefer registered standby sessions.',
+			'Use team session_list to discover independently opened Pi sessions across projects before sending peer messages.',
+			'If the user mentions standby sessions, existing sessions, handoffs, or other active sessions, call session_list and prefer registered standby sessions.',
 			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for compact peer-session mailbox coordination.',
 			'Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of large mailbox bodies.',
-			'Use team group_create, group_add_session, and group_send when one session should coordinate a group of independently running sessions. Leads should pass reply_to/to report recipients into subordinate member_spawn calls when workers should report directly to the orchestrator or another session.',
+			'Use team group_create, group_add_session, and group_send when coordinating independently running sessions.',
 			'Use session_list, session_inbox, and group_list as the source of truth for peer-session coordination.',
 		],
 		parameters: TeamToolParams,

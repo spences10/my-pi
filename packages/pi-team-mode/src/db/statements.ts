@@ -133,48 +133,5 @@ export function prepare_statements(
 				INSERT INTO events (event_id, type, session_id, group_id, message_id, created_at, data_json)
 				VALUES (?, ?, ?, ?, ?, ?, ?)
 			`),
-		get_session_runtime: db.prepare(
-			'SELECT * FROM session_runtimes WHERE session_id = ?',
-		),
-		insert_session_runtime: db.prepare(`
-				INSERT OR IGNORE INTO session_runtimes
-				(session_id, runtime_id, generation, pid, process_identity_json, endpoint, state, autonomous, control_owner, heartbeat_at, lease_expires_at, diagnostics_json, created_at, updated_at)
-				VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`),
-		replace_session_runtime: db.prepare(`
-				UPDATE session_runtimes SET
-					runtime_id = ?, generation = generation + 1, pid = ?,
-					process_identity_json = ?, endpoint = ?, state = ?, autonomous = ?,
-					control_owner = ?, heartbeat_at = ?, lease_expires_at = ?,
-					ready_at = NULL, stopped_at = NULL, exit_code = NULL,
-					exit_signal = NULL, error = NULL, diagnostics_json = ?, updated_at = ?
-				WHERE session_id = ? AND generation = ? AND lease_expires_at <= ?
-			`),
-		adopt_session_runtime: db.prepare(`
-				UPDATE session_runtimes SET
-					pid = ?, process_identity_json = ?, endpoint = ?, state = ?,
-					heartbeat_at = ?, lease_expires_at = ?, diagnostics_json = ?, updated_at = ?
-				WHERE session_id = ? AND runtime_id = ? AND generation = ?
-					AND state = 'created' AND pid IS NULL
-			`),
-		heartbeat_session_runtime: db.prepare(`
-				UPDATE session_runtimes SET heartbeat_at = ?, lease_expires_at = ?, updated_at = ?
-				WHERE session_id = ? AND runtime_id = ? AND generation = ?
-			`),
-		transition_session_runtime: db.prepare(`
-				UPDATE session_runtimes SET
-					state = ?, ready_at = COALESCE(?, ready_at), stopped_at = COALESCE(?, stopped_at),
-					exit_code = COALESCE(?, exit_code), exit_signal = COALESCE(?, exit_signal),
-					error = ?, diagnostics_json = ?, lease_expires_at = ?, updated_at = ?
-				WHERE session_id = ? AND runtime_id = ? AND generation = ?
-			`),
-		insert_runtime_event: db.prepare(`
-				INSERT INTO runtime_events
-				(event_id, session_id, runtime_id, generation, state, created_at, diagnostics_json, data_json)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			`),
-		list_runtime_events: db.prepare(`
-				SELECT * FROM runtime_events WHERE session_id = ? ORDER BY created_at ASC, rowid ASC
-			`),
 	};
 }

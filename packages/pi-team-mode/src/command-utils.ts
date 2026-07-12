@@ -27,14 +27,13 @@ Peer-session coordination is available through the \`team\` tool.${coordination_
 Use the \`team\` tool as the source of truth for peer-session coordination.
 
 Rules:
-- Every my-pi session registers in the global coordination bus. Use session_list to discover sessions across projects before sending peer messages.
-- If the user mentions standby sessions, existing sessions, subordinates, handoffs, or other active sessions, call session_list and prefer registered standby sessions.
+- Every independently opened my-pi session registers in the global coordination bus. Use session_list to discover sessions across projects before sending peer messages.
+- If the user mentions standby sessions, existing sessions, handoffs, or other active sessions, call session_list and prefer registered standby sessions.
 - Inbox states are separate: delivered means queued to a session, read means reviewed, acknowledged means fully processed and safe to suppress redelivery. Use session_read after reviewing peer messages and session_ack after acting on them.
 - Use session_wait to wait on your own inbox; pass from (or to for compatibility) to wait for a specific sender, not to inspect that sender's inbox.
-- Use member_spawn with command for deterministic checks that should report without a full model turn.
 - Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of large mailbox bodies.
-- Use group_create, group_add_session, and group_send when one session should coordinate a group of independently running sessions.
-- For larger efforts, prefer an orchestrator -> team leads -> workers shape: the orchestrator owns mission/group state, leads spawn or coordinate workers, and workers report compact status plus artifacts. Leads should pass reply_to/to report recipients into subordinate member_spawn calls when workers should report directly to the orchestrator or another relevant session.
+- Use group_create, group_add_session, and group_send to coordinate independently running sessions.
+- This package does not spawn or supervise Pi sessions. Ask the user to open another TUI session when another peer is needed.
 - Use urgent peer messaging for coordination instead of assuming shared context.`
 	);
 }

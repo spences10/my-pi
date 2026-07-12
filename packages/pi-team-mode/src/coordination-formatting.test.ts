@@ -7,7 +7,6 @@ import {
 import type {
 	CoordinationInboxMessage,
 	CoordinationSession,
-	CoordinationSessionRuntime,
 } from './db/index.js';
 
 const session: CoordinationSession = {
@@ -50,35 +49,6 @@ describe('coordination formatting', () => {
 		expect(format_sessions([session], { full_ids: true })).toContain(
 			'019f0f71-967e-7aed-853c-94ac29fbe7b6',
 		);
-	});
-
-	it('formats persistent runtime identity and terminal diagnostics', () => {
-		const runtime: CoordinationSessionRuntime = {
-			session_id: session.session_id,
-			runtime_id: 'runtime-1',
-			generation: 3,
-			pid: 1234,
-			state: 'failed',
-			autonomous: true,
-			lease_expires_at: '2026-06-28T00:01:00.000Z',
-			exit_signal: 'SIGKILL',
-			error: 'Runtime host exited unexpectedly',
-			diagnostics: ['stderr was redacted'],
-			created_at: '2026-06-28T00:00:00.000Z',
-			updated_at: '2026-06-28T00:00:01.000Z',
-		};
-		const runtimes = new Map([[session.session_id, runtime]]);
-
-		expect(format_sessions([session], { runtimes })).toContain(
-			'runtime failed g3 · signal SIGKILL',
-		);
-		const full = format_sessions([session], {
-			full_ids: true,
-			runtimes,
-		});
-		expect(full).toContain('runtime runtime-1 generation 3 pid 1234');
-		expect(full).toContain('error Runtime host exited unexpectedly');
-		expect(full).toContain('diagnostics stderr was redacted');
 	});
 
 	it('labels registered standby sessions', () => {

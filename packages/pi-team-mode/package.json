@@ -1,7 +1,7 @@
 {
 	"name": "@spences10/pi-team-mode",
 	"version": "0.0.48",
-	"description": "Experimental persistent Pi teammate coordination with groups, artifacts, and mailboxes",
+	"description": "Peer coordination for independently opened Pi sessions with groups, artifacts, and mailboxes",
 	"keywords": [
 		"agent",
 		"orchestration",
@@ -42,7 +42,6 @@
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {
-		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-sqlite-core": "workspace:*"
 	},
 	"devDependencies": {

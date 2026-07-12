@@ -6,14 +6,11 @@ import {
 } from './team-tool-params.js';
 
 describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
-	it('loads without side effects', async () => {
-		await expect(
-			import('./team-tool-params.js'),
-		).resolves.toBeDefined();
-	});
-
-	it('exposes visible teammate spawning but not RPC task actions', () => {
-		expect(TEAM_ACTIONS).toContain('member_spawn');
+	it('exposes peer coordination without autonomous spawn actions', () => {
+		expect(TEAM_ACTIONS).toContain('session_send');
+		expect(TEAM_ACTIONS).toContain('group_send');
+		expect(TEAM_ACTIONS).toContain('artifact_create');
+		expect(TEAM_ACTIONS).not.toContain('member_spawn' as never);
 		expect(
 			(
 				TeamToolParams as unknown as {
@@ -21,42 +18,6 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 				}
 			).additionalProperties,
 		).toBe(false);
-		expect(TEAM_ACTIONS).not.toContain('team_create' as any);
-		expect(TEAM_ACTIONS).not.toContain('task_create' as any);
-	});
-
-	it('requires a name for visible teammate spawning', () => {
-		expect(() =>
-			validate_team_tool_params({ action: 'member_spawn' }),
-		).toThrow(/name/);
-		expect(() =>
-			validate_team_tool_params({
-				action: 'member_spawn',
-				name: 'fast-check',
-				workspace_mode: 'shared',
-				command: 'pnpm test',
-			}),
-		).not.toThrow();
-	});
-
-	it('separates teammate instructions from deterministic commands', () => {
-		expect(() =>
-			validate_team_tool_params({
-				action: 'member_spawn',
-				name: 'worker',
-				workspace_mode: 'shared',
-				message: 'ambiguous task text',
-			}),
-		).toThrow(/message is not allowed/);
-		expect(() =>
-			validate_team_tool_params({
-				action: 'member_spawn',
-				name: 'worker',
-				workspace_mode: 'shared',
-				instructions: 'Run the task',
-				command: 'pnpm test',
-			}),
-		).toThrow(/mutually exclusive/);
 	});
 
 	it('requires a target for peer mailbox actions', () => {
@@ -82,7 +43,7 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 			validate_team_tool_params({
 				action: 'session_list',
 				unexpected: true,
-			} as any),
+			} as never),
 		).toThrow(/unexpected is not allowed/);
 	});
 

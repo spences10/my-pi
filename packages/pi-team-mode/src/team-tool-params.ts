@@ -23,7 +23,6 @@ export const TEAM_ACTIONS = [
 	'message_wait',
 	'message_read',
 	'message_ack',
-	'member_spawn',
 ] as const;
 
 export type TeamActionName = (typeof TEAM_ACTIONS)[number];
@@ -39,10 +38,6 @@ const TeamUiModeParam = StringEnum([
 	'compact',
 	'full',
 	'off',
-] as const);
-const WorkspaceModeParam = StringEnum([
-	'shared',
-	'isolated',
 ] as const);
 const ArtifactKindParam = StringEnum([
 	'summary',
@@ -61,12 +56,9 @@ export const TeamToolParams = Type.Object(
 		name: Type.Optional(Type.String()),
 		member: Type.Optional(Type.String()),
 		role: Type.Optional(CoordinationRoleParam),
-		workspace_mode: Type.Optional(WorkspaceModeParam),
-		workspace_path: Type.Optional(Type.String()),
 		from: Type.Optional(Type.String()),
 		to: Type.Optional(Type.String()),
 		message: Type.Optional(Type.String()),
-		instructions: Type.Optional(Type.String()),
 		message_ids: Type.Optional(Type.Array(Type.String())),
 		reply_to: Type.Optional(Type.String()),
 		ttl_ms: Type.Optional(Type.Number()),
@@ -80,7 +72,6 @@ export const TeamToolParams = Type.Object(
 		description: Type.Optional(Type.String()),
 		body: Type.Optional(Type.String()),
 		body_format: Type.Optional(Type.String()),
-		command: Type.Optional(Type.String()),
 		query: Type.Optional(Type.String()),
 		artifact_id: Type.Optional(Type.String()),
 		message_id: Type.Optional(Type.String()),
@@ -97,12 +88,9 @@ export type TeamToolParams = {
 	name?: string;
 	member?: string;
 	role?: 'lead' | 'teammate' | 'peer';
-	workspace_mode?: 'shared' | 'isolated';
-	workspace_path?: string;
 	from?: string;
 	to?: string;
 	message?: string;
-	instructions?: string;
 	message_ids?: string[];
 	reply_to?: string;
 	ttl_ms?: number;
@@ -123,7 +111,6 @@ export type TeamToolParams = {
 	description?: string;
 	body?: string;
 	body_format?: string;
-	command?: string;
 	query?: string;
 	artifact_id?: string;
 	message_id?: string;
@@ -243,19 +230,6 @@ const ACTION_ALLOWED_FIELDS = {
 	],
 	message_read: ['action', 'message_ids', 'mode'],
 	message_ack: ['action', 'message_ids', 'mode'],
-	member_spawn: [
-		'action',
-		'name',
-		'role',
-		'workspace_mode',
-		'workspace_path',
-		'instructions',
-		'command',
-		'team_id',
-		'reply_to',
-		'to',
-		'timeout_ms',
-	],
 } as const satisfies Record<
 	TeamActionName,
 	readonly (keyof TeamToolParams)[]
@@ -331,20 +305,6 @@ export function validate_team_tool_params(
 			return;
 		case 'group_create':
 			require_tool_field(params, 'name');
-			return;
-		case 'member_spawn':
-			require_tool_field(params, 'name');
-			require_tool_field(params, 'workspace_mode');
-			if (params.workspace_mode === 'shared' && params.workspace_path)
-				throw new Error(
-					'Invalid team tool action member_spawn: workspace_path is only allowed with isolated workspace mode',
-				);
-			if (params.workspace_mode === 'isolated')
-				require_tool_field(params, 'workspace_path');
-			if (params.instructions?.trim() && params.command?.trim())
-				throw new Error(
-					'Invalid team tool action member_spawn: instructions and command are mutually exclusive',
-				);
 			return;
 		case 'group_join':
 			require_tool_any_field(params, ['team_id', 'name'], 'group');

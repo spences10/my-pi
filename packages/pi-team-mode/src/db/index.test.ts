@@ -198,38 +198,35 @@ describe('TeamDatabase coordination store', () => {
 		}
 	});
 
-	it('keeps spawned visible teammates targetable after child wake registration and shutdown', async () => {
+	it('keeps independently opened peers targetable after shutdown', async () => {
 		const db = await TeamDatabase.open(tmp_db());
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({
 				session_id: 'worker',
 				cwd: '/repo',
-				agent_name: 'teammate',
-				role: 'teammate',
-				parent_session_id: 'lead',
-				metadata: { created_by: 'team_mode_visible_session' },
+				agent_name: 'reviewer',
+				role: 'peer',
 			});
 
 			db.register_session({
 				session_id: 'worker',
 				cwd: '/repo',
 				pid: 123,
-				role: 'teammate',
+				role: 'peer',
 				status: 'online',
 			});
 			db.mark_session_status('worker', 'offline');
 
 			expect(db.get_session('worker')).toMatchObject({
-				agent_name: 'teammate',
-				parent_session_id: 'lead',
-				metadata: { created_by: 'team_mode_visible_session' },
+				agent_name: 'reviewer',
+				role: 'peer',
 				status: 'offline',
 			});
 			expect(db.resolve_session_targets('worker')).toMatchObject([
 				{ session_id: 'worker' },
 			]);
-			expect(db.resolve_session_targets('teammate')).toMatchObject([
+			expect(db.resolve_session_targets('reviewer')).toMatchObject([
 				{ session_id: 'worker' },
 			]);
 		} finally {

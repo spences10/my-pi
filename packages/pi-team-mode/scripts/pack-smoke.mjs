@@ -19,7 +19,8 @@ const stale_path = join(
 	'__pack_smoke_stale__.js',
 );
 const forbidden_paths = [
-	/^dist\/(?:rpc(?:\/|-runner)|runner-orchestration|headless-runner)(?:\.|\/)/,
+	/^dist\/(?:rpc(?:\/|-runner)|runner-orchestration|headless-runner|runtime)(?:\.|\/)/,
+	/^dist\/(?:child-env|diagnostics|process-identity|spawn-limits|visible-sessions|workspace-policy)(?:\.|\/)/,
 	/^dist\/store(?:\.|\/)/,
 	/^dist\/commands\/(?:runner|task|team|message)-commands(?:\.|\/)/,
 	/^dist\/workspace(?:\.|\/)/,

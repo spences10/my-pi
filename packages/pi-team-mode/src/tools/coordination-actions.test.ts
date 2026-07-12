@@ -1,26 +1,11 @@
-import { SessionManager } from '@earendil-works/pi-coding-agent';
-import {
-	existsSync,
-	mkdtempSync,
-	readFileSync,
-	rmSync,
-} from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	it,
-	vi,
-} from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TeamDatabase } from '../db/index.js';
-import { TEAM_RUNTIME_ENV } from '../visible-sessions.js';
 import { execute_coordination_action } from './coordination-actions.js';
 
 const dirs: string[] = [];
-const original_runtime = process.env[TEAM_RUNTIME_ENV];
 
 async function tmp_db(): Promise<TeamDatabase> {
 	const dir = mkdtempSync(
@@ -30,549 +15,52 @@ async function tmp_db(): Promise<TeamDatabase> {
 	return TeamDatabase.open(join(dir, 'coordination.db'));
 }
 
-beforeEach(() => {
-	delete process.env[TEAM_RUNTIME_ENV];
-});
-
 afterEach(() => {
-	if (original_runtime === undefined)
-		delete process.env[TEAM_RUNTIME_ENV];
-	else process.env[TEAM_RUNTIME_ENV] = original_runtime;
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs.length = 0;
 });
 
 describe('coordination actions', () => {
-	it('prints full session ids and terminal runtime diagnostics in full mode', async () => {
+	it('queues and notifies peer messages without writing another session file', async () => {
 		const db = await tmp_db();
 		try {
-			const session_id = '019f0f71-967e-7aed-853c-94ac29fbe7b6';
-			db.register_session({ session_id, cwd: '/repo' });
-			db.mark_session_status(session_id, 'offline');
-			const runtime = db.create_session_runtime({
-				session_id,
-				runtime_id: 'runtime-failed',
-				pid: 4321,
-				state: 'starting',
-				lease_expires_at: new Date(Date.now() + 60_000).toISOString(),
-			})!;
-			db.transition_session_runtime({
-				session_id,
-				runtime_id: runtime.runtime_id,
-				generation: runtime.generation,
-				state: 'failed',
-				lease_expires_at: new Date().toISOString(),
-				exit_signal: 'SIGKILL',
-				error: 'Runtime host exited unexpectedly',
-				diagnostics: ['bounded stderr'],
-			});
-
-			const result = await execute_coordination_action(
-				{ action: 'session_list', mode: 'full' },
-				{
-					ctx: { cwd: '/repo' } as any,
-					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
-					require_session_id: () => session_id,
-				},
-			);
-
-			expect(result.content[0]?.text).toContain(session_id);
-			expect(result.content[0]?.text).toContain(
-				'runtime runtime-failed generation 1 pid 4321',
-			);
-			expect(result.content[0]?.text).toContain('signal SIGKILL');
-			expect(result.content[0]?.text).toContain(
-				'error Runtime host exited unexpectedly',
-			);
-			expect(result.content[0]?.text).toContain(
-				'diagnostics bounded stderr',
-			);
-			expect(result.details.runtimes).toHaveProperty(session_id);
-		} finally {
-			db.close();
-		}
-	});
-
-	it('creates visible resumable teammate sessions', async () => {
-		const db = await tmp_db();
-		try {
-			const session_dir = mkdtempSync(
-				join(tmpdir(), 'pi-team-sessions-'),
-			);
-			dirs.push(session_dir);
-			const lead = SessionManager.create('/repo', session_dir);
-			db.register_session({
-				session_id: lead.getSessionId(),
-				session_file: lead.getSessionFile(),
-				cwd: '/repo',
-				role: 'lead',
-			});
-
-			const wake_visible_teammate_session = vi.fn(
-				async () => undefined,
-			);
-			const result = await execute_coordination_action(
-				{
-					action: 'member_spawn',
-					name: 'teammate-a',
-					workspace_mode: 'shared',
-					instructions: 'Inspect the failing test.',
-				},
-				{
-					ctx: { cwd: '/repo', sessionManager: lead } as any,
-					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
-					require_session_id: () => lead.getSessionId(),
-					wake_visible_teammate_session,
-				},
-			);
-
-			const teammate = result.details.teammate as {
-				session_id: string;
-				session_file: string;
-			};
-			expect(db.get_session(teammate.session_id)).toMatchObject({
-				agent_name: 'teammate-a',
-				role: 'teammate',
-				status: 'offline',
-				availability: 'standby',
-				parent_session_id: lead.getSessionId(),
-			});
-			expect(existsSync(teammate.session_file)).toBe(true);
-			expect(readFileSync(teammate.session_file, 'utf8')).toContain(
-				'Inspect the failing test.',
-			);
-			expect(wake_visible_teammate_session).toHaveBeenCalledWith({
-				session_file: teammate.session_file,
-				cwd: '/repo',
-				message: 'Inspect the failing test.',
-				from_session_id: lead.getSessionId(),
-				member: 'teammate-a',
-				role: 'teammate',
-				report_to_session_ids: [lead.getSessionId()],
-				timeout_ms: undefined,
-			});
-			expect(result.content[0]?.text).toContain(
-				'started background task execution',
-			);
-		} finally {
-			db.close();
-		}
-	});
-
-	it('awaits persistent member readiness and returns structured acceptance', async () => {
-		const db = await tmp_db();
-		try {
-			process.env[TEAM_RUNTIME_ENV] = 'persistent';
-			const session_dir = mkdtempSync(
-				join(tmpdir(), 'pi-team-sessions-'),
-			);
-			dirs.push(session_dir);
-			const lead = SessionManager.create('/repo', session_dir);
-			db.register_session({
-				session_id: lead.getSessionId(),
-				session_file: lead.getSessionFile(),
-				cwd: '/repo',
-				role: 'lead',
-			});
-			const wake_visible_teammate_session = vi.fn(async () => ({
-				mode: 'persistent' as const,
-				accepted: true,
-				method: 'start' as const,
-				runtime: {
-					state: 'running' as const,
-					runtime_id: 'runtime-1',
-					generation: 2,
-					pid: 1234,
-					diagnostics: [],
-				},
-			}));
-
-			const result = await execute_coordination_action(
-				{
-					action: 'member_spawn',
-					name: 'persistent-worker',
-					workspace_mode: 'shared',
-					instructions: 'Start the task.',
-					role: 'peer',
-				},
-				{
-					ctx: { cwd: '/repo', sessionManager: lead } as any,
-					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
-					require_session_id: () => lead.getSessionId(),
-					wake_visible_teammate_session:
-						wake_visible_teammate_session as any,
-				},
-			);
-
-			expect(wake_visible_teammate_session).toHaveBeenCalledWith(
-				expect.objectContaining({
-					message: 'Start the task.',
-					role: 'peer',
-				}),
-			);
-			expect(result.details.runtime).toEqual({
-				mode: 'persistent',
-				accepted: true,
-				method: 'start',
-				state: 'running',
-				runtime_id: 'runtime-1',
-				generation: 2,
-				pid: 1234,
-				error: undefined,
-				diagnostics: [],
-			});
-			expect(result.content[0]?.text).toContain(
-				'persistent runtime runtime-1 generation 2 pid 1234 is running and accepted the initial prompt via start',
-			);
-
-			wake_visible_teammate_session.mockRejectedValueOnce(
-				new Error('host failed readiness'),
-			);
-			const failure = await execute_coordination_action(
-				{
-					action: 'member_spawn',
-					name: 'failed-worker',
-					workspace_mode: 'shared',
-					instructions: 'Start the task.',
-				},
-				{
-					ctx: { cwd: '/repo', sessionManager: lead } as any,
-					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
-					require_session_id: () => lead.getSessionId(),
-					wake_visible_teammate_session:
-						wake_visible_teammate_session as any,
-				},
-			);
-			expect(failure.details.runtime).toEqual({
-				mode: 'persistent',
-				accepted: false,
-				state: undefined,
-				runtime_id: undefined,
-				generation: undefined,
-				pid: undefined,
-				error: 'host failed readiness',
-				diagnostics: undefined,
-			});
-			expect(failure.content[0]?.text).toContain(
-				'persistent failed: host failed readiness',
-			);
-		} finally {
-			db.close();
-		}
-	});
-
-	it.each([
-		['running', false, 'follow_up'],
-		['idle', false, 'prompt'],
-		['running', true, 'steer'],
-	] as const)(
-		'delivers natively to a %s runtime with urgent=%s via %s',
-		async (state, urgent, method) => {
-			const db = await tmp_db();
-			try {
-				db.register_session({ session_id: 'lead', cwd: '/repo' });
-				db.register_session({
-					session_id: 'worker',
-					cwd: '/repo',
-					status: 'online',
-				});
-				const runtime = db.create_session_runtime({
-					session_id: 'worker',
-					runtime_id: 'runtime',
-					endpoint: '/tmp/runtime.sock',
-					state,
-					lease_expires_at: new Date(
-						Date.now() + 60_000,
-					).toISOString(),
-				})!;
-				const deliver_runtime_message = vi.fn(async () => runtime);
-
-				const result = await execute_coordination_action(
-					{
-						action: 'session_send',
-						to: 'worker',
-						message: 'Native delivery.',
-						urgent,
-					},
-					{
-						ctx: { cwd: '/repo' } as any,
-						coordination_db: db,
-						notify_coordination_messages: async () => undefined,
-						require_session_id: () => 'lead',
-						deliver_runtime_message,
-					},
-				);
-
-				expect(deliver_runtime_message).toHaveBeenCalledWith(
-					runtime,
-					'Native delivery.',
-					method,
-					undefined,
-				);
-				const receipt = db.list_inbox('worker', {
-					include_read: true,
-				})[0];
-				expect(receipt?.delivered_at).toEqual(expect.any(String));
-				expect(receipt?.read_at).toBeUndefined();
-				expect(receipt?.acknowledged_at).toBeUndefined();
-				expect(result.details.runtime_deliveries).toEqual([
-					expect.objectContaining({ method, accepted: true }),
-				]);
-			} finally {
-				db.close();
-			}
-		},
-	);
-
-	it('restarts a terminal persistent runtime instead of rejecting its row', async () => {
-		const db = await tmp_db();
-		try {
+			const target_file = join(dirs[0]!, 'peer.jsonl');
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
-			db.register_session({ session_id: 'worker', cwd: '/repo' });
-			db.create_session_runtime({
-				session_id: 'worker',
-				runtime_id: 'failed-runtime',
-				endpoint: '/tmp/runtime.sock',
-				state: 'failed',
-				lease_expires_at: new Date(0).toISOString(),
+			db.register_session({
+				session_id: 'peer',
+				session_file: target_file,
+				cwd: '/repo',
 			});
-			const wake_visible_teammate_session = vi.fn(async () => ({
-				mode: 'persistent' as const,
-				accepted: true,
-				method: 'start' as const,
-				runtime: { state: 'ready' as const },
-			}));
+			const notify = vi.fn(async () => undefined);
 
 			const result = await execute_coordination_action(
 				{
 					action: 'session_send',
-					to: 'worker',
-					message: 'Recover and continue.',
+					to: 'peer',
+					message: 'peer-only hello',
 				},
 				{
-					ctx: { cwd: '/repo' } as any,
+					ctx: { cwd: '/repo' } as never,
 					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
+					notify_coordination_messages: notify,
 					require_session_id: () => 'lead',
-					wake_visible_teammate_session:
-						wake_visible_teammate_session as any,
 				},
 			);
 
-			expect(wake_visible_teammate_session).toHaveBeenCalledWith(
-				expect.objectContaining({ message: 'Recover and continue.' }),
+			const message = db.list_inbox('peer')[0]!;
+			expect(message.body).toBe('peer-only hello');
+			expect(message.delivered_at).toBeUndefined();
+			expect(existsSync(target_file)).toBe(false);
+			expect(notify).toHaveBeenCalledWith(
+				['peer'],
+				message.message_id,
 			);
-			expect(result.details.runtime_deliveries).toEqual([
-				expect.objectContaining({
-					method: 'start',
-					accepted: true,
+			expect(result.details).toEqual({
+				message: expect.objectContaining({
+					message_id: message.message_id,
 				}),
-			]);
-			const receipt = db.list_inbox('worker', {
-				include_read: true,
-			})[0];
-			expect(receipt?.delivered_at).toEqual(expect.any(String));
-			expect(receipt?.read_at).toBeUndefined();
-		} finally {
-			db.close();
-		}
-	});
-
-	it('leaves a runtime receipt undelivered when native acceptance fails', async () => {
-		const db = await tmp_db();
-		try {
-			db.register_session({ session_id: 'lead', cwd: '/repo' });
-			db.register_session({ session_id: 'worker', cwd: '/repo' });
-			db.create_session_runtime({
-				session_id: 'worker',
-				runtime_id: 'runtime',
-				endpoint: '/tmp/runtime.sock',
-				state: 'idle',
-				lease_expires_at: new Date(Date.now() + 60_000).toISOString(),
 			});
-
-			await expect(
-				execute_coordination_action(
-					{
-						action: 'session_send',
-						to: 'worker',
-						message: 'Retry me.',
-					},
-					{
-						ctx: { cwd: '/repo' } as any,
-						coordination_db: db,
-						notify_coordination_messages: async () => undefined,
-						require_session_id: () => 'lead',
-						deliver_runtime_message: async () => {
-							throw new Error('runtime rejected');
-						},
-					},
-				),
-			).rejects.toThrow('runtime rejected');
-			expect(
-				db.list_inbox('worker', {
-					include_read: true,
-				})[0]?.delivered_at,
-			).toBeUndefined();
-		} finally {
-			db.close();
-		}
-	});
-
-	it('runs direct teammate commands and reports to requested recipients', async () => {
-		const db = await tmp_db();
-		try {
-			const session_dir = mkdtempSync(
-				join(tmpdir(), 'pi-team-sessions-'),
-			);
-			dirs.push(session_dir);
-			const cwd = mkdtempSync(join(tmpdir(), 'pi-team-cwd-'));
-			dirs.push(cwd);
-			const lead = SessionManager.create(cwd, session_dir);
-			db.register_session({
-				session_id: lead.getSessionId(),
-				session_file: lead.getSessionFile(),
-				cwd,
-				role: 'lead',
-			});
-			db.register_session({ session_id: 'orchestrator', cwd });
-
-			const result = await execute_coordination_action(
-				{
-					action: 'member_spawn',
-					name: 'fast-worker',
-					workspace_mode: 'shared',
-					command: 'printf direct-ok',
-					reply_to: 'orchestrator',
-				},
-				{
-					ctx: { cwd, sessionManager: lead } as any,
-					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
-					require_session_id: () => lead.getSessionId(),
-				},
-			);
-
-			const teammate = result.details.teammate as {
-				session_id: string;
-			};
-			await vi.waitFor(() => {
-				expect(db.list_inbox(lead.getSessionId())).toHaveLength(1);
-				expect(db.list_inbox('orchestrator')).toHaveLength(1);
-			});
-			expect(db.list_inbox(lead.getSessionId())[0]).toMatchObject({
-				from_session_id: teammate.session_id,
-			});
-			expect(db.list_inbox('orchestrator')[0]?.body).toContain(
-				'direct-ok',
-			);
-			expect(result.content[0]?.text).toContain(
-				'started direct command execution',
-			);
-		} finally {
-			db.close();
-		}
-	});
-
-	it('does not create unflushed live target session files on send', async () => {
-		const db = await tmp_db();
-		try {
-			const session_dir = mkdtempSync(
-				join(tmpdir(), 'pi-team-sessions-'),
-			);
-			dirs.push(session_dir);
-			const lead = SessionManager.create('/repo', session_dir);
-			const worker = SessionManager.create('/repo', session_dir);
-			worker.appendMessage({
-				role: 'user',
-				content: 'starting',
-				timestamp: Date.now(),
-			});
-			db.register_session({
-				session_id: lead.getSessionId(),
-				session_file: lead.getSessionFile(),
-				cwd: '/repo',
-			});
-			db.register_session({
-				session_id: worker.getSessionId(),
-				session_file: worker.getSessionFile(),
-				cwd: '/repo',
-				agent_name: 'worker',
-			});
-
-			await execute_coordination_action(
-				{
-					action: 'session_send',
-					to: 'worker',
-					message: 'Please produce the report.',
-				},
-				{
-					ctx: { cwd: '/repo', sessionManager: lead } as any,
-					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
-					require_session_id: () => lead.getSessionId(),
-				},
-			);
-
-			expect(existsSync(worker.getSessionFile()!)).toBe(false);
-			expect(() =>
-				worker.appendMessage({
-					role: 'assistant',
-					content: [{ type: 'text', text: 'ok' }],
-				} as any),
-			).not.toThrow();
-		} finally {
-			db.close();
-		}
-	});
-
-	it('writes session sends into existing target session history', async () => {
-		const db = await tmp_db();
-		try {
-			const session_dir = mkdtempSync(
-				join(tmpdir(), 'pi-team-sessions-'),
-			);
-			dirs.push(session_dir);
-			const lead = SessionManager.create('/repo', session_dir);
-			const worker = SessionManager.create('/repo', session_dir);
-			worker.appendMessage({
-				role: 'assistant',
-				content: [{ type: 'text', text: 'ready' }],
-			} as any);
-			db.register_session({
-				session_id: lead.getSessionId(),
-				session_file: lead.getSessionFile(),
-				cwd: '/repo',
-			});
-			db.register_session({
-				session_id: worker.getSessionId(),
-				session_file: worker.getSessionFile(),
-				cwd: '/repo',
-				agent_name: 'worker',
-			});
-
-			await execute_coordination_action(
-				{
-					action: 'session_send',
-					to: 'worker',
-					message: 'Please produce the report.',
-				},
-				{
-					ctx: { cwd: '/repo', sessionManager: lead } as any,
-					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
-					require_session_id: () => lead.getSessionId(),
-				},
-			);
-
-			expect(
-				readFileSync(worker.getSessionFile()!, 'utf8'),
-			).toContain('Please produce the report.');
 		} finally {
 			db.close();
 		}
@@ -888,44 +376,6 @@ describe('coordination actions', () => {
 			expect(full.content[0]?.text).toContain(
 				'Acknowledged — teammate session is ready.',
 			);
-		} finally {
-			db.close();
-		}
-	});
-
-	it('starts background delivery for offline visible teammates', async () => {
-		const db = await tmp_db();
-		try {
-			db.register_session({ session_id: 'lead', cwd: '/repo' });
-			db.register_session({
-				session_id: 'worker',
-				cwd: '/repo',
-				agent_name: 'worker',
-				status: 'offline',
-				metadata: { created_by: 'team_mode_visible_session' },
-			});
-
-			const result = await execute_coordination_action(
-				{ action: 'session_send', to: 'worker', message: 'Ping.' },
-				{
-					ctx: { cwd: '/repo' } as any,
-					coordination_db: db,
-					notify_coordination_messages: async () => undefined,
-					require_session_id: () => 'lead',
-				},
-			);
-
-			const inbox = db.list_inbox('worker', {
-				undelivered_only: true,
-				include_read: true,
-			});
-			expect(result.content[0]?.text).toContain(
-				'Started background delivery for 1 offline visible teammate',
-			);
-			expect(inbox).toEqual([]);
-			expect(
-				db.list_inbox('worker', { include_read: true })[0]?.read_at,
-			).toBeUndefined();
 		} finally {
 			db.close();
 		}

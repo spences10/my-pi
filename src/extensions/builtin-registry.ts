@@ -431,12 +431,12 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		label: 'Team mode',
 		docs_label: 'Team mode',
 		description:
-			'Experimental persistent teammate coordination with groups, artifacts, and mailboxes',
+			'Peer coordination between independently opened Pi sessions with groups, artifacts, and durable mailboxes',
 		default_enabled: true,
 		option_name: 'team_mode',
 		cli_arg: 'no-team-mode',
 		cli_flag: '--no-team-mode',
-		cli_description: 'Disable experimental team mode extension',
+		cli_description: 'Disable peer-session team mode extension',
 		aliases: ['team-mode', 'team', 'teammates'],
 		external_package_name: '@spences10/pi-team-mode',
 		load: async () =>
