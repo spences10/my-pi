@@ -1,7 +1,11 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { rmSync } from 'node:fs';
 import { afterEach, vi } from 'vitest';
-import type { LspClientLike } from '../src/index.js';
+import {
+	create_lsp_extension,
+	type CreateLspExtensionOptions,
+	type LspClientLike,
+} from '../src/index.js';
 
 export function create_mock_client(
 	overrides: Partial<LspClientLike> = {},
@@ -40,6 +44,21 @@ export function create_test_pi() {
 	} as unknown as ExtensionAPI;
 
 	return { pi, tools, commands, events };
+}
+
+export async function register_test_lsp_extension(
+	pi: ExtensionAPI,
+	options: CreateLspExtensionOptions = {},
+) {
+	await create_lsp_extension(options)(pi);
+}
+
+export async function create_test_lsp_extension(
+	options: CreateLspExtensionOptions = {},
+) {
+	const test_pi = create_test_pi();
+	await register_test_lsp_extension(test_pi.pi, options);
+	return test_pi;
 }
 
 export const dirs: string[] = [];

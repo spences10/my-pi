@@ -1,22 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
 	create_mock_client,
-	create_test_pi,
+	create_test_lsp_extension,
 } from '../test/support.js';
-import {
-	create_lsp_extension,
-	should_inject_lsp_prompt,
-} from './index.js';
+import { should_inject_lsp_prompt } from './index.js';
 
 describe('lsp prompt guidance', () => {
 	it('injects LSP workflow guidance when LSP tools are active', async () => {
-		const { pi, events } = create_test_pi();
-
-		await create_lsp_extension({
+		const { events } = await create_test_lsp_extension({
 			create_client: () => create_mock_client(),
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const result = await events.get('before_agent_start')({
 			systemPrompt: 'base prompt',

@@ -1,22 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	create_mock_client,
-	create_test_pi,
+	create_test_lsp_extension,
 } from '../test/support.js';
 import { LspClientStartError } from './client.js';
-import { create_lsp_extension } from './index.js';
 
 describe('lsp diagnostics tools', () => {
 	it('returns a friendly message for unsupported files', async () => {
 		const start = vi.fn().mockResolvedValue(undefined);
 		const client = create_mock_client({ start });
-		const { pi, tools } = create_test_pi();
-
-		await create_lsp_extension({
+		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'ignored',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const result = await tools
 			.get('lsp_diagnostics')
@@ -38,13 +35,11 @@ describe('lsp diagnostics tools', () => {
 				}),
 			),
 		});
-		const { pi, tools } = create_test_pi();
-
-		await create_lsp_extension({
+		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => '<script lang="ts">\n</script>\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const result = await tools.get('lsp_diagnostics').execute('1', {
 			file: '/workspace/apps/website/src/routes/+page.svelte',
@@ -84,13 +79,11 @@ describe('lsp diagnostics tools', () => {
 				},
 			]);
 		const client = create_mock_client({ wait_for_diagnostics });
-		const { pi, tools } = create_test_pi();
-
-		await create_lsp_extension({
+		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const result = await tools
 			.get('lsp_diagnostics_many')
@@ -120,13 +113,11 @@ describe('lsp diagnostics tools', () => {
 			return [];
 		});
 		const client = create_mock_client({ wait_for_diagnostics });
-		const { pi, tools } = create_test_pi();
-
-		await create_lsp_extension({
+		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const files = Array.from(
 			{ length: 12 },
@@ -150,13 +141,11 @@ describe('lsp diagnostics tools', () => {
 			.mockRejectedValueOnce(new Error('LSP timed out'))
 			.mockResolvedValueOnce([]);
 		const client = create_mock_client({ wait_for_diagnostics });
-		const { pi, tools } = create_test_pi();
-
-		await create_lsp_extension({
+		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const result = await tools
 			.get('lsp_diagnostics_many')

@@ -6,9 +6,9 @@ import {
 	create_command_context,
 	create_mock_client,
 	create_test_pi,
+	register_test_lsp_extension,
 	dirs,
 } from '../test/support.js';
-import { create_lsp_extension } from './index.js';
 
 describe('lsp server manager', () => {
 	it('closes documents after one-shot tool use', async () => {
@@ -28,11 +28,11 @@ describe('lsp server manager', () => {
 		const { pi, tools } = create_test_pi();
 		const { ctx } = create_command_context();
 
-		await create_lsp_extension({
+		await register_test_lsp_extension(pi, {
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => root,
-		})(pi);
+		});
 
 		await tools
 			.get('lsp_hover')
@@ -75,11 +75,11 @@ describe('lsp server manager', () => {
 		const { pi, tools } = create_test_pi();
 		const { ctx } = create_command_context();
 
-		await create_lsp_extension({
+		await register_test_lsp_extension(pi, {
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => root,
-		})(pi);
+		});
 
 		const first = tools
 			.get('lsp_hover')
@@ -132,12 +132,12 @@ describe('lsp server manager', () => {
 			const { pi, tools } = create_test_pi();
 			const { ctx } = create_command_context();
 
-			await create_lsp_extension({
+			await register_test_lsp_extension(pi, {
 				create_client,
 				read_file: async () => 'export const value = 1;\n',
 				cwd: () => root,
 				idle_timeout_ms: 10,
-			})(pi);
+			});
 
 			await tools
 				.get('lsp_hover')
@@ -191,11 +191,11 @@ describe('lsp server manager', () => {
 		const { ctx, selections } = create_command_context();
 		selections.push('Use global PATH binary instead');
 
-		await create_lsp_extension({
+		await register_test_lsp_extension(pi, {
 			create_client,
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => root,
-		})(pi);
+		});
 
 		await tools
 			.get('lsp_hover')
@@ -242,11 +242,11 @@ describe('lsp server manager', () => {
 		const { ctx, selections } = create_command_context();
 		selections.push('Allow once for this session');
 
-		await create_lsp_extension({
+		await register_test_lsp_extension(pi, {
 			create_client,
 			read_file: async () => '<script lang="ts">\n</script>\n',
 			cwd: () => '/repo/not-the-target',
-		})(pi);
+		});
 
 		await tools.get('lsp_hover').execute(
 			'1',

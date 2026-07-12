@@ -1,20 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
 	create_mock_client,
-	create_test_pi,
+	create_test_lsp_extension,
 } from '../test/support.js';
-import { create_lsp_extension } from './index.js';
 
 describe('lsp extension wiring', () => {
 	it('registers the LSP tools and /lsp command', async () => {
 		const client = create_mock_client();
-		const { pi, tools, commands, events } = create_test_pi();
-
-		await create_lsp_extension({
-			create_client: () => client,
-			read_file: async () => 'export const value = 1;\n',
-			cwd: () => '/repo',
-		})(pi);
+		const { tools, commands, events } =
+			await create_test_lsp_extension({
+				create_client: () => client,
+				read_file: async () => 'export const value = 1;\n',
+				cwd: () => '/repo',
+			});
 
 		expect(Array.from(tools.keys()).sort()).toEqual([
 			'lsp_definition',

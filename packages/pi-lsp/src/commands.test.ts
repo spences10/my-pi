@@ -4,8 +4,8 @@ import {
 	create_deferred,
 	create_mock_client,
 	create_test_pi,
+	register_test_lsp_extension,
 } from '../test/support.js';
-import { create_lsp_extension } from './index.js';
 
 describe('lsp command', () => {
 	it('reports idle, running, and restarted server state via /lsp', async () => {
@@ -17,11 +17,11 @@ describe('lsp command', () => {
 		const { pi, tools, commands } = create_test_pi();
 		const { ctx, notifications } = create_command_context();
 
-		await create_lsp_extension({
+		await register_test_lsp_extension(pi, {
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		await commands.get('lsp').handler('', ctx);
 		expect(notifications.pop()?.message).toContain(
@@ -57,11 +57,11 @@ describe('lsp command', () => {
 			undefined,
 		]);
 
-		await create_lsp_extension({
+		await register_test_lsp_extension(pi, {
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		await tools.get('lsp_hover').execute('1', {
 			file: 'src/file.ts',
@@ -93,11 +93,11 @@ describe('lsp command', () => {
 		const { pi, tools, commands } = create_test_pi();
 		const { ctx, notifications } = create_command_context();
 
-		await create_lsp_extension({
+		await register_test_lsp_extension(pi, {
 			create_client,
 			read_file: async () => 'export const value = 1;\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const first_hover = tools.get('lsp_hover').execute(
 			'1',

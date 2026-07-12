@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	create_mock_client,
-	create_test_pi,
+	create_test_lsp_extension,
 } from '../test/support.js';
-import { create_lsp_extension } from './index.js';
 
 describe('lsp symbol tools', () => {
 	it('finds symbols by query within a file', async () => {
@@ -51,13 +50,11 @@ describe('lsp symbol tools', () => {
 				},
 			]),
 		});
-		const { pi, tools } = create_test_pi();
-
-		await create_lsp_extension({
+		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export class Widget {}\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const result = await tools.get('lsp_find_symbol').execute('1', {
 			file: 'src/file.ts',
@@ -122,13 +119,11 @@ describe('lsp symbol tools', () => {
 				},
 			]),
 		});
-		const { pi, tools } = create_test_pi();
-
-		await create_lsp_extension({
+		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export class Widget {}\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const top_level = await tools
 			.get('lsp_find_symbol')
@@ -192,13 +187,11 @@ describe('lsp symbol tools', () => {
 				},
 			]),
 		});
-		const { pi, tools } = create_test_pi();
-
-		await create_lsp_extension({
+		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export class Widget {}\n',
 			cwd: () => '/repo',
-		})(pi);
+		});
 
 		const result = await tools
 			.get('lsp_document_symbols')
