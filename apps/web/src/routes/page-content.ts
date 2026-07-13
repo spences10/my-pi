@@ -184,11 +184,11 @@ export const faq_lines = [
 	],
 	[
 		'Can I use the packages without my-pi?',
-		'Yes. The user-installable @spences10/pi-* extensions are normal Pi packages. Install only the extensions you want with pi install npm:@spences10/pi-<name>.',
+		'Yes. The user-installable @spences10/pi-* extensions can be installed independently. For example: pi install npm:@spences10/pi-lsp.',
 	],
 	[
 		'Are all published packages direct installs?',
-		'No. Packages such as pi-settings, pi-project-trust, pi-sqlite-core, and pi-tui-modal are shared implementation dependencies. The package browser separates them from direct-install extensions.',
+		'No. Packages such as pi-settings, pi-project-trust, pi-sqlite-core, and pi-tui-modal are shared implementation dependencies. The installable package list separates them from direct-install extensions.',
 	],
 	[
 		'Where is the configuration reference?',

@@ -53,10 +53,8 @@ export function guard(event: RequestEvent) {
 			delay: 300,
 		},
 		{
-			role: 'bash',
-			command: 'pi lsp diagnostics src/lib/server/guard.ts',
-			output: '0 errors · 0 warnings · 4 symbols',
-			exit_code: 0,
+			role: 'assistant',
+			text: 'lsp_diagnostics(src/lib/server/guard.ts) → 0 errors · 0 warnings · 4 symbols',
 			delay: 250,
 		},
 		{
@@ -146,7 +144,7 @@ export function guard(event: RequestEvent) {
 				<div class="manual-copy">
 					<p class="comment">// a curated Pi distribution</p>
 					<h1 id="intro-heading">
-						Pi, with the tools already connected.
+						Run Pi with project tools already connected.
 					</h1>
 					<p class="lede">
 						my-pi is a ready-to-run coding-agent CLI with the tools
@@ -162,10 +160,10 @@ export function guard(event: RequestEvent) {
 
 					<nav class="source-links" aria-label="Project links">
 						<a href="https://github.com/spences10/my-pi">
-							<GithubLogoIcon aria-hidden="true" /> view source
+							<GithubLogoIcon aria-hidden="true" /> View source on GitHub
 						</a>
 						<a href="https://www.npmjs.com/package/my-pi">
-							<PackageIcon aria-hidden="true" /> npm
+							<PackageIcon aria-hidden="true" /> View my-pi on npm
 						</a>
 					</nav>
 				</div>
@@ -217,7 +215,7 @@ export function guard(event: RequestEvent) {
 
 			<div class="terminal-frame">
 				<p class="terminal-caption">
-					<TerminalWindowIcon aria-hidden="true" /> live session playback
+					<TerminalWindowIcon aria-hidden="true" /> scripted example session
 				</p>
 				<MyPiTerminal
 					conversation={demo_conversation}
@@ -232,7 +230,7 @@ export function guard(event: RequestEvent) {
 				<div>
 					<span class="prompt" aria-hidden="true">&gt;</span>
 					<h2 id="stack-heading">
-						session-history / recurring patterns
+						How my-pi supports recurring development work
 					</h2>
 				</div>
 				<p>
@@ -291,7 +289,7 @@ export function guard(event: RequestEvent) {
 							>pi install npm:@spences10/pi-lsp</code
 						>
 					</div>
-					<a href="#packages">open the package browser ↓</a>
+					<a href="#packages">View all 18 installable packages ↓</a>
 				</div>
 			</div>
 		</section>
@@ -312,7 +310,9 @@ export function guard(event: RequestEvent) {
 			<div class="browser-intro">
 				<div>
 					<p class="comment">// reusable @spences10/pi-* packages</p>
-					<h2 id="packages-heading">Build your own Pi setup.</h2>
+					<h2 id="packages-heading">
+						Install selected extensions into your Pi setup.
+					</h2>
 				</div>
 				<p>
 					Every row opens its package README—the source of truth for
@@ -366,7 +366,9 @@ export function guard(event: RequestEvent) {
 				<p class="prompt-line">
 					<span aria-hidden="true">$</span> my-pi --help
 				</p>
-				<h2 id="help-heading">Before you run it.</h2>
+				<h2 id="help-heading">
+					Installation and compatibility questions
+				</h2>
 			</header>
 			<div class="help-output">
 				{#each faq_lines as [question, answer] (question)}
@@ -394,7 +396,7 @@ export function guard(event: RequestEvent) {
 					>
 				</div>
 				<a href="https://github.com/spences10/my-pi">
-					<GithubLogoIcon aria-hidden="true" /> read the source
+					<GithubLogoIcon aria-hidden="true" /> Open the GitHub repository
 				</a>
 			</div>
 		</section>
@@ -404,9 +406,9 @@ export function guard(event: RequestEvent) {
 <footer class="page-footer">
 	<p><span>my-pi</span> / curated Pi coding-agent distribution</p>
 	<nav aria-label="Footer">
-		<a href="https://github.com/spences10/my-pi">GitHub</a>
-		<a href="https://www.npmjs.com/package/my-pi">npm</a>
-		<a href="#packages">packages</a>
+		<a href="https://github.com/spences10/my-pi">GitHub repository</a>
+		<a href="https://www.npmjs.com/package/my-pi">my-pi on npm</a>
+		<a href="#packages">Installable packages</a>
 	</nav>
 </footer>
 
