@@ -12,9 +12,10 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Type } from 'typebox';
-import { dispatch_task } from './dispatch.js';
+import { dispatch_task, route_fingerprint } from './dispatch.js';
 import {
 	add_evidence,
+	amend_contract,
 	complete_node,
 	create_factory_state,
 	create_review_packet,
@@ -29,7 +30,35 @@ import {
 	resume_state,
 	start_node,
 } from './engine.js';
+import {
+	create_rpc_execution_adapter,
+	ExecutionController,
+	ExecutionRegistry,
+	peer_execution_adapter,
+	WorkflowOperator,
+} from './execution.js';
+import type {
+	ExternalRoutePreview,
+	GithubWorkItem,
+	IncidentWorkItem,
+	IntakePreview,
+} from './intake.js';
+import {
+	external_workflow_id,
+	github_intake_adapter,
+	incident_intake_adapter,
+	IntakeLedger,
+	IntakeLifecycleController,
+	preview_external_route,
+} from './intake.js';
 import { derive_factory_metrics } from './metrics.js';
+import type { RepositoryPolicyDraft } from './policy-authoring.js';
+import {
+	activate_policy_draft,
+	discover_with_existing_policy,
+	reject_policy_draft,
+	validate_policy_draft,
+} from './policy-authoring.js';
 import {
 	DEFAULT_REPOSITORY_POLICY,
 	load_repository_policy,
@@ -38,6 +67,7 @@ import { run_validation_node } from './runner.js';
 import type {
 	ApprovalAction,
 	RepositoryPolicy,
+	ResolvedRoute,
 	ReviewerFinding,
 	TaskIntake,
 	WorkflowKind,
@@ -48,7 +78,15 @@ const literals = <T extends readonly string[]>(values: T) =>
 const action_schema = literals([
 	'preview',
 	'create',
+	'policy-discover',
+	'policy-validate',
+	'policy-reject',
+	'policy-activate',
+	'intake-preview',
+	'intake-reconcile',
+	'intake-apply',
 	'status',
+	'operate',
 	'start-node',
 	'complete-node',
 	'run-validation',
@@ -183,6 +221,18 @@ const params_schema = Type.Object({
 	evidence_ids: Type.Optional(
 		Type.Array(Type.String(), { maxItems: 100 }),
 	),
+	policy_json: Type.Optional(Type.String({ maxLength: 1_048_576 })),
+	intake_kind: Type.Optional(
+		literals(['github', 'incident'] as const),
+	),
+	intake_json: Type.Optional(Type.String({ maxLength: 1_048_576 })),
+	known_projects_json: Type.Optional(
+		Type.String({ maxLength: 65_536 }),
+	),
+	intake_preview_json: Type.Optional(
+		Type.String({ maxLength: 1_048_576 }),
+	),
+	execution_mode: Type.Optional(literals(['rpc', 'peer'] as const)),
 });
 const text = (value: unknown) => ({
 	content: [
@@ -234,6 +284,105 @@ function required<T extends string>(
 ): T {
 	if (!value) throw new Error(`${name} is required`);
 	return value;
+}
+function parse_object(
+	value: string | undefined,
+	name: string,
+): Record<string, unknown> {
+	const parsed: unknown = JSON.parse(required(value, name));
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+		throw new Error(`${name} must contain an object`);
+	return parsed as Record<string, unknown>;
+}
+function external_intake_from_params(
+	params: {
+		intake_kind?: 'github' | 'incident';
+		intake_json?: string;
+		known_projects_json?: string;
+	},
+	cwd: string,
+) {
+	const input = parse_object(params.intake_json, 'intake_json');
+	const projects = parse_object(
+		params.known_projects_json,
+		'known_projects_json',
+	);
+	const known_projects = Object.fromEntries(
+		Object.entries(projects).filter(
+			(entry): entry is [string, string] =>
+				typeof entry[1] === 'string',
+		),
+	);
+	const context = { cwd, known_projects };
+	if (params.intake_kind === 'github')
+		return github_intake_adapter.adapt(
+			input as unknown as GithubWorkItem,
+			context,
+		);
+	if (params.intake_kind === 'incident')
+		return incident_intake_adapter.adapt(
+			input as unknown as IncidentWorkItem,
+			context,
+		);
+	throw new Error('intake_kind is required');
+}
+function intake_human_overrides(params: {
+	task?: string;
+	affected_paths?: string[];
+	requested_side_effects?: ApprovalAction[];
+	urgency?: TaskIntake['urgency'];
+	hints?: TaskIntake['hints'];
+}): Partial<TaskIntake> {
+	return {
+		...(params.task ? { task: params.task } : {}),
+		...(params.affected_paths
+			? { affected_paths: params.affected_paths }
+			: {}),
+		...(params.requested_side_effects
+			? { requested_side_effects: params.requested_side_effects }
+			: {}),
+		...(params.urgency ? { urgency: params.urgency } : {}),
+		...(params.hints ? { hints: params.hints } : {}),
+	};
+}
+function parse_intake_preview(
+	value: string | undefined,
+): IntakePreview {
+	const parsed = parse_object(value, 'intake_preview_json');
+	const candidate =
+		parsed.preview &&
+		typeof parsed.preview === 'object' &&
+		!Array.isArray(parsed.preview)
+			? parsed.preview
+			: parsed;
+	return candidate as unknown as IntakePreview;
+}
+function parse_external_route_preview(
+	value: string | undefined,
+): ExternalRoutePreview {
+	const parsed = parse_object(value, 'intake_preview_json');
+	if (
+		!parsed.preview ||
+		typeof parsed.preview !== 'object' ||
+		Array.isArray(parsed.preview) ||
+		!parsed.route ||
+		typeof parsed.route !== 'object' ||
+		Array.isArray(parsed.route)
+	)
+		throw new Error(
+			'intake_preview_json must contain the reviewed intake preview and explained route',
+		);
+	return parsed as unknown as ExternalRoutePreview;
+}
+function parse_policy_draft(
+	value: string | undefined,
+): RepositoryPolicyDraft {
+	const parsed: unknown = JSON.parse(required(value, 'policy_json'));
+	if (!parsed || typeof parsed !== 'object')
+		throw new Error('policy_json must contain a policy draft object');
+	const draft = parsed as RepositoryPolicyDraft;
+	validate_policy_draft(draft);
+	return draft;
 }
 function parse_findings(
 	value: string | undefined,
@@ -300,9 +449,89 @@ async function policy_for(
 		: load_repository_policy(path);
 }
 export default async function factory(pi: ExtensionAPI) {
-	const store = new FactoryStateStore(
-		process.env.MY_PI_FACTORY_DIR ?? default_factory_directory(),
+	const directory =
+		process.env.MY_PI_FACTORY_DIR ?? default_factory_directory();
+	const store = new FactoryStateStore(directory);
+	const execution_controller = new ExecutionController(
+		new ExecutionRegistry(
+			join(directory, 'executions', 'registry.json'),
+		),
 	);
+	let rpc_adapter:
+		| ReturnType<typeof create_rpc_execution_adapter>
+		| undefined;
+	function owned_rpc_adapter() {
+		if (rpc_adapter) return rpc_adapter;
+		const configured_command = process.env.MY_PI_FACTORY_RPC_COMMAND;
+		const configured_args = process.env.MY_PI_FACTORY_RPC_ARGS;
+		const command = configured_command ?? process.execPath;
+		const args = configured_args
+			? (JSON.parse(configured_args) as unknown)
+			: [
+					required(process.argv[1], 'Pi CLI entrypoint'),
+					'--mode',
+					'rpc',
+					'--no-session',
+					'--no-approve',
+				];
+		if (
+			!Array.isArray(args) ||
+			args.some((item) => typeof item !== 'string')
+		)
+			throw new Error(
+				'MY_PI_FACTORY_RPC_ARGS must be a JSON string array',
+			);
+		rpc_adapter = create_rpc_execution_adapter({
+			command,
+			args,
+			cwd: process.cwd(),
+		});
+		return rpc_adapter;
+	}
+	function initialize_workflow(
+		route: ResolvedRoute,
+		task: string,
+		owner_session_id: string,
+	) {
+		const path = store.path(route.route_id);
+		if (existsSync(path)) {
+			const state = store.load(route.route_id);
+			return {
+				state,
+				harness_dir: state.harness?.directory,
+			};
+		}
+		const state = create_factory_state(route, owner_session_id);
+		const harness = create_harness_runtime(
+			{
+				task,
+				cwd: route.workspace.cwd,
+				allowed_paths: route.harness.allowed_paths,
+				validation_commands: route.harness.validation_commands,
+				allow_test_changes: route.harness.allow_test_changes,
+				planner_model: route.workflow.compute.planner.model,
+				planner_thinking: route.workflow.compute.planner.thinking,
+				executor_model: route.workflow.compute.executor.model,
+				executor_thinking: route.workflow.compute.executor.thinking,
+				reviewer_model: route.workflow.compute.reviewer.model,
+				reviewer_thinking: route.workflow.compute.reviewer.thinking,
+			},
+			route.workspace.cwd,
+		);
+		state.harness = {
+			id: harness.contract.id,
+			directory: harness.harness_dir,
+			outcome_path: join(harness.harness_dir, 'outcome.json'),
+		};
+		const harness_evidence = add_evidence(state, {
+			kind: 'harness-contract',
+			uri: harness.harness_dir,
+			summary: `Executable harness ${harness.contract.id}`,
+		});
+		state.authoritative.artifact_ids.push(harness_evidence.id);
+		store.claim(state, owner_session_id, route.affected_paths);
+		return { state, harness_dir: harness.harness_dir };
+	}
 	async function deliver_pending_feedback(
 		state: ReturnType<typeof store.load>,
 		own_session_id: string,
@@ -332,7 +561,7 @@ export default async function factory(pi: ExtensionAPI) {
 		name: 'factory',
 		label: 'Software Factory',
 		description:
-			'Preview, create, operate, recover, review, approve, and measure versioned software-factory workflows.',
+			'Preview, create, operate, recover, review, approve, measure workflows, and author repository factory policy.',
 		promptSnippet:
 			'Dispatch and operate governed software-factory workflows',
 		promptGuidelines: [
@@ -342,6 +571,181 @@ export default async function factory(pi: ExtensionAPI) {
 		],
 		parameters: params_schema,
 		async execute(_id, params, _signal, _update, ctx) {
+			if (params.action === 'intake-preview') {
+				const policy = await policy_for(ctx);
+				return text(
+					preview_external_route(
+						external_intake_from_params(params, ctx.cwd),
+						policy,
+						intake_human_overrides(params),
+						params.workflow
+							? {
+									workflow: params.workflow as WorkflowKind,
+									reason: required(params.reason, 'override reason'),
+								}
+							: undefined,
+					),
+				);
+			}
+			if (params.action === 'intake-reconcile') {
+				const ledger = new IntakeLedger(
+					join(directory, 'intake-ledger.json'),
+				);
+				return text(
+					ledger.reconcile(
+						parse_intake_preview(params.intake_preview_json),
+					),
+				);
+			}
+			if (params.action === 'intake-apply') {
+				const reviewed = parse_external_route_preview(
+					params.intake_preview_json,
+				);
+				const policy = await policy_for(ctx);
+				const current = preview_external_route(
+					reviewed.preview.canonical,
+					policy,
+					reviewed.preview.human_overrides,
+					reviewed.route.override,
+				);
+				if (
+					current.preview.preview_token !==
+						reviewed.preview.preview_token ||
+					route_fingerprint(current.route) !==
+						route_fingerprint(reviewed.route)
+				)
+					throw new Error(
+						'External intake route or policy changed after preview; preview it again',
+					);
+				current.route.route_id = external_workflow_id(
+					current.preview.canonical.source,
+				);
+				const owner_session_id = resolve_factory_owner(
+					params.owner_session_id,
+					ctx.sessionManager.getSessionId(),
+				);
+				const ledger = new IntakeLedger(
+					join(directory, 'intake-ledger.json'),
+				);
+				const controller = new IntakeLifecycleController(ledger, {
+					create: (preview) =>
+						initialize_workflow(
+							current.route,
+							preview.resolved.task,
+							owner_session_id,
+						).state.workflow_id,
+					update: (workflow_id, preview) => {
+						const state = store.load(workflow_id);
+						const route = dispatch_task(
+							preview.resolved,
+							policy,
+							reviewed.route.override,
+						);
+						route.route_id = workflow_id;
+						amend_contract(state, route);
+						const harness = create_harness_runtime(
+							{
+								task: preview.resolved.task,
+								cwd: route.workspace.cwd,
+								allowed_paths: route.harness.allowed_paths,
+								validation_commands:
+									route.harness.validation_commands,
+								allow_test_changes: route.harness.allow_test_changes,
+								planner_model: route.workflow.compute.planner.model,
+								planner_thinking:
+									route.workflow.compute.planner.thinking,
+								executor_model: route.workflow.compute.executor.model,
+								executor_thinking:
+									route.workflow.compute.executor.thinking,
+								reviewer_model: route.workflow.compute.reviewer.model,
+								reviewer_thinking:
+									route.workflow.compute.reviewer.thinking,
+							},
+							route.workspace.cwd,
+						);
+						state.harness = {
+							id: harness.contract.id,
+							directory: harness.harness_dir,
+							outcome_path: join(harness.harness_dir, 'outcome.json'),
+						};
+						add_evidence(state, {
+							kind: 'harness-contract',
+							uri: harness.harness_dir,
+							summary: `Executable amended harness ${harness.contract.id}`,
+						});
+						for (const claim of state.claims)
+							claim.status = 'released';
+						store.claim(
+							state,
+							owner_session_id,
+							route.affected_paths,
+						);
+					},
+					pause: (workflow_id) => {
+						const state = store.load(workflow_id);
+						state.status = 'paused';
+						store.save(state);
+					},
+					cancel: (workflow_id) => {
+						const state = store.load(workflow_id);
+						state.status = 'cancelled';
+						for (const claim of state.claims)
+							claim.status = 'released';
+						store.save(state);
+					},
+					resume: (workflow_id) => {
+						const state = store.load(workflow_id);
+						resume_state(state, owner_session_id);
+						store.save(state);
+					},
+				});
+				const result = controller.process(current.preview);
+				return text({
+					result,
+					state: result.entry.workflow_id
+						? store.load(result.entry.workflow_id)
+						: undefined,
+				});
+			}
+			if (params.action === 'policy-discover')
+				return text(discover_with_existing_policy(ctx.cwd));
+			if (params.action === 'policy-validate') {
+				const draft = parse_policy_draft(params.policy_json);
+				return text({ valid: true, draft });
+			}
+			if (params.action === 'policy-reject') {
+				const draft = parse_policy_draft(params.policy_json);
+				return text(
+					reject_policy_draft(
+						draft,
+						required(params.reason, 'reason'),
+					),
+				);
+			}
+			if (params.action === 'policy-activate') {
+				if (!ctx.hasUI)
+					throw new Error(
+						'Headless factory tools cannot activate generated repository policy; use the programmatic API after authenticated human confirmation',
+					);
+				const draft = parse_policy_draft(params.policy_json);
+				const confirmed = await ctx.ui.confirm(
+					'Activate generated factory policy?',
+					`Write reviewed policy ${draft.policy.policy_id} to ${draft.activation.target}? This does not grant deployment or destructive permission.`,
+				);
+				if (!confirmed)
+					return text({ activated: false, draft_id: draft.draft_id });
+				return text({
+					activated: true,
+					path: activate_policy_draft(draft, {
+						trusted_root: ctx.cwd,
+						authorization: {
+							kind: 'extension-ui-confirmation',
+							actor: ctx.sessionManager.getSessionId(),
+						},
+					}),
+					draft_id: draft.draft_id,
+				});
+			}
 			const policy = await policy_for(ctx);
 			if (params.action === 'preview' || params.action === 'create') {
 				const route = dispatch_task(
@@ -366,38 +770,9 @@ export default async function factory(pi: ExtensionAPI) {
 					params.owner_session_id,
 					ctx.sessionManager.getSessionId(),
 				);
-				const state = create_factory_state(route, owner_session_id);
-				const harness = create_harness_runtime(
-					{
-						task: params.task!,
-						cwd: ctx.cwd,
-						allowed_paths: route.harness.allowed_paths,
-						validation_commands: route.harness.validation_commands,
-						allow_test_changes: route.harness.allow_test_changes,
-						planner_model: route.workflow.compute.planner.model,
-						planner_thinking: route.workflow.compute.planner.thinking,
-						executor_model: route.workflow.compute.executor.model,
-						executor_thinking:
-							route.workflow.compute.executor.thinking,
-						reviewer_model: route.workflow.compute.reviewer.model,
-						reviewer_thinking:
-							route.workflow.compute.reviewer.thinking,
-					},
-					ctx.cwd,
+				return text(
+					initialize_workflow(route, params.task!, owner_session_id),
 				);
-				state.harness = {
-					id: harness.contract.id,
-					directory: harness.harness_dir,
-					outcome_path: join(harness.harness_dir, 'outcome.json'),
-				};
-				const harness_evidence = add_evidence(state, {
-					kind: 'harness-contract',
-					uri: harness.harness_dir,
-					summary: `Executable harness ${harness.contract.id}`,
-				});
-				state.authoritative.artifact_ids.push(harness_evidence.id);
-				store.claim(state, owner_session_id, route.affected_paths);
-				return text({ state, harness_dir: harness.harness_dir });
 			}
 			if (params.action === 'metrics')
 				return text(derive_factory_metrics(store.list()));
@@ -417,6 +792,47 @@ export default async function factory(pi: ExtensionAPI) {
 			switch (params.action) {
 				case 'status':
 					return text(state);
+				case 'operate': {
+					const adapter =
+						params.execution_mode === 'peer'
+							? peer_execution_adapter
+							: owned_rpc_adapter();
+					const operator = new WorkflowOperator(
+						execution_controller,
+						{
+							plan: adapter,
+							execute: adapter,
+							review: adapter,
+						},
+						(current) => store.save(current),
+					);
+					const records = await operator.progress(state, {
+						owner_session_id: resolve_factory_owner(
+							params.owner_session_id,
+							ctx.sessionManager.getSessionId(),
+						),
+						task: params.task ?? state.route.workflow.description,
+						cwd: state.route.workspace.cwd,
+						...(params.acceptance_criteria?.length &&
+						params.changed_files?.length &&
+						params.diff !== undefined
+							? {
+									review: {
+										acceptance_criteria: params.acceptance_criteria,
+										changed_files: params.changed_files,
+										constraints: params.constraints ?? [],
+										diff: params.diff,
+									},
+								}
+							: {}),
+					});
+					await deliver_pending_feedback(
+						state,
+						ctx.sessionManager.getSessionId(),
+					);
+					store.save(state);
+					return text({ state, executions: records });
+				}
 				case 'start-node':
 					start_node(
 						state,

@@ -12,19 +12,24 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
    review mode, ownership, and approvals.
 2. Accept an explicit override only with a reason. Overrides cannot
    lower runtime safety.
-3. Create once with `factory action=create`; this atomically claims
-   paths and creates the real harness. Do not create a second harness.
-4. Operate nodes in dependency order. Record tool-gate evidence, then
-   use `run-validation`; never complete validation generically.
-5. Let validation and reviewer failures use the integrated outbox. Use
+3. For external work, use `intake-preview` with a trusted project
+   mapping and explicit overrides, inspect the explained route, then
+   use `intake-apply` to bind lifecycle updates to one workflow.
+4. Create direct work once with `factory action=create`; this
+   atomically claims paths and creates the real harness. Do not create
+   a second harness.
+5. Use `factory action=operate` for eligible owned RPC work,
+   validation, and structured review. It must stop at human approval.
+   Use `execution_mode=peer` only as an explicit operator handoff.
+6. Let validation and reviewer failures use the integrated outbox. Use
    `flush-feedback` only to retry failed delivery; retries remain
    bounded by node policy.
-6. Create review packets only after deterministic validation.
+7. Create review packets only after deterministic validation.
    Reviewers record an initial opinion before executor narrative is
    revealed.
-7. Never infer human approval. Record the actor, action, scope,
+8. Never infer human approval. Record the actor, action, scope,
    decision, and evidence.
-8. On interruption, inspect persisted state and resume valid nodes; do
+9. On interruption, inspect persisted state and resume valid nodes; do
    not repeat completed research. Escalate stale owners because Team
    Mode does not supervise sessions.
-9. Finish with `metrics`, validation evidence, and remaining risks.
+10. Finish with `metrics`, validation evidence, and remaining risks.

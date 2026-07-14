@@ -150,8 +150,28 @@ export function dispatch_task(
 	intake: TaskIntake,
 	policy: RepositoryPolicy,
 	override?: RouteOverride,
+	evolution?: {
+		version_id: string;
+		recommendation_id: string;
+		status: 'canary' | 'active';
+		projects: string[];
+		workflow_kinds: string[];
+		patch: Record<string, unknown>;
+	},
 ): ResolvedRoute {
-	const classified = classify_task(intake);
+	let classified: ReturnType<typeof classify_task>;
+	try {
+		classified = classify_task(intake);
+	} catch (error) {
+		if (!override?.workflow) throw error;
+		classified = {
+			workflow: override.workflow,
+			rationale: ['Explicit human workflow override'],
+			assumptions: [
+				`Automatic classification was bypassed: ${error instanceof Error ? error.message : String(error)}`,
+			],
+		};
+	}
 	const workflow_kind = override?.workflow ?? classified.workflow;
 	const workflow = resolve_workflow_policy(workflow_kind, policy);
 	const risk_order = ['low', 'medium', 'high', 'critical'] as const;
@@ -243,6 +263,45 @@ export function dispatch_task(
 		!workflow.approvals.includes('public-contract')
 	)
 		workflow.approvals.push('public-contract');
+	let applied_evolution = false;
+	if (
+		evolution &&
+		(!evolution.projects.length ||
+			evolution.projects.includes(workspace_cwd)) &&
+		(!evolution.workflow_kinds.length ||
+			evolution.workflow_kinds.includes(workflow.id))
+	) {
+		for (const [field, value] of Object.entries(evolution.patch)) {
+			if (typeof value !== 'number' || !Number.isInteger(value))
+				throw new Error(
+					`Evolution field ${field} must be an integer`,
+				);
+			const minimum = field === 'retry_limit' ? 0 : 1;
+			if (value < minimum)
+				throw new Error(
+					`Evolution field ${field} is outside safe bounds`,
+				);
+			const numeric = value;
+			if (field === 'stall_timeout_ms')
+				workflow.stall_timeout_ms = Math.min(
+					workflow.stall_timeout_ms,
+					numeric,
+				);
+			else if (field === 'max_parallelism')
+				workflow.compute.parallelism = Math.min(
+					workflow.compute.parallelism,
+					numeric,
+				);
+			else if (field === 'retry_limit')
+				for (const node of workflow.nodes)
+					node.retry_limit = Math.min(node.retry_limit, numeric);
+			else
+				throw new Error(
+					`Evolution field ${field} is not route-applicable`,
+				);
+		}
+		applied_evolution = true;
+	}
 	const requested = [...new Set(intake.requested_side_effects ?? [])];
 	for (const action of requested)
 		if (!workflow.approvals.includes(action))
@@ -287,6 +346,11 @@ export function dispatch_task(
 		rationale: [
 			...classified.rationale,
 			...(override ? [`Human override: ${override.reason}`] : []),
+			...(applied_evolution
+				? [
+						`Active factory evolution ${evolution!.version_id} from recommendation ${evolution!.recommendation_id}`,
+					]
+				: []),
 		],
 		assumptions: classified.assumptions,
 		affected_paths,
@@ -315,12 +379,23 @@ export function dispatch_task(
 			path_claims: affected_paths,
 			supervision: 'peer-evidence-only',
 		},
-		policy_sources: ['runtime workflow catalog@1', policy.policy_id],
+		policy_sources: [
+			'runtime workflow catalog@1',
+			policy.policy_id,
+			...(applied_evolution
+				? [`factory-evolution:${evolution!.version_id}`]
+				: []),
+		],
 	};
 	return route;
 }
 export function route_fingerprint(route: ResolvedRoute): string {
+	const {
+		route_id: _route_id,
+		created_at: _created_at,
+		...stable_route
+	} = route;
 	return createHash('sha256')
-		.update(JSON.stringify(route))
+		.update(JSON.stringify(stable_route))
 		.digest('hex');
 }

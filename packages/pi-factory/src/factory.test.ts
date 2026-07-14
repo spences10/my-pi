@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { get_workflow } from './catalog.js';
-import { classify_task, dispatch_task } from './dispatch.js';
+import {
+	classify_task,
+	dispatch_task,
+	route_fingerprint,
+} from './dispatch.js';
 import {
 	add_evidence,
 	amend_contract,
@@ -152,6 +156,25 @@ describe('catalog, policy, and dispatch', () => {
 		expect(resolved.coordination.supervision).toBe(
 			'peer-evidence-only',
 		);
+	});
+	it('lets an explicit workflow override rescue ambiguous intake', () => {
+		const resolved = dispatch_task(
+			{ task: 'ponder it', cwd: '/repo' },
+			policy,
+			{ workflow: 'architecture', reason: 'Human review decision' },
+		);
+		expect(resolved.workflow.id).toBe('architecture');
+		expect(resolved.assumptions).toContainEqual(
+			expect.stringContaining(
+				'Automatic classification was bypassed',
+			),
+		);
+	});
+	it('uses a reproducible route fingerprint independent of route identity', () => {
+		const first = route('Implement stable feature');
+		const second = route('Implement stable feature');
+		expect(first.route_id).not.toBe(second.route_id);
+		expect(route_fingerprint(first)).toBe(route_fingerprint(second));
 	});
 	it('keeps extension intake and API routing equivalent, including approvals', () => {
 		const input = {
@@ -495,6 +518,41 @@ describe('integrated execution, feedback, review, and approval', () => {
 		expect(fail_node(state, packet)).toBe('retry');
 		expect(state.feedback[0]?.source).toBe('reviewer');
 	});
+	it('does not reopen execution after an escalated review verdict', () => {
+		const state = create_factory_state(route(), 'lead');
+		pass(state, 'plan');
+		pass(state, 'execute');
+		pass(state, 'validate');
+		start_node(state, 'review', 'reviewer');
+		const packet = create_review_packet(
+			state,
+			['criterion'],
+			['file.ts'],
+			[],
+			'diff',
+		);
+		record_initial_review(
+			state,
+			packet.id,
+			'escalate',
+			[
+				{
+					severity: 'critical',
+					disposition: 'must-fix',
+					code: 'review.unsafe',
+					message: 'Unsafe contract conflict',
+					evidence_ids: [],
+					required_action: 'Require human resolution',
+				},
+			],
+			'diff',
+		);
+		expect(state.status).toBe('escalated');
+		expect(
+			state.nodes.find((node) => node.id === 'execute')?.status,
+		).toBe('succeeded');
+		expect(() => start_node(state, 'execute', 'executor')).toThrow();
+	});
 	it('escalates exhausted, contradictory, unsafe, and ownerless failures', () => {
 		for (const options of [
 			{ contradictory: true },
@@ -689,8 +747,9 @@ describe('integrated execution, feedback, review, and approval', () => {
 			state.nodes.find((node) => node.id === 'approval')?.status,
 		).toBe('ready');
 	});
-	it('records refusal without inferring approval', () => {
+	it('records refusal without inferring approval and releases ownership', () => {
 		const state = create_factory_state(route());
+		claim_paths(state, 'owner', state.route.affected_paths);
 		record_approval(state, {
 			action: 'public-contract',
 			actor: 'Scott',
@@ -700,6 +759,9 @@ describe('integrated execution, feedback, review, and approval', () => {
 			authentication: 'embedding-application',
 		});
 		expect(state.status).toBe('cancelled');
+		expect(
+			state.claims.every((claim) => claim.status === 'released'),
+		).toBe(true);
 	});
 });
 
@@ -890,6 +952,7 @@ describe('ownership, interruption, resume, and metrics', () => {
 		expect(
 			state.nodes.find((node) => node.id === 'execute')?.status,
 		).toBe('ready');
+		resume_state(state, 'executor');
 		pass(state, 'execute');
 		expect(
 			state.nodes.find((node) => node.id === 'validate')?.status,
@@ -903,16 +966,34 @@ describe('ownership, interruption, resume, and metrics', () => {
 	it('fails closed on unsupported or malformed persisted state', () => {
 		const directory = mkdtempSync(join(tmpdir(), 'factory-schema-'));
 		const store = new FactoryStateStore(directory);
+		const future = '00000000-0000-4000-8000-000000000001';
+		const invalid = '00000000-0000-4000-8000-000000000002';
 		writeFileSync(
-			store.path('future'),
+			store.path(future),
 			JSON.stringify({ schema_version: 2 }),
 		);
-		expect(() => store.load('future')).toThrow('Unsupported');
+		expect(() => store.load(future)).toThrow('Unsupported');
 		writeFileSync(
-			store.path('invalid'),
+			store.path(invalid),
 			JSON.stringify({ schema_version: 1, revision: 1, nodes: [] }),
 		);
-		expect(() => store.load('invalid')).toThrow('Invalid');
+		expect(() => store.load(invalid)).toThrow('Invalid');
+		expect(() => store.path('../../outside')).toThrow('UUID');
+	});
+	it('ignores auxiliary JSON files in the workflow state directory', () => {
+		const directory = mkdtempSync(
+			join(tmpdir(), 'factory-auxiliary-'),
+		);
+		const store = new FactoryStateStore(directory);
+		const state = create_factory_state(route());
+		store.save(state);
+		writeFileSync(
+			join(directory, 'intake-ledger.json'),
+			JSON.stringify({ schema_version: 1, entries: {} }),
+		);
+		expect(store.list().map((item) => item.workflow_id)).toEqual([
+			state.workflow_id,
+		]);
 	});
 	it('rejects malformed nested persisted authority', () => {
 		const store = new FactoryStateStore(

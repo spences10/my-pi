@@ -47,6 +47,12 @@ function acquire_lock(path: string): number {
 }
 const overlap = (a: string, b: string) =>
 	a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+const workflow_id_pattern =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function assert_workflow_id(id: string): void {
+	if (!workflow_id_pattern.test(id))
+		throw new Error('Factory workflow id must be a UUID');
+}
 function event(
 	state: FactoryState,
 	type: string,
@@ -202,6 +208,10 @@ export function start_node(
 	const node = state.nodes.find((item) => item.id === node_id);
 	if (!node || node.status !== 'ready')
 		throw new Error(`Node ${node_id} is not ready`);
+	if (state.status !== 'created' && state.status !== 'running')
+		throw new Error(
+			`Workflow ${state.workflow_id} cannot start a node while ${state.status}`,
+		);
 	node.status = 'running';
 	node.owner_session_id = owner_session_id;
 	node.attempts += 1;
@@ -529,7 +539,8 @@ export function record_initial_review(
 						},
 					],
 	});
-	fail_node(state, packet);
+	const disposition = fail_node(state, packet);
+	if (disposition === 'escalate') return packet;
 	const execute_node = state.nodes.find(
 		(node) => node.kind === 'execute',
 	);
@@ -587,6 +598,8 @@ export function record_approval(
 	if (decision.decision !== 'approved') {
 		state.status =
 			decision.decision === 'refused' ? 'cancelled' : 'blocked';
+		if (decision.decision === 'refused')
+			for (const claim of state.claims) claim.status = 'released';
 		event(state, 'approval.denied', {
 			action: decision.action,
 			decision: decision.decision,
@@ -820,6 +833,7 @@ export class FactoryStateStore {
 		mkdirSync(directory, { recursive: true });
 	}
 	path(id: string) {
+		assert_workflow_id(id);
 		return join(this.directory, `${id}.json`);
 	}
 	save(state: FactoryState): void {
@@ -868,7 +882,11 @@ export class FactoryStateStore {
 	list(): FactoryState[] {
 		if (!existsSync(this.directory)) return [];
 		return readdirSync(this.directory)
-			.filter((name) => name.endsWith('.json'))
+			.filter(
+				(name) =>
+					name.endsWith('.json') &&
+					workflow_id_pattern.test(name.slice(0, -5)),
+			)
 			.map((name) => this.load(name.slice(0, -5)));
 	}
 	claim(

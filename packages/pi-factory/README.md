@@ -62,6 +62,101 @@ runtime approvals, raise retry budgets, or grant permission. Set
 `MY_PI_FACTORY_PROJECT_POLICY=allow|trust|skip` for explicit headless
 behavior.
 
+### Discover and author repository policy
+
+Use `factory action=policy-discover` to inspect repository files as
+untrusted data and return a reviewable draft. Discovery reads package
+scripts/workspaces, CI workflows, database and migration paths,
+CODEOWNERS, release/deployment scripts, agent instructions, and
+existing harness evidence; it never executes discovered commands. Each
+inference includes source evidence and confidence, while conflicts and
+schema gaps become focused review questions.
+
+Edit the returned draft, then use `factory action=policy-validate`
+with `policy_json` before `factory action=policy-activate`, or record
+an explicit refusal with `factory action=policy-reject`. Activation
+always requires a native human confirmation and atomically writes only
+`.pi/factory.json`; headless callers must use the exported
+`activate_policy_draft` API with a trusted repository root and
+authenticated actor. Activation uses the draft's base-policy hash to
+reject stale overwrites. Discovery never infers permission to deploy
+or perform destructive work—those surfaces become approval
+requirements. Only token-safe package commands and exact allowlisted
+CI validations become executable gates; other shell content becomes a
+review question. Discovery detects pnpm, npm, Yarn, and Bun commands
+and reads safe single-line or multiline CI validations. Activation
+rejects symlinked policy paths, uses exclusive unpredictable temporary
+files, and rechecks the base hash immediately before rename.
+Regeneration preserves reviewed rules, adds newly discovered
+strengthening evidence, and reports drift. Programmatic consumers may
+use `discover_repository_policy`, `discover_with_existing_policy`,
+`validate_policy_draft`, `reject_policy_draft`, and
+`activate_policy_draft`.
+
+## External intake
+
+The programmatic `github_intake_adapter` and `incident_intake_adapter`
+convert external work into provenance-rich, untrusted canonical
+intake. The factory tool exposes `intake-preview`, which returns both
+the reviewed canonical intake and its explained route; existing task,
+workflow, path, urgency, and side-effect parameters act as explicit
+human overrides. `intake-reconcile` records intake without starting
+work, while `intake-apply` creates, updates, pauses, cancels, or
+resumes the one deterministically bound workflow. All three require a
+trusted `known_projects_json` mapping. Facts, confidence-scored
+derivations, human overrides, attachments, and lifecycle remain
+separate. The mode-0600 `IntakeLedger` uses a canonical untampered
+preview token, serializes writers, deduplicates delivery ids, rejects
+stale updates, and retains pending lifecycle actions for retry after
+transient callback failure. Project mappings cannot escape the
+configured workspace; unauthenticated metadata remains review evidence
+rather than routing authority.
+
+## Execution adapters
+
+`ExecutionController` persists an idempotent execution intent before
+calling a versioned adapter and rejects stale contract/attempt
+callbacks. `create_sdk_execution_adapter` and
+`create_rpc_execution_adapter` represent owned execution surfaces. The
+RPC adapter speaks Pi's strict JSONL prompt/event protocol and waits
+for `agent_settled`; `peer_execution_adapter` is explicitly
+mailbox/operator-only and never claims process supervision.
+`WorkflowOperator` progresses planner and executor work, runs
+factory-authoritative validation, creates the independent review
+packet, and accepts only a structured reviewer verdict bound to that
+packet and its exact diff. It stops at human approval. The `operate`
+tool action uses an owned RPC process by default
+(`execution_mode=peer` records an operator handoff); command/argument
+overrides are available through `MY_PI_FACTORY_RPC_COMMAND` and
+`MY_PI_FACTORY_RPC_ARGS`. One mutating claim remains authoritative,
+while read-only research may run without becoming a mutating owner.
+
+## Calibration and controlled evolution
+
+Versioned `CalibrationCase` and `ObservedOutcome` records pin
+workflow, policy, route, compute, gates, project revision, and cohort
+identity, including repository revision/shape, risk, parallelism,
+retry, timeout, and optional evolution version.
+`derive_calibration_report` labels only from explicit evidence and
+blocks comparison when cohorts, metrics, incomplete runs, or sample
+sizes are incompatible.
+
+Recommendations consume a pinned calibration report through
+`create_recommendation` and `simulate_recommendation`;
+`recommend_calibration_change` derives a recommendation only when a
+controlled cohort changes exactly one supported bounded field.
+Material changes require an authenticated recorded decision before a
+scoped canary, and the approved payload is hash-bound.
+`PolicyEvolutionStore` requires new post-canary evidence pinned to the
+exact evolution version before promotion. Rolling back an inactive
+canary cannot replace the active version. Canonical workspace paths
+define project canary scope, and every canary/promotion/rollback
+appends a version instead of rewriting history. Active versions are
+supplied to `dispatch_task`, which records their id and rationale in
+resolved routes. Safety fields, approvals, validations, paths, risk,
+and side-effect authority cannot be weakened; optional automatic
+adjustment is limited to explicitly authorised low-risk fields.
+
 ## State, ownership, and recovery
 
 Canonical workflow state is stored as size-limited, redacted mode-0600
@@ -71,13 +166,14 @@ nodes, attempts, owners, path claims, evidence, feedback, review
 packets, version-bound explicit approvals, and correlation events.
 Revision compare-and-swap plus exclusive claim locks prevent lost
 concurrent updates; atomic writes make state resumable after process
-loss. Schema v1 validates nested policy and state at runtime;
-unsupported versions are rejected. No migration registry is claimed
-until a second released schema exists. Completed nodes remain valid
-unless an authoritative contract amendment invalidates downstream
-work. Overlapping active claims are rejected. Stale heartbeats block
-and escalate; they are evidence of missing ownership, not a claim that
-Team Mode can supervise a peer.
+loss. Workflow UUID filenames are validated and auxiliary JSON stores
+are excluded from workflow scans. Schema v1 validates nested policy
+and state at runtime; unsupported versions are rejected. No migration
+registry is claimed until a second released schema exists. Completed
+nodes remain valid unless an authoritative contract amendment
+invalidates downstream work. Overlapping active claims are rejected.
+Stale heartbeats block and escalate; they are evidence of missing
+ownership, not a claim that Team Mode can supervise a peer.
 
 Creation produces a real `pi-harness`; shell gates run through its
 generated `validate.sh`, review packets run its `review.sh`, and
