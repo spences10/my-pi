@@ -7,6 +7,7 @@ import detailed from './defaults/detailed.md';
 import include_risks from './defaults/include-risks.md';
 import karpathy from './defaults/karpathy.md';
 import no_purple_prose from './defaults/no-purple-prose.md';
+import spence from './defaults/spence.md';
 import standard from './defaults/standard.md';
 import terse from './defaults/terse.md';
 
@@ -21,6 +22,7 @@ const DEFAULT_PROMPT_PRESET_FILES = {
 	'clarify-first': clarify_first,
 	'include-risks': include_risks,
 	karpathy,
+	spence,
 } satisfies Record<string, string>;
 
 function parse_default_prompt_preset(content: string): PromptPreset {
