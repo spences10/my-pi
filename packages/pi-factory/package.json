@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-factory",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Reusable software-factory control plane for Pi workflows",
 	"keywords": [
 		"agent",

@@ -1,5 +1,13 @@
 # @spences10/pi-factory
 
+## 0.0.3
+
+### Patch Changes
+
+- e093d58: Make factory configuration paths respect Pi’s rebrandable
+  config directory and global agent directory conventions
+  consistently.
+
 ## 0.0.2
 
 ### Patch Changes
