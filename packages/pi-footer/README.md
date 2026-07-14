@@ -27,8 +27,8 @@ automatically. Compact density renders the first populated status row.
 
 The default layout keeps harness and prompt state on row 1, then
 places MCP/service health on row 2 left and Codex usage on row 2
-right. Per-status choices persist in
-`~/.pi/agent/extensions/pi-footer.json`.
+right. Footer choices persist under the `packages.footer` section in
+`~/.pi/agent/my-pi-settings.json`.
 
 ## Presets
 

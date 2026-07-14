@@ -41,7 +41,10 @@ export function register_footer_command(
 ): void {
 	pi.registerCommand('footer', {
 		description: 'Configure the Pi footer',
-		handler: async (_args, ctx) => configure_footer(ctx, state),
+		handler: async (_args, ctx) => {
+			await configure_footer(ctx, state);
+			save_footer_state(state);
+		},
 	});
 }
 
@@ -54,7 +57,7 @@ async function configure_footer(
 		await show_settings_modal(ctx, {
 			title: 'Footer settings',
 			subtitle:
-				'Changes apply live and persist to ~/.pi/agent/extensions/pi-footer.json.',
+				'Changes apply live and persist to ~/.pi/agent/my-pi-settings.json.',
 			footer:
 				'↑/↓ navigate • ←/→ change • enter/space next • esc close',
 			items: get_footer_settings(state),
