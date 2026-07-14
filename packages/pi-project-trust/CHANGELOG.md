@@ -1,5 +1,12 @@
 # @spences10/pi-project-trust
 
+## 0.0.16
+
+### Patch Changes
+
+- acf4521: Remove unused Pi SDK peer dependency from project trust
+  package and clean stale TypeBox dependency.
+
 ## 0.0.15
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @spences10/pi-harness
 
+## 0.0.5
+
+### Patch Changes
+
+- 9c8e205: Separate immutable harness policy from amendable scaffolds,
+  adding audited versioning, clearer precedence, and safer
+  enforcement.
+
 ## 0.0.4
 
 ### Patch Changes

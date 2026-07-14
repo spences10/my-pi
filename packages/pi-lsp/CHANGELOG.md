@@ -1,5 +1,12 @@
 # @spences10/pi-lsp
 
+## 0.0.38
+
+### Patch Changes
+
+- Updated dependencies [acf4521]
+  - @spences10/pi-project-trust@0.0.16
+
 ## 0.0.37
 
 ### Patch Changes

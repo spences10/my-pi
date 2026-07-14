@@ -1,5 +1,14 @@
 # my-pi
 
+## 0.1.110
+
+### Patch Changes
+
+- 5414cef: Add the Spence prompt preset for critical discussion,
+  autonomous execution, and complete validated outcome delivery.
+- Updated dependencies [acf4521]
+  - @spences10/pi-project-trust@0.0.16
+
 ## 0.1.109
 
 ### Patch Changes
