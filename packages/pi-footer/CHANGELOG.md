@@ -1,5 +1,12 @@
 # @spences10/pi-footer
 
+## 0.0.11
+
+### Patch Changes
+
+- f03c88c: Ensure footer configuration persists through settings when
+  command closes, while isolating tests from user data.
+
 ## 0.0.10
 
 ### Patch Changes

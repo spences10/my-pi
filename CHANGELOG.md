@@ -1,5 +1,13 @@
 # my-pi
 
+## 0.1.111
+
+### Patch Changes
+
+- 251c9a0: Add reusable software-factory workflows with governed
+  routing, validation, feedback, review, recovery, approvals, metrics,
+  and observability.
+
 ## 0.1.110
 
 ### Patch Changes

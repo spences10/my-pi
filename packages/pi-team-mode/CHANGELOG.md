@@ -1,5 +1,13 @@
 # @spences10/pi-team-mode
 
+## 0.0.50
+
+### Patch Changes
+
+- 251c9a0: Add reusable software-factory workflows with governed
+  routing, validation, feedback, review, recovery, approvals, metrics,
+  and observability.
+
 ## 0.0.49
 
 ### Patch Changes
