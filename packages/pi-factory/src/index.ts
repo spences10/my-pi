@@ -96,6 +96,7 @@ export {
 	activate_policy_draft,
 	discover_repository_policy,
 	discover_with_existing_policy,
+	factory_policy_path,
 	reject_policy_draft,
 	validate_policy_draft,
 } from './policy-authoring.js';

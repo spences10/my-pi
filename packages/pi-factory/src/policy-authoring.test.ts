@@ -1,3 +1,4 @@
+import { CONFIG_DIR_NAME } from '@earendil-works/pi-coding-agent';
 import {
 	existsSync,
 	mkdirSync,
@@ -13,6 +14,7 @@ import {
 	activate_policy_draft,
 	discover_repository_policy,
 	discover_with_existing_policy,
+	factory_policy_path,
 	reject_policy_draft,
 	validate_policy_draft,
 } from './policy-authoring.js';
@@ -87,7 +89,7 @@ describe('repository policy authoring', () => {
 		expect(
 			draft.questions.some((item) => item.field === 'ownership'),
 		).toBe(true);
-		expect(existsSync(join(root, '.pi', 'factory.json'))).toBe(false);
+		expect(existsSync(factory_policy_path(root))).toBe(false);
 	});
 
 	it('treats project content as data and turns conflicting CI into a question', () => {
@@ -157,7 +159,11 @@ describe('repository policy authoring', () => {
 	});
 
 	it('handles missing configuration without guessing permissions', () => {
-		const draft = discover_repository_policy(fixture());
+		const root = fixture();
+		expect(factory_policy_path(root)).toBe(
+			join(root, CONFIG_DIR_NAME, 'factory.json'),
+		);
+		const draft = discover_repository_policy(root);
 		expect(draft.policy.required_approvals).toBeUndefined();
 		expect(draft.policy.validations).toBeUndefined();
 		expect(draft.activation.required).toBe(true);
@@ -185,7 +191,11 @@ describe('repository policy authoring', () => {
 			risky_paths: ['secrets/**'],
 			required_approvals: ['public-contract'],
 		};
-		put(root, '.pi/factory.json', JSON.stringify(current));
+		put(
+			root,
+			`${CONFIG_DIR_NAME}/factory.json`,
+			JSON.stringify(current),
+		);
 		const draft = discover_with_existing_policy(root);
 		expect(draft.policy.policy_id).toBe(current.policy_id);
 		expect(draft.policy.validations).toEqual([
@@ -270,7 +280,7 @@ describe('repository policy authoring', () => {
 		const other = fixture();
 		const draft = discover_repository_policy(root);
 		draft.root = other;
-		draft.activation.target = join(other, '.pi', 'factory.json');
+		draft.activation.target = factory_policy_path(other);
 		expect(() =>
 			activate_policy_draft(draft, {
 				trusted_root: root,
@@ -284,7 +294,7 @@ describe('repository policy authoring', () => {
 		const fresh = discover_repository_policy(root);
 		put(
 			root,
-			'.pi/factory.json',
+			`${CONFIG_DIR_NAME}/factory.json`,
 			JSON.stringify({ schema_version: 1, policy_id: 'newer@1' }),
 		);
 		expect(() =>
@@ -301,7 +311,7 @@ describe('repository policy authoring', () => {
 	it('rejects a symlinked policy directory that escapes the trusted root', () => {
 		const root = fixture();
 		const outside = fixture();
-		symlinkSync(outside, join(root, '.pi'));
+		symlinkSync(outside, join(root, CONFIG_DIR_NAME));
 		const draft = discover_repository_policy(root);
 		expect(() =>
 			activate_policy_draft(draft, {
@@ -326,7 +336,7 @@ describe('repository policy authoring', () => {
 				decision: 'rejected',
 			}),
 		);
-		expect(existsSync(join(root, '.pi', 'factory.json'))).toBe(false);
+		expect(existsSync(factory_policy_path(root))).toBe(false);
 		expect(() => reject_policy_draft(draft, ' ')).toThrow('reason');
 	});
 

@@ -1,3 +1,4 @@
+import { CONFIG_DIR_NAME } from '@earendil-works/pi-coding-agent';
 import { createHash, randomUUID } from 'node:crypto';
 import {
 	closeSync,
@@ -180,8 +181,11 @@ function stable(value: unknown): string {
 function hash(value: string): string {
 	return createHash('sha256').update(value).digest('hex');
 }
+export function factory_policy_path(root: string): string {
+	return join(resolve(root), CONFIG_DIR_NAME, 'factory.json');
+}
 function policy_content(root: string): string | undefined {
-	return read_text(join(root, '.pi', 'factory.json'));
+	return read_text(factory_policy_path(root));
 }
 function safe_relative_directory(value: string): boolean {
 	return (
@@ -230,7 +234,7 @@ function safe_policy_target(trusted_root_path: string): {
 	target: string;
 } {
 	const trusted_root = realpathSync(resolve(trusted_root_path));
-	const policy_directory = join(trusted_root, '.pi');
+	const policy_directory = join(trusted_root, CONFIG_DIR_NAME);
 	if (
 		existsSync(policy_directory) &&
 		lstatSync(policy_directory).isSymbolicLink()
@@ -543,7 +547,7 @@ export function discover_repository_policy(
 				'Agent instructions present; retained as review evidence only',
 				'medium',
 			);
-		if (parts.includes('.pi') && parts.includes('harness'))
+		if (parts.includes(CONFIG_DIR_NAME) && parts.includes('harness'))
 			evidence(
 				evidence_items,
 				root,
@@ -598,7 +602,7 @@ export function discover_repository_policy(
 			evidence_items,
 			root,
 			'existing-policy',
-			join(root, '.pi', 'factory.json'),
+			factory_policy_path(root),
 			'Existing reviewed repository policy preserved during reconciliation',
 			'high',
 		);
@@ -648,7 +652,7 @@ export function discover_repository_policy(
 		drift: top_level_drift(current, discovered, policy),
 		activation: {
 			required: true,
-			target: join(root, '.pi', 'factory.json'),
+			target: factory_policy_path(root),
 		},
 	};
 }
@@ -753,7 +757,7 @@ export function activate_policy_draft(
 export function discover_with_existing_policy(
 	root_path: string,
 ): RepositoryPolicyDraft {
-	const path = join(resolve(root_path), '.pi', 'factory.json');
+	const path = factory_policy_path(root_path);
 	let current_policy: RepositoryPolicy | undefined;
 	let current_content: string | undefined;
 	if (existsSync(path)) {

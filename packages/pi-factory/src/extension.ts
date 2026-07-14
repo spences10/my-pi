@@ -1,6 +1,7 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
+import {
+	CONFIG_DIR_NAME,
+	type ExtensionAPI,
+	type ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import {
 	create_harness_runtime,
@@ -424,7 +425,7 @@ function parse_findings(
 async function policy_for(
 	ctx: ExtensionContext,
 ): Promise<RepositoryPolicy> {
-	const path = join(ctx.cwd, '.pi', 'factory.json');
+	const path = join(ctx.cwd, CONFIG_DIR_NAME, 'factory.json');
 	if (!existsSync(path)) return DEFAULT_REPOSITORY_POLICY;
 	const trust = await resolve_project_trust(
 		{

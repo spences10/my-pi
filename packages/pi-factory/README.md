@@ -36,7 +36,8 @@ run in parallel.
 
 ## Repository policy
 
-A trusted project may provide `.pi/factory.json`:
+A trusted project may provide `<CONFIG_DIR_NAME>/factory.json`
+(normally `.pi/factory.json`):
 
 ```json
 {
@@ -76,11 +77,11 @@ Edit the returned draft, then use `factory action=policy-validate`
 with `policy_json` before `factory action=policy-activate`, or record
 an explicit refusal with `factory action=policy-reject`. Activation
 always requires a native human confirmation and atomically writes only
-`.pi/factory.json`; headless callers must use the exported
-`activate_policy_draft` API with a trusted repository root and
-authenticated actor. Activation uses the draft's base-policy hash to
-reject stale overwrites. Discovery never infers permission to deploy
-or perform destructive work—those surfaces become approval
+`<CONFIG_DIR_NAME>/factory.json`; headless callers must use the
+exported `activate_policy_draft` API with a trusted repository root
+and authenticated actor. Activation uses the draft's base-policy hash
+to reject stale overwrites. Discovery never infers permission to
+deploy or perform destructive work—those surfaces become approval
 requirements. Only token-safe package commands and exact allowlisted
 CI validations become executable gates; other shell content becomes a
 review question. Discovery detects pnpm, npm, Yarn, and Bun commands
@@ -160,15 +161,16 @@ adjustment is limited to explicitly authorised low-risk fields.
 ## State, ownership, and recovery
 
 Canonical workflow state is stored as size-limited, redacted mode-0600
-JSON under `~/.pi/agent/factory` (override with `MY_PI_FACTORY_DIR`).
-It records canonical workspace identity, route/contract versions,
-nodes, attempts, owners, path claims, evidence, feedback, review
-packets, version-bound explicit approvals, and correlation events.
-Revision compare-and-swap plus exclusive claim locks prevent lost
-concurrent updates; atomic writes make state resumable after process
-loss. Workflow UUID filenames are validated and auxiliary JSON stores
-are excluded from workflow scans. Schema v1 validates nested policy
-and state at runtime; unsupported versions are rejected. No migration
+JSON under Pi's `getAgentDir()/factory` (normally
+`~/.pi/agent/factory`; override with `MY_PI_FACTORY_DIR`). It records
+canonical workspace identity, route/contract versions, nodes,
+attempts, owners, path claims, evidence, feedback, review packets,
+version-bound explicit approvals, and correlation events. Revision
+compare-and-swap plus exclusive claim locks prevent lost concurrent
+updates; atomic writes make state resumable after process loss.
+Workflow UUID filenames are validated and auxiliary JSON stores are
+excluded from workflow scans. Schema v1 validates nested policy and
+state at runtime; unsupported versions are rejected. No migration
 registry is claimed until a second released schema exists. Completed
 nodes remain valid unless an authoritative contract amendment
 invalidates downstream work. Overlapping active claims are rejected.

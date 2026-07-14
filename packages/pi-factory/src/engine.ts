@@ -1,3 +1,4 @@
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import { createHash, randomUUID } from 'node:crypto';
 import {
 	closeSync,
@@ -912,11 +913,7 @@ export class FactoryStateStore {
 	}
 }
 export function default_factory_directory(): string {
-	return join(
-		process.env.PI_CODING_AGENT_DIR ??
-			join(process.env.HOME ?? '.', '.pi', 'agent'),
-		'factory',
-	);
+	return join(getAgentDir(), 'factory');
 }
 export async function deliver_feedback_packet(
 	packet: FeedbackPacket,
