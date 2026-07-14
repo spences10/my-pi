@@ -73,6 +73,39 @@ export {
 	validate_team_tool_params,
 };
 
+export async function send_peer_workflow_feedback(input: {
+	from_session_id: string;
+	to_session_id: string;
+	workflow_id: string;
+	node_id: string;
+	packet_id: string;
+	body: string;
+}): Promise<{ message_id: string }> {
+	const coordination_db = await TeamDatabase.open(
+		get_coordination_db_path(),
+	);
+	try {
+		const message = coordination_db.send_message({
+			from_session_id: input.from_session_id,
+			to_session_ids: [input.to_session_id],
+			scope: 'session',
+			target: input.to_session_id,
+			body: input.body,
+			urgent: true,
+			requires_ack: true,
+			metadata: {
+				kind: 'factory-feedback',
+				workflow_id: input.workflow_id,
+				node_id: input.node_id,
+				packet_id: input.packet_id,
+			},
+		});
+		return { message_id: message.message_id };
+	} finally {
+		coordination_db.close();
+	}
+}
+
 export default async function team_mode(pi: ExtensionAPI) {
 	const coordination_db = await TeamDatabase.open(
 		get_coordination_db_path(),

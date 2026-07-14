@@ -87,6 +87,7 @@
 		"@spences10/pi-coding-preferences": "workspace:*",
 		"@spences10/pi-confirm-destructive": "workspace:*",
 		"@spences10/pi-context": "workspace:*",
+		"@spences10/pi-factory": "workspace:*",
 		"@spences10/pi-footer": "workspace:*",
 		"@spences10/pi-git-ui": "workspace:*",
 		"@spences10/pi-harness": "workspace:*",

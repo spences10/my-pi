@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	handle_team_command,
+	send_peer_workflow_feedback,
 	should_inject_team_prompt,
 	validate_team_tool_params,
 } from './index.js';
@@ -10,8 +11,9 @@ describe('packages/pi-team-mode/src/index.ts', () => {
 		await expect(import('./index.js')).resolves.toBeDefined();
 	});
 
-	it('exports the peer coordination command handler', () => {
+	it('exports peer coordination and workflow-feedback APIs', () => {
 		expect(handle_team_command).toEqual(expect.any(Function));
+		expect(send_peer_workflow_feedback).toEqual(expect.any(Function));
 	});
 
 	it('injects the team prompt when the team tool is selected or tools are unspecified', () => {

@@ -12,6 +12,7 @@ describe('src/extensions/builtin-registry.ts', () => {
 			await import('./builtin-registry.js');
 		const package_backed_keys = new Set([
 			'context-sidecar',
+			'factory',
 			'mcp',
 			'skills',
 			'skill-importer',

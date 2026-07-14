@@ -135,6 +135,21 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 		load: async () => (await import('@spences10/pi-harness')).default,
 	},
 	{
+		key: 'factory',
+		label: 'Software factory',
+		docs_label: 'Software-factory control plane',
+		description:
+			'Versioned workflow dispatch, execution feedback, review, approval, recovery, and metrics',
+		default_enabled: true,
+		option_name: 'factory',
+		cli_arg: 'no-factory',
+		cli_flag: '--no-factory',
+		cli_description: 'Disable software-factory control plane',
+		aliases: ['factory', 'software-factory', 'control-plane'],
+		external_package_name: '@spences10/pi-factory',
+		load: async () => (await import('@spences10/pi-factory')).default,
+	},
+	{
 		key: 'skills',
 		label: 'Skills',
 		docs_label: 'Skills',

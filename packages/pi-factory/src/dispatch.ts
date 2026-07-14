@@ -1,0 +1,326 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
+import { resolve_workflow_policy } from './policy.js';
+import type {
+	RepositoryPolicy,
+	ResolvedRoute,
+	RouteOverride,
+	TaskIntake,
+	WorkflowKind,
+} from './types.js';
+
+const patterns: Array<[WorkflowKind, RegExp, string]> = [
+	[
+		'incident',
+		/\b(incident|outage|production hotfix|sev[0-3])\b/i,
+		'Incident or production outage signal',
+	],
+	[
+		'safe-release',
+		/\b(release|publish|ship version|changeset)\b/i,
+		'Release side effect signal',
+	],
+	[
+		'database-migration',
+		/\b(database|migration|schema|backfill|sqlite|postgres)\b/i,
+		'Database or migration surface',
+	],
+	[
+		'ui-copy',
+		/\b(ui|ux|svelte|component|page|copy|accessibility|responsive)\b/i,
+		'UI or copy surface',
+	],
+	[
+		'architecture',
+		/\b(architecture|research|design decision|compare approaches|rfc)\b/i,
+		'Architecture or research intent',
+	],
+	[
+		'ambiguous-bug',
+		/\b(bug|broken|fails|flaky|regression|debug|unknown)\b/i,
+		'Bug signal requiring diagnosis',
+	],
+	[
+		'chore',
+		/\b(chore|dependency|upgrade|renovate|format|lint cleanup|docs only)\b/i,
+		'Routine maintenance signal',
+	],
+	[
+		'feature',
+		/\b(add|build|implement|feature|support|create)\b/i,
+		'Feature delivery signal',
+	],
+];
+export function classify_task(intake: TaskIntake): {
+	workflow: WorkflowKind;
+	rationale: string[];
+	assumptions: string[];
+} {
+	const hints = intake.hints;
+	if (hints?.workflow)
+		return {
+			workflow: hints.workflow,
+			rationale: ['Explicit intake workflow hint'],
+			assumptions: [],
+		};
+	const semantic: Array<[boolean | undefined, WorkflowKind, string]> =
+		[
+			[hints?.incident, 'incident', 'Explicit incident hint'],
+			[hints?.release, 'safe-release', 'Explicit release hint'],
+			[
+				hints?.database,
+				'database-migration',
+				'Explicit database hint',
+			],
+			[hints?.ui, 'ui-copy', 'Explicit UI hint'],
+			[
+				hints?.architecture,
+				'architecture',
+				'Explicit architecture hint',
+			],
+			[hints?.ambiguity, 'ambiguous-bug', 'Explicit ambiguity hint'],
+		];
+	const signalled = semantic.filter(([on]) => on);
+	if (signalled.length > 1)
+		throw new Error(
+			`Conflicting classification signals: ${signalled.map(([, kind]) => kind).join(', ')}`,
+		);
+	if (signalled[0])
+		return {
+			workflow: signalled[0][1],
+			rationale: [signalled[0][2]],
+			assumptions: [],
+		};
+	const matches = patterns.filter(([, pattern]) =>
+		pattern.test(intake.task),
+	);
+	if (!matches.length)
+		throw new Error(
+			'Unsupported or ambiguous task: provide a workflow hint or manual override',
+		);
+	const selected = matches[0]!;
+	return {
+		workflow: selected[0],
+		rationale: [selected[2]],
+		assumptions:
+			matches.length > 1
+				? [
+						`Lower-priority signals also matched: ${matches
+							.slice(1)
+							.map(([kind]) => kind)
+							.join(', ')}`,
+					]
+				: [],
+	};
+}
+function path_matches(
+	path: string,
+	pattern: string,
+	cwd: string,
+): boolean {
+	const path_segments = path.split('/').filter(Boolean);
+	const pattern_segments = resolve(cwd, pattern)
+		.split('/')
+		.filter(Boolean);
+	const match = (
+		path_index: number,
+		pattern_index: number,
+	): boolean => {
+		if (pattern_index === pattern_segments.length)
+			return path_index === path_segments.length;
+		const segment = pattern_segments[pattern_index]!;
+		if (segment === '**')
+			return (
+				match(path_index, pattern_index + 1) ||
+				(path_index < path_segments.length &&
+					match(path_index + 1, pattern_index))
+			);
+		if (path_index >= path_segments.length) return false;
+		const expression = new RegExp(
+			`^${segment.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`,
+		);
+		return (
+			expression.test(path_segments[path_index]!) &&
+			match(path_index + 1, pattern_index + 1)
+		);
+	};
+	return match(0, 0);
+}
+export function dispatch_task(
+	intake: TaskIntake,
+	policy: RepositoryPolicy,
+	override?: RouteOverride,
+): ResolvedRoute {
+	const classified = classify_task(intake);
+	const workflow_kind = override?.workflow ?? classified.workflow;
+	const workflow = resolve_workflow_policy(workflow_kind, policy);
+	const risk_order = ['low', 'medium', 'high', 'critical'] as const;
+	const hinted_risk = intake.hints?.risk;
+	let intake_risk_strengthened = false;
+	if (hinted_risk) {
+		if (
+			risk_order.indexOf(hinted_risk) >
+			risk_order.indexOf(workflow.risk)
+		) {
+			workflow.risk = hinted_risk;
+			intake_risk_strengthened = true;
+			classified.rationale.push(
+				`Risk strengthened by intake hint: ${hinted_risk}`,
+			);
+		} else if (
+			risk_order.indexOf(hinted_risk) <
+			risk_order.indexOf(workflow.risk)
+		) {
+			classified.assumptions.push(
+				`Ignored risk hint ${hinted_risk}; intake cannot lower workflow risk ${workflow.risk}`,
+			);
+		}
+	}
+	if (intake.urgency === 'urgent') {
+		if (
+			risk_order.indexOf(workflow.risk) < risk_order.indexOf('high')
+		) {
+			workflow.risk = 'high';
+			intake_risk_strengthened = true;
+		}
+		workflow.stall_timeout_ms = Math.min(
+			workflow.stall_timeout_ms,
+			300_000,
+		);
+		classified.rationale.push(
+			'Urgent intake raises minimum risk to high and shortens stall escalation to 5 minutes',
+		);
+	}
+	if (override?.parallelism !== undefined)
+		workflow.compute.parallelism = Math.min(
+			Math.max(1, override.parallelism),
+			workflow.compute.parallelism,
+			policy.max_parallelism ?? 3,
+		);
+	for (const role of ['planner', 'executor', 'reviewer'] as const)
+		if (override?.model_overrides?.[role])
+			workflow.compute[role].model = override.model_overrides[role];
+	const workspace_cwd = resolve(intake.cwd);
+	const affected_paths = (
+		intake.affected_paths?.length ? intake.affected_paths : ['.']
+	).map((path) => resolve(workspace_cwd, path));
+	if (
+		affected_paths.some(
+			(path) =>
+				path !== workspace_cwd &&
+				!path.startsWith(`${workspace_cwd}/`),
+		)
+	)
+		throw new Error(
+			'Affected paths must remain inside the workspace',
+		);
+	const forbidden = policy.forbidden_paths?.find((pattern) =>
+		affected_paths.some((path) =>
+			path_matches(path, pattern, workspace_cwd),
+		),
+	);
+	if (forbidden)
+		throw new Error(
+			`Repository policy forbids affected path: ${forbidden}`,
+		);
+	const risky =
+		policy.risky_paths?.filter((pattern) =>
+			affected_paths.some((path) =>
+				path_matches(path, pattern, workspace_cwd),
+			),
+		) ?? [];
+	if (risky.length) {
+		if (workflow.risk === 'low' || workflow.risk === 'medium')
+			workflow.risk = 'high';
+		if (!workflow.approvals.includes('public-contract'))
+			workflow.approvals.push('public-contract');
+		classified.rationale.push(
+			`Risk raised by repository paths: ${risky.join(', ')}`,
+		);
+	}
+	if (
+		intake_risk_strengthened &&
+		!workflow.approvals.includes('public-contract')
+	)
+		workflow.approvals.push('public-contract');
+	const requested = [...new Set(intake.requested_side_effects ?? [])];
+	for (const action of requested)
+		if (!workflow.approvals.includes(action))
+			workflow.approvals.push(action);
+	if (workflow.approvals.length) {
+		const complete = workflow.nodes.find(
+			(node) => node.kind === 'complete',
+		)!;
+		let approval = workflow.nodes.find(
+			(node) => node.kind === 'approval',
+		);
+		if (!approval) {
+			approval = {
+				id: 'approval',
+				kind: 'approval',
+				depends_on: complete.depends_on,
+				owner_role: 'human',
+				retry_limit: 0,
+				approval_actions: workflow.approvals,
+			};
+			workflow.nodes.splice(
+				workflow.nodes.indexOf(complete),
+				0,
+				approval,
+			);
+			complete.depends_on = ['approval'];
+		} else approval.approval_actions = workflow.approvals;
+	}
+	const route: ResolvedRoute = {
+		schema_version: 1,
+		route_id: randomUUID(),
+		created_at: new Date().toISOString(),
+		workspace: {
+			cwd: workspace_cwd,
+			id: createHash('sha256')
+				.update(workspace_cwd)
+				.digest('hex')
+				.slice(0, 16),
+		},
+		workflow,
+		policy_id: policy.policy_id,
+		rationale: [
+			...classified.rationale,
+			...(override ? [`Human override: ${override.reason}`] : []),
+		],
+		assumptions: classified.assumptions,
+		affected_paths,
+		requested_side_effects: requested,
+		override,
+		harness: {
+			allowed_paths: affected_paths,
+			validation_commands: workflow.validations
+				.filter((gate) => gate.required && gate.execution === 'shell')
+				.map((gate) => gate.command!),
+			tool_validations: workflow.validations.filter(
+				(gate) => gate.required && gate.execution === 'tool',
+			),
+			allow_test_changes: true,
+			escalation_rules: [
+				'Retry budget exhausted',
+				'Contradictory evidence',
+				'Scope or risk expands',
+				'Unsafe fix proposed',
+				'Owner missing or stalled',
+				'Approval required or refused',
+			],
+		},
+		coordination: {
+			owner_required: true,
+			path_claims: affected_paths,
+			supervision: 'peer-evidence-only',
+		},
+		policy_sources: ['runtime workflow catalog@1', policy.policy_id],
+	};
+	return route;
+}
+export function route_fingerprint(route: ResolvedRoute): string {
+	return createHash('sha256')
+		.update(JSON.stringify(route))
+		.digest('hex');
+}
