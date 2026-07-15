@@ -1,9 +1,15 @@
 # @spences10/pi-factory
 
-Reusable software-factory control plane for Pi. It composes existing
-harness, peer coordination, trust, telemetry, and observability
-primitives into versioned, inspectable workflows; it does not spawn or
-supervise sessions and does not create another telemetry database.
+Reusable software-factory control plane for Pi. Its target v1 core is
+a thin dispatcher and durable workflow ledger above existing harness,
+coordination, validation, review, approval, and telemetry primitives.
+See the concise [v1 architecture boundary](./ARCHITECTURE.md) for the
+target journey, current implementation gaps, responsibility map,
+unsupported guarantees, and compatibility decision.
+
+The factory supervises only a process started through an owned
+execution adapter. It does not supervise independently opened sessions
+or create another telemetry database.
 
 ## Install
 
@@ -26,6 +32,13 @@ Urgent intake raises minimum risk to `high`, caps stall escalation at
 five minutes, and records that decision in route rationale.
 Programmatic consumers may import `dispatch_task`,
 `create_factory_state`, node operations, and `derive_factory_metrics`.
+The currently available direct path requires no external intake,
+policy discovery, calibration, recommendation, canary, or
+adaptive-evolution setup. Those features are optional modules that may
+add provenance or strengthen policy, but cannot weaken or become
+prerequisites for the core path. Complete durable contract fidelity
+and settlement-independent completion remain target invariants, not
+claims about version 0.0.4; see the architecture document's gap list.
 
 The catalog includes materially distinct `chore`, `feature`,
 `ambiguous-bug`, `ui-copy`, `database-migration`, `incident`,

@@ -20,6 +20,7 @@
 	"files": [
 		"dist",
 		"skills",
+		"ARCHITECTURE.md",
 		"README.md"
 	],
 	"type": "module",

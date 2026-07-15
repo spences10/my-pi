@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { dispatch_task } from './dispatch.js';
-import { claim_paths, create_factory_state } from './engine.js';
+import {
+	claim_paths,
+	complete_node,
+	create_factory_state,
+	start_node,
+} from './engine.js';
 import {
 	create_rpc_execution_adapter,
 	create_sdk_execution_adapter,
@@ -152,6 +157,65 @@ describe('workflow execution adapters', () => {
 			result = await adapter.poll!(record.request.execution_id);
 		}
 		expect(result.lifecycle).toBe('succeeded');
+	});
+
+	it('progresses a direct chore through owned execution and real validation gates', async () => {
+		const route = dispatch_task(
+			{
+				task: 'Update a bounded dependency',
+				cwd: process.cwd(),
+				affected_paths: ['package.json'],
+			},
+			policy,
+			{ workflow: 'chore', reason: 'Deterministic maintenance' },
+		);
+		const state = create_factory_state(route, 'owner');
+		claim_paths(state, 'owner', ['package.json']);
+		const registry = new ExecutionRegistry(
+			join(
+				mkdtempSync(join(tmpdir(), 'execution-')),
+				'registry.json',
+			),
+		);
+		const adapter = create_sdk_execution_adapter({
+			async run(request) {
+				return {
+					execution_id: request.execution_id,
+					lifecycle: 'succeeded',
+					adapter_id: 'pi-sdk',
+					adapter_version: '1',
+				};
+			},
+		});
+		for (const gate of state.route.workflow.validations)
+			if (gate.execution === 'shell')
+				gate.command = `${JSON.stringify(process.execPath)} -e "process.exit(0)"`;
+		const operator = new WorkflowOperator(
+			new ExecutionController(registry),
+			{ execute: adapter },
+			() => {},
+			{
+				async run_tool_gate() {
+					return { success: true, summary: 'tool gate passed' };
+				},
+			},
+		);
+		const records = await operator.progress(state, {
+			owner_session_id: 'owner',
+			task: 'Update a bounded dependency',
+			cwd: process.cwd(),
+		});
+		expect(records.map((record) => record.request.node_id)).toEqual([
+			'execute',
+		]);
+		expect(
+			state.nodes.find((node) => node.id === 'validate')?.status,
+		).toBe('succeeded');
+		start_node(state, 'complete', 'human');
+		complete_node(state, 'complete');
+		expect(state.status).toBe('completed');
+		expect(state.reviews).toEqual([]);
+		expect(state.approvals).toEqual([]);
 	});
 
 	it('progresses planner, executor, and validation nodes without manual relay', async () => {
