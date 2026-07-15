@@ -1,3 +1,5 @@
+import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import type { Component, TUI } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	show_confirm_modal,
@@ -7,31 +9,57 @@ import {
 	show_settings_modal,
 	show_text_modal,
 } from './show.js';
+import type { ModalTheme } from './types.js';
 
-const theme = {
+type CustomFactory = Parameters<
+	ExtensionCommandContext['ui']['custom']
+>[0];
+type CustomFactoryArgs = Parameters<CustomFactory>;
+
+const theme: ModalTheme = {
 	fg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
-} as any;
+};
 
 function create_ctx(result?: unknown, send_input?: string) {
 	const notify = vi.fn();
-	const custom = vi.fn(async (factory, _options) => {
-		let resolved = result;
-		const component = factory(
-			{ terminal: { rows: 24 }, requestRender: vi.fn() },
-			theme,
-			{},
-			(value: unknown) => {
-				resolved = value;
+	const custom = vi.fn(
+		async (
+			factory: Parameters<ExtensionCommandContext['ui']['custom']>[0],
+			_options: Parameters<
+				ExtensionCommandContext['ui']['custom']
+			>[1],
+		) => {
+			let resolved = result;
+			const component = await factory(
+				{
+					terminal: { rows: 24 },
+					requestRender: vi.fn(),
+				} as unknown as TUI,
+				theme as unknown as CustomFactoryArgs[1],
+				{} as CustomFactoryArgs[2],
+				(value: unknown) => {
+					resolved = value;
+				},
+			);
+			(component as Component & { focused: boolean }).focused = true;
+			component.render(80);
+			if (send_input) component.handleInput?.(send_input);
+			component.dispose?.();
+			return resolved;
+		},
+	);
+	return {
+		ctx: {
+			ui: {
+				custom:
+					custom as unknown as ExtensionCommandContext['ui']['custom'],
+				notify,
 			},
-		);
-		component.focused = true;
-		component.render(80);
-		if (send_input) component.handleInput?.(send_input);
-		component.dispose?.();
-		return resolved;
-	});
-	return { ctx: { ui: { custom, notify } } as any, custom, notify };
+		},
+		custom,
+		notify,
+	};
 }
 
 describe('show modal helpers', () => {

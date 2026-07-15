@@ -7,6 +7,8 @@ import {
 	createAgentSessionServices,
 	runPrintMode,
 	runRpcMode,
+	type CreateAgentSessionFromServicesOptions,
+	type CreateAgentSessionServicesOptions,
 	type ExtensionFactory,
 	type SessionManager,
 } from '@earendil-works/pi-coding-agent';
@@ -154,7 +156,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 	}: {
 		cwd: string;
 		sessionManager: SessionManager;
-		sessionStartEvent?: unknown;
+		sessionStartEvent?: CreateAgentSessionFromServicesOptions['sessionStartEvent'];
 	}) => {
 		// Keep skill filtering reloadable so profile changes made by
 		// /skills are reflected without restarting the process.
@@ -199,7 +201,15 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 				extensionsOverride: create_extensions_override(
 					managed_inline_paths,
 				),
-				skillsOverride: (base: any) => {
+				skillsOverride: (
+					base: Parameters<
+						NonNullable<
+							NonNullable<
+								CreateAgentSessionServicesOptions['resourceLoaderOptions']
+							>['skillsOverride']
+						>
+					>[0],
+				) => {
 					if (!skills_builtin_enabled) return { ...base, skills: [] };
 					if (!runtime_skills_manager) return base;
 					runtime_skills_manager.refresh();
@@ -209,7 +219,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 						: undefined;
 					return {
 						...base,
-						skills: base.skills.filter((skill: any) => {
+						skills: base.skills.filter((skill) => {
 							if (
 								selected_skill_names &&
 								!selected_skill_names.has(skill.name)
@@ -223,7 +233,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 						}),
 					};
 				},
-			} as any,
+			} satisfies CreateAgentSessionServicesOptions['resourceLoaderOptions'],
 		});
 
 		const requested_model = resolve_model_reference(
@@ -250,7 +260,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 			...(await createAgentSessionFromServices({
 				services,
 				sessionManager,
-				sessionStartEvent: sessionStartEvent as any,
+				sessionStartEvent,
 				...(requested_model ? { model: requested_model } : {}),
 				...(effective_thinking
 					? { thinkingLevel: effective_thinking }

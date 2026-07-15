@@ -21,13 +21,13 @@ const skill = {
 	source: 'local',
 	enabled: true,
 	baseDir: '/tmp/a',
-} as any;
+} as Parameters<typeof show_skill_detail_modal>[1];
 
 describe('skill list UI', () => {
 	it('picks skills with status descriptions', async () => {
 		vi.mocked(show_picker_modal).mockResolvedValueOnce('alpha');
 		await expect(
-			pick_skill({} as any, {
+			pick_skill({} as unknown as Parameters<typeof pick_skill>[0], {
 				title: 'Pick',
 				subtitle: 'Sub',
 				skills: [skill],
@@ -53,7 +53,10 @@ describe('skill list UI', () => {
 		vi.mocked(show_picker_modal)
 			.mockResolvedValueOnce('alpha')
 			.mockResolvedValueOnce(undefined);
-		await show_skill_detail_modal({} as any, skill);
+		await show_skill_detail_modal(
+			{} as unknown as Parameters<typeof show_skill_detail_modal>[0],
+			skill,
+		);
 		expect(show_text_modal).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.objectContaining({
@@ -65,7 +68,10 @@ describe('skill list UI', () => {
 		const mgr = {
 			discover: () => [skill],
 		};
-		await show_skill_list_modal({} as any, mgr as any);
+		await show_skill_list_modal(
+			{} as unknown as Parameters<typeof show_skill_list_modal>[0],
+			mgr as unknown as Parameters<typeof show_skill_list_modal>[1],
+		);
 		expect(show_text_modal).toHaveBeenCalledTimes(2);
 	});
 });

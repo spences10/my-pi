@@ -37,10 +37,10 @@ describe('coordination commands', () => {
 					ui: {
 						notify: (message: string) => notifications.push(message),
 					},
-				} as any,
+				},
 				coordination_db: db,
 				get_session_id: () => 'worker',
-			} as TeamCommandDeps;
+			} as unknown as TeamCommandDeps;
 
 			await handle_session_command(deps, ['inbox']);
 			await handle_session_command(deps, ['inbox', '--full']);

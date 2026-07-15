@@ -73,7 +73,7 @@ describe('coordination actions', () => {
 			db.register_session({ session_id: 'victim', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
 			const context = {
-				ctx: { cwd: '/repo' } as any,
+				ctx: { cwd: '/repo' },
 				coordination_db: db,
 				notify_coordination_messages: async () => undefined,
 				require_session_id: () => 'lead',
@@ -125,7 +125,7 @@ describe('coordination actions', () => {
 					message: 'Please report.',
 				},
 				{
-					ctx: { cwd: '/repo' } as any,
+					ctx: { cwd: '/repo' },
 					coordination_db: db,
 					notify_coordination_messages: async () => undefined,
 					require_session_id: () => 'lead-session',
@@ -160,7 +160,7 @@ describe('coordination actions', () => {
 			const result = await execute_coordination_action(
 				{ action: 'session_wait', to: 'lead', timeout_ms: 0 },
 				{
-					ctx: { cwd: '/repo' } as any,
+					ctx: { cwd: '/repo' },
 					coordination_db: db,
 					notify_coordination_messages: async () => undefined,
 					require_session_id: () => 'parent',
@@ -192,7 +192,7 @@ describe('coordination actions', () => {
 			const result = await execute_coordination_action(
 				{ action: 'session_wait', from: 'tree-lead', timeout_ms: 0 },
 				{
-					ctx: { cwd: '/repo' } as any,
+					ctx: { cwd: '/repo' },
 					coordination_db: db,
 					notify_coordination_messages: async () => undefined,
 					require_session_id: () => 'parent',
@@ -220,7 +220,7 @@ describe('coordination actions', () => {
 			const result = await execute_coordination_action(
 				{ action: 'message_wait', to: 'lead', timeout_ms: 0 },
 				{
-					ctx: { cwd: '/repo' } as any,
+					ctx: { cwd: '/repo' },
 					coordination_db: db,
 					notify_coordination_messages: async () => undefined,
 					require_session_id: () => 'parent',
@@ -250,7 +250,7 @@ describe('coordination actions', () => {
 			const result = await execute_coordination_action(
 				{ action: 'session_wait', timeout_ms: 0 },
 				{
-					ctx: { cwd: '/repo' } as any,
+					ctx: { cwd: '/repo' },
 					coordination_db: db,
 					notify_coordination_messages: async () => undefined,
 					require_session_id: () => 'lead',
@@ -291,7 +291,7 @@ describe('coordination actions', () => {
 					message_ids: [first.message_id],
 				},
 				{
-					ctx: { cwd: '/repo' } as any,
+					ctx: { cwd: '/repo' },
 					coordination_db: db,
 					notify_coordination_messages: async () => undefined,
 					require_session_id: () => 'lead',
@@ -322,7 +322,7 @@ describe('coordination actions', () => {
 			const result = await execute_coordination_action(
 				{ action: 'session_read' },
 				{
-					ctx: { cwd: '/repo' } as any,
+					ctx: { cwd: '/repo' },
 					coordination_db: db,
 					notify_coordination_messages: async () => undefined,
 					require_session_id: () => 'lead',
@@ -355,7 +355,7 @@ describe('coordination actions', () => {
 			db.mark_messages_read('lead', [message.message_id]);
 			db.mark_messages_acknowledged('lead', [message.message_id]);
 			const context = {
-				ctx: { cwd: '/repo' } as any,
+				ctx: { cwd: '/repo' },
 				coordination_db: db,
 				notify_coordination_messages: async () => undefined,
 				require_session_id: () => 'lead',
@@ -393,7 +393,7 @@ describe('coordination actions', () => {
 			});
 
 			const context = {
-				ctx: { cwd: '/repo' } as any,
+				ctx: { cwd: '/repo' },
 				coordination_db: db,
 				notify_coordination_messages: async () => undefined,
 				require_session_id: () => 'worker',
@@ -431,7 +431,7 @@ describe('coordination actions', () => {
 				body: `${'first '.repeat(260)}${'second '.repeat(260)}${'third '.repeat(260)}`,
 			});
 			const context = {
-				ctx: { cwd: '/repo' } as any,
+				ctx: { cwd: '/repo' },
 				coordination_db: db,
 				notify_coordination_messages: async () => undefined,
 				require_session_id: () => 'worker',
@@ -479,7 +479,7 @@ describe('coordination actions', () => {
 				body: `${'a'.repeat(1200)}${'b'.repeat(1200)}final detail`,
 			});
 			const context = {
-				ctx: { cwd: '/repo' } as any,
+				ctx: { cwd: '/repo' },
 				coordination_db: db,
 				notify_coordination_messages: async () => undefined,
 				require_session_id: () => 'lead',

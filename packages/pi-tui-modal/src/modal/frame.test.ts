@@ -6,11 +6,12 @@ import {
 	render_framed_modal,
 } from './frame.js';
 import { border_characters } from './layout.js';
+import type { ModalTheme } from './types.js';
 
-const theme = {
+const theme: ModalTheme = {
 	fg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
-} as any;
+};
 const ansi_pattern = new RegExp(
 	`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
 	'g',

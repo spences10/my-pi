@@ -1,3 +1,7 @@
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from '@earendil-works/pi-coding-agent';
 import { write_package_settings } from '@spences10/pi-settings';
 import {
 	mkdirSync,
@@ -57,7 +61,7 @@ describe('svelte guardrails', () => {
 					path: 'src/App.svelte',
 					content: '<script>$effect(() => {})</script>',
 				},
-			} as any),
+			} satisfies Parameters<typeof should_block_svelte_effect>[0]),
 		).toContain('was not created or modified');
 
 		expect(
@@ -69,7 +73,7 @@ describe('svelte guardrails', () => {
 					path: 'src/App.svelte',
 					content: '<script>const value = $derived(count)</script>',
 				},
-			} as any),
+			} satisfies Parameters<typeof should_block_svelte_effect>[0]),
 		).toBeUndefined();
 	});
 
@@ -87,7 +91,7 @@ EOF`;
 				toolName: 'bash',
 				toolCallId: '3',
 				input: { command },
-			} as any),
+			} satisfies Parameters<typeof should_block_svelte_effect>[0]),
 		).toContain('was not created or modified');
 	});
 
@@ -108,7 +112,7 @@ EOF`;
 						path: 'examples/App.svelte',
 						content: '<script>$effect(() => {})</script>',
 					},
-				} as any,
+				} satisfies Parameters<typeof should_block_svelte_effect>[0],
 				{
 					version: 1,
 					blockEffect: true,
@@ -130,7 +134,7 @@ EOF`;
 						path: 'src/App.svelte',
 						content: '<script>$effect(() => {})</script>',
 					},
-				} as any,
+				} satisfies Parameters<typeof should_block_svelte_effect>[0],
 				{ version: 1, blockEffect: false, allow: [], mode: 'block' },
 			),
 		).toBeUndefined();
@@ -145,7 +149,7 @@ EOF`;
 				path: 'src/App.svelte',
 				content: '<script>$effect(() => {})</script>',
 			},
-		} as any;
+		} satisfies Parameters<typeof assess_svelte_effect>[0];
 
 		expect(
 			assess_svelte_effect(event, {
@@ -182,7 +186,7 @@ EOF`;
 		svelte_guardrails({
 			on: (name: string, handler: Function) =>
 				events.set(name, handler),
-		} as any);
+		} as unknown as ExtensionAPI);
 
 		const notifications: string[] = [];
 		const result = await events.get('tool_call')?.(
@@ -194,12 +198,12 @@ EOF`;
 					path: 'src/App.svelte',
 					content: '<script>$effect(() => {})</script>',
 				},
-			} as any,
+			} satisfies Parameters<typeof should_block_svelte_effect>[0],
 			{
 				ui: {
 					notify: (message: string) => notifications.push(message),
 				},
-			} as any,
+			} as unknown as ExtensionContext,
 		);
 
 		expect(result).toBeUndefined();

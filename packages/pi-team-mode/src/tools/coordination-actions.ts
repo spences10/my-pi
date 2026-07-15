@@ -70,7 +70,7 @@ function resolve_message_sender_id(
 }
 
 interface CoordinationActionContext {
-	ctx: ExtensionContext;
+	ctx: Pick<ExtensionContext, 'cwd'>;
 	coordination_db: TeamDatabase;
 	notify_coordination_messages: (
 		to_session_ids: string[],

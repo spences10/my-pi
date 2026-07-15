@@ -10,9 +10,11 @@ import {
 
 describe('describe_session_shutdown', () => {
 	it('formats shutdown reasons without a target session', () => {
-		expect(describe_session_shutdown({ reason: 'quit' } as any)).toBe(
-			'session shutdown (quit)',
-		);
+		expect(
+			describe_session_shutdown({ reason: 'quit' } as Parameters<
+				typeof describe_session_shutdown
+			>[0]),
+		).toBe('session shutdown (quit)');
 	});
 
 	it('includes target session file when present', () => {
@@ -20,7 +22,7 @@ describe('describe_session_shutdown', () => {
 			describe_session_shutdown({
 				reason: 'resume',
 				targetSessionFile: '/tmp/next.jsonl',
-			} as any),
+			}),
 		).toBe('session shutdown (resume) → /tmp/next.jsonl');
 	});
 });
@@ -198,7 +200,7 @@ describe('infer_run_outcome', () => {
 						errorMessage: 'Request was aborted',
 					},
 				],
-			} as any),
+			}),
 		).toEqual({
 			success: false,
 			error_message: 'Request was aborted',
@@ -216,7 +218,7 @@ describe('infer_run_outcome', () => {
 						stopReason: 'end_turn',
 					},
 				],
-			} as any),
+			}),
 		).toEqual({
 			success: true,
 			error_message: null,

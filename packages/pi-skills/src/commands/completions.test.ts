@@ -11,9 +11,12 @@ describe('packages/pi-skills/src/commands/completions.ts', () => {
 
 	it('completes top-level subcommands', () => {
 		const mgr = {};
-		expect(get_skill_argument_completions('li', mgr as any)).toEqual([
-			{ value: 'list', label: 'list' },
-		]);
+		expect(
+			get_skill_argument_completions(
+				'li',
+				mgr as Parameters<typeof get_skill_argument_completions>[1],
+			),
+		).toEqual([{ value: 'list', label: 'list' }]);
 	});
 
 	it('exports the known subcommand list', () => {

@@ -1,3 +1,4 @@
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import {
 	mkdirSync,
 	mkdtempSync,
@@ -41,26 +42,45 @@ function tmp_dir(): string {
 }
 
 function create_test_pi() {
-	const commands = new Map<string, any>();
-	const events = new Map<string, any>();
-	const tools = new Map<string, any>();
+	const commands = new Map<string, { handler: Function }>();
+	const events = new Map<string, Function>();
+	const tools = new Map<
+		string,
+		{ name: string; execute: Function }
+	>();
 	const pi = {
-		on: vi.fn((name: string, handler: any) => {
+		on: vi.fn((name: string, handler: Function) => {
 			events.set(name, handler);
 		}),
-		registerTool: vi.fn((tool: any) => {
-			tools.set(tool.name, tool);
-		}),
-		registerCommand: vi.fn((name: string, command: any) => {
-			commands.set(name, command);
-		}),
+		registerTool: vi.fn(
+			(tool: Parameters<ExtensionAPI['registerTool']>[0]) => {
+				tools.set(tool.name, tool);
+			},
+		),
+		registerCommand: vi.fn(
+			(
+				name: string,
+				command: Parameters<ExtensionAPI['registerCommand']>[1],
+			) => {
+				commands.set(name, command);
+			},
+		),
 		getActiveTools: vi.fn(() => []),
 		setActiveTools: vi.fn(),
 	};
-	return { pi: pi as any, commands, events, tools };
+	return {
+		pi: pi as unknown as ExtensionAPI,
+		commands,
+		events,
+		tools,
+		set_active_tools: pi.setActiveTools,
+	};
 }
 
-function read_json(req: IncomingMessage): Promise<any> {
+function read_json(req: IncomingMessage): Promise<{
+	id?: number | string;
+	method?: string;
+}> {
 	return new Promise((resolve, reject) => {
 		let body = '';
 		req.setEncoding('utf8');
@@ -166,7 +186,7 @@ async function run_mcp_list(cwd: string): Promise<string> {
 	const { pi, commands } = create_test_pi();
 	const notify = vi.fn();
 	await mcp(pi);
-	await commands.get('mcp').handler('list', {
+	await commands.get('mcp')!.handler('list', {
 		cwd,
 		has_ui: false,
 		ui: { notify },
@@ -179,7 +199,7 @@ describe('should_wait_for_mcp_connections', () => {
 		expect(
 			should_wait_for_mcp_connections({
 				systemPromptOptions: {},
-			} as any),
+			} as Parameters<typeof should_wait_for_mcp_connections>[0]),
 		).toBe(false);
 	});
 
@@ -189,7 +209,7 @@ describe('should_wait_for_mcp_connections', () => {
 				systemPromptOptions: {
 					selectedTools: ['read', 'mcp__demo__ping'],
 				},
-			} as any),
+			} as Parameters<typeof should_wait_for_mcp_connections>[0]),
 		).toBe(true);
 	});
 
@@ -197,7 +217,7 @@ describe('should_wait_for_mcp_connections', () => {
 		expect(
 			should_wait_for_mcp_connections({
 				systemPromptOptions: { selectedTools: ['read', 'bash'] },
-			} as any),
+			} as Parameters<typeof should_wait_for_mcp_connections>[0]),
 		).toBe(false);
 	});
 });
@@ -217,16 +237,17 @@ describe('MCP server lifecycle', () => {
 				}),
 			);
 
-			const { pi, events, tools } = create_test_pi();
+			const { pi, events, tools, set_active_tools } =
+				create_test_pi();
 			await mcp(pi);
-			await events.get('before_agent_start')(
+			await events.get('before_agent_start')!(
 				{ systemPromptOptions: { selectedTools: ['read', 'bash'] } },
 				{ cwd, hasUI: false, ui: { setStatus: vi.fn() } },
 			);
 
 			expect(server.get_initialize_count()).toBe(1);
 			expect(tools.has('mcp__demo__ping')).toBe(true);
-			expect(pi.setActiveTools).toHaveBeenCalledWith([
+			expect(set_active_tools).toHaveBeenCalledWith([
 				'mcp__demo__ping',
 			]);
 		} finally {
@@ -250,18 +271,18 @@ describe('MCP server lifecycle', () => {
 
 			const { pi, commands, events } = create_test_pi();
 			await mcp(pi);
-			await events.get('session_start')(
+			await events.get('session_start')!(
 				{},
 				{ cwd, hasUI: false, ui: {} },
 			);
 			expect(server.get_initialize_count()).toBe(0);
-			await commands.get('mcp').handler('connect demo', {
+			await commands.get('mcp')!.handler('connect demo', {
 				cwd,
 				hasUI: false,
 				ui: { notify: vi.fn(), setStatus: vi.fn() },
 			});
 
-			await commands.get('mcp').handler('disable demo', {
+			await commands.get('mcp')!.handler('disable demo', {
 				cwd,
 				hasUI: false,
 				ui: { notify: vi.fn(), setStatus: vi.fn() },
@@ -291,12 +312,12 @@ describe('MCP server lifecycle', () => {
 
 			const { pi, commands, events, tools } = create_test_pi();
 			await mcp(pi);
-			await events.get('session_start')(
+			await events.get('session_start')!(
 				{},
 				{ cwd, hasUI: false, ui: {} },
 			);
 			expect(server.get_initialize_count()).toBe(0);
-			await commands.get('mcp').handler('connect demo', {
+			await commands.get('mcp')!.handler('connect demo', {
 				cwd,
 				hasUI: false,
 				ui: { notify: vi.fn(), setStatus: vi.fn() },
@@ -306,7 +327,7 @@ describe('MCP server lifecycle', () => {
 				expect(server.get_delete_count()).toBe(1),
 			);
 
-			await tools.get('mcp__demo__ping').execute('id', {});
+			await tools.get('mcp__demo__ping')!.execute('id', {});
 			await vi.waitFor(() =>
 				expect(server.get_delete_count()).toBe(2),
 			);

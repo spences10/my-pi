@@ -194,7 +194,13 @@ function strip_ansi(value: string): string {
 	return value.replace(ANSI_ESCAPE_PATTERN, '');
 }
 
-function make_model(overrides: Record<string, unknown> = {}) {
+type FooterModel = Parameters<
+	typeof get_default_footer_thinking_level
+>[0];
+
+function make_model(
+	overrides: Partial<FooterModel> = {},
+): FooterModel {
 	return {
 		id: 'test-model',
 		name: 'Test Model',
@@ -207,7 +213,7 @@ function make_model(overrides: Record<string, unknown> = {}) {
 		contextWindow: 1000,
 		maxTokens: 100,
 		...overrides,
-	} as any;
+	} as FooterModel;
 }
 
 describe('thinking footer helpers', () => {
@@ -244,7 +250,7 @@ describe('thinking footer helpers', () => {
 					{ type: 'thinking_level_change', thinkingLevel: 'medium' },
 				],
 			},
-		} as any;
+		} as Parameters<typeof get_current_thinking_level>[0];
 
 		expect(get_current_thinking_level(ctx)).toBe('high');
 	});
@@ -257,7 +263,7 @@ describe('thinking footer helpers', () => {
 					{ type: 'thinking_level_change', thinkingLevel: 'high' },
 				],
 			},
-		} as any;
+		} as Parameters<typeof get_current_thinking_level>[0];
 
 		expect(get_current_thinking_level(ctx)).toBe('off');
 	});
@@ -266,7 +272,7 @@ describe('thinking footer helpers', () => {
 describe('render_footer_status_line', () => {
 	const theme = {
 		fg: (_token: string, text: string) => text,
-	} as any;
+	} as Parameters<typeof render_footer_status_line>[0];
 
 	it('places extension status left and prompt status right on one line', () => {
 		expect(

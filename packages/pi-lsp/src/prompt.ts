@@ -24,9 +24,12 @@ After editing language-server-supported files, check changed files with LSP diag
 
 Prefer LSP diagnostics over guessing from build output when a file-level check is enough. Use text search for broad discovery, then LSP tools for precise type and symbol questions.`;
 
-export function should_inject_lsp_prompt(
-	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
-): boolean {
+export function should_inject_lsp_prompt(event: {
+	systemPromptOptions?: Pick<
+		BeforeAgentStartEvent['systemPromptOptions'],
+		'selectedTools'
+	>;
+}): boolean {
 	const selected_tools = event.systemPromptOptions?.selectedTools;
 	return (
 		!selected_tools ||

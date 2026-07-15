@@ -111,7 +111,9 @@ describe('mcp server state helpers', () => {
 			{
 				getActiveTools: () => ['a', 'mcp__x__one', 'b'],
 				setActiveTools,
-			} as any,
+			} as unknown as Parameters<
+				typeof remove_server_tools_from_active
+			>[0],
 			['mcp__x__one'],
 		);
 

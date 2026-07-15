@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
-// CLI for my-pi — composable pi coding agent
-
-import { defineCommand, renderUsage, runMain } from 'citty';
+import {
+	defineCommand,
+	renderUsage,
+	runMain,
+	type ArgsDef,
+	type CommandDef,
+} from 'citty';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,12 +43,21 @@ async function read_stdin(): Promise<string> {
 	return Buffer.concat(chunks).toString('utf-8').trim();
 }
 
+type MyPiRuntime = Awaited<
+	ReturnType<(typeof import('./api.js'))['create_my_pi']>
+>;
+type InteractiveModeConstructor =
+	(typeof import('@earendil-works/pi-coding-agent'))['InteractiveMode'];
+
 async function run_interactive_mode(
-	runtime: any,
-	InteractiveModeClass: any,
+	runtime: MyPiRuntime,
+	InteractiveModeClass: InteractiveModeConstructor,
 ): Promise<void> {
 	const original_write = process.stdout.write.bind(process.stdout);
-	process.stdout.write = ((chunk: any, ...args: any[]) => {
+	process.stdout.write = ((
+		chunk: string | Uint8Array,
+		...args: Parameters<typeof original_write>
+	) => {
 		if (typeof chunk === 'string') {
 			const escape = String.fromCharCode(27);
 			const styled_hint = new RegExp(
@@ -57,7 +70,10 @@ async function run_interactive_mode(
 				'$1my-pi$2',
 			);
 		}
-		return original_write(chunk, ...args);
+		return Reflect.apply(original_write, process.stdout, [
+			chunk,
+			...args,
+		]);
 	}) as typeof process.stdout.write;
 	try {
 		const mode = new InteractiveModeClass(runtime, {
@@ -138,14 +154,17 @@ PROMPT PRESETS
     .pi/presets/*.md
 `;
 
-async function render_rich_usage(
-	cmd: any,
-	parent?: any,
+async function render_rich_usage<T extends ArgsDef>(
+	cmd: CommandDef<T>,
+	parent?: CommandDef<T>,
 ): Promise<string> {
-	return `${await (renderUsage as any)(cmd, parent)}\n${HELP_APPENDIX}`;
+	return `${await renderUsage(cmd, parent)}\n${HELP_APPENDIX}`;
 }
 
-async function print_usage(cmd: any, parent?: any): Promise<void> {
+async function print_usage<T extends ArgsDef>(
+	cmd: CommandDef<T>,
+	parent?: CommandDef<T>,
+): Promise<void> {
 	console.log(await render_rich_usage(cmd, parent));
 }
 
@@ -322,7 +341,7 @@ const main = defineCommand({
 		if (args.json) runtime_mode = 'json';
 		else if (args.print) runtime_mode = 'print';
 
-		const positionals = (args as any)._ as string[] | undefined;
+		const positionals = args._;
 		if (positionals?.[0] === 'observability') {
 			const { start_observability_server } =
 				await import('@spences10/pi-observability/server');
@@ -348,7 +367,7 @@ const main = defineCommand({
 			!prompt &&
 			!process.stdout.isTTY
 		) {
-			await print_usage(main as any);
+			await print_usage(main);
 			return;
 		}
 
@@ -424,15 +443,15 @@ const main = defineCommand({
 			});
 			process.exit(code);
 		} else if (!process.stdout.isTTY) {
-			await print_usage(main as any);
+			await print_usage(main);
 		} else {
 			await run_interactive_mode(runtime, InteractiveMode);
 		}
 	},
 });
 
-void runMain(main as any, {
-	showUsage: async (cmd: any, parent: any) => {
+void runMain(main, {
+	showUsage: async (cmd, parent) => {
 		await print_usage(cmd, parent);
 	},
 });

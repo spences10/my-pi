@@ -50,7 +50,7 @@ type RegisteredTool = {
 };
 
 type RegisteredCommand = {
-	handler: (args: string[], ctx: CommandContext) => Promise<void>;
+	handler: (args: string, ctx: CommandContext) => Promise<void>;
 };
 
 type CommandContext = {
@@ -245,14 +245,11 @@ describe('context_sidecar extension', () => {
 		const notifications: string[] = [];
 		context_sidecar(fake.pi);
 
-		await fake.commands.get('context')!.handler(
-			'settings light' as any,
-			{
-				ui: {
-					notify: (message: string) => notifications.push(message),
-				},
-			} as any,
-		);
+		await fake.commands.get('context')!.handler('settings light', {
+			ui: {
+				notify: (message: string) => notifications.push(message),
+			},
+		});
 
 		expect(load_context_settings_config()).toMatchObject({
 			preset: 'light',
@@ -583,7 +580,7 @@ describe('context_sidecar extension', () => {
 		});
 
 		const notifications: string[] = [];
-		await fake.commands.get('context-stats')!.handler([], {
+		await fake.commands.get('context-stats')!.handler('', {
 			ui: {
 				notify(message: string, type: string) {
 					notifications.push(`${type}:${message}`);

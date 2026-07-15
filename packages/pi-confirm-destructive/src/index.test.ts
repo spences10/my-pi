@@ -1,4 +1,7 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from '@earendil-works/pi-coding-agent';
 import { execFileSync } from 'node:child_process';
 import {
 	mkdirSync,
@@ -15,16 +18,16 @@ import confirm_destructive, {
 } from './index.js';
 
 function create_test_pi() {
-	const events = new Map<string, any>();
+	const events = new Map<string, Function>();
 	const pi = {
-		on(name: string, handler: any) {
+		on(name: string, handler: Function) {
 			events.set(name, handler);
 		},
 	} as unknown as ExtensionAPI;
 	return { pi, events };
 }
 
-function create_context(overrides: Partial<any> = {}) {
+function create_context(overrides: Partial<ExtensionContext> = {}) {
 	const notify = vi.fn();
 	const select = vi.fn();
 
@@ -184,7 +187,7 @@ describe('assess_tool_call', () => {
 				toolCallId: 'tool-1',
 				toolName: 'write',
 				input: { path: 'important.md', content: 'replace me' },
-			} as any,
+			} satisfies Parameters<typeof assess_tool_call>[0],
 			cwd,
 		);
 
@@ -203,7 +206,7 @@ describe('assess_tool_call', () => {
 				toolCallId: 'tool-1',
 				toolName: 'write',
 				input: { path: 'draft.md', content: 'second draft' },
-			} as any,
+			} satisfies Parameters<typeof assess_tool_call>[0],
 			cwd,
 			new Set([join(cwd, 'draft.md')]),
 		);
@@ -220,7 +223,7 @@ describe('assess_tool_call', () => {
 				toolCallId: 'tool-1',
 				toolName: 'write',
 				input: { path: 'tracked.md', content: 'replace me' },
-			} as any,
+			} satisfies Parameters<typeof assess_tool_call>[0],
 			cwd,
 		);
 
@@ -237,7 +240,7 @@ describe('assess_tool_call', () => {
 				toolCallId: 'tool-1',
 				toolName: 'write',
 				input: { path: 'tracked.md', content: 'replace me' },
-			} as any,
+			} satisfies Parameters<typeof assess_tool_call>[0],
 			cwd,
 		);
 
@@ -255,7 +258,7 @@ describe('assess_tool_call', () => {
 				toolCallId: 'tool-1',
 				toolName: 'write',
 				input: { path: 'new.md', content: 'hello' },
-			} as any,
+			} satisfies Parameters<typeof assess_tool_call>[0],
 			cwd,
 		);
 
@@ -274,7 +277,7 @@ describe('assess_tool_call', () => {
 					path: 'tracked.md',
 					edits: [{ oldText: 'x'.repeat(250), newText: '' }],
 				},
-			} as any,
+			} satisfies Parameters<typeof assess_tool_call>[0],
 			cwd,
 		);
 
@@ -294,7 +297,7 @@ describe('assess_tool_call', () => {
 					path: 'important.md',
 					edits: [{ oldText: 'x'.repeat(250), newText: '' }],
 				},
-			} as any,
+			} satisfies Parameters<typeof assess_tool_call>[0],
 			cwd,
 		);
 
@@ -310,7 +313,7 @@ describe('assess_tool_call', () => {
 				toolCallId: 'tool-1',
 				toolName: 'mcp__sqlite__execute_write_query',
 				input: { query: 'delete from users' },
-			} as any,
+			} satisfies Parameters<typeof assess_tool_call>[0],
 			process.cwd(),
 		);
 
@@ -325,7 +328,7 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const handler = events.get('tool_call');
+		const handler = events.get('tool_call')!;
 		const { ctx, select, notify } = create_context({ cwd });
 		select.mockResolvedValue('Block');
 
@@ -360,7 +363,7 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const handler = events.get('tool_call');
+		const handler = events.get('tool_call')!;
 		const { ctx, select, notify } = create_context({ cwd });
 		select.mockResolvedValue('Allow once');
 
@@ -386,7 +389,7 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const handler = events.get('tool_call');
+		const handler = events.get('tool_call')!;
 		const { ctx, select } = create_context({ cwd });
 		select.mockResolvedValue('Allow similar for this session');
 
@@ -419,7 +422,7 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const handler = events.get('tool_call');
+		const handler = events.get('tool_call')!;
 		const { ctx, select } = create_context({ hasUI: false, cwd });
 
 		const result = await handler(
@@ -444,7 +447,7 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const handler = events.get('tool_call');
+		const handler = events.get('tool_call')!;
 		const { ctx, select } = create_context();
 
 		const result = await handler(
@@ -466,8 +469,8 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const tool_call = events.get('tool_call');
-		const tool_result = events.get('tool_result');
+		const tool_call = events.get('tool_call')!;
+		const tool_result = events.get('tool_result')!;
 		const { ctx, select } = create_context({ cwd });
 
 		await tool_call(
@@ -508,8 +511,8 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const tool_call = events.get('tool_call');
-		const tool_result = events.get('tool_result');
+		const tool_call = events.get('tool_call')!;
+		const tool_result = events.get('tool_result')!;
 		const { ctx, select } = create_context({ cwd });
 
 		dirs.push(path);
@@ -553,8 +556,8 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const tool_call = events.get('tool_call');
-		const tool_result = events.get('tool_result');
+		const tool_call = events.get('tool_call')!;
+		const tool_result = events.get('tool_result')!;
 		const { ctx, select } = create_context({ cwd });
 
 		dirs.push(path);
@@ -597,8 +600,8 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const tool_call = events.get('tool_call');
-		const tool_result = events.get('tool_result');
+		const tool_call = events.get('tool_call')!;
+		const tool_result = events.get('tool_result')!;
 		const { ctx, select } = create_context({ cwd });
 
 		dirs.push(path);
@@ -641,7 +644,7 @@ describe('confirm-destructive extension', () => {
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
-		const handler = events.get('user_bash');
+		const handler = events.get('user_bash')!;
 		const { ctx, select } = create_context({ cwd });
 		select.mockResolvedValue('Block');
 

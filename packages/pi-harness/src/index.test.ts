@@ -1,3 +1,4 @@
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { execFileSync } from 'node:child_process';
 import {
 	mkdirSync,
@@ -348,12 +349,12 @@ describe('should_inject_harness_prompt', () => {
 		expect(
 			should_inject_harness_prompt({
 				systemPromptOptions: {},
-			} as any),
+			} as Parameters<typeof should_inject_harness_prompt>[0]),
 		).toBe(true);
 		expect(
 			should_inject_harness_prompt({
 				systemPromptOptions: { selectedTools: ['read', 'bash'] },
-			} as any),
+			} as Parameters<typeof should_inject_harness_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -361,24 +362,29 @@ describe('should_inject_harness_prompt', () => {
 		expect(
 			should_inject_harness_prompt({
 				systemPromptOptions: { selectedTools: ['read'] },
-			} as any),
+			} as Parameters<typeof should_inject_harness_prompt>[0]),
 		).toBe(false);
 	});
 });
 
 describe('harness extension', () => {
 	it('registers commands, tools, and lifecycle hooks', async () => {
-		const commands = new Map<string, any>();
-		const tools = new Map<string, any>();
+		const commands = new Map<string, { handler: Function }>();
+		const tools = new Map<
+			string,
+			{ name: string; execute: Function }
+		>();
 		const handlers = new Map<string, Function>();
 		const register_command = vi.fn(
-			(name: string, definition: any) => {
+			(name: string, definition: { handler: Function }) => {
 				commands.set(name, definition);
 			},
 		);
-		const register_tool = vi.fn((definition: any) => {
-			tools.set(definition.name, definition);
-		});
+		const register_tool = vi.fn(
+			(definition: { name: string; execute: Function }) => {
+				tools.set(definition.name, definition);
+			},
+		);
 		const on = vi.fn((name: string, handler: Function) => {
 			handlers.set(name, handler);
 		});
@@ -390,7 +396,7 @@ describe('harness extension', () => {
 			registerCommand: register_command,
 			registerTool: register_tool,
 			sendUserMessage: send_user_message,
-		} as any);
+		} as unknown as ExtensionAPI);
 
 		expect(commands.has('harness')).toBe(true);
 		expect(tools.has('harness_create')).toBe(true);
@@ -399,7 +405,7 @@ describe('harness extension', () => {
 		expect(handlers.has('before_agent_start')).toBe(true);
 		expect(handlers.has('tool_call')).toBe(true);
 
-		commands.get('harness').handler('create add feature', {
+		commands.get('harness')!.handler('create add feature', {
 			ui: { notify: vi.fn(), setStatus: vi.fn(), setWidget: vi.fn() },
 		});
 		expect(send_user_message).toHaveBeenCalledWith(
@@ -409,7 +415,7 @@ describe('harness extension', () => {
 			expect.stringContaining('add a team task'),
 		);
 
-		commands.get('harness').handler('run /tmp/my-pi-harness-demo', {
+		commands.get('harness')!.handler('run /tmp/my-pi-harness-demo', {
 			ui: { notify: vi.fn(), setStatus: vi.fn(), setWidget: vi.fn() },
 		});
 		expect(send_user_message).toHaveBeenCalledWith(
@@ -431,13 +437,13 @@ describe('harness extension', () => {
 			setStatus: vi.fn(),
 			setWidget: vi.fn(),
 		};
-		commands.get('harness').handler(`use ${harness_dir}`, { ui });
+		commands.get('harness')!.handler(`use ${harness_dir}`, { ui });
 		expect(ui.setStatus).toHaveBeenCalledWith(
 			'harness',
 			'🧪 created',
 		);
 		expect(ui.setWidget).toHaveBeenCalledWith('harness', undefined);
-		commands.get('harness').handler('clear', { ui });
+		commands.get('harness')!.handler('clear', { ui });
 
 		await expect(
 			handlers.get('before_agent_start')?.({

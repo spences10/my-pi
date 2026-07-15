@@ -6,7 +6,6 @@ import {
 	type SelectListTheme,
 	type SettingItem,
 	type SettingsListTheme,
-	type TUI,
 } from '@earendil-works/pi-tui';
 import type {
 	ModalBorderStyle,
@@ -75,11 +74,11 @@ export function normalize_text(
 }
 
 export function parse_size_value(
-	value: OverlayOptions['maxHeight'] | undefined,
+	value: unknown,
 	total: number,
 ): number | undefined {
-	if (value === undefined) return undefined;
 	if (typeof value === 'number') return value;
+	if (typeof value !== 'string') return undefined;
 	const match = value.match(/^(\d+(?:\.\d+)?)%$/);
 	return match
 		? Math.floor((Number(match[1]) / 100) * total)
@@ -95,7 +94,9 @@ export function get_vertical_margin(
 	);
 }
 
-export function get_terminal_rows(tui: TUI): number {
+export function get_terminal_rows(tui: {
+	terminal?: { rows?: number };
+}): number {
 	const rows = (tui as unknown as { terminal?: { rows?: number } })
 		.terminal?.rows;
 	return rows ?? process.stdout.rows ?? 24;
@@ -121,7 +122,7 @@ export function count_text_lines(
 }
 
 export function get_modal_body_line_budget(
-	tui: TUI,
+	tui: { terminal?: { rows?: number } },
 	options: ModalOptions,
 	body_width = 80,
 ): number {

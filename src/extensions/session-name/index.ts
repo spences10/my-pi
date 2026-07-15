@@ -4,6 +4,7 @@
 import { complete, type Message } from '@earendil-works/pi-ai/compat';
 import type {
 	ExtensionAPI,
+	ExtensionCommandContext,
 	SessionEntry,
 } from '@earendil-works/pi-coding-agent';
 import {
@@ -52,17 +53,7 @@ function truncate_conversation(value: string): string {
 }
 
 async function generate_session_name(
-	ctx: {
-		modelRegistry: {
-			getApiKeyAndHeaders: (
-				model: NonNullable<
-					Parameters<
-						Parameters<ExtensionAPI['registerCommand']>[1]['handler']
-					>[1]['model']
-				>,
-			) => Promise<any>;
-		};
-	},
+	ctx: Pick<ExtensionCommandContext, 'modelRegistry'>,
 	model: NonNullable<
 		Parameters<
 			Parameters<ExtensionAPI['registerCommand']>[1]['handler']

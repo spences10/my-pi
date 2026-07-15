@@ -6,7 +6,7 @@ describe('should_inject_sqlite_tools_prompt', () => {
 		expect(
 			should_inject_sqlite_tools_prompt({
 				systemPromptOptions: {},
-			} as any),
+			} as Parameters<typeof should_inject_sqlite_tools_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -19,7 +19,7 @@ describe('should_inject_sqlite_tools_prompt', () => {
 						'mcp__mcp-sqlite-tools__open_database',
 					],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_sqlite_tools_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -29,7 +29,7 @@ describe('should_inject_sqlite_tools_prompt', () => {
 				systemPromptOptions: {
 					selectedTools: ['mcp__sqlite__execute_read_query'],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_sqlite_tools_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -39,14 +39,14 @@ describe('should_inject_sqlite_tools_prompt', () => {
 				systemPromptOptions: {
 					selectedTools: ['mcp__sqlite__import_csv'],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_sqlite_tools_prompt>[0]),
 		).toBe(true);
 		expect(
 			should_inject_sqlite_tools_prompt({
 				systemPromptOptions: {
 					selectedTools: ['mcp__sqlite__export_csv'],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_sqlite_tools_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -56,7 +56,7 @@ describe('should_inject_sqlite_tools_prompt', () => {
 				systemPromptOptions: {
 					selectedTools: ['read', 'bash'],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_sqlite_tools_prompt>[0]),
 		).toBe(false);
 	});
 
@@ -66,7 +66,7 @@ describe('should_inject_sqlite_tools_prompt', () => {
 				systemPromptOptions: {
 					selectedTools: ['mcp__postgres__execute_read_query'],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_sqlite_tools_prompt>[0]),
 		).toBe(false);
 	});
 });

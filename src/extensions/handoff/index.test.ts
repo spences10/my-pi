@@ -1,3 +1,4 @@
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
 import handoff, {
 	HANDOFF_GUIDE,
@@ -20,16 +21,22 @@ describe('pi-handoff command', () => {
 	});
 
 	it('registers /handoff as a help command only', async () => {
-		const commands = new Map<string, any>();
+		type CommandDefinition = Parameters<
+			ExtensionAPI['registerCommand']
+		>[1];
+		const commands = new Map<string, CommandDefinition>();
 		handoff({
-			registerCommand(name: string, definition: any) {
+			registerCommand(name: string, definition: CommandDefinition) {
 				commands.set(name, definition);
 			},
-		} as any);
+		} as ExtensionAPI);
 
-		const ctx = { ui: { notify: vi.fn() } };
-		await commands.get('handoff').handler('', ctx);
+		const notify = vi.fn();
+		const ctx = { ui: { notify } } as unknown as Parameters<
+			CommandDefinition['handler']
+		>[1];
+		await commands.get('handoff')?.handler('', ctx);
 
-		expect(ctx.ui.notify).toHaveBeenCalledWith(HANDOFF_GUIDE, 'info');
+		expect(notify).toHaveBeenCalledWith(HANDOFF_GUIDE, 'info');
 	});
 });

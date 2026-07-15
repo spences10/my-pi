@@ -27,14 +27,14 @@ describe('src/extensions/hooks-resolution/payload.ts', () => {
 				toolName: 'read',
 				toolCallId: 'call-1',
 				input: { path: 'src/index.ts' },
-			} as any,
+			} as Parameters<typeof build_hook_payload>[0],
 			'PreToolUse',
 			{
 				cwd: '/repo',
 				sessionManager: {
 					getSessionFile: () => '/tmp/session.jsonl',
 				},
-			} as any,
+			} as Parameters<typeof build_hook_payload>[2],
 			'/repo',
 		);
 

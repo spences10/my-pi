@@ -1,3 +1,4 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,7 +10,7 @@ import {
 } from './http-responses.js';
 
 function fake_response() {
-	return {
+	const response = {
 		status: 0,
 		headers: {} as Record<string, string>,
 		body: undefined as unknown,
@@ -22,7 +23,8 @@ function fake_response() {
 			this.body = body;
 			return this;
 		},
-	} as any;
+	};
+	return response as typeof response & ServerResponse;
 }
 
 describe('http response helpers', () => {
@@ -74,7 +76,7 @@ describe('http response helpers', () => {
 		const req = Readable.from([
 			Buffer.from('hello '),
 			'world',
-		]) as any;
+		]) as unknown as IncomingMessage;
 
 		await expect(read_body(req)).resolves.toBe('hello world');
 	});

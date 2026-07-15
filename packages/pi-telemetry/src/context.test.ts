@@ -22,9 +22,7 @@ describe('packages/pi-telemetry/src/context.ts', () => {
 			provider: null,
 			id: null,
 		});
-		expect(
-			get_model_identity({ provider: 'p', id: 'm' } as any),
-		).toEqual({
+		expect(get_model_identity({ provider: 'p', id: 'm' })).toEqual({
 			provider: 'p',
 			id: 'm',
 		});
@@ -34,16 +32,16 @@ describe('packages/pi-telemetry/src/context.ts', () => {
 		expect(
 			infer_run_outcome({
 				messages: [{ role: 'assistant', stopReason: 'aborted' }],
-			} as any),
+			}),
 		).toEqual({ success: false, error_message: 'agent aborted' });
 	});
 
 	it('describes session shutdowns', () => {
 		expect(
 			describe_session_shutdown({
-				reason: 'switch',
+				reason: 'resume',
 				targetSessionFile: '/tmp/next.jsonl',
-			} as any),
-		).toBe('session shutdown (switch) → /tmp/next.jsonl');
+			}),
+		).toBe('session shutdown (resume) → /tmp/next.jsonl');
 	});
 });

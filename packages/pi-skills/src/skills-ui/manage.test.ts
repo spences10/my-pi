@@ -9,26 +9,32 @@ vi.mock('@spences10/pi-tui-modal', () => ({
 }));
 
 function create_ctx() {
-	return {
-		ui: { notify: vi.fn() },
-		reload: vi.fn(async () => {}),
-	} as any;
+	const notify = vi.fn();
+	const reload = vi.fn(async () => {});
+	const ctx = {
+		ui: { notify },
+		reload,
+	} as unknown as Parameters<typeof show_skills_manager_modal>[0];
+	return { ctx, notify, reload };
 }
 
 describe('show_skills_manager_modal', () => {
 	it('notifies when no managed skills exist', async () => {
-		const ctx = create_ctx();
+		const { ctx, notify } = create_ctx();
 		const mgr = { discover: () => [] };
 		await expect(
-			show_skills_manager_modal(ctx, mgr as any),
+			show_skills_manager_modal(
+				ctx,
+				mgr as unknown as Parameters<
+					typeof show_skills_manager_modal
+				>[1],
+			),
 		).resolves.toBe(false);
-		expect(ctx.ui.notify).toHaveBeenCalledWith(
-			'No managed skills found',
-		);
+		expect(notify).toHaveBeenCalledWith('No managed skills found');
 	});
 
 	it('opens settings, applies changes, and reloads when enabled set changes', async () => {
-		const ctx = create_ctx();
+		const { ctx, notify, reload } = create_ctx();
 		const disable = vi.fn();
 		const mgr = {
 			discover: () => [
@@ -46,7 +52,12 @@ describe('show_skills_manager_modal', () => {
 			disable,
 		};
 		await expect(
-			show_skills_manager_modal(ctx, mgr as any),
+			show_skills_manager_modal(
+				ctx,
+				mgr as unknown as Parameters<
+					typeof show_skills_manager_modal
+				>[1],
+			),
 		).resolves.toBe(true);
 		expect(show_settings_modal).toHaveBeenCalledWith(
 			ctx,
@@ -56,10 +67,10 @@ describe('show_skills_manager_modal', () => {
 			}),
 		);
 		expect(disable).toHaveBeenCalledWith('skill-a');
-		expect(ctx.ui.notify).toHaveBeenCalledWith(
+		expect(notify).toHaveBeenCalledWith(
 			'Reloading to apply updated skills...',
 			'info',
 		);
-		expect(ctx.reload).toHaveBeenCalledOnce();
+		expect(reload).toHaveBeenCalledOnce();
 	});
 });

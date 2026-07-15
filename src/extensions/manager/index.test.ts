@@ -5,10 +5,15 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { create_extensions_extension } from './index.js';
 
+type CommandDefinition = Parameters<
+	ExtensionAPI['registerCommand']
+>[1];
+type CommandContext = Parameters<CommandDefinition['handler']>[1];
+
 function create_test_pi() {
-	const commands = new Map<string, any>();
+	const commands = new Map<string, CommandDefinition>();
 	const pi = {
-		registerCommand(name: string, definition: any) {
+		registerCommand(name: string, definition: CommandDefinition) {
 			commands.set(name, definition);
 		},
 	} as unknown as ExtensionAPI;
@@ -35,7 +40,7 @@ function create_command_context(options?: { hasUI?: boolean }) {
 			async reload() {
 				reload_calls += 1;
 			},
-		} as any,
+		} as unknown as CommandContext,
 		notifications,
 		get custom_calls() {
 			return custom_calls;
@@ -77,7 +82,7 @@ describe('extensions command', () => {
 			expect(command).toBeTruthy();
 
 			const command_context = create_command_context({ hasUI: true });
-			await command.handler(subcommand, command_context.ctx);
+			await command?.handler(subcommand, command_context.ctx);
 
 			expect(command_context.custom_calls).toBe(1);
 			expect(command_context.reload_calls).toBe(0);
@@ -103,7 +108,7 @@ describe('extensions command', () => {
 		expect(command).toBeTruthy();
 
 		const command_context = create_command_context({ hasUI: false });
-		await command.handler('toggle', command_context.ctx);
+		await command?.handler('toggle', command_context.ctx);
 
 		expect(command_context.custom_calls).toBe(0);
 		expect(command_context.notifications).toContainEqual({

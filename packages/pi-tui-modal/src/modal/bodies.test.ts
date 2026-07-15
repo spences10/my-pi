@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DetailedSettingsList, TextModalBody } from './bodies.js';
+import type { ModalTheme } from './types.js';
 
-const modal_theme = {
+const modal_theme: ModalTheme = {
 	fg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
-} as any;
+};
 const settings_theme = {
 	cursor: '→ ',
 	label: (text: string) => text,

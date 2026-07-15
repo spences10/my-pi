@@ -10,7 +10,10 @@ import {
 	set_context_sidecar_enabled,
 } from './store.js';
 
-type HookHandler = (event: any, ctx?: any) => Promise<unknown>;
+type HookHandler = (
+	event: unknown,
+	ctx?: unknown,
+) => Promise<unknown>;
 
 const dirs: string[] = [];
 const original_context_db = process.env.MY_PI_CONTEXT_DB;

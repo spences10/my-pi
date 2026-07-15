@@ -1,12 +1,21 @@
 import { execFileSync } from 'node:child_process';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+	type Mock,
+} from 'vitest';
 import { describe_port_owner } from './port-owner.js';
 
 vi.mock('node:child_process', () => ({
 	execFileSync: vi.fn(),
 }));
 
-const mocked_exec = vi.mocked(execFileSync);
+const mocked_exec = vi.mocked(execFileSync) as unknown as Mock<
+	(...args: Parameters<typeof execFileSync>) => string
+>;
 
 describe('describe_port_owner', () => {
 	beforeEach(() => {
@@ -14,7 +23,7 @@ describe('describe_port_owner', () => {
 	});
 
 	it('prefers lsof output when available', () => {
-		mocked_exec.mockReturnValue('node 123 listen\n' as any);
+		mocked_exec.mockReturnValue('node 123 listen\n');
 
 		expect(describe_port_owner(43190)).toBe('node 123 listen');
 		expect(mocked_exec).toHaveBeenCalledWith(
@@ -30,7 +39,7 @@ describe('describe_port_owner', () => {
 				throw new Error('missing lsof');
 			})
 			.mockReturnValue(
-				'LISTEN 0 1 127.0.0.1:43190 users:node\nLISTEN 0 1 127.0.0.1:9 other\n' as any,
+				'LISTEN 0 1 127.0.0.1:43190 users:node\nLISTEN 0 1 127.0.0.1:9 other\n',
 			);
 
 		expect(describe_port_owner(43190)).toBe(

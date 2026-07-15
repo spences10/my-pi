@@ -3,15 +3,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+	BUILTIN_EXTENSIONS,
+	type BuiltinExtensionOptionName,
+} from '../extensions/builtin-registry.js';
+import {
 	create_extensions_override,
 	create_lazy_builtin_extension_factory,
 	get_externally_installed_builtin_extensions,
 	get_force_disabled_builtins,
 } from './builtin-extensions.js';
-import {
-	BUILTIN_EXTENSIONS,
-	type BuiltinExtensionOptionName,
-} from '../extensions/builtin-registry.js';
 
 const original_xdg_config_home = process.env.XDG_CONFIG_HOME;
 const original_agent_dir = process.env.PI_CODING_AGENT_DIR;
@@ -123,7 +123,7 @@ describe('builtin extension api helpers', () => {
 				{ path: '<inline:2>', commands: new Map(), tools: new Map() },
 				{ path: '<inline:1>', commands: new Map(), tools: new Map() },
 			],
-		} as any);
+		} as Parameters<typeof override>[0]);
 
 		expect(
 			result.extensions.map((extension) => extension.path),

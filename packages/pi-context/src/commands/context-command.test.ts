@@ -27,7 +27,7 @@ type RegisteredCommand = {
 	getArgumentCompletions?: (
 		prefix: string,
 	) => Array<{ value: string }>;
-	handler: (args: string, ctx: any) => Promise<void>;
+	handler: (args: string, ctx: unknown) => Promise<void>;
 };
 
 function fake_pi() {

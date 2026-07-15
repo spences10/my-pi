@@ -14,9 +14,13 @@ const original_context_db = process.env.MY_PI_CONTEXT_DB;
 
 type RegisteredTool = {
 	name: string;
-	execute: (
-		...args: any[]
-	) => Promise<{ content: Array<{ text: string }>; details: any }>;
+	description: string;
+	promptSnippet: string;
+	parameters: { properties: Record<string, { description: string }> };
+	execute: (...args: unknown[]) => Promise<{
+		content: Array<{ text: string }>;
+		details: { count?: number; [key: string]: unknown };
+	}>;
 };
 
 function temp_db(): string {

@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { render_stage } from './stage-render.js';
 import type { StageRenderState } from './stage-types.js';
 
-const theme = {
+const theme: StageRenderState['theme'] = {
 	fg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
-} as any;
+};
 const base_state: StageRenderState = {
 	theme,
 	status: {

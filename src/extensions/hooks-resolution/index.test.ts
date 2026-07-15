@@ -1,4 +1,7 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from '@earendil-works/pi-coding-agent';
 import {
 	mkdirSync,
 	mkdtempSync,
@@ -36,16 +39,16 @@ function create_temp_dir(): string {
 }
 
 function create_test_pi() {
-	const events = new Map<string, any>();
+	const events = new Map<string, Function>();
 	const pi = {
-		on(name: string, handler: any) {
+		on(name: string, handler: Function) {
 			events.set(name, handler);
 		},
 	} as unknown as ExtensionAPI;
 	return { pi, events };
 }
 
-function create_context(overrides: Partial<any> = {}) {
+function create_context(overrides: Partial<ExtensionContext> = {}) {
 	const notify = vi.fn();
 	const select = vi.fn();
 	return {
@@ -192,9 +195,9 @@ describe('hooks-resolution helpers', () => {
 				content: [{ type: 'text', text: 'done' }],
 				isError: false,
 				details: null,
-			} as any,
+			} as unknown as Parameters<typeof build_hook_payload>[0],
 			'PostToolUse',
-			ctx as any,
+			ctx as unknown as Parameters<typeof build_hook_payload>[2],
 			'/repo',
 		);
 
@@ -272,8 +275,8 @@ describe('hooks-resolution extension', () => {
 			run_command_hook,
 		})(pi);
 
-		const start = events.get('session_start');
-		const tool_result = events.get('tool_result');
+		const start = events.get('session_start')!;
+		const tool_result = events.get('tool_result')!;
 		const { ctx } = create_context({ cwd: dir, hasUI: false });
 
 		await start({}, ctx);
@@ -285,7 +288,7 @@ describe('hooks-resolution extension', () => {
 				content: [{ type: 'text', text: 'done' }],
 				isError: false,
 				details: null,
-			} as any,
+			},
 			ctx,
 		);
 
@@ -321,7 +324,7 @@ describe('hooks-resolution extension', () => {
 				load_hooks: load_hooks_impl,
 			})(pi);
 
-			const start = events.get('session_start');
+			const start = events.get('session_start')!;
 			const { ctx } = create_context({ cwd: dir, hasUI: false });
 			await start({}, ctx);
 
@@ -373,8 +376,8 @@ describe('hooks-resolution extension', () => {
 			run_command_hook,
 		})(pi);
 
-		const start = events.get('session_start');
-		const tool_call = events.get('tool_call');
+		const start = events.get('session_start')!;
+		const tool_call = events.get('tool_call')!;
 		const { ctx } = create_context();
 
 		await start({}, ctx);
@@ -383,7 +386,7 @@ describe('hooks-resolution extension', () => {
 				toolName: 'write',
 				toolCallId: 'call-1',
 				input: { path: 'src/file.svelte' },
-			} as any,
+			},
 			ctx,
 		);
 
@@ -446,8 +449,8 @@ describe('hooks-resolution extension', () => {
 			run_command_hook,
 		})(pi);
 
-		const start = events.get('session_start');
-		const tool_result = events.get('tool_result');
+		const start = events.get('session_start')!;
+		const tool_result = events.get('tool_result')!;
 		const { ctx, notify } = create_context();
 
 		await start({}, ctx);
@@ -459,7 +462,7 @@ describe('hooks-resolution extension', () => {
 				content: [{ type: 'text', text: 'done' }],
 				isError: false,
 				details: null,
-			} as any,
+			},
 			ctx,
 		);
 

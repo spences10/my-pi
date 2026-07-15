@@ -37,9 +37,9 @@ export default defineConfig({
 		ignorePatterns: ['apps/web/**'],
 	},
 	lint: {
-		// rules: {
-		// 	'typescript/no-explicit-any': 'error',
-		// },
+		rules: {
+			'typescript/no-explicit-any': 'error',
+		},
 		ignorePatterns: [
 			'.svelte-kit/**',
 			'build/**',

@@ -1,10 +1,13 @@
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
 import recall, { should_inject_recall_prompt } from './index.js';
 
 describe('should_inject_recall_prompt', () => {
 	it('injects when selected tools are unavailable', () => {
 		expect(
-			should_inject_recall_prompt({ systemPromptOptions: {} } as any),
+			should_inject_recall_prompt({
+				systemPromptOptions: {},
+			} as Parameters<typeof should_inject_recall_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -12,7 +15,7 @@ describe('should_inject_recall_prompt', () => {
 		expect(
 			should_inject_recall_prompt({
 				systemPromptOptions: { selectedTools: ['read', 'bash'] },
-			} as any),
+			} as Parameters<typeof should_inject_recall_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -20,7 +23,7 @@ describe('should_inject_recall_prompt', () => {
 		expect(
 			should_inject_recall_prompt({
 				systemPromptOptions: { selectedTools: ['read', 'write'] },
-			} as any),
+			} as Parameters<typeof should_inject_recall_prompt>[0]),
 		).toBe(false);
 	});
 
@@ -29,7 +32,7 @@ describe('should_inject_recall_prompt', () => {
 		const on = vi.fn((name: string, handler: Function) => {
 			handlers.set(name, handler);
 		});
-		await recall({ on } as any);
+		await recall({ on } as unknown as ExtensionAPI);
 		expect(on).toHaveBeenCalledWith(
 			'session_start',
 			expect.any(Function),

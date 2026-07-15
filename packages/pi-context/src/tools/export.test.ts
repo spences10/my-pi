@@ -16,10 +16,11 @@ type RegisteredTool = {
 	name: string;
 	description: string;
 	promptSnippet: string;
-	parameters: any;
-	execute: (
-		...args: any[]
-	) => Promise<{ content: Array<{ text: string }>; details: any }>;
+	parameters: { properties: Record<string, { description: string }> };
+	execute: (...args: unknown[]) => Promise<{
+		content: Array<{ text: string }>;
+		details: { count?: number; [key: string]: unknown };
+	}>;
 };
 
 function temp_dir(prefix: string): string {

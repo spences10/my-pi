@@ -34,18 +34,18 @@ describe('lsp prompt guidance', () => {
 		expect(
 			should_inject_lsp_prompt({
 				systemPromptOptions: undefined,
-			} as any),
+			}),
 		).toBe(true);
 		expect(
 			should_inject_lsp_prompt({
-				systemPromptOptions: { selectedTools: ['lsp_hover'] } as any,
+				systemPromptOptions: { selectedTools: ['lsp_hover'] },
 			}),
 		).toBe(true);
 		expect(
 			should_inject_lsp_prompt({
 				systemPromptOptions: {
 					selectedTools: ['bash', 'read'],
-				} as any,
+				},
 			}),
 		).toBe(false);
 	});

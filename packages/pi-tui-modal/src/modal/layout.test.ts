@@ -12,7 +12,7 @@ import {
 	value_color,
 } from './layout.js';
 
-const tui = { terminal: { rows: 30 } } as any;
+const tui = { terminal: { rows: 30 } };
 
 describe('modal layout helpers', () => {
 	it('normalizes static, dynamic, and missing text', () => {
@@ -25,7 +25,7 @@ describe('modal layout helpers', () => {
 		expect(parse_size_value('50%', 40)).toBe(20);
 		expect(parse_size_value('12.5%', 80)).toBe(10);
 		expect(parse_size_value(12, 40)).toBe(12);
-		expect(parse_size_value('large' as any, 40)).toBeUndefined();
+		expect(parse_size_value('large', 40)).toBeUndefined();
 	});
 
 	it('computes body line budget from terminal, chrome, and margins', () => {
@@ -73,7 +73,7 @@ describe('modal layout helpers', () => {
 		expect(
 			normalize_metadata((item) => item?.label, {
 				label: 'Label',
-			} as any),
+			} as Parameters<typeof normalize_metadata>[1]),
 		).toEqual(['Label']);
 		expect(value_color('✓ enabled')).toBe('success');
 		expect(value_color('sync queued')).toBe('warning');

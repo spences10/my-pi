@@ -7,7 +7,10 @@ import { execPath } from 'node:process';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { McpClient } from './client.js';
 
-function read_json(req: IncomingMessage): Promise<any> {
+function read_json(req: IncomingMessage): Promise<{
+	id?: number | string;
+	method?: string;
+}> {
 	return new Promise((resolve, reject) => {
 		let body = '';
 		req.setEncoding('utf8');

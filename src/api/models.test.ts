@@ -1,3 +1,4 @@
+import type { Api, Model } from '@earendil-works/pi-ai';
 import { describe, expect, it } from 'vitest';
 import {
 	resolve_effective_thinking_level,
@@ -17,7 +18,7 @@ function model(overrides: Record<string, unknown> = {}) {
 		contextWindow: 1000,
 		maxTokens: 100,
 		...overrides,
-	} as any;
+	} as Model<Api>;
 }
 
 describe('api model helpers', () => {

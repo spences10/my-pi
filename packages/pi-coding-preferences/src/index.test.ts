@@ -21,7 +21,7 @@ function event(toolName: string, input: Record<string, unknown>) {
 		toolName,
 		toolCallId: 'test',
 		input,
-	} as any;
+	} as Parameters<typeof should_block_coding_preference>[0];
 }
 
 function write_project_config(

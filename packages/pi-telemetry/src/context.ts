@@ -1,5 +1,4 @@
 import type {
-	AgentEndEvent,
 	ExtensionContext,
 	SessionShutdownEvent,
 } from '@earendil-works/pi-coding-agent';
@@ -21,7 +20,10 @@ export function get_eval_metadata(): EvalMetadata {
 }
 
 export function get_model_identity(
-	model: ExtensionContext['model'],
+	model:
+		| Pick<NonNullable<ExtensionContext['model']>, 'id' | 'provider'>
+		| null
+		| undefined,
 ): {
 	provider: string | null;
 	id: string | null;
@@ -59,7 +61,15 @@ export function get_error_message(message: unknown): string | null {
 	return typeof error_message === 'string' ? error_message : null;
 }
 
-export function infer_run_outcome(event: AgentEndEvent): {
+export function infer_run_outcome(event: {
+	type?: unknown;
+	messages: Array<{
+		role: string;
+		content?: unknown;
+		stopReason?: unknown;
+		errorMessage?: unknown;
+	}>;
+}): {
 	success: boolean | null;
 	error_message: string | null;
 } {

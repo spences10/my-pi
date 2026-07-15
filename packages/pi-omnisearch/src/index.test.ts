@@ -6,7 +6,7 @@ describe('should_inject_omnisearch_prompt', () => {
 		expect(
 			should_inject_omnisearch_prompt({
 				systemPromptOptions: {},
-			} as any),
+			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -16,7 +16,7 @@ describe('should_inject_omnisearch_prompt', () => {
 				systemPromptOptions: {
 					selectedTools: ['read', 'mcp__mcp-omnisearch__web_search'],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -26,7 +26,7 @@ describe('should_inject_omnisearch_prompt', () => {
 				systemPromptOptions: {
 					selectedTools: ['mcp__omnisearch__web_extract'],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
 		).toBe(true);
 	});
 
@@ -36,7 +36,7 @@ describe('should_inject_omnisearch_prompt', () => {
 				systemPromptOptions: {
 					selectedTools: ['read', 'bash'],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
 		).toBe(false);
 	});
 
@@ -46,7 +46,7 @@ describe('should_inject_omnisearch_prompt', () => {
 				systemPromptOptions: {
 					selectedTools: ['mcp__search__web_search'],
 				},
-			} as any),
+			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
 		).toBe(false);
 	});
 });

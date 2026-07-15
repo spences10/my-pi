@@ -42,8 +42,12 @@ import type {
 	TextModalOptions,
 } from './types.js';
 
+type ModalCommandContext = {
+	ui: Pick<ExtensionCommandContext['ui'], 'custom' | 'notify'>;
+};
+
 export async function show_modal<T>(
-	ctx: ExtensionCommandContext,
+	ctx: ModalCommandContext,
 	options: ModalOptions,
 	create_body: (
 		controls: ModalControls<T>,
@@ -119,7 +123,7 @@ export async function show_modal<T>(
 }
 
 export async function show_picker_modal(
-	ctx: ExtensionCommandContext,
+	ctx: ModalCommandContext,
 	options: PickerModalOptions,
 ): Promise<string | undefined> {
 	if (options.items.length === 0) {
@@ -190,7 +194,7 @@ export async function show_picker_modal(
 }
 
 export async function show_text_modal(
-	ctx: ExtensionCommandContext,
+	ctx: ModalCommandContext,
 	options: TextModalOptions,
 ): Promise<void> {
 	await show_modal<void>(
@@ -228,7 +232,7 @@ export async function show_text_modal(
 }
 
 export async function show_input_modal(
-	ctx: ExtensionCommandContext,
+	ctx: ModalCommandContext,
 	options: InputModalOptions,
 ): Promise<string | undefined> {
 	return await show_modal<string | undefined>(
@@ -256,7 +260,7 @@ export async function show_input_modal(
 }
 
 export async function show_confirm_modal(
-	ctx: ExtensionCommandContext,
+	ctx: ModalCommandContext,
 	options: ConfirmModalOptions,
 ): Promise<boolean> {
 	const selected = await show_picker_modal(ctx, {
@@ -287,7 +291,7 @@ export async function show_confirm_modal(
 }
 
 export async function show_settings_modal(
-	ctx: ExtensionCommandContext,
+	ctx: ModalCommandContext,
 	options: SettingsModalOptions,
 ): Promise<void> {
 	await show_modal<void>(

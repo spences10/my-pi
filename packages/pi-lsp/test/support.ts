@@ -1,4 +1,7 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ExtensionCommandContext,
+} from '@earendil-works/pi-coding-agent';
 import { rmSync } from 'node:fs';
 import { afterEach, vi } from 'vitest';
 import {
@@ -26,19 +29,31 @@ export function create_mock_client(
 	};
 }
 
+class RequiredMap<K, V> extends Map<K, V> {
+	override get(key: K): V {
+		const value = super.get(key);
+		if (value === undefined)
+			throw new Error(`Missing test key: ${String(key)}`);
+		return value;
+	}
+}
+
 export function create_test_pi() {
-	const tools = new Map<string, any>();
-	const commands = new Map<string, any>();
-	const events = new Map<string, any>();
+	const tools = new RequiredMap<
+		string,
+		{ name: string; execute: Function }
+	>();
+	const commands = new RequiredMap<string, { handler: Function }>();
+	const events = new RequiredMap<string, Function>();
 
 	const pi = {
-		registerTool(definition: any) {
+		registerTool(definition: { name: string; execute: Function }) {
 			tools.set(definition.name, definition);
 		},
-		registerCommand(name: string, definition: any) {
+		registerCommand(name: string, definition: { handler: Function }) {
 			commands.set(name, definition);
 		},
-		on(name: string, handler: any) {
+		on(name: string, handler: Function) {
 			events.set(name, handler);
 		},
 	} as unknown as ExtensionAPI;
@@ -85,7 +100,7 @@ export function create_command_context(
 				},
 				select: vi.fn(async () => selections.shift()),
 				custom: modal_results.length
-					? vi.fn(async (create_component: any) => {
+					? vi.fn(async (create_component: Function) => {
 							create_component(
 								{ requestRender: vi.fn() },
 								{
@@ -99,7 +114,7 @@ export function create_command_context(
 						})
 					: undefined,
 			},
-		} as any,
+		} as unknown as ExtensionCommandContext,
 		notifications,
 		selections,
 	};

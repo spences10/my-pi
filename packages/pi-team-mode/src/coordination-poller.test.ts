@@ -12,11 +12,11 @@ describe('CoordinationPoller', () => {
 				mark_messages_read: vi.fn(),
 			};
 			const poller = new CoordinationPoller({
-				db: db as any,
+				db: db,
 				get_session_id: () => 'session-1',
 				should_auto_inject_messages: () => true,
 			});
-			const pi = { sendUserMessage: vi.fn() } as any;
+			const pi = { sendUserMessage: vi.fn() };
 
 			poller.poll(pi);
 			poller.poll(pi);
@@ -35,6 +35,7 @@ describe('CoordinationPoller', () => {
 	it('suppresses auto-injection while an agent turn is active', () => {
 		const message = {
 			message_id: 'm1',
+			body: 'pending message',
 			urgent: false,
 		};
 		const db = {
@@ -44,12 +45,12 @@ describe('CoordinationPoller', () => {
 			mark_messages_read: vi.fn(),
 		};
 		const poller = new CoordinationPoller({
-			db: db as any,
+			db: db,
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 			is_agent_active: () => true,
 		});
-		const pi = { sendUserMessage: vi.fn() } as any;
+		const pi = { sendUserMessage: vi.fn() };
 
 		poller.poll(pi);
 
@@ -73,11 +74,11 @@ describe('CoordinationPoller', () => {
 			mark_messages_read: vi.fn(),
 		};
 		const poller = new CoordinationPoller({
-			db: db as any,
+			db: db,
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
-		const pi = { sendUserMessage: vi.fn() } as any;
+		const pi = { sendUserMessage: vi.fn() };
 
 		expect(() => poller.poll(pi)).not.toThrow();
 		expect(pi.sendUserMessage).not.toHaveBeenCalled();
@@ -93,11 +94,11 @@ describe('CoordinationPoller', () => {
 			mark_messages_read: vi.fn(),
 		};
 		const poller = new CoordinationPoller({
-			db: db as any,
+			db: db,
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
-		const pi = { sendUserMessage: vi.fn() } as any;
+		const pi = { sendUserMessage: vi.fn() };
 
 		expect(() => poller.poll(pi)).toThrow('boom');
 	});
@@ -115,11 +116,11 @@ describe('CoordinationPoller', () => {
 			mark_messages_read: vi.fn(),
 		};
 		const poller = new CoordinationPoller({
-			db: db as any,
+			db: db,
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
-		const pi = { sendUserMessage: vi.fn() } as any;
+		const pi = { sendUserMessage: vi.fn() };
 
 		poller.poll(pi);
 

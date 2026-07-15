@@ -1,3 +1,4 @@
+import type { Api, Model } from '@earendil-works/pi-ai';
 import {
 	mkdirSync,
 	mkdtempSync,
@@ -563,7 +564,7 @@ function make_model(overrides: Record<string, unknown> = {}) {
 		contextWindow: 1000,
 		maxTokens: 100,
 		...overrides,
-	} as any;
+	} as Model<Api>;
 }
 
 describe('resolve_effective_thinking_level', () => {
@@ -600,7 +601,8 @@ describe('resolve_model_reference', () => {
 		id: 'openai/gpt-4o:extended',
 	};
 	const registry = {
-		getAll: () => [cloudflare_model, openrouter_model] as any,
+		getAll: () =>
+			[cloudflare_model, openrouter_model] as Model<Api>[],
 	};
 
 	it('resolves provider/model references whose model IDs contain slashes', () => {

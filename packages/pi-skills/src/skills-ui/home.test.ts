@@ -10,7 +10,7 @@ describe('show_skills_home_modal', () => {
 	it('builds the skills home menu with counts and actions', async () => {
 		await expect(
 			show_skills_home_modal(
-				{} as any,
+				{} as unknown as Parameters<typeof show_skills_home_modal>[0],
 				{
 					managed: 3,
 					pi_native: 1,

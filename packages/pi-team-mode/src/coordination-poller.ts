@@ -6,12 +6,26 @@ import type {
 } from './db/index.js';
 
 function format_raw_delivery(
-	messages: CoordinationInboxMessage[],
+	messages: Array<Pick<CoordinationInboxMessage, 'body'>>,
 ): string {
 	return messages.map((message) => message.body).join('\n\n---\n\n');
 }
 
 const HEARTBEAT_INTERVAL_MS = 10_000;
+
+type PollerMessage = Pick<
+	CoordinationInboxMessage,
+	'body' | 'message_id' | 'urgent'
+>;
+
+interface PollerDatabase {
+	heartbeat_session: TeamDatabase['heartbeat_session'];
+	list_inbox(
+		...args: Parameters<TeamDatabase['list_inbox']>
+	): PollerMessage[];
+	mark_messages_delivered: TeamDatabase['mark_messages_delivered'];
+	mark_messages_read: TeamDatabase['mark_messages_read'];
+}
 
 export class CoordinationPoller {
 	private timer: NodeJS.Timeout | undefined;
@@ -19,14 +33,14 @@ export class CoordinationPoller {
 
 	constructor(
 		private readonly options: {
-			db: TeamDatabase;
+			db: PollerDatabase;
 			get_session_id: () => string | undefined;
 			should_auto_inject_messages: () => boolean;
 			is_agent_active?: () => boolean;
 		},
 	) {}
 
-	start(pi: ExtensionAPI): void {
+	start(pi: Pick<ExtensionAPI, 'sendUserMessage'>): void {
 		this.stop();
 		this.timer = setInterval(() => {
 			this.poll(pi);
@@ -40,11 +54,11 @@ export class CoordinationPoller {
 		this.timer = undefined;
 	}
 
-	poll(pi: ExtensionAPI): void {
+	poll(pi: Pick<ExtensionAPI, 'sendUserMessage'>): void {
 		safe_sqlite_tick(() => this.poll_once(pi));
 	}
 
-	private poll_once(pi: ExtensionAPI): void {
+	private poll_once(pi: Pick<ExtensionAPI, 'sendUserMessage'>): void {
 		const session_id = this.options.get_session_id();
 		if (!session_id) return;
 		const now = Date.now();

@@ -21,7 +21,7 @@ export interface TeamToolExecutorDeps {
 
 export async function execute_team_tool(
 	params: TeamToolParamsType,
-	ctx: ExtensionContext,
+	ctx: Pick<ExtensionContext, 'cwd'>,
 	deps: TeamToolExecutorDeps,
 ) {
 	validate_team_tool_params(params);

@@ -47,7 +47,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 
 		const result = await execute_team_tool(
 			{ action: 'message_send', to: 'alice', message: 'hello' },
-			{ cwd: '/repo' } as any,
+			{ cwd: '/repo' },
 			deps(),
 		);
 
@@ -59,7 +59,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 	it('sends messages through the coordination bus', async () => {
 		const result = await execute_team_tool(
 			{ action: 'message_send', to: 'alice', message: 'hello' },
-			{ cwd: '/repo' } as any,
+			{ cwd: '/repo' },
 			deps(),
 		);
 
@@ -87,7 +87,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 				action: 'message_read',
 				message_ids: [first.message_id],
 			},
-			{ cwd: '/repo' } as any,
+			{ cwd: '/repo' },
 			deps(),
 		);
 
@@ -126,7 +126,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 				chunk_index: 1,
 				before: 1,
 			},
-			{ cwd: '/repo' } as any,
+			{ cwd: '/repo' },
 			deps(),
 		);
 
@@ -144,7 +144,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 					to: 'alice',
 					message: 'spoofed',
 				},
-				{ cwd: '/repo' } as any,
+				{ cwd: '/repo' },
 				deps(),
 			),
 		).rejects.toThrow(/sender spoofing/);
@@ -157,7 +157,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 					to: 'alice',
 					message: 'legitimate',
 				},
-				{ cwd: '/repo' } as any,
+				{ cwd: '/repo' },
 				deps(),
 			),
 		).resolves.toBeDefined();
@@ -177,7 +177,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 					to: 'alice',
 					message_ids: [message.message_id],
 				},
-				{ cwd: '/repo' } as any,
+				{ cwd: '/repo' },
 				deps(),
 			),
 		).rejects.toThrow(/to is not allowed/);
