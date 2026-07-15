@@ -39,8 +39,8 @@ add provenance or strengthen policy, but cannot weaken or become
 prerequisites for the core path. New workflows retain a hashed,
 versioned authoritative task contract; legacy schema-v1 workflows are
 loaded as `legacy-missing` and must be explicitly amended before
-execution. Settlement-independent completion remains #344 work; see
-the architecture document's gap list.
+execution. Child settlement is recorded separately from controller-
+validated completion; see the architecture document's gap list.
 
 The catalog includes materially distinct `chore`, `feature`,
 `ambiguous-bug`, `ui-copy`, `database-migration`, `incident`,
@@ -145,18 +145,38 @@ must confirm an enforced model/reasoning policy in their result; the
 owned RPC adapter applies it as Pi CLI arguments. Unresolved policies
 remain visibly advisory. `create_sdk_execution_adapter` and
 `create_rpc_execution_adapter` represent owned execution surfaces. The
-RPC adapter speaks Pi's strict JSONL prompt/event protocol and waits
-for `agent_settled`; `peer_execution_adapter` is explicitly
-mailbox/operator-only and never claims process supervision.
-`WorkflowOperator` progresses planner and executor work, runs
-factory-authoritative validation, creates the independent review
-packet, and accepts only a structured reviewer verdict bound to that
-packet and its exact diff. It stops at human approval. The `operate`
-tool action uses an owned RPC process by default
-(`execution_mode=peer` records an operator handoff); command/argument
-overrides are available through `MY_PI_FACTORY_RPC_COMMAND` and
-`MY_PI_FACTORY_RPC_ARGS`. One mutating claim remains authoritative,
-while read-only research may run without becoming a mutating owner.
+RPC adapter speaks Pi's strict JSONL prompt/event protocol.
+`agent_settled` records only turn/process settlement. Completion
+requires one protocol-v1 JSON result bound to the current contract,
+with outcome, changed files, stable evidence ids, every authoritative
+acceptance criterion and its evidence, failure classification, and any
+review payload. Valid child evidence is canonicalised only after the
+whole result passes validation; source ids are mapped to persisted
+evidence ids and retained in contract-versioned acceptance
+evaluations. Incomplete, refused, escalated, failed, malformed,
+out-of-scope, evidence-free, weakened-criteria, and reverted/no-change
+results become bounded feedback or escalation, never success. Execute
+attempts carry a controller-captured Git workspace baseline;
+completion compares the full tracked/untracked pre/post delta with
+claimed files and applies exact glob scope semantics, so omitted or
+disallowed changes fail closed. SDK adapters must return the same
+protocol-v1 fields; legacy bare `lifecycle: "succeeded"` results now
+fail closed as invalid structured results. `peer_execution_adapter` is
+explicitly mailbox/operator-only and never claims process supervision.
+`WorkflowOperator` is the only execution-node transition authority. It
+progresses planner and executor work, runs factory-authoritative
+validation, creates the independent review packet, and accepts only a
+structured reviewer verdict bound to that packet and its exact diff.
+Default RPC children exclude the `factory` tool; the runtime also
+rejects recursive operate, self-completion, evidence injection, and
+cross-workflow inspection when custom child arguments expose it.
+Duplicate active owned attempts are rejected before another adapter is
+started. It stops at human approval. The `operate` tool action uses an
+owned RPC process by default (`execution_mode=peer` records an
+operator handoff); command/argument overrides are available through
+`MY_PI_FACTORY_RPC_COMMAND` and `MY_PI_FACTORY_RPC_ARGS`. One mutating
+claim remains authoritative, while read-only research may run without
+becoming a mutating owner.
 
 ## Calibration and controlled evolution
 

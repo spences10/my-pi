@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -28,6 +29,9 @@ import {
 	start_node,
 } from './engine.js';
 import {
+	assert_child_factory_authority,
+	assert_manual_node_authority,
+	capture_git_workspace,
 	factory_intake_from_extension,
 	resolve_factory_owner,
 } from './extension.js';
@@ -230,6 +234,102 @@ describe('catalog, policy, and dispatch', () => {
 		const second = route('Implement stable feature');
 		expect(first.route_id).not.toBe(second.route_id);
 		expect(route_fingerprint(first)).toBe(route_fingerprint(second));
+	});
+	it('gives child roles read-only access only to their own status', () => {
+		const environment = {
+			PI_FACTORY_CONTROL_PLANE: 'read-only',
+			PI_FACTORY_CHILD_ROLE: 'executor',
+			PI_FACTORY_WORKFLOW_ID: 'workflow-1',
+		};
+		expect(() =>
+			assert_child_factory_authority(
+				'status',
+				'workflow-1',
+				environment,
+			),
+		).not.toThrow();
+		expect(() =>
+			assert_child_factory_authority(
+				'operate',
+				'workflow-1',
+				environment,
+			),
+		).toThrow('Recursive self-operation rejected');
+		expect(() =>
+			assert_child_factory_authority(
+				'complete-node',
+				'workflow-1',
+				environment,
+			),
+		).toThrow('Least-authority child rejected');
+		expect(() =>
+			assert_child_factory_authority(
+				'status',
+				'workflow-2',
+				environment,
+			),
+		).toThrow('may not mutate or inspect another');
+	});
+	it('reserves execution and review transitions for the controller', () => {
+		for (const node_kind of [
+			'plan',
+			'execute',
+			'validate',
+			'review',
+		] as const) {
+			expect(() =>
+				assert_manual_node_authority(node_kind, 'start'),
+			).toThrow('authoritative controller');
+			expect(() =>
+				assert_manual_node_authority(node_kind, 'complete'),
+			).toThrow('authoritative controller');
+		}
+		expect(() =>
+			assert_manual_node_authority('approval', 'start'),
+		).not.toThrow();
+		expect(() =>
+			assert_manual_node_authority('complete', 'complete'),
+		).not.toThrow();
+	});
+	it('captures the complete git delta and detects reverted edits', () => {
+		const directory = mkdtempSync(join(tmpdir(), 'factory-git-'));
+		execFileSync('git', ['init', '-q'], { cwd: directory });
+		execFileSync(
+			'git',
+			['config', 'user.email', 'factory@example.test'],
+			{
+				cwd: directory,
+			},
+		);
+		execFileSync('git', ['config', 'user.name', 'Factory Test'], {
+			cwd: directory,
+		});
+		writeFileSync(join(directory, 'claimed.txt'), 'original\n');
+		execFileSync('git', ['add', 'claimed.txt'], { cwd: directory });
+		execFileSync('git', ['commit', '-qm', 'fixture'], {
+			cwd: directory,
+		});
+		const state = create_factory_state(
+			dispatch_task(
+				{
+					task: 'Update claimed file',
+					cwd: directory,
+					affected_paths: ['claimed.txt'],
+				},
+				policy,
+				{ workflow: 'chore', reason: 'Git observer fixture' },
+			),
+		);
+		writeFileSync(join(directory, 'claimed.txt'), 'changed\n');
+		writeFileSync(join(directory, 'unrelated.txt'), 'preserve me\n');
+		const changed = capture_git_workspace(state);
+		expect(Object.keys(changed.files).sort()).toEqual([
+			'claimed.txt',
+			'unrelated.txt',
+		]);
+		writeFileSync(join(directory, 'claimed.txt'), 'original\n');
+		const reverted = capture_git_workspace(state);
+		expect(Object.keys(reverted.files)).toEqual(['unrelated.txt']);
 	});
 	it('keeps extension intake and API routing equivalent, including approvals', () => {
 		const input = {

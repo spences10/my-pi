@@ -97,6 +97,7 @@ export function create_factory_state(
 		nodes,
 		claims: [],
 		evidence: [],
+		acceptance_evaluations: [],
 		feedback: [],
 		reviews: [],
 		approvals: [],
@@ -712,6 +713,8 @@ function validate_factory_state(raw: unknown): FactoryState {
 		throw new Error(
 			`Unsupported factory state schema version: ${String(state.schema_version)}`,
 		);
+	if (!state.acceptance_evaluations)
+		state.acceptance_evaluations = [];
 	if (!state.contract) {
 		state.contract = {
 			version: state.contract_version ?? 1,
@@ -834,6 +837,20 @@ function validate_factory_state(raw: unknown): FactoryState {
 		)
 	)
 		throw new Error('Invalid factory state evidence');
+	if (
+		!Array.isArray(state.acceptance_evaluations) ||
+		state.acceptance_evaluations.some(
+			(item) =>
+				!item ||
+				typeof item.execution_id !== 'string' ||
+				!Number.isInteger(item.contract_version) ||
+				typeof item.node_id !== 'string' ||
+				typeof item.criterion !== 'string' ||
+				!['met', 'unmet'].includes(item.status) ||
+				!Array.isArray(item.evidence_ids),
+		)
+	)
+		throw new Error('Invalid factory state acceptance evaluations');
 	if (
 		!Array.isArray(state.feedback) ||
 		state.feedback.some(

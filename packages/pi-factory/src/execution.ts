@@ -43,6 +43,7 @@ export type ExecutionLifecycle =
 	| 'intent'
 	| 'starting'
 	| 'running'
+	| 'settled'
 	| 'succeeded'
 	| 'failed'
 	| 'cancelled'
@@ -57,6 +58,10 @@ export interface ExecutionAdapterCapabilities {
 	resume: boolean;
 	recover: boolean;
 	supervises_process: boolean;
+}
+export interface WorkspaceSnapshot {
+	head: string;
+	files: Record<string, string>;
 }
 export interface ExecutionRequest {
 	execution_id: string;
@@ -73,18 +78,39 @@ export interface ExecutionRequest {
 	cwd: string;
 	allowed_paths: string[];
 	artifact_ids: string[];
+	workspace_baseline?: WorkspaceSnapshot;
 	review_packet?: ReviewPacket;
 	review_diff?: string;
+}
+export interface ExecutionAcceptanceResult {
+	criterion: string;
+	status: 'met' | 'unmet';
+	evidence_ids: string[];
 }
 export interface ExecutionResult {
 	execution_id: string;
 	lifecycle: ExecutionLifecycle;
+	protocol_version?: 1;
+	contract_version?: number;
+	outcome?:
+		| 'completed'
+		| 'incomplete'
+		| 'refused'
+		| 'escalated'
+		| 'failed';
+	changed_files?: string[];
+	acceptance_results?: ExecutionAcceptanceResult[];
 	adapter_id: string;
 	adapter_version: string;
 	started_at?: string;
 	finished_at?: string;
 	artifact_ids?: string[];
-	evidence?: Array<{ kind: string; summary: string; uri?: string }>;
+	evidence?: Array<{
+		id?: string;
+		kind: string;
+		summary: string;
+		uri?: string;
+	}>;
 	telemetry_run_id?: string;
 	effective_policy?: RolePolicy;
 	review?: {
@@ -218,8 +244,160 @@ function idempotency_key(
 ): string {
 	return `${state.workflow_id}:${state.contract_version}:${node.id}:${node.attempts + 1}`;
 }
+function glob_expression(pattern: string): RegExp {
+	let expression = '^';
+	for (let index = 0; index < pattern.length; index += 1) {
+		const character = pattern[index]!;
+		if (character === '*' && pattern[index + 1] === '*') {
+			if (pattern[index + 2] === '/') {
+				expression += '(?:.*/)?';
+				index += 2;
+			} else {
+				expression += '.*';
+				index += 1;
+			}
+		} else if (character === '*') expression += '[^/]*';
+		else if (character === '?') expression += '[^/]';
+		else
+			expression += character.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+	}
+	return new RegExp(`${expression}$`);
+}
+function path_is_allowed(
+	cwd: string,
+	path: string,
+	allowed_paths: string[],
+): boolean {
+	const candidate = resolve(cwd, path).replaceAll('\\', '/');
+	return allowed_paths.some((allowed) => {
+		const normalized = resolve(cwd, allowed).replaceAll('\\', '/');
+		if (/[?*]/.test(normalized))
+			return glob_expression(normalized).test(candidate);
+		return (
+			candidate === normalized ||
+			candidate.startsWith(`${normalized}/`)
+		);
+	});
+}
+function changed_since(
+	baseline: WorkspaceSnapshot,
+	current: WorkspaceSnapshot,
+): string[] {
+	if (baseline.head !== current.head)
+		throw new Error('Workspace HEAD changed during owned execution');
+	return [
+		...new Set([
+			...Object.keys(baseline.files),
+			...Object.keys(current.files),
+		]),
+	]
+		.filter((path) => baseline.files[path] !== current.files[path])
+		.sort();
+}
+function structured_result_error(
+	state: FactoryState,
+	node: NodeState,
+	result: ExecutionResult | undefined,
+): string | undefined {
+	if (!result || result.protocol_version !== 1)
+		return 'Execution settled without structured result protocol version 1';
+	if (result.contract_version !== state.contract_version)
+		return 'Execution result contract version is stale';
+	if (!result.outcome) return 'Execution result omitted its outcome';
+	if (!Array.isArray(result.changed_files))
+		return 'Execution result omitted changed_files';
+	if (
+		!Array.isArray(result.evidence) ||
+		result.evidence.some(
+			(item) =>
+				!item ||
+				typeof item.kind !== 'string' ||
+				typeof item.summary !== 'string' ||
+				(item.id !== undefined && typeof item.id !== 'string'),
+		)
+	)
+		return 'Execution result omitted or malformed evidence';
+	if (
+		!Array.isArray(result.acceptance_results) ||
+		result.acceptance_results.some(
+			(item) =>
+				!item ||
+				typeof item.criterion !== 'string' ||
+				!['met', 'unmet'].includes(item.status) ||
+				!Array.isArray(item.evidence_ids) ||
+				item.evidence_ids.some((id) => typeof id !== 'string'),
+		)
+	)
+		return 'Execution result omitted or malformed acceptance_results';
+	const authoritative = state.contract.acceptance_criteria;
+	if (
+		result.acceptance_results.length !== authoritative.length ||
+		result.acceptance_results.some(
+			(item, index) => item.criterion !== authoritative[index],
+		)
+	)
+		return 'Execution result replaced or reordered authoritative acceptance criteria';
+	if (
+		result.changed_files.some(
+			(path) =>
+				typeof path !== 'string' ||
+				!path_is_allowed(
+					state.route.workspace.cwd,
+					path,
+					state.route.harness.allowed_paths,
+				),
+		)
+	)
+		return 'Execution result claimed changed files outside the authoritative path scope';
+	if (
+		['refused', 'escalated', 'failed'].includes(result.outcome) &&
+		(!result.failure ||
+			![
+				'provider',
+				'timeout',
+				'process-death',
+				'cancelled',
+				'unsupported',
+				'implementation',
+			].includes(result.failure.category) ||
+			typeof result.failure.message !== 'string')
+	)
+		return `${result.outcome} execution omitted failure classification`;
+	if (result.outcome === 'completed') {
+		if (result.evidence.length === 0)
+			return 'Completed execution requires structured evidence';
+		const supplied_evidence_ids = result.evidence.flatMap((item) =>
+			item.id ? [item.id] : [],
+		);
+		const result_evidence_ids = new Set(supplied_evidence_ids);
+		if (result_evidence_ids.size !== supplied_evidence_ids.length)
+			return 'Completed execution supplied duplicate evidence ids';
+		if (
+			result.acceptance_results.some((item) =>
+				item.evidence_ids.some((id) => !result_evidence_ids.has(id)),
+			)
+		)
+			return 'Completed execution referenced unknown acceptance evidence';
+		if (
+			node.kind === 'execute' &&
+			result.acceptance_results.some(
+				(item) =>
+					item.status !== 'met' || item.evidence_ids.length === 0,
+			)
+		)
+			return 'Completed execution has unmet or unsupported acceptance criteria';
+		if (node.kind === 'execute' && result.changed_files.length === 0)
+			return 'Completed execution claimed no changed files';
+	}
+	return undefined;
+}
 export class ExecutionController {
-	constructor(readonly registry: ExecutionRegistry) {}
+	constructor(
+		readonly registry: ExecutionRegistry,
+		readonly capture_workspace?: (
+			state: FactoryState,
+		) => WorkspaceSnapshot,
+	) {}
 	async initiate(
 		state: FactoryState,
 		node_id: string,
@@ -247,6 +425,19 @@ export class ExecutionController {
 		)
 			throw new Error(
 				`Node ${node.kind} requires its authoritative factory operation`,
+			);
+		const active_attempt = this.registry
+			.list_pending()
+			.find(
+				(record) =>
+					record.request.workflow_id === state.workflow_id &&
+					record.request.contract_version ===
+						state.contract_version &&
+					record.request.node_id === node_id,
+			);
+		if (active_attempt)
+			throw new Error(
+				`Active owned attempt already exists for ${state.workflow_id}/${node_id}: ${active_attempt.request.execution_id}`,
 			);
 		if (node.status !== 'ready')
 			throw new Error(`Node ${node_id} is not ready`);
@@ -300,6 +491,10 @@ export class ExecutionController {
 			cwd: resolve(options.cwd),
 			allowed_paths: state.route.harness.allowed_paths,
 			artifact_ids: [...state.authoritative.artifact_ids],
+			workspace_baseline:
+				node.kind === 'execute'
+					? this.capture_workspace?.(state)
+					: undefined,
 			review_packet:
 				node.kind === 'review'
 					? structuredClone(
@@ -382,6 +577,10 @@ export class ExecutionController {
 			cwd: resolve(options.cwd),
 			allowed_paths: state.route.harness.allowed_paths,
 			artifact_ids: [...state.authoritative.artifact_ids],
+			workspace_baseline:
+				node.kind === 'execute'
+					? this.capture_workspace?.(state)
+					: undefined,
 		};
 		const record: ExecutionRecord = {
 			request,
@@ -419,21 +618,93 @@ export class ExecutionController {
 			throw new Error(
 				'Stale execution result cannot mutate current workflow state',
 			);
-		for (const evidence of record.result?.evidence ?? [])
-			add_evidence(state, {
-				kind: evidence.kind,
-				summary: evidence.summary,
-				uri: evidence.uri,
-			});
-		if (record.lifecycle === 'succeeded') {
+		if (
+			record.lifecycle === 'settled' ||
+			record.lifecycle === 'succeeded'
+		) {
 			if (node.status === 'succeeded') return undefined;
+			const invalid = structured_result_error(
+				state,
+				node,
+				record.result,
+			);
+			if (invalid)
+				return this.fail_structured_result(
+					state,
+					node,
+					invalid,
+					false,
+				);
+			const outcome = record.result!.outcome!;
+			if (outcome !== 'completed')
+				return this.fail_structured_result(
+					state,
+					node,
+					`Execution settled with ${outcome} outcome`,
+					outcome === 'escalated',
+				);
+			if (node.kind === 'execute') {
+				if (
+					!this.capture_workspace ||
+					!record.request.workspace_baseline
+				)
+					return this.fail_structured_result(
+						state,
+						node,
+						'Controller workspace snapshot verifier is unavailable',
+						false,
+					);
+				const claimed = record.result!.changed_files!.map((path) =>
+					resolve(state.route.workspace.cwd, path),
+				);
+				let observed: string[];
+				try {
+					observed = changed_since(
+						record.request.workspace_baseline,
+						this.capture_workspace(state),
+					).map((path) => resolve(state.route.workspace.cwd, path));
+				} catch (error) {
+					return this.fail_structured_result(
+						state,
+						node,
+						`Controller changed-file verification failed: ${error instanceof Error ? error.message : String(error)}`,
+						false,
+					);
+				}
+				if (
+					observed.some(
+						(path) =>
+							!path_is_allowed(
+								state.route.workspace.cwd,
+								path,
+								state.route.harness.allowed_paths,
+							),
+					)
+				)
+					return this.fail_structured_result(
+						state,
+						node,
+						'Controller observed changes outside the authoritative path scope',
+						false,
+					);
+				if (
+					JSON.stringify([...new Set(claimed)].sort()) !==
+					JSON.stringify([...new Set(observed)].sort())
+				)
+					return this.fail_structured_result(
+						state,
+						node,
+						'Claimed changed files do not match the complete controller-observed workspace delta',
+						false,
+					);
+			}
 			if (node.kind === 'review') {
 				const review = record.result?.review;
 				if (!review)
 					return this.fail_invalid_review(
 						state,
 						node,
-						'Review adapter succeeded without a structured verdict',
+						'Review adapter completed without a structured verdict',
 					);
 				const packet = record_initial_review(
 					state,
@@ -442,13 +713,21 @@ export class ExecutionController {
 					review.findings,
 					review.current_diff,
 				);
+				this.persist_structured_evidence(state, node, record);
 				if (packet) return packet;
-			}
+			} else this.persist_structured_evidence(state, node, record);
 			complete_node(state, node.id, record.result?.artifact_ids);
 			return undefined;
 		}
 		if (!['failed', 'cancelled', 'lost'].includes(record.lifecycle))
 			return undefined;
+		if (!record.result?.failure)
+			return this.fail_structured_result(
+				state,
+				node,
+				`Execution ${record.lifecycle} omitted failure classification`,
+				false,
+			);
 		const packet = normalize_feedback({
 			workflow_id: state.workflow_id,
 			node_id: node.id,
@@ -467,6 +746,61 @@ export class ExecutionController {
 					evidence_ids: [],
 					required_action:
 						'Retry with recovered ownership or escalate',
+				},
+			],
+		});
+		fail_node(state, packet);
+		return packet;
+	}
+	private persist_structured_evidence(
+		state: FactoryState,
+		node: NodeState,
+		record: ExecutionRecord,
+	): void {
+		const canonical_ids = new Map<string, string>();
+		for (const evidence of record.result!.evidence!) {
+			const canonical = add_evidence(state, {
+				kind: evidence.kind,
+				summary: evidence.summary,
+				uri: evidence.uri,
+				source_id: evidence.id,
+			});
+			if (evidence.id) canonical_ids.set(evidence.id, canonical.id);
+		}
+		for (const evaluation of record.result!.acceptance_results!)
+			state.acceptance_evaluations.push({
+				execution_id: record.request.execution_id,
+				contract_version: state.contract_version,
+				node_id: node.id,
+				criterion: evaluation.criterion,
+				status: evaluation.status,
+				evidence_ids: evaluation.evidence_ids.map(
+					(id) => canonical_ids.get(id)!,
+				),
+			});
+	}
+	private fail_structured_result(
+		state: FactoryState,
+		node: NodeState,
+		message: string,
+		contradictory: boolean,
+	): FeedbackPacket {
+		const packet = normalize_feedback({
+			workflow_id: state.workflow_id,
+			node_id: node.id,
+			attempt: node.attempts,
+			source: 'check',
+			owner_session_id: node.owner_session_id,
+			contradictory,
+			unsafe_fix: false,
+			items: [
+				{
+					severity: 'error',
+					code: 'execution.invalid-structured-result',
+					message,
+					evidence_ids: [],
+					required_action:
+						'Return a contract-bound structured result; only the controller may transition the node',
 				},
 			],
 		});
@@ -629,9 +963,13 @@ export class WorkflowOperator {
 				continue;
 			}
 			if (
-				['succeeded', 'failed', 'cancelled', 'lost'].includes(
-					refreshed.lifecycle,
-				)
+				[
+					'settled',
+					'succeeded',
+					'failed',
+					'cancelled',
+					'lost',
+				].includes(refreshed.lifecycle)
 			) {
 				await this.route_feedback(
 					this.controller.apply_result(state, refreshed),
@@ -703,9 +1041,13 @@ export class WorkflowOperator {
 				break;
 			}
 			if (
-				!['succeeded', 'failed', 'cancelled', 'lost'].includes(
-					record.lifecycle,
-				)
+				![
+					'settled',
+					'succeeded',
+					'failed',
+					'cancelled',
+					'lost',
+				].includes(record.lifecycle)
 			)
 				break;
 			await this.route_feedback(
@@ -870,9 +1212,63 @@ export function create_rpc_execution_adapter(options: {
 			`Allowed paths: ${JSON.stringify(request.allowed_paths)}`,
 			`Authoritative artifacts: ${JSON.stringify(request.artifact_ids)}`,
 			request.review_packet
-				? `Independently review this packet before consuming any executor narrative: ${JSON.stringify(request.review_packet)}\nAuthoritative diff:\n${request.review_diff ?? ''}\nReturn only JSON with review_id, verdict (approve|changes-requested|escalate), findings, and current_diff containing the exact authoritative diff.`
-				: 'Complete only this node, provide evidence, and do not commit, push, deploy, release, or grant approval.',
+				? `Independently review this packet before consuming any executor narrative: ${JSON.stringify(request.review_packet)}\nAuthoritative diff:\n${request.review_diff ?? ''}`
+				: 'Complete only this node and do not commit, push, deploy, release, grant approval, or call factory control-plane actions.',
+			`Return exactly one JSON object using protocol_version 1, contract_version ${request.contract_version}, outcome (completed|incomplete|refused|escalated|failed), changed_files, evidence entries with stable ids, and acceptance_results containing every authoritative criterion verbatim with status and evidence_ids.${request.review_packet ? ' Also include review_id, verdict, findings, and current_diff with the exact authoritative diff.' : ''}`,
 		].join('\n');
+	}
+	function structured_result(
+		text: string,
+	): Pick<
+		ExecutionResult,
+		| 'protocol_version'
+		| 'contract_version'
+		| 'outcome'
+		| 'changed_files'
+		| 'evidence'
+		| 'acceptance_results'
+		| 'failure'
+	> {
+		try {
+			const parsed = JSON.parse(text.trim()) as Record<
+				string,
+				unknown
+			>;
+			return {
+				protocol_version:
+					parsed.protocol_version === 1 ? 1 : undefined,
+				contract_version:
+					typeof parsed.contract_version === 'number'
+						? parsed.contract_version
+						: undefined,
+				outcome: [
+					'completed',
+					'incomplete',
+					'refused',
+					'escalated',
+					'failed',
+				].includes(String(parsed.outcome))
+					? (parsed.outcome as ExecutionResult['outcome'])
+					: undefined,
+				changed_files: Array.isArray(parsed.changed_files)
+					? (parsed.changed_files as string[])
+					: undefined,
+				evidence: Array.isArray(parsed.evidence)
+					? (parsed.evidence as NonNullable<
+							ExecutionResult['evidence']
+						>)
+					: undefined,
+				acceptance_results: Array.isArray(parsed.acceptance_results)
+					? (parsed.acceptance_results as ExecutionAcceptanceResult[])
+					: undefined,
+				failure:
+					parsed.failure && typeof parsed.failure === 'object'
+						? (parsed.failure as ExecutionResult['failure'])
+						: undefined,
+			};
+		} catch {
+			return {};
+		}
 	}
 	function review_result(
 		request: ExecutionRequest,
@@ -942,6 +1338,12 @@ export function create_rpc_execution_adapter(options: {
 					PI_FACTORY_EXECUTION_ID: request.execution_id,
 					PI_FACTORY_WORKFLOW_ID: request.workflow_id,
 					PI_FACTORY_NODE_ID: request.node_id,
+					PI_FACTORY_CHILD_ROLE: request.review_packet
+						? 'reviewer'
+						: request.node_id === 'plan'
+							? 'planner'
+							: 'executor',
+					PI_FACTORY_CONTROL_PLANE: 'read-only',
 				},
 			});
 			await new Promise<void>((resolve_spawn, reject_spawn) => {
@@ -1030,17 +1432,10 @@ export function create_rpc_execution_adapter(options: {
 					if (event.type === 'agent_settled') {
 						owned.result = {
 							...owned.result,
-							lifecycle: 'succeeded',
+							...structured_result(owned.assistant_text),
+							lifecycle: 'settled',
 							finished_at: new Date().toISOString(),
 							review: review_result(request, owned.assistant_text),
-							evidence: owned.assistant_text
-								? [
-										{
-											kind: 'execution:rpc-response',
-											summary: owned.assistant_text.slice(-16_384),
-										},
-									]
-								: [],
 						};
 						child.kill('SIGTERM');
 					}

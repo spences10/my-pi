@@ -55,8 +55,12 @@ export type {
 	ExecutionRequest,
 	ExecutionResult,
 	WorkflowExecutionAdapter,
+	WorkspaceSnapshot,
 } from './execution.js';
 export {
+	assert_child_factory_authority,
+	assert_manual_node_authority,
+	capture_git_workspace,
 	default,
 	factory_intake_from_extension,
 	resolve_factory_owner,

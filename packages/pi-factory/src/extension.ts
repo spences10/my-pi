@@ -10,8 +10,9 @@ import {
 import { resolve_project_trust } from '@spences10/pi-project-trust';
 import { send_peer_workflow_feedback } from '@spences10/pi-team-mode';
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { Type } from 'typebox';
 import { dispatch_task, route_fingerprint } from './dispatch.js';
 import {
@@ -36,6 +37,7 @@ import {
 	ExecutionController,
 	ExecutionRegistry,
 	peer_execution_adapter,
+	type WorkspaceSnapshot,
 	WorkflowOperator,
 } from './execution.js';
 import type {
@@ -67,6 +69,8 @@ import {
 import { run_validation_node } from './runner.js';
 import type {
 	ApprovalAction,
+	FactoryState,
+	NodeKind,
 	RepositoryPolicy,
 	ResolvedRoute,
 	ReviewerFinding,
@@ -255,6 +259,75 @@ export function resolve_factory_owner(
 	current_session_id: string,
 ): string {
 	return explicit ?? current_session_id;
+}
+export function assert_child_factory_authority(
+	action: string,
+	workflow_id: string | undefined,
+	environment: NodeJS.ProcessEnv = process.env,
+): void {
+	if (environment.PI_FACTORY_CONTROL_PLANE !== 'read-only') return;
+	const child_workflow_id = environment.PI_FACTORY_WORKFLOW_ID;
+	const role = environment.PI_FACTORY_CHILD_ROLE ?? 'child';
+	if (action === 'status' && workflow_id === child_workflow_id)
+		return;
+	if (action === 'operate' && workflow_id === child_workflow_id)
+		throw new Error(
+			`Recursive self-operation rejected: ${role} child cannot operate workflow ${child_workflow_id}`,
+		);
+	throw new Error(
+		`Least-authority child rejected factory action ${action}; ${role} may not mutate or inspect another control-plane workflow`,
+	);
+}
+export function capture_git_workspace(
+	state: FactoryState,
+): WorkspaceSnapshot {
+	const cwd = state.route.workspace.cwd;
+	const run = (args: string[]): string => {
+		const result = spawnSync('git', args, {
+			cwd,
+			encoding: 'utf8',
+			timeout: 30_000,
+			maxBuffer: 8 * 1024 * 1024,
+		});
+		if (result.status !== 0)
+			throw new Error(
+				`Controller workspace snapshot failed: ${result.stderr || result.error?.message || 'git unavailable'}`,
+			);
+		return result.stdout.trim();
+	};
+	const paths = new Set([
+		...run([
+			'diff',
+			'--name-only',
+			'--diff-filter=ACMRTUXB',
+			'HEAD',
+			'--',
+		]).split(/\r?\n/),
+		...run(['ls-files', '--others', '--exclude-standard']).split(
+			/\r?\n/,
+		),
+	]);
+	paths.delete('');
+	const files: Record<string, string> = {};
+	for (const path of paths) {
+		const absolute = resolve(cwd, path);
+		files[path] = existsSync(absolute)
+			? createHash('sha256')
+					.update(readFileSync(absolute))
+					.digest('hex')
+			: '<deleted>';
+	}
+	return { head: run(['rev-parse', 'HEAD']), files };
+}
+export function assert_manual_node_authority(
+	node_kind: NodeKind | undefined,
+	action: 'start' | 'complete',
+): void {
+	if (node_kind && ['approval', 'complete'].includes(node_kind))
+		return;
+	throw new Error(
+		`Execution, review, and validation nodes can only be ${action === 'start' ? 'started' : 'completed'} by the authoritative controller`,
+	);
 }
 export function factory_intake_from_extension(input: {
 	task: string;
@@ -463,6 +536,7 @@ export default async function factory(pi: ExtensionAPI) {
 		new ExecutionRegistry(
 			join(directory, 'executions', 'registry.json'),
 		),
+		capture_git_workspace,
 	);
 	let rpc_adapter:
 		| ReturnType<typeof create_rpc_execution_adapter>
@@ -480,6 +554,8 @@ export default async function factory(pi: ExtensionAPI) {
 					'rpc',
 					'--no-session',
 					'--no-approve',
+					'--exclude-tools',
+					'factory',
 				];
 		if (
 			!Array.isArray(args) ||
@@ -577,6 +653,10 @@ export default async function factory(pi: ExtensionAPI) {
 		],
 		parameters: params_schema,
 		async execute(_id, params, _signal, _update, ctx) {
+			assert_child_factory_authority(
+				params.action,
+				params.workflow_id,
+			);
 			if (params.action === 'intake-preview') {
 				const policy = await policy_for(ctx);
 				return text(
@@ -836,23 +916,31 @@ export default async function factory(pi: ExtensionAPI) {
 					store.save(state);
 					return text({ state, executions: records });
 				}
-				case 'start-node':
+				case 'start-node': {
+					const node_id = required(params.node_id, 'node_id');
+					const node = state.nodes.find(
+						(item) => item.id === node_id,
+					);
+					assert_manual_node_authority(node?.kind, 'start');
 					start_node(
 						state,
-						required(params.node_id, 'node_id'),
+						node_id,
 						required(
 							params.owner_session_id ?? state.owner_session_id,
 							'owner_session_id',
 						),
 					);
 					break;
-				case 'complete-node':
-					complete_node(
-						state,
-						required(params.node_id, 'node_id'),
-						params.artifact_ids,
+				}
+				case 'complete-node': {
+					const node_id = required(params.node_id, 'node_id');
+					const node = state.nodes.find(
+						(item) => item.id === node_id,
 					);
+					assert_manual_node_authority(node?.kind, 'complete');
+					complete_node(state, node_id, params.artifact_ids);
 					break;
+				}
 				case 'run-validation': {
 					const disposition = await run_validation_node(state);
 					store.save(state);

@@ -68,11 +68,29 @@ describe('factory learning loop', () => {
 		);
 		const adapter = create_sdk_execution_adapter({
 			async run(request) {
+				const evidence_id = 'plan-evidence';
 				return {
 					execution_id: request.execution_id,
-					lifecycle: 'succeeded',
+					lifecycle: 'settled',
 					adapter_id: 'sdk',
 					adapter_version: '1',
+					protocol_version: 1 as const,
+					contract_version: request.contract_version,
+					outcome: 'completed' as const,
+					changed_files: [],
+					evidence: [
+						{
+							id: evidence_id,
+							kind: 'execution:plan',
+							summary: 'plan completed',
+						},
+					],
+					acceptance_results:
+						request.contract.acceptance_criteria.map((criterion) => ({
+							criterion,
+							status: 'met' as const,
+							evidence_ids: [evidence_id],
+						})),
 					artifact_ids: ['plan'],
 				};
 			},

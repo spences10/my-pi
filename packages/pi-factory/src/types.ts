@@ -203,6 +203,7 @@ export interface EvidenceRef {
 	uri?: string;
 	summary: string;
 	hash?: string;
+	source_id?: string;
 	contract_version: number;
 	created_at: string;
 }
@@ -303,6 +304,14 @@ export interface FactoryEvent {
 	cost_usd?: number;
 	metadata?: Record<string, unknown>;
 }
+export interface AcceptanceEvaluation {
+	execution_id: string;
+	contract_version: number;
+	node_id: string;
+	criterion: string;
+	status: 'met' | 'unmet';
+	evidence_ids: string[];
+}
 export interface FactoryState {
 	schema_version: 1;
 	revision: number;
@@ -325,6 +334,7 @@ export interface FactoryState {
 	nodes: NodeState[];
 	claims: PathClaim[];
 	evidence: EvidenceRef[];
+	acceptance_evaluations: AcceptanceEvaluation[];
 	feedback: FeedbackPacket[];
 	reviews: ReviewPacket[];
 	approvals: ApprovalDecision[];

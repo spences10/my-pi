@@ -26,6 +26,7 @@ the matching skill before doing the work:
 | Build or modify Pi extensions/packages           | `pi-extension-development` |
 | Compare proposed customisation with Pi built-ins | `pi-primitive-check`       |
 | Prepare or validate releases                     | `pi-release-workflow`      |
+| Run review-gated peer issue delivery             | `pi-review-gated-delivery` |
 | Test published package installability            | `pi-package-sandbox-test`  |
 | Validate repository edits                        | `pi-validation-flow`       |
 
