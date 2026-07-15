@@ -1,5 +1,13 @@
 # @spences10/pi-factory
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [df03901]
+  - @spences10/pi-team-mode@0.0.51
+  - @spences10/pi-harness@0.0.6
+
 ## 0.0.3
 
 ### Patch Changes

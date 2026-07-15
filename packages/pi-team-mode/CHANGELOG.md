@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.51
+
+### Patch Changes
+
+- df03901: Replace explicit any usages with precise shared, inferred,
+  and fixture types throughout the monorepo safely.
+
 ## 0.0.50
 
 ### Patch Changes

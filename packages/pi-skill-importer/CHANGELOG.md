@@ -1,5 +1,12 @@
 # @spences10/pi-skill-importer
 
+## 0.0.10
+
+### Patch Changes
+
+- Updated dependencies [df03901]
+  - @spences10/pi-tui-modal@0.0.22
+
 ## 0.0.9
 
 ### Patch Changes

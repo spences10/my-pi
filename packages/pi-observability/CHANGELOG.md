@@ -1,5 +1,14 @@
 # @spences10/pi-observability
 
+## 0.0.18
+
+### Patch Changes
+
+- df03901: Replace explicit any usages with precise shared, inferred,
+  and fixture types throughout the monorepo safely.
+- Updated dependencies [df03901]
+  - @spences10/pi-tui-modal@0.0.22
+
 ## 0.0.17
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # @spences10/pi-mcp
 
+## 0.0.50
+
+### Patch Changes
+
+- df03901: Replace explicit any usages with precise shared, inferred,
+  and fixture types throughout the monorepo safely.
+- Updated dependencies [df03901]
+  - @spences10/pi-tui-modal@0.0.22
+  - @spences10/pi-context@0.1.8
+
 ## 0.0.49
 
 ### Patch Changes

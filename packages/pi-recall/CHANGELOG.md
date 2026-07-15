@@ -1,5 +1,14 @@
 # @spences10/pi-recall
 
+## 0.0.14
+
+### Patch Changes
+
+- df03901: Replace explicit any usages with precise shared, inferred,
+  and fixture types throughout the monorepo safely.
+- 2bec84a: Add SQLite-backed session resume picker with live search,
+  names, scopes, metadata, paging, and native fallback.
+
 ## 0.0.13
 
 ### Patch Changes

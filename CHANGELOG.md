@@ -1,5 +1,16 @@
 # my-pi
 
+## 0.1.113
+
+### Patch Changes
+
+- df03901: Replace explicit any usages with precise shared, inferred,
+  and fixture types throughout the monorepo safely.
+- 2bec84a: Add SQLite-backed session resume picker with live search,
+  names, scopes, metadata, paging, and native fallback.
+- Updated dependencies [df03901]
+  - @spences10/pi-tui-modal@0.0.22
+
 ## 0.1.112
 
 ## 0.1.111

@@ -1,5 +1,12 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.18
+
+### Patch Changes
+
+- df03901: Replace explicit any usages with precise shared, inferred,
+  and fixture types throughout the monorepo safely.
+
 ## 0.0.17
 
 ### Patch Changes

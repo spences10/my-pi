@@ -1,5 +1,12 @@
 # @spences10/pi-coding-preferences
 
+## 0.0.13
+
+### Patch Changes
+
+- df03901: Replace explicit any usages with precise shared, inferred,
+  and fixture types throughout the monorepo safely.
+
 ## 0.0.12
 
 ### Patch Changes
