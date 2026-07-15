@@ -107,6 +107,9 @@ const params_schema = Type.Object({
 	action: action_schema,
 	workflow_id: Type.Optional(Type.String()),
 	task: Type.Optional(Type.String({ maxLength: 32_768 })),
+	requested_outcome: Type.Optional(
+		Type.String({ maxLength: 32_768 }),
+	),
 	workflow: Type.Optional(
 		literals([
 			'chore',
@@ -256,6 +259,9 @@ export function resolve_factory_owner(
 export function factory_intake_from_extension(input: {
 	task: string;
 	cwd: string;
+	acceptance_criteria?: string[];
+	constraints?: string[];
+	requested_outcome?: string;
 	affected_paths?: string[];
 	requested_side_effects?: ApprovalAction[];
 	urgency?: TaskIntake['urgency'];
@@ -491,7 +497,6 @@ export default async function factory(pi: ExtensionAPI) {
 	}
 	function initialize_workflow(
 		route: ResolvedRoute,
-		task: string,
 		owner_session_id: string,
 	) {
 		const path = store.path(route.route_id);
@@ -505,7 +510,7 @@ export default async function factory(pi: ExtensionAPI) {
 		const state = create_factory_state(route, owner_session_id);
 		const harness = create_harness_runtime(
 			{
-				task,
+				task: route.contract.task,
 				cwd: route.workspace.cwd,
 				allowed_paths: route.harness.allowed_paths,
 				validation_commands: route.harness.validation_commands,
@@ -629,12 +634,9 @@ export default async function factory(pi: ExtensionAPI) {
 					join(directory, 'intake-ledger.json'),
 				);
 				const controller = new IntakeLifecycleController(ledger, {
-					create: (preview) =>
-						initialize_workflow(
-							current.route,
-							preview.resolved.task,
-							owner_session_id,
-						).state.workflow_id,
+					create: (_preview) =>
+						initialize_workflow(current.route, owner_session_id).state
+							.workflow_id,
 					update: (workflow_id, preview) => {
 						const state = store.load(workflow_id);
 						const route = dispatch_task(
@@ -753,6 +755,9 @@ export default async function factory(pi: ExtensionAPI) {
 					factory_intake_from_extension({
 						task: required(params.task, 'task'),
 						cwd: ctx.cwd,
+						acceptance_criteria: params.acceptance_criteria,
+						constraints: params.constraints,
+						requested_outcome: params.requested_outcome,
 						affected_paths: params.affected_paths,
 						requested_side_effects: params.requested_side_effects,
 						urgency: params.urgency,
@@ -771,9 +776,7 @@ export default async function factory(pi: ExtensionAPI) {
 					params.owner_session_id,
 					ctx.sessionManager.getSessionId(),
 				);
-				return text(
-					initialize_workflow(route, params.task!, owner_session_id),
-				);
+				return text(initialize_workflow(route, owner_session_id));
 			}
 			if (params.action === 'metrics')
 				return text(derive_factory_metrics(store.list()));
@@ -812,10 +815,9 @@ export default async function factory(pi: ExtensionAPI) {
 							params.owner_session_id,
 							ctx.sessionManager.getSessionId(),
 						),
-						task: params.task ?? state.route.workflow.description,
+						task: params.task,
 						cwd: state.route.workspace.cwd,
-						...(params.acceptance_criteria?.length &&
-						params.changed_files?.length &&
+						...(params.changed_files?.length &&
 						params.diff !== undefined
 							? {
 									review: {

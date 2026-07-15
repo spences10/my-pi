@@ -9,13 +9,13 @@ harness and owner, record evidence, apply deterministic gates, prepare
 independent review, stop for required human approval, and derive an
 outcome.
 
-This is a normative boundary, not a claim that every invariant is
-implemented in 0.0.4. Current gaps are explicit: tool `preview` and
-`create` do not retain acceptance criteria or constraints in canonical
-state, `operate` can fall back to a generic workflow description, and
-the RPC adapter currently maps `agent_settled` to a succeeded adapter
-result. Contract/routing correction is #343; completion authority is
-#344; ownership/recovery is #345; metrics correction is #346.
+This is a normative boundary. Authoritative contract and
+complexity-aware routing are implemented: new state retains the task,
+acceptance criteria, constraints, requested outcome, hash, and
+version; all execution requests derive them from state. Remaining gaps
+are explicit: the RPC adapter still maps `agent_settled` to a
+succeeded adapter result (#344), durable ownership/recovery remains
+#345, and outcome correlation remains #346.
 
 The product must not become a general agent runtime. It cannot make an
 independently opened Pi session observable or controllable, infer that
@@ -31,16 +31,14 @@ ownership guarantee.
 The target supported default path is:
 
 1. A person or API supplies a task, acceptance criteria, constraints,
-   paths, and requested side effects directly to `preview`. Retaining
-   the complete contract is a #343 requirement, not current 0.0.4
-   behaviour.
+   requested outcome, paths, and requested side effects directly to
+   `preview`; the preview includes the hashed authoritative contract.
 2. The dispatcher returns the selected workflow, rationale, compute
    policy, gates, review mode, approvals, and path scope. The caller
    may review or strengthen the route before creation.
-3. `create` must store the complete contract and route, create one
-   authoritative `pi-harness`, and record one mutating owner/path
-   claim. Current state stores the route but not the complete
-   contract.
+3. `create` stores the complete contract and route, creates one
+   authoritative `pi-harness`, and records one mutating owner/path
+   claim.
 4. The owner either operates an execution adapter controlled by the
    factory or performs an explicit peer/operator handoff. The latter
    makes no process-liveness promise; durable owner/recovery
@@ -98,10 +96,11 @@ Compatibility consequences of this documentation/package decision:
   import path or action is removed or renamed.
 - Existing schema-v1 stores remain in place. This decision itself does
   not rewrite state or require a migration.
-- Existing workflows continue under their currently recorded schema-v1
-  route/state; they do not yet have the complete durable contract
-  targeted above. #343 must define legacy backfill or migration before
-  complete contract persistence becomes required.
+- Existing schema-v1 workflows without contract fields load as
+  `legacy-missing`. Their historical task is not recoverable, so the
+  factory never invents one or substitutes a workflow description.
+  They remain inspectable but execution is blocked until an explicit
+  amendment supplies an authoritative contract.
 - Optional-module records do not become core-path prerequisites.
 - The architecture document ships with the package. This is a
   documentation/positioning change for the next normal package
@@ -120,11 +119,11 @@ The decision was checked against the failed run and two successful
 control-plane paths at the highest currently feasible exported API
 boundary. These are not full TUI/harness end-to-end proofs:
 
-| Workflow                                                                                                                                            | What is exercised                                                                                                                                                               | Result                                                                                                                                                                                                                                                                                                         |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Failed explicit-any dogfood (`be4769dc-b917-4a82-858d-b489a7283b7f`)                                                                                | Task/route fidelity, harness/owner multiplicity, RPC settlement, acceptance evidence, and outcome correlation                                                                   | Post-hoc assessment is failure: canonical state marked execution succeeded and reached validation, then was cancelled after work completed outside the factory. The factory did not classify execution truthfully. #343 must repair contract/routing, #344 completion authority, and #346 outcome correlation. |
-| Successful owned feature control-plane path (`src/execution.test.ts`, “progresses planner, executor, and validation nodes without manual relay”)    | Exported dispatcher/state/operator APIs, owned SDK adapter, actual shell gate processes, tool-gate adapter, and persisted progression                                           | Planner and executor results progress into successful deterministic validation without intake, discovered policy, calibration, or learning. It validates the module boundary through validation, not review/approval or extension UI.                                                                          |
-| Successful direct chore control-plane path (`src/execution.test.ts`, “progresses a direct chore through owned execution and real validation gates”) | Exported dispatcher/state/operator APIs, one owner/path claim, owned execution, actual shell gate processes, tool-gate adapter, and terminal completion without review/approval | Reaches a terminal successful state without intake, policy discovery, calibration, recommendations, or learning.                                                                                                                                                                                               |
+| Workflow                                                                                                                                            | What is exercised                                                                                                                                                               | Result                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Failed explicit-any dogfood (`be4769dc-b917-4a82-858d-b489a7283b7f`)                                                                                | Task/route fidelity, harness/owner multiplicity, RPC settlement, acceptance evidence, and outcome correlation                                                                   | Post-hoc assessment is failure: canonical state marked execution succeeded and reached validation, then was cancelled after work completed outside the factory. The reproduced 196-violation/50-file route now rejects a low-capability chore outcome. #344 must repair completion authority and #346 outcome correlation. |
+| Successful owned feature control-plane path (`src/execution.test.ts`, “progresses planner, executor, and validation nodes without manual relay”)    | Exported dispatcher/state/operator APIs, owned SDK adapter, actual shell gate processes, tool-gate adapter, and persisted progression                                           | Planner and executor results progress into successful deterministic validation without intake, discovered policy, calibration, or learning. It validates the module boundary through validation, not review/approval or extension UI.                                                                                      |
+| Successful direct chore control-plane path (`src/execution.test.ts`, “progresses a direct chore through owned execution and real validation gates”) | Exported dispatcher/state/operator APIs, one owner/path claim, owned execution, actual shell gate processes, tool-gate adapter, and terminal completion without review/approval | Reaches a terminal successful state without intake, policy discovery, calibration, recommendations, or learning.                                                                                                                                                                                                           |
 
 The tests use deterministic SDK and tool adapters but execute real
 shell gate processes through the public `WorkflowOperator` boundary.

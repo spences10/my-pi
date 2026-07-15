@@ -44,6 +44,16 @@ export function derive_factory_metrics(
 			workflow,
 			version,
 			runs: runs.length,
+			contracts: runs.map((run) => ({
+				workflow_id: run.workflow_id,
+				version: run.contract.version,
+				hash: run.contract.hash,
+				task: run.contract.task,
+				acceptance_criteria: [...run.contract.acceptance_criteria],
+				constraints: [...run.contract.constraints],
+				requested_outcome: run.contract.requested_outcome,
+				status: run.contract.status,
+			})),
 			first_pass_success_rate: runs.length
 				? first_pass / runs.length
 				: 0,

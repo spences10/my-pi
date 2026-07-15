@@ -65,6 +65,11 @@ describe('workflow execution adapters', () => {
 			cwd: '/repo',
 		});
 		expect(record.lifecycle).toBe('succeeded');
+		expect(record.request.task).toBe('Implement export feature');
+		expect(record.request.contract).toEqual(state.contract);
+		expect(record.request.role_policy).toEqual(
+			state.route.workflow.compute.planner,
+		);
 		controller.apply_result(state, record);
 		controller.apply_result(state, record);
 		expect(
@@ -73,6 +78,36 @@ describe('workflow execution adapters', () => {
 		expect(
 			registry.get(record.request.execution_id)?.result?.artifact_ids,
 		).toEqual(['plan-artifact']);
+	});
+
+	it('blocks legacy state until an authoritative contract amendment', async () => {
+		const { state, controller } = setup();
+		state.contract = {
+			version: 1,
+			task: '',
+			acceptance_criteria: [],
+			constraints: [],
+			requested_outcome: '',
+			hash: '',
+			status: 'legacy-missing',
+		};
+		await expect(
+			controller.initiate(
+				state,
+				'plan',
+				create_sdk_execution_adapter({
+					async run(request) {
+						return {
+							execution_id: request.execution_id,
+							lifecycle: 'succeeded',
+							adapter_id: 'pi-sdk',
+							adapter_version: '1',
+						};
+					},
+				}),
+				{ owner_session_id: 'owner', cwd: '/repo' },
+			),
+		).rejects.toThrow('amend it before execution');
 	});
 
 	it('persists intent before provider failure and routes structured feedback', async () => {
@@ -202,7 +237,6 @@ describe('workflow execution adapters', () => {
 		);
 		const records = await operator.progress(state, {
 			owner_session_id: 'owner',
-			task: 'Update a bounded dependency',
 			cwd: process.cwd(),
 		});
 		expect(records.map((record) => record.request.node_id)).toEqual([
@@ -216,6 +250,99 @@ describe('workflow execution adapters', () => {
 		expect(state.status).toBe('completed');
 		expect(state.reviews).toEqual([]);
 		expect(state.approvals).toEqual([]);
+	});
+
+	it('passes enforced model and reasoning configuration to the RPC process', async () => {
+		const route = dispatch_task(
+			{ task: 'Implement configured feature', cwd: '/repo' },
+			policy,
+			{
+				workflow: 'feature',
+				reason: 'Pin execution model',
+				model_overrides: { planner: 'provider/model' },
+			},
+		);
+		const state = create_factory_state(route, 'owner');
+		claim_paths(state, 'owner', ['src/**']);
+		const registry = new ExecutionRegistry(
+			join(
+				mkdtempSync(join(tmpdir(), 'execution-')),
+				'registry.json',
+			),
+		);
+		const controller = new ExecutionController(registry);
+		const adapter = create_rpc_execution_adapter({
+			command: process.execPath,
+			args: [
+				'-e',
+				`if (!process.argv.includes('provider/model') || !process.argv.includes('high')) process.exit(9); process.stdin.on('data', chunk => { for (const line of String(chunk).trim().split('\\n')) { const command = JSON.parse(line); console.log(JSON.stringify({ id: command.id, type: 'response', command: 'prompt', success: true })); console.log(JSON.stringify({ type: 'agent_settled' })); } });`,
+				'--',
+			],
+			cwd: process.cwd(),
+		});
+		const record = await controller.initiate(state, 'plan', adapter, {
+			owner_session_id: 'owner',
+			cwd: '/repo',
+		});
+		expect(record.request.role_policy).toMatchObject({
+			model: 'provider/model',
+			thinking: 'high',
+			enforcement: 'enforced',
+		});
+		let result = await adapter.poll!(record.request.execution_id);
+		for (
+			let attempt = 0;
+			attempt < 40 && result.lifecycle === 'running';
+			attempt += 1
+		) {
+			await new Promise((resolve) => setTimeout(resolve, 25));
+			result = await adapter.poll!(record.request.execution_id);
+		}
+		expect(result.lifecycle).toBe('succeeded');
+		expect(result.effective_policy).toEqual(
+			record.request.role_policy,
+		);
+	});
+
+	it('rejects an SDK result that does not confirm enforced compute', async () => {
+		const route = dispatch_task(
+			{ task: 'Implement configured SDK feature', cwd: '/repo' },
+			policy,
+			{
+				workflow: 'feature',
+				reason: 'Pin SDK model',
+				model_overrides: { planner: 'provider/model' },
+			},
+		);
+		const state = create_factory_state(route, 'owner');
+		claim_paths(state, 'owner', ['src/**']);
+		const controller = new ExecutionController(
+			new ExecutionRegistry(
+				join(
+					mkdtempSync(join(tmpdir(), 'execution-')),
+					'registry.json',
+				),
+			),
+		);
+		const record = await controller.initiate(
+			state,
+			'plan',
+			create_sdk_execution_adapter({
+				async run(request) {
+					return {
+						execution_id: request.execution_id,
+						lifecycle: 'succeeded',
+						adapter_id: 'pi-sdk',
+						adapter_version: '1',
+					};
+				},
+			}),
+			{ owner_session_id: 'owner', cwd: '/repo' },
+		);
+		expect(record.lifecycle).toBe('failed');
+		expect(record.result?.failure?.message).toContain(
+			'did not confirm the enforced model',
+		);
 	});
 
 	it('progresses planner, executor, and validation nodes without manual relay', async () => {
@@ -249,7 +376,6 @@ describe('workflow execution adapters', () => {
 		);
 		const records = await operator.progress(state, {
 			owner_session_id: 'owner',
-			task: 'Implement',
 			cwd: '/repo',
 		});
 		expect(records.map((record) => record.request.node_id)).toEqual([
@@ -322,6 +448,8 @@ describe('workflow execution adapters', () => {
 			},
 		);
 		expect(record.lifecycle).toBe('operator-required');
+		expect(record.request.task).toBe(state.contract.task);
+		expect(record.request.contract.hash).toBe(state.contract.hash);
 		expect(
 			peer_execution_adapter.capabilities.supervises_process,
 		).toBe(false);
@@ -389,7 +517,6 @@ describe('workflow execution adapters', () => {
 		);
 		await operator.progress(state, {
 			owner_session_id: 'owner',
-			task: 'Implement and review',
 			cwd: process.cwd(),
 			review: {
 				acceptance_criteria: ['works'],

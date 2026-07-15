@@ -170,6 +170,61 @@ describe('catalog, policy, and dispatch', () => {
 			),
 		);
 	});
+	it('preserves an authoritative hashed contract and exposes advisory compute', () => {
+		const resolved = dispatch_task(
+			{
+				task: 'Implement account export',
+				cwd: '/repo',
+				acceptance_criteria: ['exports CSV', 'preserves permissions'],
+				constraints: ['no public API break'],
+				requested_outcome: 'A validated account export',
+			},
+			policy,
+		);
+		expect(resolved.contract).toMatchObject({
+			version: 1,
+			task: 'Implement account export',
+			acceptance_criteria: ['exports CSV', 'preserves permissions'],
+			constraints: ['no public API break'],
+			requested_outcome: 'A validated account export',
+			status: 'authoritative',
+		});
+		expect(resolved.contract.hash).toMatch(/^[a-f0-9]{64}$/);
+		expect(resolved.workflow.compute.executor.enforcement).toBe(
+			'advisory',
+		);
+	});
+	it('strengthens repository-wide semantic work independently of a chore override', () => {
+		const resolved = dispatch_task(
+			{
+				task: 'Remove 196 explicit-any violations across 50 files in a repository-wide semantic TypeScript migration',
+				cwd: '/repo',
+				affected_paths: Array.from(
+					{ length: 50 },
+					(_, index) => `src/file-${index}.ts`,
+				),
+			},
+			policy,
+			{ workflow: 'chore', reason: 'Requested cheap maintenance' },
+		);
+		expect(resolved.work_type).toBe('database-migration');
+		expect(resolved.override?.workflow).toBe('chore');
+		expect(resolved.complexity.level).toBe('critical');
+		expect(resolved.workflow.id).toBe('database-migration');
+		expect(resolved.workflow.risk).toBe('critical');
+		expect(resolved.workflow.approvals).toContain('public-contract');
+		expect(resolved.workflow.compute.planner.capability).toBe(
+			'strongest',
+		);
+		expect(resolved.workflow.review_mode).not.toBe(
+			'deterministic-only',
+		);
+		expect(resolved.rationale).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining('Complexity critical'),
+			]),
+		);
+	});
 	it('uses a reproducible route fingerprint independent of route identity', () => {
 		const first = route('Implement stable feature');
 		const second = route('Implement stable feature');
@@ -181,6 +236,9 @@ describe('catalog, policy, and dispatch', () => {
 			task: 'Implement export feature',
 			cwd: '/repo',
 			affected_paths: ['src/export'],
+			acceptance_criteria: ['exports CSV'],
+			constraints: ['no API break'],
+			requested_outcome: 'A validated export',
 			requested_side_effects: ['commit', 'push'] as const,
 			urgency: 'urgent' as const,
 			hints: { workflow: 'feature' as const, risk: 'high' as const },
@@ -203,6 +261,7 @@ describe('catalog, policy, and dispatch', () => {
 			from_api.workflow.approvals,
 		);
 		expect(from_extension.workflow.risk).toBe('high');
+		expect(from_extension.contract).toEqual(from_api.contract);
 		expect(from_extension.workflow.stall_timeout_ms).toBe(300_000);
 		expect(from_extension.rationale).toEqual(
 			expect.arrayContaining([
@@ -424,6 +483,10 @@ describe('integrated execution, feedback, review, and approval', () => {
 			'diff',
 		);
 		expect(packet.executor_narrative_revealed).toBe(false);
+		expect(packet.acceptance_criteria).toEqual(
+			state.contract.acceptance_criteria,
+		);
+		expect(packet.constraints).toEqual(state.contract.constraints);
 		start_node(state, 'review', 'reviewer');
 		record_initial_review(state, packet.id, 'approve', [], 'diff');
 		expect(packet.executor_narrative_revealed).toBe(true);
@@ -443,6 +506,43 @@ describe('integrated execution, feedback, review, and approval', () => {
 		complete_node(state, 'approval');
 		pass(state, 'complete', 'human');
 		expect(state.status).toBe('completed');
+	});
+	it('uses the stored contract for review and metrics across amendment and resume', () => {
+		const initial = dispatch_task(
+			{
+				task: 'Implement account export',
+				cwd: '/repo',
+				acceptance_criteria: ['exports account'],
+				constraints: ['no commit'],
+			},
+			policy,
+		);
+		const state = create_factory_state(initial, 'lead');
+		const original_hash = state.contract.hash;
+		resume_state(state, 'lead');
+		expect(state.contract.hash).toBe(original_hash);
+		const amended = dispatch_task(
+			{
+				task: 'Implement account export safely',
+				cwd: '/repo',
+				acceptance_criteria: ['exports account', 'audits access'],
+				constraints: ['no commit'],
+			},
+			policy,
+		);
+		amend_contract(state, amended);
+		expect(state.contract.version).toBe(2);
+		expect(state.contract.task).toBe(
+			'Implement account export safely',
+		);
+		expect(state.contract.hash).not.toBe(original_hash);
+		const metric = derive_factory_metrics([state])[0]!;
+		expect(metric.contracts[0]).toMatchObject({
+			workflow_id: state.workflow_id,
+			version: 2,
+			task: 'Implement account export safely',
+			acceptance_criteria: ['exports account', 'audits access'],
+		});
 	});
 	it('automatically schedules validation correction then reuses completed nodes', () => {
 		const state = create_factory_state(route(), 'lead');
@@ -948,11 +1048,12 @@ describe('ownership, interruption, resume, and metrics', () => {
 		expect(state.contract_version).toBe(2);
 		expect(
 			state.nodes.find((node) => node.id === 'plan')?.status,
-		).toBe('succeeded');
+		).toBe('ready');
 		expect(
 			state.nodes.find((node) => node.id === 'execute')?.status,
-		).toBe('ready');
+		).toBe('pending');
 		resume_state(state, 'executor');
+		pass(state, 'plan');
 		pass(state, 'execute');
 		expect(
 			state.nodes.find((node) => node.id === 'validate')?.status,
@@ -962,6 +1063,40 @@ describe('ownership, interruption, resume, and metrics', () => {
 		);
 		store.save(state);
 		expect(store.load(state.workflow_id).contract_version).toBe(2);
+	});
+	it('backfills legacy schema-v1 state without inventing a task contract', () => {
+		const store = new FactoryStateStore(
+			mkdtempSync(join(tmpdir(), 'factory-legacy-')),
+		);
+		const state = create_factory_state(route());
+		store.save(state);
+		const legacy = structuredClone(state) as unknown as Record<
+			string,
+			unknown
+		>;
+		delete legacy.contract;
+		const legacy_route = legacy.route as Record<string, unknown>;
+		delete legacy_route.contract;
+		delete legacy_route.work_type;
+		delete legacy_route.complexity;
+		writeFileSync(
+			store.path(state.workflow_id),
+			JSON.stringify(legacy),
+		);
+		const loaded = store.load(state.workflow_id);
+		expect(loaded.contract).toEqual({
+			version: 1,
+			task: '',
+			acceptance_criteria: [],
+			constraints: [],
+			requested_outcome: '',
+			hash: '',
+			status: 'legacy-missing',
+		});
+		expect(loaded.route.work_type).toBe(loaded.route.workflow.id);
+		expect(loaded.route.complexity.evidence).toContain(
+			'legacy state: complexity unavailable',
+		);
 	});
 	it('fails closed on unsupported or malformed persisted state', () => {
 		const directory = mkdtempSync(join(tmpdir(), 'factory-schema-'));
@@ -1018,6 +1153,21 @@ describe('ownership, interruption, resume, and metrics', () => {
 			JSON.stringify(corrupt),
 		);
 		expect(() => store.load(state.workflow_id)).toThrow('approvals');
+	});
+	it('rejects a tampered authoritative contract hash', () => {
+		const store = new FactoryStateStore(
+			mkdtempSync(join(tmpdir(), 'factory-contract-hash-')),
+		);
+		const state = create_factory_state(route());
+		store.save(state);
+		state.contract.task = 'tampered task';
+		writeFileSync(
+			store.path(state.workflow_id),
+			JSON.stringify(state),
+		);
+		expect(() => store.load(state.workflow_id)).toThrow(
+			'Invalid factory state identity or route',
+		);
 	});
 	it('rejects stale concurrent writers with revision compare-and-swap', () => {
 		const store = new FactoryStateStore(

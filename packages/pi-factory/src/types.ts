@@ -57,6 +57,7 @@ export interface RolePolicy {
 		| 'specialized';
 	model?: string;
 	thinking: Thinking;
+	enforcement?: 'enforced' | 'advisory';
 }
 export interface ComputePolicy {
 	planner: RolePolicy;
@@ -123,9 +124,28 @@ export interface RepositoryPolicy {
 	max_parallelism?: number;
 	stall_timeout_ms?: number;
 }
+export interface TaskContract {
+	version: number;
+	task: string;
+	acceptance_criteria: string[];
+	constraints: string[];
+	requested_outcome: string;
+	hash: string;
+	status: 'authoritative' | 'legacy-missing';
+}
+export interface ComplexityAssessment {
+	level: 'small' | 'medium' | 'large' | 'critical';
+	score: number;
+	evidence: string[];
+	semantic_risk: boolean;
+	affected_surface: number;
+}
 export interface TaskIntake {
 	task: string;
 	cwd: string;
+	acceptance_criteria?: string[];
+	constraints?: string[];
+	requested_outcome?: string;
 	affected_paths?: string[];
 	requested_side_effects?: ApprovalAction[];
 	urgency?: 'normal' | 'urgent';
@@ -153,7 +173,10 @@ export interface ResolvedRoute {
 	route_id: string;
 	created_at: string;
 	workspace: { cwd: string; id: string };
+	work_type: WorkflowKind;
 	workflow: WorkflowDefinition;
+	contract: TaskContract;
+	complexity: ComplexityAssessment;
 	policy_id: string;
 	rationale: string[];
 	assumptions: string[];
@@ -285,6 +308,7 @@ export interface FactoryState {
 	revision: number;
 	workflow_id: string;
 	contract_version: number;
+	contract: TaskContract;
 	route: ResolvedRoute;
 	harness?: { id: string; directory: string; outcome_path: string };
 	status:
@@ -317,6 +341,16 @@ export interface FactoryMetrics {
 	workflow: string;
 	version: string;
 	runs: number;
+	contracts: Array<{
+		workflow_id: string;
+		version: number;
+		hash: string;
+		task: string;
+		acceptance_criteria: string[];
+		constraints: string[];
+		requested_outcome: string;
+		status: TaskContract['status'];
+	}>;
 	first_pass_success_rate: number;
 	validation_retries: number;
 	review_retries: number;

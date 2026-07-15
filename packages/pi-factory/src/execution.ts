@@ -30,6 +30,8 @@ import type {
 	NodeState,
 	ReviewerFinding,
 	ReviewPacket,
+	RolePolicy,
+	TaskContract,
 } from './types.js';
 
 export type ExecutionAdapterMode =
@@ -66,6 +68,8 @@ export interface ExecutionRequest {
 	owner_session_id: string;
 	read_only: boolean;
 	task: string;
+	contract: TaskContract;
+	role_policy: RolePolicy;
 	cwd: string;
 	allowed_paths: string[];
 	artifact_ids: string[];
@@ -82,6 +86,7 @@ export interface ExecutionResult {
 	artifact_ids?: string[];
 	evidence?: Array<{ kind: string; summary: string; uri?: string }>;
 	telemetry_run_id?: string;
+	effective_policy?: RolePolicy;
 	review?: {
 		review_id: string;
 		verdict: 'approve' | 'changes-requested' | 'escalate';
@@ -221,13 +226,20 @@ export class ExecutionController {
 		adapter: WorkflowExecutionAdapter,
 		options: {
 			owner_session_id: string;
-			task: string;
+			task?: string;
 			cwd: string;
 			read_only?: boolean;
 			review_diff?: string;
 		},
 	): Promise<ExecutionRecord> {
 		const node = node_for(state, node_id);
+		if (state.contract.status !== 'authoritative')
+			throw new Error(
+				'Legacy workflow has no authoritative task contract; amend it before execution',
+			);
+		// A legacy caller may still provide task, but it cannot override the
+		// authoritative contract embedded in every request.
+		void options.task;
 		if (
 			node.kind === 'approval' ||
 			node.kind === 'complete' ||
@@ -274,7 +286,17 @@ export class ExecutionController {
 			attempt: node.attempts + 1,
 			owner_session_id: options.owner_session_id,
 			read_only: options.read_only ?? false,
-			task: options.task,
+			task: state.contract.task,
+			contract: structuredClone(state.contract),
+			role_policy: structuredClone(
+				state.route.workflow.compute[
+					node.kind === 'plan'
+						? 'planner'
+						: node.kind === 'review'
+							? 'reviewer'
+							: 'executor'
+				],
+			),
 			cwd: resolve(options.cwd),
 			allowed_paths: state.route.harness.allowed_paths,
 			artifact_ids: [...state.authoritative.artifact_ids],
@@ -334,7 +356,7 @@ export class ExecutionController {
 		state: FactoryState,
 		node: NodeState,
 		adapter: WorkflowExecutionAdapter,
-		options: { owner_session_id: string; task: string; cwd: string },
+		options: { owner_session_id: string; task?: string; cwd: string },
 	): ExecutionRecord {
 		const now = new Date().toISOString();
 		const request: ExecutionRequest = {
@@ -346,7 +368,17 @@ export class ExecutionController {
 			attempt: node.attempts + 1,
 			owner_session_id: options.owner_session_id,
 			read_only: true,
-			task: options.task,
+			task: state.contract.task,
+			contract: structuredClone(state.contract),
+			role_policy: structuredClone(
+				state.route.workflow.compute[
+					node.kind === 'plan'
+						? 'planner'
+						: node.kind === 'review'
+							? 'reviewer'
+							: 'executor'
+				],
+			),
 			cwd: resolve(options.cwd),
 			allowed_paths: state.route.harness.allowed_paths,
 			artifact_ids: [...state.authoritative.artifact_ids],
@@ -552,12 +584,12 @@ export class WorkflowOperator {
 		state: FactoryState,
 		options: {
 			owner_session_id: string;
-			task: string;
+			task?: string;
 			cwd: string;
 			review?: {
-				acceptance_criteria: string[];
+				acceptance_criteria?: string[];
 				changed_files: string[];
-				constraints: string[];
+				constraints?: string[];
 				diff: string;
 			};
 		},
@@ -774,9 +806,31 @@ export function create_sdk_execution_adapter(options: {
 			recover: options.recover !== undefined,
 			supervises_process: true,
 		},
-		initiate: (request) => options.run(request),
+		initiate: async (request) => {
+			const result = await options.run(request);
+			if (
+				request.role_policy.enforcement === 'enforced' &&
+				JSON.stringify(result.effective_policy) !==
+					JSON.stringify(request.role_policy)
+			)
+				throw new Error(
+					'SDK result did not confirm the enforced model and reasoning policy',
+				);
+			return result;
+		},
 		recover: options.recover
-			? (request) => options.recover!(request)
+			? async (request) => {
+					const result = await options.recover!(request);
+					if (
+						request.role_policy.enforcement === 'enforced' &&
+						JSON.stringify(result.effective_policy) !==
+							JSON.stringify(request.role_policy)
+					)
+						throw new Error(
+							'SDK recovery did not confirm the enforced model and reasoning policy',
+						);
+					return result;
+				}
 			: undefined,
 	};
 }
@@ -809,7 +863,9 @@ export function create_rpc_execution_adapter(options: {
 			request.read_only
 				? 'This execution is read-only.'
 				: 'You are the single mutating owner for this execution.',
-			`Task: ${request.task}`,
+			`Authoritative contract: ${JSON.stringify(request.contract)}`,
+			`Effective role policy: ${JSON.stringify(request.role_policy)}`,
+			`Task: ${request.contract.task}`,
 			`Workspace: ${request.cwd}`,
 			`Allowed paths: ${JSON.stringify(request.allowed_paths)}`,
 			`Authoritative artifacts: ${JSON.stringify(request.artifact_ids)}`,
@@ -864,7 +920,20 @@ export function create_rpc_execution_adapter(options: {
 			supervises_process: true,
 		},
 		async initiate(request) {
-			const child = spawn(options.command, options.args ?? [], {
+			const args = [...(options.args ?? [])];
+			if (request.role_policy.enforcement === 'enforced') {
+				if (!request.role_policy.model)
+					throw new Error(
+						'Enforced role policy requires an explicit model',
+					);
+				args.push(
+					'--model',
+					request.role_policy.model,
+					'--thinking',
+					request.role_policy.thinking,
+				);
+			}
+			const child = spawn(options.command, args, {
 				cwd: resolve(options.cwd),
 				shell: false,
 				stdio: ['pipe', 'pipe', 'pipe'],
@@ -886,6 +955,7 @@ export function create_rpc_execution_adapter(options: {
 					lifecycle: 'running',
 					adapter_id: 'pi-rpc',
 					adapter_version: '1',
+					effective_policy: structuredClone(request.role_policy),
 					started_at: new Date().toISOString(),
 				},
 				stdout_buffer: '',

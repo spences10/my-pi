@@ -89,7 +89,8 @@ export function create_factory_state(
 		schema_version: 1,
 		revision: 0,
 		workflow_id: route.route_id,
-		contract_version: 1,
+		contract_version: route.contract.version,
+		contract: structuredClone(route.contract),
 		route,
 		status: 'created',
 		owner_session_id,
@@ -102,7 +103,7 @@ export function create_factory_state(
 		events: [],
 		authoritative: {
 			route_version: 1,
-			contract_version: 1,
+			contract_version: route.contract.version,
 			artifact_ids: [],
 		},
 		created_at,
@@ -417,11 +418,19 @@ export function add_evidence(
 }
 export function create_review_packet(
 	state: FactoryState,
-	acceptance_criteria: string[],
+	acceptance_criteria: string[] | undefined,
 	changed_files: string[],
-	constraints: string[],
+	constraints: string[] | undefined,
 	diff: string,
 ): ReviewPacket {
+	if (state.contract.status !== 'authoritative')
+		throw new Error('Review requires an authoritative task contract');
+	// Caller values are retained only for API compatibility; the stored
+	// contract is the sole review authority.
+	void acceptance_criteria;
+	void constraints;
+	const authoritative_criteria = state.contract.acceptance_criteria;
+	const authoritative_constraints = state.contract.constraints;
 	const validate = state.nodes.find(
 		(node) => node.kind === 'validate',
 	);
@@ -454,7 +463,7 @@ export function create_review_packet(
 			`Review packet is missing required validation evidence: ${missing_gates.join(', ')}`,
 		);
 	if (
-		!acceptance_criteria.length ||
+		!authoritative_criteria.length ||
 		!changed_files.length ||
 		!current_evidence.length
 	)
@@ -465,12 +474,12 @@ export function create_review_packet(
 		id: randomUUID(),
 		workflow_id: state.workflow_id,
 		contract_version: state.contract_version,
-		acceptance_criteria: acceptance_criteria.map((item) =>
+		acceptance_criteria: authoritative_criteria.map((item) =>
 			safe_text(item, 4096),
 		),
 		changed_files: changed_files.map((item) => item.slice(0, 2048)),
 		evidence: structuredClone(current_evidence),
-		constraints,
+		constraints: authoritative_constraints,
 		approval_boundaries: state.route.workflow.approvals,
 		diff_hash: createHash('sha256').update(diff).digest('hex'),
 		executor_narrative_revealed: false,
@@ -630,11 +639,17 @@ export function amend_contract(
 	route: ResolvedRoute,
 ): void {
 	const previous_route = state.route;
+	const previous_contract_hash = state.contract.hash;
 	const previous_nodes = new Map(
 		state.nodes.map((node) => [node.id, node]),
 	);
 	state.route = route;
 	state.contract_version += 1;
+	state.contract = {
+		...structuredClone(route.contract),
+		version: state.contract_version,
+	};
+	state.route.contract = structuredClone(state.contract);
 	state.authoritative.contract_version = state.contract_version;
 	state.authoritative.route_version += 1;
 	state.current_node_id = undefined;
@@ -646,6 +661,7 @@ export function amend_contract(
 		const preserve =
 			node.kind === 'plan' &&
 			previous?.status === 'succeeded' &&
+			previous_contract_hash === route.contract.hash &&
 			JSON.stringify(previous_definition) === JSON.stringify(node);
 		return {
 			id: node.id,
@@ -696,6 +712,29 @@ function validate_factory_state(raw: unknown): FactoryState {
 		throw new Error(
 			`Unsupported factory state schema version: ${String(state.schema_version)}`,
 		);
+	if (!state.contract) {
+		state.contract = {
+			version: state.contract_version ?? 1,
+			task: '',
+			acceptance_criteria: [],
+			constraints: [],
+			requested_outcome: '',
+			hash: '',
+			status: 'legacy-missing',
+		};
+	}
+	if (state.route && !state.route.contract)
+		state.route.contract = structuredClone(state.contract);
+	if (state.route && !state.route.work_type)
+		state.route.work_type = state.route.workflow?.id;
+	if (state.route && !state.route.complexity)
+		state.route.complexity = {
+			level: 'small',
+			score: 0,
+			evidence: ['legacy state: complexity unavailable'],
+			semantic_risk: false,
+			affected_surface: state.route.affected_paths?.length ?? 0,
+		};
 	const node_statuses = new Set([
 		'pending',
 		'ready',
@@ -725,10 +764,34 @@ function validate_factory_state(raw: unknown): FactoryState {
 		'destructive',
 		'public-contract',
 	]);
+	const contract_payload = {
+		task: state.contract.task,
+		acceptance_criteria: state.contract.acceptance_criteria,
+		constraints: state.contract.constraints,
+		requested_outcome: state.contract.requested_outcome,
+	};
+	const contract_hash = createHash('sha256')
+		.update(JSON.stringify(contract_payload))
+		.digest('hex');
 	if (
 		!Number.isInteger(state.revision) ||
 		typeof state.workflow_id !== 'string' ||
 		!Number.isInteger(state.contract_version) ||
+		!state.contract ||
+		!Number.isInteger(state.contract.version) ||
+		typeof state.contract.task !== 'string' ||
+		!Array.isArray(state.contract.acceptance_criteria) ||
+		!Array.isArray(state.contract.constraints) ||
+		typeof state.contract.requested_outcome !== 'string' ||
+		typeof state.contract.hash !== 'string' ||
+		!['authoritative', 'legacy-missing'].includes(
+			state.contract.status,
+		) ||
+		state.contract.version !== state.contract_version ||
+		(state.contract.status === 'authoritative' &&
+			(state.contract.hash !== contract_hash ||
+				JSON.stringify(state.route?.contract) !==
+					JSON.stringify(state.contract))) ||
 		!workflow_statuses.has(String(state.status)) ||
 		!state.route?.workspace?.cwd ||
 		state.route.schema_version !== 1 ||

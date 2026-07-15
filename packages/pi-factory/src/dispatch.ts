@@ -2,12 +2,74 @@ import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { resolve_workflow_policy } from './policy.js';
 import type {
+	ComplexityAssessment,
 	RepositoryPolicy,
 	ResolvedRoute,
 	RouteOverride,
 	TaskIntake,
 	WorkflowKind,
 } from './types.js';
+
+function contract_hash(value: {
+	task: string;
+	acceptance_criteria: string[];
+	constraints: string[];
+	requested_outcome: string;
+}): string {
+	return createHash('sha256')
+		.update(JSON.stringify(value))
+		.digest('hex');
+}
+function assess_complexity(intake: TaskIntake): ComplexityAssessment {
+	const evidence: string[] = [];
+	const surface = intake.affected_paths?.length ?? 0;
+	const quantities = [
+		...intake.task.matchAll(
+			/\b(\d+)\s+(?:files?|paths?|modules?|packages?|violations?|errors?|occurrences?|records?|rows?)\b/gi,
+		),
+	].map((match) => Number(match[1]));
+	const semantic_risk =
+		/\b(migration|refactor|semantic|type(?:s|script)?|architecture|cross[- ]cutting|repository[- ]wide|repo[- ]wide)\b/i.test(
+			intake.task,
+		);
+	let score = Math.min(4, surface);
+	if (surface >= 10) {
+		score += 3;
+		evidence.push(`${surface} affected paths`);
+	}
+	const largest = Math.max(0, ...quantities);
+	if (largest >= 25) {
+		score += largest >= 100 ? 5 : 3;
+		evidence.push(`task scale signal ${largest}`);
+	}
+	if (semantic_risk) {
+		score += 3;
+		evidence.push('semantic or cross-cutting change signal');
+	}
+	if (
+		/\b(public api|database|security|release|production)\b/i.test(
+			intake.task,
+		)
+	) {
+		score += 3;
+		evidence.push('safety-sensitive surface signal');
+	}
+	const level =
+		score >= 10
+			? 'critical'
+			: score >= 7
+				? 'large'
+				: score >= 3
+					? 'medium'
+					: 'small';
+	return {
+		level,
+		score,
+		evidence,
+		semantic_risk,
+		affected_surface: surface,
+	};
+}
 
 const patterns: Array<[WorkflowKind, RegExp, string]> = [
 	[
@@ -172,9 +234,69 @@ export function dispatch_task(
 			],
 		};
 	}
-	const workflow_kind = override?.workflow ?? classified.workflow;
+	const work_type = classified.workflow;
+	const complexity = assess_complexity(intake);
+	if (complexity.level === 'large' || complexity.level === 'critical')
+		classified.rationale.push(
+			`Complexity ${complexity.level} requires strengthened routing: ${complexity.evidence.join(', ')}`,
+		);
+	let workflow_kind = override?.workflow ?? work_type;
+	if (
+		override?.workflow &&
+		override.workflow !== classified.workflow
+	) {
+		const baseline = resolve_workflow_policy(
+			classified.workflow,
+			policy,
+		);
+		const candidate = resolve_workflow_policy(
+			override.workflow,
+			policy,
+		);
+		const risk_order = ['low', 'medium', 'high', 'critical'] as const;
+		const baseline_has_review =
+			baseline.review_mode !== 'deterministic-only';
+		const candidate_has_review =
+			candidate.review_mode !== 'deterministic-only';
+		if (
+			risk_order.indexOf(candidate.risk) <
+				risk_order.indexOf(baseline.risk) ||
+			(baseline_has_review && !candidate_has_review)
+		) {
+			workflow_kind = classified.workflow;
+			classified.assumptions.push(
+				`Ignored lowering workflow override ${override.workflow}; retained ${classified.workflow} safety`,
+			);
+		}
+	}
+	if (
+		(complexity.level === 'large' ||
+			complexity.level === 'critical') &&
+		['chore', 'ui-copy', 'feature'].includes(workflow_kind)
+	) {
+		workflow_kind =
+			complexity.level === 'critical' ? 'architecture' : 'feature';
+		classified.rationale.push(
+			`Complexity ${complexity.level} strengthens effective workflow from ${work_type} to ${workflow_kind}: ${complexity.evidence.join(', ')}`,
+		);
+	}
 	const workflow = resolve_workflow_policy(workflow_kind, policy);
 	const risk_order = ['low', 'medium', 'high', 'critical'] as const;
+	let complexity_risk_strengthened = false;
+	const complexity_minimum_risk =
+		complexity.level === 'critical'
+			? 'critical'
+			: complexity.level === 'large'
+				? 'high'
+				: undefined;
+	if (
+		complexity_minimum_risk &&
+		risk_order.indexOf(workflow.risk) <
+			risk_order.indexOf(complexity_minimum_risk)
+	) {
+		workflow.risk = complexity_minimum_risk;
+		complexity_risk_strengthened = true;
+	}
 	const hinted_risk = intake.hints?.risk;
 	let intake_risk_strengthened = false;
 	if (hinted_risk) {
@@ -217,9 +339,16 @@ export function dispatch_task(
 			workflow.compute.parallelism,
 			policy.max_parallelism ?? 3,
 		);
-	for (const role of ['planner', 'executor', 'reviewer'] as const)
-		if (override?.model_overrides?.[role])
+	for (const role of ['planner', 'executor', 'reviewer'] as const) {
+		if (override?.model_overrides?.[role]) {
 			workflow.compute[role].model = override.model_overrides[role];
+			workflow.compute[role].enforcement = 'enforced';
+		} else
+			workflow.compute[role].enforcement = workflow.compute[role]
+				.model
+				? 'enforced'
+				: 'advisory';
+	}
 	const workspace_cwd = resolve(intake.cwd);
 	const affected_paths = (
 		intake.affected_paths?.length ? intake.affected_paths : ['.']
@@ -259,7 +388,7 @@ export function dispatch_task(
 		);
 	}
 	if (
-		intake_risk_strengthened &&
+		(intake_risk_strengthened || complexity_risk_strengthened) &&
 		!workflow.approvals.includes('public-contract')
 	)
 		workflow.approvals.push('public-contract');
@@ -330,6 +459,17 @@ export function dispatch_task(
 			complete.depends_on = ['approval'];
 		} else approval.approval_actions = workflow.approvals;
 	}
+	const requested_outcome = intake.requested_outcome ?? intake.task;
+	const contract_value = {
+		task: intake.task,
+		acceptance_criteria: [
+			...(intake.acceptance_criteria?.length
+				? intake.acceptance_criteria
+				: [requested_outcome]),
+		],
+		constraints: [...(intake.constraints ?? [])],
+		requested_outcome,
+	};
 	const route: ResolvedRoute = {
 		schema_version: 1,
 		route_id: randomUUID(),
@@ -341,7 +481,15 @@ export function dispatch_task(
 				.digest('hex')
 				.slice(0, 16),
 		},
+		work_type,
 		workflow,
+		contract: {
+			version: 1,
+			...contract_value,
+			hash: contract_hash(contract_value),
+			status: 'authoritative',
+		},
+		complexity,
 		policy_id: policy.policy_id,
 		rationale: [
 			...classified.rationale,

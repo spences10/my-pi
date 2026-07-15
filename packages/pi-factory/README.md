@@ -36,16 +36,24 @@ The currently available direct path requires no external intake,
 policy discovery, calibration, recommendation, canary, or
 adaptive-evolution setup. Those features are optional modules that may
 add provenance or strengthen policy, but cannot weaken or become
-prerequisites for the core path. Complete durable contract fidelity
-and settlement-independent completion remain target invariants, not
-claims about version 0.0.4; see the architecture document's gap list.
+prerequisites for the core path. New workflows retain a hashed,
+versioned authoritative task contract; legacy schema-v1 workflows are
+loaded as `legacy-missing` and must be explicitly amended before
+execution. Settlement-independent completion remains #344 work; see
+the architecture document's gap list.
 
 The catalog includes materially distinct `chore`, `feature`,
 `ambiguous-bug`, `ui-copy`, `database-migration`, `incident`,
 `architecture`, and `safe-release` workflows. Definitions select
-capability/reasoning roles rather than requiring a provider. One
-mutating owner is retained even where read-only hypotheses/research
-run in parallel.
+capability/reasoning roles rather than requiring a provider. Routing
+records work type separately from complexity. Affected surface,
+numeric scale, semantic migration, and safety signals can strengthen
+the effective workflow even when `chore` is requested; lowering
+requests are ignored and explained. Roles without a resolved model are
+reported as advisory. An explicitly configured model is enforced by
+the owned RPC adapter together with its reasoning level. One mutating
+owner is retained even where read-only hypotheses/research run in
+parallel.
 
 ## Repository policy
 
@@ -130,7 +138,12 @@ rather than routing authority.
 
 `ExecutionController` persists an idempotent execution intent before
 calling a versioned adapter and rejects stale contract/attempt
-callbacks. `create_sdk_execution_adapter` and
+callbacks. Every SDK, RPC, recovery, and peer request embeds the exact
+authoritative contract and effective role policy from state; caller
+text and workflow descriptions cannot replace the task. SDK adapters
+must confirm an enforced model/reasoning policy in their result; the
+owned RPC adapter applies it as Pi CLI arguments. Unresolved policies
+remain visibly advisory. `create_sdk_execution_adapter` and
 `create_rpc_execution_adapter` represent owned execution surfaces. The
 RPC adapter speaks Pi's strict JSONL prompt/event protocol and waits
 for `agent_settled`; `peer_execution_adapter` is explicitly
@@ -176,19 +189,24 @@ adjustment is limited to explicitly authorised low-risk fields.
 Canonical workflow state is stored as size-limited, redacted mode-0600
 JSON under Pi's `getAgentDir()/factory` (normally
 `~/.pi/agent/factory`; override with `MY_PI_FACTORY_DIR`). It records
-canonical workspace identity, route/contract versions, nodes,
-attempts, owners, path claims, evidence, feedback, review packets,
-version-bound explicit approvals, and correlation events. Revision
-compare-and-swap plus exclusive claim locks prevent lost concurrent
-updates; atomic writes make state resumable after process loss.
-Workflow UUID filenames are validated and auxiliary JSON stores are
-excluded from workflow scans. Schema v1 validates nested policy and
-state at runtime; unsupported versions are rejected. No migration
-registry is claimed until a second released schema exists. Completed
-nodes remain valid unless an authoritative contract amendment
-invalidates downstream work. Overlapping active claims are rejected.
-Stale heartbeats block and escalate; they are evidence of missing
-ownership, not a claim that Team Mode can supervise a peer.
+the canonical task, acceptance criteria, constraints, requested
+outcome, contract hash/version, complexity evidence, workspace
+identity, route versions, nodes, attempts, owners, path claims,
+evidence, feedback, review packets, version-bound explicit approvals,
+and correlation events. Revision compare-and-swap plus exclusive claim
+locks prevent lost concurrent updates; atomic writes make state
+resumable after process loss. Workflow UUID filenames are validated
+and auxiliary JSON stores are excluded from workflow scans. Schema v1
+validates nested policy and state at runtime; unsupported versions are
+rejected. Older schema-v1 files without contract fields are backfilled
+in memory as `legacy-missing` without inventing task text, remain
+inspectable, and are blocked from execution until an explicit contract
+amendment. No schema-version migration registry is claimed until a
+second released schema exists. A contract amendment increments its
+version and invalidates work derived from the previous contract.
+Overlapping active claims are rejected. Stale heartbeats block and
+escalate; they are evidence of missing ownership, not a claim that
+Team Mode can supervise a peer.
 
 Creation produces a real `pi-harness`; shell gates run through its
 generated `validate.sh`, review packets run its `review.sh`, and
