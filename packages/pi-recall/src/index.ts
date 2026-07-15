@@ -8,6 +8,7 @@ import type {
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { run_recall_resume } from './resume.js';
 
 const DEFAULT_DB_PATH = join(
 	process.env.HOME ?? process.env.USERPROFILE ?? '',
@@ -51,6 +52,18 @@ function sync_recall_db(
 }
 
 export default async function recall(pi: ExtensionAPI) {
+	const register_resume_command = (name: string): void => {
+		pi.registerCommand(name, {
+			description:
+				'Search the pirecall index and resume a live Pi session',
+			handler: async (args, ctx) => {
+				await run_recall_resume(args, ctx);
+			},
+		});
+	};
+	register_resume_command('resume-recall');
+	register_resume_command('recall-resume');
+
 	pi.on('session_start', async () => {
 		sync_recall_db();
 	});

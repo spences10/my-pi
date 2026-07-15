@@ -5,7 +5,7 @@ packages:
 
 minimumReleaseAge: 2880
 minimumReleaseAgeExclude:
-  - '@earendil-works/*'
+  - pirecall
 
 catalog:
   '@earendil-works/pi-ai': 0.80.6

@@ -34,7 +34,13 @@ pi -e ./packages/pi-recall
 - runs `npx pirecall sync --json` again on session shutdown
 - injects a system reminder telling the model to use
   `pnpx pirecall ... --json` or `npx pirecall ... --json`
-- adds no slash commands and no custom tools
+- adds `/resume-recall [query]`, a SQLite-backed searchable and paged
+  picker for live session files (`/recall-resume` remains an alias)
+- keeps Pi's native `/resume` unchanged as the fallback
+
+The recall picker uses pirecall only for discovery. Before opening a
+selection it checks that the JSONL still exists, then delegates the
+actual switch to Pi's session runtime and `SessionManager` lifecycle.
 
 ## Model reminder
 
@@ -54,7 +60,16 @@ pnpx pirecall sessions --json
 pnpx pirecall stats --json
 ```
 
-Use `npx` instead of `pnpx` outside pnpm-oriented environments.
+To find and resume a live session interactively:
+
+```text
+/resume-recall
+/resume-recall auth refactor
+```
+
+Use `npx` instead of `pnpx` outside pnpm-oriented environments. If the
+pirecall index or resumable API is unavailable, use Pi's native
+`/resume` picker.
 
 ## Using from a custom harness
 

@@ -32,7 +32,25 @@ describe('should_inject_recall_prompt', () => {
 		const on = vi.fn((name: string, handler: Function) => {
 			handlers.set(name, handler);
 		});
-		await recall({ on } as unknown as ExtensionAPI);
+		const register_command = vi.fn();
+		await recall({
+			on,
+			registerCommand: register_command,
+		} as unknown as ExtensionAPI);
+		expect(register_command).toHaveBeenCalledWith(
+			'resume-recall',
+			expect.objectContaining({
+				description: expect.any(String),
+				handler: expect.any(Function),
+			}),
+		);
+		expect(register_command).toHaveBeenCalledWith(
+			'recall-resume',
+			expect.objectContaining({
+				description: expect.any(String),
+				handler: expect.any(Function),
+			}),
+		);
 		expect(on).toHaveBeenCalledWith(
 			'session_start',
 			expect.any(Function),

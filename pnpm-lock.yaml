@@ -587,10 +587,17 @@ importers:
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@25.9.5)(@vitest/browser-playwright@4.1.10)(@vitest/browser-preview@4.1.10)(@vitest/coverage-v8@4.1.10)(vite@8.1.4(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
 
   packages/pi-recall:
+    dependencies:
+      pirecall:
+        specifier: ^0.1.3
+        version: 0.1.3
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 0.80.6(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
+        specifier: 'catalog:'
+        version: 0.80.6
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.5
@@ -3437,6 +3444,11 @@ packages:
   pify@4.0.1:
     resolution: {integrity: sha512-uB80kBFb/tfd68bVleG9T5GGsGPjJrLAUpR5PZIrhBnIaRTQRjqdJSsIKkOP6OAIFbj7GOrcudc5pNjZ+geV2g==}
     engines: {node: '>=6'}
+
+  pirecall@0.1.3:
+    resolution: {integrity: sha512-bY4br/pn/miF3+a4uOzX8vrw3N3bKksrSVykUZ6pG5dOK6OBNDNOpSR7ofQvXmq7RlqSx5/V/Q6mcZgI+K7iZA==}
+    engines: {node: '>=22.0.0'}
+    hasBin: true
 
   playwright-core@1.61.1:
     resolution: {integrity: sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==}
@@ -6305,6 +6317,11 @@ snapshots:
   picomatch@4.0.5: {}
 
   pify@4.0.1: {}
+
+  pirecall@0.1.3:
+    dependencies:
+      citty: 0.2.2
+      tinyglobby: 0.2.17
 
   playwright-core@1.61.1: {}
 
