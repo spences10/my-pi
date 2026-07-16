@@ -164,19 +164,36 @@ protocol-v1 fields; legacy bare `lifecycle: "succeeded"` results now
 fail closed as invalid structured results. `peer_execution_adapter` is
 explicitly mailbox/operator-only and never claims process supervision.
 `WorkflowOperator` is the only execution-node transition authority. It
-progresses planner and executor work, runs factory-authoritative
-validation, creates the independent review packet, and accepts only a
-structured reviewer verdict bound to that packet and its exact diff.
-Default RPC children exclude the `factory` tool; the runtime also
-rejects recursive operate, self-completion, evidence injection, and
-cross-workflow inspection when custom child arguments expose it.
-Duplicate active owned attempts are rejected before another adapter is
-started. It stops at human approval. The `operate` tool action uses an
-owned RPC process by default (`execution_mode=peer` records an
-operator handoff); command/argument overrides are available through
-`MY_PI_FACTORY_RPC_COMMAND` and `MY_PI_FACTORY_RPC_ARGS`. One mutating
-claim remains authoritative, while read-only research may run without
-becoming a mutating owner.
+automatically initiates eligible planner, executor, validation, and
+review work. When effective compute policy permits parallel diagnosis,
+it starts only the bounded planner hypotheses as read-only, supplies
+no allowed mutation paths, restricts RPC children to read/search
+tools, and requires a controller-owned Git baseline before launching
+any child. It promotes evidence only from an exactly `completed`,
+structured, zero-change result. Missing capture or observed workspace
+mutation blocks before one mutating planner/owner can start. It runs
+factory-authoritative validation, creates the independent review
+packet, and accepts only a structured reviewer verdict bound to that
+packet and its exact diff. Default RPC children exclude the `factory`
+tool; the runtime also rejects recursive operate, self-completion,
+evidence injection, and cross-workflow inspection when custom child
+arguments expose it. Duplicate active owned attempts are rejected
+before another adapter is started. SDK capability flags are derived
+from the callbacks actually supplied; RPC capabilities reflect its
+owned process. Pause, resume, cancellation, timeout, provider failure,
+process death, and recovery produce durable deterministic lifecycle
+records. Public `pause`, `resume`, `cancel`, and `timeout` actions
+signal the owned adapter and update its execution record before
+reporting workflow state. Unsupported or unavailable lifecycle
+operations fail truthfully; timeout or cancellation still terminates
+the ledger rather than leaving a running intent. Adapter telemetry
+run/session ids, tokens, and cost are correlated into factory
+lifecycle events. The operator stops at human approval. The `operate`
+tool action uses an owned RPC process by default
+(`execution_mode=peer` records an operator handoff); command/argument
+overrides are available through `MY_PI_FACTORY_RPC_COMMAND` and
+`MY_PI_FACTORY_RPC_ARGS`. One mutating claim remains authoritative,
+while read-only research may run without becoming a mutating owner.
 
 ## Calibration and controlled evolution
 

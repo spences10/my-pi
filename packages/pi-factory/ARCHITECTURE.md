@@ -43,10 +43,15 @@ The target supported default path is:
    authoritative `pi-harness`, and records one mutating owner/path
    claim.
 4. The owner either operates an execution adapter controlled by the
-   factory or performs an acknowledged peer/operator handoff. The
-   previous claim is released only when the recipient acknowledges.
-   Peer turns make no process-liveness promise; unsupported owned
-   recovery is immediately recorded as lost.
+   factory or performs an acknowledged peer/operator handoff. Eligible
+   nodes start automatically. Effective parallelism may run bounded
+   planner hypotheses only after establishing empty mutation scope and
+   controller-observed workspace baselines. Missing verification
+   blocks before launch; only exactly completed, zero-change results
+   may promote evidence. Only one owner may mutate. The previous claim
+   is released only when the recipient acknowledges. Peer turns make
+   no process-liveness promise; unsupported owned recovery is
+   immediately recorded as lost.
 5. The harness runs deterministic validation. Failures become bounded,
    structured feedback to the owner; exhausted or unsafe correction
    escalates rather than redefining success.
@@ -64,18 +69,18 @@ automate inputs only when explicitly invoked.
 
 ## Responsibility map
 
-| Capability                                        | Owns                                                                                                                          | Must not claim                                                                            |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Dispatcher and ledger                             | Direct intake, explained route, durable workflow state, node transitions, path claims, evidence correlation, terminal outcome | Execution success without contract-bound evidence; permission from policy or model output |
-| Execution adapter                                 | Versioned execution intent and result for a factory-owned SDK/RPC process                                                     | Control of independently opened sessions; acceptance or lifecycle authority               |
-| Peer coordination                                 | Addressed mailbox/artifact handoff, delivery and acknowledgement evidence                                                     | Peer liveness, process supervision, continued work, or exclusive ownership                |
-| Harness                                           | One workflow-scoped contract, validation/review scripts, logs, and outcome paths                                              | A second source of workflow policy or multiple authoritative harnesses                    |
-| Review                                            | Independent, diff-bound findings and verdict                                                                                  | Rewriting acceptance criteria, self-review, or human approval                             |
-| Approval                                          | Authenticated human decisions bound to contract, diff, action, and scope                                                      | Approval inferred from success, silence, mailbox delivery, or model output                |
-| Metrics                                           | Derivation from canonical state plus correlated execution/telemetry references                                                | Invented compute, cost, interruption, ownership, or success data                          |
-| External intake (optional)                        | Provenance-preserving conversion of GitHub/incident events into reviewable intake                                             | A prerequisite for direct work; unauthenticated routing authority                         |
-| Policy authoring (optional)                       | Discovering and activating reviewed repository strengthening rules                                                            | Permission grants or weakening runtime safety                                             |
-| Calibration and learning (optional, experimental) | Offline evidence comparison and approved bounded recommendations                                                              | Changing the active route without complete correlated evidence and explicit authorization |
+| Capability                                        | Owns                                                                                                                             | Must not claim                                                                            |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Dispatcher and ledger                             | Direct intake, explained route, durable workflow state, node transitions, path claims, evidence correlation, terminal outcome    | Execution success without contract-bound evidence; permission from policy or model output |
+| Execution adapter                                 | Truthful capabilities; versioned intent/result; owned SDK/RPC lifecycle, recovery, cancellation, timeout, and telemetry evidence | Control of independently opened sessions; acceptance or lifecycle authority               |
+| Peer coordination                                 | Addressed mailbox/artifact handoff, delivery and acknowledgement evidence                                                        | Peer liveness, process supervision, continued work, or exclusive ownership                |
+| Harness                                           | One workflow-scoped contract, validation/review scripts, logs, and outcome paths                                                 | A second source of workflow policy or multiple authoritative harnesses                    |
+| Review                                            | Independent, diff-bound findings and verdict                                                                                     | Rewriting acceptance criteria, self-review, or human approval                             |
+| Approval                                          | Authenticated human decisions bound to contract, diff, action, and scope                                                         | Approval inferred from success, silence, mailbox delivery, or model output                |
+| Metrics                                           | Derivation from canonical state plus correlated execution/telemetry references                                                   | Invented compute, cost, interruption, ownership, or success data                          |
+| External intake (optional)                        | Provenance-preserving conversion of GitHub/incident events into reviewable intake                                                | A prerequisite for direct work; unauthenticated routing authority                         |
+| Policy authoring (optional)                       | Discovering and activating reviewed repository strengthening rules                                                               | Permission grants or weakening runtime safety                                             |
+| Calibration and learning (optional, experimental) | Offline evidence comparison and approved bounded recommendations                                                                 | Changing the active route without complete correlated evidence and explicit authorization |
 
 ## Module and package decision
 

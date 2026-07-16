@@ -23,6 +23,7 @@ import {
 } from './execution.js';
 import {
 	capture_git_workspace,
+	control_factory_execution,
 	reconcile_factory_status,
 } from './extension.js';
 import type { RepositoryPolicy } from './types.js';
@@ -294,13 +295,17 @@ describe('workflow execution adapters', () => {
 			command: process.execPath,
 			args: [
 				'-e',
-				`if (process.env.PI_FACTORY_CONTROL_PLANE !== 'read-only' || process.env.PI_FACTORY_CHILD_ROLE !== 'planner') process.exit(8); const payload = ${JSON.stringify(payload)}; process.stdin.on('data', chunk => { for (const line of String(chunk).trim().split('\\n')) { const command = JSON.parse(line); console.log(JSON.stringify({ id: command.id, type: 'response', command: 'prompt', success: true })); console.log(JSON.stringify({ type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta: payload } })); console.log(JSON.stringify({ type: 'agent_settled' })); } });`,
+				`if (process.env.PI_FACTORY_CONTROL_PLANE !== 'read-only' || process.env.PI_FACTORY_CHILD_ROLE !== 'planner' || !process.argv.includes('read,grep,find,ls') || process.argv.includes('bash,edit')) process.exit(8); const payload = ${JSON.stringify(payload)}; process.stdin.on('data', chunk => { for (const line of String(chunk).trim().split('\\n')) { const command = JSON.parse(line); console.log(JSON.stringify({ id: command.id, type: 'response', command: 'prompt', success: true })); console.log(JSON.stringify({ type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta: payload } })); console.log(JSON.stringify({ type: 'agent_settled' })); } });`,
+				'--',
+				'--tools',
+				'bash,edit',
 			],
 			cwd: process.cwd(),
 		});
 		const record = await controller.initiate(state, 'plan', adapter, {
 			owner_session_id: 'owner',
 			cwd: '/repo',
+			read_only: true,
 		});
 		let refreshed = await controller.poll(record, adapter);
 		for (
@@ -642,6 +647,29 @@ describe('workflow execution adapters', () => {
 		).toBe('ready');
 	});
 
+	it('blocks peer-only automatic progression when mutation ownership is missing', async () => {
+		const { state, controller } = setup();
+		state.claims = [];
+		state.owner_session_id = undefined;
+		const operator = new WorkflowOperator(
+			controller,
+			{ plan: peer_execution_adapter },
+			() => {},
+		);
+		const records = await operator.progress(state, {
+			owner_session_id: 'peer',
+			cwd: '/repo',
+		});
+		expect(records[0]?.lifecycle).toBe('operator-required');
+		expect(state.status).toBe('blocked');
+		expect(state.nodes[0]?.blocked_reason).toContain(
+			'explicit operator handoff',
+		);
+		expect(
+			peer_execution_adapter.capabilities.supervises_process,
+		).toBe(false);
+	});
+
 	it('rejects malformed result evidence before canonical mutation', async () => {
 		const { state, controller } = setup();
 		const adapter = create_sdk_execution_adapter({
@@ -922,6 +950,397 @@ describe('workflow execution adapters', () => {
 			`Active owned attempt already exists for ${state.workflow_id}/plan: ${first.request.execution_id}`,
 		);
 		expect(calls).toBe(1);
+	});
+
+	it('blocks before launching hypotheses when workspace capture is unavailable', async () => {
+		const route = dispatch_task(
+			{
+				task: 'Debug ambiguous verifier bug',
+				cwd: process.cwd(),
+				affected_paths: ['src/**'],
+			},
+			policy,
+		);
+		const state = create_factory_state(route, 'owner');
+		claim_paths(state, 'owner', route.affected_paths);
+		let calls = 0;
+		const adapter = create_sdk_execution_adapter({
+			async run(request) {
+				calls += 1;
+				return successful_result(request, []);
+			},
+		});
+		const operator = new WorkflowOperator(
+			new ExecutionController(
+				new ExecutionRegistry(
+					join(
+						mkdtempSync(join(tmpdir(), 'no-verifier-')),
+						'registry.json',
+					),
+				),
+			),
+			{ plan: adapter },
+			() => {},
+		);
+		await operator.progress(state, {
+			owner_session_id: 'owner',
+			cwd: process.cwd(),
+		});
+		expect(calls).toBe(0);
+		expect(state.status).toBe('escalated');
+		expect(state.feedback[0]?.items[0]?.code).toBe(
+			'execution.hypothesis-verifier-unavailable',
+		);
+		expect(state.evidence).toEqual([]);
+		expect(state.authoritative.artifact_ids).toEqual([]);
+	});
+
+	it('automatically runs bounded read-only hypotheses before the mutating planner', async () => {
+		const route = dispatch_task(
+			{
+				task: 'Debug ambiguous export bug',
+				cwd: process.cwd(),
+				affected_paths: ['src/**'],
+				acceptance_criteria: ['root cause identified'],
+			},
+			policy,
+		);
+		const state = create_factory_state(route, 'owner');
+		claim_paths(state, 'owner', route.affected_paths);
+		const registry = new ExecutionRegistry(
+			join(mkdtempSync(join(tmpdir(), 'parallel-')), 'registry.json'),
+		);
+		const requests: ExecutionRequest[] = [];
+		const adapter = create_sdk_execution_adapter({
+			async run(request) {
+				requests.push(request);
+				const evidence_id = `evidence-${request.execution_id}`;
+				return {
+					...successful_result(request, []),
+					evidence: [
+						{
+							id: evidence_id,
+							kind: 'diagnosis',
+							summary: request.read_only
+								? 'Read-only hypothesis'
+								: 'Plan synthesised',
+						},
+					],
+					acceptance_results:
+						request.contract.acceptance_criteria.map((criterion) => ({
+							criterion,
+							status: 'met' as const,
+							evidence_ids: [evidence_id],
+						})),
+				};
+			},
+		});
+		const operator = new WorkflowOperator(
+			new ExecutionController(registry, () => snapshot()),
+			{ plan: adapter },
+			() => {},
+		);
+		await operator.progress(state, {
+			owner_session_id: 'owner',
+			cwd: process.cwd(),
+		});
+		expect(requests).toHaveLength(3);
+		expect(
+			requests.slice(0, 2).every((request) => request.read_only),
+		).toBe(true);
+		expect(requests[2]?.read_only).toBe(false);
+		expect(requests[2]?.artifact_ids).toHaveLength(2);
+		expect(
+			state.claims.filter((claim) => claim.status === 'active'),
+		).toHaveLength(1);
+		expect(
+			state.nodes.find((node) => node.id === 'plan')?.status,
+		).toBe('succeeded');
+		expect(
+			state.events.filter(
+				(event) =>
+					event.type === 'execution.lifecycle' &&
+					event.metadata?.read_only === true,
+			),
+		).toHaveLength(2);
+	});
+
+	it.each(['incomplete', 'escalated'] as const)(
+		'does not promote %s hypothesis evidence or artifacts',
+		async (outcome) => {
+			const route = dispatch_task(
+				{
+					task: 'Debug ambiguous incomplete diagnosis',
+					cwd: process.cwd(),
+					affected_paths: ['src/**'],
+				},
+				policy,
+			);
+			const state = create_factory_state(route, 'owner');
+			claim_paths(state, 'owner', route.affected_paths);
+			const requests: ExecutionRequest[] = [];
+			const adapter = create_sdk_execution_adapter({
+				async run(request) {
+					requests.push(request);
+					if (!request.read_only)
+						return successful_result(request, []);
+					return {
+						...successful_result(request, []),
+						outcome,
+						artifact_ids: ['untrusted-hypothesis-artifact'],
+						...(outcome === 'escalated'
+							? {
+									failure: {
+										category: 'implementation' as const,
+										message: 'hypothesis escalated',
+									},
+								}
+							: {}),
+					};
+				},
+			});
+			const operator = new WorkflowOperator(
+				new ExecutionController(
+					new ExecutionRegistry(
+						join(
+							mkdtempSync(join(tmpdir(), 'hypothesis-outcome-')),
+							'registry.json',
+						),
+					),
+					() => snapshot(),
+				),
+				{ plan: adapter },
+				() => {},
+			);
+			await operator.progress(state, {
+				owner_session_id: 'owner',
+				cwd: process.cwd(),
+			});
+			expect(requests).toHaveLength(3);
+			expect(requests[2]?.artifact_ids).toEqual([]);
+			expect(state.authoritative.artifact_ids).not.toContain(
+				'untrusted-hypothesis-artifact',
+			);
+			expect(
+				state.evidence.some((evidence) =>
+					evidence.kind.startsWith('hypothesis:'),
+				),
+			).toBe(false);
+			expect(
+				state.nodes.find((node) => node.id === 'plan')?.status,
+			).toBe('succeeded');
+		},
+	);
+
+	it('blocks adversarial hypotheses that mutate while claiming no changes', async () => {
+		const route = dispatch_task(
+			{
+				task: 'Debug ambiguous mutation bug',
+				cwd: process.cwd(),
+				affected_paths: ['src/**'],
+			},
+			policy,
+		);
+		const state = create_factory_state(route, 'owner');
+		claim_paths(state, 'owner', route.affected_paths);
+		let mutated = false;
+		let calls = 0;
+		const controller = new ExecutionController(
+			new ExecutionRegistry(
+				join(
+					mkdtempSync(join(tmpdir(), 'adversarial-')),
+					'registry.json',
+				),
+			),
+			() => snapshot(mutated ? { 'src/hostile.ts': 'changed' } : {}),
+		);
+		const adapter = create_sdk_execution_adapter({
+			async run(request) {
+				calls += 1;
+				mutated = true;
+				return successful_result(request, []);
+			},
+		});
+		const operator = new WorkflowOperator(
+			controller,
+			{ plan: adapter },
+			() => {},
+		);
+		await operator.progress(state, {
+			owner_session_id: 'owner',
+			cwd: process.cwd(),
+		});
+		expect(calls).toBe(2);
+		expect(state.status).toBe('escalated');
+		expect(
+			state.nodes.find((node) => node.id === 'plan')?.status,
+		).toBe('escalated');
+		expect(state.feedback[0]?.items[0]?.code).toBe(
+			'execution.hypothesis-mutated-workspace',
+		);
+		expect(state.evidence).toEqual([]);
+		expect(state.authoritative.artifact_ids).toEqual([]);
+		expect(
+			state.claims.filter((claim) => claim.status === 'active'),
+		).toHaveLength(1);
+	});
+
+	it('reports SDK lifecycle capabilities truthfully and transitions pause, resume, and cancel', async () => {
+		const { state, registry, controller } = setup();
+		let lifecycle: ExecutionResult['lifecycle'] = 'running';
+		const result = (execution_id: string): ExecutionResult => ({
+			execution_id,
+			lifecycle,
+			adapter_id: 'managed-sdk',
+			adapter_version: '1',
+			...(lifecycle === 'cancelled'
+				? {
+						failure: {
+							category: 'cancelled' as const,
+							message: 'cancelled',
+						},
+					}
+				: {}),
+		});
+		const adapter = create_sdk_execution_adapter({
+			id: 'managed-sdk',
+			async run(request) {
+				return result(request.execution_id);
+			},
+			async pause(execution_id) {
+				return result(execution_id);
+			},
+			async resume(execution_id) {
+				return result(execution_id);
+			},
+			async cancel(execution_id) {
+				lifecycle = 'cancelled';
+				return result(execution_id);
+			},
+		});
+		expect(adapter.capabilities).toMatchObject({
+			pause: true,
+			resume: true,
+			cancel: true,
+			poll: false,
+		});
+		await controller.initiate(state, 'plan', adapter, {
+			owner_session_id: 'owner',
+			cwd: '/repo',
+		});
+		const operator = new WorkflowOperator(
+			controller,
+			{ plan: adapter },
+			() => {},
+		);
+		await control_factory_execution(
+			state,
+			operator,
+			'pause',
+			{ owner_session_id: 'owner' },
+			() => {},
+		);
+		expect(state.status).toBe('paused');
+		await control_factory_execution(
+			state,
+			operator,
+			'resume',
+			{ owner_session_id: 'owner' },
+			() => {},
+		);
+		expect(state.status).toBe('running');
+		await control_factory_execution(
+			state,
+			operator,
+			'cancel',
+			{ owner_session_id: 'owner', reason: 'operator cancelled' },
+			() => {},
+		);
+		expect(registry.list_pending()).toEqual([]);
+		expect(state.status).toBe('cancelled');
+		expect(
+			state.claims.every((claim) => claim.status === 'released'),
+		).toBe(true);
+	});
+
+	it('times out an adapter without cancellation support deterministically', async () => {
+		const { state, registry, controller } = setup();
+		const adapter = create_sdk_execution_adapter({
+			async run(request) {
+				return {
+					execution_id: request.execution_id,
+					lifecycle: 'running',
+					adapter_id: 'pi-sdk',
+					adapter_version: '1',
+				};
+			},
+		});
+		const record = await controller.initiate(state, 'plan', adapter, {
+			owner_session_id: 'owner',
+			cwd: '/repo',
+		});
+		record.created_at = '2000-01-01T00:00:00.000Z';
+		registry.put(record);
+		const operator = new WorkflowOperator(
+			controller,
+			{ plan: adapter },
+			() => {},
+		);
+		await expect(
+			control_factory_execution(
+				state,
+				operator,
+				'pause',
+				{ owner_session_id: 'owner' },
+				() => {},
+			),
+		).rejects.toThrow('cannot pause');
+		expect(state.status).toBe('running');
+		await control_factory_execution(
+			state,
+			operator,
+			'timeout',
+			{ owner_session_id: 'owner', timeout_ms: 0 },
+			() => {},
+		);
+		expect(registry.get(record.request.execution_id)?.lifecycle).toBe(
+			'failed',
+		);
+		expect(
+			registry.get(record.request.execution_id)?.result?.failure
+				?.category,
+		).toBe('timeout');
+		expect(state.status).not.toBe('running');
+	});
+
+	it('correlates adapter telemetry and cost with lifecycle evidence', async () => {
+		const { state, controller } = setup();
+		const adapter = create_sdk_execution_adapter({
+			async run(request) {
+				return {
+					...successful_result(request),
+					telemetry_run_id: 'run-1',
+					observability_session_id: 'session-1',
+					tokens: 42,
+					cost_usd: 0.12,
+				};
+			},
+		});
+		const record = await controller.initiate(state, 'plan', adapter, {
+			owner_session_id: 'owner',
+			cwd: '/repo',
+		});
+		controller.apply_result(state, record);
+		expect(
+			state.events.find(
+				(event) => event.type === 'execution.lifecycle',
+			),
+		).toMatchObject({
+			telemetry_run_id: 'run-1',
+			observability_session_id: 'session-1',
+			tokens: 42,
+			cost_usd: 0.12,
+		});
 	});
 
 	it('keeps approval and authoritative validation completion outside adapters', async () => {

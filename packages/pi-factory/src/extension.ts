@@ -108,6 +108,7 @@ const action_schema = literals([
 	'pause',
 	'resume',
 	'cancel',
+	'timeout',
 	'metrics',
 	'stalls',
 ] as const);
@@ -248,6 +249,7 @@ const params_schema = Type.Object({
 		Type.String({ maxLength: 1_048_576 }),
 	),
 	execution_mode: Type.Optional(literals(['rpc', 'peer'] as const)),
+	timeout_ms: Type.Optional(Type.Number({ minimum: 0 })),
 });
 const text = (value: unknown) => ({
 	content: [
@@ -338,6 +340,40 @@ export async function reconcile_factory_status(
 		owner_session_id: refreshed.request.owner_session_id,
 		updated_at: refreshed.updated_at,
 	});
+}
+
+export async function control_factory_execution(
+	state: FactoryState,
+	operator: WorkflowOperator,
+	action: 'pause' | 'resume' | 'cancel' | 'timeout',
+	options: {
+		owner_session_id: string;
+		timeout_ms?: number;
+		reason?: string;
+	},
+	persist: (state: FactoryState) => void,
+): Promise<void> {
+	const claim = state.claims.find((item) => item.status === 'active');
+	if (claim && claim.owner_session_id !== options.owner_session_id)
+		throw new Error(
+			'Only the active mutating owner may control owned execution',
+		);
+	if (action === 'pause') await operator.pause_active(state);
+	else if (action === 'resume') await operator.resume_active(state);
+	else if (action === 'timeout')
+		await operator.timeout_active(
+			state,
+			options.timeout_ms ?? state.route.workflow.stall_timeout_ms,
+		);
+	else {
+		await operator.cancel_active(
+			state,
+			options.reason ?? 'Factory workflow cancelled',
+		);
+		state.status = 'cancelled';
+		for (const item of state.claims) item.status = 'released';
+		persist(state);
+	}
 }
 
 export function resolve_factory_owner(
@@ -1257,18 +1293,35 @@ export default async function factory(pi: ExtensionAPI) {
 					break;
 				}
 				case 'pause':
-					state.status = 'paused';
-					break;
 				case 'resume':
-					resume_state(
-						state,
-						required(params.owner_session_id, 'owner_session_id'),
-					);
-					break;
 				case 'cancel':
-					state.status = 'cancelled';
-					for (const claim of state.claims) claim.status = 'released';
-					break;
+				case 'timeout': {
+					const adapter = owned_rpc_adapter();
+					const operator = new WorkflowOperator(
+						execution_controller,
+						{
+							plan: adapter,
+							execute: adapter,
+							review: adapter,
+						},
+						(current) => store.save(current),
+					);
+					await control_factory_execution(
+						state,
+						operator,
+						params.action,
+						{
+							owner_session_id: resolve_factory_owner(
+								params.owner_session_id,
+								ctx.sessionManager.getSessionId(),
+							),
+							timeout_ms: params.timeout_ms,
+							reason: params.reason,
+						},
+						(current) => store.save(current),
+					);
+					return text(state);
+				}
 			}
 			store.save(state);
 			return text(state);

@@ -19,9 +19,14 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
    atomically claims paths and creates the real harness. Supply
    `harness_dir` only to adopt an exactly compatible existing harness;
    incompatible or duplicate harnesses are rejected.
-5. Use `factory action=operate` for eligible owned RPC work,
-   validation, and structured review. It must stop at human approval.
-   Use `execution_mode=peer` only as an explicit operator handoff.
+5. Use `factory action=operate` to automatically progress eligible
+   owned RPC planning, execution, validation, and structured review.
+   Bounded parallel diagnosis must establish an observable workspace
+   baseline before launch and has no mutation scope. Promote only
+   exactly completed, structured, zero-change results before the
+   single mutating owner proceeds. The operator stops at human
+   approval. Use `execution_mode=peer` only as an explicit operator
+   handoff.
 6. Let validation and reviewer failures use the integrated outbox. Use
    `flush-feedback` only to retry failed delivery; retries remain
    bounded by node policy.
@@ -34,7 +39,10 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
    recipient use `acknowledge-transfer`; the old claim remains active
    until acknowledgement. Never mutate through an advisory conflict.
 10. On interruption, inspect concise `status` (`full=true` adds
-    machine state). Resume only an owned recoverable adapter; missing
-    process or recovery support is `lost`. Peer sessions do not
-    continue between turns and require operator/user continuation.
+    machine state). Pause/resume/cancel only when capabilities report
+    support; use the public lifecycle actions so the owned process and
+    durable record agree. Timeout and cancellation must become durable
+    terminal records. Resume only an owned recoverable adapter;
+    missing process or recovery support is `lost`. Peer sessions do
+    not continue between turns and require operator/user continuation.
 11. Finish with `metrics`, validation evidence, and remaining risks.

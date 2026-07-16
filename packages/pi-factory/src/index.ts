@@ -64,6 +64,7 @@ export {
 	assert_child_factory_authority,
 	assert_manual_node_authority,
 	capture_git_workspace,
+	control_factory_execution,
 	default,
 	factory_intake_from_extension,
 	reconcile_factory_status,
