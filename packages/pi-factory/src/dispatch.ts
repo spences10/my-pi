@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { resolve_workflow_policy } from './policy.js';
+import { canonical_scope, scopes_overlap } from './scope.js';
 import type {
 	ComplexityAssessment,
 	RepositoryPolicy,
@@ -180,33 +181,11 @@ function path_matches(
 	pattern: string,
 	cwd: string,
 ): boolean {
-	const path_segments = path.split('/').filter(Boolean);
-	const pattern_segments = resolve(cwd, pattern)
-		.split('/')
-		.filter(Boolean);
-	const match = (
-		path_index: number,
-		pattern_index: number,
-	): boolean => {
-		if (pattern_index === pattern_segments.length)
-			return path_index === path_segments.length;
-		const segment = pattern_segments[pattern_index]!;
-		if (segment === '**')
-			return (
-				match(path_index, pattern_index + 1) ||
-				(path_index < path_segments.length &&
-					match(path_index + 1, pattern_index))
-			);
-		if (path_index >= path_segments.length) return false;
-		const expression = new RegExp(
-			`^${segment.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`,
-		);
-		return (
-			expression.test(path_segments[path_index]!) &&
-			match(path_index + 1, pattern_index + 1)
-		);
-	};
-	return match(0, 0);
+	return scopes_overlap(
+		'/',
+		canonical_scope(cwd, path),
+		canonical_scope(cwd, pattern),
+	);
 }
 export function dispatch_task(
 	intake: TaskIntake,
@@ -352,17 +331,7 @@ export function dispatch_task(
 	const workspace_cwd = resolve(intake.cwd);
 	const affected_paths = (
 		intake.affected_paths?.length ? intake.affected_paths : ['.']
-	).map((path) => resolve(workspace_cwd, path));
-	if (
-		affected_paths.some(
-			(path) =>
-				path !== workspace_cwd &&
-				!path.startsWith(`${workspace_cwd}/`),
-		)
-	)
-		throw new Error(
-			'Affected paths must remain inside the workspace',
-		);
+	).map((path) => canonical_scope(workspace_cwd, path));
 	const forbidden = policy.forbidden_paths?.find((pattern) =>
 		affected_paths.some((path) =>
 			path_matches(path, pattern, workspace_cwd),

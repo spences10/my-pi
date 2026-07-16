@@ -16,8 +16,9 @@ version; all execution requests derive them from state. Child roles
 run without the factory tool in the default RPC path and are guarded
 read-only if custom launch arguments expose it. Turn settlement is not
 success: only the controller can accept a contract-bound structured
-result and transition a node. Remaining gaps are explicit: durable
-ownership/recovery remains #345 and outcome correlation remains #346.
+result and transition a node. Durable ownership, acknowledged
+transfer, harness adoption, canonical path scopes, truthful recovery,
+and concise status are implemented. Outcome correlation remains #346.
 
 The product must not become a general agent runtime. It cannot make an
 independently opened Pi session observable or controllable, infer that
@@ -42,9 +43,10 @@ The target supported default path is:
    authoritative `pi-harness`, and records one mutating owner/path
    claim.
 4. The owner either operates an execution adapter controlled by the
-   factory or performs an explicit peer/operator handoff. The latter
-   makes no process-liveness promise; durable owner/recovery
-   guarantees remain #345 work.
+   factory or performs an acknowledged peer/operator handoff. The
+   previous claim is released only when the recipient acknowledges.
+   Peer turns make no process-liveness promise; unsupported owned
+   recovery is immediately recorded as lost.
 5. The harness runs deterministic validation. Failures become bounded,
    structured feedback to the owner; exhausted or unsafe correction
    escalates rather than redefining success.
@@ -96,8 +98,10 @@ Compatibility consequences of this documentation/package decision:
 
 - Existing root exports and factory tool actions remain available; no
   import path or action is removed or renamed.
-- Existing schema-v1 stores remain in place. This decision itself does
-  not rewrite state or require a migration.
+- Existing schema-v1 stores remain in place. New optional claim
+  enforcement, harness-adoption, and ownership-transfer fields are
+  backfilled/read with safe defaults, so no schema-version migration
+  is required.
 - Existing schema-v1 workflows without contract fields load as
   `legacy-missing`. Their historical task is not recoverable, so the
   factory never invents one or substitutes a workflow description.

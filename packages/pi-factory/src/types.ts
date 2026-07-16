@@ -286,6 +286,15 @@ export interface PathClaim {
 	claimed_at: string;
 	heartbeat_at: string;
 	status: 'active' | 'released';
+	enforcement?: 'enforced' | 'advisory';
+}
+export interface OwnershipTransfer {
+	id: string;
+	from_session_id: string;
+	to_session_id: string;
+	requested_at: string;
+	acknowledged_at?: string;
+	status: 'pending' | 'acknowledged' | 'rejected';
 }
 export interface FactoryEvent {
 	id: string;
@@ -319,7 +328,12 @@ export interface FactoryState {
 	contract_version: number;
 	contract: TaskContract;
 	route: ResolvedRoute;
-	harness?: { id: string; directory: string; outcome_path: string };
+	harness?: {
+		id: string;
+		directory: string;
+		outcome_path: string;
+		adopted?: boolean;
+	};
 	status:
 		| 'created'
 		| 'running'
@@ -333,6 +347,7 @@ export interface FactoryState {
 	current_node_id?: string;
 	nodes: NodeState[];
 	claims: PathClaim[];
+	ownership_transfers?: OwnershipTransfer[];
 	evidence: EvidenceRef[];
 	acceptance_evaluations: AcceptanceEvaluation[];
 	feedback: FeedbackPacket[];

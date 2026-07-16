@@ -223,29 +223,49 @@ in memory as `legacy-missing` without inventing task text, remain
 inspectable, and are blocked from execution until an explicit contract
 amendment. No schema-version migration registry is claimed until a
 second released schema exists. A contract amendment increments its
-version and invalidates work derived from the previous contract.
-Overlapping active claims are rejected. Stale heartbeats block and
+version and invalidates work derived from the previous contract. Path
+scopes are canonical workspace globs shared by routing, claims,
+execution-result checks, and validation; `src/**/*.ts` matches both
+`src/file.ts` and nested files. Enforced claims reject overlapping
+mutation, while advisory claims are labelled and surfaced as blocking
+conflicts. Ownership transfer is two-phase: the current owner requests
+it and the recipient acknowledges it, atomically releasing the old
+claim and creating the sole replacement. Stale heartbeats block and
 escalate; they are evidence of missing ownership, not a claim that
 Team Mode can supervise a peer.
 
-Creation produces a real `pi-harness`; shell gates run through its
-generated `validate.sh`, review packets run its `review.sh`, and
-status/outcome paths are correlated. Tool-driven LSP/browser/database
-gates consume evidence supplied by the operator or an SDK
-`run_tool_gate` adapter. Failed gates become structured feedback and
-are persisted before delivery to the owning Team Mode mailbox with
-acknowledgement required (or the current session), within the node
-retry budget. Delivery uses a packet-id outbox; failed delivery
-remains inspectable and `factory action=flush-feedback` retries
-without duplicating an already delivered packet.
+Creation produces a real `pi-harness`, or adopts a caller-supplied
+`harness_dir` only when its task, workspace, path scope, validations,
+and test policy exactly match the route. Duplicate or incompatible
+harnesses are rejected, and contract amendments update the one
+existing harness in place. Shell gates run through its generated
+`validate.sh`, review packets run its `review.sh`, and status/outcome
+paths are correlated. Tool-driven LSP/browser/database gates consume
+evidence supplied by the operator or an SDK `run_tool_gate` adapter.
+Failed gates become structured feedback and are persisted before
+delivery to the owning Team Mode mailbox with acknowledgement required
+(or the current session), within the node retry budget. Delivery uses
+a packet-id outbox; failed delivery remains inspectable and
+`factory action=flush-feedback` retries without duplicating an already
+delivered packet.
 
 Harness ids, Team Mode artifact/session ids, telemetry run ids, and
-observability session ids are correlated in factory events. Aggregate
-metrics are derived from canonical state plus those references:
-first-pass success, validation/review retries, deterministic/reviewer
-defects, escalation, interruption, substantial rework, lead time,
-tokens, and cost. Existing manual harnesses and unclassified sessions
-remain unchanged and distinguishable.
+observability session ids are correlated in factory events.
+`factory action=status` returns a concise human view (task, workflow,
+owner, active execution, node/evidence progress, heartbeat, blockers,
+next action, and validation); `full=true` also returns the complete
+machine state. Owned adapters are recoverable only when they provide a
+durable recovery operation. On reload, process death or a missing/
+unsupported adapter is immediately recorded as `lost`, never left as
+`running`. Independently opened peer sessions do not continue between
+turns and require operator/user continuation unless an owned adapter
+is active.
+
+Aggregate metrics are derived from canonical state plus those
+references: first-pass success, validation/review retries,
+deterministic/reviewer defects, escalation, interruption, substantial
+rework, lead time, tokens, and cost. Existing manual harnesses and
+unclassified sessions remain unchanged and distinguishable.
 
 ## Review and approval safety
 

@@ -10,6 +10,7 @@ import {
 	route_fingerprint,
 } from './dispatch.js';
 import {
+	acknowledge_ownership_transfer,
 	add_evidence,
 	amend_contract,
 	claim_paths,
@@ -24,9 +25,11 @@ import {
 	normalize_feedback,
 	record_approval,
 	record_initial_review,
+	request_ownership_transfer,
 	requires_approval,
 	resume_state,
 	start_node,
+	summarize_factory_state,
 } from './engine.js';
 import {
 	assert_child_factory_authority,
@@ -34,6 +37,7 @@ import {
 	capture_git_workspace,
 	factory_intake_from_extension,
 	resolve_factory_owner,
+	validate_adoptable_harness,
 } from './extension.js';
 import {
 	correlate_compute,
@@ -44,6 +48,7 @@ import {
 	validate_repository_policy,
 } from './policy.js';
 import { run_validation_node } from './runner.js';
+import { scope_matches, scopes_overlap } from './scope.js';
 import type { FactoryState, RepositoryPolicy } from './types.js';
 
 const policy: RepositoryPolicy = {
@@ -1092,6 +1097,117 @@ describe('ownership, interruption, resume, and metrics', () => {
 			claim_paths(other, 'two', ['/other/src/account'], [claim]),
 		).not.toThrow();
 	});
+	it('surfaces overlapping advisory mutation as a blocking conflict', () => {
+		const first = create_factory_state(route());
+		const advisory = claim_paths(
+			first,
+			'one',
+			['src'],
+			[],
+			'advisory',
+		);
+		const second = create_factory_state(
+			route('Implement another feature'),
+		);
+		expect(() =>
+			claim_paths(second, 'two', ['src/**/*.ts'], [advisory]),
+		).toThrow('Blocking advisory conflict');
+	});
+	it('canonicalises top-level and nested recursive scopes consistently', () => {
+		expect(scope_matches('/repo', 'src/file.ts', 'src/**/*.ts')).toBe(
+			true,
+		);
+		expect(
+			scope_matches('/repo', 'src/nested/file.ts', 'src/**/*.ts'),
+		).toBe(true);
+		expect(scope_matches('/repo', 'src/file.js', 'src/**/*.ts')).toBe(
+			false,
+		);
+		expect(
+			scopes_overlap('/', '/repo/src/**/*.ts', '/repo/src/file.ts'),
+		).toBe(true);
+		expect(scopes_overlap('/repo', 'src', 'src/**/*.ts')).toBe(true);
+		expect(scopes_overlap('/repo', 'src/**/*.ts', 'src')).toBe(true);
+	});
+	it('applies directory-versus-recursive-glob overlap to route policy in both orders', () => {
+		expect(() =>
+			dispatch_task(
+				{
+					task: 'Implement feature',
+					cwd: '/repo',
+					affected_paths: ['src'],
+				},
+				{ ...policy, forbidden_paths: ['src/**/*.ts'] },
+			),
+		).toThrow('forbids affected path');
+		expect(() =>
+			dispatch_task(
+				{
+					task: 'Implement feature',
+					cwd: '/repo',
+					affected_paths: ['src/**/*.ts'],
+				},
+				{ ...policy, forbidden_paths: ['src'] },
+			),
+		).toThrow('forbids affected path');
+	});
+	it('requires acknowledgement before atomically transferring the sole claim', () => {
+		const state = create_factory_state(route(), 'lead');
+		claim_paths(state, 'lead', ['src/**/*.ts']);
+		const transfer = request_ownership_transfer(
+			state,
+			'lead',
+			'peer',
+		);
+		expect(state.owner_session_id).toBe('lead');
+		expect(() =>
+			acknowledge_ownership_transfer(state, transfer.id, 'intruder'),
+		).toThrow('matching pending');
+		acknowledge_ownership_transfer(state, transfer.id, 'peer');
+		expect(state.owner_session_id).toBe('peer');
+		expect(
+			state.claims.filter((claim) => claim.status === 'active'),
+		).toHaveLength(1);
+		expect(state.claims.at(-1)?.owner_session_id).toBe('peer');
+	});
+	it('adopts only a route-compatible existing harness', () => {
+		const resolved = route();
+		const directory = mkdtempSync(join(tmpdir(), 'factory-harness-'));
+		writeFileSync(
+			join(directory, 'harness.json'),
+			JSON.stringify({
+				id: 'existing',
+				policy: { cwd: resolved.workspace.cwd },
+				scaffold: {
+					task: resolved.contract.task,
+					allowed_paths: resolved.harness.allowed_paths,
+					validation_commands: resolved.harness.validation_commands,
+					allow_test_changes: resolved.harness.allow_test_changes,
+				},
+			}),
+		);
+		expect(
+			validate_adoptable_harness(resolved, directory).contract.id,
+		).toBe('existing');
+		const incompatible = route('Implement another feature');
+		expect(() =>
+			validate_adoptable_harness(incompatible, directory),
+		).toThrow('incompatible');
+	});
+	it('prevents duplicate authoritative claims and exposes concise status', () => {
+		const state = create_factory_state(route(), 'lead');
+		const first = claim_paths(state, 'lead', ['src']);
+		expect(claim_paths(state, 'lead', ['src'])).toBe(first);
+		expect(() => claim_paths(state, 'peer', ['src'])).toThrow(
+			'authoritative owner',
+		);
+		const status = summarize_factory_state(state);
+		expect(status).toMatchObject({
+			task: state.contract.task,
+			owner: 'lead',
+			validation_state: 'pending',
+		});
+	});
 	it('surfaces stalls without claiming supervision and resumes the active node', () => {
 		const state = create_factory_state(route(), 'lead');
 		claim_paths(state, 'lead', ['src']);
@@ -1101,6 +1217,15 @@ describe('ownership, interruption, resume, and metrics', () => {
 		expect(state.nodes[0]?.blocked_reason).toContain(
 			'supervision is unavailable',
 		);
+		expect(() => resume_state(state, 'replacement')).toThrow(
+			'acknowledged',
+		);
+		const transfer = request_ownership_transfer(
+			state,
+			'lead',
+			'replacement',
+		);
+		acknowledge_ownership_transfer(state, transfer.id, 'replacement');
 		resume_state(state, 'replacement');
 		expect(state.nodes[0]?.status).toBe('ready');
 	});

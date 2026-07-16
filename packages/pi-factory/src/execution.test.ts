@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { dispatch_task } from './dispatch.js';
-import { capture_git_workspace } from './extension.js';
 import {
 	claim_paths,
 	complete_node,
@@ -22,6 +21,10 @@ import {
 	type ExecutionRequest,
 	type ExecutionResult,
 } from './execution.js';
+import {
+	capture_git_workspace,
+	reconcile_factory_status,
+} from './extension.js';
 import type { RepositoryPolicy } from './types.js';
 
 const policy: RepositoryPolicy = {
@@ -546,6 +549,73 @@ describe('workflow execution adapters', () => {
 		expect(
 			recovered.nodes.find((node) => node.id === 'plan')?.status,
 		).toBe('succeeded');
+	});
+
+	it('marks owned execution lost immediately when its adapter disappears after reload', async () => {
+		const { state, registry, controller } = setup();
+		const adapter = create_sdk_execution_adapter({
+			async run(request) {
+				return {
+					execution_id: request.execution_id,
+					lifecycle: 'running',
+					adapter_id: 'pi-sdk',
+					adapter_version: '1',
+				};
+			},
+		});
+		const record = await controller.initiate(state, 'plan', adapter, {
+			owner_session_id: 'owner',
+			cwd: '/repo',
+		});
+		const operator = new WorkflowOperator(
+			new ExecutionController(registry),
+			{},
+			() => {},
+		);
+		await operator.progress(state, {
+			owner_session_id: 'owner',
+			cwd: '/repo',
+		});
+		expect(registry.get(record.request.execution_id)?.lifecycle).toBe(
+			'lost',
+		);
+		expect(registry.list_pending()).toEqual([]);
+		expect(state.status).not.toBe('running');
+	});
+
+	it('reconciles persisted orphaned execution before status reports after TUI reload', async () => {
+		const { state, registry, controller } = setup();
+		const adapter = create_sdk_execution_adapter({
+			async run(request) {
+				return {
+					execution_id: request.execution_id,
+					lifecycle: 'running',
+					adapter_id: 'pi-sdk',
+					adapter_version: '1',
+				};
+			},
+		});
+		const record = await controller.initiate(state, 'plan', adapter, {
+			owner_session_id: 'owner',
+			cwd: '/repo',
+		});
+		const store = new FactoryStateStore(
+			mkdtempSync(join(tmpdir(), 'factory-status-reload-')),
+		);
+		store.save(state);
+		const reloaded = store.load(state.workflow_id);
+		const summary = await reconcile_factory_status(
+			reloaded,
+			new ExecutionController(registry),
+			undefined,
+			(current) => store.save(current),
+		);
+		expect(summary.active_process_session).toBeUndefined();
+		expect(summary.status).not.toBe('running');
+		expect(registry.get(record.request.execution_id)?.lifecycle).toBe(
+			'lost',
+		);
+		expect(store.load(state.workflow_id).status).not.toBe('running');
 	});
 
 	it('represents peer mailbox operation as operator-required, never supervised', async () => {

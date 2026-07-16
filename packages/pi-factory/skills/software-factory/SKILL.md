@@ -16,8 +16,9 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
    mapping and explicit overrides, inspect the explained route, then
    use `intake-apply` to bind lifecycle updates to one workflow.
 4. Create direct work once with `factory action=create`; this
-   atomically claims paths and creates the real harness. Do not create
-   a second harness.
+   atomically claims paths and creates the real harness. Supply
+   `harness_dir` only to adopt an exactly compatible existing harness;
+   incompatible or duplicate harnesses are rejected.
 5. Use `factory action=operate` for eligible owned RPC work,
    validation, and structured review. It must stop at human approval.
    Use `execution_mode=peer` only as an explicit operator handoff.
@@ -29,7 +30,11 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
    revealed.
 8. Never infer human approval. Record the actor, action, scope,
    decision, and evidence.
-9. On interruption, inspect persisted state and resume valid nodes; do
-   not repeat completed research. Escalate stale owners because Team
-   Mode does not supervise sessions.
-10. Finish with `metrics`, validation evidence, and remaining risks.
+9. Transfer mutation with `request-transfer`, then have the named
+   recipient use `acknowledge-transfer`; the old claim remains active
+   until acknowledgement. Never mutate through an advisory conflict.
+10. On interruption, inspect concise `status` (`full=true` adds
+    machine state). Resume only an owned recoverable adapter; missing
+    process or recovery support is `lost`. Peer sessions do not
+    continue between turns and require operator/user continuation.
+11. Finish with `metrics`, validation evidence, and remaining risks.

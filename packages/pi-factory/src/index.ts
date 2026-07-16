@@ -20,6 +20,7 @@ export {
 	route_fingerprint,
 } from './dispatch.js';
 export {
+	acknowledge_ownership_transfer,
 	add_evidence,
 	amend_contract,
 	claim_paths,
@@ -35,9 +36,11 @@ export {
 	normalize_feedback,
 	record_approval,
 	record_initial_review,
+	request_ownership_transfer,
 	requires_approval,
 	resume_state,
 	start_node,
+	summarize_factory_state,
 } from './engine.js';
 export {
 	create_rpc_execution_adapter,
@@ -63,7 +66,9 @@ export {
 	capture_git_workspace,
 	default,
 	factory_intake_from_extension,
+	reconcile_factory_status,
 	resolve_factory_owner,
+	validate_adoptable_harness,
 } from './extension.js';
 export {
 	external_workflow_id,
@@ -140,4 +145,10 @@ export type {
 	FactoryExecutionAdapters,
 	GateResult,
 } from './runner.js';
+export {
+	canonical_scope,
+	scope_expression,
+	scope_matches,
+	scopes_overlap,
+} from './scope.js';
 export * from './types.js';

@@ -24,6 +24,7 @@ import {
 	run_validation_node,
 	type FactoryExecutionAdapters,
 } from './runner.js';
+import { scope_matches } from './scope.js';
 import type {
 	FactoryState,
 	FeedbackPacket,
@@ -231,6 +232,23 @@ export class ExecutionRegistry {
 			['intent', 'starting', 'running'].includes(record.lifecycle),
 		);
 	}
+	mark_lost(execution_id: string, message: string): ExecutionRecord {
+		const record = this.get(execution_id);
+		if (!record) throw new Error(`Unknown execution ${execution_id}`);
+		const timestamp = new Date().toISOString();
+		record.lifecycle = 'lost';
+		record.updated_at = timestamp;
+		record.result = {
+			execution_id,
+			lifecycle: 'lost',
+			adapter_id: record.adapter_id,
+			adapter_version: record.adapter_version,
+			finished_at: timestamp,
+			failure: { category: 'process-death', message },
+		};
+		this.put(record);
+		return record;
+	}
 }
 
 function node_for(state: FactoryState, node_id: string): NodeState {
@@ -244,40 +262,14 @@ function idempotency_key(
 ): string {
 	return `${state.workflow_id}:${state.contract_version}:${node.id}:${node.attempts + 1}`;
 }
-function glob_expression(pattern: string): RegExp {
-	let expression = '^';
-	for (let index = 0; index < pattern.length; index += 1) {
-		const character = pattern[index]!;
-		if (character === '*' && pattern[index + 1] === '*') {
-			if (pattern[index + 2] === '/') {
-				expression += '(?:.*/)?';
-				index += 2;
-			} else {
-				expression += '.*';
-				index += 1;
-			}
-		} else if (character === '*') expression += '[^/]*';
-		else if (character === '?') expression += '[^/]';
-		else
-			expression += character.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
-	}
-	return new RegExp(`${expression}$`);
-}
 function path_is_allowed(
 	cwd: string,
 	path: string,
 	allowed_paths: string[],
 ): boolean {
-	const candidate = resolve(cwd, path).replaceAll('\\', '/');
-	return allowed_paths.some((allowed) => {
-		const normalized = resolve(cwd, allowed).replaceAll('\\', '/');
-		if (/[?*]/.test(normalized))
-			return glob_expression(normalized).test(candidate);
-		return (
-			candidate === normalized ||
-			candidate.startsWith(`${normalized}/`)
-		);
-	});
+	return allowed_paths.some((allowed) =>
+		scope_matches(cwd, path, allowed),
+	);
 }
 function changed_since(
 	baseline: WorkspaceSnapshot,
@@ -882,13 +874,18 @@ export class ExecutionController {
 		adapter: WorkflowExecutionAdapter,
 	): Promise<ExecutionRecord> {
 		if (!adapter.capabilities.recover || !adapter.recover) {
-			const operator_required = {
-				...record,
-				lifecycle: 'operator-required' as const,
-				updated_at: new Date().toISOString(),
-			};
-			this.registry.put(operator_required);
-			return operator_required;
+			return this.record_result(record, {
+				execution_id: record.request.execution_id,
+				lifecycle: 'lost',
+				adapter_id: record.adapter_id,
+				adapter_version: record.adapter_version,
+				finished_at: new Date().toISOString(),
+				failure: {
+					category: 'unsupported',
+					message:
+						'Owned execution cannot be recovered by its adapter',
+				},
+			});
 		}
 		return this.record_result(
 			record,
@@ -948,7 +945,18 @@ export class WorkflowOperator {
 				Object.values(this.adapters).find(
 					(item) => item.id === pending.adapter_id,
 				);
-			if (!adapter) continue;
+			if (!adapter) {
+				const lost = this.controller.registry.mark_lost(
+					pending.request.execution_id,
+					'Execution adapter is unavailable after reload',
+				);
+				progressed.push(lost);
+				await this.route_feedback(
+					this.controller.apply_result(state, lost),
+				);
+				this.persist_state(state);
+				continue;
+			}
 			const refreshed = !adapter.capabilities.poll
 				? await this.controller.recover(pending, adapter)
 				: await this.controller.poll(pending, adapter);
