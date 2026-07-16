@@ -46,6 +46,23 @@ export interface OutcomeEvidence {
 	complete: boolean;
 	contradictory?: boolean;
 }
+export interface OutcomeCorrelation {
+	status: 'measured' | 'synthetic' | 'uncorrelated';
+	provider?: string;
+	model?: string;
+	reasoning?: string;
+	session_id?: string;
+	telemetry_run_id?: string;
+	observability_session_id?: string;
+	terminal_outcome?:
+		| 'completed'
+		| 'failed'
+		| 'cancelled'
+		| 'superseded'
+		| 'completed-outside-factory';
+	authoritative_delivery?: boolean;
+	duration_ms?: number;
+}
 export interface ObservedOutcome {
 	schema_version: 1;
 	outcome_id: string;
@@ -55,6 +72,7 @@ export interface ObservedOutcome {
 	observed_at: string;
 	evidence: OutcomeEvidence[];
 	label: OutcomeLabel;
+	correlation?: OutcomeCorrelation;
 	first_pass?: boolean;
 	retries?: number;
 	rework?: boolean;
@@ -103,6 +121,7 @@ export interface CalibrationReport {
 		cohort: CalibrationCase['cohort'];
 		pins: CalibrationCohortPins;
 		runs: number;
+		excluded_runs: number;
 		labels: Partial<Record<OutcomeLabel, number>>;
 		metrics: CalibrationMetric[];
 		warnings: string[];
@@ -191,6 +210,27 @@ export function create_observed_outcome(
 		label: label_outcome(input.evidence),
 	};
 }
+function comparable_outcome(outcome: ObservedOutcome): boolean {
+	const correlation = outcome.correlation;
+	return Boolean(
+		correlation?.status === 'measured' &&
+		correlation.provider &&
+		correlation.model &&
+		correlation.reasoning &&
+		correlation.session_id &&
+		(correlation.telemetry_run_id ||
+			correlation.observability_session_id ||
+			(outcome.tokens !== undefined && outcome.tokens > 0) ||
+			(outcome.cost_usd !== undefined && outcome.cost_usd > 0)) &&
+		typeof correlation.duration_ms === 'number' &&
+		Number.isFinite(correlation.duration_ms) &&
+		correlation.duration_ms >= 0 &&
+		correlation.terminal_outcome &&
+		(correlation.terminal_outcome !== 'completed' ||
+			correlation.authoritative_delivery === true),
+	);
+}
+
 export function derive_calibration_report(
 	cases: CalibrationCase[],
 	outcomes: ObservedOutcome[],
@@ -292,7 +332,13 @@ export function derive_calibration_report(
 				)
 			)
 				warnings.push('Conflicting evidence requires adjudication');
-			const complete = group.outcomes.filter(
+			const comparable = group.outcomes.filter(comparable_outcome);
+			const excluded_runs = group.outcomes.length - comparable.length;
+			if (excluded_runs)
+				warnings.push(
+					`${excluded_runs} run(s) excluded: missing measured correlation, authoritative terminal delivery, or non-synthetic evidence`,
+				);
+			const complete = comparable.filter(
 				(item) =>
 					!['incomplete', 'conflicting-evidence'].includes(
 						item.label,
@@ -369,6 +415,7 @@ export function derive_calibration_report(
 						group.calibration_case.evolution_version_id,
 				},
 				runs: group.outcomes.length,
+				excluded_runs,
 				labels,
 				metrics,
 				warnings,
@@ -430,6 +477,10 @@ export function compare_calibration_cohorts(
 			'Calibration comparison requires production then experimental cohorts',
 		);
 	const warnings = [...production.warnings, ...experimental.warnings];
+	if (production.excluded_runs || experimental.excluded_runs)
+		warnings.push(
+			'Excluded uncorrelated or synthetic runs block comparison and recommendations',
+		);
 	for (const field of [
 		'case_version',
 		'risk',
@@ -489,15 +540,18 @@ export function compare_calibration_cohorts(
 			deltas[metric.name] = other.value - metric.value;
 	}
 	return {
-		comparable: !warnings.some(
-			(item) =>
-				item.startsWith('Sparse') ||
-				item.includes('Conflicting') ||
-				item.includes('Insufficient') ||
-				item.includes('Incomplete') ||
-				item.includes('Missing') ||
-				item.includes('Incompatible'),
-		),
+		comparable: !warnings.some((item) => {
+			const normalized = item.toLowerCase();
+			return (
+				normalized.startsWith('sparse') ||
+				normalized.includes('conflicting') ||
+				normalized.includes('insufficient') ||
+				normalized.includes('incomplete') ||
+				normalized.includes('missing') ||
+				normalized.includes('excluded') ||
+				normalized.includes('incompatible')
+			);
+		}),
 		deltas,
 		warnings,
 	};

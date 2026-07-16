@@ -114,6 +114,9 @@ export interface ExecutionResult {
 	}>;
 	telemetry_run_id?: string;
 	observability_session_id?: string;
+	provider?: string;
+	model?: string;
+	reasoning?: string;
 	tokens?: number;
 	cost_usd?: number;
 	effective_policy?: RolePolicy;
@@ -743,11 +746,31 @@ export class ExecutionController {
 					record.result?.observability_session_id,
 				tokens: record.result?.tokens,
 				cost_usd: record.result?.cost_usd,
+				duration_ms:
+					record.result?.started_at && record.result.finished_at
+						? Math.max(
+								0,
+								Date.parse(record.result.finished_at) -
+									Date.parse(record.result.started_at),
+							)
+						: undefined,
 				metadata: {
 					execution_id: record.request.execution_id,
 					adapter_id: record.adapter_id,
+					adapter_version: record.adapter_version,
+					contract_version: record.request.contract_version,
 					lifecycle: record.lifecycle,
+					outcome: record.result?.outcome,
 					read_only: record.request.read_only,
+					provider:
+						record.result?.provider ??
+						record.request.role_policy.model?.split('/')[0],
+					model:
+						record.result?.model ?? record.request.role_policy.model,
+					reasoning:
+						record.result?.reasoning ??
+						record.request.role_policy.thinking,
+					enforcement: record.request.role_policy.enforcement,
 				},
 			});
 		if (
@@ -1110,6 +1133,16 @@ export class WorkflowOperator {
 				continue;
 			}
 			if (refreshed.lifecycle === 'operator-required') {
+				state.events.push({
+					id: randomUUID(),
+					workflow_id: state.workflow_id,
+					workflow_version: state.route.workflow.version,
+					node_id: refreshed.request.node_id,
+					type: 'execution.peer_handoff_required',
+					timestamp: new Date().toISOString(),
+					session_id: refreshed.request.owner_session_id,
+					metadata: { adapter_id: refreshed.adapter_id },
+				});
 				const node = node_for(state, refreshed.request.node_id);
 				node.status = 'blocked';
 				node.blocked_reason =
@@ -1310,11 +1343,33 @@ export class WorkflowOperator {
 								result?.observability_session_id,
 							tokens: result?.tokens,
 							cost_usd: result?.cost_usd,
+							duration_ms:
+								result?.started_at && result.finished_at
+									? Math.max(
+											0,
+											Date.parse(result.finished_at) -
+												Date.parse(result.started_at),
+										)
+									: undefined,
 							metadata: {
 								execution_id: hypothesis.request.execution_id,
 								adapter_id: hypothesis.adapter_id,
+								adapter_version: hypothesis.adapter_version,
+								contract_version: hypothesis.request.contract_version,
 								lifecycle: hypothesis.lifecycle,
+								outcome: result?.outcome,
 								read_only: true,
+								provider:
+									result?.provider ??
+									hypothesis.request.role_policy.model?.split('/')[0],
+								model:
+									result?.model ??
+									hypothesis.request.role_policy.model,
+								reasoning:
+									result?.reasoning ??
+									hypothesis.request.role_policy.thinking,
+								enforcement:
+									hypothesis.request.role_policy.enforcement,
 							},
 						});
 					if (
@@ -1370,6 +1425,16 @@ export class WorkflowOperator {
 			this.persist_state(state);
 			progressed.push(record);
 			if (record.lifecycle === 'operator-required') {
+				state.events.push({
+					id: randomUUID(),
+					workflow_id: state.workflow_id,
+					workflow_version: state.route.workflow.version,
+					node_id: record.request.node_id,
+					type: 'execution.peer_handoff_required',
+					timestamp: new Date().toISOString(),
+					session_id: record.request.owner_session_id,
+					metadata: { adapter_id: record.adapter_id },
+				});
 				ready.status = 'blocked';
 				ready.blocked_reason =
 					'Execution ownership requires an explicit operator handoff';
@@ -1569,6 +1634,7 @@ export function create_rpc_execution_adapter(options: {
 		stdout_buffer: string;
 		assistant_text: string;
 		stderr: string;
+		usage_message_keys: Set<string>;
 	};
 	const processes = new Map<string, OwnedProcess>();
 	const missing = (execution_id: string): ExecutionResult => ({
@@ -1759,6 +1825,7 @@ export function create_rpc_execution_adapter(options: {
 				stdout_buffer: '',
 				assistant_text: '',
 				stderr: '',
+				usage_message_keys: new Set(),
 			};
 			processes.set(request.execution_id, owned);
 			child.stderr?.on('data', (chunk: Buffer | string) => {
@@ -1816,6 +1883,54 @@ export function create_rpc_execution_adapter(options: {
 							},
 						};
 						child.kill('SIGTERM');
+					}
+					if (event.type === 'message_end') {
+						const message = event.message as
+							| Record<string, unknown>
+							| undefined;
+						if (message?.role === 'assistant') {
+							const usage = message.usage as
+								| Record<string, unknown>
+								| undefined;
+							const cost = usage?.cost as
+								| Record<string, unknown>
+								| undefined;
+							const key = JSON.stringify({
+								timestamp: message.timestamp,
+								provider: message.provider,
+								model: message.model,
+								usage,
+							});
+							if (!owned.usage_message_keys.has(key)) {
+								owned.usage_message_keys.add(key);
+								const number = (value: unknown) =>
+									typeof value === 'number' && Number.isFinite(value)
+										? value
+										: 0;
+								const total_tokens =
+									number(usage?.totalTokens) ||
+									number(usage?.input) +
+										number(usage?.output) +
+										number(usage?.cacheRead) +
+										number(usage?.cacheWrite);
+								owned.result = {
+									...owned.result,
+									provider:
+										typeof message.provider === 'string'
+											? message.provider
+											: owned.result.provider,
+									model:
+										typeof message.model === 'string'
+											? message.model
+											: owned.result.model,
+									reasoning: request.role_policy.thinking,
+									tokens: (owned.result.tokens ?? 0) + total_tokens,
+									cost_usd:
+										(owned.result.cost_usd ?? 0) +
+										number(cost?.total),
+								};
+							}
+						}
 					}
 					const update = event.assistantMessageEvent as
 						| Record<string, unknown>

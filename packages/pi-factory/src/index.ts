@@ -10,6 +10,7 @@ export type {
 	CalibrationMetric,
 	CalibrationReport,
 	ObservedOutcome,
+	OutcomeCorrelation,
 	OutcomeEvidence,
 	OutcomeLabel,
 } from './calibration.js';
@@ -19,6 +20,8 @@ export {
 	dispatch_task,
 	route_fingerprint,
 } from './dispatch.js';
+export { run_dogfood_baseline } from './dogfood.js';
+export type { DogfoodBaselineResult } from './dogfood.js';
 export {
 	acknowledge_ownership_transfer,
 	add_evidence,
@@ -36,6 +39,7 @@ export {
 	normalize_feedback,
 	record_approval,
 	record_initial_review,
+	record_workflow_outcome,
 	request_ownership_transfer,
 	requires_approval,
 	resume_state,

@@ -266,8 +266,14 @@ a packet-id outbox; failed delivery remains inspectable and
 `factory action=flush-feedback` retries without duplicating an already
 delivered packet.
 
-Harness ids, Team Mode artifact/session ids, telemetry run ids, and
-observability session ids are correlated in factory events.
+Harness ids, Team Mode artifact/session ids, provider/model/reasoning,
+telemetry and observability ids, measured duration, tokens, and cost
+are correlated in factory events when evidence exists. Owned RPC
+adapters deduplicate assistant `message_end` records and accumulate
+the actual provider/model, `usage.totalTokens`, and `usage.cost.total`
+into the terminal result. Process/session loss, handoff, takeover,
+resume, cancellation, and supersession remain separate durable events;
+absent usage is never converted to invented zero-cost compute.
 `factory action=status` returns a concise human view (task, workflow,
 owner, active execution, node/evidence progress, heartbeat, blockers,
 next action, and validation); `full=true` also returns the complete
@@ -278,11 +284,30 @@ unsupported adapter is immediately recorded as `lost`, never left as
 turns and require operator/user continuation unless an owned adapter
 is active.
 
+Terminal outcome is explicit: `completed`, `failed`, `cancelled`,
+`superseded`, or `completed-outside-factory`. Failure classification
+is separate (`workflow-failure`, `executor-failure`,
+`operator-misuse`, `project-policy-failure`, `validation-failure`, or
+`platform-failure`). Outside delivery requires external evidence and
+never becomes an authoritative factory success.
+
 Aggregate metrics are derived from canonical state plus those
-references: first-pass success, validation/review retries,
-deterministic/reviewer defects, escalation, interruption, substantial
-rework, lead time, tokens, and cost. Existing manual harnesses and
-unclassified sessions remain unchanged and distinguishable.
+references. Delivered and first-pass success require the authoritative
+terminal completion node plus validation, review, and approval
+evidence as applicable—executor settlement alone cannot count.
+Comparative metrics require provider, model, reasoning, session, valid
+duration and measured telemetry/usage for every current-contract
+durable execution attempt, role-to-node consistency, and a completed
+non-read-only authoritative attempt for each executed node. Read-only
+hypotheses cannot mask a missing planner measurement; retries remain
+excluded unless every attempt is correlated. Metrics exclude
+unresolved, stale, synthetic, outside-factory, and
+incomplete/uncorrelated runs. Calibration reports retain exclusion
+warnings and recommendations refuse cohorts with excluded or missing
+measurements. The reproducible five-workflow pre-calibration baseline
+is documented in [`DOGFOOD_BASELINE.md`](./DOGFOOD_BASELINE.md).
+Existing manual harnesses and unclassified sessions remain unchanged
+and distinguishable.
 
 ## Review and approval safety
 

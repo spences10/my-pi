@@ -74,6 +74,7 @@ function report(
 				cohort: 'production',
 				pins: { ...pins, stall_timeout_ms: 900000 },
 				runs: 10,
+				excluded_runs: 0,
 				labels: {},
 				metrics: metric_values(0.8),
 				warnings: [],
@@ -92,6 +93,7 @@ function report(
 					evolution_version_id: options.evolution_version_id,
 				},
 				runs: 10,
+				excluded_runs: 0,
 				labels: {},
 				metrics: metric_values(regression ? 0.5 : 0.9),
 				warnings: [],
@@ -323,6 +325,16 @@ describe('adaptive recommendations', () => {
 			store.rollback(canary.version_id, 'human', 'again').version_id,
 		).toBe(canary.version_id);
 		expect(store.get().active_version).toBe(baseline.version_id);
+	});
+
+	it('refuses recommendations when either cohort contains excluded runs', () => {
+		const unsafe = report();
+		unsafe.cohorts[0]!.excluded_runs = 1;
+		expect(
+			recommend_calibration_change(unsafe, 'prod', 'exp', {
+				prior_version: 'baseline',
+			}),
+		).toBeUndefined();
 	});
 
 	it('derives a recommendation from one controlled change and protects approved payloads', () => {

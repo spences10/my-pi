@@ -45,4 +45,15 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
     terminal records. Resume only an owned recoverable adapter;
     missing process or recovery support is `lost`. Peer sessions do
     not continue between turns and require operator/user continuation.
-11. Finish with `metrics`, validation evidence, and remaining risks.
+11. Record one explicit terminal outcome. `completed` requires the
+    authoritative completion, validation, review, and approval chain;
+    use `superseded` or `completed-outside-factory` with explicit
+    replacement/external evidence instead of inventing success.
+12. Use comparative metrics only for measured, correlated runs with
+    provider/model/reasoning, session, valid duration, telemetry or
+    usage for every current-contract attempt, matching role/node kind,
+    and one completed non-read-only authoritative attempt per executed
+    node. Hypotheses and retries cannot mask missing correlation.
+    Exclude synthetic or uncorrelated dogfood and refuse
+    recommendations when calibration reports exclusions.
+13. Finish with `metrics`, validation evidence, and remaining risks.

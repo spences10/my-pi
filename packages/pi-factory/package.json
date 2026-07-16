@@ -21,6 +21,7 @@
 		"dist",
 		"skills",
 		"ARCHITECTURE.md",
+		"DOGFOOD_BASELINE.md",
 		"README.md"
 	],
 	"type": "module",

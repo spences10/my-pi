@@ -25,6 +25,7 @@ import type {
 	ResolvedRoute,
 	ReviewPacket,
 	ReviewerFinding,
+	WorkflowOutcome,
 } from './types.js';
 
 const now = () => new Date().toISOString();
@@ -407,6 +408,11 @@ export function complete_node(
 		state.status = 'completed';
 		for (const claim of state.claims) claim.status = 'released';
 		event(state, 'workflow.completed');
+		record_workflow_outcome(state, {
+			status: 'completed',
+			authoritative: true,
+			evidence_ids: state.evidence.map((item) => item.id),
+		});
 	}
 }
 export function complete_validated_node(
@@ -452,6 +458,28 @@ export function complete_validated_node(
 		(item) => item.status === 'ready',
 	)?.id;
 }
+function classify_failure(
+	state: FactoryState,
+	packet: FeedbackPacket,
+): import('./types.js').FailureClassification {
+	const node = state.nodes.find((item) => item.id === packet.node_id);
+	const codes = packet.items.map((item) => item.code).join(' ');
+	if (/policy|forbidden|approval/i.test(codes))
+		return 'project-policy-failure';
+	if (
+		/provider|process-death|unsupported|adapter|timeout/i.test(codes)
+	)
+		return 'platform-failure';
+	if (
+		/owner|handoff|hypothesis|authority/i.test(codes) ||
+		!packet.owner_session_id
+	)
+		return 'operator-misuse';
+	if (node?.kind === 'validate') return 'validation-failure';
+	if (node?.kind === 'execute') return 'executor-failure';
+	return 'workflow-failure';
+}
+
 export function fail_node(
 	state: FactoryState,
 	packet: FeedbackPacket,
@@ -462,8 +490,7 @@ export function fail_node(
 	state.feedback.push(packet);
 	node.feedback_ids.push(packet.id);
 	event(state, 'failure.classified', {
-		classification:
-			node.kind === 'plan' ? 'planning' : 'implementation',
+		classification: classify_failure(state, packet),
 		packet_id: packet.id,
 	});
 	const limit = definition(state, node.id).retry_limit;
@@ -796,6 +823,88 @@ export function amend_contract(
 	state.status = 'paused';
 	event(state, 'contract.amended');
 }
+function has_authoritative_delivery(state: FactoryState): boolean {
+	if (state.status !== 'completed') return false;
+	if (
+		!state.nodes.some(
+			(node) =>
+				node.kind === 'complete' && node.status === 'succeeded',
+		)
+	)
+		return false;
+	if (
+		state.nodes.some(
+			(node) =>
+				node.kind === 'validate' && node.status !== 'succeeded',
+		)
+	)
+		return false;
+	if (
+		state.nodes.some(
+			(node) => node.kind === 'review' && node.status !== 'succeeded',
+		)
+	)
+		return false;
+	for (const action of state.route.workflow.approvals)
+		if (requires_approval(state, action)) return false;
+	return true;
+}
+
+export function record_workflow_outcome(
+	state: FactoryState,
+	input: Omit<WorkflowOutcome, 'recorded_at'>,
+): WorkflowOutcome {
+	if (state.outcome)
+		throw new Error('Workflow outcome is already recorded');
+	if (
+		input.evidence_ids.some(
+			(id) => !state.evidence.some((evidence) => evidence.id === id),
+		)
+	)
+		throw new Error('Workflow outcome references unknown evidence');
+	if (
+		input.status === 'completed' &&
+		(!input.authoritative || !has_authoritative_delivery(state))
+	)
+		throw new Error(
+			'Completed outcome requires authoritative terminal delivery evidence',
+		);
+	if (input.status === 'completed-outside-factory') {
+		if (
+			input.authoritative ||
+			!input.external_delivery_id ||
+			!input.evidence_ids.length
+		)
+			throw new Error(
+				'Outside-factory completion requires explicit external delivery evidence',
+			);
+	}
+	if (
+		input.status === 'superseded' &&
+		!input.superseded_by_workflow_id
+	)
+		throw new Error(
+			'Superseded outcome requires the replacement workflow id',
+		);
+	if (input.status === 'failed' && !input.classification)
+		throw new Error(
+			'Failed outcome requires a failure classification',
+		);
+	const outcome: WorkflowOutcome = {
+		...input,
+		recorded_at: now(),
+	};
+	state.outcome = outcome;
+	event(state, 'workflow.outcome_recorded', {
+		status: outcome.status,
+		authoritative: outcome.authoritative,
+		classification: outcome.classification,
+		superseded_by_workflow_id: outcome.superseded_by_workflow_id,
+		external_delivery_id: outcome.external_delivery_id,
+	});
+	return outcome;
+}
+
 export function resume_state(
 	state: FactoryState,
 	owner_session_id: string,
@@ -1015,6 +1124,20 @@ function validate_factory_state(raw: unknown): FactoryState {
 		)
 	)
 		throw new Error('Invalid factory state approvals');
+	if (
+		state.outcome &&
+		(![
+			'completed',
+			'failed',
+			'cancelled',
+			'superseded',
+			'completed-outside-factory',
+		].includes(state.outcome.status) ||
+			typeof state.outcome.authoritative !== 'boolean' ||
+			!Array.isArray(state.outcome.evidence_ids) ||
+			typeof state.outcome.recorded_at !== 'string')
+	)
+		throw new Error('Invalid factory state outcome');
 	if (
 		!Array.isArray(state.events) ||
 		state.events.some(

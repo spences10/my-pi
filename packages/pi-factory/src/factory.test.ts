@@ -25,6 +25,7 @@ import {
 	normalize_feedback,
 	record_approval,
 	record_initial_review,
+	record_workflow_outcome,
 	request_ownership_transfer,
 	requires_approval,
 	resume_state,
@@ -49,7 +50,11 @@ import {
 } from './policy.js';
 import { run_validation_node } from './runner.js';
 import { scope_matches, scopes_overlap } from './scope.js';
-import type { FactoryState, RepositoryPolicy } from './types.js';
+import type {
+	FactoryEvent,
+	FactoryState,
+	RepositoryPolicy,
+} from './types.js';
 
 const policy: RepositoryPolicy = {
 	schema_version: 1,
@@ -1228,6 +1233,13 @@ describe('ownership, interruption, resume, and metrics', () => {
 		acknowledge_ownership_transfer(state, transfer.id, 'replacement');
 		resume_state(state, 'replacement');
 		expect(state.nodes[0]?.status).toBe('ready');
+		const metrics = derive_factory_metrics([state])[0]!;
+		expect(metrics).toMatchObject({
+			interruptions: 2,
+			handoffs: 1,
+			takeovers: 1,
+			session_losses: 1,
+		});
 	});
 	it('reconciles node ids and approval topology when workflow kind changes', () => {
 		const state = create_factory_state(route());
@@ -1407,9 +1419,330 @@ describe('ownership, interruption, resume, and metrics', () => {
 		right.status = 'cancelled';
 		expect(() => store.save(right)).toThrow('state conflict');
 	});
+	it('classifies platform, validation, executor, policy, operator, and workflow failures distinctly', () => {
+		const classifications = [
+			['plan', 'execution.provider', 'platform-failure'],
+			['plan', 'ownership.missing', 'operator-misuse'],
+			['plan', 'policy.forbidden', 'project-policy-failure'],
+			['plan', 'planning.invalid', 'workflow-failure'],
+			['execute', 'execution.invalid-result', 'executor-failure'],
+			['validate', 'validation.failed', 'validation-failure'],
+		] as const;
+		const states = classifications.map(([node_id, code]) => {
+			const state = create_factory_state(route());
+			for (const node of state.nodes)
+				node.status = node.id === node_id ? 'running' : 'pending';
+			state.current_node_id = node_id;
+			fail_node(
+				state,
+				normalize_feedback({
+					workflow_id: state.workflow_id,
+					node_id,
+					attempt: 1,
+					source: node_id === 'validate' ? 'check' : 'test',
+					owner_session_id: 'owner',
+					contradictory: false,
+					unsafe_fix: false,
+					items: [
+						{
+							severity: 'error',
+							code,
+							message: code,
+							evidence_ids: [],
+							required_action: 'fix',
+						},
+					],
+				}),
+			);
+			return state;
+		});
+		const metrics = derive_factory_metrics(states)[0]!;
+		for (const [, , classification] of classifications)
+			expect(metrics.failures[classification]).toBe(1);
+	});
+
+	it('distinguishes superseded and outside-factory outcomes and excludes settlement-only success', () => {
+		const settled_only = create_factory_state(route());
+		settled_only.status = 'completed';
+		const superseded = create_factory_state(
+			route('Implement superseded feature'),
+		);
+		record_workflow_outcome(superseded, {
+			status: 'superseded',
+			authoritative: true,
+			evidence_ids: [],
+			superseded_by_workflow_id: crypto.randomUUID(),
+		});
+		const outside = create_factory_state(
+			route('Implement delivered elsewhere feature'),
+		);
+		const external = add_evidence(outside, {
+			kind: 'external-delivery',
+			summary: 'Delivered by replacement workflow',
+		});
+		record_workflow_outcome(outside, {
+			status: 'completed-outside-factory',
+			authoritative: false,
+			evidence_ids: [external.id],
+			external_delivery_id: 'delivery-1',
+		});
+		const metrics = derive_factory_metrics([
+			settled_only,
+			superseded,
+			outside,
+		])[0]!;
+		expect(metrics.outcomes).toMatchObject({
+			unresolved: 1,
+			superseded: 1,
+			'completed-outside-factory': 1,
+		});
+		expect(metrics.eligible_runs).toBe(0);
+		expect(metrics.first_pass_success_rate).toBe(0);
+		expect(metrics.supersessions).toBe(1);
+	});
+
+	it('retains measured peer compute without inventing missing usage', () => {
+		const state = create_factory_state(route());
+		state.nodes.find((node) => node.id === 'plan')!.attempts = 1;
+		correlate_compute(state, {
+			node_id: 'plan',
+			role: 'planner',
+			session_id: 'peer-session',
+			execution_id: 'peer-execution',
+			lifecycle: 'settled',
+			outcome: 'completed',
+			read_only: false,
+			provider: 'provider',
+			model: 'model',
+			reasoning: 'high',
+			telemetry_run_id: 'peer-run',
+			duration_ms: 10,
+			tokens: 25,
+			cost_usd: 0.05,
+		});
+		const metrics = derive_factory_metrics([state])[0]!;
+		expect(metrics.tokens).toBe(25);
+		expect(metrics.cost_usd).toBe(0.05);
+		expect(metrics.eligible_runs).toBe(0);
+		expect(() =>
+			correlate_compute(state, {
+				node_id: 'plan',
+				role: 'planner',
+				session_id: 'peer-session',
+				execution_id: 'missing-usage',
+				lifecycle: 'settled',
+				outcome: 'completed',
+				read_only: false,
+			}),
+		).toThrow('measured usage or telemetry');
+	});
+
+	it('excludes incomplete and stale compute correlation until current measurement is complete', () => {
+		const state = create_factory_state(route());
+		for (const node of state.nodes) node.status = 'succeeded';
+		state.nodes.find((node) => node.id === 'execute')!.attempts = 1;
+		state.route.workflow.approvals = [];
+		state.status = 'completed';
+		record_workflow_outcome(state, {
+			status: 'completed',
+			authoritative: true,
+			evidence_ids: [],
+		});
+		state.events.push({
+			id: 'incomplete-correlation',
+			workflow_id: state.workflow_id,
+			workflow_version: state.route.workflow.version,
+			node_id: 'execute',
+			type: 'compute.correlated',
+			timestamp: new Date().toISOString(),
+			session_id: 'owner',
+			attempt: 1,
+			duration_ms: 10,
+			tokens: 1,
+			metadata: { contract_version: state.contract_version },
+		});
+		expect(derive_factory_metrics([state])[0]?.eligible_runs).toBe(0);
+		correlate_compute(state, {
+			node_id: 'execute',
+			role: 'executor',
+			session_id: 'owner',
+			execution_id: 'stale-execution',
+			lifecycle: 'settled',
+			outcome: 'completed',
+			read_only: false,
+			provider: 'provider',
+			model: 'model',
+			reasoning: 'high',
+			telemetry_run_id: 'stale-run',
+			duration_ms: 10,
+			tokens: 1,
+		});
+		state.events.at(-1)!.metadata!.contract_version = 0;
+		expect(derive_factory_metrics([state])[0]?.eligible_runs).toBe(0);
+		state.events = state.events.filter(
+			(event) => event.metadata?.execution_id !== 'stale-execution',
+		);
+		correlate_compute(state, {
+			node_id: 'execute',
+			role: 'executor',
+			session_id: 'owner',
+			execution_id: 'current-execution',
+			lifecycle: 'settled',
+			outcome: 'completed',
+			read_only: false,
+			provider: 'provider',
+			model: 'model',
+			reasoning: 'high',
+			telemetry_run_id: 'current-run',
+			duration_ms: 10,
+			tokens: 1,
+		});
+		expect(derive_factory_metrics([state])[0]).toMatchObject({
+			eligible_runs: 1,
+			first_pass_success_rate: 1,
+		});
+	});
+
+	it('requires complete correlation for hypotheses, retries, roles, and authoritative attempts', () => {
+		const completed = (node_id: 'plan' | 'execute') => {
+			const state = create_factory_state(route());
+			for (const node of state.nodes) node.status = 'succeeded';
+			state.route.workflow.approvals = [];
+			state.status = 'completed';
+			state.nodes.find((node) => node.id === node_id)!.attempts = 1;
+			record_workflow_outcome(state, {
+				status: 'completed',
+				authoritative: true,
+				evidence_ids: [],
+			});
+			return state;
+		};
+		const lifecycle = (
+			state: FactoryState,
+			options: {
+				node_id: 'plan' | 'execute';
+				attempt: number;
+				execution_id: string;
+				role?: FactoryEvent['role'];
+				read_only?: boolean;
+				outcome?: string;
+				provider?: string;
+			},
+		): FactoryEvent => ({
+			id: options.execution_id,
+			workflow_id: state.workflow_id,
+			workflow_version: state.route.workflow.version,
+			node_id: options.node_id,
+			type: 'execution.lifecycle',
+			timestamp: new Date().toISOString(),
+			role:
+				options.role ??
+				(options.node_id === 'plan' ? 'planner' : 'executor'),
+			attempt: options.attempt,
+			session_id: 'owner',
+			duration_ms: 10,
+			telemetry_run_id: `run-${options.execution_id}`,
+			tokens: 1,
+			metadata: {
+				execution_id: options.execution_id,
+				provider: options.provider ?? 'provider',
+				model: 'model',
+				reasoning: 'high',
+				contract_version: state.contract_version,
+				lifecycle:
+					options.outcome === 'failed' ? 'failed' : 'settled',
+				outcome: options.outcome ?? 'completed',
+				read_only: options.read_only ?? false,
+			},
+		});
+
+		const hypothesis_masks_planner = completed('plan');
+		hypothesis_masks_planner.events.push(
+			lifecycle(hypothesis_masks_planner, {
+				node_id: 'plan',
+				attempt: 1,
+				execution_id: 'hypothesis',
+				read_only: true,
+			}),
+			lifecycle(hypothesis_masks_planner, {
+				node_id: 'plan',
+				attempt: 1,
+				execution_id: 'planner',
+				provider: '',
+			}),
+		);
+		expect(
+			derive_factory_metrics([hypothesis_masks_planner])[0]
+				?.eligible_runs,
+		).toBe(0);
+
+		const retry_gap = completed('execute');
+		retry_gap.nodes.find((node) => node.id === 'execute')!.attempts =
+			2;
+		retry_gap.events.push(
+			lifecycle(retry_gap, {
+				node_id: 'execute',
+				attempt: 1,
+				execution_id: 'failed-first',
+				outcome: 'failed',
+				provider: '',
+			}),
+			lifecycle(retry_gap, {
+				node_id: 'execute',
+				attempt: 2,
+				execution_id: 'successful-retry',
+			}),
+		);
+		expect(
+			derive_factory_metrics([retry_gap])[0]?.eligible_runs,
+		).toBe(0);
+
+		const mismatched_role = completed('execute');
+		mismatched_role.events.push(
+			lifecycle(mismatched_role, {
+				node_id: 'execute',
+				attempt: 1,
+				execution_id: 'wrong-role',
+				role: 'planner',
+			}),
+		);
+		expect(
+			derive_factory_metrics([mismatched_role])[0]?.eligible_runs,
+		).toBe(0);
+
+		const fully_correlated_retry = completed('execute');
+		fully_correlated_retry.nodes.find(
+			(node) => node.id === 'execute',
+		)!.attempts = 2;
+		fully_correlated_retry.events.push(
+			lifecycle(fully_correlated_retry, {
+				node_id: 'execute',
+				attempt: 1,
+				execution_id: 'measured-failure',
+				outcome: 'failed',
+			}),
+			lifecycle(fully_correlated_retry, {
+				node_id: 'execute',
+				attempt: 2,
+				execution_id: 'measured-success',
+			}),
+		);
+		expect(
+			derive_factory_metrics([fully_correlated_retry])[0],
+		).toMatchObject({ eligible_runs: 1, first_pass_success_rate: 0 });
+	});
+
 	it('correlates existing compute evidence and derives versioned metrics', () => {
 		const state = create_factory_state(route());
+		for (const node of state.nodes) node.status = 'succeeded';
+		state.nodes.find((node) => node.id === 'execute')!.attempts = 1;
+		state.route.workflow.approvals = [];
 		state.status = 'completed';
+		record_workflow_outcome(state, {
+			status: 'completed',
+			authoritative: true,
+			evidence_ids: [],
+		});
 		state.updated_at = new Date(
 			Date.parse(state.created_at) + 100,
 		).toISOString();
@@ -1424,8 +1757,17 @@ describe('ownership, interruption, resume, and metrics', () => {
 		correlate_compute(state, {
 			node_id: 'execute',
 			role: 'executor',
+			session_id: 'owner',
+			execution_id: 'execution-1',
+			lifecycle: 'settled',
+			outcome: 'completed',
+			read_only: false,
+			provider: 'provider',
+			model: 'model',
+			reasoning: 'high',
 			telemetry_run_id: 'run-1',
 			observability_session_id: 'session-1',
+			duration_ms: 42,
 			tokens: 100,
 			cost_usd: 0.2,
 		});

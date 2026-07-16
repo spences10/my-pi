@@ -313,6 +313,28 @@ export interface FactoryEvent {
 	cost_usd?: number;
 	metadata?: Record<string, unknown>;
 }
+export type WorkflowOutcomeStatus =
+	| 'completed'
+	| 'failed'
+	| 'cancelled'
+	| 'superseded'
+	| 'completed-outside-factory';
+export type FailureClassification =
+	| 'workflow-failure'
+	| 'executor-failure'
+	| 'operator-misuse'
+	| 'project-policy-failure'
+	| 'validation-failure'
+	| 'platform-failure';
+export interface WorkflowOutcome {
+	status: WorkflowOutcomeStatus;
+	authoritative: boolean;
+	classification?: FailureClassification;
+	evidence_ids: string[];
+	recorded_at: string;
+	superseded_by_workflow_id?: string;
+	external_delivery_id?: string;
+}
 export interface AcceptanceEvaluation {
 	execution_id: string;
 	contract_version: number;
@@ -348,6 +370,7 @@ export interface FactoryState {
 	nodes: NodeState[];
 	claims: PathClaim[];
 	ownership_transfers?: OwnershipTransfer[];
+	outcome?: WorkflowOutcome;
 	evidence: EvidenceRef[];
 	acceptance_evaluations: AcceptanceEvaluation[];
 	feedback: FeedbackPacket[];
@@ -376,16 +399,24 @@ export interface FactoryMetrics {
 		requested_outcome: string;
 		status: TaskContract['status'];
 	}>;
+	eligible_runs: number;
+	excluded_runs: number;
+	outcomes: Record<WorkflowOutcomeStatus | 'unresolved', number>;
 	first_pass_success_rate: number;
 	validation_retries: number;
 	review_retries: number;
 	escalations: number;
 	interruptions: number;
+	handoffs: number;
+	takeovers: number;
+	session_losses: number;
+	cancellations: number;
+	supersessions: number;
 	substantial_rework: number;
 	lead_time_ms: number;
 	approval_wait_ms: number;
 	tokens: number;
 	cost_usd: number;
 	defects: { deterministic: number; reviewer: number };
-	failures: { planning: number; implementation: number };
+	failures: Record<FailureClassification, number>;
 }

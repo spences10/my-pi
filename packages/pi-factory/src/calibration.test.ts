@@ -5,7 +5,7 @@ import type {
 } from './calibration.js';
 import {
 	compare_calibration_cohorts,
-	create_observed_outcome,
+	create_observed_outcome as create_raw_observed_outcome,
 	derive_calibration_report,
 	label_outcome,
 } from './calibration.js';
@@ -46,6 +46,24 @@ function calibration_case(
 		cohort,
 		...(cohort === 'experimental' ? { experiment_id: 'exp-1' } : {}),
 	};
+}
+function create_observed_outcome(
+	input: Parameters<typeof create_raw_observed_outcome>[0],
+) {
+	return create_raw_observed_outcome({
+		...input,
+		correlation: input.correlation ?? {
+			status: 'measured',
+			provider: 'test-provider',
+			model: 'test-model',
+			reasoning: 'medium',
+			session_id: 'test-session',
+			telemetry_run_id: 'test-run',
+			duration_ms: 10,
+			terminal_outcome: 'completed',
+			authoritative_delivery: true,
+		},
+	});
 }
 function evidence(
 	label: OutcomeEvidence['label'],
@@ -254,6 +272,57 @@ describe('calibration evidence', () => {
 					.key,
 			).comparable,
 		).toBe(false);
+	});
+
+	it('excludes missing, synthetic, and uncorrelated measurements from comparison', () => {
+		const production = calibration_case('feature');
+		const experimental = calibration_case('feature', 'experimental');
+		const outcomes = [production, experimental].flatMap((item) =>
+			Array.from({ length: 5 }, () =>
+				create_raw_observed_outcome({
+					case_id: item.case_id,
+					case_version: item.case_version,
+					workflow_id: item.workflow,
+					evidence: evidence('success'),
+					first_pass: true,
+					retries: 0,
+					rework: false,
+					lead_time_ms: 10,
+					approval_wait_ms: 0,
+					tokens: 10,
+					cost_usd: 1,
+					interrupted: false,
+					escalated: false,
+					correlation: {
+						status:
+							item.cohort === 'production'
+								? 'uncorrelated'
+								: 'synthetic',
+						terminal_outcome: 'completed',
+						authoritative_delivery: true,
+					},
+				}),
+			),
+		);
+		const report = derive_calibration_report(
+			[production, experimental],
+			outcomes,
+		);
+		expect(
+			report.cohorts.every((cohort) => cohort.excluded_runs === 5),
+		).toBe(true);
+		const comparison = compare_calibration_cohorts(
+			report,
+			report.cohorts.find((cohort) => cohort.cohort === 'production')!
+				.key,
+			report.cohorts.find(
+				(cohort) => cohort.cohort === 'experimental',
+			)!.key,
+		);
+		expect(comparison.comparable).toBe(false);
+		expect(comparison.warnings).toContainEqual(
+			expect.stringContaining('Excluded uncorrelated or synthetic'),
+		);
 	});
 
 	it('rejects incompatible or unreproducible outcomes', () => {

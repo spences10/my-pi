@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { CalibrationCase } from './calibration.js';
 import {
-	create_observed_outcome,
+	create_observed_outcome as create_raw_observed_outcome,
 	derive_calibration_report,
 } from './calibration.js';
 import { dispatch_task, route_fingerprint } from './dispatch.js';
@@ -26,6 +26,23 @@ import {
 	simulate_recommendation,
 } from './recommendations.js';
 import type { RepositoryPolicy } from './types.js';
+const create_observed_outcome = (
+	input: Parameters<typeof create_raw_observed_outcome>[0],
+) =>
+	create_raw_observed_outcome({
+		...input,
+		correlation: input.correlation ?? {
+			status: 'measured',
+			provider: 'test-provider',
+			model: 'test-model',
+			reasoning: 'medium',
+			session_id: 'test-session',
+			telemetry_run_id: 'test-run',
+			duration_ms: 10,
+			terminal_outcome: 'completed',
+			authoritative_delivery: true,
+		},
+	});
 
 describe('factory learning loop', () => {
 	it('connects intake, owned execution, calibration, and a reversible canary', async () => {

@@ -18,7 +18,9 @@ read-only if custom launch arguments expose it. Turn settlement is not
 success: only the controller can accept a contract-bound structured
 result and transition a node. Durable ownership, acknowledged
 transfer, harness adoption, canonical path scopes, truthful recovery,
-and concise status are implemented. Outcome correlation remains #346.
+concise status, terminal outcome taxonomy, measured compute/session
+correlation, metric exclusions, and fail-closed calibration are
+implemented.
 
 The product must not become a general agent runtime. It cannot make an
 independently opened Pi session observable or controllable, infer that
@@ -59,8 +61,15 @@ The target supported default path is:
    diff, changed files, constraints, and validation evidence.
 7. Required side effects stop at a human approval node. Validation,
    review, silence, or delivery cannot imply approval.
-8. The ledger records the terminal outcome and derives correlated
-   metrics from authoritative state and referenced execution evidence.
+8. The ledger records an explicit terminal outcome and failure class.
+   Delivered metrics require authoritative completion, validation,
+   review, and approval evidence plus complete measured correlation
+   bound to every current-contract execution attempt, with consistent
+   node roles and one completed non-read-only authoritative attempt
+   per executed node. Hypothesis usage, partial retries, settlement,
+   stale usage, and outside delivery are not factory success.
+   Comparative calibration excludes synthetic or uncorrelated runs and
+   fails closed on missing measurements.
 
 This target journey needs no external-intake mapping,
 repository-policy discovery, calibration dataset, recommendation,

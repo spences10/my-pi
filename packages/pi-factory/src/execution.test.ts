@@ -295,7 +295,7 @@ describe('workflow execution adapters', () => {
 			command: process.execPath,
 			args: [
 				'-e',
-				`if (process.env.PI_FACTORY_CONTROL_PLANE !== 'read-only' || process.env.PI_FACTORY_CHILD_ROLE !== 'planner' || !process.argv.includes('read,grep,find,ls') || process.argv.includes('bash,edit')) process.exit(8); const payload = ${JSON.stringify(payload)}; process.stdin.on('data', chunk => { for (const line of String(chunk).trim().split('\\n')) { const command = JSON.parse(line); console.log(JSON.stringify({ id: command.id, type: 'response', command: 'prompt', success: true })); console.log(JSON.stringify({ type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta: payload } })); console.log(JSON.stringify({ type: 'agent_settled' })); } });`,
+				`if (process.env.PI_FACTORY_CONTROL_PLANE !== 'read-only' || process.env.PI_FACTORY_CHILD_ROLE !== 'planner' || !process.argv.includes('read,grep,find,ls') || process.argv.includes('bash,edit')) process.exit(8); const payload = ${JSON.stringify(payload)}; process.stdin.on('data', chunk => { for (const line of String(chunk).trim().split('\\n')) { const command = JSON.parse(line); const first = { type: 'message_end', message: { role: 'assistant', provider: 'actual-provider', model: 'actual-model', timestamp: 1, usage: { totalTokens: 7, cost: { total: 0.1 } } } }; console.log(JSON.stringify({ id: command.id, type: 'response', command: 'prompt', success: true })); console.log(JSON.stringify(first)); console.log(JSON.stringify(first)); console.log(JSON.stringify({ type: 'message_end', message: { role: 'assistant', provider: 'actual-provider', model: 'actual-model', timestamp: 2, usage: { totalTokens: 11, cost: { total: 0.2 } } } })); console.log(JSON.stringify({ type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta: payload } })); console.log(JSON.stringify({ type: 'agent_settled' })); } });`,
 				'--',
 				'--tools',
 				'bash,edit',
@@ -317,8 +317,26 @@ describe('workflow execution adapters', () => {
 			refreshed = await controller.poll(refreshed, adapter);
 		}
 		expect(refreshed.lifecycle).toBe('settled');
-		expect(refreshed.result?.outcome).toBe('completed');
+		expect(refreshed.result).toMatchObject({
+			outcome: 'completed',
+			provider: 'actual-provider',
+			model: 'actual-model',
+			tokens: 18,
+		});
+		expect(refreshed.result?.cost_usd).toBeCloseTo(0.3);
 		controller.apply_result(state, refreshed);
+		expect(
+			state.events.find(
+				(event) => event.type === 'execution.lifecycle',
+			),
+		).toMatchObject({
+			tokens: 18,
+			metadata: {
+				provider: 'actual-provider',
+				model: 'actual-model',
+				contract_version: state.contract_version,
+			},
+		});
 		expect(
 			state.nodes.find((node) => node.id === 'plan')?.status,
 		).toBe('succeeded');

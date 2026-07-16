@@ -30,6 +30,7 @@ import {
 	normalize_feedback,
 	record_approval,
 	record_initial_review,
+	record_workflow_outcome,
 	resume_state,
 	start_node,
 	summarize_factory_state,
@@ -56,7 +57,10 @@ import {
 	IntakeLifecycleController,
 	preview_external_route,
 } from './intake.js';
-import { derive_factory_metrics } from './metrics.js';
+import {
+	correlate_compute,
+	derive_factory_metrics,
+} from './metrics.js';
 import type { RepositoryPolicyDraft } from './policy-authoring.js';
 import {
 	activate_policy_draft,
@@ -72,12 +76,14 @@ import { run_validation_node } from './runner.js';
 import type {
 	ApprovalAction,
 	FactoryState,
+	FailureClassification,
 	NodeKind,
 	RepositoryPolicy,
 	ResolvedRoute,
 	ReviewerFinding,
 	TaskIntake,
 	WorkflowKind,
+	WorkflowOutcomeStatus,
 } from './types.js';
 
 const literals = <T extends readonly string[]>(values: T) =>
@@ -109,6 +115,8 @@ const action_schema = literals([
 	'resume',
 	'cancel',
 	'timeout',
+	'outcome',
+	'correlate',
 	'metrics',
 	'stalls',
 ] as const);
@@ -250,6 +258,59 @@ const params_schema = Type.Object({
 	),
 	execution_mode: Type.Optional(literals(['rpc', 'peer'] as const)),
 	timeout_ms: Type.Optional(Type.Number({ minimum: 0 })),
+	outcome_status: Type.Optional(
+		literals([
+			'completed',
+			'failed',
+			'cancelled',
+			'superseded',
+			'completed-outside-factory',
+		] as const),
+	),
+	failure_classification: Type.Optional(
+		literals([
+			'workflow-failure',
+			'executor-failure',
+			'operator-misuse',
+			'project-policy-failure',
+			'validation-failure',
+			'platform-failure',
+		] as const),
+	),
+	superseded_by_workflow_id: Type.Optional(Type.String()),
+	external_delivery_id: Type.Optional(Type.String()),
+	provider: Type.Optional(Type.String()),
+	model: Type.Optional(Type.String()),
+	reasoning: Type.Optional(Type.String()),
+	session_id: Type.Optional(Type.String()),
+	telemetry_run_id: Type.Optional(Type.String()),
+	observability_session_id: Type.Optional(Type.String()),
+	tokens: Type.Optional(Type.Number({ minimum: 0 })),
+	cost_usd: Type.Optional(Type.Number({ minimum: 0 })),
+	duration_ms: Type.Optional(Type.Number({ minimum: 0 })),
+	execution_id: Type.Optional(Type.String()),
+	execution_lifecycle: Type.Optional(
+		literals([
+			'settled',
+			'succeeded',
+			'failed',
+			'cancelled',
+			'lost',
+		] as const),
+	),
+	execution_outcome: Type.Optional(
+		literals([
+			'completed',
+			'incomplete',
+			'refused',
+			'escalated',
+			'failed',
+		] as const),
+	),
+	read_only: Type.Optional(Type.Boolean()),
+	role: Type.Optional(
+		literals(['planner', 'executor', 'reviewer', 'human'] as const),
+	),
 });
 const text = (value: unknown) => ({
 	content: [
@@ -372,6 +433,12 @@ export async function control_factory_execution(
 		);
 		state.status = 'cancelled';
 		for (const item of state.claims) item.status = 'released';
+		if (!state.outcome)
+			record_workflow_outcome(state, {
+				status: 'cancelled',
+				authoritative: true,
+				evidence_ids: [],
+			});
 		persist(state);
 	}
 }
@@ -912,6 +979,12 @@ export default async function factory(pi: ExtensionAPI) {
 						state.status = 'cancelled';
 						for (const claim of state.claims)
 							claim.status = 'released';
+						if (!state.outcome)
+							record_workflow_outcome(state, {
+								status: 'cancelled',
+								authoritative: true,
+								evidence_ids: [],
+							});
 						store.save(state);
 					},
 					resume: (workflow_id) => {
@@ -1290,6 +1363,67 @@ export default async function factory(pi: ExtensionAPI) {
 						evidence_ids: params.evidence_ids ?? [],
 						authentication: 'extension-ui-confirmation',
 					});
+					break;
+				}
+				case 'correlate':
+					correlate_compute(state, {
+						node_id: required(params.node_id, 'node_id'),
+						role: required(params.role, 'role') as
+							| 'planner'
+							| 'executor'
+							| 'reviewer'
+							| 'human',
+						session_id: required(params.session_id, 'session_id'),
+						execution_id: required(
+							params.execution_id,
+							'execution_id',
+						),
+						lifecycle: required(
+							params.execution_lifecycle,
+							'execution_lifecycle',
+						) as
+							| 'settled'
+							| 'succeeded'
+							| 'failed'
+							| 'cancelled'
+							| 'lost',
+						outcome: params.execution_outcome,
+						read_only: params.read_only ?? false,
+						provider: params.provider,
+						model: params.model,
+						reasoning: params.reasoning,
+						telemetry_run_id: params.telemetry_run_id,
+						observability_session_id: params.observability_session_id,
+						tokens: params.tokens,
+						cost_usd: params.cost_usd,
+						duration_ms: params.duration_ms,
+					});
+					break;
+				case 'outcome': {
+					const outcome_status = required(
+						params.outcome_status,
+						'outcome_status',
+					) as WorkflowOutcomeStatus;
+					if (outcome_status === 'failed') state.status = 'escalated';
+					if (
+						outcome_status === 'cancelled' ||
+						outcome_status === 'superseded' ||
+						outcome_status === 'completed-outside-factory'
+					)
+						state.status = 'cancelled';
+					record_workflow_outcome(state, {
+						status: outcome_status,
+						authoritative:
+							outcome_status !== 'completed-outside-factory',
+						classification: params.failure_classification as
+							| FailureClassification
+							| undefined,
+						evidence_ids: params.evidence_ids ?? [],
+						superseded_by_workflow_id:
+							params.superseded_by_workflow_id,
+						external_delivery_id: params.external_delivery_id,
+					});
+					for (const claim of state.claims) claim.status = 'released';
 					break;
 				}
 				case 'pause':
