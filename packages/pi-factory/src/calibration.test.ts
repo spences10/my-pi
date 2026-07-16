@@ -52,6 +52,10 @@ function create_observed_outcome(
 ) {
 	return create_raw_observed_outcome({
 		...input,
+		provenance: input.provenance ?? {
+			kind: 'authenticated-import',
+			source_id: 'test-source',
+		},
 		correlation: input.correlation ?? {
 			status: 'measured',
 			provider: 'test-provider',

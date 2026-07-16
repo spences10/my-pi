@@ -197,6 +197,27 @@ while read-only research may run without becoming a mutating owner.
 
 ## Calibration and controlled evolution
 
+`define_factory_calibration_suite` builds immutable, versioned case
+matrices across every workflow, representative project
+revisions/shapes, risks, and production/experimental
+provider-model-reasoning targets. `import_factory_outcome` labels only
+from durable factory events; `evaluate_calibration_suite` applies
+configurable sample/confidence/missing-data thresholds and returns
+`baseline_status: "blocked"` until every workflow has sufficient
+complete measured outcomes with exact `factory-state` or
+authenticated-import provenance. `synthetic` provenance is always
+excluded. `CalibrationSuiteStore` persists mode-0600 ledgers and
+supports filtered query plus deterministic JSON export.
+Suite/report/policy/project revisions and fingerprints remain exact;
+findings are marked project-specific unless multiple project ids
+support them. `propose_calibration_experiments` emits reviewable
+evidence-collection or controlled-comparison proposals with
+`mutates_policy: false`; approval/canary rules remain mandatory.
+Synthetic dogfood is embedded only as excluded control-plane evidence.
+See the explicit [baseline status](./CALIBRATION_BASELINE.md)—this
+repository currently claims no real baseline because authorised live
+correlated evidence is unavailable.
+
 Versioned `CalibrationCase` and `ObservedOutcome` records pin
 workflow, policy, route, compute, gates, project revision, and cohort
 identity, including repository revision/shape, risk, parallelism,

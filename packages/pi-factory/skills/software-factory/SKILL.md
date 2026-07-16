@@ -56,4 +56,10 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
     node. Hypotheses and retries cannot mask missing correlation.
     Exclude synthetic or uncorrelated dogfood and refuse
     recommendations when calibration reports exclusions.
-13. Finish with `metrics`, validation evidence, and remaining risks.
+13. Define calibration through a versioned suite with exact
+    project/policy/route/compute/gate/retry pins and explicit
+    thresholds. Import only authoritative outcomes, store/query/export
+    the ledger, and keep baseline status blocked until every workflow
+    meets measured coverage. Never generalize a single-project
+    finding.
+14. Finish with `metrics`, validation evidence, and remaining risks.

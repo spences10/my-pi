@@ -1,18 +1,36 @@
 export {
+	CalibrationSuiteStore,
+	create_calibration_suite,
+	define_factory_calibration_suite,
+	evaluate_calibration_suite,
+	import_factory_outcome,
+	propose_calibration_experiments,
+} from './calibration-suite.js';
+export type {
+	CalibrationComputeTarget,
+	CalibrationProject,
+	CalibrationSuite,
+	CalibrationSuiteEvaluation,
+	ProposedCalibrationExperiment,
+} from './calibration-suite.js';
+export {
 	compare_calibration_cohorts,
 	create_observed_outcome,
 	derive_calibration_report,
 	label_outcome,
+	DEFAULT_CALIBRATION_THRESHOLDS,
 } from './calibration.js';
 export type {
 	CalibrationCase,
 	CalibrationCohortPins,
 	CalibrationMetric,
 	CalibrationReport,
+	CalibrationThresholds,
 	ObservedOutcome,
 	OutcomeCorrelation,
 	OutcomeEvidence,
 	OutcomeLabel,
+	OutcomeProvenance,
 } from './calibration.js';
 export { get_workflow, WORKFLOW_CATALOG } from './catalog.js';
 export {
@@ -105,6 +123,7 @@ export type {
 export {
 	correlate_compute,
 	derive_factory_metrics,
+	has_complete_execution_correlation,
 } from './metrics.js';
 export {
 	activate_policy_draft,

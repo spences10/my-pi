@@ -16,7 +16,10 @@ function sum(
 	);
 }
 
-function has_compute_correlation(run: FactoryState): boolean {
+export function has_complete_execution_correlation(
+	run: FactoryState,
+	require_authoritative_success = true,
+): boolean {
 	const expected_role = (kind: string): FactoryEvent['role'] =>
 		kind === 'plan'
 			? 'planner'
@@ -70,17 +73,20 @@ function has_compute_correlation(run: FactoryState): boolean {
 				)
 			)
 				return false;
-		return lifecycle.some(
-			(event) =>
-				event.node_id === node.id &&
-				event.attempt === node.attempts &&
-				event.metadata?.read_only === false &&
-				['settled', 'succeeded'].includes(
-					String(event.metadata.lifecycle),
-				) &&
-				event.metadata.outcome === 'completed' &&
-				event.role === expected_role(node.kind) &&
-				complete(event),
+		return (
+			!require_authoritative_success ||
+			lifecycle.some(
+				(event) =>
+					event.node_id === node.id &&
+					event.attempt === node.attempts &&
+					event.metadata?.read_only === false &&
+					['settled', 'succeeded'].includes(
+						String(event.metadata.lifecycle),
+					) &&
+					event.metadata.outcome === 'completed' &&
+					event.role === expected_role(node.kind) &&
+					complete(event),
+			)
 		);
 	});
 }
@@ -131,7 +137,8 @@ export function derive_factory_metrics(
 	return [...groups.entries()].map(([key, runs]) => {
 		const events = runs.flatMap((run) => run.events);
 		const eligible = runs.filter(
-			(run) => delivered(run) && has_compute_correlation(run),
+			(run) =>
+				delivered(run) && has_complete_execution_correlation(run),
 		);
 		const retry_events = events.filter(
 			(item) => item.type === 'node.retry_scheduled',

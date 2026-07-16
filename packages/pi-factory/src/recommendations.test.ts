@@ -63,6 +63,12 @@ function report(
 		report_id: options.report_id ?? 'report-1',
 		derivation_version: '1',
 		created_at: options.created_at ?? new Date().toISOString(),
+		thresholds: {
+			minimum_sample_size: 5,
+			low_confidence_sample_size: 15,
+			medium_confidence_sample_size: 30,
+			maximum_missing_rate: 0,
+		},
 		case_ids: ['case'],
 		outcome_ids: ['outcome'],
 		cohorts: [
@@ -78,6 +84,8 @@ function report(
 				labels: {},
 				metrics: metric_values(0.8),
 				warnings: [],
+				finding_scope: 'project-specific',
+				project_ids: ['project'],
 			},
 			{
 				key: 'exp',
@@ -97,6 +105,8 @@ function report(
 				labels: {},
 				metrics: metric_values(regression ? 0.5 : 0.9),
 				warnings: [],
+				finding_scope: 'project-specific',
+				project_ids: ['project'],
 			},
 		],
 		fingerprint: options.fingerprint ?? 'fingerprint',
