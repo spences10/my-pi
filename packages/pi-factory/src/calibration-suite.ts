@@ -7,19 +7,20 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { get_workflow } from './catalog.js';
 import {
 	compare_calibration_cohorts,
 	create_observed_outcome,
+	DEFAULT_CALIBRATION_THRESHOLDS,
 	derive_calibration_report,
+	is_comparable_outcome,
 	type CalibrationCase,
 	type CalibrationReport,
 	type CalibrationThresholds,
-	DEFAULT_CALIBRATION_THRESHOLDS,
 	type ObservedOutcome,
 	type OutcomeEvidence,
 	type OutcomeLabel,
 } from './calibration.js';
+import { get_workflow } from './catalog.js';
 import type { DogfoodBaselineResult } from './dogfood.js';
 import { has_complete_execution_correlation } from './metrics.js';
 import type { FactoryState, WorkflowKind } from './types.js';
@@ -77,7 +78,12 @@ export interface CalibrationSuiteEvaluation {
 	report: CalibrationReport;
 	baseline_status: 'valid' | 'blocked';
 	blocking_reasons: string[];
+	/** Complete, comparable measured outcomes accepted for thresholds. */
 	workflow_coverage: Record<WorkflowKind, number>;
+	/** All rows associated with a suite case, including excluded rows. */
+	workflow_total: Record<WorkflowKind, number>;
+	/** Associated rows rejected by provenance or correlation checks. */
+	workflow_excluded: Record<WorkflowKind, number>;
 	regressions: string[];
 	bias_warnings: string[];
 	fingerprint: string;
@@ -215,6 +221,20 @@ export function create_calibration_suite(input: {
 	};
 }
 
+export interface FactoryOutcomeImportProvenance {
+	/** The embedding adapter has authenticated these pins. */
+	authenticated: true;
+	source_id: string;
+	suite_id: string;
+	suite_version: string;
+	case_id: string;
+	case_version: string;
+	project_id: string;
+	project_revision: string;
+	policy_id: string;
+	policy_hash: string;
+}
+
 const failure_label: Record<string, OutcomeLabel> = {
 	'workflow-failure': 'workflow-policy-defect',
 	'executor-failure': 'executor-defect',
@@ -227,25 +247,77 @@ const failure_label: Record<string, OutcomeLabel> = {
 export function import_factory_outcome(
 	state: FactoryState,
 	calibration_case: CalibrationCase,
+	provenance?: FactoryOutcomeImportProvenance,
 ): ObservedOutcome {
-	if (
-		calibration_case.workflow !== state.route.workflow.id ||
-		calibration_case.workflow_version !==
-			state.route.workflow.version ||
-		calibration_case.policy_id !== state.route.policy_id
-	)
-		throw new Error(
-			'Factory outcome is incompatible with calibration case pins',
-		);
 	const lifecycle = state.events.filter(
 		(event) =>
 			event.type === 'execution.lifecycle' &&
 			event.metadata?.contract_version === state.contract_version,
 	);
-	const complete_correlation = has_complete_execution_correlation(
+	const durable_correlation = has_complete_execution_correlation(
 		state,
 		false,
 	);
+	const correlation_event = lifecycle.find(
+		(event) => event.metadata?.read_only === false,
+	);
+	const provider = correlation_event?.metadata?.provider as
+		| string
+		| undefined;
+	const model = correlation_event?.metadata?.model as
+		| string
+		| undefined;
+	const reasoning = correlation_event?.metadata?.reasoning as
+		| string
+		| undefined;
+	const authenticated_pins = Boolean(
+		provenance?.authenticated &&
+		provenance.source_id &&
+		provenance.suite_id === calibration_case.suite_id &&
+		provenance.suite_version === calibration_case.suite_version &&
+		provenance.case_id === calibration_case.case_id &&
+		provenance.case_version === calibration_case.case_version &&
+		provenance.project_id === calibration_case.project_id &&
+		provenance.project_revision ===
+			calibration_case.project_revision &&
+		provenance.policy_id === calibration_case.policy_id &&
+		provenance.policy_hash === calibration_case.policy_hash,
+	);
+	const route_pin = sha({
+		workflow: state.route.workflow.id,
+		version: state.route.workflow.version,
+		project_revision: provenance?.project_revision,
+		policy_hash: provenance?.policy_hash,
+	});
+	const compute_pin = sha({
+		provider,
+		model,
+		reasoning,
+		parallelism: state.route.workflow.compute.parallelism,
+	});
+	const durable_pins =
+		calibration_case.workflow === state.route.workflow.id &&
+		calibration_case.workflow_version ===
+			state.route.workflow.version &&
+		calibration_case.policy_id === state.route.policy_id &&
+		calibration_case.risk === state.route.workflow.risk &&
+		calibration_case.route_fingerprint === route_pin &&
+		calibration_case.gate_fingerprint ===
+			sha(state.route.workflow.validations) &&
+		calibration_case.compute_fingerprint === compute_pin &&
+		calibration_case.provider === provider &&
+		calibration_case.model === model &&
+		calibration_case.reasoning === reasoning &&
+		calibration_case.max_parallelism ===
+			state.route.workflow.compute.parallelism &&
+		calibration_case.stall_timeout_ms ===
+			state.route.workflow.stall_timeout_ms &&
+		calibration_case.retry_limit ===
+			Math.max(
+				...state.route.workflow.nodes.map((node) => node.retry_limit),
+			);
+	const complete_correlation =
+		durable_correlation && authenticated_pins && durable_pins;
 	const evidence: OutcomeEvidence[] = [];
 	for (const event of state.events.filter(
 		(item) => item.type === 'failure.classified',
@@ -257,7 +329,7 @@ export function import_factory_outcome(
 				id: event.id,
 				kind: 'event',
 				label,
-				complete: true,
+				complete: complete_correlation,
 			});
 	}
 	if (
@@ -290,31 +362,36 @@ export function import_factory_outcome(
 			kind: 'event',
 			complete: false,
 		});
-	const correlation_event = lifecycle.find(
-		(event) => event.metadata?.read_only === false,
-	);
 	return create_observed_outcome({
 		case_id: calibration_case.case_id,
-		provenance: {
-			kind: 'factory-state',
-			source_id: state.workflow_id,
-			suite_id: calibration_case.suite_id,
-			suite_version: calibration_case.suite_version,
-			project_revision: calibration_case.project_revision,
-			policy_hash: calibration_case.policy_hash,
-		},
+		provenance: provenance
+			? {
+					kind: 'authenticated-import',
+					source_id: provenance.source_id,
+					suite_id: provenance.suite_id,
+					suite_version: provenance.suite_version,
+					case_id: provenance.case_id,
+					case_version: provenance.case_version,
+					project_id: provenance.project_id,
+					project_revision: provenance.project_revision,
+					policy_id: provenance.policy_id,
+					policy_hash: provenance.policy_hash,
+					route_fingerprint: route_pin,
+					compute_fingerprint: compute_pin,
+					gate_fingerprint: sha(state.route.workflow.validations),
+				}
+			: {
+					kind: 'factory-state',
+					source_id: state.workflow_id,
+				},
 		case_version: calibration_case.case_version,
 		workflow_id: state.workflow_id,
 		evidence,
 		correlation: {
 			status: complete_correlation ? 'measured' : 'uncorrelated',
-			provider: correlation_event?.metadata?.provider as
-				| string
-				| undefined,
-			model: correlation_event?.metadata?.model as string | undefined,
-			reasoning: correlation_event?.metadata?.reasoning as
-				| string
-				| undefined,
+			provider,
+			model,
+			reasoning,
 			session_id: correlation_event?.session_id,
 			telemetry_run_id: correlation_event?.telemetry_run_id,
 			observability_session_id:
@@ -375,9 +452,19 @@ export function evaluate_calibration_suite(
 			provenance.kind === 'synthetic' ||
 			provenance.suite_id !== suite.suite_id ||
 			provenance.suite_version !== suite.suite_version ||
+			provenance.case_id !== calibration_case.case_id ||
+			provenance.case_version !== calibration_case.case_version ||
+			provenance.project_id !== calibration_case.project_id ||
 			provenance.project_revision !==
 				calibration_case.project_revision ||
-			provenance.policy_hash !== calibration_case.policy_hash
+			provenance.policy_id !== calibration_case.policy_id ||
+			provenance.policy_hash !== calibration_case.policy_hash ||
+			provenance.route_fingerprint !==
+				calibration_case.route_fingerprint ||
+			provenance.compute_fingerprint !==
+				calibration_case.compute_fingerprint ||
+			provenance.gate_fingerprint !==
+				calibration_case.gate_fingerprint
 		)
 			return {
 				...outcome,
@@ -396,7 +483,7 @@ export function evaluate_calibration_suite(
 		`${suite.suite_id}@${suite.suite_version}`,
 		suite.thresholds,
 	);
-	const workflow_coverage = Object.fromEntries(
+	const workflow_total = Object.fromEntries(
 		workflow_kinds.map((workflow) => [
 			workflow,
 			reviewed_outcomes.filter((outcome) =>
@@ -406,6 +493,26 @@ export function evaluate_calibration_suite(
 						item.workflow === workflow,
 				),
 			).length,
+		]),
+	) as Record<WorkflowKind, number>;
+	const workflow_coverage = Object.fromEntries(
+		workflow_kinds.map((workflow) => [
+			workflow,
+			reviewed_outcomes.filter(
+				(outcome) =>
+					is_comparable_outcome(outcome) &&
+					suite.cases.some(
+						(item) =>
+							item.case_id === outcome.case_id &&
+							item.workflow === workflow,
+					),
+			).length,
+		]),
+	) as Record<WorkflowKind, number>;
+	const workflow_excluded = Object.fromEntries(
+		workflow_kinds.map((workflow) => [
+			workflow,
+			workflow_total[workflow] - workflow_coverage[workflow],
 		]),
 	) as Record<WorkflowKind, number>;
 	const blocking_reasons = report.cohorts.flatMap((cohort) =>
@@ -488,6 +595,8 @@ export function evaluate_calibration_suite(
 		baseline_status: blocking_reasons.length ? 'blocked' : 'valid',
 		blocking_reasons: [...blocking_reasons].sort(),
 		workflow_coverage,
+		workflow_total,
+		workflow_excluded,
 		regressions: [...regressions].sort(),
 		bias_warnings: [...bias_warnings].sort(),
 		fingerprint: sha(identity),

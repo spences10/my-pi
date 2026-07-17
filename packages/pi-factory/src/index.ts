@@ -11,14 +11,16 @@ export type {
 	CalibrationProject,
 	CalibrationSuite,
 	CalibrationSuiteEvaluation,
+	FactoryOutcomeImportProvenance,
 	ProposedCalibrationExperiment,
 } from './calibration-suite.js';
 export {
 	compare_calibration_cohorts,
 	create_observed_outcome,
-	derive_calibration_report,
-	label_outcome,
 	DEFAULT_CALIBRATION_THRESHOLDS,
+	derive_calibration_report,
+	is_comparable_outcome,
+	label_outcome,
 } from './calibration.js';
 export type {
 	CalibrationCase,
