@@ -76,8 +76,15 @@ export interface OutcomeProvenance {
 	source_id: string;
 	suite_id?: string;
 	suite_version?: string;
+	case_id?: string;
+	case_version?: string;
+	project_id?: string;
 	project_revision?: string;
+	policy_id?: string;
 	policy_hash?: string;
+	route_fingerprint?: string;
+	compute_fingerprint?: string;
+	gate_fingerprint?: string;
 }
 export interface ObservedOutcome {
 	schema_version: 1;
@@ -248,7 +255,9 @@ export function create_observed_outcome(
 		label: label_outcome(input.evidence),
 	};
 }
-function comparable_outcome(outcome: ObservedOutcome): boolean {
+export function is_comparable_outcome(
+	outcome: ObservedOutcome,
+): boolean {
 	const correlation = outcome.correlation;
 	return Boolean(
 		outcome.provenance &&
@@ -383,7 +392,7 @@ export function derive_calibration_report(
 				)
 			)
 				warnings.push('Conflicting evidence requires adjudication');
-			const comparable = group.outcomes.filter(comparable_outcome);
+			const comparable = group.outcomes.filter(is_comparable_outcome);
 			const excluded_runs = group.outcomes.length - comparable.length;
 			if (excluded_runs)
 				warnings.push(

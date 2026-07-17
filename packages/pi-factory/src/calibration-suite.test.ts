@@ -103,8 +103,15 @@ function measured_outcomes(
 					source_id: `${item.case_id}-${index}`,
 					suite_id: item.suite_id,
 					suite_version: item.suite_version,
+					case_id: item.case_id,
+					case_version: item.case_version,
+					project_id: item.project_id,
 					project_revision: item.project_revision,
+					policy_id: item.policy_id,
 					policy_hash: item.policy_hash,
+					route_fingerprint: item.route_fingerprint,
+					compute_fingerprint: item.compute_fingerprint,
+					gate_fingerprint: item.gate_fingerprint,
 				},
 				evidence: [
 					{
@@ -302,12 +309,37 @@ describe('versioned calibration suites', () => {
 			classification: 'operator-misuse',
 			evidence_ids: [],
 		});
-		const calibration_case: CalibrationCase = {
-			...cases().find((item) => item.workflow === 'feature')!,
-			workflow_version: route.workflow.version,
-			policy_id: route.policy_id,
+		const calibration_case = define_factory_calibration_suite({
+			suite_id: 'factory-real-world',
+			suite_version: '1',
+			projects: [projects[0]!],
+			compute_targets: [
+				{
+					provider: 'provider',
+					model: 'model',
+					reasoning: 'high',
+					cohort: 'production',
+				},
+			],
+			dogfood: run_dogfood_baseline(policy, process.cwd()),
+		}).cases.find((item) => item.workflow === 'feature')!;
+		const authenticated = {
+			authenticated: true as const,
+			source_id: state.workflow_id,
+			suite_id: calibration_case.suite_id!,
+			suite_version: calibration_case.suite_version!,
+			case_id: calibration_case.case_id,
+			case_version: calibration_case.case_version,
+			project_id: calibration_case.project_id!,
+			project_revision: calibration_case.project_revision,
+			policy_id: calibration_case.policy_id,
+			policy_hash: calibration_case.policy_hash,
 		};
-		const imported = import_factory_outcome(state, calibration_case);
+		const imported = import_factory_outcome(
+			state,
+			calibration_case,
+			authenticated,
+		);
 		expect(imported).toMatchObject({
 			label: 'operator-defect',
 			tokens: 12,
@@ -317,13 +349,86 @@ describe('versioned calibration suites', () => {
 				terminal_outcome: 'failed',
 			},
 		});
+		const incompatible_imports = [
+			[calibration_case, undefined],
+			[
+				calibration_case,
+				{ ...authenticated, project_revision: 'forged-revision' },
+			],
+			[
+				calibration_case,
+				{ ...authenticated, policy_hash: 'forged-policy' },
+			],
+			[
+				{ ...calibration_case, route_fingerprint: 'forged-route' },
+				authenticated,
+			],
+			[
+				{ ...calibration_case, gate_fingerprint: 'forged-gates' },
+				authenticated,
+			],
+			[
+				{
+					...calibration_case,
+					compute_fingerprint: 'forged-compute',
+				},
+				authenticated,
+			],
+			[
+				calibration_case,
+				{ ...authenticated, suite_version: 'forged-suite' },
+			],
+			[
+				calibration_case,
+				{ ...authenticated, case_id: 'forged-case' },
+			],
+		] as const;
+		for (const [target, provenance] of incompatible_imports)
+			expect(
+				import_factory_outcome(state, target, provenance),
+			).toMatchObject({ correlation: { status: 'uncorrelated' } });
+
 		const incomplete = create_factory_state(route, 'owner');
 		expect(
-			import_factory_outcome(incomplete, calibration_case),
+			import_factory_outcome(
+				incomplete,
+				calibration_case,
+				authenticated,
+			),
 		).toMatchObject({
 			label: 'incomplete',
 			correlation: { status: 'uncorrelated' },
 		});
+	});
+
+	it('excludes ineligible rows from coverage and evidence proposals', () => {
+		const suite = create_calibration_suite({
+			suite_id: 'factory-real-world',
+			suite_version: '1',
+			projects,
+			cases: cases(),
+			thresholds: {
+				minimum_sample_size: 2,
+				low_confidence_sample_size: 3,
+				medium_confidence_sample_size: 5,
+				maximum_missing_rate: 0,
+			},
+			dogfood: run_dogfood_baseline(policy, process.cwd()),
+		});
+		const outcomes = measured_outcomes(suite.cases);
+		for (const outcome of outcomes.filter(
+			(item) => item.case_id === 'feature-case',
+		))
+			outcome.provenance!.kind = 'synthetic';
+		const evaluation = evaluate_calibration_suite(suite, outcomes);
+		expect(evaluation.workflow_total.feature).toBe(2);
+		expect(evaluation.workflow_coverage.feature).toBe(0);
+		expect(evaluation.workflow_excluded.feature).toBe(2);
+		const proposal = propose_calibration_experiments(
+			suite,
+			evaluation,
+		).find((item) => item.workflow === 'feature');
+		expect(proposal?.rationale).toContain('Collect 2 additional');
 	});
 
 	it('stores, queries, and exports exact suite/report/project revisions', () => {
