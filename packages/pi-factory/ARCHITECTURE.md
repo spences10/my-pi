@@ -16,8 +16,11 @@ version; all execution requests derive them from state. Child roles
 run without the factory tool in the default RPC path and are guarded
 read-only if custom launch arguments expose it. Turn settlement is not
 success: only the controller can accept a contract-bound structured
-result and transition a node. Remaining gaps are explicit: durable
-ownership/recovery remains #345 and outcome correlation remains #346.
+result and transition a node. Durable ownership, acknowledged
+transfer, harness adoption, canonical path scopes, truthful recovery,
+concise status, terminal outcome taxonomy, measured compute/session
+correlation, metric exclusions, and fail-closed calibration are
+implemented.
 
 The product must not become a general agent runtime. It cannot make an
 independently opened Pi session observable or controllable, infer that
@@ -42,9 +45,15 @@ The target supported default path is:
    authoritative `pi-harness`, and records one mutating owner/path
    claim.
 4. The owner either operates an execution adapter controlled by the
-   factory or performs an explicit peer/operator handoff. The latter
-   makes no process-liveness promise; durable owner/recovery
-   guarantees remain #345 work.
+   factory or performs an acknowledged peer/operator handoff. Eligible
+   nodes start automatically. Effective parallelism may run bounded
+   planner hypotheses only after establishing empty mutation scope and
+   controller-observed workspace baselines. Missing verification
+   blocks before launch; only exactly completed, zero-change results
+   may promote evidence. Only one owner may mutate. The previous claim
+   is released only when the recipient acknowledges. Peer turns make
+   no process-liveness promise; unsupported owned recovery is
+   immediately recorded as lost.
 5. The harness runs deterministic validation. Failures become bounded,
    structured feedback to the owner; exhausted or unsafe correction
    escalates rather than redefining success.
@@ -52,8 +61,15 @@ The target supported default path is:
    diff, changed files, constraints, and validation evidence.
 7. Required side effects stop at a human approval node. Validation,
    review, silence, or delivery cannot imply approval.
-8. The ledger records the terminal outcome and derives correlated
-   metrics from authoritative state and referenced execution evidence.
+8. The ledger records an explicit terminal outcome and failure class.
+   Delivered metrics require authoritative completion, validation,
+   review, and approval evidence plus complete measured correlation
+   bound to every current-contract execution attempt, with consistent
+   node roles and one completed non-read-only authoritative attempt
+   per executed node. Hypothesis usage, partial retries, settlement,
+   stale usage, and outside delivery are not factory success.
+   Comparative calibration excludes synthetic or uncorrelated runs and
+   fails closed on missing measurements.
 
 This target journey needs no external-intake mapping,
 repository-policy discovery, calibration dataset, recommendation,
@@ -62,18 +78,18 @@ automate inputs only when explicitly invoked.
 
 ## Responsibility map
 
-| Capability                                        | Owns                                                                                                                          | Must not claim                                                                            |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Dispatcher and ledger                             | Direct intake, explained route, durable workflow state, node transitions, path claims, evidence correlation, terminal outcome | Execution success without contract-bound evidence; permission from policy or model output |
-| Execution adapter                                 | Versioned execution intent and result for a factory-owned SDK/RPC process                                                     | Control of independently opened sessions; acceptance or lifecycle authority               |
-| Peer coordination                                 | Addressed mailbox/artifact handoff, delivery and acknowledgement evidence                                                     | Peer liveness, process supervision, continued work, or exclusive ownership                |
-| Harness                                           | One workflow-scoped contract, validation/review scripts, logs, and outcome paths                                              | A second source of workflow policy or multiple authoritative harnesses                    |
-| Review                                            | Independent, diff-bound findings and verdict                                                                                  | Rewriting acceptance criteria, self-review, or human approval                             |
-| Approval                                          | Authenticated human decisions bound to contract, diff, action, and scope                                                      | Approval inferred from success, silence, mailbox delivery, or model output                |
-| Metrics                                           | Derivation from canonical state plus correlated execution/telemetry references                                                | Invented compute, cost, interruption, ownership, or success data                          |
-| External intake (optional)                        | Provenance-preserving conversion of GitHub/incident events into reviewable intake                                             | A prerequisite for direct work; unauthenticated routing authority                         |
-| Policy authoring (optional)                       | Discovering and activating reviewed repository strengthening rules                                                            | Permission grants or weakening runtime safety                                             |
-| Calibration and learning (optional, experimental) | Offline evidence comparison and approved bounded recommendations                                                              | Changing the active route without complete correlated evidence and explicit authorization |
+| Capability                                        | Owns                                                                                                                             | Must not claim                                                                            |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Dispatcher and ledger                             | Direct intake, explained route, durable workflow state, node transitions, path claims, evidence correlation, terminal outcome    | Execution success without contract-bound evidence; permission from policy or model output |
+| Execution adapter                                 | Truthful capabilities; versioned intent/result; owned SDK/RPC lifecycle, recovery, cancellation, timeout, and telemetry evidence | Control of independently opened sessions; acceptance or lifecycle authority               |
+| Peer coordination                                 | Addressed mailbox/artifact handoff, delivery and acknowledgement evidence                                                        | Peer liveness, process supervision, continued work, or exclusive ownership                |
+| Harness                                           | One workflow-scoped contract, validation/review scripts, logs, and outcome paths                                                 | A second source of workflow policy or multiple authoritative harnesses                    |
+| Review                                            | Independent, diff-bound findings and verdict                                                                                     | Rewriting acceptance criteria, self-review, or human approval                             |
+| Approval                                          | Authenticated human decisions bound to contract, diff, action, and scope                                                         | Approval inferred from success, silence, mailbox delivery, or model output                |
+| Metrics                                           | Derivation from canonical state plus correlated execution/telemetry references                                                   | Invented compute, cost, interruption, ownership, or success data                          |
+| External intake (optional)                        | Provenance-preserving conversion of GitHub/incident events into reviewable intake                                                | A prerequisite for direct work; unauthenticated routing authority                         |
+| Policy authoring (optional)                       | Discovering and activating reviewed repository strengthening rules                                                               | Permission grants or weakening runtime safety                                             |
+| Calibration and learning (optional, experimental) | Offline evidence comparison and approved bounded recommendations                                                                 | Changing the active route without complete correlated evidence and explicit authorization |
 
 ## Module and package decision
 
@@ -88,16 +104,24 @@ The core consists of catalog/dispatch, engine/state, harness
 integration, review/approval, and metrics derivation. Execution is an
 adapter boundary selected explicitly by `operate`; peer mode records a
 handoff. External intake, policy authoring, calibration, and
-recommendations are optional modules. Advanced modules may add
-provenance or strengthen policy, but may not remove core gates,
-approvals, ownership records, or contract-bound evidence.
+recommendations are optional modules. Versioned calibration suites pin
+every workflow, project/policy revision, route, compute target, gate
+set, retry and timeout policy, and configurable evidence threshold.
+Their ledgers are queryable/exportable; reports remain blocked for
+sparse, synthetic, incomplete, contradictory, stale, or incompatible
+evidence and project-specific findings are not generalized without
+multiple project ids. Advanced modules may add provenance or
+strengthen policy, but may not remove core gates, approvals, ownership
+records, or contract-bound evidence.
 
 Compatibility consequences of this documentation/package decision:
 
 - Existing root exports and factory tool actions remain available; no
   import path or action is removed or renamed.
-- Existing schema-v1 stores remain in place. This decision itself does
-  not rewrite state or require a migration.
+- Existing schema-v1 stores remain in place. New optional claim
+  enforcement, harness-adoption, and ownership-transfer fields are
+  backfilled/read with safe defaults, so no schema-version migration
+  is required.
 - Existing schema-v1 workflows without contract fields load as
   `legacy-missing`. Their historical task is not recoverable, so the
   factory never invents one or substitutes a workflow description.
@@ -121,11 +145,11 @@ The decision was checked against the failed run and two successful
 control-plane paths at the highest currently feasible exported API
 boundary. These are not full TUI/harness end-to-end proofs:
 
-| Workflow                                                                                                                                            | What is exercised                                                                                                                                                               | Result                                                                                                                                                                                                                                                                                                            |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Failed explicit-any dogfood (`be4769dc-b917-4a82-858d-b489a7283b7f`)                                                                                | Task/route fidelity, harness/owner multiplicity, RPC settlement, acceptance evidence, and outcome correlation                                                                   | Post-hoc assessment is failure: canonical state marked execution succeeded and reached validation, then was cancelled after work completed outside the factory. The reproduced route rejects a low-capability chore; settled or reverted execution now remains non-success. #346 must repair outcome correlation. |
-| Successful owned feature control-plane path (`src/execution.test.ts`, “progresses planner, executor, and validation nodes without manual relay”)    | Exported dispatcher/state/operator APIs, owned SDK adapter, actual shell gate processes, tool-gate adapter, and persisted progression                                           | Planner and executor results progress into successful deterministic validation without intake, discovered policy, calibration, or learning. It validates the module boundary through validation, not review/approval or extension UI.                                                                             |
-| Successful direct chore control-plane path (`src/execution.test.ts`, “progresses a direct chore through owned execution and real validation gates”) | Exported dispatcher/state/operator APIs, one owner/path claim, owned execution, actual shell gate processes, tool-gate adapter, and terminal completion without review/approval | Reaches a terminal successful state without intake, policy discovery, calibration, recommendations, or learning.                                                                                                                                                                                                  |
+| Workflow                                                                                                                                            | What is exercised                                                                                                                                                               | Result                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Failed explicit-any dogfood (`be4769dc-b917-4a82-858d-b489a7283b7f`)                                                                                | Task/route fidelity, harness/owner multiplicity, RPC settlement, acceptance evidence, and outcome correlation                                                                   | Historical post-hoc failure retained only as excluded evidence: work completed outside the factory after cancellation. It is not a real baseline row and cannot count as delivered success or calibration evidence.                   |
+| Successful owned feature control-plane path (`src/execution.test.ts`, “progresses planner, executor, and validation nodes without manual relay”)    | Exported dispatcher/state/operator APIs, owned SDK adapter, actual shell gate processes, tool-gate adapter, and persisted progression                                           | Planner and executor results progress into successful deterministic validation without intake, discovered policy, calibration, or learning. It validates the module boundary through validation, not review/approval or extension UI. |
+| Successful direct chore control-plane path (`src/execution.test.ts`, “progresses a direct chore through owned execution and real validation gates”) | Exported dispatcher/state/operator APIs, one owner/path claim, owned execution, actual shell gate processes, tool-gate adapter, and terminal completion without review/approval | Reaches a terminal successful state without intake, policy discovery, calibration, recommendations, or learning.                                                                                                                      |
 
 The tests use deterministic SDK and tool adapters but execute real
 shell gate processes through the public `WorkflowOperator` boundary.

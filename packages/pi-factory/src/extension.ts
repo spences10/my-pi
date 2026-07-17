@@ -4,6 +4,7 @@ import {
 	type ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import {
+	amend_harness_runtime,
 	create_harness_runtime,
 	update_harness_runtime,
 } from '@spences10/pi-harness';
@@ -29,16 +30,18 @@ import {
 	normalize_feedback,
 	record_approval,
 	record_initial_review,
+	record_workflow_outcome,
 	resume_state,
 	start_node,
+	summarize_factory_state,
 } from './engine.js';
 import {
 	create_rpc_execution_adapter,
 	ExecutionController,
 	ExecutionRegistry,
 	peer_execution_adapter,
-	type WorkspaceSnapshot,
 	WorkflowOperator,
+	type WorkspaceSnapshot,
 } from './execution.js';
 import type {
 	ExternalRoutePreview,
@@ -54,7 +57,10 @@ import {
 	IntakeLifecycleController,
 	preview_external_route,
 } from './intake.js';
-import { derive_factory_metrics } from './metrics.js';
+import {
+	correlate_compute,
+	derive_factory_metrics,
+} from './metrics.js';
 import type { RepositoryPolicyDraft } from './policy-authoring.js';
 import {
 	activate_policy_draft,
@@ -70,12 +76,14 @@ import { run_validation_node } from './runner.js';
 import type {
 	ApprovalAction,
 	FactoryState,
+	FailureClassification,
 	NodeKind,
 	RepositoryPolicy,
 	ResolvedRoute,
 	ReviewerFinding,
 	TaskIntake,
 	WorkflowKind,
+	WorkflowOutcomeStatus,
 } from './types.js';
 
 const literals = <T extends readonly string[]>(values: T) =>
@@ -91,6 +99,8 @@ const action_schema = literals([
 	'intake-reconcile',
 	'intake-apply',
 	'status',
+	'request-transfer',
+	'acknowledge-transfer',
 	'operate',
 	'start-node',
 	'complete-node',
@@ -104,6 +114,9 @@ const action_schema = literals([
 	'pause',
 	'resume',
 	'cancel',
+	'timeout',
+	'outcome',
+	'correlate',
 	'metrics',
 	'stalls',
 ] as const);
@@ -131,6 +144,9 @@ const params_schema = Type.Object({
 		Type.Array(Type.String({ maxLength: 2048 }), { maxItems: 1000 }),
 	),
 	owner_session_id: Type.Optional(Type.String()),
+	harness_dir: Type.Optional(Type.String({ maxLength: 2048 })),
+	transfer_id: Type.Optional(Type.String()),
+	full: Type.Optional(Type.Boolean()),
 	requested_side_effects: Type.Optional(
 		Type.Array(
 			literals([
@@ -241,6 +257,60 @@ const params_schema = Type.Object({
 		Type.String({ maxLength: 1_048_576 }),
 	),
 	execution_mode: Type.Optional(literals(['rpc', 'peer'] as const)),
+	timeout_ms: Type.Optional(Type.Number({ minimum: 0 })),
+	outcome_status: Type.Optional(
+		literals([
+			'completed',
+			'failed',
+			'cancelled',
+			'superseded',
+			'completed-outside-factory',
+		] as const),
+	),
+	failure_classification: Type.Optional(
+		literals([
+			'workflow-failure',
+			'executor-failure',
+			'operator-misuse',
+			'project-policy-failure',
+			'validation-failure',
+			'platform-failure',
+		] as const),
+	),
+	superseded_by_workflow_id: Type.Optional(Type.String()),
+	external_delivery_id: Type.Optional(Type.String()),
+	provider: Type.Optional(Type.String()),
+	model: Type.Optional(Type.String()),
+	reasoning: Type.Optional(Type.String()),
+	session_id: Type.Optional(Type.String()),
+	telemetry_run_id: Type.Optional(Type.String()),
+	observability_session_id: Type.Optional(Type.String()),
+	tokens: Type.Optional(Type.Number({ minimum: 0 })),
+	cost_usd: Type.Optional(Type.Number({ minimum: 0 })),
+	duration_ms: Type.Optional(Type.Number({ minimum: 0 })),
+	execution_id: Type.Optional(Type.String()),
+	execution_lifecycle: Type.Optional(
+		literals([
+			'settled',
+			'succeeded',
+			'failed',
+			'cancelled',
+			'lost',
+		] as const),
+	),
+	execution_outcome: Type.Optional(
+		literals([
+			'completed',
+			'incomplete',
+			'refused',
+			'escalated',
+			'failed',
+		] as const),
+	),
+	read_only: Type.Optional(Type.Boolean()),
+	role: Type.Optional(
+		literals(['planner', 'executor', 'reviewer', 'human'] as const),
+	),
 });
 const text = (value: unknown) => ({
 	content: [
@@ -254,6 +324,125 @@ const text = (value: unknown) => ({
 	],
 	details: {},
 });
+export function validate_adoptable_harness(
+	route: ResolvedRoute,
+	requested_directory: string,
+): { harness_dir: string; contract: { id: string } } {
+	const directory = resolve(requested_directory);
+	const contract_path = join(directory, 'harness.json');
+	if (!existsSync(contract_path))
+		throw new Error(
+			'Requested harness is incompatible: harness.json is missing',
+		);
+	const contract = JSON.parse(
+		readFileSync(contract_path, 'utf8'),
+	) as {
+		id?: string;
+		policy?: { cwd?: string };
+		scaffold?: {
+			task?: string;
+			allowed_paths?: string[];
+			validation_commands?: string[];
+			allow_test_changes?: boolean;
+		};
+	};
+	const compatible =
+		typeof contract.id === 'string' &&
+		resolve(contract.policy?.cwd ?? '') ===
+			resolve(route.workspace.cwd) &&
+		contract.scaffold?.task === route.contract.task &&
+		JSON.stringify(contract.scaffold.allowed_paths ?? []) ===
+			JSON.stringify(route.harness.allowed_paths) &&
+		JSON.stringify(contract.scaffold.validation_commands ?? []) ===
+			JSON.stringify(route.harness.validation_commands) &&
+		contract.scaffold.allow_test_changes ===
+			route.harness.allow_test_changes;
+	if (!compatible)
+		throw new Error(
+			'Requested harness is incompatible with the authoritative factory route',
+		);
+	return { harness_dir: directory, contract: { id: contract.id! } };
+}
+
+export async function reconcile_factory_status(
+	state: FactoryState,
+	controller: ExecutionController,
+	rpc_adapter:
+		| ReturnType<typeof create_rpc_execution_adapter>
+		| undefined,
+	persist: (state: FactoryState) => void,
+) {
+	const pending = controller.registry
+		.list_pending()
+		.find(
+			(record) => record.request.workflow_id === state.workflow_id,
+		);
+	if (!pending) return summarize_factory_state(state);
+	const refreshed =
+		pending.adapter_id === 'pi-rpc' && rpc_adapter
+			? await controller.poll(pending, rpc_adapter)
+			: controller.registry.mark_lost(
+					pending.request.execution_id,
+					'Owned execution adapter is unavailable after status reload',
+				);
+	if (
+		['settled', 'succeeded', 'failed', 'cancelled', 'lost'].includes(
+			refreshed.lifecycle,
+		)
+	) {
+		controller.apply_result(state, refreshed);
+		persist(state);
+		return summarize_factory_state(state);
+	}
+	return summarize_factory_state(state, {
+		execution_id: refreshed.request.execution_id,
+		lifecycle: refreshed.lifecycle,
+		adapter_id: refreshed.adapter_id,
+		owner_session_id: refreshed.request.owner_session_id,
+		updated_at: refreshed.updated_at,
+	});
+}
+
+export async function control_factory_execution(
+	state: FactoryState,
+	operator: WorkflowOperator,
+	action: 'pause' | 'resume' | 'cancel' | 'timeout',
+	options: {
+		owner_session_id: string;
+		timeout_ms?: number;
+		reason?: string;
+	},
+	persist: (state: FactoryState) => void,
+): Promise<void> {
+	const claim = state.claims.find((item) => item.status === 'active');
+	if (claim && claim.owner_session_id !== options.owner_session_id)
+		throw new Error(
+			'Only the active mutating owner may control owned execution',
+		);
+	if (action === 'pause') await operator.pause_active(state);
+	else if (action === 'resume') await operator.resume_active(state);
+	else if (action === 'timeout')
+		await operator.timeout_active(
+			state,
+			options.timeout_ms ?? state.route.workflow.stall_timeout_ms,
+		);
+	else {
+		await operator.cancel_active(
+			state,
+			options.reason ?? 'Factory workflow cancelled',
+		);
+		state.status = 'cancelled';
+		for (const item of state.claims) item.status = 'released';
+		if (!state.outcome)
+			record_workflow_outcome(state, {
+				status: 'cancelled',
+				authoritative: true,
+				evidence_ids: [],
+			});
+		persist(state);
+	}
+}
+
 export function resolve_factory_owner(
 	explicit: string | undefined,
 	current_session_id: string,
@@ -571,39 +760,57 @@ export default async function factory(pi: ExtensionAPI) {
 		});
 		return rpc_adapter;
 	}
+	function harness_for_route(
+		route: ResolvedRoute,
+		requested_directory?: string,
+	) {
+		if (!requested_directory)
+			return create_harness_runtime(
+				{
+					task: route.contract.task,
+					cwd: route.workspace.cwd,
+					allowed_paths: route.harness.allowed_paths,
+					validation_commands: route.harness.validation_commands,
+					allow_test_changes: route.harness.allow_test_changes,
+					planner_model: route.workflow.compute.planner.model,
+					planner_thinking: route.workflow.compute.planner.thinking,
+					executor_model: route.workflow.compute.executor.model,
+					executor_thinking: route.workflow.compute.executor.thinking,
+					reviewer_model: route.workflow.compute.reviewer.model,
+					reviewer_thinking: route.workflow.compute.reviewer.thinking,
+				},
+				route.workspace.cwd,
+			);
+		return validate_adoptable_harness(route, requested_directory);
+	}
 	function initialize_workflow(
 		route: ResolvedRoute,
 		owner_session_id: string,
+		requested_harness_dir?: string,
 	) {
 		const path = store.path(route.route_id);
 		if (existsSync(path)) {
 			const state = store.load(route.route_id);
+			if (
+				requested_harness_dir &&
+				resolve(requested_harness_dir) !==
+					resolve(state.harness?.directory ?? '')
+			)
+				throw new Error(
+					'Workflow already has a different authoritative harness; duplicate adoption rejected',
+				);
 			return {
 				state,
 				harness_dir: state.harness?.directory,
 			};
 		}
 		const state = create_factory_state(route, owner_session_id);
-		const harness = create_harness_runtime(
-			{
-				task: route.contract.task,
-				cwd: route.workspace.cwd,
-				allowed_paths: route.harness.allowed_paths,
-				validation_commands: route.harness.validation_commands,
-				allow_test_changes: route.harness.allow_test_changes,
-				planner_model: route.workflow.compute.planner.model,
-				planner_thinking: route.workflow.compute.planner.thinking,
-				executor_model: route.workflow.compute.executor.model,
-				executor_thinking: route.workflow.compute.executor.thinking,
-				reviewer_model: route.workflow.compute.reviewer.model,
-				reviewer_thinking: route.workflow.compute.reviewer.thinking,
-			},
-			route.workspace.cwd,
-		);
+		const harness = harness_for_route(route, requested_harness_dir);
 		state.harness = {
 			id: harness.contract.id,
 			directory: harness.harness_dir,
 			outcome_path: join(harness.harness_dir, 'outcome.json'),
+			adopted: requested_harness_dir !== undefined,
 		};
 		const harness_evidence = add_evidence(state, {
 			kind: 'harness-contract',
@@ -726,35 +933,33 @@ export default async function factory(pi: ExtensionAPI) {
 						);
 						route.route_id = workflow_id;
 						amend_contract(state, route);
-						const harness = create_harness_runtime(
-							{
-								task: preview.resolved.task,
-								cwd: route.workspace.cwd,
-								allowed_paths: route.harness.allowed_paths,
-								validation_commands:
-									route.harness.validation_commands,
-								allow_test_changes: route.harness.allow_test_changes,
-								planner_model: route.workflow.compute.planner.model,
-								planner_thinking:
-									route.workflow.compute.planner.thinking,
-								executor_model: route.workflow.compute.executor.model,
-								executor_thinking:
-									route.workflow.compute.executor.thinking,
-								reviewer_model: route.workflow.compute.reviewer.model,
-								reviewer_thinking:
-									route.workflow.compute.reviewer.thinking,
-							},
-							route.workspace.cwd,
-						);
-						state.harness = {
-							id: harness.contract.id,
-							directory: harness.harness_dir,
-							outcome_path: join(harness.harness_dir, 'outcome.json'),
-						};
+						if (!state.harness)
+							throw new Error(
+								'Workflow has no authoritative harness to amend',
+							);
+						const contract = amend_harness_runtime({
+							harness_dir: state.harness.directory,
+							reason:
+								'Factory task contract amended by reconciled intake',
+							requested_by: 'user',
+							task: preview.resolved.task,
+							allowed_paths: route.harness.allowed_paths,
+							validation_commands: route.harness.validation_commands,
+							allow_test_changes: route.harness.allow_test_changes,
+							planner_model: route.workflow.compute.planner.model,
+							planner_thinking:
+								route.workflow.compute.planner.thinking,
+							executor_model: route.workflow.compute.executor.model,
+							executor_thinking:
+								route.workflow.compute.executor.thinking,
+							reviewer_model: route.workflow.compute.reviewer.model,
+							reviewer_thinking:
+								route.workflow.compute.reviewer.thinking,
+						});
 						add_evidence(state, {
 							kind: 'harness-contract',
-							uri: harness.harness_dir,
-							summary: `Executable amended harness ${harness.contract.id}`,
+							uri: state.harness.directory,
+							summary: `Authoritative harness ${contract.id} amended in place`,
 						});
 						for (const claim of state.claims)
 							claim.status = 'released';
@@ -774,6 +979,12 @@ export default async function factory(pi: ExtensionAPI) {
 						state.status = 'cancelled';
 						for (const claim of state.claims)
 							claim.status = 'released';
+						if (!state.outcome)
+							record_workflow_outcome(state, {
+								status: 'cancelled',
+								authoritative: true,
+								evidence_ids: [],
+							});
 						store.save(state);
 					},
 					resume: (workflow_id) => {
@@ -856,7 +1067,13 @@ export default async function factory(pi: ExtensionAPI) {
 					params.owner_session_id,
 					ctx.sessionManager.getSessionId(),
 				);
-				return text(initialize_workflow(route, owner_session_id));
+				return text(
+					initialize_workflow(
+						route,
+						owner_session_id,
+						params.harness_dir,
+					),
+				);
 			}
 			if (params.action === 'metrics')
 				return text(derive_factory_metrics(store.list()));
@@ -874,8 +1091,45 @@ export default async function factory(pi: ExtensionAPI) {
 				required(params.workflow_id, 'workflow_id'),
 			);
 			switch (params.action) {
-				case 'status':
-					return text(state);
+				case 'status': {
+					const pending = execution_controller.registry
+						.list_pending()
+						.find(
+							(record) =>
+								record.request.workflow_id === state.workflow_id,
+						);
+					const summary = await reconcile_factory_status(
+						state,
+						execution_controller,
+						pending?.adapter_id === 'pi-rpc'
+							? owned_rpc_adapter()
+							: undefined,
+						(current) => store.save(current),
+					);
+					return text(params.full ? { summary, state } : summary);
+				}
+				case 'request-transfer': {
+					const transfer = store.transfer(
+						state,
+						ctx.sessionManager.getSessionId(),
+						required(params.owner_session_id, 'new owner_session_id'),
+					);
+					return text({
+						transfer,
+						state: summarize_factory_state(state),
+					});
+				}
+				case 'acknowledge-transfer': {
+					store.acknowledge_transfer(
+						state,
+						required(params.transfer_id, 'transfer_id'),
+						ctx.sessionManager.getSessionId(),
+					);
+					return text({
+						transferred: true,
+						state: summarize_factory_state(state),
+					});
+				}
 				case 'operate': {
 					const adapter =
 						params.execution_mode === 'peer'
@@ -1111,19 +1365,97 @@ export default async function factory(pi: ExtensionAPI) {
 					});
 					break;
 				}
-				case 'pause':
-					state.status = 'paused';
+				case 'correlate':
+					correlate_compute(state, {
+						node_id: required(params.node_id, 'node_id'),
+						role: required(params.role, 'role') as
+							| 'planner'
+							| 'executor'
+							| 'reviewer'
+							| 'human',
+						session_id: required(params.session_id, 'session_id'),
+						execution_id: required(
+							params.execution_id,
+							'execution_id',
+						),
+						lifecycle: required(
+							params.execution_lifecycle,
+							'execution_lifecycle',
+						) as
+							| 'settled'
+							| 'succeeded'
+							| 'failed'
+							| 'cancelled'
+							| 'lost',
+						outcome: params.execution_outcome,
+						read_only: params.read_only ?? false,
+						provider: params.provider,
+						model: params.model,
+						reasoning: params.reasoning,
+						telemetry_run_id: params.telemetry_run_id,
+						observability_session_id: params.observability_session_id,
+						tokens: params.tokens,
+						cost_usd: params.cost_usd,
+						duration_ms: params.duration_ms,
+					});
 					break;
-				case 'resume':
-					resume_state(
-						state,
-						required(params.owner_session_id, 'owner_session_id'),
-					);
-					break;
-				case 'cancel':
-					state.status = 'cancelled';
+				case 'outcome': {
+					const outcome_status = required(
+						params.outcome_status,
+						'outcome_status',
+					) as WorkflowOutcomeStatus;
+					if (outcome_status === 'failed') state.status = 'escalated';
+					if (
+						outcome_status === 'cancelled' ||
+						outcome_status === 'superseded' ||
+						outcome_status === 'completed-outside-factory'
+					)
+						state.status = 'cancelled';
+					record_workflow_outcome(state, {
+						status: outcome_status,
+						authoritative:
+							outcome_status !== 'completed-outside-factory',
+						classification: params.failure_classification as
+							| FailureClassification
+							| undefined,
+						evidence_ids: params.evidence_ids ?? [],
+						superseded_by_workflow_id:
+							params.superseded_by_workflow_id,
+						external_delivery_id: params.external_delivery_id,
+					});
 					for (const claim of state.claims) claim.status = 'released';
 					break;
+				}
+				case 'pause':
+				case 'resume':
+				case 'cancel':
+				case 'timeout': {
+					const adapter = owned_rpc_adapter();
+					const operator = new WorkflowOperator(
+						execution_controller,
+						{
+							plan: adapter,
+							execute: adapter,
+							review: adapter,
+						},
+						(current) => store.save(current),
+					);
+					await control_factory_execution(
+						state,
+						operator,
+						params.action,
+						{
+							owner_session_id: resolve_factory_owner(
+								params.owner_session_id,
+								ctx.sessionManager.getSessionId(),
+							),
+							timeout_ms: params.timeout_ms,
+							reason: params.reason,
+						},
+						(current) => store.save(current),
+					);
+					return text(state);
+				}
 			}
 			store.save(state);
 			return text(state);

@@ -24,6 +24,7 @@ import {
 	run_validation_node,
 	type FactoryExecutionAdapters,
 } from './runner.js';
+import { scope_matches } from './scope.js';
 import type {
 	FactoryState,
 	FeedbackPacket,
@@ -112,6 +113,12 @@ export interface ExecutionResult {
 		uri?: string;
 	}>;
 	telemetry_run_id?: string;
+	observability_session_id?: string;
+	provider?: string;
+	model?: string;
+	reasoning?: string;
+	tokens?: number;
+	cost_usd?: number;
 	effective_policy?: RolePolicy;
 	review?: {
 		review_id: string;
@@ -231,6 +238,36 @@ export class ExecutionRegistry {
 			['intent', 'starting', 'running'].includes(record.lifecycle),
 		);
 	}
+	mark_terminal(
+		execution_id: string,
+		lifecycle: 'failed' | 'cancelled' | 'lost',
+		category: NonNullable<ExecutionResult['failure']>['category'],
+		message: string,
+	): ExecutionRecord {
+		const record = this.get(execution_id);
+		if (!record) throw new Error(`Unknown execution ${execution_id}`);
+		const timestamp = new Date().toISOString();
+		record.lifecycle = lifecycle;
+		record.updated_at = timestamp;
+		record.result = {
+			execution_id,
+			lifecycle,
+			adapter_id: record.adapter_id,
+			adapter_version: record.adapter_version,
+			finished_at: timestamp,
+			failure: { category, message },
+		};
+		this.put(record);
+		return record;
+	}
+	mark_lost(execution_id: string, message: string): ExecutionRecord {
+		return this.mark_terminal(
+			execution_id,
+			'lost',
+			'process-death',
+			message,
+		);
+	}
 }
 
 function node_for(state: FactoryState, node_id: string): NodeState {
@@ -244,40 +281,14 @@ function idempotency_key(
 ): string {
 	return `${state.workflow_id}:${state.contract_version}:${node.id}:${node.attempts + 1}`;
 }
-function glob_expression(pattern: string): RegExp {
-	let expression = '^';
-	for (let index = 0; index < pattern.length; index += 1) {
-		const character = pattern[index]!;
-		if (character === '*' && pattern[index + 1] === '*') {
-			if (pattern[index + 2] === '/') {
-				expression += '(?:.*/)?';
-				index += 2;
-			} else {
-				expression += '.*';
-				index += 1;
-			}
-		} else if (character === '*') expression += '[^/]*';
-		else if (character === '?') expression += '[^/]';
-		else
-			expression += character.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
-	}
-	return new RegExp(`${expression}$`);
-}
 function path_is_allowed(
 	cwd: string,
 	path: string,
 	allowed_paths: string[],
 ): boolean {
-	const candidate = resolve(cwd, path).replaceAll('\\', '/');
-	return allowed_paths.some((allowed) => {
-		const normalized = resolve(cwd, allowed).replaceAll('\\', '/');
-		if (/[?*]/.test(normalized))
-			return glob_expression(normalized).test(candidate);
-		return (
-			candidate === normalized ||
-			candidate.startsWith(`${normalized}/`)
-		);
-	});
+	return allowed_paths.some((allowed) =>
+		scope_matches(cwd, path, allowed),
+	);
 }
 function changed_since(
 	baseline: WorkspaceSnapshot,
@@ -398,6 +409,89 @@ export class ExecutionController {
 			state: FactoryState,
 		) => WorkspaceSnapshot,
 	) {}
+	async initiate_hypotheses(
+		state: FactoryState,
+		node_id: string,
+		adapter: WorkflowExecutionAdapter,
+		options: { owner_session_id: string; cwd: string },
+		count: number,
+	): Promise<ExecutionRecord[]> {
+		const node = node_for(state, node_id);
+		if (node.kind !== 'plan' || node.status !== 'ready')
+			throw new Error(
+				'Parallel hypotheses require a ready planner node',
+			);
+		if (!adapter.capabilities.initiate)
+			throw new Error(
+				'Parallel hypotheses require an initiating owned adapter',
+			);
+		if (!this.capture_workspace)
+			throw new Error(
+				'Parallel hypotheses require controller workspace capture before launch',
+			);
+		const bounded = Math.max(
+			0,
+			Math.min(count, state.route.workflow.compute.parallelism),
+		);
+		const records = Array.from({ length: bounded }, (_, index) => {
+			const request: ExecutionRequest = {
+				execution_id: randomUUID(),
+				idempotency_key: `${idempotency_key(state, node)}:hypothesis:${index + 1}`,
+				workflow_id: state.workflow_id,
+				contract_version: state.contract_version,
+				node_id,
+				attempt: node.attempts + 1,
+				owner_session_id: options.owner_session_id,
+				read_only: true,
+				task: state.contract.task,
+				contract: structuredClone(state.contract),
+				role_policy: structuredClone(
+					state.route.workflow.compute.planner,
+				),
+				cwd: resolve(options.cwd),
+				allowed_paths: [],
+				artifact_ids: [...state.authoritative.artifact_ids],
+				workspace_baseline: this.capture_workspace?.(state),
+			};
+			const timestamp = new Date().toISOString();
+			return this.registry.reserve({
+				request,
+				adapter_id: adapter.id,
+				adapter_version: adapter.version,
+				lifecycle: 'intent',
+				created_at: timestamp,
+				updated_at: timestamp,
+			});
+		});
+		return Promise.all(
+			records.map(async (record) => {
+				if (record.lifecycle !== 'intent') return record;
+				record.lifecycle = 'starting';
+				record.updated_at = new Date().toISOString();
+				this.registry.put(record);
+				try {
+					return this.record_result(
+						record,
+						await adapter.initiate(record.request),
+					);
+				} catch (error) {
+					return this.record_result(record, {
+						execution_id: record.request.execution_id,
+						lifecycle: 'failed',
+						adapter_id: adapter.id,
+						adapter_version: adapter.version,
+						failure: {
+							category: 'provider',
+							message:
+								error instanceof Error
+									? error.message
+									: String(error),
+						},
+					});
+				}
+			}),
+		);
+	}
 	async initiate(
 		state: FactoryState,
 		node_id: string,
@@ -618,6 +712,67 @@ export class ExecutionController {
 			throw new Error(
 				'Stale execution result cannot mutate current workflow state',
 			);
+		if (
+			[
+				'settled',
+				'succeeded',
+				'failed',
+				'cancelled',
+				'lost',
+			].includes(record.lifecycle) &&
+			!state.events.some(
+				(item) =>
+					item.type === 'execution.lifecycle' &&
+					item.metadata?.execution_id === record.request.execution_id,
+			)
+		)
+			state.events.push({
+				id: randomUUID(),
+				workflow_id: state.workflow_id,
+				workflow_version: state.route.workflow.version,
+				node_id: record.request.node_id,
+				type: 'execution.lifecycle',
+				timestamp: new Date().toISOString(),
+				role:
+					node.kind === 'plan'
+						? 'planner'
+						: node.kind === 'review'
+							? 'reviewer'
+							: 'executor',
+				attempt: record.request.attempt,
+				session_id: record.request.owner_session_id,
+				telemetry_run_id: record.result?.telemetry_run_id,
+				observability_session_id:
+					record.result?.observability_session_id,
+				tokens: record.result?.tokens,
+				cost_usd: record.result?.cost_usd,
+				duration_ms:
+					record.result?.started_at && record.result.finished_at
+						? Math.max(
+								0,
+								Date.parse(record.result.finished_at) -
+									Date.parse(record.result.started_at),
+							)
+						: undefined,
+				metadata: {
+					execution_id: record.request.execution_id,
+					adapter_id: record.adapter_id,
+					adapter_version: record.adapter_version,
+					contract_version: record.request.contract_version,
+					lifecycle: record.lifecycle,
+					outcome: record.result?.outcome,
+					read_only: record.request.read_only,
+					provider:
+						record.result?.provider ??
+						record.request.role_policy.model?.split('/')[0],
+					model:
+						record.result?.model ?? record.request.role_policy.model,
+					reasoning:
+						record.result?.reasoning ??
+						record.request.role_policy.thinking,
+					enforcement: record.request.role_policy.enforcement,
+				},
+			});
 		if (
 			record.lifecycle === 'settled' ||
 			record.lifecycle === 'succeeded'
@@ -882,13 +1037,18 @@ export class ExecutionController {
 		adapter: WorkflowExecutionAdapter,
 	): Promise<ExecutionRecord> {
 		if (!adapter.capabilities.recover || !adapter.recover) {
-			const operator_required = {
-				...record,
-				lifecycle: 'operator-required' as const,
-				updated_at: new Date().toISOString(),
-			};
-			this.registry.put(operator_required);
-			return operator_required;
+			return this.record_result(record, {
+				execution_id: record.request.execution_id,
+				lifecycle: 'lost',
+				adapter_id: record.adapter_id,
+				adapter_version: record.adapter_version,
+				finished_at: new Date().toISOString(),
+				failure: {
+					category: 'unsupported',
+					message:
+						'Owned execution cannot be recovered by its adapter',
+				},
+			});
 		}
 		return this.record_result(
 			record,
@@ -931,8 +1091,11 @@ export class WorkflowOperator {
 		const progressed: ExecutionRecord[] = [];
 		for (const pending of this.controller.registry.list_pending()) {
 			if (pending.request.workflow_id !== state.workflow_id) continue;
+			const hypothesis =
+				pending.request.idempotency_key.includes(':hypothesis:');
 			const pending_node = node_for(state, pending.request.node_id);
 			if (
+				!hypothesis &&
 				pending_node.status === 'ready' &&
 				pending_node.attempts + 1 === pending.request.attempt
 			) {
@@ -948,12 +1111,38 @@ export class WorkflowOperator {
 				Object.values(this.adapters).find(
 					(item) => item.id === pending.adapter_id,
 				);
-			if (!adapter) continue;
+			if (!adapter) {
+				const lost = this.controller.registry.mark_lost(
+					pending.request.execution_id,
+					'Execution adapter is unavailable after reload',
+				);
+				progressed.push(lost);
+				if (!hypothesis)
+					await this.route_feedback(
+						this.controller.apply_result(state, lost),
+					);
+				this.persist_state(state);
+				continue;
+			}
 			const refreshed = !adapter.capabilities.poll
 				? await this.controller.recover(pending, adapter)
 				: await this.controller.poll(pending, adapter);
 			progressed.push(refreshed);
+			if (hypothesis) {
+				this.persist_state(state);
+				continue;
+			}
 			if (refreshed.lifecycle === 'operator-required') {
+				state.events.push({
+					id: randomUUID(),
+					workflow_id: state.workflow_id,
+					workflow_version: state.route.workflow.version,
+					node_id: refreshed.request.node_id,
+					type: 'execution.peer_handoff_required',
+					timestamp: new Date().toISOString(),
+					session_id: refreshed.request.owner_session_id,
+					metadata: { adapter_id: refreshed.adapter_id },
+				});
 				const node = node_for(state, refreshed.request.node_id);
 				node.status = 'blocked';
 				node.blocked_reason =
@@ -977,6 +1166,16 @@ export class WorkflowOperator {
 				this.persist_state(state);
 			}
 		}
+		if (
+			this.controller.registry
+				.list_pending()
+				.some(
+					(record) =>
+						record.request.workflow_id === state.workflow_id &&
+						record.request.idempotency_key.includes(':hypothesis:'),
+				)
+		)
+			return progressed;
 		for (;;) {
 			const ready = state.nodes.find(
 				(node) => node.status === 'ready',
@@ -1021,6 +1220,199 @@ export class WorkflowOperator {
 			}
 			const adapter = this.adapters[ready.kind];
 			if (!adapter) break;
+			if (
+				ready.kind === 'plan' &&
+				state.route.workflow.compute.parallelism > 1 &&
+				adapter.capabilities.initiate
+			) {
+				if (!this.controller.capture_workspace) {
+					const packet = normalize_feedback({
+						workflow_id: state.workflow_id,
+						node_id: ready.id,
+						attempt: ready.attempts,
+						source: 'check',
+						owner_session_id: options.owner_session_id,
+						contradictory: false,
+						unsafe_fix: true,
+						items: [
+							{
+								severity: 'critical',
+								code: 'execution.hypothesis-verifier-unavailable',
+								message:
+									'Read-only hypotheses require workspace capture before launch',
+								evidence_ids: [],
+								required_action:
+									'Configure controller workspace capture before parallel diagnosis',
+							},
+						],
+					});
+					start_node(state, ready.id, options.owner_session_id);
+					fail_node(state, packet);
+					await this.route_feedback(packet);
+					this.persist_state(state);
+					return progressed;
+				}
+				const hypotheses = await this.controller.initiate_hypotheses(
+					state,
+					ready.id,
+					adapter,
+					{
+						owner_session_id: options.owner_session_id,
+						cwd: options.cwd,
+					},
+					state.route.workflow.compute.parallelism,
+				);
+				progressed.push(...hypotheses);
+				for (const hypothesis of hypotheses) {
+					const result = hypothesis.result;
+					const baseline = hypothesis.request.workspace_baseline;
+					let observed_changes: string[] | undefined;
+					if (baseline && this.controller.capture_workspace)
+						try {
+							observed_changes = changed_since(
+								baseline,
+								this.controller.capture_workspace(state),
+							);
+						} catch (error) {
+							observed_changes = [
+								error instanceof Error
+									? error.message
+									: String(error),
+							];
+						}
+					if (
+						!baseline ||
+						!this.controller.capture_workspace ||
+						observed_changes?.length
+					) {
+						const packet = normalize_feedback({
+							workflow_id: state.workflow_id,
+							node_id: ready.id,
+							attempt: ready.attempts,
+							source: 'check',
+							owner_session_id: options.owner_session_id,
+							contradictory: false,
+							unsafe_fix: true,
+							items: [
+								{
+									severity: 'critical',
+									code: 'execution.hypothesis-mutated-workspace',
+									message:
+										!baseline || !this.controller.capture_workspace
+											? 'Read-only hypothesis cannot be verified because workspace capture is unavailable'
+											: `Read-only hypothesis changed workspace: ${observed_changes!.join(', ')}`,
+									evidence_ids: [],
+									required_action:
+										'Restore the workspace and resolve ownership before planning continues',
+								},
+							],
+						});
+						start_node(state, ready.id, options.owner_session_id);
+						fail_node(state, packet);
+						await this.route_feedback(packet);
+						this.persist_state(state);
+						return progressed;
+					}
+					if (
+						[
+							'settled',
+							'succeeded',
+							'failed',
+							'cancelled',
+							'lost',
+						].includes(hypothesis.lifecycle) &&
+						!state.events.some(
+							(item) =>
+								item.type === 'execution.lifecycle' &&
+								item.metadata?.execution_id ===
+									hypothesis.request.execution_id,
+						)
+					)
+						state.events.push({
+							id: randomUUID(),
+							workflow_id: state.workflow_id,
+							workflow_version: state.route.workflow.version,
+							node_id: ready.id,
+							type: 'execution.lifecycle',
+							timestamp: new Date().toISOString(),
+							role: 'planner',
+							attempt: hypothesis.request.attempt,
+							session_id: hypothesis.request.owner_session_id,
+							telemetry_run_id: result?.telemetry_run_id,
+							observability_session_id:
+								result?.observability_session_id,
+							tokens: result?.tokens,
+							cost_usd: result?.cost_usd,
+							duration_ms:
+								result?.started_at && result.finished_at
+									? Math.max(
+											0,
+											Date.parse(result.finished_at) -
+												Date.parse(result.started_at),
+										)
+									: undefined,
+							metadata: {
+								execution_id: hypothesis.request.execution_id,
+								adapter_id: hypothesis.adapter_id,
+								adapter_version: hypothesis.adapter_version,
+								contract_version: hypothesis.request.contract_version,
+								lifecycle: hypothesis.lifecycle,
+								outcome: result?.outcome,
+								read_only: true,
+								provider:
+									result?.provider ??
+									hypothesis.request.role_policy.model?.split('/')[0],
+								model:
+									result?.model ??
+									hypothesis.request.role_policy.model,
+								reasoning:
+									result?.reasoning ??
+									hypothesis.request.role_policy.thinking,
+								enforcement:
+									hypothesis.request.role_policy.enforcement,
+							},
+						});
+					if (
+						!['settled', 'succeeded'].includes(
+							hypothesis.lifecycle,
+						) ||
+						result?.outcome !== 'completed' ||
+						structured_result_error(state, ready, result) ||
+						result.changed_files!.length
+					)
+						continue;
+					for (const evidence of result!.evidence!) {
+						if (
+							evidence.id &&
+							state.evidence.some(
+								(item) => item.source_id === evidence.id,
+							)
+						)
+							continue;
+						const canonical = add_evidence(state, {
+							kind: `hypothesis:${evidence.kind}`,
+							summary: evidence.summary,
+							uri: evidence.uri,
+							source_id: evidence.id,
+						});
+						state.authoritative.artifact_ids.push(canonical.id);
+					}
+					for (const artifact_id of result!.artifact_ids ?? [])
+						if (
+							!state.authoritative.artifact_ids.includes(artifact_id)
+						)
+							state.authoritative.artifact_ids.push(artifact_id);
+				}
+				this.persist_state(state);
+				if (
+					hypotheses.some((item) =>
+						['intent', 'starting', 'running'].includes(
+							item.lifecycle,
+						),
+					)
+				)
+					return progressed;
+			}
 			const record = await this.controller.initiate(
 				state,
 				ready.id,
@@ -1033,6 +1425,16 @@ export class WorkflowOperator {
 			this.persist_state(state);
 			progressed.push(record);
 			if (record.lifecycle === 'operator-required') {
+				state.events.push({
+					id: randomUUID(),
+					workflow_id: state.workflow_id,
+					workflow_version: state.route.workflow.version,
+					node_id: record.request.node_id,
+					type: 'execution.peer_handoff_required',
+					timestamp: new Date().toISOString(),
+					session_id: record.request.owner_session_id,
+					metadata: { adapter_id: record.adapter_id },
+				});
 				ready.status = 'blocked';
 				ready.blocked_reason =
 					'Execution ownership requires an explicit operator handoff';
@@ -1059,11 +1461,20 @@ export class WorkflowOperator {
 		}
 		return progressed;
 	}
+	private adapter_for(record: ExecutionRecord) {
+		return (
+			this.adapters[record.adapter_id] ??
+			Object.values(this.adapters).find(
+				(item) => item.id === record.adapter_id,
+			)
+		);
+	}
 	async pause_active(state: FactoryState): Promise<void> {
 		for (const record of this.controller.registry.list_pending()) {
 			if (record.request.workflow_id !== state.workflow_id) continue;
-			const adapter = this.adapters[record.adapter_id];
-			if (!adapter) continue;
+			const adapter = this.adapter_for(record);
+			if (!adapter)
+				throw new Error('Active execution adapter is unavailable');
 			await this.controller.pause(record, adapter);
 		}
 		state.status = 'paused';
@@ -1072,8 +1483,9 @@ export class WorkflowOperator {
 	async resume_active(state: FactoryState): Promise<void> {
 		for (const record of this.controller.registry.list_pending()) {
 			if (record.request.workflow_id !== state.workflow_id) continue;
-			const adapter = this.adapters[record.adapter_id];
-			if (!adapter) continue;
+			const adapter = this.adapter_for(record);
+			if (!adapter)
+				throw new Error('Active execution adapter is unavailable');
 			await this.controller.resume(record, adapter);
 		}
 		state.status = 'running';
@@ -1091,9 +1503,16 @@ export class WorkflowOperator {
 				record.result?.started_at ?? record.created_at,
 			);
 			if (now_ms - started <= maximum_duration_ms) continue;
-			const adapter = this.adapters[record.adapter_id];
-			if (!adapter) continue;
-			const cancelled = await this.controller.cancel(record, adapter);
+			const adapter = this.adapter_for(record);
+			const cancelled =
+				adapter?.capabilities.cancel && adapter.cancel
+					? await this.controller.cancel(record, adapter)
+					: this.controller.registry.mark_terminal(
+							record.request.execution_id,
+							'failed',
+							'timeout',
+							`Execution exceeded ${maximum_duration_ms}ms`,
+						);
 			cancelled.lifecycle = 'failed';
 			cancelled.result = {
 				...cancelled.result!,
@@ -1104,7 +1523,8 @@ export class WorkflowOperator {
 				},
 			};
 			this.controller.registry.put(cancelled);
-			this.controller.apply_result(state, cancelled);
+			if (!record.request.idempotency_key.includes(':hypothesis:'))
+				this.controller.apply_result(state, cancelled);
 			timed_out += 1;
 		}
 		if (timed_out) this.persist_state(state);
@@ -1116,14 +1536,25 @@ export class WorkflowOperator {
 	): Promise<void> {
 		for (const record of this.controller.registry.list_pending()) {
 			if (record.request.workflow_id !== state.workflow_id) continue;
-			const adapter = this.adapters[record.adapter_id];
-			if (!adapter) continue;
-			const cancelled = await this.controller.cancel(record, adapter);
+			const adapter = this.adapter_for(record);
+			const cancelled =
+				adapter?.capabilities.cancel && adapter.cancel
+					? await this.controller.cancel(record, adapter)
+					: this.controller.registry.mark_terminal(
+							record.request.execution_id,
+							'cancelled',
+							'cancelled',
+							reason,
+						);
+			cancelled.lifecycle = 'cancelled';
 			cancelled.result = {
 				...cancelled.result!,
+				lifecycle: 'cancelled',
 				failure: { category: 'cancelled', message: reason },
 			};
-			this.controller.apply_result(state, cancelled);
+			this.controller.registry.put(cancelled);
+			if (!record.request.idempotency_key.includes(':hypothesis:'))
+				this.controller.apply_result(state, cancelled);
 			this.persist_state(state);
 		}
 	}
@@ -1133,6 +1564,10 @@ export function create_sdk_execution_adapter(options: {
 	id?: string;
 	version?: string;
 	run(request: ExecutionRequest): Promise<ExecutionResult>;
+	poll?(execution_id: string): Promise<ExecutionResult>;
+	cancel?(execution_id: string): Promise<ExecutionResult>;
+	pause?(execution_id: string): Promise<ExecutionResult>;
+	resume?(execution_id: string): Promise<ExecutionResult>;
 	recover?(request: ExecutionRequest): Promise<ExecutionResult>;
 }): WorkflowExecutionAdapter {
 	return {
@@ -1141,10 +1576,10 @@ export function create_sdk_execution_adapter(options: {
 		capabilities: {
 			mode: 'sdk-owned',
 			initiate: true,
-			poll: false,
-			cancel: false,
-			pause: false,
-			resume: false,
+			poll: options.poll !== undefined,
+			cancel: options.cancel !== undefined,
+			pause: options.pause !== undefined,
+			resume: options.resume !== undefined,
 			recover: options.recover !== undefined,
 			supervises_process: true,
 		},
@@ -1160,6 +1595,18 @@ export function create_sdk_execution_adapter(options: {
 				);
 			return result;
 		},
+		poll: options.poll
+			? async (execution_id) => options.poll!(execution_id)
+			: undefined,
+		cancel: options.cancel
+			? async (execution_id) => options.cancel!(execution_id)
+			: undefined,
+		pause: options.pause
+			? async (execution_id) => options.pause!(execution_id)
+			: undefined,
+		resume: options.resume
+			? async (execution_id) => options.resume!(execution_id)
+			: undefined,
 		recover: options.recover
 			? async (request) => {
 					const result = await options.recover!(request);
@@ -1187,6 +1634,7 @@ export function create_rpc_execution_adapter(options: {
 		stdout_buffer: string;
 		assistant_text: string;
 		stderr: string;
+		usage_message_keys: Set<string>;
 	};
 	const processes = new Map<string, OwnedProcess>();
 	const missing = (execution_id: string): ExecutionResult => ({
@@ -1316,7 +1764,21 @@ export function create_rpc_execution_adapter(options: {
 			supervises_process: true,
 		},
 		async initiate(request) {
-			const args = [...(options.args ?? [])];
+			const configured_args = [...(options.args ?? [])];
+			const args = request.read_only
+				? configured_args.filter((argument, index) => {
+						if (
+							argument === '--tools' ||
+							argument === '-t' ||
+							argument.startsWith('--tools=')
+						)
+							return false;
+						const previous = configured_args[index - 1];
+						return previous !== '--tools' && previous !== '-t';
+					})
+				: configured_args;
+			if (request.read_only)
+				args.push('--tools', 'read,grep,find,ls');
 			if (request.role_policy.enforcement === 'enforced') {
 				if (!request.role_policy.model)
 					throw new Error(
@@ -1363,6 +1825,7 @@ export function create_rpc_execution_adapter(options: {
 				stdout_buffer: '',
 				assistant_text: '',
 				stderr: '',
+				usage_message_keys: new Set(),
 			};
 			processes.set(request.execution_id, owned);
 			child.stderr?.on('data', (chunk: Buffer | string) => {
@@ -1420,6 +1883,54 @@ export function create_rpc_execution_adapter(options: {
 							},
 						};
 						child.kill('SIGTERM');
+					}
+					if (event.type === 'message_end') {
+						const message = event.message as
+							| Record<string, unknown>
+							| undefined;
+						if (message?.role === 'assistant') {
+							const usage = message.usage as
+								| Record<string, unknown>
+								| undefined;
+							const cost = usage?.cost as
+								| Record<string, unknown>
+								| undefined;
+							const key = JSON.stringify({
+								timestamp: message.timestamp,
+								provider: message.provider,
+								model: message.model,
+								usage,
+							});
+							if (!owned.usage_message_keys.has(key)) {
+								owned.usage_message_keys.add(key);
+								const number = (value: unknown) =>
+									typeof value === 'number' && Number.isFinite(value)
+										? value
+										: 0;
+								const total_tokens =
+									number(usage?.totalTokens) ||
+									number(usage?.input) +
+										number(usage?.output) +
+										number(usage?.cacheRead) +
+										number(usage?.cacheWrite);
+								owned.result = {
+									...owned.result,
+									provider:
+										typeof message.provider === 'string'
+											? message.provider
+											: owned.result.provider,
+									model:
+										typeof message.model === 'string'
+											? message.model
+											: owned.result.model,
+									reasoning: request.role_policy.thinking,
+									tokens: (owned.result.tokens ?? 0) + total_tokens,
+									cost_usd:
+										(owned.result.cost_usd ?? 0) +
+										number(cost?.total),
+								};
+							}
+						}
 					}
 					const update = event.assistantMessageEvent as
 						| Record<string, unknown>
