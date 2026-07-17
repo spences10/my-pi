@@ -1,5 +1,33 @@
 # @spences10/pi-factory
 
+## 0.0.5
+
+### Patch Changes
+
+- ef807bf: Add versioned calibration suites, reproducible baselines,
+  confidence reporting, safe cohort comparisons, and evidence-driven
+  experiment recommendations.
+- ef12a9f: Validate calibration provenance pins and count only
+  eligible measured outcomes when proposing additional factory
+  evidence.
+- bfd17e9: Add safe execution adapters, automated workflow
+  progression, bounded read-only diagnosis, lifecycle controls, and
+  telemetry correlation.
+- 71cda5b: Correlate factory compute, interruptions, ownership
+  transfers, failures, and delivered outcomes while rejecting
+  incomplete calibration evidence.
+- 08af19a: Makes factory ownership, harness adoption, recovery, path
+  scopes, transfers, conflicts, and status truthful across sessions.
+- dd43cce: Harden factory execution authority, require structured
+  outcomes, reject recursive operation, and separate settlement from
+  success.
+- cf37c0f: Define factory v1 architecture boundaries, optional
+  modules, supervision limits, compatibility, and representative
+  workflow validation evidence.
+- 6aec97a: Persist authoritative factory contracts, add
+  complexity-aware routing, prevent safety-lowering overrides, and
+  enforce effective compute configuration.
+
 ## 0.0.4
 
 ### Patch Changes
