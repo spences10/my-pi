@@ -1,17 +1,36 @@
 export {
+	CalibrationSuiteStore,
+	create_calibration_suite,
+	define_factory_calibration_suite,
+	evaluate_calibration_suite,
+	import_factory_outcome,
+	propose_calibration_experiments,
+} from './calibration-suite.js';
+export type {
+	CalibrationComputeTarget,
+	CalibrationProject,
+	CalibrationSuite,
+	CalibrationSuiteEvaluation,
+	ProposedCalibrationExperiment,
+} from './calibration-suite.js';
+export {
 	compare_calibration_cohorts,
 	create_observed_outcome,
 	derive_calibration_report,
 	label_outcome,
+	DEFAULT_CALIBRATION_THRESHOLDS,
 } from './calibration.js';
 export type {
 	CalibrationCase,
 	CalibrationCohortPins,
 	CalibrationMetric,
 	CalibrationReport,
+	CalibrationThresholds,
 	ObservedOutcome,
+	OutcomeCorrelation,
 	OutcomeEvidence,
 	OutcomeLabel,
+	OutcomeProvenance,
 } from './calibration.js';
 export { get_workflow, WORKFLOW_CATALOG } from './catalog.js';
 export {
@@ -19,7 +38,10 @@ export {
 	dispatch_task,
 	route_fingerprint,
 } from './dispatch.js';
+export { run_dogfood_baseline } from './dogfood.js';
+export type { DogfoodBaselineResult } from './dogfood.js';
 export {
+	acknowledge_ownership_transfer,
 	add_evidence,
 	amend_contract,
 	claim_paths,
@@ -35,9 +57,12 @@ export {
 	normalize_feedback,
 	record_approval,
 	record_initial_review,
+	record_workflow_outcome,
+	request_ownership_transfer,
 	requires_approval,
 	resume_state,
 	start_node,
+	summarize_factory_state,
 } from './engine.js';
 export {
 	create_rpc_execution_adapter,
@@ -61,9 +86,12 @@ export {
 	assert_child_factory_authority,
 	assert_manual_node_authority,
 	capture_git_workspace,
+	control_factory_execution,
 	default,
 	factory_intake_from_extension,
+	reconcile_factory_status,
 	resolve_factory_owner,
+	validate_adoptable_harness,
 } from './extension.js';
 export {
 	external_workflow_id,
@@ -95,6 +123,7 @@ export type {
 export {
 	correlate_compute,
 	derive_factory_metrics,
+	has_complete_execution_correlation,
 } from './metrics.js';
 export {
 	activate_policy_draft,
@@ -140,4 +169,10 @@ export type {
 	FactoryExecutionAdapters,
 	GateResult,
 } from './runner.js';
+export {
+	canonical_scope,
+	scope_expression,
+	scope_matches,
+	scopes_overlap,
+} from './scope.js';
 export * from './types.js';

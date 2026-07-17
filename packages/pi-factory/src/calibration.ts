@@ -9,6 +9,8 @@ export type OutcomeLabel =
 	| 'planner-defect'
 	| 'executor-defect'
 	| 'reviewer-defect'
+	| 'operator-defect'
+	| 'external-failure'
 	| 'platform-failure'
 	| 'incomplete'
 	| 'conflicting-evidence';
@@ -32,6 +34,12 @@ export interface CalibrationCase {
 	cohort: 'production' | 'experimental';
 	experiment_id?: string;
 	evolution_version_id?: string;
+	suite_id?: string;
+	suite_version?: string;
+	project_id?: string;
+	provider?: string;
+	model?: string;
+	reasoning?: string;
 }
 export interface OutcomeEvidence {
 	id: string;
@@ -46,6 +54,31 @@ export interface OutcomeEvidence {
 	complete: boolean;
 	contradictory?: boolean;
 }
+export interface OutcomeCorrelation {
+	status: 'measured' | 'synthetic' | 'uncorrelated';
+	provider?: string;
+	model?: string;
+	reasoning?: string;
+	session_id?: string;
+	telemetry_run_id?: string;
+	observability_session_id?: string;
+	terminal_outcome?:
+		| 'completed'
+		| 'failed'
+		| 'cancelled'
+		| 'superseded'
+		| 'completed-outside-factory';
+	authoritative_delivery?: boolean;
+	duration_ms?: number;
+}
+export interface OutcomeProvenance {
+	kind: 'factory-state' | 'authenticated-import' | 'synthetic';
+	source_id: string;
+	suite_id?: string;
+	suite_version?: string;
+	project_revision?: string;
+	policy_hash?: string;
+}
 export interface ObservedOutcome {
 	schema_version: 1;
 	outcome_id: string;
@@ -55,6 +88,8 @@ export interface ObservedOutcome {
 	observed_at: string;
 	evidence: OutcomeEvidence[];
 	label: OutcomeLabel;
+	correlation?: OutcomeCorrelation;
+	provenance?: OutcomeProvenance;
 	first_pass?: boolean;
 	retries?: number;
 	rework?: boolean;
@@ -64,6 +99,12 @@ export interface ObservedOutcome {
 	cost_usd?: number;
 	interrupted?: boolean;
 	escalated?: boolean;
+}
+export interface CalibrationThresholds {
+	minimum_sample_size: number;
+	low_confidence_sample_size: number;
+	medium_confidence_sample_size: number;
+	maximum_missing_rate: number;
 }
 export interface CalibrationMetric {
 	name: string;
@@ -93,6 +134,7 @@ export interface CalibrationReport {
 	report_id: string;
 	derivation_version: string;
 	created_at: string;
+	thresholds: CalibrationThresholds;
 	case_ids: string[];
 	outcome_ids: string[];
 	cohorts: Array<{
@@ -103,9 +145,12 @@ export interface CalibrationReport {
 		cohort: CalibrationCase['cohort'];
 		pins: CalibrationCohortPins;
 		runs: number;
+		excluded_runs: number;
 		labels: Partial<Record<OutcomeLabel, number>>;
 		metrics: CalibrationMetric[];
 		warnings: string[];
+		finding_scope: 'project-specific' | 'general';
+		project_ids: string[];
 	}>;
 	fingerprint: string;
 }
@@ -114,17 +159,28 @@ function sha(value: unknown): string {
 		.update(JSON.stringify(value))
 		.digest('hex');
 }
+export const DEFAULT_CALIBRATION_THRESHOLDS: CalibrationThresholds = {
+	minimum_sample_size: 5,
+	low_confidence_sample_size: 15,
+	medium_confidence_sample_size: 30,
+	maximum_missing_rate: 0,
+};
 function confidence(
 	denominator: number,
+	thresholds: CalibrationThresholds,
 ): CalibrationMetric['confidence'] {
-	if (denominator < 5) return 'insufficient';
-	if (denominator < 15) return 'low';
-	if (denominator < 30) return 'medium';
+	if (denominator < thresholds.minimum_sample_size)
+		return 'insufficient';
+	if (denominator < thresholds.low_confidence_sample_size)
+		return 'low';
+	if (denominator < thresholds.medium_confidence_sample_size)
+		return 'medium';
 	return 'high';
 }
 function rate(
 	name: string,
 	values: Array<boolean | undefined>,
+	thresholds: CalibrationThresholds,
 ): CalibrationMetric {
 	const present = values.filter(
 		(value): value is boolean => value !== undefined,
@@ -135,13 +191,14 @@ function rate(
 		value: present.length ? numerator / present.length : null,
 		numerator,
 		denominator: present.length,
-		confidence: confidence(present.length),
+		confidence: confidence(present.length, thresholds),
 		missing: values.length - present.length,
 	};
 }
 function average(
 	name: string,
 	values: Array<number | undefined>,
+	thresholds: CalibrationThresholds,
 ): CalibrationMetric {
 	const present = values.filter(
 		(value): value is number =>
@@ -155,7 +212,7 @@ function average(
 			: null,
 		numerator: present.length,
 		denominator: present.length,
-		confidence: confidence(present.length),
+		confidence: confidence(present.length, thresholds),
 		missing: values.length - present.length,
 	};
 }
@@ -191,11 +248,45 @@ export function create_observed_outcome(
 		label: label_outcome(input.evidence),
 	};
 }
+function comparable_outcome(outcome: ObservedOutcome): boolean {
+	const correlation = outcome.correlation;
+	return Boolean(
+		outcome.provenance &&
+		outcome.provenance.kind !== 'synthetic' &&
+		correlation?.status === 'measured' &&
+		correlation.provider &&
+		correlation.model &&
+		correlation.reasoning &&
+		correlation.session_id &&
+		(correlation.telemetry_run_id ||
+			correlation.observability_session_id ||
+			(outcome.tokens !== undefined && outcome.tokens > 0) ||
+			(outcome.cost_usd !== undefined && outcome.cost_usd > 0)) &&
+		typeof correlation.duration_ms === 'number' &&
+		Number.isFinite(correlation.duration_ms) &&
+		correlation.duration_ms >= 0 &&
+		correlation.terminal_outcome &&
+		(correlation.terminal_outcome !== 'completed' ||
+			correlation.authoritative_delivery === true),
+	);
+}
+
 export function derive_calibration_report(
 	cases: CalibrationCase[],
 	outcomes: ObservedOutcome[],
 	derivation_version = '1',
+	thresholds: CalibrationThresholds = DEFAULT_CALIBRATION_THRESHOLDS,
 ): CalibrationReport {
+	if (
+		thresholds.minimum_sample_size < 1 ||
+		thresholds.low_confidence_sample_size <
+			thresholds.minimum_sample_size ||
+		thresholds.medium_confidence_sample_size <
+			thresholds.low_confidence_sample_size ||
+		thresholds.maximum_missing_rate < 0 ||
+		thresholds.maximum_missing_rate > 1
+	)
+		throw new Error('Invalid calibration thresholds');
 	const by_case = new Map<string, CalibrationCase>();
 	for (const calibration_case of cases) {
 		if (calibration_case.schema_version !== 1)
@@ -278,7 +369,7 @@ export function derive_calibration_report(
 			for (const outcome of group.outcomes)
 				labels[outcome.label] = (labels[outcome.label] ?? 0) + 1;
 			const warnings: string[] = [];
-			if (group.outcomes.length < 5)
+			if (group.outcomes.length < thresholds.minimum_sample_size)
 				warnings.push(
 					'Sparse sample: no comparative policy conclusion is permitted',
 				);
@@ -292,7 +383,13 @@ export function derive_calibration_report(
 				)
 			)
 				warnings.push('Conflicting evidence requires adjudication');
-			const complete = group.outcomes.filter(
+			const comparable = group.outcomes.filter(comparable_outcome);
+			const excluded_runs = group.outcomes.length - comparable.length;
+			if (excluded_runs)
+				warnings.push(
+					`${excluded_runs} run(s) excluded: missing measured correlation, authoritative terminal delivery, or non-synthetic evidence`,
+				);
+			const complete = comparable.filter(
 				(item) =>
 					!['incomplete', 'conflicting-evidence'].includes(
 						item.label,
@@ -302,49 +399,77 @@ export function derive_calibration_report(
 				rate(
 					'success_rate',
 					complete.map((item) => item.label === 'success'),
+					thresholds,
 				),
 				rate(
 					'first_pass_success_rate',
 					complete.map((item) => item.first_pass),
+					thresholds,
 				),
 				average(
 					'retries',
 					complete.map((item) => item.retries),
+					thresholds,
 				),
 				rate(
 					'rework_rate',
 					complete.map((item) => item.rework),
+					thresholds,
 				),
 				rate(
 					'interruption_rate',
 					complete.map((item) => item.interrupted),
+					thresholds,
 				),
 				rate(
 					'escalation_rate',
 					complete.map((item) => item.escalated),
+					thresholds,
 				),
 				average(
 					'lead_time_ms',
 					complete.map((item) => item.lead_time_ms),
+					thresholds,
 				),
 				average(
 					'approval_wait_ms',
 					complete.map((item) => item.approval_wait_ms),
+					thresholds,
 				),
 				average(
 					'tokens',
 					complete.map((item) => item.tokens),
+					thresholds,
 				),
 				average(
 					'cost_usd',
 					complete.map((item) => item.cost_usd),
+					thresholds,
 				),
 			];
 			for (const metric of metrics)
-				if (metric.value === null || metric.missing > 0)
+				if (
+					metric.value === null ||
+					(metric.denominator > 0 &&
+						metric.missing / (metric.denominator + metric.missing) >
+							thresholds.maximum_missing_rate)
+				)
 					warnings.push(
 						`Missing metric evidence for ${metric.name} blocks comparison`,
 					);
+			const project_ids = [
+				...new Set(
+					group.outcomes
+						.map(
+							(outcome) => by_case.get(outcome.case_id)?.project_id,
+						)
+						.filter((item): item is string => Boolean(item)),
+				),
+			].sort();
+			if (project_ids.length < 2)
+				warnings.push(
+					'Project-specific evidence: do not generalize without compatible multi-project support',
+				);
 			return {
 				key,
 				workflow: group.calibration_case.workflow,
@@ -369,9 +494,15 @@ export function derive_calibration_report(
 						group.calibration_case.evolution_version_id,
 				},
 				runs: group.outcomes.length,
+				excluded_runs,
 				labels,
 				metrics,
 				warnings,
+				finding_scope:
+					project_ids.length > 1
+						? ('general' as const)
+						: ('project-specific' as const),
+				project_ids,
 			};
 		})
 		.sort((left, right) => left.key.localeCompare(right.key));
@@ -381,6 +512,7 @@ export function derive_calibration_report(
 		.sort();
 	const identity = {
 		derivation_version,
+		thresholds,
 		cases: [...cases].sort((a, b) =>
 			a.case_id.localeCompare(b.case_id),
 		),
@@ -394,6 +526,7 @@ export function derive_calibration_report(
 		report_id: randomUUID(),
 		derivation_version,
 		created_at: new Date().toISOString(),
+		thresholds: { ...thresholds },
 		case_ids,
 		outcome_ids: observed_outcome_ids,
 		cohorts,
@@ -430,6 +563,10 @@ export function compare_calibration_cohorts(
 			'Calibration comparison requires production then experimental cohorts',
 		);
 	const warnings = [...production.warnings, ...experimental.warnings];
+	if (production.excluded_runs || experimental.excluded_runs)
+		warnings.push(
+			'Excluded uncorrelated or synthetic runs block comparison and recommendations',
+		);
 	for (const field of [
 		'case_version',
 		'risk',
@@ -489,15 +626,18 @@ export function compare_calibration_cohorts(
 			deltas[metric.name] = other.value - metric.value;
 	}
 	return {
-		comparable: !warnings.some(
-			(item) =>
-				item.startsWith('Sparse') ||
-				item.includes('Conflicting') ||
-				item.includes('Insufficient') ||
-				item.includes('Incomplete') ||
-				item.includes('Missing') ||
-				item.includes('Incompatible'),
-		),
+		comparable: !warnings.some((item) => {
+			const normalized = item.toLowerCase();
+			return (
+				normalized.startsWith('sparse') ||
+				normalized.includes('conflicting') ||
+				normalized.includes('insufficient') ||
+				normalized.includes('incomplete') ||
+				normalized.includes('missing') ||
+				normalized.includes('excluded') ||
+				normalized.includes('incompatible')
+			);
+		}),
 		deltas,
 		warnings,
 	};

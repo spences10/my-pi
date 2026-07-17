@@ -63,6 +63,12 @@ function report(
 		report_id: options.report_id ?? 'report-1',
 		derivation_version: '1',
 		created_at: options.created_at ?? new Date().toISOString(),
+		thresholds: {
+			minimum_sample_size: 5,
+			low_confidence_sample_size: 15,
+			medium_confidence_sample_size: 30,
+			maximum_missing_rate: 0,
+		},
 		case_ids: ['case'],
 		outcome_ids: ['outcome'],
 		cohorts: [
@@ -74,9 +80,12 @@ function report(
 				cohort: 'production',
 				pins: { ...pins, stall_timeout_ms: 900000 },
 				runs: 10,
+				excluded_runs: 0,
 				labels: {},
 				metrics: metric_values(0.8),
 				warnings: [],
+				finding_scope: 'project-specific',
+				project_ids: ['project'],
 			},
 			{
 				key: 'exp',
@@ -92,9 +101,12 @@ function report(
 					evolution_version_id: options.evolution_version_id,
 				},
 				runs: 10,
+				excluded_runs: 0,
 				labels: {},
 				metrics: metric_values(regression ? 0.5 : 0.9),
 				warnings: [],
+				finding_scope: 'project-specific',
+				project_ids: ['project'],
 			},
 		],
 		fingerprint: options.fingerprint ?? 'fingerprint',
@@ -323,6 +335,16 @@ describe('adaptive recommendations', () => {
 			store.rollback(canary.version_id, 'human', 'again').version_id,
 		).toBe(canary.version_id);
 		expect(store.get().active_version).toBe(baseline.version_id);
+	});
+
+	it('refuses recommendations when either cohort contains excluded runs', () => {
+		const unsafe = report();
+		unsafe.cohorts[0]!.excluded_runs = 1;
+		expect(
+			recommend_calibration_change(unsafe, 'prod', 'exp', {
+				prior_version: 'baseline',
+			}),
+		).toBeUndefined();
 	});
 
 	it('derives a recommendation from one controlled change and protects approved payloads', () => {

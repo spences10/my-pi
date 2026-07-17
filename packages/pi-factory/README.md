@@ -164,21 +164,59 @@ protocol-v1 fields; legacy bare `lifecycle: "succeeded"` results now
 fail closed as invalid structured results. `peer_execution_adapter` is
 explicitly mailbox/operator-only and never claims process supervision.
 `WorkflowOperator` is the only execution-node transition authority. It
-progresses planner and executor work, runs factory-authoritative
-validation, creates the independent review packet, and accepts only a
-structured reviewer verdict bound to that packet and its exact diff.
-Default RPC children exclude the `factory` tool; the runtime also
-rejects recursive operate, self-completion, evidence injection, and
-cross-workflow inspection when custom child arguments expose it.
-Duplicate active owned attempts are rejected before another adapter is
-started. It stops at human approval. The `operate` tool action uses an
-owned RPC process by default (`execution_mode=peer` records an
-operator handoff); command/argument overrides are available through
-`MY_PI_FACTORY_RPC_COMMAND` and `MY_PI_FACTORY_RPC_ARGS`. One mutating
-claim remains authoritative, while read-only research may run without
-becoming a mutating owner.
+automatically initiates eligible planner, executor, validation, and
+review work. When effective compute policy permits parallel diagnosis,
+it starts only the bounded planner hypotheses as read-only, supplies
+no allowed mutation paths, restricts RPC children to read/search
+tools, and requires a controller-owned Git baseline before launching
+any child. It promotes evidence only from an exactly `completed`,
+structured, zero-change result. Missing capture or observed workspace
+mutation blocks before one mutating planner/owner can start. It runs
+factory-authoritative validation, creates the independent review
+packet, and accepts only a structured reviewer verdict bound to that
+packet and its exact diff. Default RPC children exclude the `factory`
+tool; the runtime also rejects recursive operate, self-completion,
+evidence injection, and cross-workflow inspection when custom child
+arguments expose it. Duplicate active owned attempts are rejected
+before another adapter is started. SDK capability flags are derived
+from the callbacks actually supplied; RPC capabilities reflect its
+owned process. Pause, resume, cancellation, timeout, provider failure,
+process death, and recovery produce durable deterministic lifecycle
+records. Public `pause`, `resume`, `cancel`, and `timeout` actions
+signal the owned adapter and update its execution record before
+reporting workflow state. Unsupported or unavailable lifecycle
+operations fail truthfully; timeout or cancellation still terminates
+the ledger rather than leaving a running intent. Adapter telemetry
+run/session ids, tokens, and cost are correlated into factory
+lifecycle events. The operator stops at human approval. The `operate`
+tool action uses an owned RPC process by default
+(`execution_mode=peer` records an operator handoff); command/argument
+overrides are available through `MY_PI_FACTORY_RPC_COMMAND` and
+`MY_PI_FACTORY_RPC_ARGS`. One mutating claim remains authoritative,
+while read-only research may run without becoming a mutating owner.
 
 ## Calibration and controlled evolution
+
+`define_factory_calibration_suite` builds immutable, versioned case
+matrices across every workflow, representative project
+revisions/shapes, risks, and production/experimental
+provider-model-reasoning targets. `import_factory_outcome` labels only
+from durable factory events; `evaluate_calibration_suite` applies
+configurable sample/confidence/missing-data thresholds and returns
+`baseline_status: "blocked"` until every workflow has sufficient
+complete measured outcomes with exact `factory-state` or
+authenticated-import provenance. `synthetic` provenance is always
+excluded. `CalibrationSuiteStore` persists mode-0600 ledgers and
+supports filtered query plus deterministic JSON export.
+Suite/report/policy/project revisions and fingerprints remain exact;
+findings are marked project-specific unless multiple project ids
+support them. `propose_calibration_experiments` emits reviewable
+evidence-collection or controlled-comparison proposals with
+`mutates_policy: false`; approval/canary rules remain mandatory.
+Synthetic dogfood is embedded only as excluded control-plane evidence.
+See the explicit [baseline status](./CALIBRATION_BASELINE.md)—this
+repository currently claims no real baseline because authorised live
+correlated evidence is unavailable.
 
 Versioned `CalibrationCase` and `ObservedOutcome` records pin
 workflow, policy, route, compute, gates, project revision, and cohort
@@ -223,29 +261,74 @@ in memory as `legacy-missing` without inventing task text, remain
 inspectable, and are blocked from execution until an explicit contract
 amendment. No schema-version migration registry is claimed until a
 second released schema exists. A contract amendment increments its
-version and invalidates work derived from the previous contract.
-Overlapping active claims are rejected. Stale heartbeats block and
+version and invalidates work derived from the previous contract. Path
+scopes are canonical workspace globs shared by routing, claims,
+execution-result checks, and validation; `src/**/*.ts` matches both
+`src/file.ts` and nested files. Enforced claims reject overlapping
+mutation, while advisory claims are labelled and surfaced as blocking
+conflicts. Ownership transfer is two-phase: the current owner requests
+it and the recipient acknowledges it, atomically releasing the old
+claim and creating the sole replacement. Stale heartbeats block and
 escalate; they are evidence of missing ownership, not a claim that
 Team Mode can supervise a peer.
 
-Creation produces a real `pi-harness`; shell gates run through its
-generated `validate.sh`, review packets run its `review.sh`, and
-status/outcome paths are correlated. Tool-driven LSP/browser/database
-gates consume evidence supplied by the operator or an SDK
-`run_tool_gate` adapter. Failed gates become structured feedback and
-are persisted before delivery to the owning Team Mode mailbox with
-acknowledgement required (or the current session), within the node
-retry budget. Delivery uses a packet-id outbox; failed delivery
-remains inspectable and `factory action=flush-feedback` retries
-without duplicating an already delivered packet.
+Creation produces a real `pi-harness`, or adopts a caller-supplied
+`harness_dir` only when its task, workspace, path scope, validations,
+and test policy exactly match the route. Duplicate or incompatible
+harnesses are rejected, and contract amendments update the one
+existing harness in place. Shell gates run through its generated
+`validate.sh`, review packets run its `review.sh`, and status/outcome
+paths are correlated. Tool-driven LSP/browser/database gates consume
+evidence supplied by the operator or an SDK `run_tool_gate` adapter.
+Failed gates become structured feedback and are persisted before
+delivery to the owning Team Mode mailbox with acknowledgement required
+(or the current session), within the node retry budget. Delivery uses
+a packet-id outbox; failed delivery remains inspectable and
+`factory action=flush-feedback` retries without duplicating an already
+delivered packet.
 
-Harness ids, Team Mode artifact/session ids, telemetry run ids, and
-observability session ids are correlated in factory events. Aggregate
-metrics are derived from canonical state plus those references:
-first-pass success, validation/review retries, deterministic/reviewer
-defects, escalation, interruption, substantial rework, lead time,
-tokens, and cost. Existing manual harnesses and unclassified sessions
-remain unchanged and distinguishable.
+Harness ids, Team Mode artifact/session ids, provider/model/reasoning,
+telemetry and observability ids, measured duration, tokens, and cost
+are correlated in factory events when evidence exists. Owned RPC
+adapters deduplicate assistant `message_end` records and accumulate
+the actual provider/model, `usage.totalTokens`, and `usage.cost.total`
+into the terminal result. Process/session loss, handoff, takeover,
+resume, cancellation, and supersession remain separate durable events;
+absent usage is never converted to invented zero-cost compute.
+`factory action=status` returns a concise human view (task, workflow,
+owner, active execution, node/evidence progress, heartbeat, blockers,
+next action, and validation); `full=true` also returns the complete
+machine state. Owned adapters are recoverable only when they provide a
+durable recovery operation. On reload, process death or a missing/
+unsupported adapter is immediately recorded as `lost`, never left as
+`running`. Independently opened peer sessions do not continue between
+turns and require operator/user continuation unless an owned adapter
+is active.
+
+Terminal outcome is explicit: `completed`, `failed`, `cancelled`,
+`superseded`, or `completed-outside-factory`. Failure classification
+is separate (`workflow-failure`, `executor-failure`,
+`operator-misuse`, `project-policy-failure`, `validation-failure`, or
+`platform-failure`). Outside delivery requires external evidence and
+never becomes an authoritative factory success.
+
+Aggregate metrics are derived from canonical state plus those
+references. Delivered and first-pass success require the authoritative
+terminal completion node plus validation, review, and approval
+evidence as applicable—executor settlement alone cannot count.
+Comparative metrics require provider, model, reasoning, session, valid
+duration and measured telemetry/usage for every current-contract
+durable execution attempt, role-to-node consistency, and a completed
+non-read-only authoritative attempt for each executed node. Read-only
+hypotheses cannot mask a missing planner measurement; retries remain
+excluded unless every attempt is correlated. Metrics exclude
+unresolved, stale, synthetic, outside-factory, and
+incomplete/uncorrelated runs. Calibration reports retain exclusion
+warnings and recommendations refuse cohorts with excluded or missing
+measurements. The reproducible five-workflow pre-calibration baseline
+is documented in [`DOGFOOD_BASELINE.md`](./DOGFOOD_BASELINE.md).
+Existing manual harnesses and unclassified sessions remain unchanged
+and distinguishable.
 
 ## Review and approval safety
 

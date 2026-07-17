@@ -12,6 +12,7 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { canonical_scope, scopes_overlap } from './scope.js';
 import type {
 	ApprovalAction,
 	ApprovalDecision,
@@ -19,10 +20,12 @@ import type {
 	FactoryState,
 	FeedbackPacket,
 	NodeState,
+	OwnershipTransfer,
 	PathClaim,
 	ResolvedRoute,
 	ReviewPacket,
 	ReviewerFinding,
+	WorkflowOutcome,
 } from './types.js';
 
 const now = () => new Date().toISOString();
@@ -46,8 +49,6 @@ function acquire_lock(path: string): number {
 		throw new Error('Factory state is busy; retry shortly');
 	}
 }
-const overlap = (a: string, b: string) =>
-	a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
 const workflow_id_pattern =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function assert_workflow_id(id: string): void {
@@ -96,6 +97,7 @@ export function create_factory_state(
 		owner_session_id,
 		nodes,
 		claims: [],
+		ownership_transfers: [],
 		evidence: [],
 		acceptance_evaluations: [],
 		feedback: [],
@@ -118,32 +120,137 @@ export function claim_paths(
 	owner_session_id: string,
 	paths: string[],
 	active_claims: PathClaim[] = [],
+	enforcement: 'enforced' | 'advisory' = 'enforced',
 ): PathClaim {
+	const canonical = paths.map((path) =>
+		canonical_scope(state.route.workspace.cwd, path),
+	);
+	const existing = state.claims.find(
+		(claim) => claim.status === 'active',
+	);
+	if (existing) {
+		if (
+			existing.owner_session_id === owner_session_id &&
+			JSON.stringify([...existing.paths].sort()) ===
+				JSON.stringify([...canonical].sort())
+		)
+			return existing;
+		throw new Error(
+			`Workflow ${state.workflow_id} already has an authoritative owner`,
+		);
+	}
 	const conflict = active_claims.find(
 		(claim) =>
 			claim.status === 'active' &&
 			claim.workflow_id !== state.workflow_id &&
 			claim.paths.some((claimed) =>
-				paths.some((path) => overlap(claimed, path)),
+				canonical.some((path) => scopes_overlap('/', claimed, path)),
 			),
 	);
 	if (conflict)
 		throw new Error(
-			`Path overlap with workflow ${conflict.workflow_id} owned by ${conflict.owner_session_id}`,
+			`${conflict.enforcement === 'advisory' ? 'Blocking advisory conflict' : 'Path overlap'} with workflow ${conflict.workflow_id} owned by ${conflict.owner_session_id}`,
 		);
 	const claim: PathClaim = {
 		workflow_id: state.workflow_id,
 		owner_session_id,
-		paths,
+		paths: canonical,
 		claimed_at: now(),
 		heartbeat_at: now(),
 		status: 'active',
+		enforcement,
 	};
 	state.claims.push(claim);
 	state.owner_session_id = owner_session_id;
-	event(state, 'ownership.claimed', { paths });
+	event(state, 'ownership.claimed', {
+		paths: canonical,
+		enforcement,
+	});
 	return claim;
 }
+export function request_ownership_transfer(
+	state: FactoryState,
+	from_session_id: string,
+	to_session_id: string,
+): OwnershipTransfer {
+	const claim = state.claims.find(
+		(item) =>
+			item.status === 'active' &&
+			item.owner_session_id === from_session_id,
+	);
+	if (!claim || state.owner_session_id !== from_session_id)
+		throw new Error(
+			'Only the active owner may request ownership transfer',
+		);
+	if (
+		state.ownership_transfers?.some(
+			(item) => item.status === 'pending',
+		)
+	)
+		throw new Error('An ownership transfer is already pending');
+	const transfer: OwnershipTransfer = {
+		id: randomUUID(),
+		from_session_id,
+		to_session_id,
+		requested_at: now(),
+		status: 'pending',
+	};
+	(state.ownership_transfers ??= []).push(transfer);
+	event(state, 'ownership.transfer_requested', {
+		transfer_id: transfer.id,
+		to_session_id,
+	});
+	return transfer;
+}
+
+export function acknowledge_ownership_transfer(
+	state: FactoryState,
+	transfer_id: string,
+	to_session_id: string,
+): void {
+	const transfer = state.ownership_transfers?.find(
+		(item) => item.id === transfer_id,
+	);
+	if (
+		!transfer ||
+		transfer.status !== 'pending' ||
+		transfer.to_session_id !== to_session_id
+	)
+		throw new Error('No matching pending ownership transfer');
+	const claim = state.claims.find(
+		(item) =>
+			item.status === 'active' &&
+			item.owner_session_id === transfer.from_session_id,
+	);
+	if (!claim)
+		throw new Error(
+			'Previous owner no longer holds the active claim',
+		);
+	claim.status = 'released';
+	const timestamp = now();
+	state.claims.push({
+		...claim,
+		owner_session_id: to_session_id,
+		claimed_at: timestamp,
+		heartbeat_at: timestamp,
+		status: 'active',
+	});
+	state.owner_session_id = to_session_id;
+	for (const node of state.nodes)
+		if (
+			node.owner_session_id === transfer.from_session_id &&
+			node.status !== 'succeeded'
+		)
+			node.owner_session_id = to_session_id;
+	transfer.status = 'acknowledged';
+	transfer.acknowledged_at = timestamp;
+	event(state, 'ownership.transferred', {
+		transfer_id,
+		from_session_id: transfer.from_session_id,
+		to_session_id,
+	});
+}
+
 export function heartbeat(
 	state: FactoryState,
 	owner_session_id: string,
@@ -301,6 +408,11 @@ export function complete_node(
 		state.status = 'completed';
 		for (const claim of state.claims) claim.status = 'released';
 		event(state, 'workflow.completed');
+		record_workflow_outcome(state, {
+			status: 'completed',
+			authoritative: true,
+			evidence_ids: state.evidence.map((item) => item.id),
+		});
 	}
 }
 export function complete_validated_node(
@@ -346,6 +458,28 @@ export function complete_validated_node(
 		(item) => item.status === 'ready',
 	)?.id;
 }
+function classify_failure(
+	state: FactoryState,
+	packet: FeedbackPacket,
+): import('./types.js').FailureClassification {
+	const node = state.nodes.find((item) => item.id === packet.node_id);
+	const codes = packet.items.map((item) => item.code).join(' ');
+	if (/policy|forbidden|approval/i.test(codes))
+		return 'project-policy-failure';
+	if (
+		/provider|process-death|unsupported|adapter|timeout/i.test(codes)
+	)
+		return 'platform-failure';
+	if (
+		/owner|handoff|hypothesis|authority/i.test(codes) ||
+		!packet.owner_session_id
+	)
+		return 'operator-misuse';
+	if (node?.kind === 'validate') return 'validation-failure';
+	if (node?.kind === 'execute') return 'executor-failure';
+	return 'workflow-failure';
+}
+
 export function fail_node(
 	state: FactoryState,
 	packet: FeedbackPacket,
@@ -356,8 +490,7 @@ export function fail_node(
 	state.feedback.push(packet);
 	node.feedback_ids.push(packet.id);
 	event(state, 'failure.classified', {
-		classification:
-			node.kind === 'plan' ? 'planning' : 'implementation',
+		classification: classify_failure(state, packet),
 		packet_id: packet.id,
 	});
 	const limit = definition(state, node.id).retry_limit;
@@ -690,10 +823,102 @@ export function amend_contract(
 	state.status = 'paused';
 	event(state, 'contract.amended');
 }
+function has_authoritative_delivery(state: FactoryState): boolean {
+	if (state.status !== 'completed') return false;
+	if (
+		!state.nodes.some(
+			(node) =>
+				node.kind === 'complete' && node.status === 'succeeded',
+		)
+	)
+		return false;
+	if (
+		state.nodes.some(
+			(node) =>
+				node.kind === 'validate' && node.status !== 'succeeded',
+		)
+	)
+		return false;
+	if (
+		state.nodes.some(
+			(node) => node.kind === 'review' && node.status !== 'succeeded',
+		)
+	)
+		return false;
+	for (const action of state.route.workflow.approvals)
+		if (requires_approval(state, action)) return false;
+	return true;
+}
+
+export function record_workflow_outcome(
+	state: FactoryState,
+	input: Omit<WorkflowOutcome, 'recorded_at'>,
+): WorkflowOutcome {
+	if (state.outcome)
+		throw new Error('Workflow outcome is already recorded');
+	if (
+		input.evidence_ids.some(
+			(id) => !state.evidence.some((evidence) => evidence.id === id),
+		)
+	)
+		throw new Error('Workflow outcome references unknown evidence');
+	if (
+		input.status === 'completed' &&
+		(!input.authoritative || !has_authoritative_delivery(state))
+	)
+		throw new Error(
+			'Completed outcome requires authoritative terminal delivery evidence',
+		);
+	if (input.status === 'completed-outside-factory') {
+		if (
+			input.authoritative ||
+			!input.external_delivery_id ||
+			!input.evidence_ids.length
+		)
+			throw new Error(
+				'Outside-factory completion requires explicit external delivery evidence',
+			);
+	}
+	if (
+		input.status === 'superseded' &&
+		!input.superseded_by_workflow_id
+	)
+		throw new Error(
+			'Superseded outcome requires the replacement workflow id',
+		);
+	if (input.status === 'failed' && !input.classification)
+		throw new Error(
+			'Failed outcome requires a failure classification',
+		);
+	const outcome: WorkflowOutcome = {
+		...input,
+		recorded_at: now(),
+	};
+	state.outcome = outcome;
+	event(state, 'workflow.outcome_recorded', {
+		status: outcome.status,
+		authoritative: outcome.authoritative,
+		classification: outcome.classification,
+		superseded_by_workflow_id: outcome.superseded_by_workflow_id,
+		external_delivery_id: outcome.external_delivery_id,
+	});
+	return outcome;
+}
+
 export function resume_state(
 	state: FactoryState,
 	owner_session_id: string,
 ): void {
+	const active_claim = state.claims.find(
+		(claim) => claim.status === 'active',
+	);
+	if (
+		active_claim &&
+		active_claim.owner_session_id !== owner_session_id
+	)
+		throw new Error(
+			'Ownership transfer must be acknowledged before another session resumes',
+		);
 	for (const node of state.nodes)
 		if (node.status === 'running' || node.status === 'blocked') {
 			node.status = 'ready';
@@ -715,6 +940,9 @@ function validate_factory_state(raw: unknown): FactoryState {
 		);
 	if (!state.acceptance_evaluations)
 		state.acceptance_evaluations = [];
+	if (!state.ownership_transfers) state.ownership_transfers = [];
+	for (const claim of state.claims ?? [])
+		claim.enforcement ??= 'enforced';
 	if (!state.contract) {
 		state.contract = {
 			version: state.contract_version ?? 1,
@@ -897,6 +1125,20 @@ function validate_factory_state(raw: unknown): FactoryState {
 	)
 		throw new Error('Invalid factory state approvals');
 	if (
+		state.outcome &&
+		(![
+			'completed',
+			'failed',
+			'cancelled',
+			'superseded',
+			'completed-outside-factory',
+		].includes(state.outcome.status) ||
+			typeof state.outcome.authoritative !== 'boolean' ||
+			!Array.isArray(state.outcome.evidence_ids) ||
+			typeof state.outcome.recorded_at !== 'string')
+	)
+		throw new Error('Invalid factory state outcome');
+	if (
 		!Array.isArray(state.events) ||
 		state.events.some(
 			(item) =>
@@ -974,6 +1216,7 @@ export class FactoryStateStore {
 		state: FactoryState,
 		owner_session_id: string,
 		paths: string[],
+		enforcement: 'enforced' | 'advisory' = 'enforced',
 	): PathClaim {
 		const lock = join(this.directory, '.claims.lock');
 		const descriptor = acquire_lock(lock);
@@ -983,6 +1226,7 @@ export class FactoryStateStore {
 				owner_session_id,
 				paths,
 				this.list().flatMap((item) => item.claims),
+				enforcement,
 			);
 			this.save(state);
 			return claim;
@@ -991,7 +1235,104 @@ export class FactoryStateStore {
 			unlinkSync(lock);
 		}
 	}
+	transfer(
+		state: FactoryState,
+		from_session_id: string,
+		to_session_id: string,
+	): OwnershipTransfer {
+		const lock = join(this.directory, '.claims.lock');
+		const descriptor = acquire_lock(lock);
+		try {
+			const transfer = request_ownership_transfer(
+				state,
+				from_session_id,
+				to_session_id,
+			);
+			this.save(state);
+			return transfer;
+		} finally {
+			closeSync(descriptor);
+			unlinkSync(lock);
+		}
+	}
+	acknowledge_transfer(
+		state: FactoryState,
+		transfer_id: string,
+		to_session_id: string,
+	): void {
+		const lock = join(this.directory, '.claims.lock');
+		const descriptor = acquire_lock(lock);
+		try {
+			acknowledge_ownership_transfer(
+				state,
+				transfer_id,
+				to_session_id,
+			);
+			this.save(state);
+		} finally {
+			closeSync(descriptor);
+			unlinkSync(lock);
+		}
+	}
 }
+export function summarize_factory_state(
+	state: FactoryState,
+	active_execution?: {
+		execution_id: string;
+		lifecycle: string;
+		adapter_id: string;
+		owner_session_id?: string;
+		updated_at: string;
+	},
+) {
+	const node = current_node(state);
+	const claim = state.claims.find((item) => item.status === 'active');
+	const blockers = state.nodes
+		.filter(
+			(item) =>
+				item.status === 'blocked' ||
+				item.status === 'failed' ||
+				item.status === 'escalated',
+		)
+		.map(
+			(item) => item.blocked_reason ?? `${item.id}: ${item.status}`,
+		);
+	const completed = state.nodes.filter(
+		(item) => item.status === 'succeeded',
+	).length;
+	const next = state.nodes.find((item) => item.status === 'ready');
+	return {
+		workflow_id: state.workflow_id,
+		task: state.contract.task,
+		workflow: state.route.workflow.id,
+		status: state.status,
+		owner: state.owner_session_id,
+		active_process_session: active_execution
+			? {
+					execution_id: active_execution.execution_id,
+					adapter_id: active_execution.adapter_id,
+					lifecycle: active_execution.lifecycle,
+					owner_session_id: active_execution.owner_session_id,
+				}
+			: undefined,
+		current_node: node?.id,
+		progress: `${completed}/${state.nodes.length} nodes complete; ${state.evidence.length} evidence records`,
+		last_heartbeat: claim?.heartbeat_at,
+		blockers,
+		next_action: blockers.length
+			? 'Resolve the blocking conflict or recover execution'
+			: next
+				? `Run ${next.id}`
+				: state.status === 'awaiting-approval'
+					? 'Await explicit human approval'
+					: 'Inspect workflow state',
+		validation_state:
+			state.nodes.find((item) => item.kind === 'validate')?.status ??
+			'not-configured',
+		updated_at: state.updated_at,
+	};
+}
+
 export function default_factory_directory(): string {
 	return join(getAgentDir(), 'factory');
 }
