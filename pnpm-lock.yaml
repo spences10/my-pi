@@ -24,6 +24,9 @@ catalogs:
     '@vitest/coverage-v8':
       specifier: 4.1.10
       version: 4.1.10
+    svelte:
+      specifier: ^5.56.2
+      version: 5.56.5
     svelte-check:
       specifier: ^4.7.2
       version: 4.7.2
@@ -212,7 +215,7 @@ importers:
         version: 1.61.1
       shadcn-svelte:
         specifier: ^1.2.7
-        version: 1.4.1(svelte@5.56.5)
+        version: 1.4.2(svelte@5.56.5)
       svead:
         specifier: ^0.0.16
         version: 0.0.16(svelte@5.56.5)(typescript@7.0.2)
@@ -3572,8 +3575,8 @@ packages:
   set-cookie-parser@3.1.2:
     resolution: {integrity: sha512-5/r/lTwbJ3zQ+qwdUFZYeRNqda7P5HD8zQKqlSjdGt1/S0cjLAphHusj4Y58ahDtWn/g32xrIS58/ikOvwl0Lw==}
 
-  shadcn-svelte@1.4.1:
-    resolution: {integrity: sha512-lpvnuHJOMf/CRlOMo5h7HpmdpcWmqVoPyvnCcgpJWJWzVkiwmisF80mR54GIAExSTSk1g4+ere3QrSty2PCIIg==}
+  shadcn-svelte@1.4.2:
+    resolution: {integrity: sha512-j7oDhXRmFuZ8bAhvF7Y65moMi9qM0iA68j5wEDNBiH0be9NWOEg1qo7myDeIf+h2oUSLBYHpVmeJIKYBmNT4Kg==}
     hasBin: true
     peerDependencies:
       svelte: ^5.0.0
@@ -6450,7 +6453,7 @@ snapshots:
 
   set-cookie-parser@3.1.2: {}
 
-  shadcn-svelte@1.4.1(svelte@5.56.5):
+  shadcn-svelte@1.4.2(svelte@5.56.5):
     dependencies:
       commander: 14.0.3
       node-fetch-native: 1.6.7
