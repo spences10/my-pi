@@ -1,8 +1,27 @@
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+// mcp.json wins over .mcp.json (Claude Code convention) when both exist
+const PROJECT_MCP_CONFIG_FILENAMES = ['mcp.json', '.mcp.json'];
+
 export function project_mcp_config_path(cwd: string): string {
-	return join(cwd, 'mcp.json');
+	for (const filename of PROJECT_MCP_CONFIG_FILENAMES) {
+		const path = join(cwd, filename);
+		if (existsSync(path)) return path;
+	}
+	return join(cwd, PROJECT_MCP_CONFIG_FILENAMES[0]);
+}
+
+export function ignored_project_mcp_config_path(
+	cwd: string,
+): string | undefined {
+	const paths = PROJECT_MCP_CONFIG_FILENAMES.map((filename) =>
+		join(cwd, filename),
+	);
+	return paths.every((path) => existsSync(path))
+		? paths[1]
+		: undefined;
 }
 
 export function project_mcp_policy_path(cwd: string): string {
