@@ -71,14 +71,14 @@
 		"@spences10/pi-settings": "workspace:*",
 		"@spences10/pi-themes": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*",
-		"citty": "^0.2.2"
+		"citty": "catalog:"
 	},
 	"devDependencies": {
-		"@changesets/cli": "^2.31.0",
-		"@resvg/resvg-js": "^2.6.2",
+		"@changesets/cli": "catalog:",
+		"@resvg/resvg-js": "catalog:",
 		"@types/node": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
-		"vite-plus": "^0.2.4",
+		"vite-plus": "catalog:",
 		"vitest": "catalog:"
 	},
 	"optionalDependencies": {

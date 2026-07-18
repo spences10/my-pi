@@ -4,23 +4,50 @@ packages:
   - packages/*
 
 minimumReleaseAge: 2880
-minimumReleaseAgeExclude:
-  - pirecall
 
 catalog:
+  '@changesets/cli': ^2.31.0
   '@earendil-works/pi-ai': 0.80.9
   '@earendil-works/pi-coding-agent': 0.80.9
   '@earendil-works/pi-tui': 0.80.9
+  '@fontsource-variable/victor-mono': ^5.2.8
+  '@fontsource/victor-mono': ^5.2.8
+  '@internationalized/date': ^3.12.1
+  '@playwright/test': ^1.60.0
+  '@resvg/resvg-js': ^2.6.2
+  '@sveltejs/adapter-cloudflare': ^7.2.8
+  '@sveltejs/kit': ^2.60.1
   '@sveltejs/vite-plugin-svelte': ^7.1.2
+  '@tailwindcss/vite': ^4.3.0
   '@types/node': ^25.8.0
+  '@vitest/browser-playwright': ^4.1.6
   '@vitest/coverage-v8': 4.1.10
+  bits-ui: ^2.18.1
+  citty: ^0.2.2
+  clsx: ^2.1.1
+  oxfmt: 0.59.0
+  phosphor-svelte: ^3.1.0
+  pirecall: ^0.1.3
+  playwright: ^1.60.0
+  shadcn-svelte: ^1.2.7
+  svead: ^0.0.16
   svelte: ^5.56.2
   svelte-check: ^4.7.2
+  tailwind-merge: ^3.6.0
+  tailwind-variants: ^3.2.2
+  tailwindcss: ^4.3.0
+  tw-animate-css: ^1.4.0
   typebox: ^1.1.38
   typescript: ^7.0.0
   vite: ^8.0.16
-  vite-plus: ^0.2.0
+  vite-plus: ^0.2.4
   vitest: 4.1.10
+  vitest-browser-svelte: ^3.0.0
+  wrangler: ^4.92.0
+
+catalogs:
+  typescript6:
+    typescript: ^6.0.3
 
 # Temporary/security pins. See docs/dependency-overrides.md.
 overrides:

@@ -44,7 +44,7 @@
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {
-		"pirecall": "^0.1.3"
+		"pirecall": "catalog:"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",

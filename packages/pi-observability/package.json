@@ -52,7 +52,7 @@
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {
-		"@fontsource/victor-mono": "^5.2.8",
+		"@fontsource/victor-mono": "catalog:",
 		"@spences10/pi-sqlite-core": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*"
 	},
@@ -63,7 +63,7 @@
 		"@types/node": "catalog:",
 		"svelte": "catalog:",
 		"svelte-check": "catalog:",
-		"typescript": "^6.0.3",
+		"typescript": "catalog:typescript6",
 		"vite": "catalog:",
 		"vitest": "catalog:"
 	},
