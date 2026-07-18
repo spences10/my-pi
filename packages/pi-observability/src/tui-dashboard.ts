@@ -12,6 +12,7 @@ import {
 	truncateToWidth,
 } from '@earendil-works/pi-tui';
 import { show_modal } from '@spences10/pi-tui-modal';
+import { authenticated_dashboard_url } from './dashboard-url.js';
 import { open_dashboard } from './index.js';
 
 interface DashboardSession {
@@ -465,7 +466,9 @@ export async function show_observability_tui_dashboard(
 					} else if (matchesKey(data, Key.ctrl('r'))) {
 						void refresh();
 					} else if (view === 'event' && data === 'b') {
-						open_dashboard(server_url);
+						open_dashboard(
+							authenticated_dashboard_url(server_url, token),
+						);
 					} else if (data === 'q') {
 						done();
 					} else if (view !== 'event') {

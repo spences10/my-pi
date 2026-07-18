@@ -14,6 +14,10 @@ import {
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { prepare_db } from './db.js';
 import {
+	create_health_proof,
+	valid_health_challenge,
+} from './health-auth.js';
+import {
 	to_row_event,
 	to_session_row,
 	valid_event,
@@ -165,7 +169,16 @@ export function start_observability_server(
 			);
 			if (req.method === 'OPTIONS') return json(res, 200, {});
 			if (req_url.pathname === '/health') {
-				return json(res, 200, { ok: true });
+				const challenge = req_url.searchParams.get('challenge');
+				if (!valid_health_challenge(challenge)) {
+					return json(res, 400, {
+						error: 'valid health challenge required',
+					});
+				}
+				return json(res, 200, {
+					ok: true,
+					proof: create_health_proof(token, challenge),
+				});
 			}
 			if (req_url.pathname === '/') {
 				return text(

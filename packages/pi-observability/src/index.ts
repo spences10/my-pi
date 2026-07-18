@@ -1,8 +1,10 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import type { Server } from 'node:http';
 import { homedir } from 'node:os';
 import { authenticated_dashboard_url } from './dashboard-url.js';
+import { health_proof_matches } from './health-auth.js';
 import { resolve_observability_token } from './options.js';
 import {
 	redact_value,
@@ -64,12 +66,12 @@ export function resolve_observability_config(
 
 	const configured_server_url =
 		as_string(pi.getFlag('observability-url')) ??
-		env.MY_PI_OBSERVABILITY_URL ??
-		env.PI_OBSERVABILITY_URL;
+		as_string(env.MY_PI_OBSERVABILITY_URL) ??
+		as_string(env.PI_OBSERVABILITY_URL);
 	const configured_token =
 		as_string(pi.getFlag('observability-token')) ??
-		env.MY_PI_OBSERVABILITY_TOKEN ??
-		env.PI_OBSERVABILITY_TOKEN;
+		as_string(env.MY_PI_OBSERVABILITY_TOKEN) ??
+		as_string(env.PI_OBSERVABILITY_TOKEN);
 
 	return {
 		server_url: configured_server_url ?? DEFAULT_OBSERVABILITY_URL,
@@ -272,24 +274,60 @@ export function create_event_envelope(
 	};
 }
 
-async function local_server_is_running(
+type LocalServerStatus = 'authenticated' | 'absent' | 'untrusted';
+
+async function local_server_status(
 	url: string,
-): Promise<boolean> {
+	token: string | undefined,
+): Promise<LocalServerStatus> {
+	if (!token) return 'untrusted';
+	const challenge = randomUUID();
 	try {
-		const response = await fetch(`${url.replace(/\/+$/, '')}/health`);
-		return response.ok;
+		const response = await fetch(
+			`${url.replace(/\/+$/, '')}/health?challenge=${encodeURIComponent(challenge)}`,
+		);
+		if (!response.ok) return 'untrusted';
+		const body = (await response.json()) as { proof?: unknown };
+		return health_proof_matches(token, challenge, body.proof)
+			? 'authenticated'
+			: 'untrusted';
 	} catch {
-		return false;
+		return 'absent';
 	}
+}
+
+async function wait_for_server_listening(
+	server: Server,
+): Promise<void> {
+	if (server.listening) return;
+	await new Promise<void>((resolve_listening, reject_listening) => {
+		const on_listening = () => {
+			server.off('error', on_error);
+			resolve_listening();
+		};
+		const on_error = (error: Error) => {
+			server.off('listening', on_listening);
+			reject_listening(error);
+		};
+		server.once('listening', on_listening);
+		server.once('error', on_error);
+	});
 }
 
 async function ensure_local_server(
 	url: string,
 	token: string | undefined,
 ): Promise<void> {
-	if (await local_server_is_running(url)) return;
+	const status = await local_server_status(url, token);
+	if (status === 'authenticated') return;
+	if (status === 'untrusted') {
+		throw new Error(
+			`Observability endpoint at ${url} failed authentication`,
+		);
+	}
+
 	const { start_observability_server } = await import('./server.js');
-	start_observability_server({
+	const running = start_observability_server({
 		host: '127.0.0.1',
 		port: new URL(url).port ? Number(new URL(url).port) : 43190,
 		token: token ?? '',
@@ -299,6 +337,13 @@ async function ensure_local_server(
 		log: false,
 		throw_on_listen_error: false,
 	});
+	await wait_for_server_listening(running.server);
+	if ((await local_server_status(url, token)) !== 'authenticated') {
+		await running.close();
+		throw new Error(
+			`Observability server at ${url} failed startup authentication`,
+		);
+	}
 }
 
 export function open_dashboard(url: string): void {

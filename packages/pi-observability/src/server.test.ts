@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { create_health_proof } from './health-auth.js';
 import {
 	resolve_observability_server_options,
 	start_observability_server,
@@ -51,7 +52,9 @@ function test_port(): number {
 async function wait_for_health(url: string): Promise<void> {
 	for (let attempt = 0; attempt < 50; attempt++) {
 		try {
-			const response = await fetch(`${url}/health`);
+			const response = await fetch(
+				`${url}/health?challenge=test-health-challenge`,
+			);
 			if (response.ok) return;
 		} catch {
 			// wait and retry
@@ -108,6 +111,28 @@ describe('resolve_observability_server_options', () => {
 });
 
 describe('start_observability_server', () => {
+	it('returns a token-bound proof for health challenges', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: 'health-proof-token',
+			db_path: tmp_db_path(),
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		const challenge = 'health-proof-challenge';
+		const response = await fetch(
+			`${server.url}/health?challenge=${challenge}`,
+		);
+		expect(await response.json()).toEqual({
+			ok: true,
+			proof: create_health_proof(server.token, challenge),
+		});
+		expect((await fetch(`${server.url}/health`)).status).toBe(400);
+	});
+
 	it('ingests events and exposes session history', async () => {
 		const server = start_observability_server({
 			host: '127.0.0.1',
