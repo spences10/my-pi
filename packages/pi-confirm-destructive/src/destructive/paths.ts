@@ -38,6 +38,12 @@ export function describe_path_risk(
 	const risks = new Set(
 		risky.map((path) => get_git_recoverability(cwd, path)),
 	);
+	if (risks.has('repo-root')) {
+		return 'Deletes the repository root, including git metadata';
+	}
+	if (risks.has('ignored')) {
+		return 'Deletes ignored files or directories that git cannot restore';
+	}
 	if (risks.has('untracked')) {
 		return 'Deletes untracked files or directories that git cannot restore';
 	}

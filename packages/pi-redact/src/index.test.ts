@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
+import filter_output, {
 	looks_like_ssh_config,
 	redact_ssh_config_metadata,
 	redact_text,
@@ -71,6 +71,190 @@ describe('redact_text', () => {
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:Generic Password Field]');
 		expect(redacted).not.toContain('CanaryPassword-Redaction-001!');
+	});
+
+	it('redacts quoted JSON secret fields without leaking their values', () => {
+		const values = {
+			password: ['super', 'secret', '12345'].join(''),
+			access_token: ['opaque', '-token-', 'value!'].join(''),
+			client_secret: ['client', '$#%&*?', 'secret'].join(''),
+			refresh_token: ['refresh', '-opaque-', 'credential'].join(''),
+			aws_secret_access_key: ['A1b2', '/+=', 'C3d4']
+				.join('')
+				.repeat(5),
+		};
+		const input = JSON.stringify(values);
+		const { redacted, count } = redact_text(input);
+
+		expect(count).toBe(5);
+		for (const value of Object.values(values)) {
+			expect(redacted).not.toContain(value);
+		}
+		expect(redacted).toContain('[REDACTED:Generic Password Field]');
+	});
+
+	it('redacts the complete value when an env secret contains shell punctuation', () => {
+		const value = ['p@', '$$', 'w0rd!', 'xyz#%&*?~^'].join('');
+		const input = `PASSWORD=${value}`;
+		const { redacted, count } = redact_text(input);
+
+		expect(count).toBe(1);
+		expect(redacted).not.toContain(value);
+		expect(redacted).not.toContain('xyz#%&*?~^');
+	});
+
+	it.each([
+		[
+			'JWT',
+			[
+				'eyJ',
+				'hbGciOiJIUzI1NiJ9',
+				'.',
+				'eyJzdWIiOiIxMjM0NTY3ODkwIn0',
+				'.',
+				'signaturevalue123456',
+			].join(''),
+		],
+		['Slack Token', `xoxb-${'A'.repeat(32)}`],
+		['GitLab Token', `glpat-${'B'.repeat(24)}`],
+		['Google API Key', `AIza${'C'.repeat(35)}`],
+		['npm Token', `npm_${'D'.repeat(36)}`],
+		['SendGrid API Key', `SG.${'E'.repeat(24)}.${'F'.repeat(43)}`],
+	])('redacts %s credentials', (_name, credential) => {
+		const { redacted, count } = redact_text(credential);
+		expect(count).toBe(1);
+		expect(redacted).not.toContain(credential);
+	});
+
+	it('redacts a private-key chunk even when its END marker is absent', () => {
+		const private_key_chunk = [
+			'-----BEGIN PRIVATE KEY-----',
+			'Q0FOQVJZX1BSSVZBVEVfS0VZX0ZJUlNUX0NIVU5L',
+		].join('\n');
+		const { redacted, count } = redact_text(private_key_chunk);
+
+		expect(count).toBe(1);
+		expect(redacted).not.toContain(
+			'Q0FOQVJZX1BSSVZBVEVfS0VZX0ZJUlNUX0NIVU5L',
+		);
+		expect(redacted).toContain('[REDACTED:Private Key]');
+	});
+
+	it('does not blanket-redact unlabelled encoded output', () => {
+		const input = Buffer.from(
+			'ordinary build artifact content without credentials',
+		).toString('base64');
+		const { redacted, count } = redact_text(input);
+		expect(count).toBe(0);
+		expect(redacted).toBe(input);
+	});
+
+	it('tracks and redacts private-key continuations across read chunks', async () => {
+		let tool_result_handler:
+			| ((event: Record<string, unknown>) => unknown)
+			| undefined;
+		const pi = {
+			on(
+				name: string,
+				handler: (event: Record<string, unknown>) => unknown,
+			) {
+				if (name === 'tool_result') tool_result_handler = handler;
+			},
+			registerCommand() {},
+		};
+		await filter_output(pi as never);
+		const path = '/tmp/chunked-private-key.pem';
+		const first_chunk = [
+			'-----BEGIN PRIVATE KEY-----',
+			'Q0FOQVJZX0ZJUlNUX0NIVU5LX1BSSVZBVEVfS0VZ',
+		].join('\n');
+		const second_chunk = [
+			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==',
+			'-----END PRIVATE KEY-----',
+		].join('\n');
+
+		await tool_result_handler?.({
+			toolName: 'read',
+			input: { path },
+			content: [{ type: 'text', text: first_chunk }],
+		});
+		const result = (await tool_result_handler?.({
+			toolName: 'read',
+			input: { path, offset: 2 },
+			content: [{ type: 'text', text: second_chunk }],
+		})) as { content?: Array<{ text?: string }> };
+
+		expect(result.content?.[0]?.text).toContain(
+			'[REDACTED:Private Key continuation]',
+		);
+		expect(result.content?.[0]?.text).not.toContain(
+			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==',
+		);
+	});
+
+	it('redacts private-key continuations split across text content blocks', async () => {
+		let tool_result_handler:
+			| ((event: Record<string, unknown>) => unknown)
+			| undefined;
+		const pi = {
+			on(
+				name: string,
+				handler: (event: Record<string, unknown>) => unknown,
+			) {
+				if (name === 'tool_result') tool_result_handler = handler;
+			},
+			registerCommand() {},
+		};
+		await filter_output(pi as never);
+		const continuation = 'Q0FOQVJZX1BSSVZBVEVfQk9EWV9DT05URU5U';
+		const result = (await tool_result_handler?.({
+			toolName: 'read',
+			input: { path: '/tmp/split-content-key.pem' },
+			content: [
+				{ type: 'text', text: `-----${'BEGIN PRIVATE KEY-----'}\n` },
+				{ type: 'text', text: continuation },
+			],
+		})) as { content?: Array<{ text?: string }> };
+
+		expect(result.content?.[1]?.text).toContain(
+			'[REDACTED:Private Key continuation]',
+		);
+		expect(result.content?.[1]?.text).not.toContain(continuation);
+	});
+
+	it('normalizes read paths before tracking private-key continuations', async () => {
+		let tool_result_handler:
+			| ((event: Record<string, unknown>) => unknown)
+			| undefined;
+		const pi = {
+			on(
+				name: string,
+				handler: (event: Record<string, unknown>) => unknown,
+			) {
+				if (name === 'tool_result') tool_result_handler = handler;
+			},
+			registerCommand() {},
+		};
+		await filter_output(pi as never);
+		const continuation =
+			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==';
+		await tool_result_handler?.({
+			toolName: 'read',
+			input: { path: '/tmp/equivalent-key.pem' },
+			content: [
+				{ type: 'text', text: `-----${'BEGIN PRIVATE KEY-----'}\n` },
+			],
+		});
+		const result = (await tool_result_handler?.({
+			toolName: 'read',
+			input: { path: '/tmp/./equivalent-key.pem', offset: 2 },
+			content: [{ type: 'text', text: continuation }],
+		})) as { content?: Array<{ text?: string }> };
+
+		expect(result.content?.[0]?.text).toContain(
+			'[REDACTED:Private Key continuation]',
+		);
+		expect(result.content?.[0]?.text).not.toContain(continuation);
 	});
 
 	it('redacts GitHub fine-grained PATs', () => {

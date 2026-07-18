@@ -15,4 +15,6 @@ export type GitRecoverability =
 	| 'tracked-clean'
 	| 'tracked-dirty'
 	| 'untracked'
+	| 'ignored'
+	| 'repo-root'
 	| 'not-git';

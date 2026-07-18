@@ -33,17 +33,23 @@ The extension intercepts Pi `tool_call` and `user_bash` events before
 they run and asks for confirmation when an action may destroy data
 that Git cannot restore.
 
-It allows common refactor operations on clean tracked files without
-prompting, while guarding:
+It tokenizes shell command intent across newlines, pipelines, command
+substitutions, groups, and common wrappers such as `sudo`, `env`,
+`command`, `xargs`, and `sh -c`. It allows common refactor operations
+on clean tracked files without prompting, while guarding:
 
-- untracked file deletes or overwrites
-- tracked files with uncommitted changes
-- broad destructive shell commands such as `find -delete`,
-  `git clean`, `rsync --delete`, `truncate`, `dd`, and disk tools
-- destructive Prisma commands such as `prisma migrate reset` and
-  `prisma db push --force-reset`
-- destructive database CLI calls through `psql`, `mysql`, `mariadb`,
-  or `sqlite3`
+- untracked, ignored, or dirty file deletes and overwrites
+- repository-root deletion, including the otherwise clean `.git`
+  directory and local-only branches, stashes, and metadata
+- overwrite redirections and broad destructive shell commands such as
+  `find -delete`/destructive `-exec`, `sed -i`, `git clean`,
+  `rsync --delete`, `truncate`, `dd`, and disk tools
+- destructive Git operations including stash deletion, forced branch
+  deletion, remote-ref deletion, hard resets, and force pushes
+- destructive Prisma and database CLI commands, including `dropdb` and
+  Redis flushes
+- Docker system pruning, Terraform destroy, recursive S3 removal, and
+  Kubernetes deletion
 - custom/MCP tools with destructive names such as `delete`, `drop`,
   `execute_write_query`, or `execute_schema_query`
 
@@ -54,6 +60,12 @@ In interactive mode the prompt offers:
 - `Block`
 
 In non-interactive mode destructive actions are blocked by default.
+
+This is a confirmation guard, not a shell sandbox. Shell aliases,
+dynamically assembled command names, custom executables, and novel
+command families can still hide destructive intent. Keep important
+work committed and backed up, and use OS/container isolation when
+executing untrusted commands.
 
 ## Using from a custom harness
 

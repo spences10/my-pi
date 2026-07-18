@@ -36,11 +36,15 @@ output, file reads, logs, and config files.
 
 It currently detects and redacts:
 
-- API-key-like fields such as `password`, `secret`, `token`, and
-  `api_key`
-- GitHub classic and fine-grained tokens
-- Tavily, Kagi, Brave, and Firecrawl API keys
-- connection strings with embedded credentials
+- quoted JSON and unquoted environment/config fields with sensitive
+  names such as `password`, `client_secret`, `access_token`, and
+  `api_key`, including values containing shell punctuation
+- GitHub, GitLab, Slack, npm, Google, SendGrid, JWT, and common
+  vendor-prefixed tokens
+- AWS credentials, bearer tokens, and connection strings with embedded
+  credentials
+- private-key blocks and partial private-key reads; sequential `read`
+  chunks for the same path remain redacted after a private-key header
 - SSH config metadata such as `Host`, `HostName`, `User`,
   `IdentityFile`, `ProxyJump`, and forwarding directives
 
@@ -85,11 +89,18 @@ import redact from '@spences10/pi-redact';
 ## Limitations
 
 This extension is defensive, not a guarantee. It can miss novel secret
-formats, and broad patterns can occasionally redact benign values. Use
-proper secret hygiene as the primary control:
+formats, dynamically assembled values, and chunks that begin midway
+through a secret without prior context. It intentionally does not
+blanket-redact unlabelled base64, compressed, encrypted, or other
+high-entropy output because source archives, hashes, and build
+artifacts commonly have the same shape. Broad patterns can also
+occasionally redact benign values.
 
-- do not print secrets unnecessarily
-- avoid reading `.env` files into model context
+Use proper secret hygiene as the primary control:
+
+- do not print or encode secrets unnecessarily
+- avoid reading `.env` files into model context; prefer `nopeek` for
+  secret-safe environment loading
 - prefer scoped, revocable tokens
 - rotate anything that may have been exposed
 

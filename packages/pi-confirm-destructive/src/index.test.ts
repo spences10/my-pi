@@ -83,6 +83,8 @@ describe('assess_bash_command', () => {
 		'sqlite3 app.db "delete from users"',
 		'find . -name "*.tmp" -delete',
 		'git clean -fdx',
+		'git clean --force -d',
+		'git -C . clean -fdx',
 		'rsync -a --delete src/ dest/',
 		'truncate -s 0 app.log',
 	])('detects broadly destructive command: %s', (command) => {
@@ -173,6 +175,113 @@ describe('assess_bash_command', () => {
 		expect(assess_bash_command(command)?.reason).toBe(
 			'Overwrites remote git history',
 		);
+	});
+
+	it.each([
+		'echo ready\nrm -rf untracked.md',
+		'echo x | xargs rm -rf untracked.md',
+		"sh -c 'rm -rf untracked.md'",
+		'(rm -rf untracked.md)',
+		'{ rm -rf untracked.md; }',
+		'env rm -rf untracked.md',
+		'command rm -rf untracked.md',
+		'find . -execdir rm -rf untracked.md \\;',
+		"find . -execdir sh -c 'rm -rf untracked.md' \\;",
+		"echo x | xargs sh -c 'rm -rf untracked.md'",
+		'echo "$(rm -rf untracked.md)"',
+		'echo `rm -rf untracked.md`',
+		"eval 'rm -rf untracked.md'",
+		"sudo --user root env FLAG=1 bash -lc 'rm -rf untracked.md'",
+		'nice -n 5 rm -rf untracked.md',
+		'ionice -c 3 rm -rf untracked.md',
+		'stdbuf -o L rm -rf untracked.md',
+		'setsid rm -rf untracked.md',
+		'busybox rm -rf untracked.md',
+	])('detects wrapped or compound removal: %s', (command) => {
+		const cwd = create_git_repo();
+		writeFileSync(join(cwd, 'untracked.md'), 'important');
+		expect(assess_bash_command(command, cwd)).toBeTruthy();
+	});
+
+	it('does not confuse quoted destructive-looking text with command intent', () => {
+		expect(
+			assess_bash_command("printf '%s\\n' 'rm -rf important.md'"),
+		).toBeUndefined();
+	});
+
+	it('does not treat heredoc bodies as executable command intent', () => {
+		const command = [
+			"cat > guide.md <<'EOF'",
+			'rm -rf is dangerous documentation',
+			'EOF',
+		].join('\n');
+		expect(assess_bash_command(command)).toBeUndefined();
+	});
+
+	it('still detects destructive commands following a heredoc', () => {
+		const command = [
+			"cat > guide.md <<'EOF'",
+			'rm -rf is dangerous documentation',
+			'EOF',
+			'rm -rf untracked.md',
+		].join('\n');
+		expect(assess_bash_command(command)).toBeTruthy();
+	});
+
+	it('preserves safe git and redirect operations', () => {
+		const cwd = create_git_repo();
+		expect(
+			assess_bash_command('git branch -d merged', cwd),
+		).toBeUndefined();
+		expect(
+			assess_bash_command('echo replacement > tracked.md', cwd),
+		).toBeUndefined();
+		expect(
+			assess_bash_command('echo ok > /dev/null', cwd),
+		).toBeUndefined();
+		expect(
+			assess_bash_command('find . -exec printf "%s\\n" {} \\;', cwd),
+		).toBeUndefined();
+	});
+
+	it('treats the repository root as unrecoverable', () => {
+		const cwd = create_git_repo();
+		expect(assess_bash_command('rm -rf .', cwd)).toBeTruthy();
+	});
+
+	it('treats ignored files beneath a tracked directory as unrecoverable', () => {
+		const cwd = create_git_repo();
+		mkdirSync(join(cwd, 'src'));
+		writeFileSync(join(cwd, 'src', 'tracked.ts'), 'tracked');
+		writeFileSync(join(cwd, '.gitignore'), 'src/.env\n');
+		git(cwd, ['add', 'src/tracked.ts', '.gitignore']);
+		git(cwd, ['commit', '-m', 'add src']);
+		writeFileSync(join(cwd, 'src', '.env'), 'important');
+
+		expect(assess_bash_command('rm -rf src', cwd)).toBeTruthy();
+	});
+
+	it.each([
+		'> untracked.log',
+		': > untracked.log',
+		"sed -i 's/old/new/' untracked.log",
+		"sed --in-place 's/old/new/' untracked.log",
+		'git stash drop',
+		'git branch -D old-branch',
+		'git branch --delete --force old-branch',
+		'git push origin --delete old-branch',
+		'git push -d origin old-branch',
+		'git push origin :old-branch',
+		'docker system prune -af',
+		'dropdb production',
+		'redis-cli flushall',
+		'terraform destroy -auto-approve',
+		'aws s3 rm s3://bucket --recursive',
+		'kubectl delete namespace production',
+	])('detects destructive command family: %s', (command) => {
+		const cwd = create_git_repo();
+		writeFileSync(join(cwd, 'untracked.log'), 'important');
+		expect(assess_bash_command(command, cwd)).toBeTruthy();
 	});
 });
 
