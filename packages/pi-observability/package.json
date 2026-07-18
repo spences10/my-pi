@@ -63,7 +63,7 @@
 		"@types/node": "catalog:",
 		"svelte": "catalog:",
 		"svelte-check": "catalog:",
-		"typescript": "catalog:",
+		"typescript": "^6.0.3",
 		"vite": "catalog:",
 		"vitest": "catalog:"
 	},

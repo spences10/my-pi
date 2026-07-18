@@ -11,6 +11,7 @@ import {
 	read_dashboard_font,
 	render_dashboard,
 } from './assets.js';
+import { authenticated_dashboard_url } from './dashboard-url.js';
 import { prepare_db } from './db.js';
 import {
 	to_row_event,
@@ -25,7 +26,10 @@ import {
 	read_body,
 	text,
 } from './http-responses.js';
-import { resolve_observability_server_options } from './options.js';
+import {
+	generate_observability_token,
+	resolve_observability_server_options,
+} from './options.js';
 import { describe_port_owner } from './port-owner.js';
 import type {
 	ObservabilityServerOptions,
@@ -68,6 +72,7 @@ function bounded_limit(
 export function start_observability_server(
 	options: ObservabilityServerOptions = resolve_observability_server_options(),
 ): RunningObservabilityServer {
+	const token = options.token || generate_observability_token();
 	const { db, statements } = prepare_db(options.db_path);
 	let next_subscriber_id = 1;
 	const subscribers = new Map<number, Subscriber>();
@@ -183,13 +188,7 @@ export function start_observability_server(
 				const font = read_dashboard_font(req_url.pathname);
 				if (font) return binary(res, 200, 'font/woff2', font);
 			}
-			if (
-				!is_authorized(
-					req_url,
-					options.token,
-					req.headers.authorization,
-				)
-			) {
+			if (!is_authorized(token, req.headers.authorization)) {
 				return json(res, 401, { error: 'unauthorized' });
 			}
 			if (req_url.pathname === '/events' && req.method === 'POST') {
@@ -360,8 +359,10 @@ export function start_observability_server(
 
 	server.listen(options.port, options.host, () => {
 		if (!options.log) return;
+		const url = `http://${options.host}:${options.port}`;
+		console.log(`My-Pi observability listening on ${url}`);
 		console.log(
-			`My-Pi observability listening on http://${options.host}:${options.port}`,
+			`Dashboard: ${authenticated_dashboard_url(url, token)}`,
 		);
 		console.log(`Database: ${options.db_path}`);
 	});
@@ -370,6 +371,7 @@ export function start_observability_server(
 		server,
 		db,
 		url: `http://${options.host}:${options.port}`,
+		token,
 		db_path: options.db_path,
 		close: async () => {
 			clearInterval(heartbeat);

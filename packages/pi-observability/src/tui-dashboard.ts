@@ -41,14 +41,11 @@ interface DashboardSnapshot {
 	loaded_at: Date;
 }
 
-function api_url(
-	server_url: string,
-	path: string,
-	token?: string,
-): string {
-	const url = new URL(path, server_url.replace(/\/+$/, '') + '/');
-	if (token) url.searchParams.set('token', token);
-	return url.toString();
+function api_url(server_url: string, path: string): string {
+	return new URL(
+		path,
+		server_url.replace(/\/+$/, '') + '/',
+	).toString();
 }
 
 async function fetch_json<T>(
@@ -58,7 +55,7 @@ async function fetch_json<T>(
 ): Promise<T> {
 	const headers: Record<string, string> = {};
 	if (token) headers.authorization = `Bearer ${token}`;
-	const response = await fetch(api_url(server_url, path, token), {
+	const response = await fetch(api_url(server_url, path), {
 		headers,
 	});
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);

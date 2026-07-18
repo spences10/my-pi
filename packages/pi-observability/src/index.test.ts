@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import observability, {
 	create_event_envelope,
@@ -81,13 +84,17 @@ describe('resolve_dashboard_command', () => {
 });
 
 describe('resolve_observability_config', () => {
-	it('defaults to local auto-start without a server url', () => {
-		expect(
-			resolve_observability_config({ getFlag: () => undefined }, {}),
-		).toMatchObject({
+	it('defaults to authenticated local auto-start without a server url', () => {
+		const home = mkdtempSync(join(tmpdir(), 'pi-obs-config-'));
+		const config = resolve_observability_config(
+			{ getFlag: () => undefined },
+			{ HOME: home },
+		);
+		expect(config).toMatchObject({
 			server_url: 'http://127.0.0.1:43190',
 			auto_start_server: true,
 		});
+		expect(config?.token).toHaveLength(43);
 	});
 
 	it('stays disabled when explicitly disabled', () => {

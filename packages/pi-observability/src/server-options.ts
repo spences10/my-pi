@@ -17,6 +17,7 @@ export interface RunningObservabilityServer {
 	server: Server;
 	db: DatabaseSync;
 	url: string;
+	token: string;
 	db_path: string;
 	close: () => Promise<void>;
 }

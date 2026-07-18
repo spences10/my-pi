@@ -11,6 +11,29 @@ import type { ObservabilityEvent } from './types.js';
 
 const servers: RunningObservabilityServer[] = [];
 
+async function fetch(
+	input: string | URL | Request,
+	init: RequestInit = {},
+): Promise<Response> {
+	const url =
+		typeof input === 'string'
+			? input
+			: input instanceof URL
+				? input.href
+				: input.url;
+	const server = servers.find((candidate) =>
+		url.startsWith(candidate.url),
+	);
+	const headers = new Headers(init.headers);
+	if (
+		server &&
+		!new URL(url).searchParams.has('unauthorized') &&
+		!new URL(url).searchParams.has('token')
+	)
+		headers.set('authorization', `Bearer ${server.token}`);
+	return globalThis.fetch(input, { ...init, headers });
+}
+
 afterEach(async () => {
 	while (servers.length > 0) {
 		await servers.pop()?.close();
@@ -78,6 +101,7 @@ describe('resolve_observability_server_options', () => {
 		expect(
 			resolve_observability_server_options({
 				MY_PI_OBSERVABILITY_PORT: 'not-a-port',
+				MY_PI_OBSERVABILITY_TOKEN: 'configured-value',
 			}).port,
 		).toBe(43190);
 	});
@@ -442,7 +466,7 @@ describe('start_observability_server', () => {
 		expect(events_body.events[0]?.seq).toBe(100);
 	});
 
-	it('requires auth when a token is configured', async () => {
+	it('requires header auth and rejects query tokens', async () => {
 		const server = start_observability_server({
 			host: '127.0.0.1',
 			port: test_port(),
@@ -453,10 +477,13 @@ describe('start_observability_server', () => {
 		servers.push(server);
 		await wait_for_health(server.url);
 
-		expect((await fetch(`${server.url}/sessions`)).status).toBe(401);
+		expect(
+			(await fetch(`${server.url}/sessions?unauthorized=1`)).status,
+		).toBe(401);
 		expect(
 			(await fetch(`${server.url}/sessions?token=dev-token`)).status,
-		).toBe(200);
+		).toBe(401);
+		expect((await fetch(`${server.url}/sessions`)).status).toBe(200);
 	});
 
 	it('broadcasts ingested events to SSE subscribers', async () => {

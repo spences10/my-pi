@@ -491,7 +491,7 @@ describe('load_mcp_config', () => {
 		);
 	});
 
-	it('lets project MCP policy override global policy', () => {
+	it('does not let project MCP policy widen global activation', () => {
 		const home = tmp_dir();
 		const cwd = tmp_dir();
 		dirs.push(home, cwd);
@@ -518,16 +518,50 @@ describe('load_mcp_config', () => {
 		});
 		writeFileSync(
 			join(cwd, '.pi', 'mcp-policy.json'),
+			JSON.stringify({ servers: { scoped: {} } }),
+		);
+
+		expect(load_mcp_config(cwd)).toEqual([]);
+	});
+
+	it('lets project MCP policy further restrict global activation', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		const global_dir = join(home, '.pi', 'agent');
+		mkdirSync(global_dir, { recursive: true });
+		mkdirSync(join(cwd, '.pi'), { recursive: true });
+		writeFileSync(
+			join(global_dir, 'mcp.json'),
+			JSON.stringify({ mcpServers: { scoped: { command: 'cmd' } } }),
+		);
+		write_settings({
+			version: 1,
+			mcp: {
+				policy: {
+					servers: {
+						scoped: { activateWhen: { cwdPrefix: cwd } },
+					},
+				},
+			},
+		});
+		writeFileSync(
+			join(cwd, '.pi', 'mcp-policy.json'),
 			JSON.stringify({
 				servers: {
-					scoped: { activateWhen: { cwdPrefix: cwd } },
+					scoped: {
+						activateWhen: { githubRepo: ['elsewhere/project'] },
+					},
 				},
 			}),
 		);
 
-		expect(load_mcp_config(cwd).map((config) => config.name)).toEqual(
-			['scoped'],
-		);
+		expect(load_mcp_config(cwd)).toEqual([]);
+		expect(load_mcp_config(cwd, { include_project: false })).toEqual([
+			{ name: 'scoped', transport: 'stdio', command: 'cmd' },
+		]);
 	});
 
 	it('lets project config override global config by name', () => {

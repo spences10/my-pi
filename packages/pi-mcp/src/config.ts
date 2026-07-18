@@ -81,12 +81,17 @@ export function load_mcp_config(
 		...Object.keys(project_servers),
 	]);
 
-	const policies = load_mcp_policy(cwd);
+	const policies = load_mcp_policy(
+		cwd,
+		options.include_project !== false,
+	);
 	const github_repos = get_github_repos(cwd);
 
 	return Array.from(merged_names)
 		.filter((name) =>
-			policy_matches(policies[name], cwd, github_repos),
+			(policies[name] ?? []).every((policy) =>
+				policy_matches(policy, cwd, github_repos),
+			),
 		)
 		.map((name) => {
 			const project_server = project_servers[name];

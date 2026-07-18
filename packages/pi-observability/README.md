@@ -56,6 +56,7 @@ Server environment variables:
 MY_PI_OBSERVABILITY_HOST=127.0.0.1
 MY_PI_OBSERVABILITY_PORT=43190
 MY_PI_OBSERVABILITY_DB=~/.pi/agent/observability.db
+MY_PI_OBSERVABILITY_TOKEN_FILE=~/.pi/agent/observability-token
 MY_PI_OBSERVABILITY_RETENTION_DAYS=14
 MY_PI_OBSERVABILITY_MAX_EVENTS=100000
 MY_PI_OBSERVABILITY_MAX_BODY_BYTES=1048576
@@ -63,8 +64,16 @@ MY_PI_OBSERVABILITY_DETAIL=detailed # detailed or summary
 MY_PI_OBSERVABILITY_TOKEN=dev-token
 ```
 
-Open `http://127.0.0.1:43190/?token=dev-token` when a token is set.
-The dashboard includes:
+The local API requires bearer authentication by default. On first
+startup, the server creates a random token in
+`~/.pi/agent/observability-token` with mode `0600`. The token is
+shared by Pi sessions using the fixed local server; a separate random
+token per agent session would break pooled ingestion. Set
+`MY_PI_OBSERVABILITY_TOKEN` to manage the value explicitly. The TUI
+command and server startup output provide a dashboard URL whose
+fragment carries the token to the browser without sending it in an
+HTTP query string. The browser removes the fragment and sends the
+token only in the `Authorization` header. The dashboard includes:
 
 - **Trace summary** — elapsed time, blocking time, errors, token, and
   cost rollups for the selected session.
@@ -135,6 +144,15 @@ Set `MY_PI_OBSERVABILITY_DETAIL=summary` or
 Raw payload mode is opt-in with `--observability-raw` or
 `MY_PI_OBSERVABILITY_RAW=true`; redaction and a payload byte cap still
 apply.
+
+The dashboard shell and static assets are public on the configured
+listener, but event ingestion, queries, trace data, and live streams
+require an exact `Authorization: Bearer ...` header. URL query tokens
+are rejected. The token file protects against other local OS users and
+drive-by browser requests. The server also enforces mode `0600` on the
+database and its WAL/SHM files. It cannot isolate data from other
+processes running as the same account, which can already read the
+local database directly.
 
 This package does not read `.env` files automatically. Pass only the
 configuration you want through environment variables or flags.

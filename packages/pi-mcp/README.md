@@ -68,10 +68,13 @@ and discover tools eagerly.
 Keep `mcp.json` portable by putting my-pi activation rules in a
 separate policy file. Global policy lives at
 `~/.pi/agent/mcp-policy.json`; project policy lives at
-`.pi/mcp-policy.json` and overrides global entries by server name. A
-server with no policy keeps the default behavior. A server with an
-`activateWhen` policy is skipped entirely unless at least one
-criterion matches the current cwd or GitHub remote.
+`.pi/mcp-policy.json`. Project policy is loaded only when project MCP
+config passes the project trust decision. It may further restrict a
+global policy, but cannot replace or widen one; when both scopes
+define a server, both policies must match. A server with no policy
+keeps the default behavior. A server with an `activateWhen` policy is
+skipped entirely unless at least one criterion matches the current cwd
+or GitHub remote.
 
 ```json
 {

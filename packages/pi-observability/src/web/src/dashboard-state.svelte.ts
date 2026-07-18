@@ -11,7 +11,19 @@ type Event = ObservabilityEvent<Record<string, unknown>>;
 type Session = DashboardSession;
 type View = 'timeline' | 'waterfall' | 'events';
 
-const token = new URLSearchParams(location.search).get('token') || '';
+function read_fragment_token() {
+	const fragment = new URLSearchParams(location.hash.slice(1));
+	const token = fragment.get('token') || '';
+	if (token)
+		history.replaceState(
+			null,
+			'',
+			`${location.pathname}${location.search}`,
+		);
+	return token;
+}
+
+const token = read_fragment_token();
 const theme_key = 'pi-observability-theme';
 const details_key = 'pi-observability-details-open';
 
@@ -40,8 +52,12 @@ let session_reload_timer: ReturnType<typeof setTimeout> | null = null;
 let selected_reload_timer: ReturnType<typeof setTimeout> | null =
 	null;
 
-export function api(path: string) {
-	return `${path}${token ? `${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : ''}`;
+async function api_fetch(path: string, init: RequestInit = {}) {
+	const headers = new Headers(init.headers);
+	if (token) headers.set('authorization', `Bearer ${token}`);
+	const response = await fetch(path, { ...init, headers });
+	if (!response.ok) throw new Error(`HTTP ${response.status}`);
+	return response;
 }
 
 export function label(session: Session) {
@@ -212,7 +228,7 @@ export function toggle_details_open() {
 }
 
 export async function load_sessions() {
-	const response = await fetch(api('/sessions'));
+	const response = await api_fetch('/sessions');
 	const body = await response.json();
 	dashboard_state.sessions = body.sessions || [];
 	if (!dashboard_state.selected_id && dashboard_state.sessions[0])
@@ -228,8 +244,8 @@ function sync_selected_event(events: Event[]) {
 }
 
 export async function fetch_events(id: string) {
-	const response = await fetch(
-		api(`/sessions/${encodeURIComponent(id)}/events?limit=500`),
+	const response = await api_fetch(
+		`/sessions/${encodeURIComponent(id)}/events?limit=500`,
 	);
 	const body = await response.json();
 	const loaded = (body.events || []) as Event[];
@@ -247,7 +263,7 @@ export async function select_session(id: string) {
 	if (previous_id !== id) dashboard_state.selected_event = null;
 	const [loaded_events, trace_response] = await Promise.all([
 		fetch_events(id),
-		fetch(api(`/sessions/${encodeURIComponent(id)}/trace`)),
+		api_fetch(`/sessions/${encodeURIComponent(id)}/trace`),
 	]);
 	dashboard_state.events = loaded_events;
 	sync_selected_event(loaded_events);
@@ -270,44 +286,79 @@ function schedule_selected_reload() {
 	}, 350);
 }
 
-export function connect() {
-	const source = new EventSource(api('/events/stream'));
-	source.addEventListener(
-		'hello',
-		() => (dashboard_state.connected = true),
-	);
-	source.addEventListener('event', (message) => {
-		const event = JSON.parse(message.data) as Event;
-		dashboard_state.live_seen = {
-			...dashboard_state.live_seen,
-			[event.session_id]: Date.now(),
-		};
-		if (event.type === 'session_shutdown') {
-			const next = { ...dashboard_state.live_seen };
-			delete next[event.session_id];
-			dashboard_state.live_seen = next;
-		}
-		if (dashboard_state.paused) return;
-		const cached = event_cache.get(event.session_id) || [];
-		if (!cached.some((item) => item.event_id === event.event_id)) {
-			event_cache.set(
-				event.session_id,
-				[event, ...cached].slice(0, 500),
-			);
-			if (event.session_id === dashboard_state.selected_id) {
-				dashboard_state.events =
-					event_cache.get(event.session_id) || [];
-				sync_selected_event(dashboard_state.events);
-			}
-		}
-		schedule_sessions_reload();
-		if (event.session_id === dashboard_state.selected_id)
-			schedule_selected_reload();
-	});
-	source.onerror = () => {
-		dashboard_state.connected = false;
-		source.close();
-		setTimeout(connect, 1500);
+function receive_event(event: Event) {
+	dashboard_state.live_seen = {
+		...dashboard_state.live_seen,
+		[event.session_id]: Date.now(),
 	};
-	return () => source.close();
+	if (event.type === 'session_shutdown') {
+		const next = { ...dashboard_state.live_seen };
+		delete next[event.session_id];
+		dashboard_state.live_seen = next;
+	}
+	if (dashboard_state.paused) return;
+	const cached = event_cache.get(event.session_id) || [];
+	if (!cached.some((item) => item.event_id === event.event_id)) {
+		event_cache.set(
+			event.session_id,
+			[event, ...cached].slice(0, 500),
+		);
+		if (event.session_id === dashboard_state.selected_id) {
+			dashboard_state.events =
+				event_cache.get(event.session_id) || [];
+			sync_selected_event(dashboard_state.events);
+		}
+	}
+	schedule_sessions_reload();
+	if (event.session_id === dashboard_state.selected_id)
+		schedule_selected_reload();
+}
+
+function receive_frame(frame: string) {
+	let type = 'message';
+	const data: string[] = [];
+	for (const line of frame.split(/\r?\n/)) {
+		if (line.startsWith('event:')) type = line.slice(6).trim();
+		if (line.startsWith('data:'))
+			data.push(line.slice(5).trimStart());
+	}
+	if (type === 'hello') {
+		dashboard_state.connected = true;
+		return;
+	}
+	if (type === 'event' && data.length > 0)
+		receive_event(JSON.parse(data.join('\n')) as Event);
+}
+
+async function consume_stream(signal: AbortSignal) {
+	while (!signal.aborted) {
+		try {
+			const response = await api_fetch('/events/stream', { signal });
+			const reader = response.body?.getReader();
+			if (!reader) throw new Error('Missing event stream body');
+			const decoder = new TextDecoder();
+			let buffered = '';
+			while (!signal.aborted) {
+				const chunk = await reader.read();
+				if (chunk.done) break;
+				buffered += decoder.decode(chunk.value, { stream: true });
+				const frames = buffered.split(/\r?\n\r?\n/);
+				buffered = frames.pop() || '';
+				for (const frame of frames) receive_frame(frame);
+			}
+		} catch {
+			if (signal.aborted) return;
+		} finally {
+			dashboard_state.connected = false;
+		}
+		await new Promise((resolve_wait) =>
+			setTimeout(resolve_wait, 1500),
+		);
+	}
+}
+
+export function connect() {
+	const controller = new AbortController();
+	void consume_stream(controller.signal);
+	return () => controller.abort();
 }

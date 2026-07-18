@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -25,6 +31,15 @@ describe('prepare_db', () => {
 		const { db, statements } = prepare_db(db_path);
 		try {
 			expect(existsSync(db_path)).toBe(true);
+			if (process.platform !== 'win32') {
+				for (const path of [
+					db_path,
+					`${db_path}-wal`,
+					`${db_path}-shm`,
+				]) {
+					expect(statSync(path).mode & 0o777).toBe(0o600);
+				}
+			}
 			expect(Object.keys(statements).sort()).toEqual([
 				'delete_old_events',
 				'delete_orphan_sessions',
