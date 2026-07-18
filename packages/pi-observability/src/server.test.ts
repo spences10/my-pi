@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { create_health_proof } from './health-auth.js';
 import {
 	resolve_observability_server_options,
 	start_observability_server,
@@ -10,6 +11,29 @@ import {
 import type { ObservabilityEvent } from './types.js';
 
 const servers: RunningObservabilityServer[] = [];
+
+async function fetch(
+	input: string | URL | Request,
+	init: RequestInit = {},
+): Promise<Response> {
+	const url =
+		typeof input === 'string'
+			? input
+			: input instanceof URL
+				? input.href
+				: input.url;
+	const server = servers.find((candidate) =>
+		url.startsWith(candidate.url),
+	);
+	const headers = new Headers(init.headers);
+	if (
+		server &&
+		!new URL(url).searchParams.has('unauthorized') &&
+		!new URL(url).searchParams.has('token')
+	)
+		headers.set('authorization', `Bearer ${server.token}`);
+	return globalThis.fetch(input, { ...init, headers });
+}
 
 afterEach(async () => {
 	while (servers.length > 0) {
@@ -28,7 +52,9 @@ function test_port(): number {
 async function wait_for_health(url: string): Promise<void> {
 	for (let attempt = 0; attempt < 50; attempt++) {
 		try {
-			const response = await fetch(`${url}/health`);
+			const response = await fetch(
+				`${url}/health?challenge=test-health-challenge`,
+			);
 			if (response.ok) return;
 		} catch {
 			// wait and retry
@@ -78,12 +104,35 @@ describe('resolve_observability_server_options', () => {
 		expect(
 			resolve_observability_server_options({
 				MY_PI_OBSERVABILITY_PORT: 'not-a-port',
+				MY_PI_OBSERVABILITY_TOKEN: 'configured-value',
 			}).port,
 		).toBe(43190);
 	});
 });
 
 describe('start_observability_server', () => {
+	it('returns a token-bound proof for health challenges', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: 'health-proof-token',
+			db_path: tmp_db_path(),
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		const challenge = 'health-proof-challenge';
+		const response = await fetch(
+			`${server.url}/health?challenge=${challenge}`,
+		);
+		expect(await response.json()).toEqual({
+			ok: true,
+			proof: create_health_proof(server.token, challenge),
+		});
+		expect((await fetch(`${server.url}/health`)).status).toBe(400);
+	});
+
 	it('ingests events and exposes session history', async () => {
 		const server = start_observability_server({
 			host: '127.0.0.1',
@@ -442,7 +491,7 @@ describe('start_observability_server', () => {
 		expect(events_body.events[0]?.seq).toBe(100);
 	});
 
-	it('requires auth when a token is configured', async () => {
+	it('requires header auth and rejects query tokens', async () => {
 		const server = start_observability_server({
 			host: '127.0.0.1',
 			port: test_port(),
@@ -453,10 +502,13 @@ describe('start_observability_server', () => {
 		servers.push(server);
 		await wait_for_health(server.url);
 
-		expect((await fetch(`${server.url}/sessions`)).status).toBe(401);
+		expect(
+			(await fetch(`${server.url}/sessions?unauthorized=1`)).status,
+		).toBe(401);
 		expect(
 			(await fetch(`${server.url}/sessions?token=dev-token`)).status,
-		).toBe(200);
+		).toBe(401);
+		expect((await fetch(`${server.url}/sessions`)).status).toBe(200);
 	});
 
 	it('broadcasts ingested events to SSE subscribers', async () => {

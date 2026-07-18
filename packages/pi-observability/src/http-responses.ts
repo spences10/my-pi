@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export function text(
@@ -40,14 +41,18 @@ export function binary(
 	res.end(body);
 }
 
+function token_digest(value: string): Buffer {
+	return createHash('sha256').update(value).digest();
+}
+
 export function is_authorized(
-	req_url: URL,
 	token: string,
 	authorization?: string,
 ): boolean {
-	if (!token) return true;
-	if (req_url.searchParams.get('token') === token) return true;
-	return authorization === `Bearer ${token}`;
+	if (!token || !authorization?.startsWith('Bearer ')) return false;
+	const provided = authorization.slice('Bearer '.length);
+	if (!provided) return false;
+	return timingSafeEqual(token_digest(token), token_digest(provided));
 }
 
 export class BodyTooLargeError extends Error {

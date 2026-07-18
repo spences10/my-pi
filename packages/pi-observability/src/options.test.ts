@@ -1,20 +1,37 @@
+import { mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolve_observability_server_options } from './options.js';
+import {
+	resolve_observability_server_options,
+	resolve_observability_token,
+} from './options.js';
 
 describe('resolve_observability_server_options', () => {
-	it('uses safe local defaults', () => {
-		const options = resolve_observability_server_options({
-			HOME: '/home/test',
-		});
+	it('generates and reuses a private local token by default', () => {
+		const home = mkdtempSync(join(tmpdir(), 'pi-obs-options-'));
+		const env = { HOME: home };
+		const options = resolve_observability_server_options(env);
+		const token_path = join(
+			home,
+			'.pi',
+			'agent',
+			'observability-token',
+		);
 
 		expect(options).toMatchObject({
 			host: '127.0.0.1',
 			port: 43190,
-			token: '',
 			log: true,
 			retention_days: 14,
 			max_events: 100_000,
 		});
+		expect(options.token).toHaveLength(43);
+		expect(resolve_observability_token(env)).toBe(options.token);
+		expect(readFileSync(token_path, 'utf8').trim()).toBe(
+			options.token,
+		);
+		expect(statSync(token_path).mode & 0o777).toBe(0o600);
 		expect(options.db_path).toContain('.pi/agent/observability.db');
 	});
 
@@ -45,6 +62,7 @@ describe('resolve_observability_server_options', () => {
 				MY_PI_OBSERVABILITY_PORT: '70000',
 				MY_PI_OBSERVABILITY_RETENTION_DAYS: '0',
 				MY_PI_OBSERVABILITY_MAX_EVENTS: 'nope',
+				MY_PI_OBSERVABILITY_TOKEN: 'configured-value',
 			}),
 		).toMatchObject({
 			port: 43190,

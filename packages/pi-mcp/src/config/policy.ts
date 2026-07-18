@@ -71,11 +71,29 @@ export function get_github_repos(cwd: string): string[] {
 
 export function load_mcp_policy(
 	cwd: string,
-): Record<string, RawMcpPolicyEntry> {
-	return {
-		...read_policy_file(global_mcp_policy_path()).servers,
-		...read_policy_file(project_mcp_policy_path(cwd)).servers,
-	};
+	include_project = true,
+): Record<string, RawMcpPolicyEntry[]> {
+	const global =
+		read_policy_file(global_mcp_policy_path()).servers ?? {};
+	const project = include_project
+		? (read_policy_file(project_mcp_policy_path(cwd)).servers ?? {})
+		: {};
+	const names = new Set([
+		...Object.keys(global),
+		...Object.keys(project),
+	]);
+	return Object.fromEntries(
+		Array.from(
+			names,
+			(name) =>
+				[
+					name,
+					[global[name], project[name]].filter(
+						(policy): policy is RawMcpPolicyEntry => Boolean(policy),
+					),
+				] as const,
+		),
+	);
 }
 
 export function policy_matches(

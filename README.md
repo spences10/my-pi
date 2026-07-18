@@ -170,6 +170,10 @@ Shared helper packages such as `@spences10/pi-child-env`,
 `@spences10/pi-tui-modal` are published as dependencies and are not
 packages to install via `pi install`.
 
+Maintainers publish from GitHub Actions with npm trusted publishing;
+see [`docs/releases.md`](./docs/releases.md) for the workflow and the
+required owner-side configuration.
+
 ## Project structure
 
 ```text

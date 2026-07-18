@@ -1,7 +1,11 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import type { Server } from 'node:http';
 import { homedir } from 'node:os';
+import { authenticated_dashboard_url } from './dashboard-url.js';
+import { health_proof_matches } from './health-auth.js';
+import { resolve_observability_token } from './options.js';
 import {
 	redact_value,
 	safe_json,
@@ -62,15 +66,20 @@ export function resolve_observability_config(
 
 	const configured_server_url =
 		as_string(pi.getFlag('observability-url')) ??
-		env.MY_PI_OBSERVABILITY_URL ??
-		env.PI_OBSERVABILITY_URL;
+		as_string(env.MY_PI_OBSERVABILITY_URL) ??
+		as_string(env.PI_OBSERVABILITY_URL);
+	const configured_token =
+		as_string(pi.getFlag('observability-token')) ??
+		as_string(env.MY_PI_OBSERVABILITY_TOKEN) ??
+		as_string(env.PI_OBSERVABILITY_TOKEN);
 
 	return {
 		server_url: configured_server_url ?? DEFAULT_OBSERVABILITY_URL,
 		token:
-			as_string(pi.getFlag('observability-token')) ??
-			env.MY_PI_OBSERVABILITY_TOKEN ??
-			env.PI_OBSERVABILITY_TOKEN,
+			configured_token ??
+			(configured_server_url
+				? undefined
+				: resolve_observability_token(env)),
 		pool:
 			as_string(pi.getFlag('observability-pool')) ??
 			env.MY_PI_OBSERVABILITY_POOL ??
@@ -265,30 +274,76 @@ export function create_event_envelope(
 	};
 }
 
-async function local_server_is_running(
+type LocalServerStatus = 'authenticated' | 'absent' | 'untrusted';
+
+async function local_server_status(
 	url: string,
-): Promise<boolean> {
+	token: string | undefined,
+): Promise<LocalServerStatus> {
+	if (!token) return 'untrusted';
+	const challenge = randomUUID();
 	try {
-		const response = await fetch(`${url.replace(/\/+$/, '')}/health`);
-		return response.ok;
+		const response = await fetch(
+			`${url.replace(/\/+$/, '')}/health?challenge=${encodeURIComponent(challenge)}`,
+		);
+		if (!response.ok) return 'untrusted';
+		const body = (await response.json()) as { proof?: unknown };
+		return health_proof_matches(token, challenge, body.proof)
+			? 'authenticated'
+			: 'untrusted';
 	} catch {
-		return false;
+		return 'absent';
 	}
 }
 
-async function ensure_local_server(url: string): Promise<void> {
-	if (await local_server_is_running(url)) return;
+async function wait_for_server_listening(
+	server: Server,
+): Promise<void> {
+	if (server.listening) return;
+	await new Promise<void>((resolve_listening, reject_listening) => {
+		const on_listening = () => {
+			server.off('error', on_error);
+			resolve_listening();
+		};
+		const on_error = (error: Error) => {
+			server.off('listening', on_listening);
+			reject_listening(error);
+		};
+		server.once('listening', on_listening);
+		server.once('error', on_error);
+	});
+}
+
+async function ensure_local_server(
+	url: string,
+	token: string | undefined,
+): Promise<void> {
+	const status = await local_server_status(url, token);
+	if (status === 'authenticated') return;
+	if (status === 'untrusted') {
+		throw new Error(
+			`Observability endpoint at ${url} failed authentication`,
+		);
+	}
+
 	const { start_observability_server } = await import('./server.js');
-	start_observability_server({
+	const running = start_observability_server({
 		host: '127.0.0.1',
 		port: new URL(url).port ? Number(new URL(url).port) : 43190,
-		token: process.env.MY_PI_OBSERVABILITY_TOKEN ?? '',
+		token: token ?? '',
 		db_path:
 			process.env.MY_PI_OBSERVABILITY_DB ??
 			`${homedir()}/.pi/agent/observability.db`,
 		log: false,
 		throw_on_listen_error: false,
 	});
+	await wait_for_server_listening(running.server);
+	if ((await local_server_status(url, token)) !== 'authenticated') {
+		await running.close();
+		throw new Error(
+			`Observability server at ${url} failed startup authentication`,
+		);
+	}
 }
 
 export function open_dashboard(url: string): void {
@@ -420,11 +475,18 @@ export default function observability(pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			const command = resolve_dashboard_command(args);
 			if (config?.auto_start_server)
-				await ensure_local_server(config.server_url);
+				await ensure_local_server(config.server_url, config.token);
 			const url = config?.server_url ?? dashboard_url;
+			const authorized_url = authenticated_dashboard_url(
+				url,
+				config?.token,
+			);
 			dashboard_url = url;
 			if (command === 'url') {
-				ctx.ui.notify(`Observability dashboard: ${url}`, 'info');
+				ctx.ui.notify(
+					`Observability dashboard: ${authorized_url}`,
+					'info',
+				);
 				return;
 			}
 			if (command === 'tui') {
@@ -447,10 +509,13 @@ export default function observability(pi: ExtensionAPI) {
 				return;
 			}
 			try {
-				open_dashboard(url);
+				open_dashboard(authorized_url);
 				ctx.ui.notify(`Observability dashboard: ${url}`, 'info');
 			} catch {
-				ctx.ui.notify(`Open observability dashboard: ${url}`, 'info');
+				ctx.ui.notify(
+					`Open observability dashboard: ${authorized_url}`,
+					'info',
+				);
 			}
 		},
 	});
@@ -487,7 +552,7 @@ export default function observability(pi: ExtensionAPI) {
 		if (!config) return;
 		dashboard_url = config.server_url;
 		if (config.auto_start_server)
-			await ensure_local_server(config.server_url);
+			await ensure_local_server(config.server_url, config.token);
 		seq = 0;
 		session = {
 			session_id: ctx.sessionManager.getSessionId(),

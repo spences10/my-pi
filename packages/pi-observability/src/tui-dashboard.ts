@@ -12,6 +12,7 @@ import {
 	truncateToWidth,
 } from '@earendil-works/pi-tui';
 import { show_modal } from '@spences10/pi-tui-modal';
+import { authenticated_dashboard_url } from './dashboard-url.js';
 import { open_dashboard } from './index.js';
 
 interface DashboardSession {
@@ -41,14 +42,11 @@ interface DashboardSnapshot {
 	loaded_at: Date;
 }
 
-function api_url(
-	server_url: string,
-	path: string,
-	token?: string,
-): string {
-	const url = new URL(path, server_url.replace(/\/+$/, '') + '/');
-	if (token) url.searchParams.set('token', token);
-	return url.toString();
+function api_url(server_url: string, path: string): string {
+	return new URL(
+		path,
+		server_url.replace(/\/+$/, '') + '/',
+	).toString();
 }
 
 async function fetch_json<T>(
@@ -58,7 +56,7 @@ async function fetch_json<T>(
 ): Promise<T> {
 	const headers: Record<string, string> = {};
 	if (token) headers.authorization = `Bearer ${token}`;
-	const response = await fetch(api_url(server_url, path, token), {
+	const response = await fetch(api_url(server_url, path), {
 		headers,
 	});
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -468,7 +466,9 @@ export async function show_observability_tui_dashboard(
 					} else if (matchesKey(data, Key.ctrl('r'))) {
 						void refresh();
 					} else if (view === 'event' && data === 'b') {
-						open_dashboard(server_url);
+						open_dashboard(
+							authenticated_dashboard_url(server_url, token),
+						);
 					} else if (data === 'q') {
 						done();
 					} else if (view !== 'event') {

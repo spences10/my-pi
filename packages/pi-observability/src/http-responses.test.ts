@@ -55,20 +55,17 @@ describe('http response helpers', () => {
 		);
 	});
 
-	it('authorizes empty tokens, query tokens, and bearer tokens', () => {
-		expect(is_authorized(new URL('http://local/'), '')).toBe(true);
+	it('fails closed and accepts only an exact bearer header', () => {
+		expect(is_authorized('', undefined)).toBe(false);
+		expect(is_authorized('expected-value', undefined)).toBe(false);
 		expect(
-			is_authorized(new URL('http://local/?token=secret'), 'secret'),
+			is_authorized('expected-value', 'Bearer expected-value'),
 		).toBe(true);
 		expect(
-			is_authorized(
-				new URL('http://local/'),
-				'secret',
-				'Bearer secret',
-			),
-		).toBe(true);
+			is_authorized('expected-value', 'Bearer different-value'),
+		).toBe(false);
 		expect(
-			is_authorized(new URL('http://local/?token=nope'), 'secret'),
+			is_authorized('expected-value', 'Basic expected-value'),
 		).toBe(false);
 	});
 

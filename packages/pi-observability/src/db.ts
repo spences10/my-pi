@@ -2,7 +2,12 @@ import {
 	SQLITE_PERSISTENT_PRAGMAS,
 	sqlite_pragmas,
 } from '@spences10/pi-sqlite-core';
-import { mkdirSync, readFileSync } from 'node:fs';
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+} from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 
@@ -37,6 +42,9 @@ export function prepare_db(db_path: string): {
 	db.exec(PERSISTENT_PRAGMAS);
 	db.exec(CONNECTION_PRAGMAS);
 	db.exec(SCHEMA);
+	for (const path of [db_path, `${db_path}-wal`, `${db_path}-shm`]) {
+		if (existsSync(path)) chmodSync(path, 0o600);
+	}
 	const session_columns = db
 		.prepare('PRAGMA table_info(sessions)')
 		.all() as Array<{ name: string }>;

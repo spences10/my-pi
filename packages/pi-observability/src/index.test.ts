@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import observability, {
 	create_event_envelope,
@@ -81,13 +84,17 @@ describe('resolve_dashboard_command', () => {
 });
 
 describe('resolve_observability_config', () => {
-	it('defaults to local auto-start without a server url', () => {
-		expect(
-			resolve_observability_config({ getFlag: () => undefined }, {}),
-		).toMatchObject({
+	it('defaults to authenticated local auto-start without a server url', () => {
+		const home = mkdtempSync(join(tmpdir(), 'pi-obs-config-'));
+		const config = resolve_observability_config(
+			{ getFlag: () => undefined },
+			{ HOME: home },
+		);
+		expect(config).toMatchObject({
 			server_url: 'http://127.0.0.1:43190',
 			auto_start_server: true,
 		});
+		expect(config?.token).toHaveLength(43);
 	});
 
 	it('stays disabled when explicitly disabled', () => {
@@ -97,6 +104,17 @@ describe('resolve_observability_config', () => {
 				{},
 			),
 		).toBeNull();
+	});
+
+	it('treats empty token environment values as unconfigured', () => {
+		const home = mkdtempSync(join(tmpdir(), 'pi-obs-empty-token-'));
+		const config = resolve_observability_config(
+			{ getFlag: () => undefined },
+			{ HOME: home, MY_PI_OBSERVABILITY_TOKEN: '' },
+		);
+
+		expect(config?.token).toHaveLength(43);
+		expect(config?.auto_start_server).toBe(true);
 	});
 
 	it('uses flags and environment fallbacks', () => {
@@ -121,6 +139,72 @@ describe('resolve_observability_config', () => {
 			detail_level: 'summary',
 			auto_start_server: false,
 		});
+	});
+
+	it('does not send its bearer token to an untrusted health responder', async () => {
+		const agent_dir = mkdtempSync(join(tmpdir(), 'pi-obs-health-'));
+		vi.stubEnv('PI_CODING_AGENT_DIR', agent_dir);
+		vi.stubEnv('MY_PI_OBSERVABILITY_URL', '');
+		vi.stubEnv('PI_OBSERVABILITY_URL', '');
+		vi.stubEnv('MY_PI_OBSERVABILITY_TOKEN', '');
+		vi.stubEnv('PI_OBSERVABILITY_TOKEN', '');
+		const requests: Array<{
+			authorization: string | null;
+			url: string;
+		}> = [];
+		const fetch_mock = vi
+			.spyOn(globalThis, 'fetch')
+			.mockImplementation(async (input, init) => {
+				const url =
+					typeof input === 'string'
+						? input
+						: input instanceof URL
+							? input.href
+							: input.url;
+				requests.push({
+					authorization: new Headers(init?.headers).get(
+						'authorization',
+					),
+					url,
+				});
+				return new Response(JSON.stringify({ ok: true }), {
+					status: 200,
+				});
+			});
+		const handlers = new Map<
+			string,
+			(event: unknown, ctx: unknown) => Promise<void>
+		>();
+		const pi = {
+			registerFlag: vi.fn(),
+			registerCommand: vi.fn(),
+			getFlag: () => undefined,
+			on: (name: string, handler: never) =>
+				handlers.set(name, handler),
+		};
+		observability(pi as never);
+		const ctx = {
+			cwd: '/repo',
+			model: undefined,
+			sessionManager: {
+				getSessionId: () => 'session-1',
+				getSessionFile: () => undefined,
+				getSessionName: () => undefined,
+			},
+		};
+
+		try {
+			await expect(
+				handlers.get('session_start')?.({}, ctx),
+			).rejects.toThrow('failed authentication');
+			expect(requests).toHaveLength(1);
+			expect(requests[0].url).toContain('/health?challenge=');
+			expect(requests[0].authorization).toBeNull();
+		} finally {
+			fetch_mock.mockRestore();
+			vi.unstubAllEnvs();
+			rmSync(agent_dir, { recursive: true, force: true });
+		}
 	});
 });
 
