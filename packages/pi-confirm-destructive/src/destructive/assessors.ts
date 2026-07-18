@@ -7,69 +7,23 @@ import {
 	is_git_recoverable,
 } from './git.js';
 import { describe_path_risk, is_agent_temp_path } from './paths.js';
-import { extract_command_paths } from './shell.js';
-import type {
-	DestructiveAction,
-	DestructiveCommandPattern,
-} from './types.js';
-
-const DESTRUCTIVE_COMMAND_PATTERNS: DestructiveCommandPattern[] = [
-	{
-		pattern:
-			/(^|[;&|]\s*)(npx\s+|pnpx\s+|pnpm\s+exec\s+|bunx\s+)?prisma\s+(migrate\s+reset|db\s+push\b[^;&|]*--force-reset|db\s+execute\b)/,
-		reason:
-			'Runs a potentially destructive Prisma database operation',
-		allow_key: 'bash:prisma-destructive',
-	},
-	{
-		pattern:
-			/(^|[;&|]\s*)(psql|mysql|mariadb|sqlite3)\b[^;&|]*\b(drop|delete\s+from|truncate|alter\s+table|update\s+\S+\s+set)\b/i,
-		reason: 'Runs destructive SQL through a database CLI',
-		allow_key: 'bash:db-cli-destructive-sql',
-	},
-	{
-		pattern:
-			/(^|[;&|]\s*)find\b[^;&|]*(\s-delete\b|-exec\s+(sudo\s+)?rm\b)/,
-		reason: 'Deletes files found by find',
-		allow_key: 'bash:find-delete',
-	},
-	{
-		pattern:
-			/(^|[;&|]\s*)git\s+clean\b[^;&|]*-[a-zA-Z]*[fdx][a-zA-Z]*/,
-		reason: 'Deletes untracked files or directories',
-		allow_key: 'bash:git-clean',
-	},
-	{
-		pattern:
-			/(^|[;&|]\s*)git\s+(checkout|restore)\b[^;&|]*(\s--\s+\.\s*$|\s\.\s*$)/,
-		reason: 'Discards working tree changes',
-		allow_key: 'bash:git-discard-all',
-	},
-	{
-		pattern: /(^|[;&|]\s*)rsync\b[^;&|]*\s--delete\b/,
-		reason: 'Deletes destination files during sync',
-		allow_key: 'bash:rsync-delete',
-	},
-	{
-		pattern:
-			/(^|[;&|]\s*)truncate\b[^;&|]*(\s-s\s*0\b|\s--size\s*=?\s*0\b)/,
-		reason: 'Empties file contents',
-		allow_key: 'bash:truncate-zero',
-	},
-	{
-		pattern: /(^|[;&|]\s*)dd\b[^;&|]*\bof=/,
-		reason: 'Overwrites a device or file with dd',
-		allow_key: 'bash:dd-output',
-	},
-	{
-		pattern: /(^|[;&|]\s*)(mkfs|fdisk|parted|wipefs)\b/,
-		reason: 'Modifies disks or filesystems',
-		allow_key: 'bash:disk-tool',
-	},
-];
+import {
+	extract_command_paths,
+	extract_overwrite_paths,
+	extract_shell_invocations,
+	type ShellInvocation,
+} from './shell.js';
+import type { DestructiveAction } from './types.js';
 
 const DESTRUCTIVE_CUSTOM_TOOL_NAME =
 	/(^|[_-])(delete|destroy|drop|remove|archive|execute_write_query|execute_schema_query|bulk_insert)([_-]|$)/i;
+const DYNAMIC_PATH_PATTERN = /[*?[$`]|\$\(|\$\{/;
+const SAFE_REDIRECT_TARGETS = new Set([
+	'/dev/null',
+	'/dev/stderr',
+	'/dev/stdout',
+	'/dev/tty',
+]);
 
 function preview(value: string, max = 500): string {
 	const normalized = value.trim().replace(/\s+/g, ' ');
@@ -78,16 +32,53 @@ function preview(value: string, max = 500): string {
 		: normalized;
 }
 
+function destructive_action(
+	command: string,
+	reason: string,
+	allow_key: string,
+	title = 'Confirm destructive command?',
+): DestructiveAction {
+	return {
+		title,
+		description: `${reason}: ${preview(command)}`,
+		reason,
+		allow_key,
+	};
+}
+
+function is_command(
+	invocation: ShellInvocation,
+	command: string,
+): boolean {
+	return invocation.command === command;
+}
+
+function has_sequence(args: string[], sequence: string[]): boolean {
+	const lowered = args.map((arg) => arg.toLowerCase());
+	return lowered.some((_, index) =>
+		sequence.every(
+			(value, offset) => lowered[index + offset] === value,
+		),
+	);
+}
+
+function option_letters(args: string[]): string {
+	return args
+		.filter((arg) => /^-[^-]/.test(arg))
+		.map((arg) => arg.slice(1))
+		.join('');
+}
+
 function assess_rm_command(
 	command: string,
 	cwd: string,
+	invocations: ShellInvocation[],
 	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
-	if (
-		!/(^|[;&|]\s*)(sudo\s+)?(rm|rmdir|unlink|shred)\b/.test(command)
-	) {
-		return undefined;
-	}
+	const removes = invocations.filter((invocation) =>
+		['rm', 'rmdir', 'shred', 'unlink'].includes(invocation.command),
+	);
+	if (removes.length === 0) return undefined;
 
 	const paths = extract_command_paths(command, 'rm');
 	if (paths && paths.length > 0) {
@@ -110,26 +101,32 @@ function assess_rm_command(
 	const reason = paths?.length
 		? describe_path_risk(cwd, paths)
 		: 'Deletes files or directories';
-	return {
-		title: 'Confirm destructive command?',
-		description: `${reason}: ${preview(command)}`,
-		reason,
-		allow_key: 'bash:rm-risky',
-	};
+	return destructive_action(command, reason, 'bash:rm-risky');
 }
 
 function assess_git_rm_command(
 	command: string,
 	cwd: string,
+	invocations: ShellInvocation[],
 ): DestructiveAction | undefined {
-	if (!/(^|[;&|]\s*)git\s+rm\b/.test(command)) return undefined;
-	if (/\s-f\b|\s--force\b/.test(command)) {
-		return {
-			title: 'Confirm forced git removal?',
-			description: `Forced git removal can discard uncommitted file changes: ${preview(command)}`,
-			reason: 'Force-removes files from git',
-			allow_key: 'bash:git-rm-force',
-		};
+	const removals = invocations.filter(
+		(invocation) =>
+			is_command(invocation, 'git') && invocation.args[0] === 'rm',
+	);
+	if (removals.length === 0) return undefined;
+	if (
+		removals.some((invocation) =>
+			invocation.args.some(
+				(arg) => arg === '--force' || /^-[^-]*f/.test(arg),
+			),
+		)
+	) {
+		return destructive_action(
+			command,
+			'Force-removes files from git',
+			'bash:git-rm-force',
+			'Confirm forced git removal?',
+		);
 	}
 
 	const paths = extract_command_paths(command, 'git-rm');
@@ -144,48 +141,301 @@ function assess_git_rm_command(
 	const reason = paths?.length
 		? describe_path_risk(cwd, paths)
 		: 'Deletes tracked files from git';
-	return {
-		title: 'Confirm git removal?',
-		description: `${reason}: ${preview(command)}`,
+	return destructive_action(
+		command,
 		reason,
-		allow_key: 'bash:git-rm-risky',
-	};
+		'bash:git-rm-risky',
+		'Confirm git removal?',
+	);
 }
 
 function assess_git_reset_hard(
 	command: string,
 	cwd: string,
+	invocations: ShellInvocation[],
 ): DestructiveAction | undefined {
-	if (!/(^|[;&|]\s*)git\s+reset\b[^;&|]*--hard\b/.test(command)) {
+	const resets_hard = invocations.some(
+		(invocation) =>
+			is_command(invocation, 'git') &&
+			invocation.args[0] === 'reset' &&
+			invocation.args.includes('--hard'),
+	);
+	if (!resets_hard || git(['status', '--porcelain=v1'], cwd) === '') {
 		return undefined;
 	}
-	if (git(['status', '--porcelain=v1'], cwd) === '') return undefined;
-
-	return {
-		title: 'Confirm hard reset?',
-		description: `This can discard uncommitted tracked changes: ${preview(command)}`,
-		reason: 'Discards uncommitted tracked changes',
-		allow_key: 'bash:git-reset-hard',
-	};
+	return destructive_action(
+		command,
+		'Discards uncommitted tracked changes',
+		'bash:git-reset-hard',
+		'Confirm hard reset?',
+	);
 }
 
 function assess_git_force_push(
 	command: string,
+	invocations: ShellInvocation[],
 ): DestructiveAction | undefined {
-	if (
-		!/(^|[;&|]\s*)git\s+push\b[^;&|]*(\s--force(?:-with-lease|-if-includes)?\b|\s-[A-Za-z]*f[A-Za-z]*\b)/.test(
-			command,
-		)
-	) {
-		return undefined;
-	}
+	const force_push = invocations.some(
+		(invocation) =>
+			is_command(invocation, 'git') &&
+			invocation.args[0] === 'push' &&
+			invocation.args.some(
+				(arg) =>
+					arg === '--force' ||
+					arg === '--force-with-lease' ||
+					arg === '--force-if-includes' ||
+					/^-[^-]*f/.test(arg),
+			),
+	);
+	if (!force_push) return undefined;
+	return destructive_action(
+		command,
+		'Overwrites remote git history',
+		'bash:git-force-push',
+		'Confirm force push?',
+	);
+}
 
-	return {
-		title: 'Confirm force push?',
-		description: `This can overwrite remote git history: ${preview(command)}`,
-		reason: 'Overwrites remote git history',
-		allow_key: 'bash:git-force-push',
-	};
+function assess_overwrite_redirect(
+	command: string,
+	cwd: string,
+	session_created_paths: ReadonlySet<string>,
+): DestructiveAction | undefined {
+	const paths = extract_overwrite_paths(command);
+	if (paths.length === 0) return undefined;
+
+	const risky = paths.filter((path) => {
+		if (SAFE_REDIRECT_TARGETS.has(path)) return false;
+		if (DYNAMIC_PATH_PATTERN.test(path)) return true;
+		const absolute = resolve(cwd, path);
+		if (!existsSync(absolute)) return false;
+		return (
+			!session_created_paths.has(absolute) &&
+			!is_agent_temp_path(absolute) &&
+			!is_git_recoverable(cwd, path)
+		);
+	});
+	if (risky.length === 0) return undefined;
+
+	return destructive_action(
+		command,
+		'Truncates or overwrites file contents that git cannot restore',
+		'bash:redirect-overwrite',
+	);
+}
+
+function assess_known_destructive_intent(
+	command: string,
+	invocations: ShellInvocation[],
+): DestructiveAction | undefined {
+	for (const invocation of invocations) {
+		const args = invocation.args;
+		const lower_args = args.map((arg) => arg.toLowerCase());
+		const joined = lower_args.join(' ');
+
+		if (
+			is_command(invocation, 'prisma') &&
+			(has_sequence(lower_args, ['migrate', 'reset']) ||
+				has_sequence(lower_args, ['db', 'execute']) ||
+				(has_sequence(lower_args, ['db', 'push']) &&
+					lower_args.includes('--force-reset')))
+		) {
+			return destructive_action(
+				command,
+				'Runs a potentially destructive Prisma database operation',
+				'bash:prisma-destructive',
+			);
+		}
+		if (
+			['psql', 'mysql', 'mariadb', 'sqlite3'].includes(
+				invocation.command,
+			) &&
+			/\b(drop|delete\s+from|truncate|alter\s+table|update\s+\S+\s+set)\b/i.test(
+				joined,
+			)
+		) {
+			return destructive_action(
+				command,
+				'Runs destructive SQL through a database CLI',
+				'bash:db-cli-destructive-sql',
+			);
+		}
+		if (
+			is_command(invocation, 'find') &&
+			lower_args.includes('-delete')
+		) {
+			return destructive_action(
+				command,
+				'Deletes files found by find',
+				'bash:find-delete',
+			);
+		}
+		if (
+			is_command(invocation, 'git') &&
+			lower_args[0] === 'clean' &&
+			option_letters(lower_args.slice(1)).includes('f')
+		) {
+			return destructive_action(
+				command,
+				'Deletes untracked files or directories',
+				'bash:git-clean',
+			);
+		}
+		if (
+			is_command(invocation, 'git') &&
+			['checkout', 'restore'].includes(lower_args[0] ?? '') &&
+			lower_args.at(-1) === '.'
+		) {
+			return destructive_action(
+				command,
+				'Discards working tree changes',
+				'bash:git-discard-all',
+			);
+		}
+		if (
+			is_command(invocation, 'rsync') &&
+			lower_args.includes('--delete')
+		) {
+			return destructive_action(
+				command,
+				'Deletes destination files during sync',
+				'bash:rsync-delete',
+			);
+		}
+		if (
+			is_command(invocation, 'truncate') &&
+			/(?:^|\s)(?:-s\s*0|--size(?:=|\s+)0)(?:\s|$)/.test(joined)
+		) {
+			return destructive_action(
+				command,
+				'Empties file contents',
+				'bash:truncate-zero',
+			);
+		}
+		if (
+			is_command(invocation, 'dd') &&
+			lower_args.some((arg) => arg.startsWith('of='))
+		) {
+			return destructive_action(
+				command,
+				'Overwrites a device or file with dd',
+				'bash:dd-output',
+			);
+		}
+		if (
+			['mkfs', 'fdisk', 'parted', 'wipefs'].includes(
+				invocation.command,
+			)
+		) {
+			return destructive_action(
+				command,
+				'Modifies disks or filesystems',
+				'bash:disk-tool',
+			);
+		}
+		if (
+			is_command(invocation, 'sed') &&
+			lower_args.some((arg) => arg === '-i' || arg.startsWith('-i'))
+		) {
+			return destructive_action(
+				command,
+				'Edits files in place with sed',
+				'bash:sed-in-place',
+			);
+		}
+		if (
+			is_command(invocation, 'git') &&
+			lower_args[0] === 'stash' &&
+			['drop', 'clear'].includes(lower_args[1] ?? '')
+		) {
+			return destructive_action(
+				command,
+				'Deletes git stash entries',
+				'bash:git-stash-delete',
+			);
+		}
+		if (
+			is_command(invocation, 'git') &&
+			lower_args[0] === 'branch' &&
+			args.includes('-D')
+		) {
+			return destructive_action(
+				command,
+				'Force-deletes a git branch',
+				'bash:git-branch-force-delete',
+			);
+		}
+		if (
+			is_command(invocation, 'git') &&
+			lower_args[0] === 'push' &&
+			lower_args.includes('--delete')
+		) {
+			return destructive_action(
+				command,
+				'Deletes a remote git ref',
+				'bash:git-push-delete',
+			);
+		}
+		if (
+			is_command(invocation, 'docker') &&
+			has_sequence(lower_args, ['system', 'prune'])
+		) {
+			return destructive_action(
+				command,
+				'Deletes unused Docker data',
+				'bash:docker-system-prune',
+			);
+		}
+		if (is_command(invocation, 'dropdb')) {
+			return destructive_action(
+				command,
+				'Drops a PostgreSQL database',
+				'bash:dropdb',
+			);
+		}
+		if (
+			is_command(invocation, 'redis-cli') &&
+			lower_args.some((arg) => ['flushall', 'flushdb'].includes(arg))
+		) {
+			return destructive_action(
+				command,
+				'Deletes Redis database contents',
+				'bash:redis-flush',
+			);
+		}
+		if (
+			is_command(invocation, 'terraform') &&
+			lower_args.includes('destroy')
+		) {
+			return destructive_action(
+				command,
+				'Destroys Terraform-managed infrastructure',
+				'bash:terraform-destroy',
+			);
+		}
+		if (
+			is_command(invocation, 'aws') &&
+			has_sequence(lower_args, ['s3', 'rm']) &&
+			lower_args.includes('--recursive')
+		) {
+			return destructive_action(
+				command,
+				'Recursively deletes S3 objects',
+				'bash:aws-s3-rm-recursive',
+			);
+		}
+		if (
+			is_command(invocation, 'kubectl') &&
+			lower_args.includes('delete')
+		) {
+			return destructive_action(
+				command,
+				'Deletes Kubernetes resources',
+				'bash:kubectl-delete',
+			);
+		}
+	}
+	return undefined;
 }
 
 export function assess_bash_command(
@@ -195,25 +445,25 @@ export function assess_bash_command(
 ): DestructiveAction | undefined {
 	const normalized = command.trim();
 	if (!normalized) return undefined;
+	const invocations = extract_shell_invocations(normalized);
 
-	const specific =
-		assess_rm_command(normalized, cwd, session_created_paths) ??
-		assess_git_rm_command(normalized, cwd) ??
-		assess_git_reset_hard(normalized, cwd) ??
-		assess_git_force_push(normalized);
-	if (specific) return specific;
-
-	const match = DESTRUCTIVE_COMMAND_PATTERNS.find(({ pattern }) =>
-		pattern.test(normalized),
+	return (
+		assess_rm_command(
+			normalized,
+			cwd,
+			invocations,
+			session_created_paths,
+		) ??
+		assess_git_rm_command(normalized, cwd, invocations) ??
+		assess_git_reset_hard(normalized, cwd, invocations) ??
+		assess_git_force_push(normalized, invocations) ??
+		assess_overwrite_redirect(
+			normalized,
+			cwd,
+			session_created_paths,
+		) ??
+		assess_known_destructive_intent(normalized, invocations)
 	);
-	if (!match) return undefined;
-
-	return {
-		title: 'Confirm destructive command?',
-		description: `${match.reason}: ${preview(normalized)}`,
-		reason: match.reason,
-		allow_key: match.allow_key,
-	};
 }
 
 function assess_file_write(
@@ -260,12 +510,10 @@ function assess_file_edit(
 		if (typeof new_text === 'string') added_chars += new_text.length;
 	}
 
-	if (removed_chars === 0 || removed_chars - added_chars < 200) {
+	if (removed_chars === 0 || removed_chars - added_chars < 200)
 		return undefined;
-	}
-	if (path && session_created_paths.has(resolve(cwd, path))) {
+	if (path && session_created_paths.has(resolve(cwd, path)))
 		return undefined;
-	}
 	if (path && is_git_recoverable(cwd, path)) return undefined;
 
 	return {
@@ -281,9 +529,8 @@ function assess_file_edit(
 function assess_custom_tool(
 	event: ToolCallEvent,
 ): DestructiveAction | undefined {
-	if (!DESTRUCTIVE_CUSTOM_TOOL_NAME.test(event.toolName)) {
+	if (!DESTRUCTIVE_CUSTOM_TOOL_NAME.test(event.toolName))
 		return undefined;
-	}
 
 	const input = event.input as Record<string, unknown>;
 	const query =
