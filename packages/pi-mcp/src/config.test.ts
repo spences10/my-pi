@@ -22,6 +22,7 @@ import {
 	save_mcp_profile,
 	set_mcp_server_enabled,
 } from './config.js';
+import { ignored_project_mcp_config_path } from './config/paths.js';
 
 function tmp_dir(): string {
 	const dir = join(
@@ -139,6 +140,58 @@ describe('load_mcp_config', () => {
 				env: { API_KEY: 'test123' },
 			},
 		]);
+	});
+
+	it('falls back to .mcp.json when mcp.json is missing', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		writeFileSync(
+			join(cwd, '.mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					hidden: { command: 'hidden-cmd' },
+				},
+			}),
+		);
+
+		expect(load_mcp_config(cwd)).toMatchObject([
+			{ name: 'hidden', command: 'hidden-cmd' },
+		]);
+		expect(ignored_project_mcp_config_path(cwd)).toBeUndefined();
+	});
+
+	it('prefers mcp.json over .mcp.json and reports the ignored file', () => {
+		const home = tmp_dir();
+		const cwd = tmp_dir();
+		dirs.push(home, cwd);
+		process.env.HOME = home;
+
+		writeFileSync(
+			join(cwd, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					visible: { command: 'visible-cmd' },
+				},
+			}),
+		);
+		writeFileSync(
+			join(cwd, '.mcp.json'),
+			JSON.stringify({
+				mcpServers: {
+					hidden: { command: 'hidden-cmd' },
+				},
+			}),
+		);
+
+		expect(load_mcp_config(cwd)).toMatchObject([
+			{ name: 'visible', command: 'visible-cmd' },
+		]);
+		expect(ignored_project_mcp_config_path(cwd)).toBe(
+			join(cwd, '.mcp.json'),
+		);
 	});
 
 	it('parses http servers with headers', () => {

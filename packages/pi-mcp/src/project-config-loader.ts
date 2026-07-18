@@ -7,6 +7,7 @@ import {
 	get_project_mcp_config_info,
 	type McpProjectConfigInfo,
 } from './config.js';
+import { ignored_project_mcp_config_path } from './config/paths.js';
 import {
 	create_mcp_project_trust_subject,
 	default_mcp_trust_store_path,
@@ -46,6 +47,12 @@ export async function get_project_mcp_config_load_decision(
 	ctx?: ExtensionContext,
 ): Promise<ProjectMcpConfigLoadDecision> {
 	const skipped = { include_project: false, metadata_trusted: false };
+	const ignored_path = ignored_project_mcp_config_path(cwd);
+	if (ignored_path) {
+		console.warn(
+			`Both mcp.json and .mcp.json exist in this project; using mcp.json and ignoring ${ignored_path}.`,
+		);
+	}
 	const info = get_project_mcp_config_info(cwd);
 	if (!info) return skipped;
 	if (process.env[PROJECT_MCP_CONFIG_ENV] === 'allow') {
