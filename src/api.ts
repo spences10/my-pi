@@ -238,7 +238,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 
 		const requested_model = resolve_model_reference(
 			model,
-			services.modelRegistry,
+			services.modelRuntime,
 		);
 		const effective_thinking = resolve_effective_thinking_level(
 			requested_model,

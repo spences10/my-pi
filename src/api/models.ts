@@ -5,16 +5,16 @@ import {
 } from '@earendil-works/pi-ai';
 import type { MyPiThinkingLevel } from './options.js';
 
-interface ModelRegistryLike {
-	getAll(): Model<Api>[];
+interface ModelsLike {
+	getModels(): readonly Model<Api>[];
 }
 
 export function resolve_model_reference(
 	model_reference: string | undefined,
-	model_registry: ModelRegistryLike,
+	models_runtime: ModelsLike,
 ): Model<Api> | undefined {
 	if (!model_reference) return undefined;
-	const models = model_registry.getAll();
+	const models = models_runtime.getModels();
 	const lower_reference = model_reference.toLowerCase();
 	const slash_index = model_reference.indexOf('/');
 

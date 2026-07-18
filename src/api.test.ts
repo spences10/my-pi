@@ -601,7 +601,7 @@ describe('resolve_model_reference', () => {
 		id: 'openai/gpt-4o:extended',
 	};
 	const registry = {
-		getAll: () =>
+		getModels: () =>
 			[cloudflare_model, openrouter_model] as Model<Api>[],
 	};
 

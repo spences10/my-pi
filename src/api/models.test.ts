@@ -31,7 +31,7 @@ describe('api model helpers', () => {
 			provider: 'openrouter',
 			id: 'openai/gpt-4o',
 		});
-		const registry = { getAll: () => [anthropic, openrouter] };
+		const registry = { getModels: () => [anthropic, openrouter] };
 
 		expect(resolve_model_reference('claude-sonnet', registry)).toBe(
 			anthropic,
