@@ -192,6 +192,71 @@ describe('redact_text', () => {
 		);
 	});
 
+	it('redacts private-key continuations split across text content blocks', async () => {
+		let tool_result_handler:
+			| ((event: Record<string, unknown>) => unknown)
+			| undefined;
+		const pi = {
+			on(
+				name: string,
+				handler: (event: Record<string, unknown>) => unknown,
+			) {
+				if (name === 'tool_result') tool_result_handler = handler;
+			},
+			registerCommand() {},
+		};
+		await filter_output(pi as never);
+		const continuation = 'Q0FOQVJZX1BSSVZBVEVfQk9EWV9DT05URU5U';
+		const result = (await tool_result_handler?.({
+			toolName: 'read',
+			input: { path: '/tmp/split-content-key.pem' },
+			content: [
+				{ type: 'text', text: `-----${'BEGIN PRIVATE KEY-----'}\n` },
+				{ type: 'text', text: continuation },
+			],
+		})) as { content?: Array<{ text?: string }> };
+
+		expect(result.content?.[1]?.text).toContain(
+			'[REDACTED:Private Key continuation]',
+		);
+		expect(result.content?.[1]?.text).not.toContain(continuation);
+	});
+
+	it('normalizes read paths before tracking private-key continuations', async () => {
+		let tool_result_handler:
+			| ((event: Record<string, unknown>) => unknown)
+			| undefined;
+		const pi = {
+			on(
+				name: string,
+				handler: (event: Record<string, unknown>) => unknown,
+			) {
+				if (name === 'tool_result') tool_result_handler = handler;
+			},
+			registerCommand() {},
+		};
+		await filter_output(pi as never);
+		const continuation =
+			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==';
+		await tool_result_handler?.({
+			toolName: 'read',
+			input: { path: '/tmp/equivalent-key.pem' },
+			content: [
+				{ type: 'text', text: `-----${'BEGIN PRIVATE KEY-----'}\n` },
+			],
+		});
+		const result = (await tool_result_handler?.({
+			toolName: 'read',
+			input: { path: '/tmp/./equivalent-key.pem', offset: 2 },
+			content: [{ type: 'text', text: continuation }],
+		})) as { content?: Array<{ text?: string }> };
+
+		expect(result.content?.[0]?.text).toContain(
+			'[REDACTED:Private Key continuation]',
+		);
+		expect(result.content?.[0]?.text).not.toContain(continuation);
+	});
+
 	it('redacts GitHub fine-grained PATs', () => {
 		const input = 'github_pat_' + 'A'.repeat(30);
 		const { redacted, count } = redact_text(input);

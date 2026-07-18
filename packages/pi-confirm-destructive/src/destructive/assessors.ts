@@ -273,7 +273,8 @@ function assess_known_destructive_intent(
 		if (
 			is_command(invocation, 'git') &&
 			lower_args[0] === 'clean' &&
-			option_letters(lower_args.slice(1)).includes('f')
+			(lower_args.includes('--force') ||
+				option_letters(lower_args.slice(1)).includes('f'))
 		) {
 			return destructive_action(
 				command,
@@ -335,7 +336,13 @@ function assess_known_destructive_intent(
 		}
 		if (
 			is_command(invocation, 'sed') &&
-			lower_args.some((arg) => arg === '-i' || arg.startsWith('-i'))
+			lower_args.some(
+				(arg) =>
+					arg === '-i' ||
+					arg.startsWith('-i') ||
+					arg === '--in-place' ||
+					arg.startsWith('--in-place='),
+			)
 		) {
 			return destructive_action(
 				command,
@@ -357,7 +364,11 @@ function assess_known_destructive_intent(
 		if (
 			is_command(invocation, 'git') &&
 			lower_args[0] === 'branch' &&
-			args.includes('-D')
+			(args.includes('-D') ||
+				(lower_args.includes('--delete') &&
+					lower_args.includes('--force')) ||
+				(option_letters(lower_args.slice(1)).includes('d') &&
+					option_letters(lower_args.slice(1)).includes('f')))
 		) {
 			return destructive_action(
 				command,
@@ -368,7 +379,9 @@ function assess_known_destructive_intent(
 		if (
 			is_command(invocation, 'git') &&
 			lower_args[0] === 'push' &&
-			lower_args.includes('--delete')
+			(lower_args.includes('--delete') ||
+				option_letters(lower_args.slice(1)).includes('d') ||
+				lower_args.some((arg) => /^:[^:]/.test(arg)))
 		) {
 			return destructive_action(
 				command,

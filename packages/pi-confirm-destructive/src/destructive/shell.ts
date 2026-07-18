@@ -41,6 +41,106 @@ const SIMPLE_WRAPPERS = new Set(['command', 'exec', 'nohup']);
 const SHELL_COMMANDS = new Set(['bash', 'dash', 'ksh', 'sh', 'zsh']);
 const RUNNERS = new Set(['bunx', 'npx', 'pnpx']);
 
+interface HeredocDelimiter {
+	value: string;
+	strip_tabs: boolean;
+}
+
+function heredoc_delimiters(line: string): HeredocDelimiter[] {
+	const delimiters: HeredocDelimiter[] = [];
+	let single_quoted = false;
+	let double_quoted = false;
+
+	for (let index = 0; index < line.length; index += 1) {
+		const character = line[index];
+		if (character === '\\') {
+			index += 1;
+			continue;
+		}
+		if (character === "'" && !double_quoted) {
+			single_quoted = !single_quoted;
+			continue;
+		}
+		if (character === '"' && !single_quoted) {
+			double_quoted = !double_quoted;
+			continue;
+		}
+		if (single_quoted || double_quoted) continue;
+		if (
+			character === '#' &&
+			(index === 0 || /\s/.test(line[index - 1]))
+		)
+			break;
+		if (
+			character !== '<' ||
+			line[index + 1] !== '<' ||
+			line[index + 2] === '<'
+		) {
+			continue;
+		}
+
+		index += 2;
+		const strip_tabs = line[index] === '-';
+		if (strip_tabs) index += 1;
+		while (/\s/.test(line[index] ?? '')) index += 1;
+
+		let value = '';
+		let quoted: "'" | '"' | undefined;
+		for (; index < line.length; index += 1) {
+			const delimiter_character = line[index];
+			if (quoted) {
+				if (delimiter_character === quoted) {
+					quoted = undefined;
+				} else if (delimiter_character === '\\' && quoted === '"') {
+					if (index + 1 < line.length) value += line[++index];
+				} else {
+					value += delimiter_character;
+				}
+				continue;
+			}
+			if (
+				delimiter_character === "'" ||
+				delimiter_character === '"'
+			) {
+				quoted = delimiter_character;
+				continue;
+			}
+			if (delimiter_character === '\\') {
+				if (index + 1 < line.length) value += line[++index];
+				continue;
+			}
+			if (
+				/\s/.test(delimiter_character) ||
+				';&|()<>'.includes(delimiter_character)
+			)
+				break;
+			value += delimiter_character;
+		}
+		if (value) delimiters.push({ value, strip_tabs });
+	}
+
+	return delimiters;
+}
+
+function strip_heredoc_bodies(command: string): string {
+	const pending: HeredocDelimiter[] = [];
+	return command
+		.split(/\r?\n/)
+		.map((line) => {
+			const active = pending[0];
+			if (active) {
+				const candidate = active.strip_tabs
+					? line.replace(/^\t+/, '')
+					: line;
+				if (candidate === active.value) pending.shift();
+				return '';
+			}
+			pending.push(...heredoc_delimiters(line));
+			return line;
+		})
+		.join('\n');
+}
+
 function tokenize_shell(command: string): ShellToken[] {
 	const tokens: ShellToken[] = [];
 	let word = '';
@@ -224,6 +324,45 @@ function unwrap_command(
 			index = skip_options(words, index + 1);
 			continue;
 		}
+		if (current === 'nice') {
+			index = skip_options(
+				words,
+				index + 1,
+				new Set(['-n', '--adjustment']),
+			);
+			continue;
+		}
+		if (current === 'ionice') {
+			index = skip_options(
+				words,
+				index + 1,
+				new Set([
+					'-c',
+					'-n',
+					'-p',
+					'-P',
+					'-u',
+					'--class',
+					'--classdata',
+					'--pid',
+					'--pgid',
+					'--uid',
+				]),
+			);
+			continue;
+		}
+		if (current === 'stdbuf') {
+			index = skip_options(
+				words,
+				index + 1,
+				new Set(['-e', '-i', '-o', '--error', '--input', '--output']),
+			);
+			continue;
+		}
+		if (current === 'setsid' || current === 'busybox') {
+			index = skip_options(words, index + 1);
+			continue;
+		}
 		if (current === 'pnpm' && words[index + 1] === 'exec') {
 			index = skip_options(words, index + 2);
 			continue;
@@ -389,7 +528,8 @@ function embedded_command_texts(command: string): string[] {
 export function extract_shell_invocations(
 	command: string,
 ): ShellInvocation[] {
-	const tokens = tokenize_shell(command);
+	const prepared_command = strip_heredoc_bodies(command);
+	const tokens = tokenize_shell(prepared_command);
 	const invocations: ShellInvocation[] = [];
 	let segment: ShellToken[] = [];
 
@@ -411,7 +551,7 @@ export function extract_shell_invocations(
 		segment.push(token);
 	}
 	flush_segment();
-	for (const embedded of embedded_command_texts(command)) {
+	for (const embedded of embedded_command_texts(prepared_command)) {
 		invocations.push(...extract_shell_invocations(embedded));
 	}
 	return invocations;

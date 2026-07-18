@@ -6,6 +6,7 @@ import type {
 	TextContent,
 } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { resolve } from 'node:path';
 
 interface SecretPattern {
 	name: string;
@@ -343,12 +344,12 @@ export default async function filter_output(pi: ExtensionAPI) {
 			typeof (event.input as { path?: unknown }).path === 'string'
 				? (event.input as { path: string }).path
 				: undefined;
-		const text = event.content
-			.filter(is_text_content)
-			.map((item) => item.text)
-			.join('');
-		const force_private_key = Boolean(
-			input_path && partial_private_key_paths.has(input_path),
+		const normalized_input_path = input_path
+			? resolve(input_path)
+			: undefined;
+		let private_key_continuation = Boolean(
+			normalized_input_path &&
+			partial_private_key_paths.has(normalized_input_path),
 		);
 		let modified = false;
 
@@ -356,24 +357,34 @@ export default async function filter_output(pi: ExtensionAPI) {
 			if (!is_text_content(item) || !item.text) return item;
 			const { redacted, count } = redact_text(item.text, {
 				force_ssh_config,
-				force_private_key,
+				force_private_key: private_key_continuation,
 			});
 			if (count > 0) {
 				modified = true;
 				total_redacted += count;
 			}
+
+			const has_private_key_begin = PRIVATE_KEY_BEGIN_PATTERN.test(
+				item.text,
+			);
+			const has_private_key_end = PRIVATE_KEY_END_PATTERN.test(
+				item.text,
+			);
+			if (private_key_continuation && has_private_key_end) {
+				private_key_continuation = false;
+			}
+			if (has_private_key_begin) {
+				private_key_continuation = !has_private_key_end;
+			}
+
 			return { ...item, text: redacted } satisfies TextContent;
 		});
 
-		if (input_path) {
-			if (force_private_key && PRIVATE_KEY_END_PATTERN.test(text)) {
-				partial_private_key_paths.delete(input_path);
-			}
-			if (
-				PRIVATE_KEY_BEGIN_PATTERN.test(text) &&
-				!PRIVATE_KEY_END_PATTERN.test(text)
-			) {
-				partial_private_key_paths.add(input_path);
+		if (normalized_input_path) {
+			if (private_key_continuation) {
+				partial_private_key_paths.add(normalized_input_path);
+			} else {
+				partial_private_key_paths.delete(normalized_input_path);
 			}
 		}
 
