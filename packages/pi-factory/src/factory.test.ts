@@ -37,6 +37,7 @@ import {
 	assert_manual_node_authority,
 	capture_git_workspace,
 	factory_intake_from_extension,
+	factory_prompt_guidelines,
 	resolve_factory_owner,
 	validate_adoptable_harness,
 } from './extension.js';
@@ -111,6 +112,14 @@ function feedback(
 }
 
 describe('catalog, policy, and dispatch', () => {
+	it('guides already-authorized routine delivery directly while preserving managed approvals', () => {
+		expect(factory_prompt_guidelines).toContain(
+			'An explicitly authorized routine single-session commit or push does not require factory routing by itself.',
+		);
+		expect(factory_prompt_guidelines).toContain(
+			'Once work is factory-managed, preserve its explicit approval nodes; requested side effects are not approval decisions.',
+		);
+	});
 	it('provides eight materially distinct versioned workflows', () => {
 		const ids = [
 			'chore',

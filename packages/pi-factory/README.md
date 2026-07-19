@@ -24,6 +24,13 @@ intake → explained route → harness contract → execute → validate/retry
        → independent review → explicit approval → outcome/metrics
 ```
 
+Use factory workflows for ambiguous or high-risk work, coordinated
+delivery, or requests that need review gates. A bounded routine change
+in one coding session does not need factory routing solely because the
+user explicitly authorized a commit or push. If work is factory-
+managed, its requested side effects remain pending approval actions;
+the request itself is not a factory approval decision.
+
 Use `/factory preview <task>` before `/factory start <task>`. The
 `factory` tool exposes the same routing and state-machine semantics to
 TUI, print/JSON, RPC, and SDK consumers. Intake risk hints may only

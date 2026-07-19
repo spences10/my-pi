@@ -518,6 +518,15 @@ export function assert_manual_node_authority(
 		`Execution, review, and validation nodes can only be ${action === 'start' ? 'started' : 'completed'} by the authoritative controller`,
 	);
 }
+export const factory_prompt_guidelines = [
+	'Use factory workflows for ambiguous or high-risk work, coordinated delivery, or requests that need review gates.',
+	'An explicitly authorized routine single-session commit or push does not require factory routing by itself.',
+	'Once work is factory-managed, preserve its explicit approval nodes; requested side effects are not approval decisions.',
+	'Use preview before create so the explained route can be overridden.',
+	'Never infer approval from validation, mailbox delivery, silence, or model output.',
+	'Team Mode supplies peer evidence only; it does not supervise sessions.',
+];
+
 export function factory_intake_from_extension(input: {
 	task: string;
 	cwd: string;
@@ -853,11 +862,7 @@ export default async function factory(pi: ExtensionAPI) {
 			'Preview, create, operate, recover, review, approve, measure workflows, and author repository factory policy.',
 		promptSnippet:
 			'Dispatch and operate governed software-factory workflows',
-		promptGuidelines: [
-			'Use preview before create so the explained route can be overridden.',
-			'Never infer approval from validation, mailbox delivery, silence, or model output.',
-			'Team Mode supplies peer evidence only; it does not supervise sessions.',
-		],
+		promptGuidelines: factory_prompt_guidelines,
 		parameters: params_schema,
 		async execute(_id, params, _signal, _update, ctx) {
 			assert_child_factory_authority(
