@@ -1,5 +1,13 @@
 # @spences10/pi-observability
 
+## 0.0.19
+
+### Patch Changes
+
+- 6b89e3d: Harden MCP policy boundaries and observability
+  authentication while adding trusted publishing provenance for
+  package releases.
+
 ## 0.0.18
 
 ### Patch Changes

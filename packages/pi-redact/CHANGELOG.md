@@ -1,5 +1,12 @@
 # @spences10/pi-redact
 
+## 0.0.13
+
+### Patch Changes
+
+- 907fc81: Harden secret redaction and destructive command detection
+  across chunked output, wrappers, aliases, and heredoc input.
+
 ## 0.0.12
 
 ### Patch Changes

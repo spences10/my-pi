@@ -1,5 +1,12 @@
 # @spences10/pi-skill-importer
 
+## 0.0.11
+
+### Patch Changes
+
+- 9cb076c: Simplify skill management, improve TUI navigation, and
+  safely discover newly published skills from known repositories.
+
 ## 0.0.10
 
 ### Patch Changes

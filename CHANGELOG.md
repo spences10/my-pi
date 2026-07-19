@@ -1,5 +1,15 @@
 # my-pi
 
+## 0.1.115
+
+### Patch Changes
+
+- 9cb076c: Simplify skill management, improve TUI navigation, and
+  safely discover newly published skills from known repositories.
+- 313d144: Document Claude Code .mcp.json fallback, package
+  inventories, observability workflow routing, and web deployment
+  procedures clearly.
+
 ## 0.1.114
 
 ## 0.1.113

@@ -1,5 +1,20 @@
 # @spences10/pi-mcp
 
+## 0.0.51
+
+### Patch Changes
+
+- 3b1cc3e: Support Claude Code's .mcp.json project configuration
+  fallback while preserving mcp.json precedence and warning on
+  conflicts.
+- 313d144: Document Claude Code .mcp.json fallback, package
+  inventories, observability workflow routing, and web deployment
+  procedures clearly.
+- 6b89e3d: Harden MCP policy boundaries and observability
+  authentication while adding trusted publishing provenance for
+  package releases.
+  - @spences10/pi-context@0.1.9
+
 ## 0.0.50
 
 ### Patch Changes

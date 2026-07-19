@@ -1,5 +1,12 @@
 # @spences10/pi-context
 
+## 0.1.9
+
+### Patch Changes
+
+- Updated dependencies [907fc81]
+  - @spences10/pi-redact@0.0.13
+
 ## 0.1.8
 
 ### Patch Changes

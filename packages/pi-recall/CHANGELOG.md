@@ -1,5 +1,12 @@
 # @spences10/pi-recall
 
+## 0.0.15
+
+### Patch Changes
+
+- 643c228: Remove redundant recall-resume alias, leaving resume-recall
+  as the sole searchable session resume command for users.
+
 ## 0.0.14
 
 ### Patch Changes
