@@ -1,11 +1,15 @@
 # @spences10/pi-tui-modal
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-tui-modal?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-tui-modal)
 [![license](https://img.shields.io/npm/l/@spences10/pi-tui-modal)](https://www.npmjs.com/package/@spences10/pi-tui-modal)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Build Pi overlays that feel consistent instead of one-off.
 `pi-tui-modal` provides shared TUI modal primitives for pickers,
@@ -44,6 +48,8 @@ footers remain visible on small terminals.
 
 ## Development
 
+<!-- package-readme:development:start commands="check,test,build" -->
+
 Package scripts build transitive workspace dependencies first, then
 run local tools through Vite+ with `vp exec`.
 
@@ -52,3 +58,5 @@ pnpm --filter @spences10/pi-tui-modal run check
 pnpm --filter @spences10/pi-tui-modal run test
 pnpm --filter @spences10/pi-tui-modal run build
 ```
+
+<!-- package-readme:development:end -->

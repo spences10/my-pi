@@ -1,11 +1,15 @@
 # @spences10/pi-svelte-guardrails
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-svelte-guardrails?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-svelte-guardrails)
 [![license](https://img.shields.io/npm/l/@spences10/pi-svelte-guardrails)](https://www.npmjs.com/package/@spences10/pi-svelte-guardrails)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Catch discouraged Svelte patterns before they land in your codebase.
 `pi-svelte-guardrails` blocks common agent mistakes and points the
@@ -16,9 +20,13 @@ By default, blocks `$effect` in `.svelte` `write`/`edit` tool calls
 and bash writes, then tells the agent to prefer `$derived`, event
 handlers, actions, or explicit lifecycle alternatives.
 
+<!-- package-readme:install:start -->
+
 ```bash
 pi install npm:@spences10/pi-svelte-guardrails
 ```
+
+<!-- package-readme:install:end -->
 
 Standalone package use is opt-in: installing the package globally
 applies it to your Pi sessions, but projects and downstream users do
@@ -79,6 +87,8 @@ write/edit again before reporting success.
 
 ## Development
 
+<!-- package-readme:development:start commands="check,test,build" -->
+
 Package scripts build transitive workspace dependencies first, then
 run local tools through Vite+ with `vp exec`.
 
@@ -87,3 +97,5 @@ pnpm --filter @spences10/pi-svelte-guardrails run check
 pnpm --filter @spences10/pi-svelte-guardrails run test
 pnpm --filter @spences10/pi-svelte-guardrails run build
 ```
+
+<!-- package-readme:development:end -->

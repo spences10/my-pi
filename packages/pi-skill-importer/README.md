@@ -1,11 +1,15 @@
 # @spences10/pi-skill-importer
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-skill-importer?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-skill-importer)
 [![license](https://img.shields.io/npm/l/@spences10/pi-skill-importer)](https://www.npmjs.com/package/@spences10/pi-skill-importer)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Move external Agent Skills into Pi without hand-copying files.
 `pi-skill-importer` provides the import helpers Pi uses to normalize
@@ -59,6 +63,8 @@ import {
 
 ## Development
 
+<!-- package-readme:development:start commands="check,test" -->
+
 Package scripts build transitive workspace dependencies first, then
 run local tools through Vite+ with `vp exec`.
 
@@ -66,6 +72,8 @@ run local tools through Vite+ with `vp exec`.
 pnpm --filter @spences10/pi-skill-importer run check
 pnpm --filter @spences10/pi-skill-importer run test
 ```
+
+<!-- package-readme:development:end -->
 
 ## License
 

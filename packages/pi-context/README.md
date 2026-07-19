@@ -1,11 +1,15 @@
 # @spences10/pi-context
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-context?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-context)
 [![license](https://img.shields.io/npm/l/@spences10/pi-context)](https://www.npmjs.com/package/@spences10/pi-context)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Keep huge tool output useful without flooding the model context.
 `pi-context` stores oversized command, file, MCP, and LSP results in a
@@ -16,7 +20,7 @@ In a SvelteKit docs extraction benchmark against the published
 full-chunk retrieval flow, snippet-first search plus focused retrieval
 and file export reduced total tokens by **68%**, cache-read tokens by
 **70%**, and cost by **54%** while producing a comparable answer. See
-[`docs/pi-context-benchmark.md`](../../docs/pi-context-benchmark.md)
+[`docs/pi-context-benchmark.md`](https://github.com/spences10/my-pi/blob/main/docs/pi-context-benchmark.md)
 for the scenario and raw comparison.
 
 | Metric                      | Published | Current flow | Reduction |
@@ -206,6 +210,8 @@ still be treated as local tool output.
 
 ## Development
 
+<!-- package-readme:development:start commands="check,test,build" -->
+
 Package scripts build transitive workspace dependencies first, then
 run local tools through Vite+ with `vp exec`.
 
@@ -214,3 +220,5 @@ pnpm --filter @spences10/pi-context run check
 pnpm --filter @spences10/pi-context run test
 pnpm --filter @spences10/pi-context run build
 ```
+
+<!-- package-readme:development:end -->
