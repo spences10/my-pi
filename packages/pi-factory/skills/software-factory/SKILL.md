@@ -58,8 +58,10 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
     recommendations when calibration reports exclusions.
 13. Define calibration through a versioned suite with exact
     project/policy/route/compute/gate/retry pins and explicit
-    thresholds. Import only authoritative outcomes, store/query/export
-    the ledger, and keep baseline status blocked until every workflow
+    thresholds. Derive available import pins from durable state and
+    use named embedding authentication for unavailable pins; never
+    copy target-case values into provenance. Store/query/export the
+    ledger, and keep baseline status blocked until every workflow
     meets measured coverage. Never generalize a single-project
     finding.
 14. Finish with `metrics`, validation evidence, and remaining risks.

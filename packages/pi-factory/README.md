@@ -205,13 +205,15 @@ from durable factory events; `evaluate_calibration_suite` applies
 configurable sample/confidence/missing-data thresholds and returns
 `baseline_status: "blocked"` until every workflow has sufficient
 complete measured outcomes with exact `factory-state` or
-authenticated-import provenance. Factory outcome imports accept
-measured evidence only when an embedding adapter authenticates the
-suite, case, project, revision, and policy pins and the route, gates,
-and compute pins match durable factory state. Missing or mismatched
-pins remain uncorrelated. `synthetic` provenance is always excluded.
-`CalibrationSuiteStore` persists mode-0600 ledgers and supports
-filtered query plus deterministic JSON export.
+authenticated-import provenance. Factory outcome imports derive the
+source workflow, workspace project id, policy id, route, gates, and
+compute pins from durable state instead of the target case. A named
+embedding-application actor must authenticate the unavailable suite,
+case, repository revision/shape, and policy-hash pins. The complete
+envelope is checked against both durable state and the case; missing
+or mismatched pins remain uncorrelated. `synthetic` provenance is
+always excluded. `CalibrationSuiteStore` persists mode-0600 ledgers
+and supports filtered query plus deterministic JSON export.
 Suite/report/policy/project revisions and fingerprints remain exact;
 findings are marked project-specific unless multiple project ids
 support them. Evaluation exposes eligible `workflow_coverage` plus

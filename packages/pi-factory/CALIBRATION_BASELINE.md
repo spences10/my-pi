@@ -25,9 +25,12 @@ pnpm --filter @spences10/pi-factory run test:self -- src/calibration-suite.test.
 A real baseline becomes valid only after `CalibrationSuiteStore`
 imports the configured minimum sample for every workflow from
 authoritative correlated outcomes. Each outcome must carry
-`factory-state` or authenticated-import provenance (never `synthetic`)
-and preserve suite/case/report version, project and policy revision,
-workflow/route/compute/gate pins, explicit evidence-derived label,
+`factory-state` or authenticated-import provenance (never
+`synthetic`). Durable state supplies source/workflow, workspace
+project, policy, route, compute, and gate pins; a named
+embedding-application actor authenticates unavailable suite/case and
+repository revision/shape pins. Outcomes preserve those pins plus
+report version and an explicit evidence-derived label,
 provider/model/reasoning, session, valid duration, measured usage or
 telemetry, every current-contract attempt, and terminal
 validation/review/ approval evidence. Sparse, synthetic, incomplete,

@@ -193,6 +193,7 @@ export function create_calibration_suite(input: {
 				calibration_case.repository_shape ||
 			project.project_revision !==
 				calibration_case.project_revision ||
+			project.policy_id !== calibration_case.policy_id ||
 			project.policy_hash !== calibration_case.policy_hash
 		)
 			throw new Error(
@@ -222,8 +223,9 @@ export function create_calibration_suite(input: {
 }
 
 export interface FactoryOutcomeImportProvenance {
-	/** The embedding adapter has authenticated these pins. */
-	authenticated: true;
+	/** The embedding application authenticated this complete pin envelope. */
+	authentication: 'embedding-application';
+	authenticated_actor: string;
 	source_id: string;
 	suite_id: string;
 	suite_version: string;
@@ -231,6 +233,7 @@ export interface FactoryOutcomeImportProvenance {
 	case_version: string;
 	project_id: string;
 	project_revision: string;
+	repository_shape: string;
 	policy_id: string;
 	policy_hash: string;
 }
@@ -271,16 +274,22 @@ export function import_factory_outcome(
 		| string
 		| undefined;
 	const authenticated_pins = Boolean(
-		provenance?.authenticated &&
-		provenance.source_id &&
+		provenance?.authentication === 'embedding-application' &&
+		typeof provenance.authenticated_actor === 'string' &&
+		provenance.authenticated_actor.trim() &&
+		provenance.source_id === state.workflow_id &&
 		provenance.suite_id === calibration_case.suite_id &&
 		provenance.suite_version === calibration_case.suite_version &&
 		provenance.case_id === calibration_case.case_id &&
 		provenance.case_version === calibration_case.case_version &&
 		provenance.project_id === calibration_case.project_id &&
+		provenance.project_id === state.route.workspace.id &&
 		provenance.project_revision ===
 			calibration_case.project_revision &&
+		provenance.repository_shape ===
+			calibration_case.repository_shape &&
 		provenance.policy_id === calibration_case.policy_id &&
+		provenance.policy_id === state.route.policy_id &&
 		provenance.policy_hash === calibration_case.policy_hash,
 	);
 	const route_pin = sha({
@@ -289,6 +298,7 @@ export function import_factory_outcome(
 		project_revision: provenance?.project_revision,
 		policy_hash: provenance?.policy_hash,
 	});
+	const gate_pin = sha(state.route.workflow.validations);
 	const compute_pin = sha({
 		provider,
 		model,
@@ -296,14 +306,14 @@ export function import_factory_outcome(
 		parallelism: state.route.workflow.compute.parallelism,
 	});
 	const durable_pins =
+		calibration_case.project_id === state.route.workspace.id &&
 		calibration_case.workflow === state.route.workflow.id &&
 		calibration_case.workflow_version ===
 			state.route.workflow.version &&
 		calibration_case.policy_id === state.route.policy_id &&
 		calibration_case.risk === state.route.workflow.risk &&
 		calibration_case.route_fingerprint === route_pin &&
-		calibration_case.gate_fingerprint ===
-			sha(state.route.workflow.validations) &&
+		calibration_case.gate_fingerprint === gate_pin &&
 		calibration_case.compute_fingerprint === compute_pin &&
 		calibration_case.provider === provider &&
 		calibration_case.model === model &&
@@ -364,26 +374,26 @@ export function import_factory_outcome(
 		});
 	return create_observed_outcome({
 		case_id: calibration_case.case_id,
-		provenance: provenance
-			? {
-					kind: 'authenticated-import',
-					source_id: provenance.source_id,
-					suite_id: provenance.suite_id,
-					suite_version: provenance.suite_version,
-					case_id: provenance.case_id,
-					case_version: provenance.case_version,
-					project_id: provenance.project_id,
-					project_revision: provenance.project_revision,
-					policy_id: provenance.policy_id,
-					policy_hash: provenance.policy_hash,
-					route_fingerprint: route_pin,
-					compute_fingerprint: compute_pin,
-					gate_fingerprint: sha(state.route.workflow.validations),
-				}
-			: {
-					kind: 'factory-state',
-					source_id: state.workflow_id,
-				},
+		provenance: {
+			kind: provenance ? 'authenticated-import' : 'factory-state',
+			source_id: state.workflow_id,
+			authentication: provenance?.authentication,
+			authenticated_actor: provenance?.authenticated_actor,
+			suite_id: provenance?.suite_id,
+			suite_version: provenance?.suite_version,
+			case_id: provenance?.case_id,
+			case_version: provenance?.case_version,
+			project_id: state.route.workspace.id,
+			project_revision: provenance?.project_revision,
+			repository_shape: provenance?.repository_shape,
+			policy_id: state.route.policy_id,
+			policy_hash: provenance?.policy_hash,
+			workflow: state.route.workflow.id,
+			workflow_version: state.route.workflow.version,
+			route_fingerprint: route_pin,
+			compute_fingerprint: compute_pin,
+			gate_fingerprint: gate_pin,
+		},
 		case_version: calibration_case.case_version,
 		workflow_id: state.workflow_id,
 		evidence,
@@ -450,6 +460,10 @@ export function evaluate_calibration_suite(
 			!calibration_case ||
 			!provenance ||
 			provenance.kind === 'synthetic' ||
+			provenance.source_id !== outcome.workflow_id ||
+			(provenance.kind === 'authenticated-import' &&
+				(provenance.authentication !== 'embedding-application' ||
+					!provenance.authenticated_actor?.trim())) ||
 			provenance.suite_id !== suite.suite_id ||
 			provenance.suite_version !== suite.suite_version ||
 			provenance.case_id !== calibration_case.case_id ||
@@ -457,8 +471,13 @@ export function evaluate_calibration_suite(
 			provenance.project_id !== calibration_case.project_id ||
 			provenance.project_revision !==
 				calibration_case.project_revision ||
+			provenance.repository_shape !==
+				calibration_case.repository_shape ||
 			provenance.policy_id !== calibration_case.policy_id ||
 			provenance.policy_hash !== calibration_case.policy_hash ||
+			provenance.workflow !== calibration_case.workflow ||
+			provenance.workflow_version !==
+				calibration_case.workflow_version ||
 			provenance.route_fingerprint !==
 				calibration_case.route_fingerprint ||
 			provenance.compute_fingerprint !==
