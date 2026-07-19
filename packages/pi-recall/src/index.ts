@@ -52,17 +52,13 @@ function sync_recall_db(
 }
 
 export default async function recall(pi: ExtensionAPI) {
-	const register_resume_command = (name: string): void => {
-		pi.registerCommand(name, {
-			description:
-				'Search the pirecall index and resume a live Pi session',
-			handler: async (args, ctx) => {
-				await run_recall_resume(args, ctx);
-			},
-		});
-	};
-	register_resume_command('resume-recall');
-	register_resume_command('recall-resume');
+	pi.registerCommand('resume-recall', {
+		description:
+			'Search the pirecall index and resume a live Pi session',
+		handler: async (args, ctx) => {
+			await run_recall_resume(args, ctx);
+		},
+	});
 
 	pi.on('session_start', async () => {
 		sync_recall_db();

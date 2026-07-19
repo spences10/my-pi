@@ -35,7 +35,7 @@ pi -e ./packages/pi-recall
 - injects a system reminder telling the model to use
   `pnpx pirecall ... --json` or `npx pirecall ... --json`
 - adds `/resume-recall [query]`, a SQLite-backed searchable and paged
-  picker for live session files (`/recall-resume` remains an alias)
+  picker for live session files
 - keeps Pi's native `/resume` unchanged as the fallback
 
 The recall picker uses pirecall only for discovery. Before opening a

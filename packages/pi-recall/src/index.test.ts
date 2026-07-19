@@ -44,13 +44,7 @@ describe('should_inject_recall_prompt', () => {
 				handler: expect.any(Function),
 			}),
 		);
-		expect(register_command).toHaveBeenCalledWith(
-			'recall-resume',
-			expect.objectContaining({
-				description: expect.any(String),
-				handler: expect.any(Function),
-			}),
-		);
+		expect(register_command).toHaveBeenCalledTimes(1);
 		expect(on).toHaveBeenCalledWith(
 			'session_start',
 			expect.any(Function),
