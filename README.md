@@ -18,7 +18,7 @@ SDK. Use the full distribution directly, or install individual
 ## Quick start
 
 ```bash
-pnpx my-pi@latest
+pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
 # or: npx my-pi@latest / bunx my-pi@latest
 ```
 
@@ -29,7 +29,7 @@ pnpx my-pi@latest
 Use `my-pi` if you want the complete, opinionated setup:
 
 ```bash
-pnpx my-pi@latest
+pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
 ```
 
 This is its own CLI wrapper around Pi. Do not install the root package
@@ -89,6 +89,22 @@ instructions, commands, configuration, and runtime behavior.
 observability packages. The CLI suppresses Node's expected
 `node:sqlite` `ExperimentalWarning`; standalone package/API consumers
 own their process warning policy until Node marks it stable.
+
+### pnpm 11 first-run build approval
+
+pnpm 11 asks for interactive approval before running the transitive
+`@google/genai` preinstall and `protobufjs` postinstall hooks. Neither
+hook builds runtime artifacts: the first prints a no-op message and
+the second only checks dependency version syntax. Declining them does
+not degrade `my-pi` functionality.
+
+For a deterministic first run, or after accidentally selecting `No`,
+rerun the Quick start command with both `--allow-build` flags. It
+allows those two known hooks without the two-stage selection and
+confirmation prompt. The package does not publish a `pnpm` settings
+block because pnpm 11 ignores package-level build policy. The
+`node-domexception` deprecation notice is also transitive and does not
+affect runtime behavior.
 
 ## Common usage
 
