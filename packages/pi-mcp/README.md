@@ -30,9 +30,12 @@ pi -e ./packages/pi-mcp
 ## Configuration
 
 The extension loads MCP server definitions from `mcp.json` files in
-global and project locations.
+global and project locations. For compatibility with Claude Code, a
+project-level `.mcp.json` is also accepted when that project has no
+`mcp.json`. If both files exist, `mcp.json` takes precedence and the
+extension warns that `.mcp.json` was ignored.
 
-A typical project `mcp.json` looks like:
+A typical project `mcp.json` (or compatible `.mcp.json`) looks like:
 
 ```json
 {
@@ -52,8 +55,9 @@ unless `MY_PI_MCP_PROJECT_CONFIG=allow` is set. Allow-once mode loads
 project MCP tools but suppresses rich tool descriptions and schema
 prose so untrusted server metadata cannot act as prompt injection. Use
 `MY_PI_MCP_PROJECT_CONFIG=trust` to trust and remember the current
-repo until its `mcp.json` hash changes and expose full metadata, or
-`MY_PI_MCP_PROJECT_CONFIG=skip` to force-disable project MCP config.
+repo until the selected project config file's hash changes and expose
+full metadata, or `MY_PI_MCP_PROJECT_CONFIG=skip` to force-disable
+project MCP config.
 
 Stdio MCP servers receive a restricted child-process environment by
 default: baseline shell variables plus explicit per-server `env`

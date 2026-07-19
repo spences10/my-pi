@@ -148,6 +148,7 @@ Full package list here:
 | [`@spences10/pi-coding-preferences`](./packages/pi-coding-preferences/README.md)   | Configurable coding-workflow guardrails                    |
 | [`@spences10/pi-confirm-destructive`](./packages/pi-confirm-destructive/README.md) | Destructive action confirmations                           |
 | [`@spences10/pi-context`](./packages/pi-context/README.md)                         | Scoped SQLite FTS overflow cache for oversized tool output |
+| [`@spences10/pi-codex-usage`](./packages/pi-codex-usage/README.md)                 | OpenAI Codex usage in the footer status area               |
 | [`@spences10/pi-factory`](./packages/pi-factory/README.md)                         | Reusable software-factory control plane                    |
 | [`@spences10/pi-git-ui`](./packages/pi-git-ui/README.md)                           | Interactive source-control staging UI                      |
 | [`@spences10/pi-lsp`](./packages/pi-lsp/README.md)                                 | LSP-backed diagnostics and symbol tools                    |
@@ -166,9 +167,12 @@ Full package list here:
 | [`@spences10/pi-themes`](./packages/pi-themes/README.md)                           | Bundled theme pack for Pi                                  |
 
 Shared helper packages such as `@spences10/pi-child-env`,
-`@spences10/pi-project-trust`, `@spences10/pi-settings`, and
-`@spences10/pi-tui-modal` are published as dependencies and are not
-packages to install via `pi install`.
+`@spences10/pi-footer`, `@spences10/pi-project-trust`,
+`@spences10/pi-settings`, `@spences10/pi-skill-importer`,
+`@spences10/pi-sqlite-core`, and `@spences10/pi-tui-modal` are
+published as dependencies and are not packages to install via
+`pi install`. See [`docs/package-map.md`](./docs/package-map.md) for
+the authoritative classification.
 
 Maintainers publish from GitHub Actions with npm trusted publishing;
 see [`docs/releases.md`](./docs/releases.md) for the workflow and the
@@ -188,5 +192,5 @@ packages/
 .pi/
   presets.json             Optional project prompt presets
   presets/*.md             Optional project prompt preset files
-mcp.json                   Project MCP server config
+mcp.json                   Optional, user-created project MCP server config
 ```

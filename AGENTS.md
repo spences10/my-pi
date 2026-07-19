@@ -21,14 +21,15 @@ Start with:
 Project skills live directly under `.agents/<skill>/SKILL.md`. Load
 the matching skill before doing the work:
 
-| Task                                             | Skill                      |
-| ------------------------------------------------ | -------------------------- |
-| Build or modify Pi extensions/packages           | `pi-extension-development` |
-| Compare proposed customisation with Pi built-ins | `pi-primitive-check`       |
-| Prepare or validate releases                     | `pi-release-workflow`      |
-| Run review-gated peer issue delivery             | `pi-review-gated-delivery` |
-| Test published package installability            | `pi-package-sandbox-test`  |
-| Validate repository edits                        | `pi-validation-flow`       |
+| Task                                             | Skill                        |
+| ------------------------------------------------ | ---------------------------- |
+| Build or modify Pi extensions/packages           | `pi-extension-development`   |
+| Compare proposed customisation with Pi built-ins | `pi-primitive-check`         |
+| Prepare or validate releases                     | `pi-release-workflow`        |
+| Run review-gated peer issue delivery             | `pi-review-gated-delivery`   |
+| Develop or review the observability dashboard    | `pi-observability-local-dev` |
+| Test published package installability            | `pi-package-sandbox-test`    |
+| Validate repository edits                        | `pi-validation-flow`         |
 
 Keep skill metadata activation-friendly:
 
