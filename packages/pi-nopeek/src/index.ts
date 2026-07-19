@@ -3,7 +3,7 @@ import type {
 	ExtensionAPI,
 } from '@earendil-works/pi-coding-agent';
 
-export function should_inject_nopeek_prompt(
+function should_inject_nopeek_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
 ): boolean {
 	const selected_tools = event.systemPromptOptions?.selectedTools;

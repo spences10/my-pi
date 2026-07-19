@@ -16,7 +16,7 @@ const DEFAULT_DB_PATH = join(
 	'pirecall.db',
 );
 
-export function should_inject_recall_prompt(
+function should_inject_recall_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
 ): boolean {
 	const selected_tools = event.systemPromptOptions?.selectedTools;

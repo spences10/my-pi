@@ -1,52 +1,88 @@
-import { describe, expect, it } from 'vitest';
-import { should_inject_omnisearch_prompt } from './index.js';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { describe, expect, it, vi } from 'vitest';
+import omnisearch from './index.js';
 
-describe('should_inject_omnisearch_prompt', () => {
-	it('injects when selected tools are unavailable', () => {
-		expect(
-			should_inject_omnisearch_prompt({
-				systemPromptOptions: {},
-			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
-		).toBe(true);
+type PromptEvent = {
+	systemPrompt: string;
+	systemPromptOptions?: { selectedTools?: string[] };
+};
+type PromptHandler = (
+	event: PromptEvent,
+) => Promise<Record<string, unknown>>;
+
+async function register_prompt_handler(): Promise<PromptHandler> {
+	const on = vi.fn();
+	await omnisearch({ on } as unknown as ExtensionAPI);
+	expect(on).toHaveBeenCalledWith(
+		'before_agent_start',
+		expect.any(Function),
+	);
+	return on.mock.calls[0]?.[1] as PromptHandler;
+}
+
+describe('omnisearch extension', () => {
+	it('injects guidance when selected tools are unavailable', async () => {
+		const handler = await register_prompt_handler();
+		await expect(
+			handler({ systemPrompt: 'base', systemPromptOptions: {} }),
+		).resolves.toEqual({
+			systemPrompt: expect.stringMatching(
+				/^base\n\n## Web research via mcp-omnisearch/,
+			),
+		});
 	});
 
-	it('injects when mcp-omnisearch is active', () => {
-		expect(
-			should_inject_omnisearch_prompt({
+	it('injects guidance when mcp-omnisearch is active', async () => {
+		const handler = await register_prompt_handler();
+		await expect(
+			handler({
+				systemPrompt: 'base',
 				systemPromptOptions: {
 					selectedTools: ['read', 'mcp__mcp-omnisearch__web_search'],
 				},
-			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
-		).toBe(true);
+			}),
+		).resolves.toEqual({
+			systemPrompt: expect.stringContaining(
+				'Web research via mcp-omnisearch',
+			),
+		});
 	});
 
-	it('injects for omnisearch MCP tools even when the server is aliased', () => {
-		expect(
-			should_inject_omnisearch_prompt({
+	it('injects for Omnisearch MCP tools when the server is aliased', async () => {
+		const handler = await register_prompt_handler();
+		await expect(
+			handler({
+				systemPrompt: 'base',
 				systemPromptOptions: {
 					selectedTools: ['mcp__omnisearch__web_extract'],
 				},
-			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
-		).toBe(true);
+			}),
+		).resolves.toEqual({
+			systemPrompt: expect.stringContaining(
+				'Web research via mcp-omnisearch',
+			),
+		});
 	});
 
-	it('skips injection when omnisearch MCP tools are unavailable', () => {
-		expect(
-			should_inject_omnisearch_prompt({
-				systemPromptOptions: {
-					selectedTools: ['read', 'bash'],
-				},
-			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
-		).toBe(false);
+	it('skips guidance when Omnisearch MCP tools are unavailable', async () => {
+		const handler = await register_prompt_handler();
+		await expect(
+			handler({
+				systemPrompt: 'base',
+				systemPromptOptions: { selectedTools: ['read', 'bash'] },
+			}),
+		).resolves.toEqual({});
 	});
 
-	it('skips similarly named tools from non-omnisearch MCP servers', () => {
-		expect(
-			should_inject_omnisearch_prompt({
+	it('skips similarly named tools from non-Omnisearch MCP servers', async () => {
+		const handler = await register_prompt_handler();
+		await expect(
+			handler({
+				systemPrompt: 'base',
 				systemPromptOptions: {
 					selectedTools: ['mcp__search__web_search'],
 				},
-			} as Parameters<typeof should_inject_omnisearch_prompt>[0]),
-		).toBe(false);
+			}),
+		).resolves.toEqual({});
 	});
 });
