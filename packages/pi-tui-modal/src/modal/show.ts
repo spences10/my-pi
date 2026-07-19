@@ -231,6 +231,21 @@ export async function show_text_modal(
 	);
 }
 
+export async function show_command_output_modal(
+	ctx: ModalCommandContext,
+	options: TextModalOptions,
+): Promise<void> {
+	await show_text_modal(ctx, {
+		...options,
+		max_visible_lines: options.max_visible_lines ?? 20,
+		overlay_options: {
+			width: '90%',
+			minWidth: 72,
+			...options.overlay_options,
+		},
+	});
+}
+
 export async function show_input_modal(
 	ctx: ModalCommandContext,
 	options: InputModalOptions,

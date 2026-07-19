@@ -2,6 +2,7 @@ import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 import type { Component, TUI } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 import {
+	show_command_output_modal,
 	show_confirm_modal,
 	show_input_modal,
 	show_modal,
@@ -21,8 +22,13 @@ const theme: ModalTheme = {
 	bold: (text: string) => text,
 };
 
-function create_ctx(result?: unknown, send_input?: string) {
+function create_ctx(
+	result?: unknown,
+	send_input?: string,
+	terminal_rows = 24,
+) {
 	const notify = vi.fn();
+	const rendered_lines: string[] = [];
 	const custom = vi.fn(
 		async (
 			factory: Parameters<ExtensionCommandContext['ui']['custom']>[0],
@@ -33,7 +39,7 @@ function create_ctx(result?: unknown, send_input?: string) {
 			let resolved = result;
 			const component = await factory(
 				{
-					terminal: { rows: 24 },
+					terminal: { rows: terminal_rows },
 					requestRender: vi.fn(),
 				} as unknown as TUI,
 				theme as unknown as CustomFactoryArgs[1],
@@ -43,7 +49,7 @@ function create_ctx(result?: unknown, send_input?: string) {
 				},
 			);
 			(component as Component & { focused: boolean }).focused = true;
-			component.render(80);
+			rendered_lines.push(...component.render(100));
 			if (send_input) component.handleInput?.(send_input);
 			component.dispose?.();
 			return resolved;
@@ -59,6 +65,7 @@ function create_ctx(result?: unknown, send_input?: string) {
 		},
 		custom,
 		notify,
+		rendered_lines,
 	};
 }
 
@@ -111,6 +118,47 @@ describe('show modal helpers', () => {
 		});
 
 		expect(on_change).toHaveBeenCalledWith('alignment', 'right');
+	});
+
+	it('applies overrideable command-output layout defaults', async () => {
+		const defaults = create_ctx(undefined, undefined, 40);
+		await show_command_output_modal(defaults.ctx, {
+			title: 'Output',
+			text: Array.from(
+				{ length: 25 },
+				(_, index) => `line-${index}`,
+			).join('\n'),
+		});
+
+		expect(defaults.custom.mock.calls[0]?.[1]).toMatchObject({
+			overlay: true,
+			overlayOptions: {
+				width: '90%',
+				minWidth: 72,
+			},
+		});
+		expect(
+			defaults.rendered_lines.filter((line) =>
+				line.includes('line-'),
+			),
+		).toHaveLength(20);
+
+		const overrides = create_ctx(undefined, undefined, 40);
+		await show_command_output_modal(overrides.ctx, {
+			title: 'Output',
+			text: 'one\ntwo\nthree',
+			max_visible_lines: 2,
+			overlay_options: { width: '75%', minWidth: 55 },
+		});
+
+		expect(overrides.custom.mock.calls[0]?.[1]).toMatchObject({
+			overlayOptions: { width: '75%', minWidth: 55 },
+		});
+		expect(
+			overrides.rendered_lines.filter((line) =>
+				/one|two|three/.test(line),
+			),
+		).toHaveLength(2);
 	});
 
 	it('wraps picker, text, input, and confirm flows', async () => {
