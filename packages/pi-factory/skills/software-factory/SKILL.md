@@ -7,6 +7,13 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
 
 # Software Factory
 
+Use this workflow for ambiguous or high-risk work, coordinated
+delivery, or requests that need review gates. Do not invoke it solely
+because a bounded routine single-session change includes an explicitly
+authorized commit or push. Once work enters factory management, retain
+its explicit approval nodes; a requested side effect is not itself a
+factory approval decision.
+
 1. Preview with `factory action=preview`; explain workflow/version,
    policy sources, compute, parallelism, validations, retry limits,
    review mode, ownership, and approvals.
