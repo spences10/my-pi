@@ -42,10 +42,13 @@ layer for Pi skill ecosystems:
 - installs GitHub-hosted skills through `gh skill` when GitHub CLI
   support is available
 - checks or applies GitHub skill updates through `gh skill update`
-- provides a `/skills` command and interactive picker
-
-External source import/sync behavior lives in
-`@spences10/pi-skill-importer`.
+- provides a task-oriented `/skills` command with **Installed**,
+  **Available**, **Add / import**, and **Advanced** sections
+- discovers new skills in repositories represented by existing
+  `gh skill` installs; preview and explicit confirmation are required
+  before installation
+- composes the public `@spences10/pi-skill-importer` API for external
+  plugin import, provenance, sync/rebind, and metadata-owned deletion
 
 ## Commands
 
@@ -69,13 +72,24 @@ or newer with preview `gh skill` support. The extension delegates
 GitHub source tracking, pinning, preview/update metadata, and tree-SHA
 comparison to `gh skill` instead of maintaining a parallel cache.
 
-With a UI available, `/skills` opens a modal home menu for managing,
-adding GitHub skills, updating GitHub skills, refreshing discovery,
-profile switching, and profile baseline selection. The Add GitHub
-skill flow can install one skill or every `SKILL.md` found in a
-repository. The no-arg `search`, `add`, and `defaults` subcommands use
-modal pickers/forms in interactive mode. In headless mode, use the
-subcommands directly.
+With a UI available, `/skills` opens four task-oriented sections:
+
+- **Installed** — search and enable/disable skills, inspect details,
+  or choose a separately confirmed delete
+- **Available** — reconcile installed `gh skill` inventory with known
+  repository trees, preview newly published skills, and dry-run
+  updates
+- **Add / import** — add from GitHub or review/import/sync/delete
+  compatible external plugin skills
+- **Advanced** — profiles, default policy, manual refresh, and
+  diagnostic browsing
+
+GitHub installation follows
+`preview → explicit confirmation → install → Pi reload`; discovery
+never auto-installs or activates an upstream skill. Importer
+sync/rebind continues to refuse overwriting local changes, and
+importer deletion only removes metadata-owned copies. Existing
+subcommands remain available for headless and scripted use.
 
 ## Skill enablement
 

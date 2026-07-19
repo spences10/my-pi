@@ -534,11 +534,15 @@ export default async function skill_importer(
 ): Promise<void> {
 	pi.registerCommand('skill-importer', {
 		description:
-			'Import external Agent Skills into Pi-native storage',
+			'Deprecated compatibility command; use /skills Add / import',
 		getArgumentCompletions: completions,
 		handler: async (args, ctx) => {
 			const trimmed = args.trim();
 			if (!trimmed && ctx.hasUI) {
+				ctx.ui.notify(
+					'/skill-importer is deprecated; use /skills → Add / import. Compatibility actions remain available here.',
+					'warning',
+				);
 				await show_home(ctx);
 				return;
 			}

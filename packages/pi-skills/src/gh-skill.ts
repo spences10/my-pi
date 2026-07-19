@@ -105,6 +105,95 @@ export function has_gh_skill(
 	return result.status === 0;
 }
 
+export type GhSkillScope = 'project' | 'user';
+
+export interface GhInstalledSkill {
+	skillName: string;
+	sourceURL: string;
+	scope: GhSkillScope;
+	version: string;
+	pinned: boolean;
+	path: string;
+}
+
+export function normalize_gh_installed_skill(
+	value: unknown,
+): GhInstalledSkill | null {
+	if (!value || typeof value !== 'object') return null;
+	const item = value as Record<string, unknown>;
+	if (
+		typeof item.skillName !== 'string' ||
+		typeof item.sourceURL !== 'string' ||
+		(item.scope !== 'project' && item.scope !== 'user') ||
+		typeof item.version !== 'string' ||
+		typeof item.pinned !== 'boolean' ||
+		typeof item.path !== 'string'
+	) {
+		return null;
+	}
+
+	const skill_name = item.skillName.trim();
+	const path = item.path.trim();
+	if (!skill_name || !path) return null;
+
+	return {
+		skillName: skill_name,
+		sourceURL: item.sourceURL.trim(),
+		scope: item.scope,
+		version: item.version.trim(),
+		pinned: item.pinned,
+		path,
+	};
+}
+
+export function parse_gh_skill_list_output(
+	output: string,
+): GhInstalledSkill[] {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(output) as unknown;
+	} catch (error) {
+		const detail = error instanceof Error ? `: ${error.message}` : '';
+		throw new Error(`Invalid gh skill list JSON${detail}`);
+	}
+	if (!Array.isArray(parsed)) {
+		throw new Error('Invalid gh skill list JSON: expected an array');
+	}
+
+	return parsed.flatMap((item) => {
+		const skill = normalize_gh_installed_skill(item);
+		return skill ? [skill] : [];
+	});
+}
+
+function gh_skill_list_args(): string[] {
+	return [
+		'skill',
+		'list',
+		'--agent',
+		'pi',
+		'--json',
+		'skillName,sourceURL,scope,version,pinned,path',
+	];
+}
+
+export function run_gh_skill_list(
+	runner: CommandRunner = default_runner,
+): GhInstalledSkill[] {
+	const result = runner('gh', gh_skill_list_args());
+	ensure_success(result, 'gh skill list failed');
+	return parse_gh_skill_list_output(result.stdout);
+}
+
+export async function run_gh_skill_list_async(
+	runner: AsyncCommandRunner = default_async_runner,
+	options?: { signal?: AbortSignal },
+): Promise<GhInstalledSkill[]> {
+	const result = await runner('gh', gh_skill_list_args(), options);
+	ensure_success(result, 'gh skill list failed');
+	return parse_gh_skill_list_output(result.stdout);
+}
+
 export function is_github_repo_spec(value: string): boolean {
 	return /^(?:https:\/\/github\.com\/)?[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?$/.test(
 		value,
@@ -115,6 +204,41 @@ export function normalize_github_repo_spec(value: string): string {
 	return value
 		.replace(/^https:\/\/github\.com\//, '')
 		.replace(/\.git$/, '');
+}
+
+export function github_repository_from_source_url(
+	source_url: string,
+): string | null {
+	const value = source_url.trim();
+	if (!value) return null;
+
+	const shorthand = value.replace(/\/$/, '');
+	if (is_github_repo_spec(shorthand)) {
+		return normalize_github_repo_spec(shorthand);
+	}
+
+	try {
+		const url = new URL(value);
+		if (
+			url.protocol !== 'https:' ||
+			(url.hostname.toLowerCase() !== 'github.com' &&
+				url.hostname.toLowerCase() !== 'www.github.com') ||
+			url.port ||
+			url.username ||
+			url.password ||
+			url.search ||
+			url.hash
+		) {
+			return null;
+		}
+		const parts = url.pathname.split('/').filter(Boolean);
+		if (parts.length !== 2) return null;
+		const repository = `${parts[0]}/${parts[1]}`;
+		if (!is_github_repo_spec(repository)) return null;
+		return normalize_github_repo_spec(repository);
+	} catch {
+		return null;
+	}
 }
 
 function parse_repo_parts(repository: string): {
@@ -206,6 +330,120 @@ export async function run_gh_skill_install_async(
 export interface GhRepositorySkill {
 	name: string;
 	path: string;
+}
+
+export interface GhKnownRepository {
+	repository: string;
+	source_url: string;
+	source_urls: string[];
+	scopes: GhSkillScope[];
+	installed_skills: GhInstalledSkill[];
+}
+
+export interface GhRemoteRepositorySkills {
+	repository: string;
+	skills: readonly GhRepositorySkill[];
+}
+
+export interface GhAvailableRepositorySkill extends GhRepositorySkill {
+	repository: string;
+	source_url: string;
+	source_urls: string[];
+	repository_scopes: GhSkillScope[];
+	repository_installations: GhInstalledSkill[];
+}
+
+export interface GhRepositorySkillReconciliation {
+	known_repositories: GhKnownRepository[];
+	available_skills: GhAvailableRepositorySkill[];
+}
+
+export function derive_known_github_repositories(
+	installed_skills: readonly GhInstalledSkill[],
+): GhKnownRepository[] {
+	const by_repository = new Map<string, GhKnownRepository>();
+
+	for (const skill of installed_skills) {
+		const repository = github_repository_from_source_url(
+			skill.sourceURL,
+		);
+		if (!repository) continue;
+		const key = repository.toLowerCase();
+		let known = by_repository.get(key);
+		if (!known) {
+			known = {
+				repository,
+				source_url: `https://github.com/${repository}`,
+				source_urls: [],
+				scopes: [],
+				installed_skills: [],
+			};
+			by_repository.set(key, known);
+		}
+		const source_url = skill.sourceURL.trim();
+		if (!known.source_urls.includes(source_url)) {
+			known.source_urls.push(source_url);
+		}
+		if (!known.scopes.includes(skill.scope)) {
+			known.scopes.push(skill.scope);
+		}
+		known.installed_skills.push(skill);
+	}
+
+	return [...by_repository.values()].sort((a, b) =>
+		a.repository.localeCompare(b.repository),
+	);
+}
+
+export function reconcile_github_repository_skills(
+	installed_skills: readonly GhInstalledSkill[],
+	remote_repositories: readonly GhRemoteRepositorySkills[],
+): GhRepositorySkillReconciliation {
+	const known_repositories =
+		derive_known_github_repositories(installed_skills);
+	const known_by_repository = new Map(
+		known_repositories.map((repository) => [
+			repository.repository.toLowerCase(),
+			repository,
+		]),
+	);
+	const seen = new Set<string>();
+	const available_skills: GhAvailableRepositorySkill[] = [];
+
+	for (const remote of remote_repositories) {
+		const repository = github_repository_from_source_url(
+			remote.repository,
+		);
+		if (!repository) continue;
+		const known = known_by_repository.get(repository.toLowerCase());
+		if (!known) continue;
+		const installed_names = new Set(
+			known.installed_skills.map((skill) => skill.skillName),
+		);
+
+		for (const skill of remote.skills) {
+			if (installed_names.has(skill.name)) continue;
+			const key = `${known.repository.toLowerCase()}\0${skill.path}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			available_skills.push({
+				name: skill.name,
+				path: skill.path,
+				repository: known.repository,
+				source_url: known.source_url,
+				source_urls: [...known.source_urls],
+				repository_scopes: [...known.scopes],
+				repository_installations: [...known.installed_skills],
+			});
+		}
+	}
+
+	available_skills.sort((a, b) =>
+		`${a.repository}\0${a.path}`.localeCompare(
+			`${b.repository}\0${b.path}`,
+		),
+	);
+	return { known_repositories, available_skills };
 }
 
 export interface GhSkillSearchResult {

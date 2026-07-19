@@ -24,7 +24,7 @@ export async function show_refresh_summary(
 export async function show_defaults_modal(
 	ctx: ExtensionCommandContext,
 	mgr: SkillsManager,
-): Promise<void> {
+): Promise<boolean> {
 	const selected = await show_picker_modal(ctx, {
 		title: 'Default skill policy',
 		subtitle: `Active profile: ${mgr.get_active_profile()}`,
@@ -43,12 +43,14 @@ export async function show_defaults_modal(
 			},
 		],
 	});
-	if (!selected) return;
+	if (!selected) return false;
 	mgr.set_defaults(selected as 'all-enabled' | 'all-disabled');
 	await show_text_modal(ctx, {
 		title: 'Default skill policy updated',
-		text: `Active profile now starts from: ${selected}`,
+		text: `Active profile now starts from: ${selected}\n\nReloading...`,
 	});
+	await ctx.reload();
+	return true;
 }
 
 export async function pick_profile(
@@ -187,7 +189,7 @@ export async function show_profiles_modal(
 				);
 			}
 		} else if (selected === 'defaults') {
-			await show_defaults_modal(ctx, mgr);
+			if (await show_defaults_modal(ctx, mgr)) return true;
 		} else if (selected === 'show') {
 			const profile_name = await pick_profile(
 				ctx,

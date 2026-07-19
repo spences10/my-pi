@@ -11,9 +11,11 @@ Move external Agent Skills into Pi without hand-copying files.
 `pi-skill-importer` provides the import helpers Pi uses to normalize
 skill metadata, content, and storage from compatible skill sources.
 
-The extension registers `/skill-importer` with list/import/sync/delete
-flows. It discovers Claude plugin skills, then copies selected skills
-into:
+The public API powers the consolidated `/skills` → **Add / import**
+experience. The extension still registers `/skill-importer` with
+list/import/sync/delete flows as a deprecated compatibility surface;
+existing scripts and commands continue to work. It discovers Claude
+plugin skills, then copies selected skills into:
 
 ```text
 $PI_CODING_AGENT_DIR/skills/<skill-name>
@@ -32,7 +34,8 @@ upstream Claude/plugin directories.
 ## Commands
 
 ```text
-/skill-importer
+/skills                 # preferred interactive entry point
+/skill-importer          # deprecated compatibility UI
 /skill-importer list
 /skill-importer import <key|name>
 /skill-importer sync <key|name>

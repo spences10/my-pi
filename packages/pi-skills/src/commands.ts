@@ -1,5 +1,9 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import {
+	scan_importable_skills,
+	scan_imported_skills,
+} from '@spences10/pi-skill-importer';
+import {
 	run_with_progress_modal,
 	show_confirm_modal,
 	show_input_modal,
@@ -32,15 +36,17 @@ import {
 	pick_profile,
 	pick_skill,
 	show_add_github_skill_modal,
+	show_add_import_modal,
+	show_advanced_skills_modal,
+	show_available_skills_modal,
 	show_defaults_modal,
+	show_installed_skills_modal,
 	show_profiles_modal,
 	show_refresh_summary,
 	show_search_github_skills_modal,
 	show_skill_detail_modal,
 	show_skill_list_modal,
 	show_skills_home_modal,
-	show_skills_manager_modal,
-	show_update_github_skills_modal,
 } from './skills-ui.js';
 
 export default async function skills(pi: ExtensionAPI) {
@@ -64,34 +70,28 @@ export default async function skills(pi: ExtensionAPI) {
 			const trimmed = args.trim();
 
 			if (!trimmed && ctx.hasUI) {
-				let selected: string | undefined;
 				while (true) {
 					const managed = mgr.discover();
-					const counts = {
-						managed: managed.length,
-						pi_native: managed.filter(
-							(skill) => skill.source === 'pi-native',
-						).length,
-					};
-					selected = await show_skills_home_modal(
+					const selected = await show_skills_home_modal(
 						ctx,
-						counts,
+						{
+							managed: managed.length,
+							enabled: managed.filter((skill) => skill.enabled)
+								.length,
+							external: scan_importable_skills().length,
+							imported: scan_imported_skills().length,
+						},
 						mgr.get_active_profile(),
 					);
 					if (!selected) break;
-
-					if (selected === 'manage') {
-						if (await show_skills_manager_modal(ctx, mgr)) return;
-					} else if (selected === 'search') {
-						if (await show_search_github_skills_modal(ctx)) return;
-					} else if (selected === 'add') {
-						if (await show_add_github_skill_modal(ctx)) return;
-					} else if (selected === 'update') {
-						if (await show_update_github_skills_modal(ctx)) return;
-					} else if (selected === 'profiles') {
-						if (await show_profiles_modal(ctx, mgr)) return;
-					} else if (selected === 'refresh') {
-						await show_refresh_summary(ctx, mgr);
+					if (selected === 'installed') {
+						if (await show_installed_skills_modal(ctx, mgr)) return;
+					} else if (selected === 'available') {
+						if (await show_available_skills_modal(ctx)) return;
+					} else if (selected === 'add-import') {
+						if (await show_add_import_modal(ctx)) return;
+					} else if (selected === 'advanced') {
+						if (await show_advanced_skills_modal(ctx, mgr)) return;
 					}
 				}
 				return;

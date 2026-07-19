@@ -2,9 +2,14 @@ export { default } from './extension.js';
 
 export {
 	IMPORT_METADATA_FILE,
+	is_importable_skill,
+	is_imported_skill,
 	scan_importable_skills,
+	scan_imported_skills,
 	scan_managed_skills,
 	type DiscoveredSkill,
+	type ImportableSkill,
+	type ImportedSkill,
 	type ImportedSkillMetadata,
 	type InstalledPlugin,
 	type PluginSkillSource,

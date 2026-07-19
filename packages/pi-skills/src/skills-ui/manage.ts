@@ -1,18 +1,20 @@
 import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import { scan_imported_skills } from '@spences10/pi-skill-importer';
 import {
 	show_confirm_modal,
+	show_picker_modal,
 	show_settings_modal,
+	show_text_modal,
 } from '@spences10/pi-tui-modal';
 import type { SkillsManager } from '../manager.js';
 import {
 	DISABLED,
 	ENABLED,
+	format_skill_detail,
 	sets_equal,
 	sort_skills,
 	to_setting_item,
 } from '../skill-utils.js';
-
-const DELETE_SKILL = '✕ delete';
 
 export async function show_skills_manager_modal(
 	ctx: ExtensionCommandContext,
@@ -23,30 +25,22 @@ export async function show_skills_manager_modal(
 		ctx.ui.notify('No managed skills found');
 		return false;
 	}
-
 	const initial_enabled = new Set(
 		discovered
 			.filter((skill) => skill.enabled)
 			.map((skill) => skill.key),
 	);
 	const current_enabled = new Set(initial_enabled);
-	const items = discovered.map((skill) => {
-		const item = to_setting_item(skill);
-		const values = [...(item.values ?? []), DELETE_SKILL];
-		return { ...item, values };
-	});
+	const items = discovered.map(to_setting_item);
 	const metadata_by_id = new Map(
 		items.map((item) => [item.id, item.description ?? '']),
 	);
 	for (const item of items) item.description = '';
 
 	await show_settings_modal(ctx, {
-		title: 'Manage skills',
-		subtitle: () => {
-			const enabled = current_enabled.size;
-			const disabled = discovered.length - enabled;
-			return `profile ${mgr.get_active_profile()} • ${enabled} enabled • ${disabled} disabled`;
-		},
+		title: 'Installed skill enablement',
+		subtitle: () =>
+			`profile ${mgr.get_active_profile()} • ${current_enabled.size} enabled • ${discovered.length - current_enabled.size} disabled`,
 		items,
 		max_visible: Math.min(Math.max(items.length + 4, 8), 12),
 		enable_search: true,
@@ -63,39 +57,114 @@ export async function show_skills_manager_modal(
 		},
 	});
 
-	const delete_ids = items
-		.filter((item) => item.currentValue === DELETE_SKILL)
-		.map((item) => item.id);
-
-	let changed = !sets_equal(initial_enabled, current_enabled);
-
-	if (delete_ids.length) {
-		const ok = await show_confirm_modal(ctx, {
-			title: 'Delete skills?',
-			message: `Delete ${delete_ids.length} skill${delete_ids.length === 1 ? '' : 's'} from disk? This cannot be undone.`,
-			confirm_label: 'Delete',
-			cancel_label: 'Keep skills',
-		});
-		if (ok) {
-			for (const id of delete_ids) {
-				try {
-					mgr.delete_skill(id);
-					changed = true;
-				} catch (error) {
-					ctx.ui.notify(
-						error instanceof Error ? error.message : String(error),
-						'warning',
-					);
-				}
-			}
-		}
-	}
-
-	if (changed) {
+	if (!sets_equal(initial_enabled, current_enabled)) {
 		ctx.ui.notify('Reloading to apply updated skills...', 'info');
 		await ctx.reload();
 		return true;
 	}
+	return false;
+}
 
+async function browse_installed(
+	ctx: ExtensionCommandContext,
+	mgr: SkillsManager,
+): Promise<boolean> {
+	const skills = sort_skills(mgr.discover());
+	const selected = await show_picker_modal(ctx, {
+		title: 'Installed skill details',
+		subtitle: `${skills.length} managed • profile ${mgr.get_active_profile()}`,
+		empty_message: 'No managed skills found',
+		items: skills.map((skill) => ({
+			value: skill.key,
+			label: skill.name,
+			description: `${skill.enabled ? 'enabled' : 'disabled'} • ${skill.source} • ${skill.key}`,
+		})),
+	});
+	const skill = skills.find(
+		(candidate) => candidate.key === selected,
+	);
+	if (!skill) return false;
+	const importer_owned = scan_imported_skills().some(
+		(imported) => imported.baseDir === skill.baseDir,
+	);
+	const action = await show_picker_modal(ctx, {
+		title: skill.name,
+		subtitle: `${skill.enabled ? 'enabled' : 'disabled'} • ${skill.source}`,
+		footer: importer_owned
+			? `${skill.baseDir} • manage this importer-owned copy in Add / import`
+			: skill.baseDir,
+		items: [
+			{
+				value: 'details',
+				label: 'View details',
+				description: 'Read-only provenance, path, and profile status',
+			},
+			...(importer_owned
+				? []
+				: [
+						{
+							value: 'delete',
+							label: 'Delete from disk',
+							description:
+								'Separate destructive action with confirmation',
+						},
+					]),
+		],
+	});
+	if (action === 'details') {
+		await show_text_modal(ctx, {
+			title: skill.name,
+			text: format_skill_detail(skill),
+		});
+		return false;
+	}
+	if (action !== 'delete') return false;
+	const confirmed = await show_confirm_modal(ctx, {
+		title: `Delete ${skill.name}?`,
+		message: `Delete ${skill.baseDir} from disk? This cannot be undone.`,
+		confirm_label: 'Delete',
+		cancel_label: 'Keep skill',
+	});
+	if (!confirmed) return false;
+	try {
+		mgr.delete_skill(skill.key);
+		ctx.ui.notify(`Deleted ${skill.name}. Reloading...`, 'info');
+		await ctx.reload();
+		return true;
+	} catch (error) {
+		ctx.ui.notify(
+			error instanceof Error ? error.message : String(error),
+			'warning',
+		);
+		return false;
+	}
+}
+
+export async function show_installed_skills_modal(
+	ctx: ExtensionCommandContext,
+	mgr: SkillsManager,
+): Promise<boolean> {
+	const skills = mgr.discover();
+	const action = await show_picker_modal(ctx, {
+		title: 'Installed',
+		subtitle: `${skills.length} managed • ${skills.filter((skill) => skill.enabled).length} enabled • profile ${mgr.get_active_profile()}`,
+		items: [
+			{
+				value: 'enablement',
+				label: 'Enable / disable',
+				description:
+					'Search installed skills and update the active profile',
+			},
+			{
+				value: 'details',
+				label: 'Details / delete',
+				description:
+					'Inspect provenance or choose a separately confirmed delete',
+			},
+		],
+	});
+	if (action === 'enablement')
+		return await show_skills_manager_modal(ctx, mgr);
+	if (action === 'details') return await browse_installed(ctx, mgr);
 	return false;
 }

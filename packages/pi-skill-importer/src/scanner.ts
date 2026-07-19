@@ -63,6 +63,33 @@ export interface DiscoveredSkill {
 	import_meta?: ImportedSkillMetadata;
 }
 
+export interface ImportableSkill extends DiscoveredSkill {
+	scope: 'plugin';
+	kind: 'external';
+	plugin: PluginSkillSource;
+}
+
+export interface ImportedSkill extends DiscoveredSkill {
+	kind: 'managed';
+	import_meta: ImportedSkillMetadata;
+}
+
+export function is_importable_skill(
+	skill: DiscoveredSkill,
+): skill is ImportableSkill {
+	return (
+		skill.kind === 'external' &&
+		skill.scope === 'plugin' &&
+		skill.plugin !== undefined
+	);
+}
+
+export function is_imported_skill(
+	skill: DiscoveredSkill,
+): skill is ImportedSkill {
+	return skill.kind === 'managed' && skill.import_meta !== undefined;
+}
+
 function read_installed_plugins(): InstalledPluginsFile | null {
 	const path = join(
 		homedir(),
@@ -266,6 +293,10 @@ function project_roots(cwd: string): string[] {
 	return roots;
 }
 
+export function scan_imported_skills(): ImportedSkill[] {
+	return scan_managed_skills().filter(is_imported_skill);
+}
+
 export function scan_project_skills(
 	cwd = process.cwd(),
 ): DiscoveredSkill[] {
@@ -307,10 +338,10 @@ export function scan_project_skills(
 	return dedupe_by_skill_path(skills);
 }
 
-export function scan_importable_skills(): DiscoveredSkill[] {
+export function scan_importable_skills(): ImportableSkill[] {
 	const skills: DiscoveredSkill[] = [];
 	const plugins = read_installed_plugins();
-	if (!plugins?.plugins) return skills;
+	if (!plugins?.plugins) return [];
 
 	for (const [plugin_id, entries] of Object.entries(
 		plugins.plugins,
@@ -368,7 +399,7 @@ export function scan_importable_skills(): DiscoveredSkill[] {
 		}
 	}
 
-	return dedupe_by_skill_path(skills);
+	return dedupe_by_skill_path(skills).filter(is_importable_skill);
 }
 
 export function scan_all_skills(

@@ -747,6 +747,9 @@ importers:
       '@spences10/pi-settings':
         specifier: workspace:*
         version: link:../pi-settings
+      '@spences10/pi-skill-importer':
+        specifier: workspace:*
+        version: link:../pi-skill-importer
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal

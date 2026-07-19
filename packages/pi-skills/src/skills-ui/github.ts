@@ -107,49 +107,25 @@ export async function show_search_github_skills_modal(
 		);
 		if (!repo || !path || !selected) return false;
 
-		const action = await show_picker_modal(ctx, {
+		const preview = await run_with_progress_modal(
+			ctx,
+			{
+				title: 'Previewing GitHub skill',
+				message: `Running gh skill preview ${repo} ${path}`,
+			},
+			async ({ signal }) =>
+				await run_gh_skill_preview_async(repo, path, undefined, {
+					signal,
+				}),
+		);
+		if (preview === undefined) return false;
+		await show_text_modal(ctx, {
 			title: format_search_result(selected),
-			subtitle: selected.path,
-			items: [
-				{
-					value: 'preview',
-					label: 'Preview first',
-					description: 'Run gh skill preview without installing',
-				},
-				{
-					value: 'install',
-					label: 'Install',
-					description:
-						'Install for Pi user scope after a warning confirmation',
-				},
-			],
+			subtitle: `${repo} • ${path}`,
+			text: preview || 'No preview output.',
 			footer:
-				'Skills are executable instructions for your agent. Do not install repos you do not trust.',
+				'Review complete • installation still requires confirmation',
 		});
-		if (!action) return false;
-
-		if (action === 'preview') {
-			const output = await run_with_progress_modal(
-				ctx,
-				{
-					title: 'Previewing GitHub skill',
-					message: `Running gh skill preview ${repo} ${path}`,
-				},
-				async ({ signal }) =>
-					await run_gh_skill_preview_async(repo, path, undefined, {
-						signal,
-					}),
-			);
-			if (output === undefined) return false;
-			await show_text_modal(ctx, {
-				title: format_search_result(selected),
-				subtitle: `${repo} • ${path}`,
-				text: output || 'No preview output.',
-				footer: `Source: ${repo} • Path: ${path} • Install: /skills add ${repo} ${path}`,
-			});
-			return false;
-		}
-
 		if (!(await confirm_untrusted_install(ctx, selected)))
 			return false;
 		const output = await run_with_progress_modal(
@@ -214,25 +190,11 @@ export async function show_add_github_skill_modal(
 				value: 'all',
 				label: 'Install all skills from repo',
 				description:
-					'List SKILL.md files through gh api, install each one, then reload',
-			},
-			{
-				value: 'preview',
-				label: 'Preview/browse',
-				description:
-					'Coming later: preview repository skills before installing',
+					'List and preview every SKILL.md, confirm, install, then reload',
 			},
 		],
 	});
 	if (!action) return false;
-
-	if (action === 'preview') {
-		await show_text_modal(ctx, {
-			title: 'Preview/browse coming later',
-			text: `For now, use:\n\ngh skill preview ${repository}`,
-		});
-		return false;
-	}
 
 	if (action === 'one') {
 		const skill = await show_input_modal(ctx, {
@@ -243,6 +205,33 @@ export async function show_add_github_skill_modal(
 		});
 		if (!skill) return false;
 		try {
+			const preview = await run_with_progress_modal(
+				ctx,
+				{
+					title: 'Previewing GitHub skill',
+					message: `Running gh skill preview ${repository} ${skill}`,
+				},
+				async ({ signal }) =>
+					await run_gh_skill_preview_async(
+						repository,
+						skill,
+						undefined,
+						{ signal },
+					),
+			);
+			if (preview === undefined) return false;
+			await show_text_modal(ctx, {
+				title: `Preview ${skill}`,
+				subtitle: repository,
+				text: preview || 'No preview output.',
+			});
+			const confirmed = await show_confirm_modal(ctx, {
+				title: `Install ${skill}?`,
+				message: `Install ${skill} from ${repository} after reviewing the preview?`,
+				confirm_label: 'Install',
+				cancel_label: 'Cancel',
+			});
+			if (!confirmed) return false;
 			const output = await run_with_progress_modal(
 				ctx,
 				{
@@ -323,6 +312,59 @@ export async function show_add_github_skill_modal(
 	});
 	if (!existing_mode) return false;
 	try {
+		const previews = await run_with_progress_modal(
+			ctx,
+			{
+				title: 'Previewing repository skills',
+				message: `Reading skills from ${repository}`,
+			},
+			async ({ signal, update }) => {
+				const skills = await list_github_repository_skills_async(
+					repository,
+					pin,
+					undefined,
+					{ signal },
+				);
+				const sections: string[] = [];
+				for (const [index, skill] of skills.entries()) {
+					update({
+						current: skill.name,
+						completed: index,
+						total: skills.length,
+					});
+					const preview = await run_gh_skill_preview_async(
+						repository,
+						pin ? `${skill.path}@${pin}` : skill.path,
+						undefined,
+						{ signal },
+					);
+					sections.push(
+						`## ${skill.name} (${skill.path})\n\n${preview || 'No preview output.'}`,
+					);
+				}
+				return { skills, text: sections.join('\n\n---\n\n') };
+			},
+		);
+		if (previews === undefined) return false;
+		if (previews.skills.length === 0) {
+			ctx.ui.notify(
+				`No SKILL.md files found in ${repository}`,
+				'warning',
+			);
+			return false;
+		}
+		await show_text_modal(ctx, {
+			title: `Review ${previews.skills.length} repository skills`,
+			subtitle: repository,
+			text: previews.text,
+		});
+		const confirmed = await show_confirm_modal(ctx, {
+			title: `Install ${previews.skills.length} skills?`,
+			message: `Install the reviewed skills from ${repository}? Existing-skill policy: ${existing_mode}.`,
+			confirm_label: 'Install all',
+			cancel_label: 'Cancel',
+		});
+		if (!confirmed) return false;
 		const result = await run_with_progress_modal(
 			ctx,
 			{

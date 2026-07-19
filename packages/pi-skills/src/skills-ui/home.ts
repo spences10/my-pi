@@ -3,7 +3,9 @@ import { show_picker_modal } from '@spences10/pi-tui-modal';
 
 export interface SkillsHomeCounts {
 	managed: number;
-	pi_native: number;
+	enabled: number;
+	external: number;
+	imported: number;
 }
 
 export async function show_skills_home_modal(
@@ -13,39 +15,30 @@ export async function show_skills_home_modal(
 ): Promise<string | undefined> {
 	return await show_picker_modal(ctx, {
 		title: 'Skills',
-		subtitle: `${counts.managed} managed • ${counts.pi_native} pi-native • profile ${active_profile}`,
+		subtitle: `${counts.managed} installed • ${counts.enabled} enabled • profile ${active_profile}`,
 		items: [
 			{
-				value: 'manage',
-				label: 'Manage skills',
-				description: 'Search, enable/disable, or delete Pi skills',
-			},
-			{
-				value: 'search',
-				label: 'Search GitHub skills',
+				value: 'installed',
+				label: 'Installed',
 				description:
-					'Find skills with gh skill search, preview, then install',
+					'Enable, disable, inspect, or separately delete installed skills',
 			},
 			{
-				value: 'add',
-				label: 'Add GitHub skill',
-				description: 'Install a skill from owner/repo using gh skill',
-			},
-			{
-				value: 'update',
-				label: 'Update GitHub skills',
+				value: 'available',
+				label: 'Available',
 				description:
-					'Check GitHub-installed skills and apply updates',
+					'Find new skills in known repositories and check updates',
 			},
 			{
-				value: 'profiles',
-				label: 'Profiles',
-				description: 'Switch profiles and edit profile rules',
+				value: 'add-import',
+				label: 'Add / import',
+				description: `${counts.external} external • ${counts.imported} imported copies`,
 			},
 			{
-				value: 'refresh',
-				label: 'Refresh discovery',
-				description: 'Rescan managed skills',
+				value: 'advanced',
+				label: 'Advanced',
+				description:
+					'Profiles, defaults, refresh, and diagnostic browsing',
 			},
 		],
 		footer: 'enter opens • esc close/back',

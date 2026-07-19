@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { show_skills_home_modal } from './home.js';
 
 vi.mock('@spences10/pi-tui-modal', () => ({
-	show_picker_modal: vi.fn(async () => 'manage'),
+	show_picker_modal: vi.fn(async () => 'installed'),
 }));
 
 describe('show_skills_home_modal', () => {
@@ -13,31 +13,37 @@ describe('show_skills_home_modal', () => {
 				{} as unknown as Parameters<typeof show_skills_home_modal>[0],
 				{
 					managed: 3,
-					pi_native: 1,
+					enabled: 2,
+					external: 4,
+					imported: 1,
 				},
 				'default',
 			),
-		).resolves.toBe('manage');
+		).resolves.toBe('installed');
 		expect(show_picker_modal).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.objectContaining({
 				title: 'Skills',
-				subtitle: '3 managed • 1 pi-native • profile default',
+				subtitle: '3 installed • 2 enabled • profile default',
 				footer: 'enter opens • esc close/back',
-				items: expect.arrayContaining([
+				items: [
 					expect.objectContaining({
-						value: 'manage',
-						label: 'Manage skills',
+						value: 'installed',
+						label: 'Installed',
 					}),
 					expect.objectContaining({
-						value: 'search',
-						label: 'Search GitHub skills',
+						value: 'available',
+						label: 'Available',
 					}),
 					expect.objectContaining({
-						value: 'profiles',
-						label: 'Profiles',
+						value: 'add-import',
+						label: 'Add / import',
 					}),
-				]),
+					expect.objectContaining({
+						value: 'advanced',
+						label: 'Advanced',
+					}),
+				],
 			}),
 		);
 	});
