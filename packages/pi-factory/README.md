@@ -217,15 +217,16 @@ and supports filtered query plus deterministic JSON export.
 Suite/report/policy/project revisions and fingerprints remain exact;
 findings are marked project-specific unless multiple project ids
 support them. Evaluation exposes eligible `workflow_coverage` plus
-separate `workflow_total` and `workflow_excluded` counts; evidence
-proposals use eligible coverage only.
-`propose_calibration_experiments` emits reviewable evidence-collection
-or controlled-comparison proposals with `mutates_policy: false`;
-approval/canary rules remain mandatory. Synthetic dogfood is embedded
-only as excluded control-plane evidence. See the explicit
-[baseline status](./CALIBRATION_BASELINE.md)—this repository currently
-claims no real baseline because authorised live correlated evidence is
-unavailable.
+separate `workflow_total` and `workflow_excluded` counts. Eligibility
+requires complete, non-conflicting evidence plus accepted provenance
+and measured correlation; excluded rows cannot reduce evidence
+proposals. `propose_calibration_experiments` emits reviewable
+evidence-collection or controlled-comparison proposals with
+`mutates_policy: false`; approval/canary rules remain mandatory.
+Synthetic dogfood is embedded only as excluded control-plane evidence.
+See the explicit [baseline status](./CALIBRATION_BASELINE.md)—this
+repository currently claims no real baseline because authorised live
+correlated evidence is unavailable.
 
 Versioned `CalibrationCase` and `ObservedOutcome` records pin
 workflow, policy, route, compute, gates, project revision, and cohort

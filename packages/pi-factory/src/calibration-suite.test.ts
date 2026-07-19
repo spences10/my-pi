@@ -559,7 +559,7 @@ describe('versioned calibration suites', () => {
 		});
 	});
 
-	it('excludes ineligible rows from coverage and evidence proposals', () => {
+	it('keeps threshold-sized excluded datasets out of coverage and evidence proposals', () => {
 		const suite = create_calibration_suite({
 			suite_id: 'factory-real-world',
 			suite_version: '1',
@@ -573,20 +573,65 @@ describe('versioned calibration suites', () => {
 			},
 			dogfood: run_dogfood_baseline(policy, process.cwd()),
 		});
-		const outcomes = measured_outcomes(suite.cases);
-		for (const outcome of outcomes.filter(
-			(item) => item.case_id === 'feature-case',
-		))
-			outcome.provenance!.kind = 'synthetic';
-		const evaluation = evaluate_calibration_suite(suite, outcomes);
-		expect(evaluation.workflow_total.feature).toBe(2);
-		expect(evaluation.workflow_coverage.feature).toBe(0);
-		expect(evaluation.workflow_excluded.feature).toBe(2);
-		const proposal = propose_calibration_experiments(
-			suite,
-			evaluation,
-		).find((item) => item.workflow === 'feature');
-		expect(proposal?.rationale).toContain('Collect 2 additional');
+		const excluded_datasets: Array<{
+			name: string;
+			exclude: (outcome: ObservedOutcome) => void;
+		}> = [
+			{
+				name: 'synthetic provenance',
+				exclude: (outcome) => {
+					outcome.provenance!.kind = 'synthetic';
+				},
+			},
+			{
+				name: 'incompatible provenance',
+				exclude: (outcome) => {
+					outcome.provenance!.policy_hash = 'incompatible-policy';
+				},
+			},
+			{
+				name: 'uncorrelated measurement',
+				exclude: (outcome) => {
+					outcome.correlation!.status = 'uncorrelated';
+				},
+			},
+			{
+				name: 'incomplete evidence',
+				exclude: (outcome) => {
+					outcome.evidence[0]!.complete = false;
+					outcome.label = 'incomplete';
+				},
+			},
+			{
+				name: 'conflicting evidence',
+				exclude: (outcome) => {
+					outcome.evidence[0]!.contradictory = true;
+					outcome.label = 'conflicting-evidence';
+				},
+			},
+		];
+		for (const dataset of excluded_datasets) {
+			const outcomes = measured_outcomes(suite.cases);
+			for (const outcome of outcomes.filter(
+				(item) => item.case_id === 'feature-case',
+			))
+				dataset.exclude(outcome);
+			const evaluation = evaluate_calibration_suite(suite, outcomes);
+			expect(evaluation.workflow_total.feature, dataset.name).toBe(2);
+			expect(evaluation.workflow_coverage.feature, dataset.name).toBe(
+				0,
+			);
+			expect(evaluation.workflow_excluded.feature, dataset.name).toBe(
+				2,
+			);
+			const proposal = propose_calibration_experiments(
+				suite,
+				evaluation,
+			).find((item) => item.workflow === 'feature');
+			expect(proposal?.rationale, dataset.name).toContain(
+				'Collect 2 additional',
+			);
+		}
 	});
 
 	it('stores, queries, and exports exact suite/report/project revisions', () => {

@@ -60,8 +60,10 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
     project/policy/route/compute/gate/retry pins and explicit
     thresholds. Derive available import pins from durable state and
     use named embedding authentication for unavailable pins; never
-    copy target-case values into provenance. Store/query/export the
-    ledger, and keep baseline status blocked until every workflow
-    meets measured coverage. Never generalize a single-project
-    finding.
+    copy target-case values into provenance. Store/query/export total
+    and excluded rows separately, but count only complete,
+    non-conflicting outcomes with accepted provenance and measured
+    correlation toward coverage and evidence proposals. Keep baseline
+    status blocked until every workflow meets eligible coverage. Never
+    generalize a single-project finding.
 14. Finish with `metrics`, validation evidence, and remaining risks.
