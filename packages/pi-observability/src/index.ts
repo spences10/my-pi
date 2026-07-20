@@ -30,6 +30,10 @@ const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_MAX_QUEUE_SIZE = 10_000;
 export const DEFAULT_OBSERVABILITY_URL = 'http://127.0.0.1:43190';
 
+interface ResolvedObservabilityConfig extends ObservabilityConfig {
+	forward_session_id: boolean;
+}
+
 function as_string(value: unknown): string | undefined {
 	return typeof value === 'string' && value.length > 0
 		? value
@@ -60,7 +64,7 @@ export function parse_tags(value: unknown): string[] {
 export function resolve_observability_config(
 	pi: Pick<ExtensionAPI, 'getFlag'>,
 	env: NodeJS.ProcessEnv = process.env,
-): ObservabilityConfig | null {
+): ResolvedObservabilityConfig | null {
 	if (as_boolean(pi.getFlag('observability-disable'))) return null;
 	if (as_boolean(env.MY_PI_OBSERVABILITY_DISABLE)) return null;
 
@@ -528,7 +532,7 @@ export default function observability(pi: ExtensionAPI) {
 		},
 	});
 
-	let config: ObservabilityConfig | null = null;
+	let config: ResolvedObservabilityConfig | null = null;
 	let queue: EventQueue | null = null;
 	let session: SessionInfo | null = null;
 	let seq = 0;

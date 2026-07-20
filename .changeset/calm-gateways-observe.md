@@ -2,5 +2,5 @@
 '@spences10/pi-observability': patch
 ---
 
-Add opt-in provider session attribution headers while keeping
-observability identifiers private by default across requests.
+Add opt-in generic provider session attribution headers while
+documenting Pi's existing default OpenCode attribution behavior.
