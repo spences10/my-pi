@@ -19,7 +19,14 @@ import {
 	parse_tool_excludelist,
 	resolve_builtin_extension_options,
 } from './cli-args.js';
+import { get_node_preflight_error } from './runtime-preflight.js';
 import { install_sqlite_warning_filter } from './warnings.js';
+
+const node_preflight_error = get_node_preflight_error();
+if (node_preflight_error) {
+	console.error(node_preflight_error);
+	process.exit(1);
+}
 
 install_sqlite_warning_filter();
 
