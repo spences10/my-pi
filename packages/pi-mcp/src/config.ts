@@ -1,14 +1,11 @@
+import { get_github_repos } from '@spences10/pi-git-remote';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import {
 	global_mcp_config_path,
 	project_mcp_config_path,
 } from './config/paths.js';
-import {
-	get_github_repos,
-	load_mcp_policy,
-	policy_matches,
-} from './config/policy.js';
+import { load_mcp_policy, policy_matches } from './config/policy.js';
 import {
 	read_config,
 	read_config_file,

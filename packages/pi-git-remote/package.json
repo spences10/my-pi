@@ -1,20 +1,19 @@
 {
-	"name": "@spences10/pi-skills",
-	"version": "0.0.34",
-	"description": "Agent Skills management for Pi with profiles, enablement rules, GitHub search/install, and update flows",
+	"name": "@spences10/pi-git-remote",
+	"version": "0.0.1",
+	"description": "Shared GitHub remote parsing helpers for context-aware Pi packages",
 	"keywords": [
-		"agent-skills",
-		"pi",
-		"pi-package",
-		"skills"
+		"git",
+		"github",
+		"pi"
 	],
-	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/pi-skills#readme",
+	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/pi-git-remote#readme",
 	"license": "MIT",
 	"author": "Scott Spence <me@scottspence.com>",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/spences10/my-pi.git",
-		"directory": "packages/pi-skills"
+		"directory": "packages/pi-git-remote"
 	},
 	"files": [
 		"dist",
@@ -29,9 +28,6 @@
 			"default": "./dist/index.js"
 		}
 	},
-	"publishConfig": {
-		"access": "public"
-	},
 	"scripts": {
 		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
 		"build:self": "vp exec tsc -p tsconfig.build.json",
@@ -42,30 +38,12 @@
 		"coverage:self": "vp exec vitest run --coverage",
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
-	"dependencies": {
-		"@spences10/pi-git-remote": "workspace:*",
-		"@spences10/pi-settings": "workspace:*",
-		"@spences10/pi-skill-importer": "workspace:*",
-		"@spences10/pi-tui-modal": "workspace:*"
-	},
 	"devDependencies": {
-		"@earendil-works/pi-coding-agent": "catalog:",
-		"@earendil-works/pi-tui": "catalog:",
 		"@types/node": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
 	},
-	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": "*",
-		"@earendil-works/pi-tui": "*"
-	},
 	"engines": {
 		"node": ">=24.15.0"
-	},
-	"pi": {
-		"extensions": [
-			"./dist/index.js"
-		],
-		"image": "https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png"
 	}
 }
