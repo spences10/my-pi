@@ -10,6 +10,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export type ProjectTrustFallback = 'global';
 
@@ -146,6 +147,9 @@ function get_agent_dir(): string {
 		(process.platform === 'win32' && configured?.startsWith('~\\'))
 	) {
 		return join(homedir(), configured.slice(2));
+	}
+	if (configured?.startsWith('file://')) {
+		return fileURLToPath(configured);
 	}
 	return configured || join(homedir(), '.pi', 'agent');
 }

@@ -6,7 +6,7 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	apply_project_trust_untrusted_defaults,
@@ -147,6 +147,36 @@ describe('create_project_trust_wrapper', () => {
 			join(homedir(), 'trusted-example.json'),
 		);
 	});
+
+	it.each([
+		[
+			'plain',
+			'file:///tmp/pi-agent',
+			join('/tmp/pi-agent', 'trusted-example-projects.json'),
+		],
+		[
+			'percent-encoded',
+			'file:///tmp/pi%20agent',
+			join('/tmp/pi agent', 'trusted-example-projects.json'),
+		],
+	])(
+		'normalizes %s file URL agent directories outside cwd',
+		(_label, agent_dir, expected) => {
+			const wrapper = create_project_trust_wrapper({
+				store_filename: 'trusted-example-projects.json',
+			});
+			process.env.PI_CODING_AGENT_DIR = agent_dir;
+
+			const store = wrapper.default_trust_store_path();
+			expect(store).toBe(expected);
+			expect(isAbsolute(store)).toBe(true);
+			const relative_to_cwd = relative(process.cwd(), store);
+			expect(
+				relative_to_cwd === '..' ||
+					relative_to_cwd.startsWith(`..${sep}`),
+			).toBe(true);
+		},
+	);
 
 	it('delegates current trust matching and persistence', () => {
 		const store = trust_store_path();
