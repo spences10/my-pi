@@ -1,42 +1,38 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
-import recall, { should_inject_recall_prompt } from './index.js';
+import recall, * as recall_entrypoint from './index.js';
 
-describe('should_inject_recall_prompt', () => {
-	it('injects when selected tools are unavailable', () => {
-		expect(
-			should_inject_recall_prompt({
-				systemPromptOptions: {},
-			} as Parameters<typeof should_inject_recall_prompt>[0]),
-		).toBe(true);
+type PromptEvent = {
+	systemPrompt: string;
+	systemPromptOptions?: { selectedTools?: string[] };
+};
+type PromptHandler = (
+	event: PromptEvent,
+) => Promise<Record<string, unknown>>;
+
+async function register_extension() {
+	const handlers = new Map<string, Function>();
+	const on = vi.fn((name: string, handler: Function) => {
+		handlers.set(name, handler);
+	});
+	const register_command = vi.fn();
+	await recall({
+		on,
+		registerCommand: register_command,
+	} as unknown as ExtensionAPI);
+	return { handlers, on, register_command };
+}
+
+describe('recall extension', () => {
+	it('preserves the published prompt guard named export', () => {
+		expect(recall_entrypoint.should_inject_recall_prompt).toBeTypeOf(
+			'function',
+		);
 	});
 
-	it('injects when bash is active', () => {
-		expect(
-			should_inject_recall_prompt({
-				systemPromptOptions: { selectedTools: ['read', 'bash'] },
-			} as Parameters<typeof should_inject_recall_prompt>[0]),
-		).toBe(true);
-	});
-
-	it('skips injection when bash is unavailable', () => {
-		expect(
-			should_inject_recall_prompt({
-				systemPromptOptions: { selectedTools: ['read', 'write'] },
-			} as Parameters<typeof should_inject_recall_prompt>[0]),
-		).toBe(false);
-	});
-
-	it('registers lifecycle and prompt hooks', async () => {
-		const handlers = new Map<string, Function>();
-		const on = vi.fn((name: string, handler: Function) => {
-			handlers.set(name, handler);
-		});
-		const register_command = vi.fn();
-		await recall({
-			on,
-			registerCommand: register_command,
-		} as unknown as ExtensionAPI);
+	it('registers recall commands and lifecycle hooks', async () => {
+		const { handlers, on, register_command } =
+			await register_extension();
 		expect(register_command).toHaveBeenCalledWith(
 			'resume-recall',
 			expect.objectContaining({
@@ -57,20 +53,57 @@ describe('should_inject_recall_prompt', () => {
 			'before_agent_start',
 			expect.any(Function),
 		);
-
 		await expect(
 			handlers.get('session_start')?.(),
 		).resolves.toBeUndefined();
 		await expect(
 			handlers.get('session_shutdown')?.(),
 		).resolves.toBeUndefined();
+	});
+
+	it('injects guidance when selected tools are unavailable', async () => {
+		const { handlers } = await register_extension();
+		const handler = handlers.get(
+			'before_agent_start',
+		) as PromptHandler;
 		await expect(
-			handlers.get('before_agent_start')?.({
+			handler({ systemPrompt: 'base', systemPromptOptions: {} }),
+		).resolves.toEqual({
+			systemPrompt: expect.stringMatching(
+				/^base\n\n## Session Recall/,
+			),
+		});
+	});
+
+	it('injects guidance when bash is active', async () => {
+		const { handlers } = await register_extension();
+		const handler = handlers.get(
+			'before_agent_start',
+		) as PromptHandler;
+		await expect(
+			handler({
 				systemPrompt: 'base',
-				systemPromptOptions: {},
+				systemPromptOptions: {
+					selectedTools: ['read', 'bash'],
+				},
 			}),
 		).resolves.toEqual({
 			systemPrompt: expect.stringContaining('Session Recall'),
 		});
+	});
+
+	it('skips guidance when bash is unavailable', async () => {
+		const { handlers } = await register_extension();
+		const handler = handlers.get(
+			'before_agent_start',
+		) as PromptHandler;
+		await expect(
+			handler({
+				systemPrompt: 'base',
+				systemPromptOptions: {
+					selectedTools: ['read', 'write'],
+				},
+			}),
+		).resolves.toEqual({});
 	});
 });
