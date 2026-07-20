@@ -1,5 +1,27 @@
 # @spences10/pi-factory
 
+## 0.0.6
+
+### Patch Changes
+
+- 2c2bd0e: Clarify factory routing so routine commits and pushes
+  remain direct while managed approvals stay explicit.
+- ba1356e: Count only complete provenance-verified measured
+  calibration outcomes while preserving queryable totals, exclusions,
+  and evidence proposals.
+- 3f6a153: Add Pi catalog discoverability and simplify the Factory
+  README for clearer installation and usage guidance.
+- 4f39401: Authenticate factory calibration pins against durable
+  workflow state and exclude every mismatched provenance record
+  safely.
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+- Updated dependencies [c425095]
+  - @spences10/pi-harness@0.0.7
+  - @spences10/pi-project-trust@0.0.17
+  - @spences10/pi-team-mode@0.0.52
+
 ## 0.0.5
 
 ### Patch Changes

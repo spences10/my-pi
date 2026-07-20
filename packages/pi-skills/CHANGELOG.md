@@ -1,5 +1,17 @@
 # @spences10/pi-skills
 
+## 0.0.34
+
+### Patch Changes
+
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+- Updated dependencies [7c23018]
+- Updated dependencies [c425095]
+  - @spences10/pi-tui-modal@0.0.23
+  - @spences10/pi-skill-importer@0.0.12
+
 ## 0.0.33
 
 ### Patch Changes

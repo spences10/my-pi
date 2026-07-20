@@ -1,5 +1,13 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.20
+
+### Patch Changes
+
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+
 ## 0.0.19
 
 ### Patch Changes

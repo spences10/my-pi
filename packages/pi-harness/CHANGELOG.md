@@ -1,5 +1,13 @@
 # @spences10/pi-harness
 
+## 0.0.7
+
+### Patch Changes
+
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+
 ## 0.0.6
 
 ### Patch Changes

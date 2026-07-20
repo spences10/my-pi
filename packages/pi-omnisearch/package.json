@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-omnisearch",
-	"version": "0.0.14",
+	"version": "0.0.15",
 	"description": "Verified web research workflow reminder that steers Pi agents to use mcp-omnisearch for current sourced answers",
 	"keywords": [
 		"mcp",

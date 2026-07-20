@@ -1,5 +1,25 @@
 # my-pi
 
+## 0.1.116
+
+### Patch Changes
+
+- 8e5bc8a: Fail fast on unsupported Node versions and document
+  deterministic pnpm eleven first-run build approval guidance.
+- 2c2bd0e: Clarify factory routing so routine commits and pushes
+  remain direct while managed approvals stay explicit.
+- ba1356e: Count only complete provenance-verified measured
+  calibration outcomes while preserving queryable totals, exclusions,
+  and evidence proposals.
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+- Updated dependencies [7c23018]
+- Updated dependencies [c425095]
+  - @spences10/pi-tui-modal@0.0.23
+  - @spences10/pi-project-trust@0.0.17
+  - @spences10/pi-themes@0.0.9
+
 ## 0.1.115
 
 ### Patch Changes

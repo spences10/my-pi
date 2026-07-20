@@ -1,5 +1,13 @@
 # @spences10/pi-themes
 
+## 0.0.9
+
+### Patch Changes
+
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+
 ## 0.0.8
 
 ### Patch Changes

@@ -1,5 +1,18 @@
 # @spences10/pi-footer
 
+## 0.0.13
+
+### Patch Changes
+
+- dce8a27: Document pi-footer's supported library API and protect
+  published root exports with explicit contract test coverage.
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+- Updated dependencies [7c23018]
+- Updated dependencies [c425095]
+  - @spences10/pi-tui-modal@0.0.23
+
 ## 0.0.12
 
 ### Patch Changes

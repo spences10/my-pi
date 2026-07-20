@@ -1,5 +1,23 @@
 # @spences10/pi-mcp
 
+## 0.0.52
+
+### Patch Changes
+
+- bbd598f: Fix MCP cwdPrefix activation to respect filesystem
+  boundaries and prevent similarly prefixed sibling directory matches.
+- 7c23018: Standardize dense command output modals with shared
+  responsive sizing across LSP, MCP, and telemetry interfaces.
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+- Updated dependencies [7c23018]
+- Updated dependencies [c425095]
+  - @spences10/pi-tui-modal@0.0.23
+  - @spences10/pi-child-env@0.1.9
+  - @spences10/pi-context@0.1.10
+  - @spences10/pi-project-trust@0.0.17
+
 ## 0.0.51
 
 ### Patch Changes

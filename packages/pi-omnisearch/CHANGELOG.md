@@ -1,5 +1,15 @@
 # @spences10/pi-omnisearch
 
+## 0.0.15
+
+### Patch Changes
+
+- 70e2402: Preserve prompt guard exports while default extensions
+  retain tool gating and injected reminder behavior consistently.
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+
 ## 0.0.14
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @spences10/pi-project-trust
 
+## 0.0.17
+
+### Patch Changes
+
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+
 ## 0.0.16
 
 ### Patch Changes

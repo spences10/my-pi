@@ -1,5 +1,18 @@
 # @spences10/pi-telemetry
 
+## 0.0.30
+
+### Patch Changes
+
+- 7c23018: Standardize dense command output modals with shared
+  responsive sizing across LSP, MCP, and telemetry interfaces.
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+- Updated dependencies [7c23018]
+- Updated dependencies [c425095]
+  - @spences10/pi-tui-modal@0.0.23
+
 ## 0.0.29
 
 ### Patch Changes

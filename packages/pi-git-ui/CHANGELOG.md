@@ -1,5 +1,16 @@
 # @spences10/pi-git-ui
 
+## 0.0.15
+
+### Patch Changes
+
+- c425095: Generate shared README maintenance blocks deterministically
+  and validate package documentation links without removing
+  package-specific guidance.
+- Updated dependencies [7c23018]
+- Updated dependencies [c425095]
+  - @spences10/pi-tui-modal@0.0.23
+
 ## 0.0.14
 
 ### Patch Changes
