@@ -94,6 +94,34 @@ export type ProjectTrustStore = Record<
 	ProjectTrustStoreEntry
 >;
 
+export type ProjectTrustStoreSubject = Pick<
+	ProjectTrustSubject,
+	'id' | 'hash' | 'kind' | 'store_key'
+>;
+
+export type ProjectTrustLegacyMatcher = (
+	entry: unknown,
+	subject: ProjectTrustStoreSubject,
+) => boolean;
+
+export interface ProjectTrustWrapperOptions {
+	store_filename: string;
+	legacy_matcher?: ProjectTrustLegacyMatcher;
+}
+
+export interface ProjectTrustWrapper {
+	default_trust_store_path: () => string;
+	is_trusted: (
+		subject: ProjectTrustStoreSubject,
+		trust_store_path?: string,
+	) => boolean;
+	trust: (
+		subject: ProjectTrustStoreSubject,
+		trust_store_path?: string,
+		now?: Date,
+	) => void;
+}
+
 export const PROJECT_TRUST_UNTRUSTED_DEFAULTS: Record<
 	string,
 	string
@@ -112,7 +140,11 @@ const GLOBAL_FALLBACK_VALUES = new Set(['global', 'global-only']);
 
 function get_agent_dir(): string {
 	const configured = process.env.PI_CODING_AGENT_DIR;
-	if (configured?.startsWith('~/')) {
+	if (configured === '~') return homedir();
+	if (
+		configured?.startsWith('~/') ||
+		(process.platform === 'win32' && configured?.startsWith('~\\'))
+	) {
 		return join(homedir(), configured.slice(2));
 	}
 	return configured || join(homedir(), '.pi', 'agent');
@@ -120,6 +152,39 @@ function get_agent_dir(): string {
 
 export function default_project_trust_store_path(): string {
 	return join(get_agent_dir(), 'trusted-project-resources.json');
+}
+
+export function create_project_trust_wrapper(
+	options: ProjectTrustWrapperOptions,
+): ProjectTrustWrapper {
+	const default_trust_store_path = (): string =>
+		join(get_agent_dir(), options.store_filename);
+
+	return {
+		default_trust_store_path,
+		is_trusted: (
+			subject,
+			trust_store_path = default_trust_store_path(),
+		): boolean => {
+			if (is_project_subject_trusted(subject, trust_store_path)) {
+				return true;
+			}
+			if (!options.legacy_matcher) return false;
+
+			const entry =
+				read_project_trust_store(trust_store_path)[
+					get_project_trust_store_key(subject)
+				];
+			return options.legacy_matcher(entry, subject);
+		},
+		trust: (
+			subject,
+			trust_store_path = default_trust_store_path(),
+			now,
+		): void => {
+			trust_project_subject(subject, trust_store_path, now);
+		},
+	};
 }
 
 export function apply_project_trust_untrusted_defaults(
@@ -215,10 +280,7 @@ export function get_project_trust_store_key(
 }
 
 export function is_project_subject_trusted(
-	subject: Pick<
-		ProjectTrustSubject,
-		'id' | 'hash' | 'kind' | 'store_key'
-	>,
+	subject: ProjectTrustStoreSubject,
 	trust_store_path: string = default_project_trust_store_path(),
 ): boolean {
 	const store = read_project_trust_store(trust_store_path);
@@ -231,10 +293,7 @@ export function is_project_subject_trusted(
 }
 
 export function trust_project_subject(
-	subject: Pick<
-		ProjectTrustSubject,
-		'id' | 'hash' | 'kind' | 'store_key'
-	>,
+	subject: ProjectTrustStoreSubject,
 	trust_store_path: string = default_project_trust_store_path(),
 	now: Date = new Date(),
 ): void {

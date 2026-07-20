@@ -43,6 +43,28 @@ const decision = await resolve_project_trust(
 );
 ```
 
+## Reusable trust wrappers
+
+Use `create_project_trust_wrapper()` when several subject-specific
+functions need the same store handling. The wrapper constructs the
+store path, checks current entries, optionally checks a legacy entry,
+and delegates persistence. Kinds, ids, hashes, environment keys,
+prompt copy, fallbacks, and choice labels remain in the caller.
+
+```ts
+import { create_project_trust_wrapper } from '@spences10/pi-project-trust';
+
+const project_config_trust = create_project_trust_wrapper({
+	store_filename: 'trusted-example-projects.json',
+	legacy_matcher: (entry, subject) => {
+		const legacy = entry as { path?: unknown; hash?: unknown };
+		return (
+			legacy?.path === subject.id && legacy.hash === subject.hash
+		);
+	},
+});
+```
+
 ## Decisions
 
 Environment values are normalized consistently across extensions:
