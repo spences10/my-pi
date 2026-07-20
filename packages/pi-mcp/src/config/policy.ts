@@ -1,6 +1,7 @@
 import { read_settings } from '@spences10/pi-settings';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import {
 	global_mcp_policy_path,
 	project_mcp_policy_path,
@@ -96,6 +97,16 @@ export function load_mcp_policy(
 	);
 }
 
+function path_is_within(cwd: string, prefix: string): boolean {
+	const relative_path = relative(resolve(prefix), resolve(cwd));
+	return (
+		relative_path === '' ||
+		(relative_path !== '..' &&
+			!relative_path.startsWith(`..${sep}`) &&
+			!isAbsolute(relative_path))
+	);
+}
+
 export function policy_matches(
 	policy: RawMcpPolicyEntry | undefined,
 	cwd: string,
@@ -126,7 +137,9 @@ export function policy_matches(
 		);
 	}
 	if (cwd_prefix) {
-		checks.push(cwd_prefix.some((prefix) => cwd.startsWith(prefix)));
+		checks.push(
+			cwd_prefix.some((prefix) => path_is_within(cwd, prefix)),
+		);
 	}
 	return checks.length === 0 || checks.some(Boolean);
 }

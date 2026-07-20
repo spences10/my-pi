@@ -491,6 +491,44 @@ describe('load_mcp_config', () => {
 		);
 	});
 
+	it('matches cwdPrefix on path boundaries only', () => {
+		const home = tmp_dir();
+		const parent = tmp_dir();
+		const trusted = join(parent, 'project');
+		const descendant = join(trusted, 'nested');
+		const dotted_descendant = join(trusted, '..cache');
+		const sibling = join(parent, 'project-evil');
+		dirs.push(home, parent);
+		process.env.HOME = home;
+		mkdirSync(descendant, { recursive: true });
+		mkdirSync(dotted_descendant, { recursive: true });
+		mkdirSync(sibling, { recursive: true });
+
+		const global_dir = join(home, '.pi', 'agent');
+		mkdirSync(global_dir, { recursive: true });
+		writeFileSync(
+			join(global_dir, 'mcp.json'),
+			JSON.stringify({
+				mcpServers: { scoped: { command: 'scoped-cmd' } },
+			}),
+		);
+		write_settings({
+			version: 1,
+			mcp: {
+				policy: {
+					servers: {
+						scoped: { activateWhen: { cwdPrefix: trusted } },
+					},
+				},
+			},
+		});
+
+		expect(load_mcp_config(trusted)).toHaveLength(1);
+		expect(load_mcp_config(descendant)).toHaveLength(1);
+		expect(load_mcp_config(dotted_descendant)).toHaveLength(1);
+		expect(load_mcp_config(sibling)).toEqual([]);
+	});
+
 	it('does not let project MCP policy widen global activation', () => {
 		const home = tmp_dir();
 		const cwd = tmp_dir();
