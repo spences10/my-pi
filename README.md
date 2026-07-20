@@ -183,12 +183,13 @@ Full package list here:
 | [`@spences10/pi-themes`](./packages/pi-themes/README.md)                           | Bundled theme pack for Pi                                  |
 
 Shared helper packages such as `@spences10/pi-child-env`,
-`@spences10/pi-footer`, `@spences10/pi-project-trust`,
-`@spences10/pi-settings`, `@spences10/pi-skill-importer`,
-`@spences10/pi-sqlite-core`, and `@spences10/pi-tui-modal` are
-published as dependencies and are not packages to install via
-`pi install`. See [`docs/package-map.md`](./docs/package-map.md) for
-the authoritative classification.
+`@spences10/pi-footer`, `@spences10/pi-git-remote`,
+`@spences10/pi-project-trust`, `@spences10/pi-settings`,
+`@spences10/pi-skill-importer`, `@spences10/pi-sqlite-core`, and
+`@spences10/pi-tui-modal` are published as dependencies and are not
+packages to install via `pi install`. See
+[`docs/package-map.md`](./docs/package-map.md) for the authoritative
+classification.
 
 Maintainers publish from GitHub Actions with npm trusted publishing;
 see [`docs/releases.md`](./docs/releases.md) for the workflow and the

@@ -45,6 +45,7 @@
 	"dependencies": {
 		"@spences10/pi-child-env": "workspace:*",
 		"@spences10/pi-context": "workspace:*",
+		"@spences10/pi-git-remote": "workspace:*",
 		"@spences10/pi-project-trust": "workspace:*",
 		"@spences10/pi-settings": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*"

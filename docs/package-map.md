@@ -36,6 +36,7 @@ with `pi install` directly:
 
 - `@spences10/pi-child-env`
 - `@spences10/pi-footer`
+- `@spences10/pi-git-remote`
 - `@spences10/pi-project-trust`
 - `@spences10/pi-settings`
 - `@spences10/pi-skill-importer`

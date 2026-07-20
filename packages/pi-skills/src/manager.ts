@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { get_github_repos } from '@spences10/pi-git-remote';
 import { existsSync, rmSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import {
@@ -154,38 +154,6 @@ function string_values(
 ): string[] {
 	if (!value) return [];
 	return Array.isArray(value) ? value : [value];
-}
-
-function parse_github_repo(remote: string): string | undefined {
-	const trimmed = remote.trim().replace(/\.git$/, '');
-	const match =
-		/^git@github\.com:([^/]+)\/(.+)$/.exec(trimmed) ??
-		/^https:\/\/github\.com\/([^/]+)\/(.+)$/.exec(trimmed) ??
-		/^ssh:\/\/git@github\.com\/([^/]+)\/(.+)$/.exec(trimmed);
-	if (!match) return undefined;
-	return `${match[1]}/${match[2]}`.toLowerCase();
-}
-
-function get_github_repos(cwd: string): string[] {
-	try {
-		const output = execFileSync('git', ['remote', '-v'], {
-			cwd,
-			encoding: 'utf-8',
-			stdio: ['ignore', 'pipe', 'ignore'],
-		});
-		return [
-			...new Set(
-				output
-					.split('\n')
-					.map((line) => line.trim().split(/\s+/)[1])
-					.filter((remote): remote is string => Boolean(remote))
-					.map(parse_github_repo)
-					.filter((repo): repo is string => Boolean(repo)),
-			),
-		];
-	} catch {
-		return [];
-	}
 }
 
 export function create_skills_manager(
