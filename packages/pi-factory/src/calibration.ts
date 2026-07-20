@@ -74,14 +74,19 @@ export interface OutcomeCorrelation {
 export interface OutcomeProvenance {
 	kind: 'factory-state' | 'authenticated-import' | 'synthetic';
 	source_id: string;
+	authentication?: 'embedding-application';
+	authenticated_actor?: string;
 	suite_id?: string;
 	suite_version?: string;
 	case_id?: string;
 	case_version?: string;
 	project_id?: string;
 	project_revision?: string;
+	repository_shape?: string;
 	policy_id?: string;
 	policy_hash?: string;
+	workflow?: WorkflowKind;
+	workflow_version?: string;
 	route_fingerprint?: string;
 	compute_fingerprint?: string;
 	gate_fingerprint?: string;

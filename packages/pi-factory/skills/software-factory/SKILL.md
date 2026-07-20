@@ -57,16 +57,18 @@ factory approval decision.
     use `superseded` or `completed-outside-factory` with explicit
     replacement/external evidence instead of inventing success.
 12. Use comparative metrics only for measured, correlated runs with
-    provider/model/reasoning, session, valid duration, telemetry or
-    usage for every current-contract attempt, matching role/node kind,
-    and one completed non-read-only authoritative attempt per executed
-    node. Hypotheses and retries cannot mask missing correlation.
-    Exclude synthetic or uncorrelated dogfood and refuse
-    recommendations when calibration reports exclusions.
+    one provider/model/reasoning tuple, session, valid duration,
+    telemetry or usage for every current-contract attempt, matching
+    role/node kind, and one completed non-read-only authoritative
+    attempt per executed node. Hypotheses and retries cannot mask
+    missing correlation. Exclude synthetic or uncorrelated dogfood and
+    refuse recommendations when calibration reports exclusions.
 13. Define calibration through a versioned suite with exact
     project/policy/route/compute/gate/retry pins and explicit
-    thresholds. Import only authoritative outcomes, store/query/export
-    the ledger, and keep baseline status blocked until every workflow
+    thresholds. Derive available import pins from durable state and
+    use named embedding authentication for unavailable pins; never
+    copy target-case values into provenance. Store/query/export the
+    ledger, and keep baseline status blocked until every workflow
     meets measured coverage. Never generalize a single-project
     finding.
 14. Finish with `metrics`, validation evidence, and remaining risks.
