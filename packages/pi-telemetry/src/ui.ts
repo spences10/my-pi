@@ -1,7 +1,7 @@
 import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 import {
+	show_command_output_modal,
 	show_picker_modal,
-	show_text_modal,
 } from '@spences10/pi-tui-modal';
 import { resolve } from 'node:path';
 
@@ -17,12 +17,7 @@ export async function show_telemetry_text_modal(
 	title: string,
 	text: string,
 ): Promise<void> {
-	await show_text_modal(ctx, {
-		title,
-		text,
-		max_visible_lines: 20,
-		overlay_options: { width: '90%', minWidth: 72 },
-	});
+	await show_command_output_modal(ctx, { title, text });
 }
 
 export async function show_telemetry_home_modal(

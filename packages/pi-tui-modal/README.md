@@ -37,6 +37,10 @@ footers remain visible on small terminals.
   Enter/Space to advance; left/right continue to edit an active search
   query when it contains text.
 - `show_text_modal(ctx, options)` — show scrollable read-only output.
+- `show_command_output_modal(ctx, options)` — show dense command or
+  status output with shared wide, responsive defaults. Pass
+  `max_visible_lines` or `overlay_options` to override that policy for
+  a specific report.
 - `show_input_modal(ctx, options)` — collect a single text value with
   IME-safe focus propagation.
 - `show_confirm_modal(ctx, options)` — confirm/cancel destructive or

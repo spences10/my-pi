@@ -5,6 +5,7 @@ export type {
 	ProgressModalUpdate,
 } from './modal/progress.js';
 export {
+	show_command_output_modal,
 	show_confirm_modal,
 	show_input_modal,
 	show_modal,
