@@ -223,9 +223,14 @@ export function create_calibration_suite(input: {
 }
 
 export interface FactoryOutcomeImportProvenance {
+	/**
+	 * @deprecated Add authentication, authenticated_actor, and
+	 * repository_shape. Legacy envelopes remain accepted but fail closed.
+	 */
+	authenticated?: true;
 	/** The embedding application authenticated this complete pin envelope. */
-	authentication: 'embedding-application';
-	authenticated_actor: string;
+	authentication?: 'embedding-application';
+	authenticated_actor?: string;
 	source_id: string;
 	suite_id: string;
 	suite_version: string;
@@ -233,9 +238,15 @@ export interface FactoryOutcomeImportProvenance {
 	case_version: string;
 	project_id: string;
 	project_revision: string;
-	repository_shape: string;
+	repository_shape?: string;
 	policy_id: string;
 	policy_hash: string;
+}
+
+export interface AuthenticatedFactoryOutcomeImportProvenance extends FactoryOutcomeImportProvenance {
+	authentication: 'embedding-application';
+	authenticated_actor: string;
+	repository_shape: string;
 }
 
 const failure_label: Record<string, OutcomeLabel> = {
@@ -273,6 +284,12 @@ export function import_factory_outcome(
 	const reasoning = correlation_event?.metadata?.reasoning as
 		| string
 		| undefined;
+	const consistent_compute = lifecycle.every(
+		(event) =>
+			event.metadata?.provider === provider &&
+			event.metadata?.model === model &&
+			event.metadata?.reasoning === reasoning,
+	);
 	const authenticated_pins = Boolean(
 		provenance?.authentication === 'embedding-application' &&
 		typeof provenance.authenticated_actor === 'string' &&
@@ -327,7 +344,10 @@ export function import_factory_outcome(
 				...state.route.workflow.nodes.map((node) => node.retry_limit),
 			);
 	const complete_correlation =
-		durable_correlation && authenticated_pins && durable_pins;
+		durable_correlation &&
+		consistent_compute &&
+		authenticated_pins &&
+		durable_pins;
 	const evidence: OutcomeEvidence[] = [];
 	for (const event of state.events.filter(
 		(item) => item.type === 'failure.classified',

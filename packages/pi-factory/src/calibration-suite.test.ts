@@ -9,6 +9,7 @@ import {
 	evaluate_calibration_suite,
 	import_factory_outcome,
 	propose_calibration_experiments,
+	type AuthenticatedFactoryOutcomeImportProvenance,
 	type FactoryOutcomeImportProvenance,
 } from './calibration-suite.js';
 import {
@@ -337,20 +338,21 @@ describe('versioned calibration suites', () => {
 		const calibration_case = suite.cases.find(
 			(item) => item.workflow === 'feature',
 		)!;
-		const authenticated: FactoryOutcomeImportProvenance = {
-			authentication: 'embedding-application',
-			authenticated_actor: 'calibration-test',
-			source_id: state.workflow_id,
-			suite_id: calibration_case.suite_id!,
-			suite_version: calibration_case.suite_version!,
-			case_id: calibration_case.case_id,
-			case_version: calibration_case.case_version,
-			project_id: calibration_case.project_id!,
-			project_revision: calibration_case.project_revision,
-			repository_shape: calibration_case.repository_shape,
-			policy_id: calibration_case.policy_id,
-			policy_hash: calibration_case.policy_hash,
-		};
+		const authenticated: AuthenticatedFactoryOutcomeImportProvenance =
+			{
+				authentication: 'embedding-application',
+				authenticated_actor: 'calibration-test',
+				source_id: state.workflow_id,
+				suite_id: calibration_case.suite_id!,
+				suite_version: calibration_case.suite_version!,
+				case_id: calibration_case.case_id,
+				case_version: calibration_case.case_version,
+				project_id: calibration_case.project_id!,
+				project_revision: calibration_case.project_revision,
+				repository_shape: calibration_case.repository_shape,
+				policy_id: calibration_case.policy_id,
+				policy_hash: calibration_case.policy_hash,
+			};
 		const imported = import_factory_outcome(
 			state,
 			calibration_case,
@@ -377,6 +379,71 @@ describe('versioned calibration suites', () => {
 			evaluate_calibration_suite(suite, [imported]).workflow_coverage
 				.feature,
 		).toBe(1);
+
+		const legacy: FactoryOutcomeImportProvenance = {
+			authenticated: true,
+			source_id: state.workflow_id,
+			suite_id: calibration_case.suite_id!,
+			suite_version: calibration_case.suite_version!,
+			case_id: calibration_case.case_id,
+			case_version: calibration_case.case_version,
+			project_id: calibration_case.project_id!,
+			project_revision: calibration_case.project_revision,
+			policy_id: calibration_case.policy_id,
+			policy_hash: calibration_case.policy_hash,
+		};
+		const legacy_imported = import_factory_outcome(
+			state,
+			calibration_case,
+			legacy,
+		);
+		expect(legacy_imported).toMatchObject({
+			correlation: { status: 'uncorrelated' },
+			provenance: {
+				kind: 'authenticated-import',
+				authentication: undefined,
+				authenticated_actor: undefined,
+				repository_shape: undefined,
+			},
+		});
+
+		const execution_event = state.events.find(
+			(event) => event.id === 'execution',
+		)!;
+		const mixed_compute_attacks = [
+			['provider', 'forged-provider'],
+			['model', 'forged-model'],
+			['reasoning', 'forged-reasoning'],
+		] as const;
+		for (const [field, value] of mixed_compute_attacks) {
+			const mixed_state = structuredClone(state);
+			mixed_state.events.push({
+				...execution_event,
+				id: `mixed-${field}`,
+				tokens: 13,
+				metadata: {
+					...execution_event.metadata,
+					execution_id: `mixed-${field}`,
+					[field]: value,
+				},
+			});
+			const mixed_import = import_factory_outcome(
+				mixed_state,
+				calibration_case,
+				authenticated,
+			);
+			expect(mixed_import.correlation, field).toMatchObject({
+				status: 'uncorrelated',
+				provider: 'provider',
+				model: 'model',
+				reasoning: 'high',
+			});
+			expect(mixed_import.tokens, field).toBe(25);
+			expect(
+				mixed_import.evidence.every((item) => !item.complete),
+				field,
+			).toBe(true);
+		}
 
 		const incompatible_imports: Array<
 			[

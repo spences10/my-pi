@@ -207,13 +207,16 @@ configurable sample/confidence/missing-data thresholds and returns
 complete measured outcomes with exact `factory-state` or
 authenticated-import provenance. Factory outcome imports derive the
 source workflow, workspace project id, policy id, route, gates, and
-compute pins from durable state instead of the target case. A named
-embedding-application actor must authenticate the unavailable suite,
-case, repository revision/shape, and policy-hash pins. The complete
-envelope is checked against both durable state and the case; missing
-or mismatched pins remain uncorrelated. `synthetic` provenance is
-always excluded. `CalibrationSuiteStore` persists mode-0600 ledgers
-and supports filtered query plus deterministic JSON export.
+compute pins from durable state instead of the target case. Every
+current-contract lifecycle event must share one exact
+provider/model/reasoning tuple; mixed planner, executor, reviewer, or
+retry compute remains uncorrelated. A named embedding-application
+actor must authenticate the unavailable suite, case, repository
+revision/shape, and policy-hash pins. The complete envelope is checked
+against both durable state and the case; missing or mismatched pins
+remain uncorrelated. `synthetic` provenance is always excluded.
+`CalibrationSuiteStore` persists mode-0600 ledgers and supports
+filtered query plus deterministic JSON export.
 Suite/report/policy/project revisions and fingerprints remain exact;
 findings are marked project-specific unless multiple project ids
 support them. Evaluation exposes eligible `workflow_coverage` plus
@@ -226,6 +229,10 @@ only as excluded control-plane evidence. See the explicit
 [baseline status](./CALIBRATION_BASELINE.md)—this repository currently
 claims no real baseline because authorised live correlated evidence is
 unavailable.
+
+Legacy import envelopes remain accepted for source compatibility but
+fail closed until they add the named actor and repository-shape fields
+required by embedding-application authentication.
 
 Versioned `CalibrationCase` and `ObservedOutcome` records pin
 workflow, policy, route, compute, gates, project revision, and cohort

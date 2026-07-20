@@ -50,12 +50,12 @@ compatibility: Requires Pi with the @spences10/pi-factory extension.
     use `superseded` or `completed-outside-factory` with explicit
     replacement/external evidence instead of inventing success.
 12. Use comparative metrics only for measured, correlated runs with
-    provider/model/reasoning, session, valid duration, telemetry or
-    usage for every current-contract attempt, matching role/node kind,
-    and one completed non-read-only authoritative attempt per executed
-    node. Hypotheses and retries cannot mask missing correlation.
-    Exclude synthetic or uncorrelated dogfood and refuse
-    recommendations when calibration reports exclusions.
+    one provider/model/reasoning tuple, session, valid duration,
+    telemetry or usage for every current-contract attempt, matching
+    role/node kind, and one completed non-read-only authoritative
+    attempt per executed node. Hypotheses and retries cannot mask
+    missing correlation. Exclude synthetic or uncorrelated dogfood and
+    refuse recommendations when calibration reports exclusions.
 13. Define calibration through a versioned suite with exact
     project/policy/route/compute/gate/retry pins and explicit
     thresholds. Derive available import pins from durable state and
