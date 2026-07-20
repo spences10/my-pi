@@ -9,7 +9,7 @@ import {
 	runRpcMode,
 	type CreateAgentSessionFromServicesOptions,
 	type CreateAgentSessionServicesOptions,
-	type ExtensionFactory,
+	type InlineExtension,
 	type SessionManager,
 } from '@earendil-works/pi-coding-agent';
 import { resolve } from 'node:path';
@@ -130,23 +130,30 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 			})
 		: undefined;
 
-	const managed_extension_factories: ExtensionFactory[] = [
-		create_lazy_telemetry_extension({
-			enabled: telemetry,
-			db_path: telemetry_db_path,
-			cwd,
-		}),
-		create_extensions_extension({ force_disabled }),
-		...BUILTIN_EXTENSION_REGISTRY.map((extension) =>
-			create_lazy_builtin_extension_factory(
+	const managed_inline_extensions = [
+		{
+			name: 'my-pi-telemetry',
+			factory: create_lazy_telemetry_extension({
+				enabled: telemetry,
+				db_path: telemetry_db_path,
+				cwd,
+			}),
+		},
+		{
+			name: 'my-pi-extensions-manager',
+			factory: create_extensions_extension({ force_disabled }),
+		},
+		...BUILTIN_EXTENSION_REGISTRY.map((extension) => ({
+			name: `my-pi-${extension.key}`,
+			factory: create_lazy_builtin_extension_factory(
 				extension.key,
 				extension.load,
 				force_disabled,
 			),
-		),
-	];
-	const managed_inline_paths = managed_extension_factories.map(
-		(_, index) => `<inline:${index + 1}>`,
+		})),
+	] satisfies InlineExtension[];
+	const managed_extension_paths = managed_inline_extensions.map(
+		(extension) => `<inline:${extension.name}>`,
 	);
 
 	const create_runtime = async ({
@@ -195,11 +202,11 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 					? { additionalThemePaths: [PACKAGE_THEME_DIR] }
 					: {}),
 				extensionFactories: [
-					...managed_extension_factories,
+					...managed_inline_extensions,
 					...user_factories,
 				],
 				extensionsOverride: create_extensions_override(
-					managed_inline_paths,
+					managed_extension_paths,
 				),
 				skillsOverride: (
 					base: Parameters<
@@ -301,6 +308,7 @@ export { InteractiveMode, runPrintMode, runRpcMode };
 export type {
 	AgentSessionRuntime,
 	ExtensionFactory,
+	InlineExtension,
 	InteractiveModeOptions,
 	PrintModeOptions,
 } from '@earendil-works/pi-coding-agent';

@@ -127,27 +127,23 @@ export function create_lazy_telemetry_extension(options: {
 }
 
 export function create_extensions_override(
-	managed_inline_paths: string[],
+	managed_extension_paths: readonly string[],
 ): (base: LoadExtensionsResult) => LoadExtensionsResult {
-	const managed_paths = new Set(managed_inline_paths);
 	return (base) => {
-		const managed = new Map(
-			base.extensions.map((extension) => [extension.path, extension]),
-		);
-		const ordered_managed = managed_inline_paths
-			.map((path) => managed.get(path))
-			.filter(
-				(
-					extension,
-				): extension is LoadExtensionsResult['extensions'][number] =>
-					Boolean(extension),
-			);
-		const others = base.extensions.filter(
-			(extension) => !managed_paths.has(extension.path),
+		// Pi names inline extensions but still loads discovered paths first.
+		// Move only the first matching managed instance to preserve precedence.
+		const remaining = [...base.extensions];
+		const ordered_managed = managed_extension_paths.flatMap(
+			(path) => {
+				const index = remaining.findIndex(
+					(extension) => extension.path === path,
+				);
+				return index === -1 ? [] : remaining.splice(index, 1);
+			},
 		);
 		return {
 			...base,
-			extensions: [...ordered_managed, ...others],
+			extensions: [...ordered_managed, ...remaining],
 		};
 	};
 }

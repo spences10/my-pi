@@ -416,6 +416,69 @@ describe('create_my_pi environment scoping', () => {
 		}
 	});
 
+	it('uses descriptive startup paths for managed and consumer-named inline extensions', async () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-api-inline-ext-'));
+		const agent_dir = join(cwd, 'agent');
+
+		try {
+			const runtime = await create_my_pi({
+				cwd,
+				agent_dir,
+				runtime_mode: 'json',
+				extensionFactories: [
+					{
+						name: 'consumer-named',
+						factory(pi) {
+							pi.registerCommand('consumer-named-smoke', {
+								description: 'Named inline extension smoke test',
+								async handler() {},
+							});
+						},
+					},
+					(pi) => {
+						pi.registerCommand('consumer-bare-smoke', {
+							description: 'Bare inline extension smoke test',
+							async handler() {},
+						});
+					},
+				],
+				...disabled_builtins,
+			});
+
+			try {
+				const extensions =
+					runtime.services.resourceLoader.getExtensions().extensions;
+				const paths = extensions.map((extension) => extension.path);
+				const managed_paths = [
+					'<inline:my-pi-telemetry>',
+					'<inline:my-pi-extensions-manager>',
+					...BUILTIN_EXTENSIONS.map(
+						(extension) => `<inline:my-pi-${extension.key}>`,
+					),
+				];
+
+				expect(paths.slice(0, managed_paths.length)).toEqual(
+					managed_paths,
+				);
+				expect(paths).toContain('<inline:consumer-named>');
+				expect(
+					extensions.flatMap((extension) => [
+						...extension.commands.keys(),
+					]),
+				).toEqual(
+					expect.arrayContaining([
+						'consumer-named-smoke',
+						'consumer-bare-smoke',
+					]),
+				);
+			} finally {
+				await runtime.dispose();
+			}
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it('loads TypeScript extension files through the upstream extension loader', async () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-api-ts-ext-'));
 		const agent_dir = join(cwd, 'agent');
