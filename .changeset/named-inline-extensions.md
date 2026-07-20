@@ -2,5 +2,5 @@
 'my-pi': patch
 ---
 
-Adopt named inline extensions for descriptive startup labels while
-preserving managed precedence and consumer compatibility.
+Adopt named inline extensions with reserved managed labels, preserved
+precedence, and documented consumer naming rules.

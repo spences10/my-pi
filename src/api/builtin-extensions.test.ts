@@ -117,16 +117,6 @@ describe('builtin extension api helpers', () => {
 			'<inline:my-pi-telemetry>',
 			'<inline:my-pi-mcp>',
 		]);
-		const managed_telemetry = {
-			path: '<inline:my-pi-telemetry>',
-			commands: new Map(),
-			tools: new Map(),
-		};
-		const consumer_collision = {
-			path: '<inline:my-pi-telemetry>',
-			commands: new Map(),
-			tools: new Map(),
-		};
 		const result = override({
 			extensions: [
 				{ path: '/user', commands: new Map(), tools: new Map() },
@@ -135,16 +125,26 @@ describe('builtin extension api helpers', () => {
 					commands: new Map(),
 					tools: new Map(),
 				},
-				managed_telemetry,
-				consumer_collision,
+				{
+					path: '<inline:my-pi-telemetry>',
+					commands: new Map(),
+					tools: new Map(),
+				},
+				{
+					path: '<inline:consumer>',
+					commands: new Map(),
+					tools: new Map(),
+				},
 			],
 		} as Parameters<typeof override>[0]);
 
-		expect(result.extensions).toEqual([
-			managed_telemetry,
-			expect.objectContaining({ path: '<inline:my-pi-mcp>' }),
-			expect.objectContaining({ path: '/user' }),
-			consumer_collision,
+		expect(
+			result.extensions.map((extension) => extension.path),
+		).toEqual([
+			'<inline:my-pi-telemetry>',
+			'<inline:my-pi-mcp>',
+			'/user',
+			'<inline:consumer>',
 		]);
 	});
 });

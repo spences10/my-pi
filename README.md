@@ -71,7 +71,9 @@ const runtime = await create_my_pi({
 ```
 
 The wrapper above appears as `<inline:audit-events>` in Pi's startup
-Extensions list.
+Extensions list. Names beginning with `my-pi-` are reserved for the
+managed distribution extensions; `create_my_pi()` rejects consumer
+wrappers using that prefix before loading any extensions.
 
 ## What you get
 

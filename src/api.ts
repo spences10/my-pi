@@ -14,7 +14,9 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { resolve } from 'node:path';
 import {
+	MANAGED_INLINE_EXTENSION_NAME_PREFIX,
 	PACKAGE_THEME_DIR,
+	assert_unreserved_inline_extension_names,
 	create_extensions_override,
 	create_lazy_builtin_extension_factory,
 	create_lazy_telemetry_extension,
@@ -82,6 +84,8 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		untrusted_repo = false,
 	} = options;
 
+	assert_unreserved_inline_extension_names(user_factories);
+
 	const env_keys_to_restore = new Set<string>([
 		MY_PI_RUNTIME_MODE_ENV,
 	]);
@@ -132,7 +136,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 
 	const managed_inline_extensions = [
 		{
-			name: 'my-pi-telemetry',
+			name: `${MANAGED_INLINE_EXTENSION_NAME_PREFIX}telemetry`,
 			factory: create_lazy_telemetry_extension({
 				enabled: telemetry,
 				db_path: telemetry_db_path,
@@ -140,11 +144,11 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 			}),
 		},
 		{
-			name: 'my-pi-extensions-manager',
+			name: `${MANAGED_INLINE_EXTENSION_NAME_PREFIX}extensions-manager`,
 			factory: create_extensions_extension({ force_disabled }),
 		},
 		...BUILTIN_EXTENSION_REGISTRY.map((extension) => ({
-			name: `my-pi-${extension.key}`,
+			name: `${MANAGED_INLINE_EXTENSION_NAME_PREFIX}${extension.key}`,
 			factory: create_lazy_builtin_extension_factory(
 				extension.key,
 				extension.load,

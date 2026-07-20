@@ -1,5 +1,6 @@
 import type {
 	ExtensionFactory,
+	InlineExtension,
 	LoadExtensionsResult,
 } from '@earendil-works/pi-coding-agent';
 import { existsSync } from 'node:fs';
@@ -26,6 +27,23 @@ export const PACKAGE_THEME_DIR = resolve(
 	dirname(require.resolve('@spences10/pi-themes/package.json')),
 	'themes',
 );
+
+export const MANAGED_INLINE_EXTENSION_NAME_PREFIX = 'my-pi-';
+
+export function assert_unreserved_inline_extension_names(
+	extensions: readonly InlineExtension[],
+): void {
+	for (const extension of extensions) {
+		if (
+			typeof extension !== 'function' &&
+			extension.name.startsWith(MANAGED_INLINE_EXTENSION_NAME_PREFIX)
+		) {
+			throw new Error(
+				`Inline extension name "${extension.name}" is reserved for my-pi managed extensions; choose a name that does not start with "${MANAGED_INLINE_EXTENSION_NAME_PREFIX}".`,
+			);
+		}
+	}
+}
 
 export function get_force_disabled_builtins(
 	options: Pick<CreateMyPiOptions, 'runtime_mode'> &

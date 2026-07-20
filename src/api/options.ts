@@ -22,6 +22,7 @@ export interface CreateMyPiOptions extends BuiltinExtensionOptions {
 	cwd?: string;
 	agent_dir?: string;
 	extensions?: string[];
+	/** Named wrappers must not use the reserved `my-pi-` prefix. */
 	extensionFactories?: InlineExtension[];
 	runtime_mode?: MyPiRuntimeMode;
 	telemetry?: boolean;

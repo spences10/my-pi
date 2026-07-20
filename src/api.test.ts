@@ -479,6 +479,32 @@ describe('create_my_pi environment scoping', () => {
 		}
 	});
 
+	it('rejects managed-name collisions before path ownership can hide flag conflicts', async () => {
+		let consumer_factory_ran = false;
+
+		await expect(
+			create_my_pi({
+				extensionFactories: [
+					{
+						name: 'my-pi-observability',
+						factory(pi) {
+							consumer_factory_ran = true;
+							pi.registerFlag('observability-url', {
+								type: 'string',
+							});
+						},
+					},
+				],
+			}),
+		).rejects.toThrow(
+			'Inline extension name "my-pi-observability" is reserved for my-pi managed extensions',
+		);
+		expect(consumer_factory_ran).toBe(false);
+		expect(process.env.MY_PI_RUNTIME_MODE).toBe(
+			original_runtime_mode,
+		);
+	});
+
 	it('loads TypeScript extension files through the upstream extension loader', async () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-api-ts-ext-'));
 		const agent_dir = join(cwd, 'agent');
