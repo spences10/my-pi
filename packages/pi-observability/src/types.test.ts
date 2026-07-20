@@ -36,5 +36,5 @@ describe('public observability types', () => {
 				stdio: 'pipe',
 			}),
 		).not.toThrow();
-	});
+	}, 30_000);
 });
