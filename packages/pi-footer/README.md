@@ -15,9 +15,19 @@ See the session state that matters without leaving Pi. `pi-footer`
 adds a configurable statusline for model, project, Git, token, and
 runtime signals so long agent sessions stay easy to orient and trust.
 
-It owns `ctx.ui.setFooter(...)` and renders core Pi session data plus
-extension statuses published by other extensions with
-`ctx.ui.setStatus(...)`.
+## Upstream Pi boundary
+
+Pi owns the footer lifecycle and status transport through
+`ctx.ui.setFooter(...)`, `ctx.ui.setStatus(...)`, and the footer data
+provider. This package uses those APIs directly; it does not replace
+or re-export them. Without the curated layouts below, Pi's built-in
+footer already renders core session data and extension statuses.
+
+`pi-footer` adds the configurable part: presets, density and tone,
+selectable widgets, multi-row status placement, persistent settings,
+and the `/footer` live-preview workflow. Installing it replaces Pi's
+built-in footer renderer with that curated UI while continuing to read
+status values published through Pi's native API.
 
 ## Library API
 

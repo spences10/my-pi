@@ -16,6 +16,21 @@ Build Pi overlays that feel consistent instead of one-off.
 settings, prompts, confirmations, and scrollable text views used
 across Pi extensions.
 
+## Upstream Pi boundary
+
+Pi already provides `ctx.ui.select(...)`, `ctx.ui.confirm(...)`, and
+`ctx.ui.input(...)` for simple dialogs. It also owns custom-component
+and overlay lifecycles through `ctx.ui.custom(...)` and
+`overlayOptions`, while `@earendil-works/pi-tui` supplies components
+such as `SelectList` and `SettingsList`.
+
+Use those upstream APIs directly when their default UI is sufficient.
+This package does not re-export or replace them. Its helpers compose
+them into the shared my-pi experience: consistent modal chrome,
+responsive terminal-height budgets, focus propagation, searchable
+settings with metadata, scrollable text, and dense command-output
+defaults.
+
 ## Styling
 
 Modals render with a full rounded border by default. Pass `style` to

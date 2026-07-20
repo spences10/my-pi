@@ -33,6 +33,17 @@ JSON:
 }
 ```
 
+## Upstream Pi boundary
+
+Pi natively discovers, validates, selects, and hot-reloads themes.
+This package contains only curated theme JSON and declares its
+`themes/` directory through the native `pi.themes` package manifest;
+it ships no extension or theme-loading wrapper.
+
+Use Pi's global or project theme directories for a single personal
+theme. Install this package when you want its maintained collection of
+coordinated palettes as one native Pi package.
+
 ## Included themes
 
 - Catppuccin Mocha
