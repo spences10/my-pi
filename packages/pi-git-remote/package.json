@@ -7,11 +7,12 @@
 		"github",
 		"pi"
 	],
+	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/pi-git-remote#readme",
 	"license": "MIT",
 	"author": "Scott Spence <me@scottspence.com>",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/scottspence/my-pi.git",
+		"url": "git+https://github.com/spences10/my-pi.git",
 		"directory": "packages/pi-git-remote"
 	},
 	"files": [
