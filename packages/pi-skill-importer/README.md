@@ -61,6 +61,11 @@ import {
 } from '@spences10/pi-skill-importer';
 ```
 
+The package also exports `scan_skill_directory`,
+`dedupe_skills_by_path`, and `find_project_roots` for packages that
+need scanner-compatible discovery without duplicating filesystem
+behavior.
+
 ## Development
 
 <!-- package-readme:development:start commands="check,test" -->

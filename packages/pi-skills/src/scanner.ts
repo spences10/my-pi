@@ -1,15 +1,11 @@
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import {
-	getAgentDir,
-	parseFrontmatter,
-	type SkillFrontmatter,
-} from '@earendil-works/pi-coding-agent';
-import {
-	existsSync,
-	globSync,
-	readFileSync,
-	statSync,
-} from 'node:fs';
-import { basename, dirname, join, parse, resolve } from 'node:path';
+	dedupe_skills_by_path,
+	find_project_roots,
+	scan_skill_directory,
+	type ScanSkillDirectoryOptions,
+} from '@spences10/pi-skill-importer';
+import { join } from 'node:path';
 
 export type SkillScope = 'global' | 'project';
 
@@ -23,109 +19,25 @@ export interface DiscoveredSkill {
 	kind: 'managed';
 }
 
-function parse_skill_md(
-	skill_path: string,
-): { name: string; description: string } | null {
-	try {
-		const content = readFileSync(skill_path, 'utf-8');
-		const { frontmatter } =
-			parseFrontmatter<SkillFrontmatter>(content);
-		const description = frontmatter?.description;
-		if (!description) return null;
-
-		const name =
-			frontmatter?.name ||
-			(basename(skill_path) === 'SKILL.md'
-				? parse(dirname(skill_path)).base
-				: parse(skill_path).name);
-		return { name, description: description.trim() };
-	} catch {
-		return null;
-	}
+interface ManagedSkillScanOptions extends ScanSkillDirectoryOptions {
+	source: string;
+	scope: SkillScope;
 }
 
 function scan_dir_for_skills(
 	dir: string,
-	options: {
-		source: string;
-		scope: SkillScope;
-		include_direct_root_skill?: boolean;
-		include_root_markdown_skills?: boolean;
-		exclude_matches?: (match: string) => boolean;
-	},
+	options: ManagedSkillScanOptions,
 ): DiscoveredSkill[] {
-	if (!existsSync(dir)) return [];
-
-	const results: DiscoveredSkill[] = [];
-	const direct = join(dir, 'SKILL.md');
-	const include_direct_root_skill =
-		options.include_direct_root_skill ?? true;
-
-	if (include_direct_root_skill && existsSync(direct)) {
-		const parsed = parse_skill_md(direct);
-		if (parsed) {
-			results.push({
-				...parsed,
-				skillPath: direct,
-				baseDir: dir,
-				source: options.source,
-				scope: options.scope,
-				kind: 'managed',
-			});
-		}
-		return results;
-	}
-
-	try {
-		const matches = globSync('**/SKILL.md', { cwd: dir });
-		if (options.include_root_markdown_skills) {
-			matches.push(
-				...globSync('*.md', { cwd: dir }).filter(
-					(match) => match !== 'SKILL.md',
-				),
-			);
-		}
-		for (const match of matches
-			.filter((candidate) => !options.exclude_matches?.(candidate))
-			.sort((a, b) => a.localeCompare(b))) {
-			const full_path = resolve(dir, match);
-			const parsed = parse_skill_md(full_path);
-			if (parsed) {
-				const base_dir = dirname(full_path);
-				results.push({
-					...parsed,
-					skillPath: full_path,
-					baseDir: base_dir,
-					source: options.source,
-					scope: options.scope,
-					kind: 'managed',
-				});
-			}
-		}
-	} catch {
-		// skip inaccessible dirs
-	}
-
-	return results;
-}
-
-function dedupe_by_skill_path(
-	skills: DiscoveredSkill[],
-): DiscoveredSkill[] {
-	const seen = new Set<string>();
-	const deduped: DiscoveredSkill[] = [];
-
-	for (const skill of skills) {
-		if (seen.has(skill.skillPath)) continue;
-		seen.add(skill.skillPath);
-		deduped.push(skill);
-	}
-
-	return deduped;
+	return scan_skill_directory(dir, options).map((skill) => ({
+		...skill,
+		source: options.source,
+		scope: options.scope,
+		kind: 'managed',
+	}));
 }
 
 export function scan_managed_skills(): DiscoveredSkill[] {
-	return dedupe_by_skill_path(
+	return dedupe_skills_by_path(
 		scan_dir_for_skills(join(getAgentDir(), 'skills'), {
 			source: 'pi-native',
 			scope: 'global',
@@ -135,38 +47,11 @@ export function scan_managed_skills(): DiscoveredSkill[] {
 	);
 }
 
-function parent_dir(path: string): string | null {
-	const parsed = parse(path);
-	const parent = dirname(path);
-	return parent === path || parent === parsed.root ? null : parent;
-}
-
-function is_directory(path: string): boolean {
-	try {
-		return statSync(path).isDirectory();
-	} catch {
-		return false;
-	}
-}
-
-function project_roots(cwd: string): string[] {
-	const roots: string[] = [];
-	let current = resolve(cwd);
-	while (true) {
-		roots.push(current);
-		if (is_directory(join(current, '.git'))) break;
-		const parent = parent_dir(current);
-		if (!parent) break;
-		current = parent;
-	}
-	return roots;
-}
-
 export function scan_project_skills(
 	cwd = process.cwd(),
 ): DiscoveredSkill[] {
 	const skills: DiscoveredSkill[] = [];
-	for (const root of project_roots(cwd)) {
+	for (const root of find_project_roots(cwd)) {
 		for (const skill of scan_dir_for_skills(join(root, '.agents'), {
 			source: 'project:.agents',
 			scope: 'project',
@@ -197,11 +82,5 @@ export function scan_project_skills(
 			skills.push(skill);
 		}
 	}
-	return dedupe_by_skill_path(skills);
-}
-
-export function scan_all_skills(
-	cwd = process.cwd(),
-): DiscoveredSkill[] {
-	return [...scan_managed_skills(), ...scan_project_skills(cwd)];
+	return dedupe_skills_by_path(skills);
 }
