@@ -15,6 +15,40 @@ It owns `ctx.ui.setFooter(...)` and renders core Pi session data plus
 extension statuses published by other extensions with
 `ctx.ui.setStatus(...)`.
 
+## Library API
+
+`@spences10/pi-footer` is both a Pi extension and a supported library.
+The package root is the only public import path; files under `dist/`
+are implementation details.
+
+```ts
+import footer_extension, {
+	FOOTER_PRESETS,
+	get_current_thinking_level,
+	render_footer_status_line,
+} from '@spences10/pi-footer';
+```
+
+The root API includes:
+
+- the default Pi extension;
+- `get_current_thinking_level` and `get_default_footer_thinking_level`
+  for model-thinking status;
+- `render_footer_lines`, `render_footer_status_line`, and
+  `render_footer_three_column_line` for footer rendering;
+- `FOOTER_PRESETS`, `FOOTER_DENSITIES`, `FOOTER_STATUS_ALIGNMENTS`,
+  `FOOTER_TONES`, `FOOTER_WIDGETS`, plus `FooterPreset`,
+  `FooterDensity`, `FooterStatusAlignment`, `FooterStatusLayout`,
+  `FooterStatusPlacement`, `FooterTone`, and `FooterWidget` for
+  configuration-aware integrations;
+- `FOOTER_COLORS` and `FooterTheme` for theme-compatible rendering;
+- `FOOTER_RESEARCH_REFERENCES`, the reference metadata shown by the
+  `/footer` preset guidance.
+
+These root exports are compatibility-supported. Additive changes can
+ship in minor or patch releases, while removing or changing an export
+requires a breaking release.
+
 ## Commands
 
 - `/footer` — configure layout, density, appearance, visible content,
