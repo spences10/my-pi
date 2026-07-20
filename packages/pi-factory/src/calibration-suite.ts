@@ -467,6 +467,15 @@ export function import_factory_outcome(
 	});
 }
 
+function is_eligible_measured_outcome(
+	outcome: ObservedOutcome,
+): boolean {
+	return (
+		is_comparable_outcome(outcome) &&
+		!['incomplete', 'conflicting-evidence'].includes(outcome.label)
+	);
+}
+
 export function evaluate_calibration_suite(
 	suite: CalibrationSuite,
 	outcomes: ObservedOutcome[],
@@ -539,7 +548,7 @@ export function evaluate_calibration_suite(
 			workflow,
 			reviewed_outcomes.filter(
 				(outcome) =>
-					is_comparable_outcome(outcome) &&
+					is_eligible_measured_outcome(outcome) &&
 					suite.cases.some(
 						(item) =>
 							item.case_id === outcome.case_id &&
