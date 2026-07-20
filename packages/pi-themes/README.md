@@ -35,10 +35,12 @@ JSON:
 
 ## Upstream Pi boundary
 
-Pi natively discovers, validates, selects, and hot-reloads themes.
-This package contains only curated theme JSON and declares its
-`themes/` directory through the native `pi.themes` package manifest;
-it ships no extension or theme-loading wrapper.
+Pi natively discovers, validates, and selects package themes. Hot
+reload applies only to Pi's watched active custom-theme file in the
+global theme directory, not to theme assets resolved from an installed
+package. This package contains only curated theme JSON and declares
+its `themes/` directory through the native `pi.themes` package
+manifest; it ships no extension or theme-loading wrapper.
 
 Use Pi's global or project theme directories for a single personal
 theme. Install this package when you want its maintained collection of

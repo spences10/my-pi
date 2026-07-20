@@ -17,11 +17,14 @@ runtime signals so long agent sessions stay easy to orient and trust.
 
 ## Upstream Pi boundary
 
-Pi owns the footer lifecycle and status transport through
-`ctx.ui.setFooter(...)`, `ctx.ui.setStatus(...)`, and the footer data
-provider. This package uses those APIs directly; it does not replace
-or re-export them. Without the curated layouts below, Pi's built-in
-footer already renders core session data and extension statuses.
+Pi owns the footer lifecycle through `ctx.ui.setFooter(...)` and
+status transport through `ctx.ui.setStatus(...)` plus the footer data
+provider. This package directly calls `setFooter` and reads the data
+provider; it does not call, wrap, or re-export `setStatus`. Other
+extensions publish status values through `setStatus`, and Pi supplies
+them to this renderer through the provider. Without the curated
+layouts below, Pi's built-in footer already renders core session data
+and extension statuses.
 
 `pi-footer` adds the configurable part: presets, density and tone,
 selectable widgets, multi-row status placement, persistent settings,
