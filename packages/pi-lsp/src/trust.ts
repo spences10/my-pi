@@ -1,16 +1,22 @@
-import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import {
-	is_project_subject_trusted,
-	read_project_trust_store,
-	trust_project_subject,
+	create_project_trust_wrapper,
 	type ProjectTrustSubject,
 } from '@spences10/pi-project-trust';
-import { join } from 'node:path';
 
 const LSP_PROJECT_BINARY_ENV = 'MY_PI_LSP_PROJECT_BINARY';
 
+const lsp_binary_trust = create_project_trust_wrapper({
+	store_filename: 'trusted-lsp-binaries.json',
+	legacy_matcher: (entry, subject) => {
+		const legacy_entry = entry as
+			| { binary_path?: unknown }
+			| undefined;
+		return legacy_entry?.binary_path === subject.id;
+	},
+});
+
 export function default_lsp_trust_store_path(): string {
-	return join(getAgentDir(), 'trusted-lsp-binaries.json');
+	return lsp_binary_trust.default_trust_store_path();
 }
 
 export function create_lsp_binary_trust_subject(
@@ -35,21 +41,17 @@ export function is_lsp_binary_trusted(
 	binary_path: string,
 	trust_store_path = default_lsp_trust_store_path(),
 ): boolean {
-	const subject = create_lsp_binary_trust_subject(binary_path);
-	if (is_project_subject_trusted(subject, trust_store_path))
-		return true;
-
-	const entry = read_project_trust_store(trust_store_path)[
-		binary_path
-	] as { binary_path?: unknown } | undefined;
-	return entry?.binary_path === binary_path;
+	return lsp_binary_trust.is_trusted(
+		create_lsp_binary_trust_subject(binary_path),
+		trust_store_path,
+	);
 }
 
 export function trust_lsp_binary(
 	binary_path: string,
 	trust_store_path = default_lsp_trust_store_path(),
 ): void {
-	trust_project_subject(
+	lsp_binary_trust.trust(
 		create_lsp_binary_trust_subject(binary_path),
 		trust_store_path,
 	);

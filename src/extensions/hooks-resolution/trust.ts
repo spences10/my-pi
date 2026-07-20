@@ -1,16 +1,25 @@
-import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import {
-	is_project_subject_trusted,
-	read_project_trust_store,
-	trust_project_subject,
+	create_project_trust_wrapper,
 	type ProjectTrustSubject,
 } from '@spences10/pi-project-trust';
-import { join } from 'node:path';
 
 const HOOKS_CONFIG_ENV = 'MY_PI_HOOKS_CONFIG';
 
+const hooks_config_trust = create_project_trust_wrapper({
+	store_filename: 'trusted-hooks.json',
+	legacy_matcher: (entry, subject) => {
+		const legacy_entry = entry as
+			| { project_dir?: unknown; hash?: unknown }
+			| undefined;
+		return (
+			legacy_entry?.project_dir === subject.id &&
+			legacy_entry.hash === subject.hash
+		);
+	},
+});
+
 export function default_hooks_trust_store_path(): string {
-	return join(getAgentDir(), 'trusted-hooks.json');
+	return hooks_config_trust.default_trust_store_path();
 }
 
 export function create_hooks_config_trust_subject(
@@ -33,19 +42,9 @@ export function is_hooks_config_trusted(
 	hash: string,
 	trust_store_path = default_hooks_trust_store_path(),
 ): boolean {
-	const subject = create_hooks_config_trust_subject(
-		project_dir,
-		hash,
-	);
-	if (is_project_subject_trusted(subject, trust_store_path))
-		return true;
-
-	const legacy_entry = read_project_trust_store(trust_store_path)[
-		project_dir
-	] as { project_dir?: unknown; hash?: unknown } | undefined;
-	return (
-		legacy_entry?.project_dir === project_dir &&
-		legacy_entry.hash === hash
+	return hooks_config_trust.is_trusted(
+		create_hooks_config_trust_subject(project_dir, hash),
+		trust_store_path,
 	);
 }
 
@@ -54,7 +53,7 @@ export function trust_hooks_config(
 	hash: string,
 	trust_store_path = default_hooks_trust_store_path(),
 ): void {
-	trust_project_subject(
+	hooks_config_trust.trust(
 		create_hooks_config_trust_subject(project_dir, hash),
 		trust_store_path,
 	);

@@ -5,11 +5,12 @@ import {
 	statSync,
 	writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	apply_project_trust_untrusted_defaults,
+	create_project_trust_wrapper,
 	default_project_trust_store_path,
 	is_project_subject_trusted,
 	normalize_project_trust_env_decision,
@@ -127,6 +128,114 @@ describe('apply_project_trust_untrusted_defaults', () => {
 			MY_PI_PROJECT_SKILLS: 'skip',
 			MY_PI_TEAM_PROFILES_PROJECT: 'skip',
 		});
+	});
+});
+
+describe('create_project_trust_wrapper', () => {
+	it('constructs the subject-specific store path from the agent directory', () => {
+		const wrapper = create_project_trust_wrapper({
+			store_filename: 'trusted-example.json',
+		});
+		process.env.PI_CODING_AGENT_DIR = '/tmp/my-pi-agent-dir';
+
+		expect(wrapper.default_trust_store_path()).toBe(
+			'/tmp/my-pi-agent-dir/trusted-example.json',
+		);
+
+		process.env.PI_CODING_AGENT_DIR = '~';
+		expect(wrapper.default_trust_store_path()).toBe(
+			join(homedir(), 'trusted-example.json'),
+		);
+	});
+
+	it.each([
+		[
+			'plain',
+			'file:///tmp/pi-agent',
+			join('/tmp/pi-agent', 'trusted-example-projects.json'),
+		],
+		[
+			'percent-encoded',
+			'file:///tmp/pi%20agent',
+			join('/tmp/pi agent', 'trusted-example-projects.json'),
+		],
+	])(
+		'normalizes %s file URL agent directories outside cwd',
+		(_label, agent_dir, expected) => {
+			const wrapper = create_project_trust_wrapper({
+				store_filename: 'trusted-example-projects.json',
+			});
+			process.env.PI_CODING_AGENT_DIR = agent_dir;
+
+			const store = wrapper.default_trust_store_path();
+			expect(store).toBe(expected);
+			expect(isAbsolute(store)).toBe(true);
+			const relative_to_cwd = relative(process.cwd(), store);
+			expect(
+				relative_to_cwd === '..' ||
+					relative_to_cwd.startsWith(`..${sep}`),
+			).toBe(true);
+		},
+	);
+
+	it('delegates current trust matching and persistence', () => {
+		const store = trust_store_path();
+		const target = subject();
+		const wrapper = create_project_trust_wrapper({
+			store_filename: 'trusted-example.json',
+		});
+
+		expect(wrapper.is_trusted(target, store)).toBe(false);
+		wrapper.trust(
+			target,
+			store,
+			new Date('2026-04-30T00:00:00.000Z'),
+		);
+
+		expect(wrapper.is_trusted(target, store)).toBe(true);
+		expect(
+			wrapper.is_trusted({ ...target, hash: 'hash-b' }, store),
+		).toBe(false);
+		expect(readFileSync(store, 'utf8')).toContain(
+			'2026-04-30T00:00:00.000Z',
+		);
+	});
+
+	it('uses an optional legacy matcher after current matching fails', () => {
+		const store = trust_store_path();
+		const target = subject();
+		const legacy_matcher = vi.fn(
+			(entry: unknown, current: { id: string; hash?: string }) => {
+				const legacy = entry as
+					| { path?: unknown; hash?: unknown }
+					| undefined;
+				return (
+					legacy?.path === current.id && legacy.hash === current.hash
+				);
+			},
+		);
+		const wrapper = create_project_trust_wrapper({
+			store_filename: 'trusted-example.json',
+			legacy_matcher,
+		});
+		mkdirSync(dirname(store), { recursive: true });
+		writeFileSync(
+			store,
+			JSON.stringify({
+				[target.id]: { path: target.id, hash: target.hash },
+			}),
+		);
+
+		expect(wrapper.is_trusted(target, store)).toBe(true);
+		expect(
+			wrapper.is_trusted({ ...target, hash: 'hash-b' }, store),
+		).toBe(false);
+		expect(legacy_matcher).toHaveBeenCalledTimes(2);
+
+		wrapper.trust(target, store);
+		legacy_matcher.mockClear();
+		expect(wrapper.is_trusted(target, store)).toBe(true);
+		expect(legacy_matcher).not.toHaveBeenCalled();
 	});
 });
 

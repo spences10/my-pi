@@ -1,16 +1,25 @@
-import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import {
-	is_project_subject_trusted,
-	read_project_trust_store,
-	trust_project_subject,
+	create_project_trust_wrapper,
 	type ProjectTrustSubject,
 } from '@spences10/pi-project-trust';
-import { join } from 'node:path';
 
 const MCP_PROJECT_CONFIG_ENV = 'MY_PI_MCP_PROJECT_CONFIG';
 
+const mcp_project_trust = create_project_trust_wrapper({
+	store_filename: 'trusted-mcp-projects.json',
+	legacy_matcher: (entry, subject) => {
+		const legacy_entry = entry as
+			| { path?: unknown; hash?: unknown }
+			| undefined;
+		return (
+			legacy_entry?.path === subject.id &&
+			legacy_entry.hash === subject.hash
+		);
+	},
+});
+
 export function default_mcp_trust_store_path(): string {
-	return join(getAgentDir(), 'trusted-mcp-projects.json');
+	return mcp_project_trust.default_trust_store_path();
 }
 
 export function create_mcp_project_trust_subject(
@@ -33,14 +42,10 @@ export function is_project_mcp_config_trusted(
 	hash: string,
 	trust_store_path = default_mcp_trust_store_path(),
 ): boolean {
-	const subject = create_mcp_project_trust_subject(path, hash);
-	if (is_project_subject_trusted(subject, trust_store_path))
-		return true;
-
-	const legacy_entry = read_project_trust_store(trust_store_path)[
-		path
-	] as { path?: string; hash?: string } | undefined;
-	return legacy_entry?.path === path && legacy_entry.hash === hash;
+	return mcp_project_trust.is_trusted(
+		create_mcp_project_trust_subject(path, hash),
+		trust_store_path,
+	);
 }
 
 export function trust_project_mcp_config(
@@ -48,7 +53,7 @@ export function trust_project_mcp_config(
 	hash: string,
 	trust_store_path = default_mcp_trust_store_path(),
 ): void {
-	trust_project_subject(
+	mcp_project_trust.trust(
 		create_mcp_project_trust_subject(path, hash),
 		trust_store_path,
 	);

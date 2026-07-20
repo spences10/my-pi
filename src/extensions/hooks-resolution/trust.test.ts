@@ -1,4 +1,4 @@
-import { readFileSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -57,5 +57,27 @@ describe('hook config trust', () => {
 			is_hooks_config_trusted(project_dir, 'hash-b', store),
 		).toBe(false);
 		expect(readFileSync(store, 'utf8')).toContain('trusted_at');
+	});
+
+	it('recognizes legacy hooks trust-store entries during migration', () => {
+		const store = trust_store_path();
+		const project_dir = '/repo';
+		writeFileSync(
+			store,
+			JSON.stringify({
+				[project_dir]: {
+					project_dir,
+					hash: 'hash-a',
+					trusted_at: '2026-04-30T00:00:00.000Z',
+				},
+			}),
+		);
+
+		expect(
+			is_hooks_config_trusted(project_dir, 'hash-a', store),
+		).toBe(true);
+		expect(
+			is_hooks_config_trusted(project_dir, 'hash-b', store),
+		).toBe(false);
 	});
 });
