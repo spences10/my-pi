@@ -17,6 +17,14 @@ export {
 } from './scanner.js';
 
 export {
+	dedupe_skills_by_path,
+	find_project_roots,
+	scan_skill_directory,
+	type ScanSkillDirectoryOptions,
+	type ScannedSkill,
+} from './scanner-primitives.js';
+
+export {
 	delete_managed_skill as delete_imported_skill,
 	get_imported_skill_sync_status,
 	import_external_skill,
