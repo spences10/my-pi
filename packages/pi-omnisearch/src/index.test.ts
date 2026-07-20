@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
-import omnisearch from './index.js';
+import omnisearch, * as omnisearch_entrypoint from './index.js';
 
 type PromptEvent = {
 	systemPrompt: string;
@@ -21,6 +21,12 @@ async function register_prompt_handler(): Promise<PromptHandler> {
 }
 
 describe('omnisearch extension', () => {
+	it('preserves the published prompt guard named export', () => {
+		expect(
+			omnisearch_entrypoint.should_inject_omnisearch_prompt,
+		).toBeTypeOf('function');
+	});
+
 	it('injects guidance when selected tools are unavailable', async () => {
 		const handler = await register_prompt_handler();
 		await expect(

@@ -19,7 +19,7 @@ function is_mcp_omnisearch_tool(tool_name: string): boolean {
 	return MCP_OMNISEARCH_TOOLS.has(tool);
 }
 
-function should_inject_omnisearch_prompt(
+export function should_inject_omnisearch_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
 ): boolean {
 	const selected_tools = event.systemPromptOptions?.selectedTools;

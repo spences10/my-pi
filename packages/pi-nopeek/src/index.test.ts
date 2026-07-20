@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
-import nopeek from './index.js';
+import nopeek, * as nopeek_entrypoint from './index.js';
 
 type PromptEvent = {
 	systemPrompt: string;
@@ -21,6 +21,12 @@ async function register_prompt_handler(): Promise<PromptHandler> {
 }
 
 describe('nopeek extension', () => {
+	it('preserves the published prompt guard named export', () => {
+		expect(nopeek_entrypoint.should_inject_nopeek_prompt).toBeTypeOf(
+			'function',
+		);
+	});
+
 	it('injects guidance when selected tools are unavailable', async () => {
 		const handler = await register_prompt_handler();
 		await expect(

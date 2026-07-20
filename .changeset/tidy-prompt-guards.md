@@ -4,5 +4,5 @@
 '@spences10/pi-recall': patch
 ---
 
-Internalize prompt guards and verify default extensions preserve tool
+Preserve prompt guard exports while default extensions retain tool
 gating and injected reminder behavior consistently.

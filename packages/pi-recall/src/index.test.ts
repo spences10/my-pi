@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
-import recall from './index.js';
+import recall, * as recall_entrypoint from './index.js';
 
 type PromptEvent = {
 	systemPrompt: string;
@@ -24,6 +24,12 @@ async function register_extension() {
 }
 
 describe('recall extension', () => {
+	it('preserves the published prompt guard named export', () => {
+		expect(recall_entrypoint.should_inject_recall_prompt).toBeTypeOf(
+			'function',
+		);
+	});
+
 	it('registers recall commands and lifecycle hooks', async () => {
 		const { handlers, on, register_command } =
 			await register_extension();
