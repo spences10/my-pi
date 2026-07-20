@@ -1,11 +1,15 @@
 # @spences10/pi-confirm-destructive
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-confirm-destructive?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-confirm-destructive)
 [![license](https://img.shields.io/npm/l/@spences10/pi-confirm-destructive)](https://www.npmjs.com/package/@spences10/pi-confirm-destructive)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Stop destructive shell commands before they surprise you.
 `pi-confirm-destructive` adds a Git-aware confirmation layer for
@@ -14,9 +18,13 @@ before changing or losing work.
 
 ## Installation
 
+<!-- package-readme:install:start -->
+
 ```bash
 pi install npm:@spences10/pi-confirm-destructive
 ```
+
+<!-- package-readme:install:end -->
 
 Local development from this monorepo:
 
@@ -80,6 +88,8 @@ confirm-destructive guard.
 
 ## Development
 
+<!-- package-readme:development:start commands="check,test,build" -->
+
 Package scripts build transitive workspace dependencies first, then
 run local tools through Vite+ with `vp exec`.
 
@@ -88,6 +98,8 @@ pnpm --filter @spences10/pi-confirm-destructive run check
 pnpm --filter @spences10/pi-confirm-destructive run test
 pnpm --filter @spences10/pi-confirm-destructive run build
 ```
+
+<!-- package-readme:development:end -->
 
 ## License
 

@@ -1,11 +1,15 @@
 # @spences10/pi-project-trust
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-project-trust?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-project-trust)
 [![license](https://img.shields.io/npm/l/@spences10/pi-project-trust)](https://www.npmjs.com/package/@spences10/pi-project-trust)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Share one trust policy across Pi extensions that touch project files
 or resources. `pi-project-trust` helps extensions consistently decide
@@ -72,6 +76,8 @@ are supported for current LSP binary trust semantics.
 
 ## Development
 
+<!-- package-readme:development:start commands="check,test,build" -->
+
 Package scripts build transitive workspace dependencies first, then
 run local tools through Vite+ with `vp exec`.
 
@@ -80,6 +86,8 @@ pnpm --filter @spences10/pi-project-trust run check
 pnpm --filter @spences10/pi-project-trust run test
 pnpm --filter @spences10/pi-project-trust run build
 ```
+
+<!-- package-readme:development:end -->
 
 ## License
 

@@ -1,11 +1,15 @@
 # @spences10/pi-child-env
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-child-env?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-child-env)
 [![license](https://img.shields.io/npm/l/@spences10/pi-child-env)](https://www.npmjs.com/package/@spences10/pi-child-env)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Launch Pi child processes without leaking unsafe environment state.
 `pi-child-env` centralizes the allowlist/scrubbing rules extensions
@@ -47,6 +51,8 @@ Use allowlists only for variables the child process truly needs.
 
 ## Development
 
+<!-- package-readme:development:start commands="check,test,build" -->
+
 Package scripts build transitive workspace dependencies first, then
 run local tools through Vite+ with `vp exec`.
 
@@ -55,3 +61,5 @@ pnpm --filter @spences10/pi-child-env run check
 pnpm --filter @spences10/pi-child-env run test
 pnpm --filter @spences10/pi-child-env run build
 ```
+
+<!-- package-readme:development:end -->

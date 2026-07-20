@@ -1,11 +1,15 @@
 # @spences10/pi-redact
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-redact?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-redact)
 [![license](https://img.shields.io/npm/l/@spences10/pi-redact)](https://www.npmjs.com/package/@spences10/pi-redact)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Prevent accidental secret exposure before tool output reaches the
 model. `pi-redact` scans command results for likely tokens, keys, and
@@ -14,9 +18,13 @@ enough context to debug.
 
 ## Installation
 
+<!-- package-readme:install:start -->
+
 ```bash
 pi install npm:@spences10/pi-redact
 ```
+
+<!-- package-readme:install:end -->
 
 Local development from this monorepo:
 
@@ -106,6 +114,8 @@ Use proper secret hygiene as the primary control:
 
 ## Development
 
+<!-- package-readme:development:start commands="check,test,build" -->
+
 Package scripts build transitive workspace dependencies first, then
 run local tools through Vite+ with `vp exec`.
 
@@ -114,6 +124,8 @@ pnpm --filter @spences10/pi-redact run check
 pnpm --filter @spences10/pi-redact run test
 pnpm --filter @spences10/pi-redact run build
 ```
+
+<!-- package-readme:development:end -->
 
 ## License
 

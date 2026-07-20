@@ -1,11 +1,15 @@
 # @spences10/pi-team-mode
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-team-mode?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-team-mode)
 [![license](https://img.shields.io/npm/l/@spences10/pi-team-mode)](https://www.npmjs.com/package/@spences10/pi-team-mode)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Peer-session coordination for independently opened Pi TUI sessions.
 The package registers each running session in a local SQLite bus,
@@ -14,9 +18,13 @@ groups. It does not spawn, supervise, or attach to other Pi sessions.
 
 ## Installation
 
+<!-- package-readme:install:start -->
+
 ```bash
 pi install npm:@spences10/pi-team-mode
 ```
+
+<!-- package-readme:install:end -->
 
 Local development from this monorepo:
 

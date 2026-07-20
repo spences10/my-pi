@@ -43,4 +43,6 @@ with `pi install` directly:
 - `@spences10/pi-tui-modal`
 
 Check each package README before changing install instructions,
-commands, or public behavior.
+commands, or public behavior. Maintainers should follow the
+[package README conventions](./package-readmes.md) for generated
+maintenance regions and npm-safe links.

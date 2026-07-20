@@ -1,11 +1,15 @@
 # @spences10/pi-recall
 
+<!-- package-readme:header:start -->
+
 [![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
 [![npm version](https://img.shields.io/npm/v/@spences10/pi-recall?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/@spences10/pi-recall)
 [![license](https://img.shields.io/npm/l/@spences10/pi-recall)](https://www.npmjs.com/package/@spences10/pi-recall)
 
 ![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
 
 Find the old decision, bugfix, or implementation detail instead of
 rediscovering it. `pi-recall` keeps `pirecall` synced and reminds the
@@ -14,9 +18,13 @@ repeated work.
 
 ## Installation
 
+<!-- package-readme:install:start -->
+
 ```bash
 pi install npm:@spences10/pi-recall
 ```
+
+<!-- package-readme:install:end -->
 
 Local development from this monorepo:
 
@@ -84,6 +92,8 @@ recall reminder.
 
 ## Development
 
+<!-- package-readme:development:start commands="check,test,build" -->
+
 Package scripts build transitive workspace dependencies first, then
 run local tools through Vite+ with `vp exec`.
 
@@ -92,6 +102,8 @@ pnpm --filter @spences10/pi-recall run check
 pnpm --filter @spences10/pi-recall run test
 pnpm --filter @spences10/pi-recall run build
 ```
+
+<!-- package-readme:development:end -->
 
 ## License
 

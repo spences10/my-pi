@@ -13,9 +13,13 @@ or create another telemetry database.
 
 ## Install
 
+<!-- package-readme:install:start -->
+
 ```bash
 pi install npm:@spences10/pi-factory
 ```
+
+<!-- package-readme:install:end -->
 
 ## Operating model
 
