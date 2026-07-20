@@ -106,6 +106,7 @@ export interface ObservabilityConfig {
 	tags: string[];
 	agent_name?: string;
 	raw_payloads: boolean;
+	forward_session_id?: boolean;
 	detail_level: 'summary' | 'detailed';
 	max_payload_bytes: number;
 	auto_start_server: boolean;

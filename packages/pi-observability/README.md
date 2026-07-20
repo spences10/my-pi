@@ -72,6 +72,12 @@ MY_PI_OBSERVABILITY_DETAIL=detailed # detailed or summary
 MY_PI_OBSERVABILITY_TOKEN=dev-token
 ```
 
+Agent process environment variable:
+
+```bash
+MY_PI_OBSERVABILITY_FORWARD_SESSION_ID=true # opt-in provider attribution
+```
+
 The local API requires bearer authentication by default. On first
 startup, the server creates a random token in
 `~/.pi/agent/observability-token` with mode `0600`. The token is
@@ -113,7 +119,8 @@ MY_PI_OBSERVABILITY_TAG=agent-a,experiment-1 \
 pi
 ```
 
-Equivalent Pi flags:
+Equivalent extension flags when this package is loaded by vanilla
+upstream `pi` (the `my-pi` wrapper does not forward extension flags):
 
 ```text
 --observability-url
@@ -123,6 +130,7 @@ Equivalent Pi flags:
 --observability-name
 --observability-raw
 --observability-detail
+--observability-forward-session-id
 --observability-disable
 --no-observability
 ```
@@ -152,6 +160,21 @@ Set `MY_PI_OBSERVABILITY_DETAIL=summary` or
 Raw payload mode is opt-in with `--observability-raw` or
 `MY_PI_OBSERVABILITY_RAW=true`; redaction and a payload byte cap still
 apply.
+
+This extension's generic `x-pi-session-id` attribution header is
+disabled by default and requires Pi 0.80.4 or newer. With vanilla
+upstream `pi`, enable `--observability-forward-session-id`. With the
+`my-pi` executable, set `MY_PI_OBSERVABILITY_FORWARD_SESSION_ID=true`
+on the agent process, not only on a separately launched observability
+server. Either option adds the stable local Pi session identifier to
+every outgoing provider request, so enable it only for endpoints you
+trust. The observability bearer token, pool, tags, and event payloads
+are never added to provider headers.
+
+This setting controls only the extension's generic header. Pinned Pi
+0.80.10 independently sends the same stable identifier as
+`x-opencode-session`, plus `x-opencode-client: pi`, by default for
+OpenCode, OpenCode Go, and requests to an OpenCode host.
 
 The dashboard shell and static assets are public on the configured
 listener, but event ingestion, queries, trace data, and live streams

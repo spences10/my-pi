@@ -98,6 +98,9 @@ export function resolve_observability_config(
 		raw_payloads:
 			as_boolean(pi.getFlag('observability-raw')) ||
 			as_boolean(env.MY_PI_OBSERVABILITY_RAW),
+		forward_session_id:
+			as_boolean(pi.getFlag('observability-forward-session-id')) ||
+			as_boolean(env.MY_PI_OBSERVABILITY_FORWARD_SESSION_ID),
 		detail_level: detail_level(
 			pi.getFlag('observability-detail') ??
 				env.MY_PI_OBSERVABILITY_DETAIL,
@@ -462,6 +465,11 @@ export default function observability(pi: ExtensionAPI) {
 		type: 'string',
 		default: undefined,
 	});
+	pi.registerFlag('observability-forward-session-id', {
+		description: 'Add x-pi-session-id to outgoing provider requests',
+		type: 'boolean',
+		default: false,
+	});
 	pi.registerFlag('observability-disable', {
 		description: 'Disable live observability for this process',
 		type: 'boolean',
@@ -584,6 +592,12 @@ export default function observability(pi: ExtensionAPI) {
 	observe('after_provider_response', 'provider_response');
 	observe('session_compact', 'compaction');
 	observe('session_tree', 'branch_nav');
+
+	pi.on('before_provider_headers', (event, ctx) => {
+		if (!config?.forward_session_id) return;
+		event.headers['x-pi-session-id'] =
+			ctx.sessionManager.getSessionId();
+	});
 
 	pi.on('session_info_changed', async (event, ctx) => {
 		if (session)

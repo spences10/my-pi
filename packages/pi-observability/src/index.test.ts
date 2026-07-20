@@ -14,6 +14,8 @@ import type { ObservabilityEvent } from './types.js';
 
 function observability_harness(options?: {
 	configured_name?: string;
+	configured_token?: string;
+	forward_session_id?: boolean;
 	session_name?: string;
 }) {
 	const handlers = new Map<
@@ -34,6 +36,12 @@ function observability_harness(options?: {
 		['observability-url', 'http://observability.test'],
 		...(options?.configured_name
 			? ([['observability-name', options.configured_name]] as const)
+			: []),
+		...(options?.configured_token
+			? ([['observability-token', options.configured_token]] as const)
+			: []),
+		...(options?.forward_session_id
+			? ([['observability-forward-session-id', true]] as const)
 			: []),
 	]);
 	const pi = {
@@ -93,6 +101,7 @@ describe('resolve_observability_config', () => {
 		expect(config).toMatchObject({
 			server_url: 'http://127.0.0.1:43190',
 			auto_start_server: true,
+			forward_session_id: false,
 		});
 		expect(config?.token).toHaveLength(43);
 	});
@@ -130,6 +139,7 @@ describe('resolve_observability_config', () => {
 			{
 				MY_PI_OBSERVABILITY_POOL: 'test',
 				MY_PI_OBSERVABILITY_DETAIL: 'summary',
+				MY_PI_OBSERVABILITY_FORWARD_SESSION_ID: 'true',
 			},
 		);
 		expect(config).toMatchObject({
@@ -137,6 +147,7 @@ describe('resolve_observability_config', () => {
 			pool: 'test',
 			tags: ['one', 'two'],
 			detail_level: 'summary',
+			forward_session_id: true,
 			auto_start_server: false,
 		});
 	});
@@ -205,6 +216,51 @@ describe('resolve_observability_config', () => {
 			vi.unstubAllEnvs();
 			rmSync(agent_dir, { recursive: true, force: true });
 		}
+	});
+});
+
+describe('provider session attribution', () => {
+	it('does not change provider headers by default', async () => {
+		const harness = observability_harness();
+		const headers = {
+			authorization: 'Bearer provider-secret',
+			'x-existing': 'keep',
+		};
+
+		await harness.trigger('session_start');
+		await harness.trigger('before_provider_headers', { headers });
+		await harness.trigger('session_shutdown');
+
+		expect(headers).toEqual({
+			authorization: 'Bearer provider-secret',
+			'x-existing': 'keep',
+		});
+		harness.fetch_mock.mockRestore();
+	});
+
+	it('adds only the session id header when explicitly enabled', async () => {
+		const harness = observability_harness({
+			configured_token: 'observability-secret',
+			forward_session_id: true,
+		});
+		const headers = {
+			authorization: 'Bearer provider-secret',
+			'x-existing': 'keep',
+		};
+
+		await harness.trigger('session_start');
+		await harness.trigger('before_provider_headers', { headers });
+		await harness.trigger('session_shutdown');
+
+		expect(headers).toEqual({
+			authorization: 'Bearer provider-secret',
+			'x-existing': 'keep',
+			'x-pi-session-id': 'session-1',
+		});
+		expect(Object.values(headers)).not.toContain(
+			'observability-secret',
+		);
+		harness.fetch_mock.mockRestore();
 	});
 });
 
