@@ -1,4 +1,6 @@
-import { describe, expectTypeOf, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { ObservabilityConfig } from './index.js';
 
 describe('public observability types', () => {
@@ -16,5 +18,23 @@ describe('public observability types', () => {
 		expectTypeOf<
 			typeof legacy_config
 		>().toExtend<ObservabilityConfig>();
+	});
+
+	it('emits downstream compatibility declarations', () => {
+		const tsc = fileURLToPath(
+			new URL(
+				'../node_modules/typescript/lib/tsc.js',
+				import.meta.url,
+			),
+		);
+		const project = fileURLToPath(
+			new URL('../tsconfig.compatibility.json', import.meta.url),
+		);
+
+		expect(() =>
+			execFileSync(process.execPath, [tsc, '--project', project], {
+				stdio: 'pipe',
+			}),
+		).not.toThrow();
 	});
 });

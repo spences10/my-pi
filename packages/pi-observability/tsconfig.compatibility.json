@@ -1,0 +1,12 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"outDir": "./node_modules/.cache/type-compatibility",
+		"rootDir": ".",
+		"types": ["node"]
+	},
+	"include": ["test/compatibility/**/*.ts"],
+	"exclude": ["node_modules", "dist"]
+}
