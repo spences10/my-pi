@@ -49,6 +49,32 @@ Use this path if you already have your own Pi setup and only want
 selected features. Package READMEs are the source of truth for install
 instructions, commands, configuration, and runtime behavior.
 
+### Programmatic use
+
+`create_my_pi()` accepts upstream `InlineExtension` values, including
+named wrappers that keep startup extension paths descriptive. Bare
+factory functions remain supported.
+
+```typescript
+import { create_my_pi, type InlineExtension } from 'my-pi';
+
+const audit_extension: InlineExtension = {
+	name: 'audit-events',
+	factory(pi) {
+		pi.on('agent_start', () => console.log('agent started'));
+	},
+};
+
+const runtime = await create_my_pi({
+	extensionFactories: [audit_extension],
+});
+```
+
+The wrapper above appears as `<inline:audit-events>` in Pi's startup
+Extensions list. Names beginning with `my-pi-` are reserved for the
+managed distribution extensions; `create_my_pi()` rejects consumer
+wrappers using that prefix before loading any extensions.
+
 ## What you get
 
 - **Pi-native CLI + SDK wrapper** — interactive TUI, print mode, JSON

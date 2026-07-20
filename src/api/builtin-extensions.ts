@@ -1,5 +1,6 @@
 import type {
 	ExtensionFactory,
+	InlineExtension,
 	LoadExtensionsResult,
 } from '@earendil-works/pi-coding-agent';
 import { existsSync } from 'node:fs';
@@ -26,6 +27,23 @@ export const PACKAGE_THEME_DIR = resolve(
 	dirname(require.resolve('@spences10/pi-themes/package.json')),
 	'themes',
 );
+
+export const MANAGED_INLINE_EXTENSION_NAME_PREFIX = 'my-pi-';
+
+export function assert_unreserved_inline_extension_names(
+	extensions: readonly InlineExtension[],
+): void {
+	for (const extension of extensions) {
+		if (
+			typeof extension !== 'function' &&
+			extension.name.startsWith(MANAGED_INLINE_EXTENSION_NAME_PREFIX)
+		) {
+			throw new Error(
+				`Inline extension name "${extension.name}" is reserved for my-pi managed extensions; choose a name that does not start with "${MANAGED_INLINE_EXTENSION_NAME_PREFIX}".`,
+			);
+		}
+	}
+}
 
 export function get_force_disabled_builtins(
 	options: Pick<CreateMyPiOptions, 'runtime_mode'> &
@@ -127,27 +145,23 @@ export function create_lazy_telemetry_extension(options: {
 }
 
 export function create_extensions_override(
-	managed_inline_paths: string[],
+	managed_extension_paths: readonly string[],
 ): (base: LoadExtensionsResult) => LoadExtensionsResult {
-	const managed_paths = new Set(managed_inline_paths);
 	return (base) => {
-		const managed = new Map(
-			base.extensions.map((extension) => [extension.path, extension]),
-		);
-		const ordered_managed = managed_inline_paths
-			.map((path) => managed.get(path))
-			.filter(
-				(
-					extension,
-				): extension is LoadExtensionsResult['extensions'][number] =>
-					Boolean(extension),
-			);
-		const others = base.extensions.filter(
-			(extension) => !managed_paths.has(extension.path),
+		// Pi names inline extensions but still loads discovered paths first.
+		// Move only the first matching managed instance to preserve precedence.
+		const remaining = [...base.extensions];
+		const ordered_managed = managed_extension_paths.flatMap(
+			(path) => {
+				const index = remaining.findIndex(
+					(extension) => extension.path === path,
+				);
+				return index === -1 ? [] : remaining.splice(index, 1);
+			},
 		);
 		return {
 			...base,
-			extensions: [...ordered_managed, ...others],
+			extensions: [...ordered_managed, ...remaining],
 		};
 	};
 }

@@ -1,6 +1,6 @@
 import type {
 	CreateAgentSessionFromServicesOptions,
-	ExtensionFactory,
+	InlineExtension,
 } from '@earendil-works/pi-coding-agent';
 import type { BuiltinExtensionOptionName } from '../extensions/builtin-registry.js';
 
@@ -22,7 +22,8 @@ export interface CreateMyPiOptions extends BuiltinExtensionOptions {
 	cwd?: string;
 	agent_dir?: string;
 	extensions?: string[];
-	extensionFactories?: ExtensionFactory[];
+	/** Named wrappers must not use the reserved `my-pi-` prefix. */
+	extensionFactories?: InlineExtension[];
 	runtime_mode?: MyPiRuntimeMode;
 	telemetry?: boolean;
 	telemetry_db_path?: string;

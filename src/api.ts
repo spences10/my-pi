@@ -9,12 +9,14 @@ import {
 	runRpcMode,
 	type CreateAgentSessionFromServicesOptions,
 	type CreateAgentSessionServicesOptions,
-	type ExtensionFactory,
+	type InlineExtension,
 	type SessionManager,
 } from '@earendil-works/pi-coding-agent';
 import { resolve } from 'node:path';
 import {
+	MANAGED_INLINE_EXTENSION_NAME_PREFIX,
 	PACKAGE_THEME_DIR,
+	assert_unreserved_inline_extension_names,
 	create_extensions_override,
 	create_lazy_builtin_extension_factory,
 	create_lazy_telemetry_extension,
@@ -82,6 +84,8 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		untrusted_repo = false,
 	} = options;
 
+	assert_unreserved_inline_extension_names(user_factories);
+
 	const env_keys_to_restore = new Set<string>([
 		MY_PI_RUNTIME_MODE_ENV,
 	]);
@@ -130,23 +134,30 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 			})
 		: undefined;
 
-	const managed_extension_factories: ExtensionFactory[] = [
-		create_lazy_telemetry_extension({
-			enabled: telemetry,
-			db_path: telemetry_db_path,
-			cwd,
-		}),
-		create_extensions_extension({ force_disabled }),
-		...BUILTIN_EXTENSION_REGISTRY.map((extension) =>
-			create_lazy_builtin_extension_factory(
+	const managed_inline_extensions = [
+		{
+			name: `${MANAGED_INLINE_EXTENSION_NAME_PREFIX}telemetry`,
+			factory: create_lazy_telemetry_extension({
+				enabled: telemetry,
+				db_path: telemetry_db_path,
+				cwd,
+			}),
+		},
+		{
+			name: `${MANAGED_INLINE_EXTENSION_NAME_PREFIX}extensions-manager`,
+			factory: create_extensions_extension({ force_disabled }),
+		},
+		...BUILTIN_EXTENSION_REGISTRY.map((extension) => ({
+			name: `${MANAGED_INLINE_EXTENSION_NAME_PREFIX}${extension.key}`,
+			factory: create_lazy_builtin_extension_factory(
 				extension.key,
 				extension.load,
 				force_disabled,
 			),
-		),
-	];
-	const managed_inline_paths = managed_extension_factories.map(
-		(_, index) => `<inline:${index + 1}>`,
+		})),
+	] satisfies InlineExtension[];
+	const managed_extension_paths = managed_inline_extensions.map(
+		(extension) => `<inline:${extension.name}>`,
 	);
 
 	const create_runtime = async ({
@@ -195,11 +206,11 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 					? { additionalThemePaths: [PACKAGE_THEME_DIR] }
 					: {}),
 				extensionFactories: [
-					...managed_extension_factories,
+					...managed_inline_extensions,
 					...user_factories,
 				],
 				extensionsOverride: create_extensions_override(
-					managed_inline_paths,
+					managed_extension_paths,
 				),
 				skillsOverride: (
 					base: Parameters<
@@ -301,6 +312,7 @@ export { InteractiveMode, runPrintMode, runRpcMode };
 export type {
 	AgentSessionRuntime,
 	ExtensionFactory,
+	InlineExtension,
 	InteractiveModeOptions,
 	PrintModeOptions,
 } from '@earendil-works/pi-coding-agent';
