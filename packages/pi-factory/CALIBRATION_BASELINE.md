@@ -30,9 +30,10 @@ authoritative correlated outcomes. Each outcome must carry
 project, policy, route, compute, and gate pins; a named
 embedding-application actor authenticates unavailable suite/case and
 repository revision/shape pins. Outcomes preserve those pins plus
-report version and an explicit evidence-derived label,
-provider/model/reasoning, session, valid duration, measured usage or
-telemetry, every current-contract attempt, and terminal
-validation/review/ approval evidence. Sparse, synthetic, incomplete,
-contradictory, stale, or incompatible rows remain queryable but block
-baseline promotion and recommendations.
+report version and an explicit evidence-derived label, one consistent
+provider/model/reasoning tuple across every current-contract lifecycle
+event, session, valid duration, measured usage or telemetry, every
+current-contract attempt, and terminal validation/review/ approval
+evidence. Sparse, synthetic, incomplete, contradictory, stale, or
+incompatible rows remain queryable but block baseline promotion and
+recommendations.

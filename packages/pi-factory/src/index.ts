@@ -11,6 +11,7 @@ export type {
 	CalibrationProject,
 	CalibrationSuite,
 	CalibrationSuiteEvaluation,
+	AuthenticatedFactoryOutcomeImportProvenance,
 	FactoryOutcomeImportProvenance,
 	ProposedCalibrationExperiment,
 } from './calibration-suite.js';
