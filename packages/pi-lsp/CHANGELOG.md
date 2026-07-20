@@ -1,5 +1,16 @@
 # @spences10/pi-lsp
 
+## 0.0.41
+
+### Patch Changes
+
+- ba76fe9: Share generic project trust wrappers while preserving MCP,
+  LSP, and hooks legacy trust migration behavior.
+- Updated dependencies [ba76fe9]
+- Updated dependencies [785685f]
+  - @spences10/pi-project-trust@0.0.18
+  - @spences10/pi-tui-modal@0.0.24
+
 ## 0.0.40
 
 ### Patch Changes

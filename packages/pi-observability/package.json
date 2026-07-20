@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-observability",
-	"version": "0.0.20",
+	"version": "0.0.21",
 	"description": "Optional live event stream and local web dashboard for Pi agent sessions",
 	"keywords": [
 		"observability",

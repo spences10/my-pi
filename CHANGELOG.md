@@ -1,5 +1,21 @@
 # my-pi
 
+## 0.1.117
+
+### Patch Changes
+
+- ba76fe9: Share generic project trust wrappers while preserving MCP,
+  LSP, and hooks legacy trust migration behavior.
+- 6b36595: Adopt named inline extensions with reserved managed labels,
+  preserved precedence, and documented consumer naming rules.
+- 746d60f: Share GitHub remote parsing across MCP policies and skill
+  contexts while preserving package-specific matching behavior.
+- Updated dependencies [ba76fe9]
+- Updated dependencies [785685f]
+  - @spences10/pi-project-trust@0.0.18
+  - @spences10/pi-themes@0.0.10
+  - @spences10/pi-tui-modal@0.0.24
+
 ## 0.1.116
 
 ### Patch Changes

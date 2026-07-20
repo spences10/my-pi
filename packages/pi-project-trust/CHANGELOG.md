@@ -1,5 +1,12 @@
 # @spences10/pi-project-trust
 
+## 0.0.18
+
+### Patch Changes
+
+- ba76fe9: Share generic project trust wrappers while preserving MCP,
+  LSP, and hooks legacy trust migration behavior.
+
 ## 0.0.17
 
 ### Patch Changes

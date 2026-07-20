@@ -1,5 +1,15 @@
 # @spences10/pi-observability
 
+## 0.0.21
+
+### Patch Changes
+
+- fd3b09f: Add opt-in generic provider session attribution headers
+  while documenting Pi's existing default OpenCode attribution
+  behavior.
+- Updated dependencies [785685f]
+  - @spences10/pi-tui-modal@0.0.24
+
 ## 0.0.20
 
 ### Patch Changes

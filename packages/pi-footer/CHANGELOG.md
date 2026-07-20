@@ -1,5 +1,14 @@
 # @spences10/pi-footer
 
+## 0.0.14
+
+### Patch Changes
+
+- 785685f: Clarify how footer, theme, and modal packages compose
+  upstream Pi primitives while preserving curated behavior.
+- Updated dependencies [785685f]
+  - @spences10/pi-tui-modal@0.0.24
+
 ## 0.0.13
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @spences10/pi-themes
 
+## 0.0.10
+
+### Patch Changes
+
+- 785685f: Clarify how footer, theme, and modal packages compose
+  upstream Pi primitives while preserving curated behavior.
+
 ## 0.0.9
 
 ### Patch Changes

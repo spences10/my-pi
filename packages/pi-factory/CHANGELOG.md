@@ -1,5 +1,14 @@
 # @spences10/pi-factory
 
+## 0.0.7
+
+### Patch Changes
+
+- ba76fe9: Share generic project trust wrappers while preserving MCP,
+  LSP, and hooks legacy trust migration behavior.
+- Updated dependencies [ba76fe9]
+  - @spences10/pi-project-trust@0.0.18
+
 ## 0.0.6
 
 ### Patch Changes

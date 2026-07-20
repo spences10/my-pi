@@ -1,5 +1,18 @@
 # @spences10/pi-skill-importer
 
+## 0.0.13
+
+### Patch Changes
+
+- 2a85294: Clarify how skills packages complement upstream discovery,
+  configuration, imports, profiles, provenance, and GitHub lifecycle
+  management.
+- 51bec1a: Share scanner primitives across skill packages while
+  preserving managed, project, and external discovery behavior
+  consistently.
+- Updated dependencies [785685f]
+  - @spences10/pi-tui-modal@0.0.24
+
 ## 0.0.12
 
 ### Patch Changes

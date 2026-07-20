@@ -1,5 +1,25 @@
 # @spences10/pi-skills
 
+## 0.0.35
+
+### Patch Changes
+
+- 2a85294: Clarify how skills packages complement upstream discovery,
+  configuration, imports, profiles, provenance, and GitHub lifecycle
+  management.
+- 746d60f: Share GitHub remote parsing across MCP policies and skill
+  contexts while preserving package-specific matching behavior.
+- 51bec1a: Share scanner primitives across skill packages while
+  preserving managed, project, and external discovery behavior
+  consistently.
+- Updated dependencies [2a85294]
+- Updated dependencies [785685f]
+- Updated dependencies [746d60f]
+- Updated dependencies [51bec1a]
+  - @spences10/pi-skill-importer@0.0.13
+  - @spences10/pi-tui-modal@0.0.24
+  - @spences10/pi-git-remote@0.0.2
+
 ## 0.0.34
 
 ### Patch Changes

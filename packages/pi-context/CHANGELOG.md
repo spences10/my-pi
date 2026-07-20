@@ -1,5 +1,12 @@
 # @spences10/pi-context
 
+## 0.1.11
+
+### Patch Changes
+
+- Updated dependencies [785685f]
+  - @spences10/pi-tui-modal@0.0.24
+
 ## 0.1.10
 
 ### Patch Changes
