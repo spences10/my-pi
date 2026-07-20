@@ -12,8 +12,34 @@
 <!-- package-readme:header:end -->
 
 Move external Agent Skills into Pi without hand-copying files.
-`pi-skill-importer` provides the import helpers Pi uses to normalize
-skill metadata, content, and storage from compatible skill sources.
+`pi-skill-importer` provides provenance-aware helpers for copying and
+maintaining skills from compatible external sources.
+
+## Relationship to upstream Pi
+
+Audit baseline: upstream Pi
+[`0.80.10`](https://github.com/earendil-works/pi/tree/13437ca828894f43f973c630d208b488637d8fa9/packages/coding-agent)
+can load other harnesses' skill directories directly through the
+`skills` settings array or `--skill`; copying is not required merely
+to make those skills available. Pi also owns Agent Skills parsing,
+validation, discovery, and native storage loading. This package is for
+users who intentionally want independently managed Pi-native copies.
+
+| Capability                                                                         | Classification     | Boundary and remaining value                                                                                                 |
+| ---------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Loading external skill files or directories through settings or `--skill`          | Upstream primitive | Point Pi at `~/.claude/skills` or another compatible directory when a copied snapshot is unnecessary.                        |
+| Loading copied skills from `$PI_CODING_AGENT_DIR/skills`                           | Wrapper            | The importer writes into Pi's native skill location; Pi performs discovery and execution.                                    |
+| Claude installed-plugin cache discovery                                            | Additive feature   | Finds skills and plugin version/commit context that Pi does not import or track.                                             |
+| Provenance metadata, content hashes, safe sync/rebind, and metadata-owned deletion | Additive feature   | Tracks copied snapshots, refuses to overwrite local edits, recovers moved plugin caches, and never deletes upstream sources. |
+| Public import/sync/delete API and consolidated `/skills` integration               | Additive feature   | Supports custom management flows and the preferred `pi-skills` UI.                                                           |
+| Copying solely to make an external directory loadable                              | Removal candidate  | Use Pi's native `skills` setting instead; import only when copy ownership and provenance are required.                       |
+| Standalone `/skill-importer` command                                               | Removal candidate  | Kept as a deprecated compatibility surface while `/skills` is the preferred UI.                                              |
+
+See upstream's
+[Skills](https://github.com/earendil-works/pi/blob/13437ca828894f43f973c630d208b488637d8fa9/packages/coding-agent/docs/skills.md)
+and
+[settings](https://github.com/earendil-works/pi/blob/13437ca828894f43f973c630d208b488637d8fa9/packages/coding-agent/docs/settings.md#resources)
+for the native no-copy path.
 
 The public API powers the consolidated `/skills` → **Add / import**
 experience. The extension still registers `/skill-importer` with

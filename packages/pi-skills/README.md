@@ -35,10 +35,38 @@ pi install ./packages/pi-skills
 pi -e ./packages/pi-skills
 ```
 
+## Relationship to upstream Pi
+
+Audit baseline: upstream Pi
+[`0.80.10`](https://github.com/earendil-works/pi/tree/13437ca828894f43f973c630d208b488637d8fa9/packages/coding-agent)
+already implements the Agent Skills runtime, including parsing and
+validation, prompt exposure, `/skill:name`, trusted project discovery,
+package-managed skills, settings and CLI paths, and per-resource
+selection through `pi config`. Its SDK also exposes skill loading,
+`resources_discover`, and `skillsOverride`. This package does not
+replace those primitives.
+
+| Capability                                                                                                      | Classification     | Boundary and remaining value                                                                               |
+| --------------------------------------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Agent Skills parsing, validation, prompt exposure, and `/skill:name`                                            | Upstream primitive | Pi owns skill semantics and execution.                                                                     |
+| Global, trusted project, package, settings, and CLI skill discovery                                             | Upstream primitive | Prefer Pi's documented locations and package manifest support.                                             |
+| Static per-resource enable/disable through `pi config`                                                          | Upstream primitive | Use native configuration when profiles and context switching are unnecessary.                              |
+| Scanning native skill metadata and contributing selected paths through `resources_discover` or `skillsOverride` | Wrapper            | Supplies the package UI and profile decisions while Pi remains the loader.                                 |
+| GitHub search, preview, install, and update                                                                     | Wrapper            | Delegates source tracking and updates to the preview `gh skill` commands; this is not a Pi SDK feature.    |
+| Named profiles, inherited pattern rules, and `cwd`/GitHub context selection                                     | Additive feature   | Provides reusable skill sets and automatic project-aware activation beyond native static filters.          |
+| Consolidated management UI and importer composition                                                             | Additive feature   | Combines profile operations, GitHub lifecycle actions, and provenance-aware external imports in `/skills`. |
+| Discovery of `SKILL.md` below `.agents/**` outside `.agents/skills/`                                            | Removal candidate  | Retained for compatibility; new skills should use Pi's native `.agents/skills/` layout.                    |
+
+See upstream's
+[Skills](https://github.com/earendil-works/pi/blob/13437ca828894f43f973c630d208b488637d8fa9/packages/coding-agent/docs/skills.md),
+[Pi Packages](https://github.com/earendil-works/pi/blob/13437ca828894f43f973c630d208b488637d8fa9/packages/coding-agent/docs/packages.md),
+and
+[extension resource events](https://github.com/earendil-works/pi/blob/13437ca828894f43f973c630d208b488637d8fa9/packages/coding-agent/docs/extensions.md#resources_discover)
+for the native behavior this package composes.
+
 ## What it does
 
-Pi already has native skill discovery. This package adds a management
-layer for Pi skill ecosystems:
+This package adds a management layer around Pi's native skill runtime:
 
 - discovers Pi-native skills in `$PI_CODING_AGENT_DIR/skills`
   (default: `~/.pi/agent/skills`)
