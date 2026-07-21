@@ -260,6 +260,7 @@ export interface TeamDatabaseStatements {
 	list_sessions: StatementSync;
 	list_online_sessions: StatementSync;
 	resolve_session_target: StatementSync;
+	update_session_agent_name: StatementSync;
 	mark_session_status: StatementSync;
 	insert_artifact: StatementSync;
 	get_artifact: StatementSync;

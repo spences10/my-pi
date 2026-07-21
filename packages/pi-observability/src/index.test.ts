@@ -22,7 +22,7 @@ function observability_harness(options?: {
 		string,
 		(event: unknown, ctx: unknown) => Promise<void>
 	>();
-	let session_name = options?.session_name;
+	const session_name = options?.session_name;
 	const sent: ObservabilityEvent[] = [];
 	const fetch_mock = vi
 		.spyOn(globalThis, 'fetch')
@@ -63,7 +63,6 @@ function observability_harness(options?: {
 	return {
 		fetch_mock,
 		sent,
-		set_session_name: (name: string) => (session_name = name),
 		trigger: async (name: string, event: unknown = {}) =>
 			handlers.get(name)?.(event, ctx),
 	};
@@ -347,20 +346,19 @@ describe('session names', () => {
 		harness.fetch_mock.mockRestore();
 	});
 
-	it('emits renamed session metadata for normal persistence', async () => {
+	it('emits renamed and cleared session metadata for persistence', async () => {
 		const harness = observability_harness({ session_name: 'before' });
 		await harness.trigger('session_start');
-		harness.set_session_name('after');
 		await harness.trigger('session_info_changed', { name: 'after' });
+		await harness.trigger('session_info_changed', {
+			name: undefined,
+		});
 		await harness.trigger('session_shutdown');
-		expect(harness.sent).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					type: 'session_info_changed',
-					session_name: 'after',
-				}),
-			]),
-		);
+		expect(
+			harness.sent
+				.filter((event) => event.type === 'session_info_changed')
+				.map((event) => event.session_name),
+		).toEqual(['after', undefined]);
 		harness.fetch_mock.mockRestore();
 	});
 
@@ -370,7 +368,6 @@ describe('session names', () => {
 			session_name: 'before',
 		});
 		await harness.trigger('session_start');
-		harness.set_session_name('after');
 		await harness.trigger('session_info_changed', { name: 'after' });
 		await harness.trigger('session_shutdown');
 		expect(

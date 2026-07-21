@@ -18,6 +18,7 @@ import {
 import { format_coordination_identity } from './coordination-formatting.js';
 import { CoordinationPoller } from './coordination-poller.js';
 import { TeamDatabase } from './db/index.js';
+import { register_session_name_sync } from './session-name-sync.js';
 import {
 	detect_standby_registration,
 	type StandbyRegistration,
@@ -115,6 +116,9 @@ export default async function team_mode(pi: ExtensionAPI) {
 	let agent_active = false;
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'peer';
 	const own_role = process.env[TEAM_ROLE_ENV] || 'peer';
+	const fallback_agent_name =
+		process.env.MY_PI_OBSERVABILITY_NAME ||
+		(process.env[TEAM_MEMBER_ENV] ? own_member : undefined);
 	const coordination_poller = new CoordinationPoller({
 		db: coordination_db,
 		get_session_id: () => own_session_id,
@@ -133,10 +137,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 			session_id: own_session_id,
 			session_file: ctx.sessionManager.getSessionFile(),
 			cwd: ctx.cwd,
-			agent_name:
-				pi.getSessionName?.() ||
-				process.env.MY_PI_OBSERVABILITY_NAME ||
-				(process.env[TEAM_MEMBER_ENV] ? own_member : undefined),
+			agent_name: pi.getSessionName?.() || fallback_agent_name,
 			pid: process.pid,
 			role: process.env[TEAM_ROLE_ENV]
 				? own_role === 'lead' || own_role === 'teammate'
@@ -159,6 +160,13 @@ export default async function team_mode(pi: ExtensionAPI) {
 		coordination_poller.start(pi);
 		coordination_poller.poll(pi);
 	});
+
+	register_session_name_sync(
+		pi,
+		coordination_db,
+		() => own_session_id,
+		fallback_agent_name,
+	);
 
 	pi.on('session_shutdown', async () => {
 		coordination_broker.stop();

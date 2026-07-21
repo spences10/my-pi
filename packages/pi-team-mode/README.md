@@ -38,7 +38,8 @@ pi -e ./packages/pi-team-mode
 ## How it works
 
 1. Open two or more normal Pi TUI sessions with Team Mode installed.
-2. Each session registers itself in the shared coordination database.
+2. Each session registers itself in the shared coordination database;
+   later `/name` changes update its peer-targeting name immediately.
 3. Use `session_list` to discover the other open sessions.
 4. Send a message with `session_send` or a group action.
 5. The receiving extension injects queued messages as native user

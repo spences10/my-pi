@@ -17,6 +17,7 @@ export interface PreparedStatements {
 	upsert_session: StatementSync;
 	list_sessions: StatementSync;
 	get_session: StatementSync;
+	clear_session_name: StatementSync;
 	list_events: StatementSync;
 	search_events: StatementSync;
 	delete_old_events: StatementSync;
@@ -89,6 +90,9 @@ export function prepare_db(db_path: string): {
 			`),
 			get_session: db.prepare(`
 				SELECT * FROM sessions WHERE session_id = ?
+			`),
+			clear_session_name: db.prepare(`
+				UPDATE sessions SET session_name = NULL WHERE session_id = ?
 			`),
 			list_events: db.prepare(`
 				SELECT * FROM events

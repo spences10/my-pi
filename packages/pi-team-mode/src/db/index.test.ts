@@ -198,6 +198,30 @@ describe('TeamDatabase coordination store', () => {
 		}
 	});
 
+	it('updates and clears a live session name used for peer targeting', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			db.register_session({
+				session_id: 'worker',
+				cwd: '/repo',
+				agent_name: 'before',
+			});
+
+			db.update_session_agent_name('worker', 'after');
+			expect(db.get_session('worker')?.agent_name).toBe('after');
+			expect(db.resolve_session_targets('after')).toMatchObject([
+				{ session_id: 'worker' },
+			]);
+			expect(db.resolve_session_targets('before')).toEqual([]);
+
+			db.update_session_agent_name('worker', undefined);
+			expect(db.get_session('worker')?.agent_name).toBeUndefined();
+			expect(db.resolve_session_targets('after')).toEqual([]);
+		} finally {
+			db.close();
+		}
+	});
+
 	it('keeps independently opened peers targetable after shutdown', async () => {
 		const db = await TeamDatabase.open(tmp_db());
 		try {
