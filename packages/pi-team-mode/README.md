@@ -51,6 +51,13 @@ after the peer opens again. Messages sent while a peer is running wait
 until its current agent run finishes. Team Mode does not steer an
 active remote run.
 
+Automatic deliveries include only a bounded message-body preview. The
+mailbox remains the full-text source: use `team session_inbox` with
+`mode=full` to retrieve it. Team Mode does not automatically copy each
+message into a new artifact. For intentionally large handoffs, senders
+should create a Team Mode artifact, send its id, and recipients should
+retrieve that referenced artifact.
+
 Coordination state is stored in:
 
 ```text
@@ -122,8 +129,10 @@ as `team-mode-peer`, set authority to `peer-only`, record that they do
 not carry direct user authority, and preserve message and sender
 session ids. The visible message also names the peer sender, shows
 explicit peer-content boundaries, and says that it is not direct user
-input. Peer content keeps this provenance even if it claims to be from
-the user or says that the user approved an action.
+input. Long previews carry clear truncation and full-mailbox or
+referenced-artifact retrieval instructions. Peer content keeps this
+provenance even if it claims to be from the user or says that the user
+approved an action.
 
 Peer messages remain useful for ordinary coordination, evidence, and
 review feedback within scope the direct user already authorized. A
