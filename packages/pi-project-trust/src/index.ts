@@ -1,4 +1,5 @@
 import {
+	get_settings_path,
 	read_trust_settings,
 	write_trust_settings,
 } from '@spences10/pi-settings';
@@ -8,9 +9,7 @@ import {
 	readFileSync,
 	writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 export type ProjectTrustFallback = 'global';
 
@@ -140,18 +139,7 @@ const SKIP_VALUES = new Set(['0', 'false', 'no', 'skip', 'disable']);
 const GLOBAL_FALLBACK_VALUES = new Set(['global', 'global-only']);
 
 function get_agent_dir(): string {
-	const configured = process.env.PI_CODING_AGENT_DIR;
-	if (configured === '~') return homedir();
-	if (
-		configured?.startsWith('~/') ||
-		(process.platform === 'win32' && configured?.startsWith('~\\'))
-	) {
-		return join(homedir(), configured.slice(2));
-	}
-	if (configured?.startsWith('file://')) {
-		return fileURLToPath(configured);
-	}
-	return configured || join(homedir(), '.pi', 'agent');
+	return dirname(get_settings_path());
 }
 
 export function default_project_trust_store_path(): string {

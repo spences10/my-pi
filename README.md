@@ -49,6 +49,20 @@ Use this path if you already have your own Pi setup and only want
 selected features. Package READMEs are the source of truth for install
 instructions, commands, configuration, and runtime behavior.
 
+For a project-local install, let Pi write the repo-owned package entry
+and resource overrides:
+
+```bash
+pi install -l npm:@spences10/pi-lsp
+pi config -l
+```
+
+Upstream Pi stores those choices in `.pi/settings.json`; project
+resource deltas may use `autoload: false`. Keep `@spences10/pi-*`
+extension state and resource-specific trust in the separate global
+`~/.pi/agent/my-pi-settings.json` store. A project must not be able to
+trust its own commands or executables through `.pi/settings.json`.
+
 ### Programmatic use
 
 `create_my_pi()` accepts upstream `InlineExtension` values, including
