@@ -4,6 +4,7 @@ import {
 	handle_team_command,
 	should_inject_team_prompt,
 } from './command-handler.js';
+import { TEAM_PEER_AUTHORITY_GUIDELINES } from './command-utils.js';
 import {
 	get_coordination_db_path,
 	get_current_thinking_level,
@@ -252,6 +253,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 		promptSnippet:
 			'Manage peer sessions, coordination groups, artifacts, and messages',
 		promptGuidelines: [
+			...TEAM_PEER_AUTHORITY_GUIDELINES,
 			'Use team session_list to discover independently opened Pi sessions across projects before sending peer messages.',
 			'If the user mentions standby sessions, existing sessions, handoffs, or other active sessions, call session_list and prefer registered standby sessions.',
 			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for compact peer-session mailbox coordination.',

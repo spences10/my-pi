@@ -420,6 +420,43 @@ describe('coordination actions', () => {
 		}
 	});
 
+	it('retrieves full text for automatically delivered read messages with mode full', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({ session_id: 'worker', cwd: '/repo' });
+			const message = db.send_to_session_target({
+				from_session_id: 'lead',
+				target: 'worker',
+				body: `automatic preview ${'mailbox context '.repeat(40)}final detail`,
+			});
+			db.mark_messages_delivered('worker', [message.message_id]);
+			db.mark_messages_read('worker', [message.message_id]);
+			const context = {
+				ctx: { cwd: '/repo' },
+				coordination_db: db,
+				notify_coordination_messages: async () => undefined,
+				require_session_id: () => 'worker',
+			};
+
+			const compact = await execute_coordination_action(
+				{ action: 'session_inbox' },
+				context,
+			);
+			const full = await execute_coordination_action(
+				{ action: 'session_inbox', mode: 'full' },
+				context,
+			);
+
+			expect(compact.content[0]?.text).toBe(
+				'No matching inbox messages.',
+			);
+			expect(full.content[0]?.text).toContain('final detail');
+		} finally {
+			db.close();
+		}
+	});
+
 	it('retrieves focused session message chunks with bounds', async () => {
 		const db = await tmp_db();
 		try {

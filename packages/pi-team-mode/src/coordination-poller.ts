@@ -1,22 +1,14 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { safe_sqlite_tick } from '@spences10/pi-sqlite-core';
+import { create_peer_message_delivery } from './coordination-formatting.js';
 import type {
 	CoordinationInboxMessage,
 	TeamDatabase,
 } from './db/index.js';
 
-function format_raw_delivery(
-	messages: Array<Pick<CoordinationInboxMessage, 'body'>>,
-): string {
-	return messages.map((message) => message.body).join('\n\n---\n\n');
-}
-
 const HEARTBEAT_INTERVAL_MS = 10_000;
 
-type PollerMessage = Pick<
-	CoordinationInboxMessage,
-	'body' | 'message_id' | 'urgent'
->;
+type PollerMessage = CoordinationInboxMessage;
 
 interface PollerDatabase {
 	heartbeat_session: TeamDatabase['heartbeat_session'];
@@ -40,7 +32,7 @@ export class CoordinationPoller {
 		},
 	) {}
 
-	start(pi: Pick<ExtensionAPI, 'sendUserMessage'>): void {
+	start(pi: Pick<ExtensionAPI, 'sendMessage'>): void {
 		this.stop();
 		this.timer = setInterval(() => {
 			this.poll(pi);
@@ -54,11 +46,11 @@ export class CoordinationPoller {
 		this.timer = undefined;
 	}
 
-	poll(pi: Pick<ExtensionAPI, 'sendUserMessage'>): void {
+	poll(pi: Pick<ExtensionAPI, 'sendMessage'>): void {
 		safe_sqlite_tick(() => this.poll_once(pi));
 	}
 
-	private poll_once(pi: Pick<ExtensionAPI, 'sendUserMessage'>): void {
+	private poll_once(pi: Pick<ExtensionAPI, 'sendMessage'>): void {
 		const session_id = this.options.get_session_id();
 		if (!session_id) return;
 		const now = Date.now();
@@ -77,11 +69,15 @@ export class CoordinationPoller {
 			include_acknowledged: false,
 		});
 		if (messages.length === 0) return;
-		pi.sendUserMessage(format_raw_delivery(messages), {
-			deliverAs: messages.some((message) => message.urgent)
-				? 'steer'
-				: 'followUp',
-		});
+		pi.sendMessage(
+			create_peer_message_delivery(session_id, messages),
+			{
+				triggerTurn: true,
+				deliverAs: messages.some((message) => message.urgent)
+					? 'steer'
+					: 'followUp',
+			},
+		);
 		const message_ids = messages.map((message) => message.message_id);
 		this.options.db.mark_messages_delivered(session_id, message_ids);
 		this.options.db.mark_messages_read(session_id, message_ids);

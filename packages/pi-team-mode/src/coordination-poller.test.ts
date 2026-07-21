@@ -16,7 +16,7 @@ describe('CoordinationPoller', () => {
 				get_session_id: () => 'session-1',
 				should_auto_inject_messages: () => true,
 			});
-			const pi = { sendUserMessage: vi.fn() };
+			const pi = { sendMessage: vi.fn() };
 
 			poller.poll(pi);
 			poller.poll(pi);
@@ -35,8 +35,16 @@ describe('CoordinationPoller', () => {
 	it('suppresses auto-injection while an agent turn is active', () => {
 		const message = {
 			message_id: 'm1',
+			from_session_id: 'peer-1',
+			to_session_id: 'session-1',
+			scope: 'session' as const,
+			target: 'session-1',
 			body: 'pending message',
 			urgent: false,
+			requires_ack: false,
+			created_at: '2026-07-21T00:00:00.000Z',
+			metadata: {},
+			receipt_created_at: '2026-07-21T00:00:00.000Z',
 		};
 		const db = {
 			heartbeat_session: vi.fn(),
@@ -50,12 +58,12 @@ describe('CoordinationPoller', () => {
 			should_auto_inject_messages: () => true,
 			is_agent_active: () => true,
 		});
-		const pi = { sendUserMessage: vi.fn() };
+		const pi = { sendMessage: vi.fn() };
 
 		poller.poll(pi);
 
 		expect(db.list_inbox).not.toHaveBeenCalled();
-		expect(pi.sendUserMessage).not.toHaveBeenCalled();
+		expect(pi.sendMessage).not.toHaveBeenCalled();
 		expect(db.mark_messages_delivered).not.toHaveBeenCalled();
 		expect(db.mark_messages_read).not.toHaveBeenCalled();
 	});
@@ -78,10 +86,10 @@ describe('CoordinationPoller', () => {
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
-		const pi = { sendUserMessage: vi.fn() };
+		const pi = { sendMessage: vi.fn() };
 
 		expect(() => poller.poll(pi)).not.toThrow();
-		expect(pi.sendUserMessage).not.toHaveBeenCalled();
+		expect(pi.sendMessage).not.toHaveBeenCalled();
 	});
 
 	it('rethrows unexpected polling errors', () => {
@@ -98,16 +106,70 @@ describe('CoordinationPoller', () => {
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
-		const pi = { sendUserMessage: vi.fn() };
+		const pi = { sendMessage: vi.fn() };
 
 		expect(() => poller.poll(pi)).toThrow('boom');
 	});
 
-	it('delivers mailbox messages as raw native user turns', () => {
+	it('bounds automatic delivery without duplicating mailbox text into an artifact', () => {
+		const message = {
+			message_id: 'm-long',
+			from_session_id: 'peer-1',
+			to_session_id: 'session-1',
+			scope: 'session' as const,
+			target: 'session-1',
+			body: `artifact-handoff-1 ${'large handoff context '.repeat(600)}final mailbox detail`,
+			urgent: false,
+			requires_ack: false,
+			created_at: '2026-07-21T00:00:00.000Z',
+			metadata: {},
+			receipt_created_at: '2026-07-21T00:00:00.000Z',
+		};
+		const db = {
+			heartbeat_session: vi.fn(),
+			list_inbox: vi.fn(() => [message]),
+			mark_messages_delivered: vi.fn(),
+			mark_messages_read: vi.fn(),
+			create_artifact: vi.fn(),
+		};
+		const poller = new CoordinationPoller({
+			db,
+			get_session_id: () => 'session-1',
+			should_auto_inject_messages: () => true,
+		});
+		const pi = { sendMessage: vi.fn() };
+
+		poller.poll(pi);
+
+		const delivery = pi.sendMessage.mock.calls[0]?.[0];
+		expect(delivery?.content.length).toBeLessThan(2_000);
+		expect(delivery?.content).toContain('artifact-handoff-1');
+		expect(delivery?.content).toContain('[truncated]');
+		expect(delivery?.content).not.toContain('final mailbox detail');
+		expect(delivery?.content).toContain(
+			'Use `team session_inbox` with `mode=full` for full text',
+		);
+		expect(delivery?.content).toContain(
+			'retrieve the referenced Team Mode artifact for a long handoff',
+		);
+		expect(db.create_artifact).not.toHaveBeenCalled();
+	});
+
+	it('delivers mailbox messages as provenance-preserving custom messages', () => {
 		const message = {
 			message_id: 'm1',
+			from_session_id: 'peer-1',
+			from_agent_name: 'reviewer',
+			from_cwd: '/repo',
+			to_session_id: 'session-1',
+			scope: 'session' as const,
+			target: 'session-1',
 			body: 'Run the focused test and report back.',
 			urgent: false,
+			requires_ack: true,
+			created_at: '2026-07-21T00:00:00.000Z',
+			metadata: {},
+			receipt_created_at: '2026-07-21T00:00:00.000Z',
 		};
 		const db = {
 			heartbeat_session: vi.fn(),
@@ -120,16 +182,32 @@ describe('CoordinationPoller', () => {
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
-		const pi = { sendUserMessage: vi.fn() };
+		const pi = { sendMessage: vi.fn() };
 
 		poller.poll(pi);
 
-		expect(pi.sendUserMessage).toHaveBeenCalledWith(
-			'Run the focused test and report back.',
-			{ deliverAs: 'followUp' },
-		);
-		expect(pi.sendUserMessage.mock.calls[0][0]).not.toContain(
-			'coordination message',
+		expect(pi.sendMessage).toHaveBeenCalledWith(
+			expect.objectContaining({
+				customType: 'team-mode-peer-message',
+				display: true,
+				content: expect.stringContaining(
+					'[Team Mode peer message — not direct user input]',
+				),
+				details: expect.objectContaining({
+					source: 'team-mode-peer',
+					authority: 'peer-only',
+					direct_user_authority: false,
+					recipient_session_id: 'session-1',
+					messages: [
+						expect.objectContaining({
+							message_id: 'm1',
+							from_session_id: 'peer-1',
+							from_agent_name: 'reviewer',
+						}),
+					],
+				}),
+			}),
+			{ deliverAs: 'followUp', triggerTurn: true },
 		);
 		expect(db.mark_messages_delivered).toHaveBeenCalledWith(
 			'session-1',

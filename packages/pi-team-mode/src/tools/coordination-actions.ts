@@ -197,7 +197,7 @@ export async function execute_coordination_action(
 		case 'message_list': {
 			const target = require_session_id();
 			const messages = coordination_db.list_inbox(target, {
-				include_read: params.include_read,
+				include_read: params.include_read || params.mode === 'full',
 				include_acknowledged:
 					params.mode === 'full' || has_chunk_request(params),
 			});
