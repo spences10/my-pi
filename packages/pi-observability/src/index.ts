@@ -599,9 +599,8 @@ export default function observability(pi: ExtensionAPI) {
 			ctx.sessionManager.getSessionId();
 	});
 
-	pi.on('session_info_changed', async (event, ctx) => {
-		if (session)
-			session.session_name = ctx.sessionManager.getSessionName();
+	pi.on('session_info_changed', async (event) => {
+		if (session) session.session_name = event.name;
 		emit('session_info_changed', event);
 	});
 

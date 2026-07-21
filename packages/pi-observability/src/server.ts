@@ -39,7 +39,6 @@ import type {
 	ObservabilityServerOptions,
 	RunningObservabilityServer,
 } from './server-options.js';
-import { resolve_session_name } from './session-name.js';
 import { trace_summary } from './trace-summary.js';
 import type { ObservabilityEvent } from './types.js';
 
@@ -157,6 +156,12 @@ export function start_observability_server(
 			server_event.ts,
 			tags_json,
 		);
+		if (
+			server_event.type === 'session_info_changed' &&
+			server_event.session_name === undefined
+		) {
+			statements.clear_session_name.run(server_event.session_id);
+		}
 		return server_event;
 	}
 
@@ -258,13 +263,10 @@ export function start_observability_server(
 					limit,
 				) as Record<string, unknown>[];
 				const tag = req_url.searchParams.get('tag');
-				const sessions = rows
-					.map(to_session_row)
-					.map(resolve_session_name)
-					.filter((row) => {
-						if (!tag) return true;
-						return row.tags?.includes(tag);
-					});
+				const sessions = rows.map(to_session_row).filter((row) => {
+					if (!tag) return true;
+					return row.tags?.includes(tag);
+				});
 				return json(res, 200, { sessions });
 			}
 			const session_route = req_url.pathname.match(
@@ -288,7 +290,7 @@ export function start_observability_server(
 					| Record<string, unknown>
 					| undefined;
 				const session = session_row
-					? resolve_session_name(to_session_row(session_row))
+					? to_session_row(session_row)
 					: null;
 				return json(res, 200, trace_summary(session, events));
 			}

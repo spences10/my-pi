@@ -30,7 +30,10 @@ and extension statuses.
 selectable widgets, multi-row status placement, persistent settings,
 and the `/footer` live-preview workflow. Installing it replaces Pi's
 built-in footer renderer with that curated UI while continuing to read
-status values published through Pi's native API.
+status values published through Pi's native API. Session names are
+read from Pi on every render; Pi invalidates the footer when
+`session_info_changed` fires, so this package does not poll session
+metadata.
 
 ## Library API
 

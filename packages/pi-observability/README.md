@@ -147,8 +147,10 @@ Events are stored as ordered envelopes with:
 
 The extension listens for session, agent, turn, message, tool,
 provider, model, compaction, and branch events when the installed Pi
-version emits them. `/sessions` and `/events/stream` support `pool`,
-`tag`, and `session_id` filters where relevant.
+version emits them. Session renames update stored dashboard metadata
+from Pi's native `session_info_changed` event. `/sessions` and
+`/events/stream` support `pool`, `tag`, and `session_id` filters where
+relevant.
 
 ## Safety
 

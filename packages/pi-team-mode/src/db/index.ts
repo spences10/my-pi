@@ -202,6 +202,21 @@ export class TeamDatabase {
 		);
 	}
 
+	update_session_agent_name(
+		session_id: string,
+		agent_name: string | undefined,
+	): void {
+		const timestamp = now();
+		this.write(() =>
+			this.statements.update_session_agent_name.run(
+				agent_name ?? null,
+				timestamp,
+				timestamp,
+				session_id,
+			),
+		);
+	}
+
 	mark_session_status(
 		session_id: string,
 		status: CoordinationSessionStatus,

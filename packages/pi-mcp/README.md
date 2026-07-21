@@ -148,6 +148,9 @@ loaded into global or project MCP config after modal confirmation.
 - performs the MCP `initialize` handshake
 - discovers tools via `tools/list`
 - registers each discovered MCP tool with Pi
+- updates Pi's active tools as servers connect or disconnect; current
+  Pi applies those changes to the next provider request in the same
+  agent run
 - forwards model tool calls to the MCP server
 - disconnects idle connected servers after 15 minutes by default
   (`MY_PI_MCP_IDLE_TIMEOUT_MS=0` disables this globally; per-server

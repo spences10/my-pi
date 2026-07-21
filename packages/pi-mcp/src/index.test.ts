@@ -15,6 +15,7 @@ const dirs: string[] = [];
 const original_home = process.env.HOME;
 const original_project_config = process.env.MY_PI_MCP_PROJECT_CONFIG;
 const original_idle_timeout = process.env.MY_PI_MCP_IDLE_TIMEOUT_MS;
+const original_runtime_mode = process.env.MY_PI_RUNTIME_MODE;
 
 afterEach(() => {
 	for (const dir of dirs.splice(0)) {
@@ -31,6 +32,11 @@ afterEach(() => {
 		delete process.env.MY_PI_MCP_IDLE_TIMEOUT_MS;
 	} else {
 		process.env.MY_PI_MCP_IDLE_TIMEOUT_MS = original_idle_timeout;
+	}
+	if (original_runtime_mode === undefined) {
+		delete process.env.MY_PI_RUNTIME_MODE;
+	} else {
+		process.env.MY_PI_RUNTIME_MODE = original_runtime_mode;
 	}
 	vi.restoreAllMocks();
 });
@@ -225,6 +231,7 @@ describe('should_wait_for_mcp_connections', () => {
 describe('MCP server lifecycle', () => {
 	it('connects enabled servers before the first agent turn', async () => {
 		process.env.MY_PI_MCP_PROJECT_CONFIG = 'allow';
+		process.env.MY_PI_RUNTIME_MODE = 'interactive';
 		const cwd = tmp_dir();
 		const server = await create_http_mcp_server();
 		try {

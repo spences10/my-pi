@@ -41,6 +41,7 @@ describe('prepare_db', () => {
 				}
 			}
 			expect(Object.keys(statements).sort()).toEqual([
+				'clear_session_name',
 				'delete_old_events',
 				'delete_orphan_sessions',
 				'delete_over_limit_events',

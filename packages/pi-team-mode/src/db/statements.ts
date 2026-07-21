@@ -42,6 +42,11 @@ export function prepare_statements(
 		resolve_session_target: db.prepare(
 			"SELECT * FROM sessions WHERE status != 'offline' AND (session_id = ? OR agent_name = ?) ORDER BY last_seen_at DESC",
 		),
+		update_session_agent_name: db.prepare(`
+				UPDATE sessions
+				SET agent_name = ?, updated_at = ?, last_seen_at = ?
+				WHERE session_id = ?
+			`),
 		mark_session_status: db.prepare(`
 				UPDATE sessions
 				SET status = ?, updated_at = ?, last_seen_at = ?, offline_at = ?,
