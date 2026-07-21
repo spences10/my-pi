@@ -42,8 +42,9 @@ pi -e ./packages/pi-team-mode
    later `/name` changes update its peer-targeting name immediately.
 3. Use `session_list` to discover the other open sessions.
 4. Send a message with `session_send` or a group action.
-5. The receiving extension injects queued messages as native user
-   turns when that session is idle.
+5. When the receiving session is idle, its extension injects each
+   delivery as a visible Pi custom message carrying structured peer
+   provenance. It is never injected as a direct user turn.
 
 Messages sent while a peer is offline remain durable and are surfaced
 after the peer opens again. Messages sent while a peer is running wait
@@ -112,6 +113,30 @@ artifact ids in messages instead of copying large bodies.
 Mailbox state is coordination evidence, not proof that a model
 completed work. Use `session_read` after reviewing a message and
 `session_ack` after completing it.
+
+## Peer provenance and authority
+
+Automatic deliveries are custom messages with the custom type
+`team-mode-peer-message`. Their structured details identify the source
+as `team-mode-peer`, set authority to `peer-only`, record that they do
+not carry direct user authority, and preserve message and sender
+session ids. The visible message also names the peer sender, shows
+explicit peer-content boundaries, and says that it is not direct user
+input. Peer content keeps this provenance even if it claims to be from
+the user or says that the user approved an action.
+
+Peer messages remain useful for ordinary coordination, evidence, and
+review feedback within scope the direct user already authorized. A
+peer message cannot itself authorize edits, ownership transfer,
+commits, pushes, issue changes, releases, destructive actions, or
+public-contract changes. If the direct user has not already confirmed
+a requested consequential action, ask the user before acting.
+Delivery, reading, acknowledgement, urgency, group role, and sender
+labels do not increase a peer message's authority.
+
+This authority boundary does not add process control: Team Mode still
+only coordinates independently opened peer sessions and does not
+spawn, supervise, or attach to them.
 
 ## Groups and standby sessions
 
