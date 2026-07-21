@@ -20,6 +20,25 @@ repo-controlled resources that can execute code or influence model
 context, such as project MCP config, hook config, or project-local LSP
 binaries.
 
+## Relationship to upstream Pi
+
+Audit baseline: upstream Pi
+[`0.80.10`](https://github.com/earendil-works/pi/tree/8dc78834cde4e329284cf505f9e3f99763df5529/packages/coding-agent)
+owns whole-project trust for `.pi/settings.json`, standard `.pi`
+resources, and project `.agents/skills`. It exposes that decision to
+extensions through `ctx.isProjectTrusted()`. Pi also owns project
+package/resource overrides, including `autoload: false`; this package
+does not wrap those settings.
+
+`pi-project-trust` remains additive for individual resources Pi does
+not discover or hash, including root `mcp.json`, hook commands, and
+project-local executables. It supports per-subject hashes, allow-once
+decisions, environment policy, and global fallbacks. These records
+stay in the global `my-pi-settings.json` store so a project cannot
+grant trust to its own resources through `.pi/settings.json`. Callers
+whose resources are already fully covered by Pi's project trust should
+use `ctx.isProjectTrusted()` instead of adding another prompt.
+
 ## Usage
 
 ```ts
@@ -92,9 +111,14 @@ for project resources without overriding explicit operator choices:
 
 ## Trust stores
 
-Trust stores are small JSON files written with mode `0600`. Hash-based
-subjects are invalidated when their hash changes. Path-only subjects
-are supported for current LSP binary trust semantics.
+Built-in trust store names are persisted under the `trust` section of
+global `my-pi-settings.json`; unrecognized custom store names retain
+standalone JSON-file behavior for API compatibility. The default store
+directory comes from `@spences10/pi-settings`, which already delegates
+agent directory normalization to upstream Pi.
+
+Hash-based subjects are invalidated when their hash changes. Path-only
+subjects are supported for current LSP binary trust semantics.
 
 ## Development
 
