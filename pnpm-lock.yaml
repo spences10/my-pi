@@ -18,12 +18,6 @@ catalogs:
     '@earendil-works/pi-tui':
       specifier: 0.80.10
       version: 0.80.10
-    '@fontsource-variable/victor-mono':
-      specifier: ^5.2.8
-      version: 5.2.8
-    '@fontsource/victor-mono':
-      specifier: ^5.2.8
-      version: 5.2.8
     '@internationalized/date':
       specifier: ^3.12.1
       version: 3.12.2
@@ -36,6 +30,9 @@ catalogs:
     '@sveltejs/adapter-cloudflare':
       specifier: ^7.2.8
       version: 7.2.9
+    '@sveltejs/kit':
+      specifier: ^2.60.1
+      version: 2.70.0
     '@sveltejs/vite-plugin-svelte':
       specifier: ^7.1.2
       version: 7.2.0
@@ -78,6 +75,9 @@ catalogs:
     svead:
       specifier: ^0.0.16
       version: 0.0.16
+    svelte:
+      specifier: ^5.56.2
+      version: 5.56.6
     svelte-check:
       specifier: ^4.7.2
       version: 4.7.3
@@ -246,7 +246,7 @@ importers:
     devDependencies:
       '@fontsource-variable/victor-mono':
         specifier: 'catalog:'
-        version: 5.2.8
+        version: 5.3.0
       '@internationalized/date':
         specifier: 'catalog:'
         version: 3.12.2
@@ -607,7 +607,7 @@ importers:
     dependencies:
       '@fontsource/victor-mono':
         specifier: 'catalog:'
-        version: 5.2.8
+        version: 5.3.0
       '@spences10/pi-sqlite-core':
         specifier: workspace:*
         version: link:../pi-sqlite-core
@@ -1345,11 +1345,11 @@ packages:
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
 
-  '@fontsource-variable/victor-mono@5.2.8':
-    resolution: {integrity: sha512-1j2AWMs4QhTbAdMcd5tyiVa/DZfT2Xk4DG4P2MmRDudYlo9o3hlWECrgk5sB9dAzXHYjimqb3E/VQFy7NR4p3w==}
+  '@fontsource-variable/victor-mono@5.3.0':
+    resolution: {integrity: sha512-xwUwrQ17BEofW/X5jRAXKxtQ0AFaSwH2/CKq6+ZuGUTiA9pmaYchM/7RvlyNcnGjIYT67DoJZuIRp4xpMjyFEw==}
 
-  '@fontsource/victor-mono@5.2.8':
-    resolution: {integrity: sha512-8WYdXLzYNHvsvXWaGW4zs1hNu6RHUrQCVJplS9XKhZZNE1VqxPsm5zSbKQox4YuLZG1fV4fOxIt0SAc+YLGkjg==}
+  '@fontsource/victor-mono@5.3.0':
+    resolution: {integrity: sha512-4U33jWYiEKLDHYuQGONZWJRCg9HD5XCLtPIzJfIxxstFgn9S1YYcaOoPTPc4cPMyjH5woTRFk8NMfax5AmfsMw==}
 
   '@google/genai@1.52.0':
     resolution: {integrity: sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q==}
@@ -4652,9 +4652,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.11': {}
 
-  '@fontsource-variable/victor-mono@5.2.8': {}
+  '@fontsource-variable/victor-mono@5.3.0': {}
 
-  '@fontsource/victor-mono@5.2.8': {}
+  '@fontsource/victor-mono@5.3.0': {}
 
   '@google/genai@1.52.0':
     dependencies:
