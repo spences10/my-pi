@@ -480,7 +480,7 @@ describe('TeamDatabase coordination store', () => {
 		}
 	});
 
-	it('keeps an old group while a member session is active or recently offline', async () => {
+	it('uses a thirty-day manual default while keeping active or recently offline group members', async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
 		const db = await TeamDatabase.open(tmp_db());
@@ -491,11 +491,13 @@ describe('TeamDatabase coordination store', () => {
 				cwd: '/repo',
 				created_by_session_id: 'member',
 			});
+			db.insert_event({ type: 'manual-retention-test' });
 
 			vi.setSystemTime(new Date('2026-02-01T00:00:00.000Z'));
 			db.mark_session_status('member', 'offline');
-			db.prune_historical_data();
+			const result = db.prune_historical_data();
 
+			expect(result.events).toBeGreaterThan(0);
 			expect(db.get_group(group.group_id)).toBeDefined();
 			expect(db.get_session('member')).toBeDefined();
 		} finally {

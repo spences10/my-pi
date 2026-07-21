@@ -165,10 +165,16 @@ isolating those Pi processes remains the user's responsibility.
 
 ## Retention and cleanup
 
-Team Mode runs safe cleanup after session registration and
-stale-process detection. The default retention window is 30 days. Set
-`MY_PI_TEAM_RETENTION_DAYS` to a positive number of days, or set it to
-`0`/`off` to disable startup cleanup.
+Team Mode messages and artifacts are intentional coordination records,
+unlike derived context or observability data. Team Mode therefore does
+not delete coordination history at startup by default. Startup cleanup
+runs after session registration and stale-process detection only when
+`MY_PI_TEAM_RETENTION_DAYS` contains a valid positive number of days.
+Unset or blank values, `0`, `off`, `false`, `disabled`, negative
+values, and invalid values all disable startup cleanup rather than
+selecting a destructive fallback.
+
+When cleanup is explicitly enabled or invoked:
 
 - events older than the window are deleted;
 - artifacts whose last update is older than the window are deleted,
@@ -186,9 +192,11 @@ stale-process detection. The default retention window is 30 days. Set
   never pruned.
 
 Cleanup intentionally preserves active peer state and does not create,
-wake, supervise, or attach to any process. Invalid retention settings
-fall back to 30 days. The database cleanup method also accepts an
-explicit retention window for maintenance and tests.
+wake, supervise, or attach to any process. For intentional
+maintenance, calling the database's `prune_historical_data()` API
+without options uses a 30-day retention window; pass `retention_ms`
+and optionally `reference_time` to choose an explicit window. Merely
+starting Team Mode never applies that manual default.
 
 ## Database compatibility
 

@@ -19,7 +19,7 @@ import {
 import { format_coordination_identity } from './coordination-formatting.js';
 import { CoordinationPoller } from './coordination-poller.js';
 import { TeamDatabase } from './db/index.js';
-import { get_coordination_retention_ms } from './retention.js';
+import { get_startup_coordination_retention_ms } from './retention.js';
 import { register_session_name_sync } from './session-name-sync.js';
 import {
 	detect_standby_registration,
@@ -158,7 +158,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				.filter(Boolean),
 		});
 		coordination_db.mark_stale_sessions_offline();
-		const retention_ms = get_coordination_retention_ms();
+		const retention_ms = get_startup_coordination_retention_ms();
 		if (retention_ms !== undefined)
 			coordination_db.prune_historical_data({ retention_ms });
 		void ensure_coordination_broker();

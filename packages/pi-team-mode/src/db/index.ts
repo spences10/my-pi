@@ -8,7 +8,7 @@ import { dirname } from 'node:path';
 
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
 
-import { DEFAULT_COORDINATION_RETENTION_MS } from '../retention.js';
+import { DEFAULT_MANUAL_COORDINATION_RETENTION_MS } from '../retention.js';
 import {
 	find_stale_sessions,
 	type ProcessAliveCheck,
@@ -586,7 +586,8 @@ export class TeamDatabase {
 		options: CoordinationCleanupOptions = {},
 	): CoordinationCleanupResult {
 		const retention_ms =
-			options.retention_ms ?? DEFAULT_COORDINATION_RETENTION_MS;
+			options.retention_ms ??
+			DEFAULT_MANUAL_COORDINATION_RETENTION_MS;
 		if (!Number.isFinite(retention_ms) || retention_ms < 0)
 			throw new Error('Coordination retention must be non-negative');
 		const reference_time = options.reference_time ?? new Date();

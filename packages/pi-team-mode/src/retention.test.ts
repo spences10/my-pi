@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-	DEFAULT_COORDINATION_RETENTION_MS,
-	get_coordination_retention_ms,
+	get_startup_coordination_retention_ms,
 	TEAM_RETENTION_DAYS_ENV,
 } from './retention.js';
 
@@ -13,26 +12,38 @@ afterEach(() => {
 	else process.env[TEAM_RETENTION_DAYS_ENV] = original_retention;
 });
 
-describe('coordination retention', () => {
-	it('defaults to thirty days and accepts a positive day override', () => {
+describe('startup coordination retention', () => {
+	it('does not prune by default', () => {
 		delete process.env[TEAM_RETENTION_DAYS_ENV];
-		expect(get_coordination_retention_ms()).toBe(
-			DEFAULT_COORDINATION_RETENTION_MS,
-		);
-
-		process.env[TEAM_RETENTION_DAYS_ENV] = '7.5';
-		expect(get_coordination_retention_ms()).toBe(
-			7.5 * 24 * 60 * 60 * 1000,
-		);
+		expect(get_startup_coordination_retention_ms()).toBeUndefined();
 	});
 
-	it('can disable startup cleanup without accepting unsafe values', () => {
-		process.env[TEAM_RETENTION_DAYS_ENV] = 'off';
-		expect(get_coordination_retention_ms()).toBeUndefined();
+	it.each([
+		'',
+		'   ',
+		'0',
+		'0.0',
+		'-0',
+		'off',
+		'OFF',
+		'false',
+		'disabled',
+		'-1',
+		'invalid',
+		'Infinity',
+		'1e308',
+	])(
+		'does not prune for disabled or unsafe setting %j',
+		(configured) => {
+			process.env[TEAM_RETENTION_DAYS_ENV] = configured;
+			expect(get_startup_coordination_retention_ms()).toBeUndefined();
+		},
+	);
 
-		process.env[TEAM_RETENTION_DAYS_ENV] = '-1';
-		expect(get_coordination_retention_ms()).toBe(
-			DEFAULT_COORDINATION_RETENTION_MS,
+	it('enables startup pruning for a valid positive day count', () => {
+		process.env[TEAM_RETENTION_DAYS_ENV] = '7.5';
+		expect(get_startup_coordination_retention_ms()).toBe(
+			7.5 * 24 * 60 * 60 * 1000,
 		);
 	});
 });
