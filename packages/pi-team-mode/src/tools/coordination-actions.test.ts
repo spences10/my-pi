@@ -66,6 +66,90 @@ describe('coordination actions', () => {
 		}
 	});
 
+	it('lists directly copyable targets that remain unambiguous after compact-prefix collisions', async () => {
+		const db = await tmp_db();
+		try {
+			const first_id = '019f0f71-967e-7aed-853c-94ac29fbe7b6';
+			const second_id = '019f0f71-967f-7aed-853c-94ac29fbe7b6';
+			const hidden_collision = '019f0f71-967eX7aed-853c-94ac29fbe7b6';
+			db.register_session({ session_id: first_id, cwd: '/repo' });
+			db.register_session({ session_id: second_id, cwd: '/repo' });
+			db.register_session({
+				session_id: hidden_collision,
+				cwd: '/repo',
+			});
+			db.mark_session_status(hidden_collision, 'offline');
+
+			const result = await execute_coordination_action(
+				{ action: 'session_list' },
+				{
+					ctx: { cwd: '/repo' },
+					coordination_db: db,
+					notify_coordination_messages: async () => undefined,
+					require_session_id: () => first_id,
+				},
+			);
+			const targets = result.content[0]!.text.split('\n').map(
+				(line) => line.slice(2).split(' ')[0]!,
+			);
+
+			expect(targets).toHaveLength(2);
+			expect(targets[0]).not.toBe(targets[1]);
+			expect(result.content[0]!.text).toContain(
+				first_id.slice(0, 14),
+			);
+			expect(result.content[0]!.text).not.toContain('…');
+			for (const target of targets)
+				expect(db.resolve_session_targets(target)).toHaveLength(1);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('scopes group names to the caller cwd while exact ids remain global', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead-a', cwd: '/repo-a' });
+			db.register_session({ session_id: 'lead-b', cwd: '/repo-b' });
+			const group_a = db.create_group({
+				name: 'review',
+				cwd: '/repo-a',
+				created_by_session_id: 'lead-a',
+			});
+			const group_b = db.create_group({
+				name: 'review',
+				cwd: '/repo-b',
+				created_by_session_id: 'lead-b',
+			});
+			const context = {
+				ctx: { cwd: '/repo-a' },
+				coordination_db: db,
+				notify_coordination_messages: async () => undefined,
+				require_session_id: () => 'lead-a',
+			};
+
+			const local = await execute_coordination_action(
+				{ action: 'group_join', name: 'review' },
+				context,
+			);
+			const exact = await execute_coordination_action(
+				{ action: 'group_join', team_id: group_b.group_id },
+				context,
+			);
+
+			expect(local.details.group?.group_id).toBe(group_a.group_id);
+			expect(exact.details.group?.group_id).toBe(group_b.group_id);
+			await expect(
+				execute_coordination_action(
+					{ action: 'group_join', name: 'review' },
+					{ ...context, ctx: { cwd: '/repo-c' } },
+				),
+			).rejects.toThrow('Unknown coordination group');
+		} finally {
+			db.close();
+		}
+	});
+
 	it('rejects unregistered and foreign send-side identities', async () => {
 		const db = await tmp_db();
 		try {

@@ -43,8 +43,9 @@ const inbox_message: CoordinationInboxMessage = {
 };
 
 describe('coordination formatting', () => {
-	it('truncates session ids by default and prints full ids on request', () => {
-		expect(format_sessions([session])).toContain('019f0f71-967…');
+	it('prints a copyable session target by default and full ids on request', () => {
+		expect(format_sessions([session])).toContain('019f0f71-967');
+		expect(format_sessions([session])).not.toContain('019f0f71-967…');
 		expect(format_sessions([session])).not.toContain(
 			'019f0f71-967e-7aed-853c-94ac29fbe7b6',
 		);
@@ -52,6 +53,18 @@ describe('coordination formatting', () => {
 		expect(format_sessions([session], { full_ids: true })).toContain(
 			'019f0f71-967e-7aed-853c-94ac29fbe7b6',
 		);
+	});
+
+	it('expands colliding compact targets until each is unambiguous', () => {
+		const other_id = '019f0f71-967f-7aed-853c-94ac29fbe7b6';
+		const text = format_sessions([
+			session,
+			{ ...session, session_id: other_id },
+		]);
+
+		expect(text).toContain(session.session_id.slice(0, 13));
+		expect(text).toContain(other_id.slice(0, 13));
+		expect(text).not.toContain('…');
 	});
 
 	it('labels registered standby sessions', () => {

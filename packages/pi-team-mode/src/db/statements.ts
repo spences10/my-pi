@@ -77,8 +77,11 @@ export function prepare_statements(
 				VALUES (?, ?, ?, ?, ?, ?, ?)
 			`),
 		get_group: db.prepare('SELECT * FROM groups WHERE group_id = ?'),
-		find_group_by_name: db.prepare(
-			'SELECT * FROM groups WHERE name = ? ORDER BY updated_at DESC LIMIT 1',
+		find_groups_by_name: db.prepare(
+			'SELECT * FROM groups WHERE name = ? ORDER BY group_id ASC',
+		),
+		find_groups_by_name_cwd: db.prepare(
+			'SELECT * FROM groups WHERE name = ? AND cwd = ? ORDER BY group_id ASC',
 		),
 		list_groups: db.prepare(
 			'SELECT * FROM groups ORDER BY updated_at DESC',
@@ -137,6 +140,93 @@ export function prepare_statements(
 		insert_event: db.prepare(`
 				INSERT INTO events (event_id, type, session_id, group_id, message_id, created_at, data_json)
 				VALUES (?, ?, ?, ?, ?, ?, ?)
+			`),
+		count_prunable_receipts: db.prepare(`
+				SELECT COUNT(*) AS count
+				FROM message_receipts
+				WHERE message_id IN (
+					SELECT messages.message_id
+					FROM messages
+					WHERE (expires_at IS NOT NULL AND expires_at <= ? OR created_at < ?)
+						AND NOT EXISTS (
+							SELECT 1 FROM message_receipts pending
+							WHERE pending.message_id = messages.message_id
+								AND pending.acknowledged_at IS NULL
+						)
+				)
+			`),
+		prune_events: db.prepare(
+			'DELETE FROM events WHERE created_at < ?',
+		),
+		prune_messages: db.prepare(`
+				DELETE FROM messages
+				WHERE (expires_at IS NOT NULL AND expires_at <= ? OR created_at < ?)
+					AND NOT EXISTS (
+						SELECT 1 FROM message_receipts
+						WHERE message_receipts.message_id = messages.message_id
+							AND message_receipts.acknowledged_at IS NULL
+					)
+			`),
+		prune_artifacts: db.prepare(`
+				DELETE FROM coordination_artifacts
+				WHERE updated_at < ?
+					AND NOT EXISTS (
+						SELECT 1
+						FROM messages
+						JOIN message_receipts ON message_receipts.message_id = messages.message_id
+						WHERE instr(messages.body, coordination_artifacts.artifact_id) > 0
+							AND message_receipts.acknowledged_at IS NULL
+					)
+			`),
+		prune_groups: db.prepare(`
+				DELETE FROM groups
+				WHERE updated_at < ?
+					AND NOT EXISTS (
+						SELECT 1
+						FROM group_members
+						JOIN sessions ON sessions.session_id = group_members.session_id
+						WHERE group_members.group_id = groups.group_id
+							AND group_members.status = 'active'
+							AND (
+								sessions.status != 'offline'
+								OR COALESCE(sessions.offline_at, sessions.last_seen_at) >= ?
+							)
+					)
+					AND NOT EXISTS (
+						SELECT 1
+						FROM messages
+						WHERE messages.scope = 'group'
+							AND messages.target = groups.group_id
+					)
+			`),
+		prune_sessions: db.prepare(`
+				DELETE FROM sessions
+				WHERE status = 'offline'
+					AND COALESCE(offline_at, last_seen_at) < ?
+					AND NOT EXISTS (
+						SELECT 1 FROM messages
+						WHERE messages.from_session_id = sessions.session_id
+					)
+					AND NOT EXISTS (
+						SELECT 1 FROM message_receipts
+						WHERE message_receipts.to_session_id = sessions.session_id
+					)
+					AND NOT EXISTS (
+						SELECT 1 FROM coordination_artifacts
+						WHERE coordination_artifacts.owner_session_id = sessions.session_id
+					)
+					AND NOT EXISTS (
+						SELECT 1 FROM group_members
+						WHERE group_members.session_id = sessions.session_id
+					)
+					AND NOT EXISTS (
+						SELECT 1 FROM session_runtimes
+						WHERE session_runtimes.session_id = sessions.session_id
+					)
+					AND NOT EXISTS (
+						SELECT 1 FROM runtime_events
+						WHERE runtime_events.session_id = sessions.session_id
+					)
 			`),
 	};
 }

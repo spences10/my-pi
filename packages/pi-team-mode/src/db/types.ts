@@ -145,6 +145,21 @@ export interface CoordinationMessageInput {
 	metadata?: Record<string, unknown>;
 }
 
+export interface CoordinationCleanupOptions {
+	retention_ms?: number;
+	reference_time?: Date;
+}
+
+export interface CoordinationCleanupResult {
+	cutoff: string;
+	artifacts: number;
+	events: number;
+	groups: number;
+	messages: number;
+	receipts: number;
+	sessions: number;
+}
+
 export interface CoordinationMessage {
 	message_id: string;
 	from_session_id: string;
@@ -268,7 +283,8 @@ export interface TeamDatabaseStatements {
 	search_artifacts: StatementSync;
 	insert_group: StatementSync;
 	get_group: StatementSync;
-	find_group_by_name: StatementSync;
+	find_groups_by_name: StatementSync;
+	find_groups_by_name_cwd: StatementSync;
 	list_groups: StatementSync;
 	upsert_group_member: StatementSync;
 	list_group_members: StatementSync;
@@ -280,4 +296,10 @@ export interface TeamDatabaseStatements {
 	mark_messages_read: StatementSync;
 	mark_messages_acknowledged: StatementSync;
 	insert_event: StatementSync;
+	count_prunable_receipts: StatementSync;
+	prune_events: StatementSync;
+	prune_messages: StatementSync;
+	prune_artifacts: StatementSync;
+	prune_groups: StatementSync;
+	prune_sessions: StatementSync;
 }

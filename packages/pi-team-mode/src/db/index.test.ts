@@ -443,6 +443,179 @@ describe('TeamDatabase coordination store', () => {
 		}
 	});
 
+	it('resolves group ids exactly and same-name groups only within the caller cwd', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			db.register_session({ session_id: 'lead-a', cwd: '/repo-a' });
+			db.register_session({ session_id: 'lead-b', cwd: '/repo-b' });
+			const group_a = db.create_group({
+				name: 'review',
+				cwd: '/repo-a',
+				created_by_session_id: 'lead-a',
+			});
+			const group_b = db.create_group({
+				name: 'review',
+				cwd: '/repo-b',
+				created_by_session_id: 'lead-b',
+			});
+
+			expect(
+				db.get_group('review', { cwd: '/repo-a' }),
+			).toMatchObject({
+				group_id: group_a.group_id,
+			});
+			expect(
+				db.get_group('review', { cwd: '/repo-b' }),
+			).toMatchObject({
+				group_id: group_b.group_id,
+			});
+			expect(
+				db.get_group(group_a.group_id, { cwd: '/repo-b' }),
+			).toMatchObject({ group_id: group_a.group_id });
+			expect(() => db.get_group('review')).toThrow(
+				/Ambiguous group target: review/,
+			);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('keeps an old group while a member session is active or recently offline', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			db.register_session({ session_id: 'member', cwd: '/repo' });
+			const group = db.create_group({
+				name: 'long-running',
+				cwd: '/repo',
+				created_by_session_id: 'member',
+			});
+
+			vi.setSystemTime(new Date('2026-02-01T00:00:00.000Z'));
+			db.mark_session_status('member', 'offline');
+			db.prune_historical_data();
+
+			expect(db.get_group(group.group_id)).toBeDefined();
+			expect(db.get_session('member')).toBeDefined();
+		} finally {
+			db.close();
+			vi.useRealTimers();
+		}
+	});
+
+	it('prunes historical coordination rows without deleting active sessions or unacknowledged messages', async () => {
+		const db = await TeamDatabase.open(tmp_db());
+		try {
+			for (const session_id of [
+				'active',
+				'group-owner',
+				'artifact-owner',
+				'ack-sender',
+				'ack-recipient',
+				'pending-sender',
+				'pending-recipient',
+			])
+				db.register_session({ session_id, cwd: '/repo' });
+
+			const historical_group = db.create_group({
+				name: 'historical',
+				cwd: '/repo',
+				created_by_session_id: 'group-owner',
+			});
+			const active_group = db.create_group({
+				name: 'active-group',
+				cwd: '/repo',
+				created_by_session_id: 'active',
+			});
+			const artifact = db.create_artifact({
+				kind: 'handoff',
+				owner_session_id: 'artifact-owner',
+				cwd: '/repo',
+				title: 'Historical handoff',
+				summary: 'Already completed',
+				body: 'Old coordination context',
+			});
+			const pending_artifact = db.create_artifact({
+				kind: 'evidence',
+				owner_session_id: 'pending-sender',
+				cwd: '/repo',
+				title: 'Pending evidence',
+				summary: 'Awaiting acknowledgement',
+				body: 'Evidence needed to process the pending message',
+			});
+			const acknowledged = db.send_message({
+				from_session_id: 'ack-sender',
+				to_session_ids: ['ack-recipient'],
+				scope: 'session',
+				target: 'ack-recipient',
+				body: 'complete',
+				ttl_ms: 1,
+				requires_ack: true,
+			});
+			db.mark_messages_acknowledged('ack-recipient', [
+				acknowledged.message_id,
+			]);
+			const pending = db.send_message({
+				from_session_id: 'pending-sender',
+				to_session_ids: ['pending-recipient'],
+				scope: 'session',
+				target: 'pending-recipient',
+				body: `still pending; see ${pending_artifact.artifact_id}`,
+				ttl_ms: 1,
+				requires_ack: true,
+			});
+			db.insert_event({ type: 'historical-test' });
+			for (const session_id of [
+				'group-owner',
+				'artifact-owner',
+				'ack-sender',
+				'ack-recipient',
+				'pending-sender',
+				'pending-recipient',
+			])
+				db.mark_session_status(session_id, 'offline');
+
+			const result = db.prune_historical_data({
+				retention_ms: 0,
+				reference_time: new Date(Date.now() + 10_000),
+			});
+
+			expect(result).toMatchObject({
+				artifacts: 1,
+				groups: 1,
+				messages: 1,
+				receipts: 1,
+				sessions: 4,
+			});
+			expect(result.events).toBeGreaterThanOrEqual(3);
+			expect(db.get_artifact(artifact.artifact_id)).toBeUndefined();
+			expect(
+				db.get_artifact(pending_artifact.artifact_id),
+			).toBeDefined();
+			expect(db.get_group(historical_group.group_id)).toBeUndefined();
+			expect(db.get_group(active_group.group_id)).toBeDefined();
+			expect(db.get_session('active')).toMatchObject({
+				status: 'online',
+			});
+			expect(db.get_session('pending-sender')).toBeDefined();
+			expect(db.get_session('pending-recipient')).toBeDefined();
+			expect(
+				db.read_rows<{ message_id: string }>(
+					'SELECT message_id FROM messages',
+				),
+			).toEqual([{ message_id: pending.message_id }]);
+			expect(
+				db.read_rows<{ message_id: string }>(
+					'SELECT message_id FROM message_receipts',
+				),
+			).toEqual([{ message_id: pending.message_id }]);
+			expect(db.read_rows('SELECT * FROM events')).toEqual([]);
+		} finally {
+			db.close();
+		}
+	});
+
 	it('creates groups and sends group messages to independent sessions', async () => {
 		const db = await TeamDatabase.open(tmp_db());
 		try {

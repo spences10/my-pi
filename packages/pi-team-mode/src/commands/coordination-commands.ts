@@ -16,8 +16,18 @@ export async function handle_sessions(
 	deps: TeamCommandDeps,
 ): Promise<void> {
 	deps.coordination_db.mark_stale_sessions_offline();
-	const sessions = deps.coordination_db.list_sessions();
-	deps.ctx.ui.notify(format_sessions(sessions), 'info');
+	const all_sessions = deps.coordination_db.list_sessions({
+		include_offline: true,
+	});
+	const sessions = all_sessions.filter(
+		(session) => session.status !== 'offline',
+	);
+	deps.ctx.ui.notify(
+		format_sessions(sessions, {
+			target_ids: all_sessions.map((session) => session.session_id),
+		}),
+		'info',
+	);
 }
 
 export async function handle_session_command(
@@ -129,7 +139,9 @@ export async function handle_group_command(
 		const [group_target, alias] = tail;
 		if (!group_target)
 			throw new Error('Usage: /team group join <group> [alias]');
-		const group = deps.coordination_db.get_group(group_target);
+		const group = deps.coordination_db.get_group(group_target, {
+			cwd: deps.ctx.cwd,
+		});
 		if (!group) throw new Error(`Unknown group: ${group_target}`);
 		deps.coordination_db.add_group_member({
 			group_id: group.group_id,
@@ -145,14 +157,17 @@ export async function handle_group_command(
 			throw new Error('Usage: /team group send <group> <message>');
 		const from_session_id = require_session_id(deps);
 		const recipients = deps.coordination_db
-			.list_group_members(group_target)
+			.list_group_members(group_target, { cwd: deps.ctx.cwd })
 			.filter((member) => member.session_id !== from_session_id)
 			.map((member) => member.session_id);
-		const message = deps.coordination_db.send_to_group({
-			from_session_id,
-			target: group_target,
-			body: message_parts.join(' '),
-		});
+		const message = deps.coordination_db.send_to_group(
+			{
+				from_session_id,
+				target: group_target,
+				body: message_parts.join(' '),
+			},
+			{ cwd: deps.ctx.cwd },
+		);
 		await deps.notify_coordination_messages(
 			recipients,
 			message.message_id,

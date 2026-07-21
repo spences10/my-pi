@@ -139,15 +139,24 @@ export async function execute_coordination_action(
 		case 'session_list': {
 			coordination_db.mark_stale_sessions_offline();
 			const full = params.mode === 'full';
-			const sessions = coordination_db.list_sessions({
-				include_offline: full || params.include_read,
+			const all_sessions = coordination_db.list_sessions({
+				include_offline: true,
 			});
+			const sessions =
+				full || params.include_read
+					? all_sessions
+					: all_sessions.filter(
+							(session) => session.status !== 'offline',
+						);
 			return {
 				content: [
 					{
 						type: 'text' as const,
 						text: format_sessions(sessions, {
 							full_ids: full,
+							target_ids: all_sessions.map(
+								(session) => session.session_id,
+							),
 						}),
 					},
 				],
@@ -432,6 +441,7 @@ export async function execute_coordination_action(
 		case 'group_join': {
 			const group = coordination_db.get_group(
 				require_arg(params.team_id ?? params.name, 'group'),
+				{ cwd: ctx.cwd },
 			);
 			if (!group) throw new Error('Unknown coordination group');
 			const member = coordination_db.add_group_member({
@@ -454,6 +464,7 @@ export async function execute_coordination_action(
 			coordination_db.mark_stale_sessions_offline();
 			const group = coordination_db.get_group(
 				require_arg(params.team_id ?? params.name, 'group'),
+				{ cwd: ctx.cwd },
 			);
 			if (!group) throw new Error('Unknown coordination group');
 			const from_session_id = require_session_id();
@@ -503,19 +514,22 @@ export async function execute_coordination_action(
 			);
 			const from_session_id = require_session_id();
 			const members = coordination_db
-				.list_group_members(group_target)
+				.list_group_members(group_target, { cwd: ctx.cwd })
 				.filter((member) => member.session_id !== from_session_id);
 			const recipients = members.map((member) => member.session_id);
 			const body = require_arg(params.message, 'message');
-			const message = coordination_db.send_to_group({
-				from_session_id,
-				target: group_target,
-				body,
-				urgent: params.urgent,
-				reply_to: params.reply_to,
-				ttl_ms: params.ttl_ms,
-				requires_ack: params.requires_ack,
-			});
+			const message = coordination_db.send_to_group(
+				{
+					from_session_id,
+					target: group_target,
+					body,
+					urgent: params.urgent,
+					reply_to: params.reply_to,
+					ttl_ms: params.ttl_ms,
+					requires_ack: params.requires_ack,
+				},
+				{ cwd: ctx.cwd },
+			);
 			await notify_coordination_messages(
 				recipients,
 				message.message_id,
