@@ -58,6 +58,11 @@ message into a new artifact. For intentionally large handoffs, senders
 should create a Team Mode artifact, send its id, and recipients should
 retrieve that referenced artifact.
 
+Default session lists begin each row with a directly copyable id
+target. The compact target expands past twelve characters when needed
+to avoid collisions with any registered session, including offline
+history. Full mode still displays complete ids.
+
 Coordination state is stored in:
 
 ```text
@@ -150,17 +155,56 @@ spawn, supervise, or attach to them.
 ## Groups and standby sessions
 
 Groups organize independently running sessions without changing who
-may talk to whom. A session can advertise an intent such as
+may talk to whom. Group targets resolve by exact group id first. A
+name resolves only when it identifies one group in the caller's
+current working directory; ambiguous names fail instead of selecting
+the most recent group. A session can advertise an intent such as
 standby/reviewer through its prompt, allowing another session to
 discover and coordinate with it. Opening, closing, naming, and
 isolating those Pi processes remains the user's responsibility.
+
+## Retention and cleanup
+
+Team Mode messages and artifacts are intentional coordination records,
+unlike derived context or observability data. Team Mode therefore does
+not delete coordination history at startup by default. Startup cleanup
+runs after session registration and stale-process detection only when
+`MY_PI_TEAM_RETENTION_DAYS` contains a valid positive number of days.
+Unset or blank values, `0`, `off`, `false`, `disabled`, negative
+values, and invalid values all disable startup cleanup rather than
+selecting a destructive fallback.
+
+When cleanup is explicitly enabled or invoked:
+
+- events older than the window are deleted;
+- artifacts whose last update is older than the window are deleted,
+  unless an unacknowledged message still names their artifact id;
+- expired or historical messages are deleted only after every receipt
+  is acknowledged, and their receipts are deleted with them;
+- unacknowledged messages and receipts remain durable even after TTL
+  expiry;
+- groups older than the window are deleted only when they have no
+  active or recently offline member session and no retained group
+  message;
+- offline sessions older than the window are deleted only after no
+  retained message, receipt, artifact, group membership, or dormant
+  runtime row refers to them; online/idle/running/blocked sessions are
+  never pruned.
+
+Cleanup intentionally preserves active peer state and does not create,
+wake, supervise, or attach to any process. For intentional
+maintenance, calling the database's `prune_historical_data()` API
+without options uses a 30-day retention window; pass `retention_ms`
+and optionally `reference_time` to choose an explicit window. Merely
+starting Team Mode never applies that manual default.
 
 ## Database compatibility
 
 Released numbered migrations are immutable. Schema version 4 contains
 dormant persistent-runtime tables from an earlier experiment so
 databases upgraded by version `0.0.48` continue to open safely.
-Peer-only Team Mode does not read or write those tables.
+Peer-only Team Mode never operates those runtimes; cleanup only checks
+for dormant references so their historical sessions remain compatible.
 
 ## Development
 

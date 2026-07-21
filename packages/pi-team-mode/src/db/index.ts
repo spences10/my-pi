@@ -8,6 +8,7 @@ import { dirname } from 'node:path';
 
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
 
+import { DEFAULT_MANUAL_COORDINATION_RETENTION_MS } from '../retention.js';
 import {
 	find_stale_sessions,
 	type ProcessAliveCheck,
@@ -25,6 +26,8 @@ import { prepare_statements } from './statements.js';
 import type {
 	ArtifactRow,
 	CoordinationArtifact,
+	CoordinationCleanupOptions,
+	CoordinationCleanupResult,
 	CoordinationArtifactInput,
 	CoordinationArtifactKind,
 	CoordinationGroup,
@@ -56,6 +59,8 @@ import {
 export { LATEST_TEAM_SCHEMA_VERSION } from './schema.js';
 export type {
 	CoordinationArtifact,
+	CoordinationCleanupOptions,
+	CoordinationCleanupResult,
 	CoordinationArtifactInput,
 	CoordinationArtifactKind,
 	CoordinationGroup,
@@ -316,7 +321,10 @@ export class TeamDatabase {
 		const group_id = `${input.name
 			.trim()
 			.toLowerCase()
-			.replace(/[^a-z0-9_.-]+/g, '-')}-${Date.now().toString(36)}`;
+			.replace(
+				/[^a-z0-9_.-]+/g,
+				'-',
+			)}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
 		this.write(() =>
 			this.statements.insert_group.run(
 				group_id,
@@ -339,15 +347,30 @@ export class TeamDatabase {
 		return this.get_group(group_id)!;
 	}
 
-	get_group(group_id_or_name: string): CoordinationGroup | undefined {
-		const row =
-			(this.statements.get_group.get(group_id_or_name) as
-				| GroupRow
-				| undefined) ??
-			(this.statements.find_group_by_name.get(group_id_or_name) as
-				| GroupRow
-				| undefined);
-		return row ? map_group(row) : undefined;
+	get_group(
+		group_id_or_name: string,
+		options: { cwd?: string } = {},
+	): CoordinationGroup | undefined {
+		const exact = this.statements.get_group.get(group_id_or_name) as
+			| GroupRow
+			| undefined;
+		if (exact) return map_group(exact);
+
+		const rows = (options.cwd
+			? this.statements.find_groups_by_name_cwd.all(
+					group_id_or_name,
+					options.cwd,
+				)
+			: this.statements.find_groups_by_name.all(
+					group_id_or_name,
+				)) as unknown as GroupRow[];
+		if (rows.length === 0) return undefined;
+		if (rows.length === 1) return map_group(rows[0]!);
+		throw new Error(
+			`Ambiguous group target: ${group_id_or_name}. Matching groups: ${rows
+				.map((row) => `${row.group_id} (${row.cwd ?? 'no cwd'})`)
+				.join(', ')}`,
+		);
 	}
 
 	list_groups(): CoordinationGroup[] {
@@ -381,8 +404,9 @@ export class TeamDatabase {
 
 	list_group_members(
 		group_id_or_name: string,
+		options: { cwd?: string } = {},
 	): CoordinationGroupMember[] {
-		const group = this.get_group(group_id_or_name);
+		const group = this.get_group(group_id_or_name, options);
 		if (!group) return [];
 		return (
 			this.statements.list_group_members.all(
@@ -481,8 +505,9 @@ export class TeamDatabase {
 
 	send_to_group(
 		input: Omit<CoordinationMessageInput, 'to_session_ids' | 'scope'>,
+		options: { cwd?: string } = {},
 	): CoordinationMessage {
-		const group = this.get_group(input.target);
+		const group = this.get_group(input.target, options);
 		if (!group) throw new Error(`Unknown group: ${input.target}`);
 		const members = this.list_group_members(group.group_id).filter(
 			(member) => member.status === 'active',
@@ -555,6 +580,59 @@ export class TeamDatabase {
 			session_id,
 			message_ids,
 		);
+	}
+
+	prune_historical_data(
+		options: CoordinationCleanupOptions = {},
+	): CoordinationCleanupResult {
+		const retention_ms =
+			options.retention_ms ??
+			DEFAULT_MANUAL_COORDINATION_RETENTION_MS;
+		if (!Number.isFinite(retention_ms) || retention_ms < 0)
+			throw new Error('Coordination retention must be non-negative');
+		const reference_time = options.reference_time ?? new Date();
+		if (Number.isNaN(reference_time.getTime()))
+			throw new Error(
+				'Coordination cleanup reference time is invalid',
+			);
+		const reference = reference_time.toISOString();
+		const cutoff = new Date(
+			reference_time.getTime() - retention_ms,
+		).toISOString();
+		const changes = (result: { changes: number | bigint }): number =>
+			Number(result.changes);
+		let cleanup_result: CoordinationCleanupResult | undefined;
+		this.transaction(() => {
+			const receipt_row = this.statements.count_prunable_receipts.get(
+				reference,
+				cutoff,
+			) as { count: number | bigint };
+			const events = changes(
+				this.statements.prune_events.run(cutoff),
+			);
+			const messages = changes(
+				this.statements.prune_messages.run(reference, cutoff),
+			);
+			const artifacts = changes(
+				this.statements.prune_artifacts.run(cutoff),
+			);
+			const groups = changes(
+				this.statements.prune_groups.run(cutoff, cutoff),
+			);
+			const sessions = changes(
+				this.statements.prune_sessions.run(cutoff),
+			);
+			cleanup_result = {
+				cutoff,
+				artifacts,
+				events,
+				groups,
+				messages,
+				receipts: Number(receipt_row.count),
+				sessions,
+			};
+		});
+		return cleanup_result!;
 	}
 
 	insert_event(input: {

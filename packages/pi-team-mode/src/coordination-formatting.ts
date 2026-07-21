@@ -17,6 +17,23 @@ function short_id(id: string): string {
 	return id.length > 12 ? `${id.slice(0, 12)}…` : id;
 }
 
+function copyable_session_target(
+	session_id: string,
+	all_session_ids: string[],
+): string {
+	let length = Math.min(12, session_id.length);
+	while (
+		length < session_id.length &&
+		all_session_ids.some(
+			(candidate) =>
+				candidate !== session_id &&
+				candidate.startsWith(session_id.slice(0, length)),
+		)
+	)
+		length += 1;
+	return session_id.slice(0, length);
+}
+
 export const COMPACT_BODY_LIMIT = 240;
 
 interface CompactBody {
@@ -44,14 +61,17 @@ function compact_body(body: string): CompactBody {
 
 export function format_sessions(
 	sessions: CoordinationSession[],
-	options: { full_ids?: boolean } = {},
+	options: { full_ids?: boolean; target_ids?: string[] } = {},
 ): string {
 	if (sessions.length === 0) return 'No registered sessions.';
+	const target_ids =
+		options.target_ids ??
+		sessions.map((session) => session.session_id);
 	return sessions
 		.map((session) => {
 			const id = options.full_ids
 				? session.session_id
-				: short_id(session.session_id);
+				: copyable_session_target(session.session_id, target_ids);
 			const name = session.agent_name ? ` ${session.agent_name}` : '';
 			const alias = session.session_alias
 				? ` (${session.session_alias})`
