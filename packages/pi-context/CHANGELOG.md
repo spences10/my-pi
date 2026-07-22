@@ -1,5 +1,12 @@
 # @spences10/pi-context
 
+## 0.1.12
+
+### Patch Changes
+
+- Updated dependencies [f74108d]
+  - @spences10/pi-settings@0.0.3
+
 ## 0.1.11
 
 ### Patch Changes

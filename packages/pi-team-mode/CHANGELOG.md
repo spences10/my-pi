@@ -1,5 +1,17 @@
 # @spences10/pi-team-mode
 
+## 0.0.53
+
+### Patch Changes
+
+- d416939: Preserve peer provenance and require direct user
+  confirmation before consequential peer-requested actions in Team
+  Mode.
+- cdb32ee: Refresh observability and team session names from upstream
+  events, removing stale polling workarounds and logic.
+- 1a41bc0: Improve group targeting, copyable session identifiers, and
+  safe retention cleanup across durable peer coordination records.
+
 ## 0.0.52
 
 ### Patch Changes

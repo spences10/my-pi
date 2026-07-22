@@ -1,5 +1,15 @@
 # @spences10/pi-project-trust
 
+## 0.0.19
+
+### Patch Changes
+
+- f74108d: Delegate project trust path resolution to shared settings
+  while documenting upstream project-local configuration ownership
+  boundaries.
+- Updated dependencies [f74108d]
+  - @spences10/pi-settings@0.0.3
+
 ## 0.0.18
 
 ### Patch Changes

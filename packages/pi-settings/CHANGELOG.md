@@ -1,5 +1,13 @@
 # @spences10/pi-settings
 
+## 0.0.3
+
+### Patch Changes
+
+- f74108d: Delegate project trust path resolution to shared settings
+  while documenting upstream project-local configuration ownership
+  boundaries.
+
 ## 0.0.2
 
 ### Patch Changes

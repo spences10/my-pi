@@ -1,5 +1,16 @@
 # @spences10/pi-factory
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [d416939]
+- Updated dependencies [cdb32ee]
+- Updated dependencies [1a41bc0]
+- Updated dependencies [f74108d]
+  - @spences10/pi-team-mode@0.0.53
+  - @spences10/pi-project-trust@0.0.19
+
 ## 0.0.7
 
 ### Patch Changes

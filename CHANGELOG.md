@@ -1,5 +1,13 @@
 # my-pi
 
+## 0.1.118
+
+### Patch Changes
+
+- Updated dependencies [f74108d]
+  - @spences10/pi-project-trust@0.0.19
+  - @spences10/pi-settings@0.0.3
+
 ## 0.1.117
 
 ### Patch Changes

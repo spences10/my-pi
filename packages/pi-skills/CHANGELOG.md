@@ -1,5 +1,12 @@
 # @spences10/pi-skills
 
+## 0.0.36
+
+### Patch Changes
+
+- Updated dependencies [f74108d]
+  - @spences10/pi-settings@0.0.3
+
 ## 0.0.35
 
 ### Patch Changes

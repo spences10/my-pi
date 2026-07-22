@@ -1,5 +1,12 @@
 # @spences10/pi-observability
 
+## 0.0.22
+
+### Patch Changes
+
+- cdb32ee: Refresh observability and team session names from upstream
+  events, removing stale polling workarounds and logic.
+
 ## 0.0.21
 
 ### Patch Changes
