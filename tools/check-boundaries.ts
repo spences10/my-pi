@@ -2,7 +2,7 @@
 /// <reference types="node" />
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 type Finding = { file: string; message: string; detail?: string };
 
@@ -223,7 +223,9 @@ function print_findings(label: string, findings: Finding[]) {
 }
 
 function run() {
-	const files = git_files('*.ts').concat(git_files('*.svelte'));
+	const files = git_files('*.ts')
+		.concat(git_files('*.svelte'))
+		.filter((file) => existsSync(file));
 	for (const file of files) check_source_file(file);
 
 	if (advisories.length)

@@ -36,6 +36,9 @@ catalogs:
     '@sveltejs/adapter-cloudflare':
       specifier: ^7.2.8
       version: 7.2.9
+    '@sveltejs/kit':
+      specifier: ^2.60.1
+      version: 2.70.1
     '@sveltejs/vite-plugin-svelte':
       specifier: ^7.1.2
       version: 7.2.0
@@ -426,15 +429,12 @@ importers:
 
   packages/pi-factory:
     dependencies:
+      '@spences10/pi-child-env':
+        specifier: workspace:*
+        version: link:../pi-child-env
       '@spences10/pi-harness':
         specifier: workspace:*
         version: link:../pi-harness
-      '@spences10/pi-project-trust':
-        specifier: workspace:*
-        version: link:../pi-project-trust
-      '@spences10/pi-team-mode':
-        specifier: workspace:*
-        version: link:../pi-team-mode
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
