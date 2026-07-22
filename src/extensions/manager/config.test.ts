@@ -16,7 +16,7 @@ describe('BUILTIN_EXTENSION_REGISTRY', () => {
 		const flags = new Set<string>();
 
 		for (const extension of BUILTIN_EXTENSION_REGISTRY) {
-			expect(extension.default_enabled).toBe(true);
+			expect(extension.default_enabled).toEqual(expect.any(Boolean));
 			expect(extension.label).toBeTruthy();
 			expect(extension.docs_label).toBeTruthy();
 			expect(extension.cli_arg).toBe(

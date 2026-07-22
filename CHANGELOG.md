@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.120
+
+### Patch Changes
+
+- a118926: Add a turn timer beside Pi’s native working spinner and
+  persist completed durations in transcripts.
+
 ## 0.1.119
 
 ### Patch Changes
