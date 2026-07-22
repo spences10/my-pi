@@ -20,7 +20,7 @@ const ANSI_PREFIX_PATTERN = new RegExp(`^${ESC}\\[[0-9;]*m`);
 const ANSI_CAPTURE_PREFIX_PATTERN = new RegExp(
 	`^${ESC}\\[([0-9;]*)m`,
 );
-const MODEL_ID = 'gpt-5.5';
+const MODEL_ID = 'gpt-5.6-sol';
 
 type Cell = {
 	char: string;
@@ -161,14 +161,17 @@ const header_lines: PreviewLine[] = render_startup_header(
 	align: index >= 2 && index <= 7 ? 'logo' : 'center',
 }));
 const FOOTER_WIDTH = 75;
+function align_footer_right(left: string, right: string): string {
+	return left.padEnd(FOOTER_WIDTH - right.length) + right;
+}
+
 const footer_lines: PreviewLine[] = [
 	'─'.repeat(FOOTER_WIDTH),
 	'█'.padEnd(FOOTER_WIDTH),
 	'─'.repeat(FOOTER_WIDTH),
 	'~/repos/my-pi (⌘ main ✐2 ↟2)',
-	'$0.000 (sub) 0.0%/272k'.padEnd(FOOTER_WIDTH - 14) +
-		`${MODEL_ID} • low`,
-	'MCP 6/6 connected'.padEnd(FOOTER_WIDTH - 17) + 'prompt:terse +1',
+	align_footer_right('$0.000 (sub) 0.0%/272k', `${MODEL_ID} • low`),
+	align_footer_right('MCP 6/6 connected', 'prompt:terse +1'),
 ].map((line) => ({
 	text: `\x1b[38;2;255;0;180m${line}\x1b[0m`,
 	align: 'left',
