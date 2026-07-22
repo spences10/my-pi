@@ -1,5 +1,13 @@
 # my-pi
 
+## 0.1.121
+
+### Patch Changes
+
+- 9b9b82a: Replace sprawling Factory v1 with focused supervised
+  execution, validation, independent review, and reliable cleanup
+  guarantees.
+
 ## 0.1.120
 
 ### Patch Changes
