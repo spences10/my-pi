@@ -75,7 +75,7 @@ function trim_ansi_padding(line: string, trim_right = true): string {
 	let visible = 0;
 	let output = '';
 
-	for (let i = 0; i < line.length; ) {
+	for (let i = 0; i < line.length;) {
 		const control = ANSI_PREFIX_PATTERN.exec(line.slice(i));
 		if (control) {
 			output += control[0];
@@ -96,7 +96,7 @@ function cells_from_ansi(line: string): Cell[] {
 	let color = RESET_COLOR;
 	let bold = false;
 
-	for (let i = 0; i < line.length; ) {
+	for (let i = 0; i < line.length;) {
 		if (line[i] === ESC) {
 			const control = ANSI_CAPTURE_PREFIX_PATTERN.exec(line.slice(i));
 			if (control) {
