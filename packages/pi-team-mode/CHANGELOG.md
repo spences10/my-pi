@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.54
+
+### Patch Changes
+
+- 448aba7: Allow Team Mode peers to delegate authorized implementation
+  work without repeated user confirmation for handoffs.
+
 ## 0.0.53
 
 ### Patch Changes
