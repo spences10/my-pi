@@ -49,14 +49,15 @@ Keep skill metadata activation-friendly:
 ## Commit and Changeset ownership
 
 Do not commit changes or create a Changeset unless the user explicitly
-requests that action. An explicitly authorized commit or push for a
-bounded, low-risk, single-session change does not require factory
-routing by itself. Reserve factory delivery for ambiguous or high-risk
-work, coordinated delivery, or requests that need review gates. Once
-work is factory-managed, retain its explicit approval boundaries. By
-default, stop after validation so the user can review the
-implementation, then let the user create the Changeset or request that
-it be created and committed.
+requests that action. By default, stop after validation so the user
+can review the implementation, then let the user create the Changeset
+or request that it be created and committed.
+
+Factory v1 is paused and disabled by default. Do not route repository
+work through Factory unless the user explicitly requests evaluation of
+the experimental package. Use a task harness for ambiguous or risky
+single-session work and Team Mode only for peer coordination already
+authorized by the user.
 
 ## Validation
 

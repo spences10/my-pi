@@ -1,18 +1,20 @@
 ---
 name: software-factory
 # prettier-ignore
-description: Use when dispatching or operating governed software work through the Pi factory control plane, including route preview, retries, review, approvals, recovery, or metrics.
+description: Use when explicitly evaluating or recovering the paused Pi Factory v1 control plane; do not route normal repository work through it.
 compatibility: Requires Pi with the @spences10/pi-factory extension.
 ---
 
 # Software Factory
 
-Use this workflow for ambiguous or high-risk work, coordinated
-delivery, or requests that need review gates. Do not invoke it solely
-because a bounded routine single-session change includes an explicitly
-authorized commit or push. Once work enters factory management, retain
-its explicit approval nodes; a requested side effect is not itself a
-factory approval decision.
+Factory v1 is paused. Do not invoke it for normal repository work,
+including ambiguous, high-risk, coordinated, or review-gated delivery.
+Use it only when the user explicitly requests Factory v1 evaluation or
+recovery of an existing workflow. Prefer `pi-harness` for bounded task
+contracts and Team Mode for peer coordination.
+
+When explicitly evaluating Factory v1, retain its approval nodes; a
+requested side effect is not itself a factory approval decision.
 
 1. Preview with `factory action=preview`; explain workflow/version,
    policy sources, compute, parallelism, validations, retry limits,

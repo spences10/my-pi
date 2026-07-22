@@ -205,7 +205,7 @@ Full package list here:
 | [`@spences10/pi-confirm-destructive`](./packages/pi-confirm-destructive/README.md) | Destructive action confirmations                           |
 | [`@spences10/pi-context`](./packages/pi-context/README.md)                         | Scoped SQLite FTS overflow cache for oversized tool output |
 | [`@spences10/pi-codex-usage`](./packages/pi-codex-usage/README.md)                 | OpenAI Codex usage in the footer status area               |
-| [`@spences10/pi-factory`](./packages/pi-factory/README.md)                         | Reusable software-factory control plane                    |
+| [`@spences10/pi-factory`](./packages/pi-factory/README.md)                         | Paused experimental workflow control plane (opt-in)        |
 | [`@spences10/pi-git-ui`](./packages/pi-git-ui/README.md)                           | Interactive source-control staging UI                      |
 | [`@spences10/pi-lsp`](./packages/pi-lsp/README.md)                                 | LSP-backed diagnostics and symbol tools                    |
 | [`@spences10/pi-mcp`](./packages/pi-mcp/README.md)                                 | MCP server integration and `/mcp`                          |

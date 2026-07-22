@@ -11,13 +11,18 @@
 
 <!-- package-readme:header:end -->
 
-A governed workflow control plane for Pi. It routes complex software
-work through one task contract, one harness, deterministic validation,
+> [!WARNING] Factory v1 is paused and disabled by default in the
+> `my-pi` distribution. Its public API remains available for explicit
+> evaluation, but it is not recommended for routine or production
+> delivery while the core execution path is reassessed.
+
+An experimental governed workflow control plane for Pi. Factory v1
+explores task contracts, owned execution, deterministic validation,
 independent review, and explicit approval gates.
 
-Use Factory for ambiguous or high-risk work, coordinated delivery, or
-changes that need review gates. Routine changes in one coding session
-do not need Factory solely because a commit or push was requested.
+Install or enable this package only when deliberately evaluating
+Factory v1. Prefer Pi's normal agent workflow, `pi-harness` for a
+bounded task contract, and Team Mode for peer coordination.
 
 ## Installation
 
@@ -37,6 +42,22 @@ pi install ./packages/pi-factory
 # or for one run only
 pi -e ./packages/pi-factory
 ```
+
+## Current status
+
+Real-world dogfooding found that Factory v1's routing, durable
+ownership, recovery, peer transfer, and optional control-plane modules
+created more operational overhead than useful supervision. Incomplete
+workflows could retain path claims, while agents frequently previewed
+or created workflows and then completed work outside the managed
+lifecycle.
+
+The default distribution no longer loads Factory automatically. The
+implementation is retained temporarily so the evidence can inform a
+smaller benchmark-gated replacement rather than silently breaking
+existing imports. Follow
+[epic #406](https://github.com/spences10/my-pi/issues/406) for the
+postmortem, discrete recovery work, and rebuild-or-retire gate.
 
 ## How it works
 

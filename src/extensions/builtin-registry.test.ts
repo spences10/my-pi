@@ -7,6 +7,16 @@ describe('src/extensions/builtin-registry.ts', () => {
 		).resolves.toBeDefined();
 	});
 
+	it('keeps the experimental factory disabled by default', async () => {
+		const { BUILTIN_EXTENSION_REGISTRY } =
+			await import('./builtin-registry.js');
+		const factory = BUILTIN_EXTENSION_REGISTRY.find(
+			(extension) => extension.key === 'factory',
+		);
+
+		expect(factory?.default_enabled).toBe(false);
+	});
+
 	it('marks package-backed built-ins so duplicate agent-dir installs are skipped', async () => {
 		const { BUILTIN_EXTENSION_REGISTRY } =
 			await import('./builtin-registry.js');

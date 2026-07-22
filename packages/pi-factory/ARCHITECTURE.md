@@ -1,5 +1,14 @@
 # Factory v1 architecture boundary
 
+> **Status: paused.** Factory v1 is disabled by default in `my-pi`.
+> This document records the intended boundary, not a recommendation to
+> use the current implementation for production delivery. Real-world
+> dogfooding did not demonstrate a reliable terminal workflow and
+> exposed stale ownership, recovery, routing, and operator-overhead
+> problems. The implementation remains available for explicit
+> evaluation while a narrower replacement is considered in
+> [epic #406](https://github.com/spences10/my-pi/issues/406).
+
 ## Product boundary
 
 The target boundary for `@spences10/pi-factory` v1 is a thin

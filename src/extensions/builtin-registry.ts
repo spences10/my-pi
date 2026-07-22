@@ -136,11 +136,11 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 	},
 	{
 		key: 'factory',
-		label: 'Software factory',
-		docs_label: 'Software-factory control plane',
+		label: 'Software factory (experimental)',
+		docs_label: 'Experimental software-factory control plane',
 		description:
-			'Versioned workflow dispatch, execution feedback, review, approval, recovery, and metrics',
-		default_enabled: true,
+			'Paused experimental workflow control plane; enable explicitly for Factory v1 evaluation only',
+		default_enabled: false,
 		option_name: 'factory',
 		cli_arg: 'no-factory',
 		cli_flag: '--no-factory',

@@ -12,7 +12,7 @@ vanilla Pi.
 | `@spences10/pi-confirm-destructive` | Destructive action confirmations.                             |
 | `@spences10/pi-context`             | SQLite FTS sidecar for oversized tool output.                 |
 | `@spences10/pi-codex-usage`         | OpenAI Codex usage in the footer status area.                 |
-| `@spences10/pi-factory`             | Reusable software-factory control plane.                      |
+| `@spences10/pi-factory`             | Paused experimental workflow control plane; opt-in only.      |
 | `@spences10/pi-git-ui`              | Interactive source-control staging UI.                        |
 | `@spences10/pi-lsp`                 | LSP diagnostics, hover, definitions, references, and symbols. |
 | `@spences10/pi-mcp`                 | MCP server integration and `/mcp` command.                    |
