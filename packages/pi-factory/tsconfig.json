@@ -1,14 +1,5 @@
 {
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "nodenext",
-		"moduleResolution": "nodenext",
-		"strict": true,
-		"esModuleInterop": true,
-		"allowSyntheticDefaultImports": true,
-		"skipLibCheck": true,
-		"types": ["node", "vitest/globals"]
-	},
-	"include": ["src/**/*"],
-	"exclude": ["node_modules"]
+	"extends": "../../tsconfig.json",
+	"compilerOptions": { "noEmit": true, "rootDir": "." },
+	"include": ["src/**/*.ts"]
 }

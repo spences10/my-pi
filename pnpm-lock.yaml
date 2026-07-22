@@ -426,15 +426,12 @@ importers:
 
   packages/pi-factory:
     dependencies:
+      '@spences10/pi-child-env':
+        specifier: workspace:*
+        version: link:../pi-child-env
       '@spences10/pi-harness':
         specifier: workspace:*
         version: link:../pi-harness
-      '@spences10/pi-project-trust':
-        specifier: workspace:*
-        version: link:../pi-project-trust
-      '@spences10/pi-team-mode':
-        specifier: workspace:*
-        version: link:../pi-team-mode
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
