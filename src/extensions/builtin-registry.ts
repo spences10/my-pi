@@ -312,6 +312,24 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 			(await import('./prompt-presets/index.js')).default,
 	},
 	{
+		key: 'turn-timer',
+		label: 'Turn timer',
+		docs_label: 'Turn timer',
+		description:
+			'Live elapsed timer beside the working spinner with persisted turn durations',
+		default_enabled: true,
+		option_name: 'turn_timer',
+		cli_arg: 'no-turn-timer',
+		cli_flag: '--no-turn-timer',
+		cli_description: 'Disable the working spinner turn timer',
+		aliases: ['turn-timer', 'timer', 'elapsed-time'],
+		mode_constraints: {
+			disabled_in: ['print', 'json', 'rpc'],
+			reason: 'The live timer is only useful in the interactive TUI',
+		},
+		load: async () => (await import('./turn-timer/index.js')).default,
+	},
+	{
 		key: 'git-ui',
 		label: 'Git UI',
 		docs_label: 'Git staging UI',
