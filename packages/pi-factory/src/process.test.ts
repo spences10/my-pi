@@ -1,9 +1,14 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { run_child } from './process.js';
 
 function process_exists(pid: number): boolean {
 	try {
 		process.kill(pid, 0);
+		if (process.platform === 'linux') {
+			const status = readFileSync(`/proc/${pid}/status`, 'utf8');
+			return !/^State:\s+Z/m.test(status);
+		}
 		return true;
 	} catch {
 		return false;
