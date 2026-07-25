@@ -177,6 +177,7 @@ export default async function harness(pi: ExtensionAPI) {
 			'Create /tmp task harnesses for constrained agent execution',
 		promptGuidelines: [
 			'Use harness_create after context gathering for ambiguous or high-risk coding tasks.',
+			'Do not create a harness solely to commit or push already-reviewed work. Risky operational work is an exception only when explicitly requested or justified by its actual risk.',
 			'Treat harness.json as the execution contract and record progress with harness_update.',
 		],
 		parameters: harness_create_params_schema,

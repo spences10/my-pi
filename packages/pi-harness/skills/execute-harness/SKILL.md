@@ -47,12 +47,18 @@ user instructions.
     for changed files, baseline ignored files, validation evidence,
     team status, and risks.
 12. Mark `completed` only when validation passes and no escalation
-    rule applies; otherwise mark `failed` with evidence.
+    rule applies; otherwise mark `failed` with evidence. A terminal
+    status seals the run and its evidence; it does not deactivate the
+    runtime guard.
 
 ## Rules
 
 - Do not bypass the outer policy. Do not edit outside the active
   scaffold without first recording an authorized amendment.
+- Do not create a replacement harness merely to commit or push
+  already-reviewed changes or to escape a completed run's guard. The
+  harness is control state, not a worktree. The user can run
+  `/harness clear` before unrelated follow-up work.
 - Do not weaken tests, fake outputs, or bypass validation.
 - An enforcement block is a harness mismatch, not a platform-policy
   refusal. Amend the scaffold when authorized; otherwise ask the user.

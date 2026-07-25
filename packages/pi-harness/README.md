@@ -105,6 +105,17 @@ shows a compact footer/status indicator; use `/harness status [dir]`
 or `harness_read` for the full contract, task, validation, and outcome
 details.
 
+A terminal `completed` or `failed` status seals the run and its
+evidence but deliberately does not deactivate enforcement: an executor
+must not be able to escape the outer policy by declaring its own work
+complete. Use `/harness clear` to explicitly deactivate the finished
+harness before unrelated follow-up work. Clearing or deleting a
+harness affects only its `/tmp` control state; repository changes
+remain in the working tree. Do not create a new harness merely to
+commit or push already-reviewed work. A risky release, deployment,
+migration, or destructive operation can still justify a dedicated
+harness when explicitly requested or warranted by its actual risk.
+
 Harnesses snapshot dirty files at creation time. Review and outcome
 artifacts focus on changes after that baseline, while still recording
 baseline files in `outcome.json`. If a team-mode executor runs in a

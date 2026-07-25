@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import harness, {
 	HARNESS_SYSTEM_PROMPT,
+	active_harness_context,
 	amend_harness_runtime,
 	check_command_allowed,
 	check_path_allowed,
@@ -173,6 +174,24 @@ describe('create_harness_runtime', () => {
 		expect(
 			readFileSync(join(harness_dir, 'OUTCOME.md'), 'utf8'),
 		).toContain('manual review pending');
+	});
+
+	it('keeps terminal runs sealed until the user clears them', () => {
+		const cwd = temp_project();
+		const { harness_dir } = create_harness_runtime(
+			{ task: 'Complete guarded work' },
+			cwd,
+		);
+		cleanup_paths.push(harness_dir);
+		update_harness_runtime({ harness_dir, status: 'completed' });
+
+		const context = active_harness_context(harness_dir);
+		expect(context).toContain('This run is sealed');
+		expect(context).toContain('cannot escape policy');
+		expect(context).toContain('/harness clear');
+		expect(context).toContain(
+			'Do not create another harness merely to commit or push',
+		);
 	});
 });
 
@@ -345,6 +364,15 @@ describe('harness enforcement helpers', () => {
 });
 
 describe('should_inject_harness_prompt', () => {
+	it('discourages harnesses for reviewed commit and push follow-ups', () => {
+		expect(HARNESS_SYSTEM_PROMPT).toContain(
+			'Do not create a harness merely to commit or push work the user has already reviewed',
+		);
+		expect(HARNESS_SYSTEM_PROMPT).toContain(
+			'does not deactivate its guard',
+		);
+	});
+
 	it('injects when selected tools are unavailable or bash is active', () => {
 		expect(
 			should_inject_harness_prompt({

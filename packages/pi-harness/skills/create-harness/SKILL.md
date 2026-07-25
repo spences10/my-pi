@@ -10,7 +10,8 @@ compatibility:
 
 Create a real my-pi task harness, not a prose-only plan. The harness
 must live in `/tmp` and be created with the `harness_create` tool
-after context gathering.
+after context gathering. It is control state, not a worktree, and
+repository changes do not live inside it.
 
 ## Workflow
 
@@ -40,6 +41,14 @@ after context gathering.
 - The scaffold is subordinate to system, developer, and current user
   instructions.
 
+- Do not create a harness solely to commit or push work the user has
+  already reviewed. Those are follow-up operations, not new coding
+  tasks. A release, deployment, migration, or destructive operation
+  may warrant a harness when explicitly requested or justified by its
+  actual risk.
+- Never create a replacement harness merely to escape the guard of a
+  completed run. Completion seals its evidence; the user can
+  deactivate it with `/harness clear` before unrelated follow-up work.
 - Keep `allowed_paths` narrow. Use `.` only when the task genuinely
   spans the repo.
 - Set `allow_test_changes: false` unless changing tests is explicitly
