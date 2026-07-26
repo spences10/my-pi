@@ -18,7 +18,7 @@ maintaining skills from compatible external sources.
 ## Relationship to upstream Pi
 
 Audit baseline: upstream Pi
-[`0.80.10`](https://github.com/earendil-works/pi/tree/13437ca828894f43f973c630d208b488637d8fa9/packages/coding-agent)
+[`0.82.0`](https://github.com/earendil-works/pi/tree/083e61621276bff9f6faefab87ce07fcd98734e2/packages/coding-agent)
 can load other harnesses' skill directories directly through the
 `skills` settings array or `--skill`; copying is not required merely
 to make those skills available. Pi also owns Agent Skills parsing,

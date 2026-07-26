@@ -38,7 +38,7 @@ pi -e ./packages/pi-skills
 ## Relationship to upstream Pi
 
 Audit baseline: upstream Pi
-[`0.80.10`](https://github.com/earendil-works/pi/tree/13437ca828894f43f973c630d208b488637d8fa9/packages/coding-agent)
+[`0.82.0`](https://github.com/earendil-works/pi/tree/083e61621276bff9f6faefab87ce07fcd98734e2/packages/coding-agent)
 already implements the Agent Skills runtime, including parsing and
 validation, prompt exposure, `/skill:name`, trusted project discovery,
 package-managed skills, settings and CLI paths, and per-resource

@@ -182,7 +182,7 @@ trust. The observability bearer token, pool, tags, and event payloads
 are never added to provider headers.
 
 This setting controls only the extension's generic header. Pinned Pi
-0.80.10 independently sends the same stable identifier as
+0.82.0 independently sends the same stable identifier as
 `x-opencode-session`, plus `x-opencode-client: pi`, by default for
 OpenCode, OpenCode Go, and requests to an OpenCode host.
 

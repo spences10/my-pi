@@ -11,7 +11,7 @@ directly with `pi install`.
 ## Relationship to upstream Pi
 
 Audit baseline: upstream Pi
-[`0.80.10`](https://github.com/earendil-works/pi/tree/8dc78834cde4e329284cf505f9e3f99763df5529/packages/coding-agent)
+[`0.82.0`](https://github.com/earendil-works/pi/tree/083e61621276bff9f6faefab87ce07fcd98734e2/packages/coding-agent)
 owns `~/.pi/agent/settings.json`, trusted project overrides in
 `.pi/settings.json`, package/resource selection through `pi config`,
 and project deltas using `autoload: false`. Use those native settings

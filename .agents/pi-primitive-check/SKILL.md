@@ -30,15 +30,21 @@ primitive.
 
 ## Required local sources
 
-Read relevant files from the installed Pi docs before deciding:
+Resolve the installed package from the repository root instead of
+hard-coding pnpm's versioned store path:
 
-- README:
-  `/home/scott/repos/my-pi/node_modules/.pnpm/@earendil-works+pi-coding-agent@0.78.1_ws@8.21.0_zod@4.4.3/node_modules/@earendil-works/pi-coding-agent/README.md`
-- Docs directory:
-  `/home/scott/repos/my-pi/node_modules/.pnpm/@earendil-works+pi-coding-agent@0.78.1_ws@8.21.0_zod@4.4.3/node_modules/@earendil-works/pi-coding-agent/docs`
-- Examples directory:
-  `/home/scott/repos/my-pi/node_modules/.pnpm/@earendil-works+pi-coding-agent@0.78.1_ws@8.21.0_zod@4.4.3/node_modules/@earendil-works/pi-coding-agent/examples`
+```bash
+UPSTREAM_PI_ROOT="$(realpath node_modules/@earendil-works/pi-coding-agent)"
+```
 
+Read relevant files under `$UPSTREAM_PI_ROOT` before deciding:
+
+- `README.md` for package-level behavior
+- `docs/` for documented primitives and APIs
+- `examples/` for supported implementation patterns
+
+If the dependency is not installed, run the repository's normal
+install workflow rather than substituting stale online documentation.
 Prefer targeted `rg` over broad reading, then read the relevant docs
 fully enough to verify behavior.
 

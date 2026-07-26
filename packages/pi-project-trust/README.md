@@ -23,7 +23,7 @@ binaries.
 ## Relationship to upstream Pi
 
 Audit baseline: upstream Pi
-[`0.80.10`](https://github.com/earendil-works/pi/tree/8dc78834cde4e329284cf505f9e3f99763df5529/packages/coding-agent)
+[`0.82.0`](https://github.com/earendil-works/pi/tree/083e61621276bff9f6faefab87ce07fcd98734e2/packages/coding-agent)
 owns whole-project trust for `.pi/settings.json`, standard `.pi`
 resources, and project `.agents/skills`. It exposes that decision to
 extensions through `ctx.isProjectTrusted()`. Pi also owns project
