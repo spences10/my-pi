@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.56
+
+### Patch Changes
+
+- b2f1fdd: Prevent Codex schema failures by restricting constrained
+  sampling to closed tools with fully required parameters.
+
 ## 0.0.55
 
 ### Patch Changes

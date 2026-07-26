@@ -1,5 +1,12 @@
 # @spences10/pi-harness
 
+## 0.0.9
+
+### Patch Changes
+
+- b2f1fdd: Prevent Codex schema failures by restricting constrained
+  sampling to closed tools with fully required parameters.
+
 ## 0.0.8
 
 ### Patch Changes

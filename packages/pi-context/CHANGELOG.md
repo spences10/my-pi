@@ -1,5 +1,12 @@
 # @spences10/pi-context
 
+## 0.1.14
+
+### Patch Changes
+
+- b2f1fdd: Prevent Codex schema failures by restricting constrained
+  sampling to closed tools with fully required parameters.
+
 ## 0.1.13
 
 ### Patch Changes
