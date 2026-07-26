@@ -35,6 +35,12 @@ read from Pi on every render; Pi invalidates the footer when
 `session_info_changed` fires, so this package does not poll session
 metadata.
 
+Token and cost widgets follow Pi's canonical session accounting:
+assistant responses, nested LLM usage returned by tools, compaction
+summaries, and branch summaries are each counted once. Context
+percentage remains Pi's active-model context usage and is separate
+from these cumulative billed totals.
+
 ## Library API
 
 `@spences10/pi-footer` is both a Pi extension and a supported library.

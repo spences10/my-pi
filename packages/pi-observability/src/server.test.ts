@@ -192,6 +192,7 @@ describe('start_observability_server', () => {
 			`${JSON.stringify({
 				type: 'message',
 				message: {
+					role: 'assistant',
 					usage: {
 						input: 2000,
 						output: 50,

@@ -99,6 +99,14 @@ token only in the `Authorization` header. The dashboard includes:
 - **Event inspector** — searchable event summaries with extracted key
   fields and lazy JSON payload details.
 
+Trace token and cost rollups follow Pi's persisted session accounting.
+They include assistant responses, nested LLM usage returned by tools,
+compaction summaries, and branch summaries exactly once. The session
+file is authoritative; message lifecycle events are used only when
+persisted usage is unavailable. These cumulative totals complement the
+timing and event data rather than representing the active context
+window.
+
 ## Advanced configuration
 
 By default the extension uses `http://127.0.0.1:43190` and starts the

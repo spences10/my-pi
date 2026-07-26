@@ -109,24 +109,47 @@ describe('trace_summary', () => {
 		expect(summary.spans[0]?.error).toBe(false);
 	});
 
-	it('prefers session-file usage and avoids duplicated lifecycle usage', () => {
+	it('prefers canonical session-file usage and avoids duplicated lifecycle usage', () => {
 		const dir = mkdtempSync(
 			join(tmpdir(), 'pi-observability-trace-'),
 		);
 		dirs.push(dir);
 		const session_file = join(dir, 'session.jsonl');
+		const usage = (
+			input: number,
+			output: number,
+			cost: number,
+			cacheRead = 0,
+			cacheWrite = 0,
+		) => ({
+			input,
+			output,
+			cacheRead,
+			cacheWrite,
+			cost: { total: cost },
+		});
 		writeFileSync(
 			session_file,
-			JSON.stringify({
-				message: {
-					usage: {
-						input: 7,
-						output: 3,
-						totalTokens: 10,
-						cost: { total: 0.02 },
+			[
+				{
+					type: 'message',
+					message: {
+						role: 'assistant',
+						usage: usage(7, 3, 0.02, 2, 1),
 					},
 				},
-			}) + '\n',
+				{
+					type: 'message',
+					message: {
+						role: 'toolResult',
+						usage: usage(5, 2, 0.01),
+					},
+				},
+				{ type: 'compaction', usage: usage(4, 1, 0.01) },
+				{ type: 'branch_summary', usage: usage(3, 1, 0.01) },
+			]
+				.map((entry) => JSON.stringify(entry))
+				.join('\n') + '\n',
 		);
 		const session: DashboardSession = {
 			session_id: 'session-1',
@@ -139,12 +162,7 @@ describe('trace_summary', () => {
 			event_count: 1,
 		};
 		const duplicate_usage = {
-			usage: {
-				input: 100,
-				output: 50,
-				totalTokens: 150,
-				cost: { total: 1 },
-			},
+			usage: usage(100, 50, 1),
 		};
 
 		expect(
@@ -153,19 +171,59 @@ describe('trace_summary', () => {
 				event('provider_response', 1, duplicate_usage),
 			]).metrics,
 		).toMatchObject({
-			input_tokens: 7,
-			output_tokens: 3,
-			total_tokens: 10,
-			cost_usd: 0.02,
+			input_tokens: 19,
+			output_tokens: 7,
+			total_tokens: 29,
+			cost_usd: 0.05,
 		});
 	});
 
-	it('falls back to message_end usage only when the session file is unavailable', () => {
+	it('falls back to message-end usage when a session file has no usage', () => {
+		const dir = mkdtempSync(
+			join(tmpdir(), 'pi-observability-trace-'),
+		);
+		dirs.push(dir);
+		const session_file = join(dir, 'session.jsonl');
+		writeFileSync(
+			session_file,
+			JSON.stringify({ type: 'session', id: 'session-1' }) + '\n',
+		);
+		const session = {
+			session_id: 'session-1',
+			session_file,
+			cwd: '/repo',
+			pool: 'default',
+			tags: [],
+			first_ts: 'then',
+			last_ts: 'now',
+			event_count: 1,
+		} satisfies DashboardSession;
 		const usage = {
 			usage: {
 				input: 11,
 				output: 4,
-				totalTokens: 15,
+				cacheRead: 2,
+				cacheWrite: 1,
+				cost: { total: 0.03 },
+			},
+		};
+
+		expect(
+			trace_summary(session, [event('message_end', 0, usage)])
+				.metrics,
+		).toMatchObject({
+			input_tokens: 11,
+			output_tokens: 4,
+			total_tokens: 18,
+			cost_usd: 0.03,
+		});
+	});
+
+	it('falls back to message-end usage when the session file is unavailable', () => {
+		const usage = {
+			usage: {
+				input: 11,
+				output: 4,
 				cost: { total: 0.03 },
 			},
 		};

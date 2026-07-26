@@ -91,26 +91,65 @@ type UsageMetrics = Pick<
 	'input_tokens' | 'output_tokens' | 'total_tokens' | 'cost_usd'
 >;
 
-function add_usage(target: UsageMetrics, payload: unknown): void {
-	if (!payload || typeof payload !== 'object') return;
+function first_number(
+	record: Record<string, unknown>,
+	...keys: string[]
+): number {
+	for (const key of keys) {
+		if (record[key] !== undefined) return number_value(record[key]);
+	}
+	return 0;
+}
+
+function add_usage(target: UsageMetrics, payload: unknown): boolean {
+	if (!payload || typeof payload !== 'object') return false;
 	const record = payload as Record<string, unknown>;
 	const usage = record_value(record, 'usage');
+	if (!Object.keys(usage).length) return false;
 	const cost = record_value(usage, 'cost');
-	target.input_tokens +=
-		number_value(usage.input) +
-		number_value(usage.input_tokens) +
-		number_value(usage.prompt_tokens);
-	target.output_tokens +=
-		number_value(usage.output) +
-		number_value(usage.output_tokens) +
-		number_value(usage.completion_tokens);
-	target.total_tokens +=
-		number_value(usage.total_tokens) +
-		number_value(usage.totalTokens);
-	target.cost_usd +=
-		number_value(cost.total) +
-		number_value(cost.total_cost) +
-		number_value(cost.cost_usd);
+	const input = first_number(
+		usage,
+		'input',
+		'input_tokens',
+		'prompt_tokens',
+	);
+	const output = first_number(
+		usage,
+		'output',
+		'output_tokens',
+		'completion_tokens',
+	);
+	const cache_read = first_number(usage, 'cacheRead', 'cache_read');
+	const cache_write = first_number(
+		usage,
+		'cacheWrite',
+		'cache_write',
+	);
+	target.input_tokens += input;
+	target.output_tokens += output;
+	target.total_tokens += input + output + cache_read + cache_write;
+	target.cost_usd += first_number(
+		cost,
+		'total',
+		'total_cost',
+		'cost_usd',
+	);
+	return true;
+}
+
+function add_entry_usage(
+	totals: UsageMetrics,
+	entry: Record<string, unknown>,
+): boolean {
+	if (entry.type === 'message') {
+		const message = record_value(entry, 'message');
+		if (message.role !== 'assistant' && message.role !== 'toolResult')
+			return false;
+		return add_usage(totals, message);
+	}
+	if (entry.type === 'compaction' || entry.type === 'branch_summary')
+		return add_usage(totals, entry);
+	return false;
 }
 
 function session_file_usage(
@@ -124,17 +163,15 @@ function session_file_usage(
 		cost_usd: 0,
 	};
 	try {
+		let found_usage = false;
 		for (const line of readFileSync(session_file, 'utf8').split(
 			'\n',
 		)) {
 			if (!line.trim()) continue;
 			const entry = JSON.parse(line) as Record<string, unknown>;
-			add_usage(totals, record_value(entry, 'message'));
+			found_usage = add_entry_usage(totals, entry) || found_usage;
 		}
-		if (!totals.total_tokens)
-			totals.total_tokens =
-				totals.input_tokens + totals.output_tokens;
-		return totals;
+		return found_usage ? totals : null;
 	} catch {
 		return null;
 	}
@@ -157,8 +194,6 @@ function event_usage(events: ObservabilityEvent[]): UsageMetrics {
 				: payload,
 		);
 	}
-	if (!totals.total_tokens)
-		totals.total_tokens = totals.input_tokens + totals.output_tokens;
 	return totals;
 }
 

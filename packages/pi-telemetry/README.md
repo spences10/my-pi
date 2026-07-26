@@ -16,6 +16,14 @@ local SQLite metrics for runs, turns, tool calls, and provider
 requests so you can inspect usage, latency, cost, and agent behavior
 over time.
 
+Pi itself owns canonical per-session token and cost accounting,
+including nested tool calls, compaction, and branch summaries.
+`pi-telemetry` does not replace or independently reconstruct those
+totals: it adds durable cross-run history, tool/provider latency,
+outcomes, eval correlation, filtering, and exports. Use `pi-footer`
+for current-session totals and `pi-observability` for live traces and
+dashboard rollups.
+
 ## Installation
 
 <!-- package-readme:install:start -->

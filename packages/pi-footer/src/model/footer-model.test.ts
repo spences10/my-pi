@@ -36,6 +36,39 @@ describe('build_footer_model', () => {
 							},
 						},
 					},
+					{
+						type: 'message',
+						message: {
+							role: 'toolResult',
+							usage: {
+								input: 100,
+								output: 100,
+								cacheRead: 100,
+								cacheWrite: 100,
+								cost: { total: 0.02 },
+							},
+						},
+					},
+					{
+						type: 'compaction',
+						usage: {
+							input: 100,
+							output: 100,
+							cacheRead: 100,
+							cacheWrite: 100,
+							cost: { total: 0.03 },
+						},
+					},
+					{
+						type: 'branch_summary',
+						usage: {
+							input: 100,
+							output: 100,
+							cacheRead: 100,
+							cacheWrite: 100,
+							cost: { total: 0.03 },
+						},
+					},
 				]),
 				getSessionName: vi.fn(() => 'named'),
 			},
@@ -56,9 +89,9 @@ describe('build_footer_model', () => {
 		expect(model.git_text).toContain('main');
 		expect(model.session_text).toBe('named');
 		expect(model.token_parts).toEqual(
-			expect.arrayContaining(['↑1.2k', '↓3.4k', 'R500', 'W100']),
+			expect.arrayContaining(['↑1.5k', '↓3.7k', 'R800', 'W400']),
 		);
-		expect(model.cost_text).toBe('$0.123');
+		expect(model.cost_text).toBe('$0.203');
 		expect(model.model_text).toContain('claude-sonnet');
 		expect(model.preset_status).toBe('prompt:terse');
 		expect(model.statuses.get('mcp')).toBe('MCP 6/6 connected');

@@ -41,16 +41,22 @@ export function build_footer_model(
 	let total_cache_write = 0;
 	let total_cost = 0;
 	for (const entry of ctx.sessionManager.getEntries()) {
-		if (
-			entry.type === 'message' &&
-			entry.message.role === 'assistant'
-		) {
-			total_input += entry.message.usage.input;
-			total_output += entry.message.usage.output;
-			total_cache_read += entry.message.usage.cacheRead;
-			total_cache_write += entry.message.usage.cacheWrite;
-			total_cost += entry.message.usage.cost.total;
-		}
+		const usage =
+			entry.type === 'message'
+				? entry.message.role === 'assistant' ||
+					entry.message.role === 'toolResult'
+					? entry.message.usage
+					: undefined
+				: entry.type === 'compaction' ||
+					  entry.type === 'branch_summary'
+					? entry.usage
+					: undefined;
+		if (!usage) continue;
+		total_input += usage.input;
+		total_output += usage.output;
+		total_cache_read += usage.cacheRead;
+		total_cache_write += usage.cacheWrite;
+		total_cost += usage.cost.total;
 	}
 
 	const context_usage = ctx.getContextUsage();
