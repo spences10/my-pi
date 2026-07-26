@@ -1,5 +1,12 @@
 # @spences10/pi-mcp
 
+## 0.0.57
+
+### Patch Changes
+
+- e0c8924: Prevent invalid MCP strict schemas by requiring explicitly
+  closed object definitions before constrained tool sampling.
+
 ## 0.0.56
 
 ### Patch Changes
