@@ -173,8 +173,12 @@ examples, see the Pi docs and the relevant extension/package README.
 
 Umans.ai is available as a built-in provider. Run `/login`, choose API
 key auth, then choose Umans; select models like `umans/umans-coder` or
-`umans/umans-flash`. The provider can also read `UMANS_API_KEY` and
-can be disabled with `--no-umans-provider`.
+`umans/umans-flash`. A stored API key takes precedence over
+`UMANS_API_KEY`; legacy Umans credentials remain readable. Pi
+refreshes the remote model catalog for `/model`, persists the last
+successful catalog, and falls back to the bundled catalog when the
+network is unavailable. Disable the provider with
+`--no-umans-provider`.
 
 OpenRouter Fusion is configured by default: `my-pi` injects a
 non-Anthropic Fusion panel/judge only for `openrouter/fusion`.

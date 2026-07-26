@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	STATIC_UMANS_CATALOG,
+	create_umans_api_key_auth,
+	create_umans_provider,
 	normalize_umans_catalog,
 	to_pi_models,
 } from './index.js';
@@ -47,6 +49,105 @@ describe('umans-provider', () => {
 				}),
 			]),
 		);
+	});
+
+	it('refreshes dynamic models without replacing the static fallback', async () => {
+		const writes: unknown[] = [];
+		const provider = create_umans_provider({
+			env: { UMANS_API_KEY: 'env-key' },
+			fetch_catalog: async (_base_url, api_key) => {
+				expect(api_key).toBe('stored-key');
+				return {
+					'umans-live': {
+						name: 'umans-live',
+						display_name: 'Umans Live',
+						capabilities: { context_window: 1000 },
+					},
+				};
+			},
+		});
+		await provider.refreshModels!({
+			credential: { type: 'api_key', key: 'stored-key' },
+			allowNetwork: true,
+			store: {
+				read: async () => undefined,
+				write: async (value) => {
+					writes.push(value);
+				},
+				delete: async () => {},
+			},
+		});
+
+		expect(provider.getModels().map((model) => model.id)).toEqual(
+			expect.arrayContaining(['umans-flash', 'umans-live']),
+		);
+		expect(writes).toHaveLength(1);
+	});
+
+	it('restores a stale catalog when network refresh fails', async () => {
+		const stale = to_pi_models(
+			{
+				'umans-stale': {
+					name: 'umans-stale',
+					capabilities: {},
+				},
+			},
+			'https://stale.example',
+		);
+		const provider = create_umans_provider({
+			fetch_catalog: async () => {
+				throw new Error('catalog unavailable');
+			},
+		});
+
+		await expect(
+			provider.refreshModels!({
+				allowNetwork: true,
+				store: {
+					read: async () => ({ models: stale, checkedAt: 1 }),
+					write: async () => {},
+					delete: async () => {},
+				},
+			}),
+		).rejects.toThrow('catalog unavailable');
+		expect(provider.getModels().map((model) => model.id)).toContain(
+			'umans-stale',
+		);
+	});
+
+	it('prefers stored API keys over environment keys', async () => {
+		const auth = create_umans_api_key_auth({
+			UMANS_API_KEY: 'env-key',
+		});
+		const ctx = {
+			env: async () => undefined,
+			fileExists: async () => false,
+		};
+		await expect(
+			auth.resolve({
+				ctx,
+				credential: { type: 'api_key', key: 'stored-key' },
+			}),
+		).resolves.toEqual({
+			auth: {
+				headers: { authorization: 'Bearer stored-key' },
+			},
+			source: 'stored API key',
+		});
+		await expect(auth.resolve({ ctx })).resolves.toEqual({
+			auth: { headers: { authorization: 'Bearer env-key' } },
+			source: 'UMANS_API_KEY',
+		});
+	});
+
+	it('rejects empty API-key login with a useful error', async () => {
+		const auth = create_umans_api_key_auth({});
+		await expect(
+			auth.login!({
+				prompt: async () => '   ',
+				notify: () => {},
+			}),
+		).rejects.toThrow('Umans API key is required');
 	});
 
 	it('does not exceed provider hard token caps', () => {

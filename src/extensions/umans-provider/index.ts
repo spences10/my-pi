@@ -1,7 +1,13 @@
-import type {
-	OAuthCredentials,
-	OAuthLoginCallbacks,
+import {
+	createProvider,
+	type ApiKeyAuth,
+	type AuthInteraction,
+	type Credential,
+	type OAuthAuth,
+	type OAuthCredential,
+	type Provider,
 } from '@earendil-works/pi-ai';
+import { anthropicMessagesApi } from '@earendil-works/pi-ai/api/anthropic-messages.lazy';
 import type { ExtensionFactory } from '@earendil-works/pi-coding-agent';
 
 const DEFAULT_BASE_URL = 'https://api.code.umans.ai';
@@ -213,6 +219,7 @@ export function normalize_umans_catalog(
 export async function fetch_umans_catalog(
 	base_url: string,
 	api_key?: string,
+	signal?: AbortSignal,
 ): Promise<Record<string, UmansModelInfo>> {
 	const headers: Record<string, string> = {
 		'user-agent': USER_AGENT,
@@ -221,7 +228,7 @@ export async function fetch_umans_catalog(
 
 	const response = await fetch(
 		`${base_url.replace(/\/$/, '')}/v1/models/info`,
-		{ headers },
+		{ headers, signal },
 	);
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);
 	return normalize_umans_catalog(await response.json());
@@ -229,6 +236,7 @@ export async function fetch_umans_catalog(
 
 export function to_pi_models(
 	catalog: Record<string, UmansModelInfo>,
+	base_url = DEFAULT_BASE_URL,
 ) {
 	return Object.entries(catalog)
 		.filter(([, info]) => !info.deprecation)
@@ -240,6 +248,9 @@ export function to_pi_models(
 			return {
 				id,
 				name: info.display_name ?? id,
+				api: 'anthropic-messages' as const,
+				provider: 'umans',
+				baseUrl: base_url,
 				maxTokens: safe_max_tokens(
 					capabilities.recommended_max_tokens,
 					capabilities.max_completion_tokens,
@@ -253,53 +264,123 @@ export function to_pi_models(
 		});
 }
 
-async function login_umans(
-	callbacks: OAuthLoginCallbacks,
-): Promise<OAuthCredentials> {
-	const api_key = await callbacks.onPrompt({
+async function prompt_for_api_key(
+	interaction: AuthInteraction,
+): Promise<string> {
+	const api_key = await interaction.prompt({
+		type: 'secret',
 		message: 'Enter your Umans API key:',
 	});
 	const key = api_key.trim();
 	if (!key) throw new Error('Umans API key is required');
+	return key;
+}
+
+function bearer_auth(key: string) {
 	return {
-		refresh: key,
-		access: key,
-		expires: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000,
+		auth: { headers: { authorization: `Bearer ${key}` } },
 	};
 }
 
-const extension: ExtensionFactory = async (pi) => {
-	if (process.env.UMANS_DISABLE === '1') return;
+export function create_umans_api_key_auth(
+	env: NodeJS.ProcessEnv = process.env,
+): ApiKeyAuth {
+	return {
+		name: 'Umans API key',
+		async login(interaction) {
+			return {
+				type: 'api_key',
+				key: await prompt_for_api_key(interaction),
+			};
+		},
+		async check({ credential }) {
+			if (credential?.key)
+				return { type: 'api_key', source: 'stored API key' };
+			if (env[API_KEY_ENV]?.trim())
+				return { type: 'api_key', source: API_KEY_ENV };
+			return undefined;
+		},
+		async resolve({ credential }) {
+			const stored_key = credential?.key?.trim();
+			if (stored_key)
+				return {
+					...bearer_auth(stored_key),
+					source: 'stored API key',
+				};
+			const env_key = env[API_KEY_ENV]?.trim();
+			return env_key
+				? { ...bearer_auth(env_key), source: API_KEY_ENV }
+				: undefined;
+		},
+	};
+}
 
+function create_legacy_umans_oauth(): OAuthAuth {
+	return {
+		name: 'Legacy Umans credential',
+		loginLabel: 'Enter Umans API key (legacy credential)',
+		async login(interaction): Promise<OAuthCredential> {
+			const key = await prompt_for_api_key(interaction);
+			return {
+				type: 'oauth',
+				refresh: key,
+				access: key,
+				expires: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000,
+			};
+		},
+		refresh: (credential) => Promise.resolve(credential),
+		toAuth: async (credential) => bearer_auth(credential.access).auth,
+	};
+}
+
+function credential_key(
+	credential: Credential | undefined,
+	env: NodeJS.ProcessEnv,
+): string | undefined {
+	if (credential?.type === 'api_key') return credential.key?.trim();
+	if (credential?.type === 'oauth') return credential.access.trim();
+	return env[API_KEY_ENV]?.trim() || undefined;
+}
+
+export interface CreateUmansProviderOptions {
+	base_url?: string;
+	env?: NodeJS.ProcessEnv;
+	fetch_catalog?: typeof fetch_umans_catalog;
+}
+
+export function create_umans_provider(
+	options: CreateUmansProviderOptions = {},
+): Provider<'anthropic-messages'> {
+	const env = options.env ?? process.env;
 	const base_url =
-		process.env.UMANS_BASE_URL?.trim() || DEFAULT_BASE_URL;
-	let catalog = STATIC_UMANS_CATALOG;
-	try {
-		const live_catalog = await fetch_umans_catalog(
-			base_url,
-			process.env[API_KEY_ENV],
-		);
-		if (Object.keys(live_catalog).length > 0) catalog = live_catalog;
-	} catch {
-		catalog = STATIC_UMANS_CATALOG;
-	}
-
-	pi.registerProvider('umans', {
+		options.base_url?.trim() ||
+		env.UMANS_BASE_URL?.trim() ||
+		DEFAULT_BASE_URL;
+	const fetch_catalog = options.fetch_catalog ?? fetch_umans_catalog;
+	return createProvider({
+		id: 'umans',
 		name: 'Umans',
 		baseUrl: base_url,
-		apiKey: `$${API_KEY_ENV}`,
-		api: 'anthropic-messages',
-		authHeader: true,
-		models: to_pi_models(catalog),
-		oauth: {
-			name: 'Umans',
-			login: login_umans,
-			refreshToken: (credentials: OAuthCredentials) =>
-				Promise.resolve(credentials),
-			getApiKey: (credentials: OAuthCredentials) =>
-				credentials.access,
+		auth: {
+			apiKey: create_umans_api_key_auth(env),
+			oauth: create_legacy_umans_oauth(),
 		},
+		models: to_pi_models(STATIC_UMANS_CATALOG, base_url),
+		async fetchModels(context) {
+			const catalog = await fetch_catalog(
+				base_url,
+				credential_key(context.credential, env),
+				context.signal,
+			);
+			return to_pi_models(catalog, base_url);
+		},
+		api: anthropicMessagesApi(),
 	});
+}
+
+const extension: ExtensionFactory = (pi) => {
+	if (process.env.UMANS_DISABLE === '1') return;
+	pi.registerProvider(create_umans_provider());
 };
 
 export default extension;
