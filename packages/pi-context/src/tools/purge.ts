@@ -10,6 +10,7 @@ export function register_context_purge_tool(pi: ExtensionAPI): void {
 		label: 'Context Purge',
 		description:
 			'Delete indexed context-sidecar output by age, source, project, session, or active retention policy.',
+		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		parameters: Type.Object({
 			expired: Type.Optional(
 				Type.Boolean({

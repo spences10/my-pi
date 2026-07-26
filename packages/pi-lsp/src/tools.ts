@@ -104,6 +104,7 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_diagnostics',
 			label: 'LSP: diagnostics',
+			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Get language server diagnostics (errors, warnings, hints) for a file. Uses the project language server and returns empty output if the file is clean.',
 			parameters: Type.Object({
@@ -134,6 +135,7 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_diagnostics_many',
 			label: 'LSP: diagnostics many',
+			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Get language server diagnostics for multiple files in one call. Useful for changed-file sweeps, package-level checks, and summarization.',
 			parameters: Type.Object({
@@ -237,6 +239,7 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_find_symbol',
 			label: 'LSP: find symbol',
+			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Find symbols in a file by name or detail text using document symbols. Supports exact matching, kind filters, and top-level-only mode.',
 			parameters: Type.Object({
@@ -294,6 +297,7 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_hover',
 			label: 'LSP: hover',
+			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Get hover info (types, docs) at a position in a file. Positions are zero-based.',
 			parameters: Type.Object({
@@ -316,6 +320,7 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_definition',
 			label: 'LSP: go to definition',
+			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Find definition locations for the symbol at a position. Positions are zero-based.',
 			parameters: Type.Object({
@@ -341,6 +346,7 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_references',
 			label: 'LSP: find references',
+			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Find references to the symbol at a position. Positions are zero-based.',
 			parameters: Type.Object({
@@ -368,6 +374,7 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_document_symbols',
 			label: 'LSP: document symbols',
+			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'List symbols in a file (functions, classes, variables) using the language server.',
 			parameters: Type.Object({

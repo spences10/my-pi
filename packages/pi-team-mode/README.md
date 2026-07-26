@@ -16,6 +16,10 @@ The package registers each running session in a local SQLite bus,
 delivers durable messages, stores larger artifacts, and coordinates
 groups. It does not spawn, supervise, or attach to other Pi sessions.
 
+The `team` tool uses a deterministic object schema and prefers Pi's
+strict JSON Schema sampling. Pi falls back to normal tool calling when
+the active provider or model does not support strict tools.
+
 ## Installation
 
 <!-- package-readme:install:start -->

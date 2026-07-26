@@ -4,14 +4,20 @@ import { register_context_tools } from './index.js';
 
 describe('register_context_tools', () => {
 	it('registers all context tools in a stable order', () => {
-		const names: string[] = [];
+		const tools: Array<{
+			name: string;
+			constrainedSampling?: unknown;
+		}> = [];
 		register_context_tools({
-			registerTool(tool: { name: string }) {
-				names.push(tool.name);
+			registerTool(tool: {
+				name: string;
+				constrainedSampling?: unknown;
+			}) {
+				tools.push(tool);
 			},
 		} as unknown as ExtensionAPI);
 
-		expect(names).toEqual([
+		expect(tools.map((tool) => tool.name)).toEqual([
 			'context_search',
 			'context_get',
 			'context_export',
@@ -19,5 +25,11 @@ describe('register_context_tools', () => {
 			'context_stats',
 			'context_purge',
 		]);
+		expect(tools.map((tool) => tool.constrainedSampling)).toEqual(
+			Array.from({ length: tools.length }, () => ({
+				type: 'json_schema',
+				strict: 'prefer',
+			})),
+		);
 	});
 });

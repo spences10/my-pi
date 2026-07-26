@@ -12,6 +12,7 @@ export function register_context_get_tool(pi: ExtensionAPI): void {
 			'Retrieve focused chunks from the local SQLite context sidecar. Normally pass source_id plus chunk_id and use before/after neighbors; omitting chunk_id retrieves the full source into chat.',
 		promptSnippet:
 			'Retrieve focused stored output chunks by source_id plus chunk_id; use before/after neighbors, avoid full-source chat retrieval',
+		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		parameters: Type.Object({
 			source_id: Type.String({ description: 'Indexed source id' }),
 			chunk_id: Type.Optional(

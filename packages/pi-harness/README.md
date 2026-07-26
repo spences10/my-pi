@@ -18,6 +18,10 @@ status, and runtime enforcement. Inspired by Ornith's self-scaffolding
 design, the runtime separates an immutable outer policy from a
 versioned, amendable inner scaffold.
 
+All four harness tools use deterministic object schemas and prefer
+Pi's strict JSON Schema sampling. Pi falls back to normal tool calling
+when the active provider or model does not support strict tools.
+
 ## Installation
 
 <!-- package-readme:install:start -->

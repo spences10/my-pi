@@ -15,6 +15,7 @@ export default function factory(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: 'factory_start',
 		label: 'Start reviewed execution',
+		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		description:
 			'Run exactly one local Pi executor from an existing pi-harness contract, then deterministic validation and independent diff-bound review.',
 		promptSnippet:

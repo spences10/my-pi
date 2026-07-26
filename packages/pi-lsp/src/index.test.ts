@@ -23,6 +23,14 @@ describe('lsp extension wiring', () => {
 			'lsp_hover',
 			'lsp_references',
 		]);
+		expect(
+			Array.from(tools.values(), (tool) => tool.constrainedSampling),
+		).toEqual(
+			Array.from({ length: tools.size }, () => ({
+				type: 'json_schema',
+				strict: 'prefer',
+			})),
+		);
 		expect(commands.has('lsp')).toBe(true);
 		expect(events.has('before_agent_start')).toBe(true);
 		expect(events.has('session_shutdown')).toBe(true);

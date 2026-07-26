@@ -12,6 +12,7 @@ export function register_context_list_tool(pi: ExtensionAPI): void {
 			'List indexed sources in the local SQLite context sidecar.',
 		promptSnippet:
 			'List recent indexed context-sidecar sources without knowing a source id',
+		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		parameters: Type.Object({
 			source_id: Type.Optional(
 				Type.String({ description: 'Limit to one source id' }),

@@ -41,13 +41,21 @@ class RequiredMap<K, V> extends Map<K, V> {
 export function create_test_pi() {
 	const tools = new RequiredMap<
 		string,
-		{ name: string; execute: Function }
+		{
+			name: string;
+			execute: Function;
+			constrainedSampling?: unknown;
+		}
 	>();
 	const commands = new RequiredMap<string, { handler: Function }>();
 	const events = new RequiredMap<string, Function>();
 
 	const pi = {
-		registerTool(definition: { name: string; execute: Function }) {
+		registerTool(definition: {
+			name: string;
+			execute: Function;
+			constrainedSampling?: unknown;
+		}) {
 			tools.set(definition.name, definition);
 		},
 		registerCommand(name: string, definition: { handler: Function }) {

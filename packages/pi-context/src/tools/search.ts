@@ -12,6 +12,7 @@ export function register_context_search_tool(pi: ExtensionAPI): void {
 			'Search large tool output stored in the local SQLite context sidecar. Use this snippet-first before retrieving chunks; reserve full_content:true for small matched chunks, not broad retrieval.',
 		promptSnippet:
 			'Search oversized tool output with concise snippets before retrieving chunks; export broad results for offline rg/jq/Python work',
+		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		parameters: Type.Object({
 			query: Type.String({ description: 'FTS search query' }),
 			source_id: Type.Optional(

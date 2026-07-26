@@ -10,6 +10,7 @@ export function register_context_stats_tool(pi: ExtensionAPI): void {
 		label: 'Context Stats',
 		description:
 			'Show byte accounting for the local SQLite context sidecar.',
+		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		parameters: Type.Object({
 			global: Type.Optional(
 				Type.Boolean({

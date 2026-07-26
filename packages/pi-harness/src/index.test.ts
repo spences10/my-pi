@@ -400,7 +400,11 @@ describe('harness extension', () => {
 		const commands = new Map<string, { handler: Function }>();
 		const tools = new Map<
 			string,
-			{ name: string; execute: Function }
+			{
+				name: string;
+				execute: Function;
+				constrainedSampling?: unknown;
+			}
 		>();
 		const handlers = new Map<string, Function>();
 		const register_command = vi.fn(
@@ -409,7 +413,11 @@ describe('harness extension', () => {
 			},
 		);
 		const register_tool = vi.fn(
-			(definition: { name: string; execute: Function }) => {
+			(definition: {
+				name: string;
+				execute: Function;
+				constrainedSampling?: unknown;
+			}) => {
 				tools.set(definition.name, definition);
 			},
 		);
@@ -430,6 +438,14 @@ describe('harness extension', () => {
 		expect(tools.has('harness_create')).toBe(true);
 		expect(tools.has('harness_update')).toBe(true);
 		expect(tools.has('harness_read')).toBe(true);
+		expect(
+			Array.from(tools.values(), (tool) => tool.constrainedSampling),
+		).toEqual(
+			Array.from({ length: tools.size }, () => ({
+				type: 'json_schema',
+				strict: 'prefer',
+			})),
+		);
 		expect(handlers.has('before_agent_start')).toBe(true);
 		expect(handlers.has('tool_call')).toBe(true);
 
