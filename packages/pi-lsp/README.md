@@ -16,9 +16,10 @@ exposes language-server diagnostics, hovers, definitions, references,
 and symbols as Pi tools so models can validate edits and navigate
 typed codebases accurately.
 
-All seven LSP tools use deterministic object schemas and prefer Pi's
-strict JSON Schema sampling. Pi falls back to normal tool calling when
-the active provider or model does not support strict tools.
+The hover, definition, and document-symbol tools prefer Pi's strict
+JSON Schema sampling with closed, fully required schemas. LSP tools
+with optional arguments use normal tool calling for provider
+portability.
 
 ## Installation
 

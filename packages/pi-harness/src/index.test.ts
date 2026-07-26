@@ -439,13 +439,10 @@ describe('harness extension', () => {
 		expect(tools.has('harness_update')).toBe(true);
 		expect(tools.has('harness_read')).toBe(true);
 		expect(
-			Array.from(tools.values(), (tool) => tool.constrainedSampling),
-		).toEqual(
-			Array.from({ length: tools.size }, () => ({
-				type: 'json_schema',
-				strict: 'prefer',
-			})),
-		);
+			Array.from(tools.values()).every(
+				(tool) => tool.constrainedSampling === undefined,
+			),
+		).toBe(true);
 		expect(handlers.has('before_agent_start')).toBe(true);
 		expect(handlers.has('tool_call')).toBe(true);
 

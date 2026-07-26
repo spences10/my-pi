@@ -45,6 +45,7 @@ export function create_test_pi() {
 			name: string;
 			execute: Function;
 			constrainedSampling?: unknown;
+			parameters: { additionalProperties?: boolean };
 		}
 	>();
 	const commands = new RequiredMap<string, { handler: Function }>();
@@ -55,6 +56,7 @@ export function create_test_pi() {
 			name: string;
 			execute: Function;
 			constrainedSampling?: unknown;
+			parameters: { additionalProperties?: boolean };
 		}) {
 			tools.set(definition.name, definition);
 		},

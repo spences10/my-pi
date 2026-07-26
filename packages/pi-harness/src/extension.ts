@@ -171,7 +171,6 @@ export default async function harness(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: 'harness_create',
 		label: 'Create Harness',
-		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		description:
 			'Create an ephemeral /tmp my-pi task harness with machine-readable contract, prompts, scripts, logs, and status.',
 		promptSnippet:
@@ -197,7 +196,6 @@ export default async function harness(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: 'harness_amend',
 		label: 'Amend Harness Scaffold',
-		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		description:
 			'Amend the active execution scaffold with an audited version change. Cannot weaken the outer runtime policy.',
 		promptSnippet:
@@ -219,7 +217,6 @@ export default async function harness(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: 'harness_update',
 		label: 'Update Harness',
-		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		description:
 			'Update harness status, phase, notes, and validation evidence.',
 		parameters: harness_update_params_schema,
@@ -235,7 +232,6 @@ export default async function harness(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: 'harness_read',
 		label: 'Read Harness',
-		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		description:
 			'Read a harness contract, status, and runtime file locations.',
 		parameters: harness_read_params_schema,

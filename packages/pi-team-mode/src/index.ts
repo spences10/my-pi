@@ -253,7 +253,6 @@ export default async function team_mode(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: 'team',
 		label: 'Team',
-		constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 		description:
 			'Manage peer session coordination, groups, artifacts, and durable mailboxes.',
 		promptSnippet:

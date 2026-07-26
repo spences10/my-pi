@@ -16,9 +16,9 @@ Keep huge tool output useful without flooding the model context.
 local searchable SQLite sidecar, then gives the agent compact receipts
 it can search or retrieve when needed.
 
-All six context tools use deterministic object schemas and prefer Pi's
-strict JSON Schema sampling. Pi falls back to normal tool calling when
-the active provider or model does not support strict tools.
+The context tools use normal object-schema tool calling because their
+optional filters are not portable across providers' strict-schema
+rules.
 
 In a SvelteKit docs extraction benchmark against the published
 full-chunk retrieval flow, snippet-first search plus focused retrieval

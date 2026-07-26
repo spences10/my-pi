@@ -104,7 +104,6 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_diagnostics',
 			label: 'LSP: diagnostics',
-			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Get language server diagnostics (errors, warnings, hints) for a file. Uses the project language server and returns empty output if the file is clean.',
 			parameters: Type.Object({
@@ -135,7 +134,6 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_diagnostics_many',
 			label: 'LSP: diagnostics many',
-			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Get language server diagnostics for multiple files in one call. Useful for changed-file sweeps, package-level checks, and summarization.',
 			parameters: Type.Object({
@@ -239,7 +237,6 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_find_symbol',
 			label: 'LSP: find symbol',
-			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Find symbols in a file by name or detail text using document symbols. Supports exact matching, kind filters, and top-level-only mode.',
 			parameters: Type.Object({
@@ -300,11 +297,14 @@ export function register_lsp_tools(
 			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Get hover info (types, docs) at a position in a file. Positions are zero-based.',
-			parameters: Type.Object({
-				file: Type.String(),
-				line: Type.Number(),
-				character: Type.Number(),
-			}),
+			parameters: Type.Object(
+				{
+					file: Type.String(),
+					line: Type.Number(),
+					character: Type.Number(),
+				},
+				{ additionalProperties: false },
+			),
 			execute: async (_id, params, _signal, _on_update, ctx) =>
 				with_file_state(manager, params.file, ctx, async (result) => {
 					const hover = await result.state.client.hover(result.uri, {
@@ -323,11 +323,14 @@ export function register_lsp_tools(
 			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Find definition locations for the symbol at a position. Positions are zero-based.',
-			parameters: Type.Object({
-				file: Type.String(),
-				line: Type.Number(),
-				character: Type.Number(),
-			}),
+			parameters: Type.Object(
+				{
+					file: Type.String(),
+					line: Type.Number(),
+					character: Type.Number(),
+				},
+				{ additionalProperties: false },
+			),
 			execute: async (_id, params, _signal, _on_update, ctx) =>
 				with_file_state(manager, params.file, ctx, async (result) => {
 					const locations = await result.state.client.definition(
@@ -346,7 +349,6 @@ export function register_lsp_tools(
 		defineTool({
 			name: 'lsp_references',
 			label: 'LSP: find references',
-			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'Find references to the symbol at a position. Positions are zero-based.',
 			parameters: Type.Object({
@@ -377,9 +379,12 @@ export function register_lsp_tools(
 			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
 				'List symbols in a file (functions, classes, variables) using the language server.',
-			parameters: Type.Object({
-				file: Type.String(),
-			}),
+			parameters: Type.Object(
+				{
+					file: Type.String(),
+				},
+				{ additionalProperties: false },
+			),
 			execute: async (_id, params, _signal, _on_update, ctx) =>
 				with_file_state(manager, params.file, ctx, async (result) => {
 					const symbols = await result.state.client.document_symbols(

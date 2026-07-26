@@ -19,9 +19,9 @@ commands. The report distinguishes validated completion, failure,
 refusal, and interruption and records lifecycle, changed files,
 validation evidence, review, and model/provider identity.
 
-`factory_start` uses a deterministic object schema and prefers Pi's
-strict JSON Schema sampling. Pi falls back to normal tool calling when
-the active provider or model does not support strict tools.
+`factory_start` uses normal object-schema tool calling because its
+optional timeout is not portable across providers' strict-schema
+rules.
 
 ## Non-goals
 

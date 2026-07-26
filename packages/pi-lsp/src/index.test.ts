@@ -23,13 +23,28 @@ describe('lsp extension wiring', () => {
 			'lsp_hover',
 			'lsp_references',
 		]);
+		const constrained_tools = Array.from(tools.values()).filter(
+			(tool) => tool.constrainedSampling !== undefined,
+		);
+		expect(constrained_tools.map((tool) => tool.name)).toEqual([
+			'lsp_hover',
+			'lsp_definition',
+			'lsp_document_symbols',
+		]);
 		expect(
-			Array.from(tools.values(), (tool) => tool.constrainedSampling),
+			constrained_tools.map((tool) => tool.constrainedSampling),
 		).toEqual(
-			Array.from({ length: tools.size }, () => ({
+			Array.from({ length: constrained_tools.length }, () => ({
 				type: 'json_schema',
 				strict: 'prefer',
 			})),
+		);
+		expect(
+			constrained_tools.map(
+				(tool) => tool.parameters.additionalProperties,
+			),
+		).toEqual(
+			Array.from({ length: constrained_tools.length }, () => false),
 		);
 		expect(commands.has('lsp')).toBe(true);
 		expect(events.has('before_agent_start')).toBe(true);

@@ -25,11 +25,8 @@ describe('register_context_tools', () => {
 			'context_stats',
 			'context_purge',
 		]);
-		expect(tools.map((tool) => tool.constrainedSampling)).toEqual(
-			Array.from({ length: tools.length }, () => ({
-				type: 'json_schema',
-				strict: 'prefer',
-			})),
-		);
+		expect(
+			tools.every((tool) => tool.constrainedSampling === undefined),
+		).toBe(true);
 	});
 });
