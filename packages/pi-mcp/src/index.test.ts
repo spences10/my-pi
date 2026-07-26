@@ -112,6 +112,8 @@ async function create_http_mcp_server(
 	input_schema: Record<string, unknown> = {
 		type: 'object',
 		properties: {},
+		required: [],
+		additionalProperties: false,
 	},
 ) {
 	let delete_count = 0;

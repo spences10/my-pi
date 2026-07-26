@@ -120,11 +120,11 @@ mcp__sqlite__execute_read_query
 MCP tools opt into Pi's strict JSON Schema sampling only when their
 server-owned schema is a conservative, fully required object schema.
 Eligible schemas may contain nested objects, arrays, primitive types,
-enums, constants, descriptions, and `additionalProperties: false`. The
-schema is never rewritten.
+enums, constants, and descriptions. Every object node must explicitly
+set `additionalProperties: false`; the schema is never rewritten.
 
 Schemas remain on normal tool calling when they contain optional
-properties, defaults, union types, non-object roots, open
+properties, defaults, union types, non-object roots, missing or open
 `additionalProperties`, references, composition keywords such as
 `anyOf`, or other unsupported keywords. This avoids turning provider
 differences into MCP failures; `strict: "prefer"` also lets Pi fall

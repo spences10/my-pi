@@ -37,7 +37,7 @@ describe('MCP metadata hardening', () => {
 			},
 			constrained_sampling: {
 				eligible: false,
-				reason: 'optional-properties',
+				reason: 'open-object',
 			},
 		});
 	});
@@ -153,11 +153,33 @@ describe('MCP constrained sampling eligibility', () => {
 	it.each([
 		['non-object root', { type: 'string' }, 'root-not-object'],
 		[
+			'open root object',
+			{ type: 'object', properties: {}, required: [] },
+			'open-object',
+		],
+		[
+			'open nested object',
+			{
+				type: 'object',
+				properties: {
+					options: {
+						type: 'object',
+						properties: {},
+						required: [],
+					},
+				},
+				required: ['options'],
+				additionalProperties: false,
+			},
+			'open-object',
+		],
+		[
 			'union type',
 			{
 				type: 'object',
 				properties: { value: { type: ['string', 'null'] } },
 				required: ['value'],
+				additionalProperties: false,
 			},
 			'union-type',
 		],
@@ -167,6 +189,7 @@ describe('MCP constrained sampling eligibility', () => {
 				type: 'object',
 				properties: { value: { type: 'string', default: 'all' } },
 				required: ['value'],
+				additionalProperties: false,
 			},
 			'default-value',
 		],
@@ -175,6 +198,7 @@ describe('MCP constrained sampling eligibility', () => {
 			{
 				type: 'object',
 				properties: { value: { type: 'string' } },
+				additionalProperties: false,
 			},
 			'optional-properties',
 		],
@@ -184,6 +208,7 @@ describe('MCP constrained sampling eligibility', () => {
 				type: 'object',
 				properties: { value: { type: 'string', anyOf: [] } },
 				required: ['value'],
+				additionalProperties: false,
 			},
 			'unsupported-keyword',
 		],

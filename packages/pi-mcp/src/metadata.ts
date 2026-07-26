@@ -34,7 +34,8 @@ export type McpConstrainedSamplingReason =
 	| 'unsupported-keyword'
 	| 'union-type'
 	| 'default-value'
-	| 'optional-properties';
+	| 'optional-properties'
+	| 'open-object';
 
 export interface McpConstrainedSamplingDecision {
 	eligible: boolean;
@@ -110,10 +111,10 @@ function evaluate_schema_node(
 	if (root && schema.type !== 'object')
 		return { eligible: false, reason: 'root-not-object' };
 	if (
-		schema.additionalProperties !== undefined &&
+		schema.type === 'object' &&
 		schema.additionalProperties !== false
 	)
-		return { eligible: false, reason: 'unsupported-keyword' };
+		return { eligible: false, reason: 'open-object' };
 
 	if (schema.type === 'object') {
 		if (
