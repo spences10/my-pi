@@ -1,5 +1,19 @@
 # @spences10/pi-factory
 
+## 0.0.11
+
+### Patch Changes
+
+- e0f7d19: Add the pi-package npm keyword so pi.dev can discover and
+  list the experimental Factory extension.
+- 5e8460c: Prefer strict JSON Schema sampling for eligible context,
+  LSP, harness, Factory, and Team Mode tools.
+- Updated dependencies [5e8460c]
+- Updated dependencies [5389efc]
+- Updated dependencies [c82c6b5]
+  - @spences10/pi-harness@0.0.8
+  - @spences10/pi-child-env@0.1.10
+
 ## 0.0.10
 
 ### Patch Changes

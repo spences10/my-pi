@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.0.55
+
+### Patch Changes
+
+- 5e8460c: Prefer strict JSON Schema sampling for eligible context,
+  LSP, harness, Factory, and Team Mode tools.
+
 ## 0.0.54
 
 ### Patch Changes

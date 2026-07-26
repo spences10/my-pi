@@ -1,5 +1,12 @@
 # @spences10/pi-telemetry
 
+## 0.0.33
+
+### Patch Changes
+
+- 250d2aa: Align footer and observability totals with Pi usage
+  accounting for tools, compaction, and branch summaries.
+
 ## 0.0.32
 
 ### Patch Changes

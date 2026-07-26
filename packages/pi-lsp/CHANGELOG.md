@@ -1,5 +1,14 @@
 # @spences10/pi-lsp
 
+## 0.0.43
+
+### Patch Changes
+
+- 5e8460c: Prefer strict JSON Schema sampling for eligible context,
+  LSP, harness, Factory, and Team Mode tools.
+- Updated dependencies [c82c6b5]
+  - @spences10/pi-child-env@0.1.10
+
 ## 0.0.42
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @spences10/pi-context
 
+## 0.1.13
+
+### Patch Changes
+
+- 5e8460c: Prefer strict JSON Schema sampling for eligible context,
+  LSP, harness, Factory, and Team Mode tools.
+
 ## 0.1.12
 
 ### Patch Changes

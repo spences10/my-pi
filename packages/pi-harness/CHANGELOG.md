@@ -1,5 +1,15 @@
 # @spences10/pi-harness
 
+## 0.0.8
+
+### Patch Changes
+
+- 5e8460c: Prefer strict JSON Schema sampling for eligible context,
+  LSP, harness, Factory, and Team Mode tools.
+- 5389efc: Refine harness lifecycle and selection to prevent
+  unnecessary commit scaffolds while preserving runtime enforcement
+  boundaries.
+
 ## 0.0.7
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # my-pi
 
+## 0.1.122
+
+### Patch Changes
+
+- d80303d: Modernize Umans provider lifecycle with persistent catalog
+  refresh, resilient fallback, and deterministic credential precedence
+  handling.
+- c82c6b5: Propagate fresh Pi session metadata to trusted command
+  hooks while preserving strict child environment isolation.
+
 ## 0.1.121
 
 ### Patch Changes

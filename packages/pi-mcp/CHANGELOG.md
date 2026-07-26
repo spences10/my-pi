@@ -1,5 +1,16 @@
 # @spences10/pi-mcp
 
+## 0.0.55
+
+### Patch Changes
+
+- 81d45ba: Enable safe constrained sampling for compatible MCP schemas
+  while preserving normal fallback with aggregate diagnostics.
+- Updated dependencies [5e8460c]
+- Updated dependencies [c82c6b5]
+  - @spences10/pi-context@0.1.13
+  - @spences10/pi-child-env@0.1.10
+
 ## 0.0.54
 
 ### Patch Changes

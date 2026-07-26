@@ -1,5 +1,12 @@
 # @spences10/pi-child-env
 
+## 0.1.10
+
+### Patch Changes
+
+- c82c6b5: Propagate fresh Pi session metadata to trusted command
+  hooks while preserving strict child environment isolation.
+
 ## 0.1.9
 
 ### Patch Changes

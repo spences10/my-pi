@@ -1,5 +1,12 @@
 # @spences10/pi-observability
 
+## 0.0.23
+
+### Patch Changes
+
+- 250d2aa: Align footer and observability totals with Pi usage
+  accounting for tools, compaction, and branch summaries.
+
 ## 0.0.22
 
 ### Patch Changes
