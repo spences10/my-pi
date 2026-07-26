@@ -115,6 +115,25 @@ becomes:
 mcp__sqlite__execute_read_query
 ```
 
+### Constrained sampling
+
+MCP tools opt into Pi's strict JSON Schema sampling only when their
+server-owned schema is a conservative, fully required object schema.
+Eligible schemas may contain nested objects, arrays, primitive types,
+enums, constants, descriptions, and `additionalProperties: false`. The
+schema is never rewritten.
+
+Schemas remain on normal tool calling when they contain optional
+properties, defaults, union types, non-object roots, open
+`additionalProperties`, references, composition keywords such as
+`anyOf`, or other unsupported keywords. This avoids turning provider
+differences into MCP failures; `strict: "prefer"` also lets Pi fall
+back when the active provider or model lacks strict-tool support.
+
+The `/mcp` server detail view reports only aggregate eligible/normal
+counts and safe reason codes. It never displays schema content or tool
+arguments as part of these diagnostics.
+
 ## Commands
 
 ```text

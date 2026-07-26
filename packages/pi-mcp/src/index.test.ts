@@ -52,7 +52,11 @@ function create_test_pi() {
 	const events = new Map<string, Function>();
 	const tools = new Map<
 		string,
-		{ name: string; execute: Function }
+		{
+			name: string;
+			execute: Function;
+			constrainedSampling?: unknown;
+		}
 	>();
 	const pi = {
 		on: vi.fn((name: string, handler: Function) => {
@@ -104,7 +108,12 @@ function read_json(req: IncomingMessage): Promise<{
 	});
 }
 
-async function create_http_mcp_server() {
+async function create_http_mcp_server(
+	input_schema: Record<string, unknown> = {
+		type: 'object',
+		properties: {},
+	},
+) {
 	let delete_count = 0;
 	let initialize_count = 0;
 	const server = createServer(async (req, res) => {
@@ -142,7 +151,14 @@ async function create_http_mcp_server() {
 				JSON.stringify({
 					jsonrpc: '2.0',
 					id: message.id,
-					result: { tools: [{ name: 'ping', inputSchema: {} }] },
+					result: {
+						tools: [
+							{
+								name: 'ping',
+								inputSchema: input_schema,
+							},
+						],
+					},
 				}),
 			);
 			return;
@@ -254,9 +270,44 @@ describe('MCP server lifecycle', () => {
 
 			expect(server.get_initialize_count()).toBe(1);
 			expect(tools.has('mcp__demo__ping')).toBe(true);
+			expect(
+				tools.get('mcp__demo__ping')!.constrainedSampling,
+			).toEqual({ type: 'json_schema', strict: 'prefer' });
 			expect(set_active_tools).toHaveBeenCalledWith([
 				'mcp__demo__ping',
 			]);
+		} finally {
+			await server.close();
+		}
+	});
+
+	it('keeps incompatible MCP schemas on normal tool calling', async () => {
+		process.env.MY_PI_MCP_PROJECT_CONFIG = 'allow';
+		process.env.MY_PI_RUNTIME_MODE = 'interactive';
+		const cwd = tmp_dir();
+		const server = await create_http_mcp_server({
+			type: 'object',
+			properties: { query: { type: 'string' } },
+		});
+		try {
+			writeFileSync(
+				join(cwd, 'mcp.json'),
+				JSON.stringify({
+					mcpServers: {
+						demo: { transport: 'http', url: server.url },
+					},
+				}),
+			);
+			const { pi, events, tools } = create_test_pi();
+			await mcp(pi);
+			await events.get('before_agent_start')!(
+				{ systemPromptOptions: { selectedTools: ['read'] } },
+				{ cwd, hasUI: false, ui: { setStatus: vi.fn() } },
+			);
+
+			expect(
+				tools.get('mcp__demo__ping')!.constrainedSampling,
+			).toBeUndefined();
 		} finally {
 			await server.close();
 		}

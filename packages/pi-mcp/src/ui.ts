@@ -132,10 +132,16 @@ export async function show_mcp_server_modal(
 			if (!item) return undefined;
 			const server = servers.get(item.id);
 			if (!server) return undefined;
+			const sampling = server.constrained_sampling;
+			const reasons = Object.entries(sampling.reasons)
+				.filter(([reason]) => reason !== 'eligible')
+				.map(([reason, count]) => `${reason}:${count}`)
+				.join(', ');
 			return [
 				`Target: ${format_server_target(server.config)}`,
 				`Status: ${format_server_status(server)}`,
 				`Tools: ${server.tool_names.length}`,
+				`Strict sampling: ${sampling.eligible} eligible, ${sampling.normal} normal${reasons ? ` (${reasons})` : ''}`,
 				server.config.metadata_trusted === false
 					? 'Metadata: untrusted metadata suppressed'
 					: 'Metadata: trusted',

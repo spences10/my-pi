@@ -3,6 +3,7 @@ import type {
 	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import { McpClient, type McpServerConfig } from './client.js';
+import type { McpConstrainedSamplingReason } from './metadata.js';
 
 export const ENABLED = '● enabled';
 export const DISABLED = '○ disabled';
@@ -11,6 +12,11 @@ export interface ServerState {
 	config: McpServerConfig;
 	client?: McpClient;
 	tool_names: string[];
+	constrained_sampling: {
+		eligible: number;
+		normal: number;
+		reasons: Partial<Record<McpConstrainedSamplingReason, number>>;
+	};
 	enabled: boolean;
 	status: 'disconnected' | 'connecting' | 'connected' | 'failed';
 	error?: string;
@@ -29,6 +35,11 @@ export function create_server_states(
 			{
 				config,
 				tool_names: [],
+				constrained_sampling: {
+					eligible: 0,
+					normal: 0,
+					reasons: {},
+				},
 				enabled: config.disabled !== true,
 				status: 'disconnected' as const,
 				active_call_count: 0,

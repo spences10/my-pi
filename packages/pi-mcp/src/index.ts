@@ -135,24 +135,44 @@ export default async function mcp(pi: ExtensionAPI) {
 
 				const mcp_tools = await client.listTools();
 				const tool_names: string[] = [];
+				state.constrained_sampling = {
+					eligible: 0,
+					normal: 0,
+					reasons: {},
+				};
 
 				for (const mcp_tool of mcp_tools) {
 					const tool_name = `mcp__${state.config.name}__${mcp_tool.name}`;
 					tool_names.push(tool_name);
 
-					if (registered_tool_names.has(tool_name)) continue;
-					registered_tool_names.add(tool_name);
-
 					const metadata = create_mcp_tool_registration_metadata(
 						state.config,
 						mcp_tool,
 					);
+					const decision = metadata.constrained_sampling;
+					if (decision.eligible)
+						state.constrained_sampling.eligible += 1;
+					else state.constrained_sampling.normal += 1;
+					state.constrained_sampling.reasons[decision.reason] =
+						(state.constrained_sampling.reasons[decision.reason] ??
+							0) + 1;
+
+					if (registered_tool_names.has(tool_name)) continue;
+					registered_tool_names.add(tool_name);
 
 					pi.registerTool(
 						defineTool({
 							name: tool_name,
 							label: metadata.label,
 							description: metadata.description,
+							...(decision.eligible
+								? {
+										constrainedSampling: {
+											type: 'json_schema' as const,
+											strict: 'prefer' as const,
+										},
+									}
+								: {}),
 							parameters: metadata.parameters as Parameters<
 								typeof defineTool
 							>[0]['parameters'],
