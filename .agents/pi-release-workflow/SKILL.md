@@ -15,15 +15,36 @@ from this repo.
 
 1. Check current package changes and Changesets before editing
    versions.
-2. Respect pnpm `minimumReleaseAge`; do not blindly bypass it for
+2. Classify each affected package by its public behavior; do not infer
+   the release level from the commit label alone.
+3. Respect pnpm `minimumReleaseAge`; do not blindly bypass it for
    fresh registry packages.
-3. For catalog/version updates, edit `pnpm-workspace.yaml` or package
+4. For catalog/version updates, edit `pnpm-workspace.yaml` or package
    manifests intentionally, then run `pnpm install` to refresh the
    lockfile.
-4. Regenerate release artifacts when required, especially
+5. Regenerate release artifacts when required, especially
    startup/package preview assets.
-5. Validate locally, then test published-package installability with
+6. Validate locally, then test published-package installability with
    the sandbox skill when applicable.
+
+## Version classification
+
+- **Patch:** bug fixes, documentation, dependency maintenance, and
+  internal refactors that preserve public behavior.
+- **Minor:** new commands, tools, configuration, APIs, or other
+  backward-compatible user-visible capabilities.
+- **Breaking:** use major releases for stable `1.x` packages. While a
+  package intentionally remains pre-1.0, use a minor release and call
+  out the breaking behavior explicitly.
+- Treat `0.0.x` as genuinely experimental. Move a package to `0.1.0`
+  when it gains a meaningful public feature or is ready for a more
+  stable pre-1.0 contract; do not keep shipping features as patches
+  merely because the package started at `0.0.x`.
+- Classify packages independently in batch releases. A root `my-pi`
+  bump does not require every affected workspace package to use the
+  same release level.
+- Do not rewrite published versions to correct historical release
+  classification; apply the policy to the next release.
 
 ## Commands and checks
 
