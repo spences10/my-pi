@@ -7,6 +7,7 @@ import type {
 	ToolCallEventResult,
 } from '@earendil-works/pi-coding-agent';
 import { load_hooks } from './config.js';
+import { create_hook_session_env } from './env.js';
 import { build_hook_payload, matches_hook } from './payload.js';
 import {
 	format_duration,
@@ -63,6 +64,7 @@ export interface HooksResolutionOptions {
 		command: string,
 		cwd: string,
 		payload: Record<string, unknown>,
+		pi_session_env?: Record<string, string>,
 	) => Promise<CommandRunResult>;
 }
 
@@ -125,6 +127,7 @@ export function create_hooks_resolution_extension(
 						hook.command,
 						state.project_dir,
 						payload,
+						create_hook_session_env(ctx),
 					);
 					const reason = hook_block_reason(result);
 					if (reason) return { block: true, reason };
@@ -159,6 +162,7 @@ export function create_hooks_resolution_extension(
 					hook.command,
 					state.project_dir,
 					payload,
+					create_hook_session_env(ctx),
 				);
 				const name = hook_name(hook.command);
 				const duration = format_duration(result.elapsed_ms);

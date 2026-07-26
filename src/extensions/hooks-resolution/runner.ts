@@ -11,12 +11,16 @@ export async function run_command_hook(
 	command: string,
 	cwd: string,
 	payload: Record<string, unknown>,
+	pi_session_env: Record<string, string> = {},
 ): Promise<CommandRunResult> {
 	return await new Promise((resolve) => {
 		const started_at = Date.now();
 		const child = spawn('bash', ['-lc', command], {
 			cwd,
-			env: create_child_process_env({ CLAUDE_PROJECT_DIR: cwd }),
+			env: create_child_process_env({
+				CLAUDE_PROJECT_DIR: cwd,
+				...pi_session_env,
+			}),
 			stdio: ['pipe', 'pipe', 'pipe'],
 		});
 

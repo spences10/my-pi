@@ -49,6 +49,28 @@ Profile-specific allowlists:
 
 Use allowlists only for variables the child process truly needs.
 
+## Pi session metadata boundaries
+
+`create_pi_session_env()` converts current runtime metadata into
+`PI_SESSION_ID`, `PI_SESSION_FILE`, `PI_PROVIDER`, `PI_MODEL`, and
+`PI_REASONING_LEVEL`. These variables are never inherited by the
+default child environment: callers must derive and pass a fresh
+explicit object for each short-lived process.
+
+| Child boundary                         | Pi metadata                                              | Reason                                                                                               |
+| -------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Trusted command hooks                  | All five, derived from the current hook event context    | Short-lived and already protected by project trust                                                   |
+| MCP stdio servers                      | None by default                                          | Long-lived and potentially project-controlled; avoids transcript-path exposure and stale model state |
+| LSP servers                            | None by default                                          | Long-lived and potentially project-local; metadata would become stale                                |
+| Factory executors/reviewers            | None from the parent                                     | Each child Pi creates and exposes its own session identity                                           |
+| Harness validation/review scripts      | Supplied by Pi's built-in bash runtime, not this package | Uses the child session's current metadata                                                            |
+| Observability browser launcher         | None                                                     | Metadata is irrelevant to opening a URL                                                              |
+| Telemetry and in-process observability | No child process                                         | Correlation uses extension lifecycle context directly                                                |
+
+Explicit shared or profile allowlists remain an operator override.
+Provider credentials and unrelated secrets are still stripped unless
+separately allowlisted.
+
 ## Development
 
 <!-- package-readme:development:start commands="check,test,build" -->

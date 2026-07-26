@@ -1,5 +1,13 @@
 export type ChildEnvProfile = 'mcp' | 'lsp' | 'hooks' | 'team-mode';
 
+export interface PiSessionMetadata {
+	session_id?: string;
+	session_file?: string;
+	provider?: string;
+	model?: string;
+	reasoning_level?: string;
+}
+
 export interface CreateChildProcessEnvOptions {
 	profile?: ChildEnvProfile;
 	explicit_env?: Record<string, string | undefined>;
@@ -27,6 +35,24 @@ const BASE_CHILD_ENV_KEYS = new Set([
 ]);
 
 const SHARED_ENV_ALLOWLIST_KEY = 'MY_PI_CHILD_ENV_ALLOWLIST';
+
+export function create_pi_session_env(
+	metadata: PiSessionMetadata,
+): Record<string, string> {
+	const values: Record<string, string | undefined> = {
+		PI_SESSION_ID: metadata.session_id,
+		PI_SESSION_FILE: metadata.session_file,
+		PI_PROVIDER: metadata.provider,
+		PI_MODEL: metadata.model,
+		PI_REASONING_LEVEL: metadata.reasoning_level,
+	};
+	return Object.fromEntries(
+		Object.entries(values).filter(
+			(entry): entry is [string, string] =>
+				typeof entry[1] === 'string' && entry[1].length > 0,
+		),
+	);
+}
 
 const PROFILE_ENV_ALLOWLIST_KEYS: Record<ChildEnvProfile, string> = {
 	mcp: 'MY_PI_MCP_ENV_ALLOWLIST',

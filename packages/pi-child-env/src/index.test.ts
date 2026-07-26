@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { create_child_process_env } from './index.js';
+import {
+	create_child_process_env,
+	create_pi_session_env,
+} from './index.js';
 
 describe('create_child_process_env', () => {
 	it('keeps baseline env and strips common secrets by default', () => {
@@ -10,6 +13,11 @@ describe('create_child_process_env', () => {
 				LANG: 'en_GB.UTF-8',
 				LC_ALL: 'en_GB.UTF-8',
 				PI_CODING_AGENT_DIR: '/tmp/pi-agent',
+				PI_SESSION_ID: 'stale-session',
+				PI_SESSION_FILE: '/tmp/stale-session.jsonl',
+				PI_PROVIDER: 'stale-provider',
+				PI_MODEL: 'stale-model',
+				PI_REASONING_LEVEL: 'stale-level',
 				ANTHROPIC_API_KEY: 'secret',
 				OPENAI_API_KEY: 'secret',
 				AWS_SECRET_ACCESS_KEY: 'secret',
@@ -24,10 +32,42 @@ describe('create_child_process_env', () => {
 			LC_ALL: 'en_GB.UTF-8',
 			PI_CODING_AGENT_DIR: '/tmp/pi-agent',
 		});
+		expect(env.PI_SESSION_ID).toBeUndefined();
+		expect(env.PI_SESSION_FILE).toBeUndefined();
+		expect(env.PI_PROVIDER).toBeUndefined();
+		expect(env.PI_MODEL).toBeUndefined();
+		expect(env.PI_REASONING_LEVEL).toBeUndefined();
 		expect(env.ANTHROPIC_API_KEY).toBeUndefined();
 		expect(env.OPENAI_API_KEY).toBeUndefined();
 		expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
 		expect(env.DATABASE_URL).toBeUndefined();
+	});
+
+	it('creates explicit current-session metadata without retaining stale values', () => {
+		expect(
+			create_pi_session_env({
+				session_id: 'session-1',
+				session_file: '/tmp/session-1.jsonl',
+				provider: 'anthropic',
+				model: 'claude',
+				reasoning_level: 'high',
+			}),
+		).toEqual({
+			PI_SESSION_ID: 'session-1',
+			PI_SESSION_FILE: '/tmp/session-1.jsonl',
+			PI_PROVIDER: 'anthropic',
+			PI_MODEL: 'claude',
+			PI_REASONING_LEVEL: 'high',
+		});
+		expect(
+			create_pi_session_env({
+				session_id: 'session-2',
+				provider: 'openai',
+			}),
+		).toEqual({
+			PI_SESSION_ID: 'session-2',
+			PI_PROVIDER: 'openai',
+		});
 	});
 
 	it('honors shared allowlist entries', () => {

@@ -57,8 +57,11 @@ function create_context(overrides: Partial<ExtensionContext> = {}) {
 			hasUI: true,
 			ui: { notify, select },
 			sessionManager: {
+				getSessionId: vi.fn().mockReturnValue('session-id'),
 				getSessionFile: vi.fn().mockReturnValue('session.jsonl'),
 			},
+			model: { provider: 'anthropic', id: 'claude-test' },
+			thinkingLevel: 'high',
 			...overrides,
 		},
 		notify,
@@ -344,6 +347,7 @@ describe('hooks-resolution extension', () => {
 					command: string,
 					cwd: string,
 					payload: Record<string, unknown>,
+					pi_session_env?: Record<string, string>,
 				) => Promise<CommandRunResult>
 			>()
 			.mockResolvedValue({
@@ -391,13 +395,26 @@ describe('hooks-resolution extension', () => {
 		);
 
 		expect(run_command_hook).toHaveBeenCalledTimes(1);
-		expect(run_command_hook.mock.calls[0][2]).toMatchObject({
+		const hook_call = run_command_hook.mock.calls[0] as unknown as [
+			string,
+			string,
+			Record<string, unknown>,
+			Record<string, string>,
+		];
+		expect(hook_call[2]).toMatchObject({
 			hook_event_name: 'PreToolUse',
 			tool_name: 'Write',
 			tool_input: {
 				path: 'src/file.svelte',
 				file_path: 'src/file.svelte',
 			},
+		});
+		expect(hook_call[3]).toEqual({
+			PI_SESSION_ID: 'session-id',
+			PI_SESSION_FILE: 'session.jsonl',
+			PI_PROVIDER: 'anthropic',
+			PI_MODEL: 'claude-test',
+			PI_REASONING_LEVEL: 'high',
 		});
 		expect(result).toEqual({
 			block: true,
@@ -413,6 +430,7 @@ describe('hooks-resolution extension', () => {
 					command: string,
 					cwd: string,
 					payload: Record<string, unknown>,
+					pi_session_env?: Record<string, string>,
 				) => Promise<CommandRunResult>
 			>()
 			.mockResolvedValue({
