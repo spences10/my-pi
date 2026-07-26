@@ -70,12 +70,12 @@ named wrappers that keep startup extension paths descriptive. Bare
 factory functions remain supported.
 
 ```typescript
-import { create_my_pi, type InlineExtension } from 'my-pi';
+import { create_my_pi, type InlineExtension } from "my-pi";
 
 const audit_extension: InlineExtension = {
-	name: 'audit-events',
+	name: "audit-events",
 	factory(pi) {
-		pi.on('agent_start', () => console.log('agent started'));
+		pi.on("agent_start", () => console.log("agent started"));
 	},
 };
 
@@ -234,10 +234,6 @@ Shared helper packages such as `@spences10/pi-child-env`,
 packages to install via `pi install`. See
 [`docs/package-map.md`](./docs/package-map.md) for the authoritative
 classification.
-
-Maintainers publish from GitHub Actions with npm trusted publishing;
-see [`docs/releases.md`](./docs/releases.md) for the workflow and the
-required owner-side configuration.
 
 ## Project structure
 
