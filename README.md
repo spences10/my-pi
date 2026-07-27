@@ -70,12 +70,12 @@ named wrappers that keep startup extension paths descriptive. Bare
 factory functions remain supported.
 
 ```typescript
-import { create_my_pi, type InlineExtension } from "my-pi";
+import { create_my_pi, type InlineExtension } from 'my-pi';
 
 const audit_extension: InlineExtension = {
-	name: "audit-events",
+	name: 'audit-events',
 	factory(pi) {
-		pi.on("agent_start", () => console.log("agent started"));
+		pi.on('agent_start', () => console.log('agent started'));
 	},
 };
 
