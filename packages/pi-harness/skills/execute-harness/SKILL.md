@@ -48,8 +48,9 @@ user instructions.
     team status, and risks.
 12. Mark `completed` only when validation passes and no escalation
     rule applies; otherwise mark `failed` with evidence. A terminal
-    status seals the run and its evidence; it does not deactivate the
-    runtime guard.
+    status seals the run and keeps its guard active for the remainder
+    of the current turn. The extension deactivates it on the next
+    direct user turn or session startup.
 
 ## Rules
 
@@ -57,8 +58,8 @@ user instructions.
   scaffold without first recording an authorized amendment.
 - Do not create a replacement harness merely to commit or push
   already-reviewed changes or to escape a completed run's guard. The
-  harness is control state, not a worktree. The user can run
-  `/harness clear` before unrelated follow-up work.
+  harness is control state, not a worktree. Use `/harness clear` only
+  to abandon a non-terminal run.
 - Do not weaken tests, fake outputs, or bypass validation.
 - An enforcement block is a harness mismatch, not a platform-policy
   refusal. Amend the scaffold when authorized; otherwise ask the user.

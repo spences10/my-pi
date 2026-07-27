@@ -9,7 +9,11 @@ import {
 	check_path_allowed,
 } from './enforcement/policy.js';
 import { HARNESS_SYSTEM_PROMPT } from './prompt.js';
-import { harness_paths, read_contract } from './runtime/files.js';
+import {
+	harness_paths,
+	read_contract,
+	read_status,
+} from './runtime/files.js';
 import {
 	active_harness_context,
 	amend_harness_runtime,
@@ -89,6 +93,19 @@ export function should_inject_harness_prompt(
 ): boolean {
 	const selected_tools = event.systemPromptOptions?.selectedTools;
 	return !selected_tools || selected_tools.includes('bash');
+}
+
+function is_terminal_harness(
+	harness_dir: string | undefined,
+): boolean {
+	if (
+		!harness_dir ||
+		!existsSync(harness_paths(harness_dir).status)
+	) {
+		return false;
+	}
+	const status = read_status(harness_dir).status;
+	return status === 'completed' || status === 'failed';
 }
 
 export default async function harness(pi: ExtensionAPI) {
@@ -242,7 +259,20 @@ export default async function harness(pi: ExtensionAPI) {
 
 	pi.on('session_start', async (_event, ctx) => {
 		active_harness_dir = restore_active_harness(ctx);
+		if (is_terminal_harness(active_harness_dir)) {
+			set_active_harness(undefined, ctx);
+			return;
+		}
 		update_harness_ui(ctx, active_harness_dir);
+	});
+
+	pi.on('input', async (event, ctx) => {
+		if (
+			event.source !== 'extension' &&
+			is_terminal_harness(active_harness_dir)
+		) {
+			set_active_harness(undefined, ctx);
+		}
 	});
 
 	pi.on('before_agent_start', async (event) => {

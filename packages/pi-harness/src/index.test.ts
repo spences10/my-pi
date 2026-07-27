@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import harness, {
+	HARNESS_CUSTOM_TYPE,
 	HARNESS_SYSTEM_PROMPT,
 	active_harness_context,
 	amend_harness_runtime,
@@ -176,7 +177,7 @@ describe('create_harness_runtime', () => {
 		).toContain('manual review pending');
 	});
 
-	it('keeps terminal runs sealed until the user clears them', () => {
+	it('keeps terminal runs sealed for the remainder of the current turn', () => {
 		const cwd = temp_project();
 		const { harness_dir } = create_harness_runtime(
 			{ task: 'Complete guarded work' },
@@ -188,7 +189,9 @@ describe('create_harness_runtime', () => {
 		const context = active_harness_context(harness_dir);
 		expect(context).toContain('This run is sealed');
 		expect(context).toContain('cannot escape policy');
-		expect(context).toContain('/harness clear');
+		expect(context).toContain(
+			'next direct user turn or session startup',
+		);
 		expect(context).toContain(
 			'Do not create another harness merely to commit or push',
 		);
@@ -369,7 +372,7 @@ describe('should_inject_harness_prompt', () => {
 			'Do not create a harness merely to commit or push work the user has already reviewed',
 		);
 		expect(HARNESS_SYSTEM_PROMPT).toContain(
-			'does not deactivate its guard',
+			'automatically deactivates on the next direct user turn or session startup',
 		);
 	});
 
@@ -425,9 +428,10 @@ describe('harness extension', () => {
 			handlers.set(name, handler);
 		});
 		const send_user_message = vi.fn();
+		const append_entry = vi.fn();
 
 		await harness({
-			appendEntry: vi.fn(),
+			appendEntry: append_entry,
 			on,
 			registerCommand: register_command,
 			registerTool: register_tool,
@@ -444,6 +448,7 @@ describe('harness extension', () => {
 			),
 		).toBe(true);
 		expect(handlers.has('before_agent_start')).toBe(true);
+		expect(handlers.has('input')).toBe(true);
 		expect(handlers.has('tool_call')).toBe(true);
 
 		commands.get('harness')!.handler('create add feature', {
@@ -484,7 +489,43 @@ describe('harness extension', () => {
 			'🧪 created',
 		);
 		expect(ui.setWidget).toHaveBeenCalledWith('harness', undefined);
-		commands.get('harness')!.handler('clear', { ui });
+		update_harness_runtime({ harness_dir, status: 'completed' });
+		await handlers.get('input')?.(
+			{ source: 'extension', text: 'queued follow-up' },
+			{ ui },
+		);
+		expect(append_entry).not.toHaveBeenLastCalledWith(
+			HARNESS_CUSTOM_TYPE,
+			{ active_harness_dir: undefined },
+		);
+		await handlers.get('input')?.(
+			{ source: 'interactive', text: 'next task' },
+			{ ui },
+		);
+		expect(append_entry).toHaveBeenLastCalledWith(
+			HARNESS_CUSTOM_TYPE,
+			{ active_harness_dir: undefined },
+		);
+
+		await handlers.get('session_start')?.(
+			{},
+			{
+				sessionManager: {
+					getEntries: () => [
+						{
+							type: 'custom',
+							customType: HARNESS_CUSTOM_TYPE,
+							data: { active_harness_dir: harness_dir },
+						},
+					],
+				},
+				ui,
+			},
+		);
+		expect(append_entry).toHaveBeenLastCalledWith(
+			HARNESS_CUSTOM_TYPE,
+			{ active_harness_dir: undefined },
+		);
 
 		await expect(
 			handlers.get('before_agent_start')?.({

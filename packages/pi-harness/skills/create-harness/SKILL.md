@@ -47,8 +47,9 @@ repository changes do not live inside it.
   may warrant a harness when explicitly requested or justified by its
   actual risk.
 - Never create a replacement harness merely to escape the guard of a
-  completed run. Completion seals its evidence; the user can
-  deactivate it with `/harness clear` before unrelated follow-up work.
+  completed run. Completion seals its evidence for the current turn;
+  the extension deactivates it on the next direct user turn or session
+  startup.
 - Keep `allowed_paths` narrow. Use `.` only when the task genuinely
   spans the repo.
 - Set `allow_test_changes: false` unless changing tests is explicitly

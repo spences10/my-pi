@@ -285,7 +285,7 @@ export function active_harness_context(harness_dir: string): string {
 	const status = read_status(harness_dir);
 	const terminal_guidance =
 		status.status === 'completed' || status.status === 'failed'
-			? '\n\nThis run is sealed. Its guard remains active so the executor cannot escape policy by self-reporting completion. Do not create another harness merely to commit or push its already-reviewed changes. Explain that the harness is control state, not a worktree, and ask the user to run `/harness clear` before unrelated follow-up work.'
+			? '\n\nThis run is sealed for the remainder of the current turn so the executor cannot escape policy by self-reporting completion. Do not create another harness merely to commit or push its already-reviewed changes. The extension will deactivate this terminal harness on the next direct user turn or session startup.'
 			: '';
 	return `## Active my-pi harness\n\nHarness directory: \`${harness_dir}\`\nHarness id: \`${contract.id}\`\nStatus: \`${status.status}\`\nProject cwd: \`${contract.policy.cwd}\`\nScaffold version: \`${contract.scaffold.version}\`\n\nThe outer policy is runtime-enforced. The inner scaffold is an amendable execution plan subordinate to system, developer, and current user instructions. If the user changes scope or evidence contradicts the scaffold, use \`harness_amend\`; a harness block is not a platform-policy refusal. Read \`${paths.system}\`, \`${paths.task}\`, and \`${paths.contract}\` before work. Use \`harness_update\` for progress and evidence. Run \`${paths.validate}\` and \`${paths.review}\` before completion.${terminal_guidance}`;
 }

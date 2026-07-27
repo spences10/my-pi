@@ -109,14 +109,16 @@ shows a compact footer/status indicator; use `/harness status [dir]`
 or `harness_read` for the full contract, task, validation, and outcome
 details.
 
-A terminal `completed` or `failed` status seals the run and its
-evidence but deliberately does not deactivate enforcement: an executor
-must not be able to escape the outer policy by declaring its own work
-complete. Use `/harness clear` to explicitly deactivate the finished
-harness before unrelated follow-up work. Clearing or deleting a
-harness affects only its `/tmp` control state; repository changes
-remain in the working tree. Do not create a new harness merely to
-commit or push already-reviewed work. A risky release, deployment,
+A terminal `completed` or `failed` status seals the run and keeps
+enforcement active for the remainder of the current turn, so an
+executor cannot escape the outer policy by declaring its own work
+complete. The extension automatically deactivates that terminal
+harness on the next direct user turn or when the session starts again.
+Extension-injected messages do not trigger cleanup. Use
+`/harness clear` only to abandon a non-terminal run. Clearing or
+deleting a harness affects only its `/tmp` control state; repository
+changes remain in the working tree. Do not create a new harness merely
+to commit or push already-reviewed work. A risky release, deployment,
 migration, or destructive operation can still justify a dedicated
 harness when explicitly requested or warranted by its actual risk.
 
