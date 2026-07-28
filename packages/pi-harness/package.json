@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-harness",
-	"version": "0.0.9",
+	"version": "0.0.10",
 	"description": "Ephemeral task harness runtime for my-pi agent workflows",
 	"keywords": [
 		"agent",

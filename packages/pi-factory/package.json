@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-factory",
-	"version": "0.0.12",
+	"version": "0.0.13",
 	"description": "Experimental reviewed local Pi execution on pi-harness",
 	"keywords": [
 		"agent",

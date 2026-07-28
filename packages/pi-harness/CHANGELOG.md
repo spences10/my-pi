@@ -1,5 +1,13 @@
 # @spences10/pi-harness
 
+## 0.0.10
+
+### Patch Changes
+
+- f699c9c: Automatically deactivate terminal harnesses on direct user
+  input or session startup, preserving current-turn enforcement
+  guarantees.
+
 ## 0.0.9
 
 ### Patch Changes
