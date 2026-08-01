@@ -1,5 +1,12 @@
 # @spences10/pi-nopeek
 
+## 0.0.16
+
+### Patch Changes
+
+- 93c392c: Bound Team Mode list pagination and update nopeek guidance
+  for safer ephemeral-shell secret execution workflows.
+
 ## 0.0.15
 
 ### Patch Changes
