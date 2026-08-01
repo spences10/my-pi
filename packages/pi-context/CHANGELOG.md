@@ -1,5 +1,12 @@
 # @spences10/pi-context
 
+## 0.1.15
+
+### Patch Changes
+
+- 93c392c: Bound Team Mode list pagination and update nopeek guidance
+  for safer ephemeral-shell secret execution workflows.
+
 ## 0.1.14
 
 ### Patch Changes

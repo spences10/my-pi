@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-nopeek",
-	"version": "0.0.15",
+	"version": "0.0.16",
 	"description": "Secret-reducing workflow reminder for credential-dependent Pi commands",
 	"keywords": [
 		"env",
