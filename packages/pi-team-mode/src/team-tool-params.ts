@@ -1,4 +1,4 @@
-import { StringEnum } from '@earendil-works/pi-ai';
+import { StringEnum, type TSchema } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import { MAX_TEAM_LIST_LIMIT } from './pagination.js';
 
@@ -50,7 +50,7 @@ const ArtifactKindParam = StringEnum([
 	'diff',
 ] as const);
 
-export const TeamToolParams = Type.Object(
+export const TeamToolParams: TSchema = Type.Object(
 	{
 		action: StringEnum(TEAM_ACTIONS),
 		team_id: Type.Optional(Type.String()),
