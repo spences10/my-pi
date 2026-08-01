@@ -105,5 +105,33 @@ describe('register_context_lifecycle', () => {
 		expect(
 			get_context_store().search('needle-token', { global: true }),
 		).toHaveLength(1);
+
+		const team_replacement = (await tool_result(
+			{
+				toolName: 'team',
+				input: {
+					action: 'session_inbox',
+					include_read: true,
+					mode: 'full',
+					limit: 20,
+				},
+				content: [
+					{
+						type: 'text',
+						text: `team-overflow-token\n${'historical message\n'.repeat(400)}`,
+					},
+				],
+			},
+			{ cwd: '/repo', sessionManager: { getSessionId: () => 's1' } },
+		)) as { content: Array<{ text: string }> };
+
+		expect(team_replacement.content[0].text).toContain(
+			'[context-sidecar]',
+		);
+		expect(
+			get_context_store().search('team-overflow-token', {
+				global: true,
+			}),
+		).toHaveLength(1);
 	});
 });

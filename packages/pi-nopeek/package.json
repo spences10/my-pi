@@ -1,7 +1,7 @@
 {
 	"name": "@spences10/pi-nopeek",
 	"version": "0.0.15",
-	"description": "Secret-safe workflow reminder that steers Pi agents to use nopeek instead of exposing .env values",
+	"description": "Secret-reducing workflow reminder for credential-dependent Pi commands",
 	"keywords": [
 		"env",
 		"nopeek",

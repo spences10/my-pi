@@ -26,12 +26,12 @@ export function should_skip_tool(tool_name: string): boolean {
 	// Coverage policy:
 	// - context_* tools are retrieval/maintenance output; indexing them would
 	//   recurse and make the sidecar harder to reason about.
-	// - team output is coordination state, not bulky artifact content; keep it in
-	//   team/pirecall surfaces rather than duplicating mailbox/task state here.
+	// - Team Mode lists are bounded at source, while unusually large full-detail
+	//   results use this generic overflow path so they do not flood model context.
 	// - MCP receipts are produced before generic tool_result hooks; the hook also
 	//   ignores existing [context-sidecar] receipts so direct MCP storage is not
 	//   indexed a second time.
-	return tool_name.startsWith('context_') || tool_name === 'team';
+	return tool_name.startsWith('context_');
 }
 
 export function session_id_from_context(

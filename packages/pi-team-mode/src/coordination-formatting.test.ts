@@ -224,7 +224,7 @@ describe('coordination formatting', () => {
 		expect(text).not.toContain('final detail');
 		expect(text).toContain('[truncated]');
 		expect(text).toContain(
-			'Use `team session_inbox` with `mode=full` for full text',
+			'Use `team session_inbox` with the message_id and `mode=full`',
 		);
 	});
 
@@ -250,7 +250,7 @@ describe('coordination formatting', () => {
 		expect(compact).toContain('[truncated]');
 		expect(compact).not.toContain('final detail');
 		expect(compact).toContain(
-			'Use `team session_inbox` with `mode=full` for full text',
+			'Use `team session_inbox` with the message_id and `mode=full`',
 		);
 		expect(full).toContain('final detail');
 		expect(full).not.toContain('[truncated]');

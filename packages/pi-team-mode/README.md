@@ -44,7 +44,9 @@ pi -e ./packages/pi-team-mode
 1. Open two or more normal Pi TUI sessions with Team Mode installed.
 2. Each session registers itself in the shared coordination database;
    later `/name` changes update its peer-targeting name immediately.
-3. Use `session_list` to discover the other open sessions.
+3. Use `session_list` to discover open sessions in the current
+   project; pass `global: true` only when cross-project discovery is
+   intentional.
 4. Send a message with `session_send` or a group action.
 5. When the receiving session is idle, its extension injects each
    delivery as a visible Pi custom message carrying structured peer
@@ -56,11 +58,13 @@ until its current agent run finishes. Team Mode does not steer an
 active remote run.
 
 Automatic deliveries include only a bounded message-body preview. The
-mailbox remains the full-text source: use `team session_inbox` with
-`mode=full` to retrieve it. Team Mode does not automatically copy each
-message into a new artifact. For intentionally large handoffs, senders
-should create a Team Mode artifact, send its id, and recipients should
-retrieve that referenced artifact.
+mailbox remains the full-text source: use a focused `message_id` with
+`mode=full` to retrieve the body. Add `include_read: true` only for an
+intentional broader page of already-read history. `mode=full` changes
+detail, not scope, state filters, or page bounds. Team Mode does not
+automatically copy each message into a new artifact. For intentionally
+large handoffs, senders should create a Team Mode artifact, send its
+id, and recipients should retrieve that referenced artifact.
 
 Default session lists begin each row with a directly copyable id
 target. The compact target expands past twelve characters when needed
@@ -117,6 +121,36 @@ notification, with SQLite polling as the durable fallback.
 `message_*` actions are compatibility aliases for the corresponding
 peer mailbox operations. Use artifacts for larger handoffs and send
 artifact ids in messages instead of copying large bodies.
+
+## Bounded list retrieval
+
+The `session_list`, `session_inbox`, `message_list`, `group_list`, and
+`artifact_list` tool actions always return a bounded page. The default
+is 20 records, the maximum explicit `limit` is 100, and `offset`
+selects the next page. Responses include `returned_count`,
+`total_count`, `has_more`, and `next_offset` guidance.
+
+Safe defaults keep listings compact and scoped:
+
+- `session_list`, `group_list`, and `artifact_list` default to the
+  caller's current project. Pass `global: true` for intentional
+  cross-project retrieval and `include_offline: true` when session
+  history is actually needed.
+- `session_inbox` and `message_list` always read the caller's own
+  inbox and default to unread, unacknowledged messages. Use `from`,
+  `unread_only`, `unacknowledged_only`, `include_read`, and
+  `include_acknowledged` to select only the required state.
+- `mode=full` changes record detail only; it never removes page bounds
+  or implicitly includes read, acknowledged, offline, or global
+  history.
+- Broad full-history inbox pages return a warning. When
+  `@spences10/pi-context` is active, any page that still crosses its
+  byte/line budget becomes a searchable sidecar receipt instead of
+  entering model context inline.
+
+Prefer targeted message reads and compact listings. Follow
+`next_offset` only while `has_more=true`, and use artifacts for large
+handoffs rather than repeatedly rendering mailbox bodies.
 
 ## Receipt semantics
 

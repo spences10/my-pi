@@ -143,6 +143,9 @@ Intentional sidecar-backed output:
 - LSP tool output: handled by the generic hook for large text
   diagnostics or symbol/reference dumps; small structured summaries
   stay inline.
+- Team Mode output: list actions are bounded at source; unusually
+  large full-detail results use the generic hook and return a sidecar
+  receipt.
 - Hook output and telemetry summaries: not directly indexed unless
   they appear as large text tool results.
 
@@ -150,8 +153,6 @@ Intentionally skipped output:
 
 - `context_*` tools: avoids recursive indexing of
   retrieval/maintenance output.
-- `team`: coordination/mailbox/task state belongs in team-mode and
-  session history surfaces, not this overflow cache.
 - Non-text/image results: ignored by `pi-context`; image/file handling
   should use dedicated tool-specific surfaces.
 
