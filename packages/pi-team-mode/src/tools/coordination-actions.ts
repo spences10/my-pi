@@ -5,13 +5,19 @@ import {
 } from '../chunking.js';
 import {
 	format_artifact,
-	format_artifacts,
-	format_groups,
 	format_inbox,
-	format_sessions,
 } from '../coordination-formatting.js';
 import type { TeamDatabase } from '../db/index.js';
+import {
+	format_team_page,
+	paginate_team_items,
+} from '../pagination.js';
 import type { TeamToolParams } from '../team-tool-params.js';
+import {
+	execute_artifact_list_action,
+	execute_group_list_action,
+	execute_session_list_action,
+} from './list-actions.js';
 
 function require_arg(
 	value: string | undefined,
@@ -136,33 +142,11 @@ export async function execute_coordination_action(
 		require_session_id,
 	} = context;
 	switch (params.action) {
-		case 'session_list': {
-			coordination_db.mark_stale_sessions_offline();
-			const full = params.mode === 'full';
-			const all_sessions = coordination_db.list_sessions({
-				include_offline: true,
+		case 'session_list':
+			return execute_session_list_action(params, {
+				ctx,
+				coordination_db,
 			});
-			const sessions =
-				full || params.include_read
-					? all_sessions
-					: all_sessions.filter(
-							(session) => session.status !== 'offline',
-						);
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: format_sessions(sessions, {
-							full_ids: full,
-							target_ids: all_sessions.map(
-								(session) => session.session_id,
-							),
-						}),
-					},
-				],
-				details: { sessions },
-			};
-		}
 		case 'session_send':
 		case 'message_send': {
 			coordination_db.mark_stale_sessions_offline();
@@ -205,21 +189,56 @@ export async function execute_coordination_action(
 		case 'session_inbox':
 		case 'message_list': {
 			const target = require_session_id();
-			const messages = coordination_db.list_inbox(target, {
-				include_read: params.include_read || params.mode === 'full',
-				include_acknowledged:
-					params.mode === 'full' || has_chunk_request(params),
-			});
+			const focused =
+				has_chunk_request(params) ||
+				(params.message_ids?.length ?? 0) > 0;
+			const from_filter = resolve_sender_filter_ids(
+				coordination_db,
+				params.from,
+			);
+			const requested_ids = new Set(
+				params.message_id
+					? [params.message_id]
+					: (params.message_ids ?? []),
+			);
+			const visible_messages = coordination_db
+				.list_inbox(target, {
+					include_read: params.include_read || focused,
+					include_acknowledged:
+						params.include_acknowledged || focused,
+				})
+				.filter(
+					(message) =>
+						(!from_filter ||
+							from_filter.includes(message.from_session_id)) &&
+						(requested_ids.size === 0 ||
+							requested_ids.has(message.message_id)) &&
+						(!params.unread_only || !message.read_at) &&
+						(!params.unacknowledged_only || !message.acknowledged_at),
+				);
+			const { items: messages, pagination } = paginate_team_items(
+				visible_messages,
+				params,
+			);
 			const chunk_text = format_message_chunk(messages, params);
+			const warning =
+				params.mode === 'full' &&
+				(params.include_read || params.include_acknowledged)
+					? 'Broad full-history inbox reads are paginated. Prefer from, unread_only, unacknowledged_only, or a focused message_id.'
+					: undefined;
 			return {
 				content: [
 					{
 						type: 'text' as const,
-						text:
+						text: format_team_page(
+							params.action,
 							chunk_text ??
-							format_inbox(messages, {
-								full: params.mode === 'full',
-							}),
+								format_inbox(messages, {
+									full: params.mode === 'full',
+								}),
+							pagination,
+							{ warning },
+						),
 					},
 				],
 				details: {
@@ -230,6 +249,7 @@ export async function execute_coordination_action(
 						read_at: message.read_at,
 						acknowledged_at: message.acknowledged_at,
 					})),
+					...pagination,
 				},
 			};
 		}
@@ -378,32 +398,11 @@ export async function execute_coordination_action(
 				},
 			};
 		}
-		case 'artifact_list': {
-			const artifacts = params.query
-				? coordination_db.search_artifacts(params.query, {
-						cwd: ctx.cwd,
-					})
-				: coordination_db.list_artifacts({
-						cwd: ctx.cwd,
-						kind: params.kind,
-					});
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: format_artifacts(artifacts),
-					},
-				],
-				details: {
-					artifacts: artifacts.map((artifact) => ({
-						artifact_id: artifact.artifact_id,
-						kind: artifact.kind,
-						title: artifact.title,
-						...body_chunk_metadata(artifact.body),
-					})),
-				},
-			};
-		}
+		case 'artifact_list':
+			return execute_artifact_list_action(params, {
+				ctx,
+				coordination_db,
+			});
 		case 'group_create': {
 			const group = coordination_db.create_group({
 				name: require_arg(params.name, 'name'),
@@ -420,24 +419,11 @@ export async function execute_coordination_action(
 				details: { group },
 			};
 		}
-		case 'group_list': {
-			const groups = coordination_db.list_groups();
-			const members = new Map(
-				groups.map((group) => [
-					group.group_id,
-					coordination_db.list_group_members(group.group_id),
-				]),
-			);
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: format_groups(groups, members),
-					},
-				],
-				details: { groups },
-			};
-		}
+		case 'group_list':
+			return execute_group_list_action(params, {
+				ctx,
+				coordination_db,
+			});
 		case 'group_join': {
 			const group = coordination_db.get_group(
 				require_arg(params.team_id ?? params.name, 'group'),

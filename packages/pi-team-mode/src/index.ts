@@ -259,9 +259,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 			'Manage peer sessions, coordination groups, artifacts, and messages',
 		promptGuidelines: [
 			...TEAM_PEER_AUTHORITY_GUIDELINES,
-			'Use team session_list to discover independently opened Pi sessions across projects before sending peer messages.',
+			'Use team session_list for bounded current-project discovery; pass global=true only when cross-project discovery is intentional and include_offline=true only for history.',
 			'If the user mentions standby sessions, existing sessions, handoffs, or other active sessions, call session_list and prefer registered standby sessions.',
-			'Use team session_send, session_inbox, session_read, session_ack, and session_wait for compact peer-session mailbox coordination.',
+			'Use targeted compact team session_inbox or message_list calls with sender/state filters or message_id; paginate with limit/offset and reserve mode=full for focused bodies.',
+			'Follow Team Mode returned_count, total_count, has_more, and next_offset instead of repeatedly retrieving historical lists.',
+			'Use team session_send, session_read, session_ack, and session_wait for peer-session mailbox coordination.',
 			'Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of large mailbox bodies.',
 			'Use team group_create, group_add_session, and group_send when coordinating independently running sessions.',
 			'Use session_list, session_inbox, and group_list as the source of truth for peer-session coordination.',

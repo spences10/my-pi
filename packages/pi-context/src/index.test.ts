@@ -345,7 +345,7 @@ describe('context_sidecar extension', () => {
 		expect(list.details).toMatchObject({ count: 1 });
 	});
 
-	it('replaces oversized text tool results and leaves small, skipped, and non-text results alone', async () => {
+	it('replaces oversized text results and leaves small, recursive, and non-text results alone', async () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
 		const fake = create_fake_pi();
 		context_sidecar(fake.pi);
@@ -363,7 +363,6 @@ describe('context_sidecar extension', () => {
 			'context_list',
 			'context_stats',
 			'context_purge',
-			'team',
 		]) {
 			expect(
 				await tool_result({

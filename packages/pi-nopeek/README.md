@@ -11,10 +11,10 @@
 
 <!-- package-readme:header:end -->
 
-Use secrets in commands without pasting them into the model context.
-`pi-nopeek` reminds agents to load `.env`, cloud tokens, and database
-URLs through the `nopeek` CLI so workflows can authenticate while
-secret values stay hidden.
+Reduce accidental secret disclosure during credential-dependent
+commands. `pi-nopeek` reminds agents to use the `nopeek` CLI instead
+of reading or pasting `.env`, cloud-token, and database credential
+values into model-visible input.
 
 ## Installation
 
@@ -52,21 +52,35 @@ It adds no slash commands and no custom tools.
 
 The injected reminder tells the model to:
 
-- prefer `pnpx nopeek load .env --only KEY_NAME` over reading `.env`
-- use loaded variables by name in later shell commands
+- lead with `pnpx nopeek run ... -- <command>` in Pi, where each tool
+  call starts an ephemeral shell
+- select only the keys required by the child command
+- use `nopeek load` only when the harness confirms persistent env-file
+  injection, or when source/evaluation and execution occur in the same
+  trusted shell
 - use `pnpx nopeek list` and `pnpx nopeek status` to inspect key names
   without values
 - use `pnpx nopeek audit` to scan for exposed secrets and gitignore
   coverage
-- avoid printing, echoing, catting, grepping, or pasting secret values
-  into context
+- avoid printing, echoing, catting, grepping, tracing, or pasting
+  secret values into model-visible output
 
-Example safe workflow:
+Example one-shot workflow:
 
 ```bash
-pnpx nopeek load .env --only DATABASE_URL
-psql "$DATABASE_URL" -c 'select 1'
+pnpx nopeek run .env --only DATABASE_URL -- \
+  sh -c 'psql "$DATABASE_URL" -c "select 1"'
 ```
+
+`run` gives selected values only to its child process. That child can
+still disclose values through stdout, stderr, shell tracing, `env`, or
+`printenv`. A `source_file` produced by `load` does not carry into an
+unrelated Pi tool call.
+
+`pi-redact` is a separate, best-effort last-mile safety net. It cannot
+guarantee arbitrary child output is safe. Review nopeek's
+[threat model and non-goals](https://github.com/spences10/nopeek#threat-model-and-non-goals)
+before choosing a workflow.
 
 Use `npx` instead of `pnpx` outside pnpm-oriented environments.
 

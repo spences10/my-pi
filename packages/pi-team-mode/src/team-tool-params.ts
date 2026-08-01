@@ -1,5 +1,6 @@
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
+import { MAX_TEAM_LIST_LIMIT } from './pagination.js';
 
 export type TeamUiMode = 'auto' | 'compact' | 'full' | 'off';
 
@@ -64,6 +65,15 @@ export const TeamToolParams = Type.Object(
 		ttl_ms: Type.Optional(Type.Number()),
 		requires_ack: Type.Optional(Type.Boolean()),
 		include_read: Type.Optional(Type.Boolean()),
+		include_acknowledged: Type.Optional(Type.Boolean()),
+		include_offline: Type.Optional(Type.Boolean()),
+		unread_only: Type.Optional(Type.Boolean()),
+		unacknowledged_only: Type.Optional(Type.Boolean()),
+		global: Type.Optional(Type.Boolean()),
+		limit: Type.Optional(
+			Type.Number({ minimum: 1, maximum: MAX_TEAM_LIST_LIMIT }),
+		),
+		offset: Type.Optional(Type.Number({ minimum: 0 })),
 		urgent: Type.Optional(Type.Boolean()),
 		timeout_ms: Type.Optional(Type.Number()),
 		mode: Type.Optional(TeamUiModeParam),
@@ -96,6 +106,13 @@ export type TeamToolParams = {
 	ttl_ms?: number;
 	requires_ack?: boolean;
 	include_read?: boolean;
+	include_acknowledged?: boolean;
+	include_offline?: boolean;
+	unread_only?: boolean;
+	unacknowledged_only?: boolean;
+	global?: boolean;
+	limit?: number;
+	offset?: number;
 	urgent?: boolean;
 	timeout_ms?: number;
 	mode?: TeamUiMode;
@@ -120,7 +137,15 @@ export type TeamToolParams = {
 };
 
 const ACTION_ALLOWED_FIELDS = {
-	session_list: ['action', 'include_read', 'mode'],
+	session_list: [
+		'action',
+		'include_read',
+		'include_offline',
+		'global',
+		'limit',
+		'offset',
+		'mode',
+	],
 	session_send: [
 		'action',
 		'from',
@@ -134,7 +159,13 @@ const ACTION_ALLOWED_FIELDS = {
 	],
 	session_inbox: [
 		'action',
+		'from',
 		'include_read',
+		'include_acknowledged',
+		'unread_only',
+		'unacknowledged_only',
+		'limit',
+		'offset',
 		'mode',
 		'message_id',
 		'message_ids',
@@ -157,7 +188,7 @@ const ACTION_ALLOWED_FIELDS = {
 		'after',
 	],
 	group_create: ['action', 'name'],
-	group_list: ['action'],
+	group_list: ['action', 'global', 'limit', 'offset'],
 	group_join: ['action', 'team_id', 'name', 'member', 'role'],
 	group_add_session: [
 		'action',
@@ -194,7 +225,14 @@ const ACTION_ALLOWED_FIELDS = {
 		'before',
 		'after',
 	],
-	artifact_list: ['action', 'query', 'kind'],
+	artifact_list: [
+		'action',
+		'query',
+		'kind',
+		'global',
+		'limit',
+		'offset',
+	],
 	message_send: [
 		'action',
 		'from',
@@ -208,7 +246,13 @@ const ACTION_ALLOWED_FIELDS = {
 	],
 	message_list: [
 		'action',
+		'from',
 		'include_read',
+		'include_acknowledged',
+		'unread_only',
+		'unacknowledged_only',
+		'limit',
+		'offset',
 		'mode',
 		'message_id',
 		'message_ids',
@@ -285,6 +329,30 @@ export function validate_team_tool_params(
 	params: TeamToolParams,
 ): void {
 	reject_inapplicable_fields(params);
+	if (
+		params.limit !== undefined &&
+		(!Number.isInteger(params.limit) ||
+			params.limit < 1 ||
+			params.limit > MAX_TEAM_LIST_LIMIT)
+	)
+		throw new Error(
+			`Invalid team tool action ${params.action}: limit must be an integer between 1 and ${MAX_TEAM_LIST_LIMIT}`,
+		);
+	if (
+		params.offset !== undefined &&
+		(!Number.isInteger(params.offset) || params.offset < 0)
+	)
+		throw new Error(
+			`Invalid team tool action ${params.action}: offset must be a non-negative integer`,
+		);
+	if (params.include_read && params.unread_only)
+		throw new Error(
+			`Invalid team tool action ${params.action}: include_read and unread_only cannot be combined`,
+		);
+	if (params.include_acknowledged && params.unacknowledged_only)
+		throw new Error(
+			`Invalid team tool action ${params.action}: include_acknowledged and unacknowledged_only cannot be combined`,
+		);
 	switch (params.action) {
 		case 'session_list':
 		case 'session_inbox':

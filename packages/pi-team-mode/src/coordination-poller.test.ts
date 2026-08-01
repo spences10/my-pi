@@ -147,7 +147,7 @@ describe('CoordinationPoller', () => {
 		expect(delivery?.content).toContain('[truncated]');
 		expect(delivery?.content).not.toContain('final mailbox detail');
 		expect(delivery?.content).toContain(
-			'Use `team session_inbox` with `mode=full` for full text',
+			'Use `team session_inbox` with the message_id and `mode=full`',
 		);
 		expect(delivery?.content).toContain(
 			'retrieve the referenced Team Mode artifact for a long handoff',

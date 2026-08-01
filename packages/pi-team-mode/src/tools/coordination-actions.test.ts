@@ -89,9 +89,9 @@ describe('coordination actions', () => {
 					require_session_id: () => first_id,
 				},
 			);
-			const targets = result.content[0]!.text.split('\n').map(
-				(line) => line.slice(2).split(' ')[0]!,
-			);
+			const targets = result.content[0]!.text.split('\n')
+				.filter((line) => line.startsWith('- '))
+				.map((line) => line.slice(2).split(' ')[0]!);
 
 			expect(targets).toHaveLength(2);
 			expect(targets[0]).not.toBe(targets[1]);
@@ -137,8 +137,12 @@ describe('coordination actions', () => {
 				context,
 			);
 
-			expect(local.details.group?.group_id).toBe(group_a.group_id);
-			expect(exact.details.group?.group_id).toBe(group_b.group_id);
+			expect(local.details).toMatchObject({
+				group: { group_id: group_a.group_id },
+			});
+			expect(exact.details).toMatchObject({
+				group: { group_id: group_b.group_id },
+			});
 			await expect(
 				execute_coordination_action(
 					{ action: 'group_join', name: 'review' },
@@ -450,7 +454,12 @@ describe('coordination actions', () => {
 				context,
 			);
 			const full = await execute_coordination_action(
-				{ action: 'session_inbox', include_read: true, mode: 'full' },
+				{
+					action: 'session_inbox',
+					include_read: true,
+					include_acknowledged: true,
+					mode: 'full',
+				},
 				context,
 			);
 
@@ -528,11 +537,15 @@ describe('coordination actions', () => {
 				context,
 			);
 			const full = await execute_coordination_action(
-				{ action: 'session_inbox', mode: 'full' },
+				{
+					action: 'session_inbox',
+					include_read: true,
+					mode: 'full',
+				},
 				context,
 			);
 
-			expect(compact.content[0]?.text).toBe(
+			expect(compact.content[0]?.text).toContain(
 				'No matching inbox messages.',
 			);
 			expect(full.content[0]?.text).toContain('final detail');
@@ -632,6 +645,340 @@ describe('coordination actions', () => {
 			expect(chunk.content[0]?.text).toContain('bbb');
 			expect(chunk.content[0]?.text).not.toContain('final detail');
 			expect(full.content[0]?.text).toContain('final detail');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('scopes session history by project and paginates explicit global history', async () => {
+		const db = await tmp_db();
+		try {
+			for (let index = 0; index < 35; index += 1)
+				db.register_session({
+					session_id: `local-${index}`,
+					cwd: '/repo',
+				});
+			for (let index = 0; index < 5; index += 1)
+				db.register_session({
+					session_id: `foreign-${index}`,
+					cwd: '/other-repo',
+				});
+			db.register_session({
+				session_id: 'local-history',
+				cwd: '/repo',
+				status: 'offline',
+			});
+			const context = {
+				ctx: { cwd: '/repo' },
+				coordination_db: db,
+				notify_coordination_messages: async () => undefined,
+				require_session_id: () => 'local-0',
+			};
+
+			const local = await execute_coordination_action(
+				{ action: 'session_list' },
+				context,
+			);
+			const local_page = await execute_coordination_action(
+				{
+					action: 'session_list',
+					mode: 'full',
+					limit: 5,
+					offset: 5,
+				},
+				context,
+			);
+			const global_history = await execute_coordination_action(
+				{
+					action: 'session_list',
+					global: true,
+					include_offline: true,
+					mode: 'full',
+					limit: 100,
+				},
+				context,
+			);
+
+			expect(local.details).toMatchObject({
+				returned_count: 20,
+				total_count: 35,
+				has_more: true,
+				next_offset: 20,
+			});
+			expect(local_page.details).toMatchObject({
+				returned_count: 5,
+				total_count: 35,
+				limit: 5,
+				offset: 5,
+			});
+			expect(global_history.details).toMatchObject({
+				returned_count: 41,
+				total_count: 41,
+				has_more: false,
+			});
+			expect(global_history.content[0]?.text).toContain(
+				'Global offline session history',
+			);
+			expect(local.content[0]?.text).toContain('Next page:');
+		} finally {
+			db.close();
+		}
+	});
+
+	it('filters inbox history by sender and receipt state without mode broadening scope', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			db.register_session({
+				session_id: 'worker-a',
+				cwd: '/repo',
+				agent_name: 'alpha',
+			});
+			db.register_session({
+				session_id: 'worker-b',
+				cwd: '/repo',
+				agent_name: 'beta',
+			});
+			const unread_a = db.send_to_session_target({
+				from_session_id: 'worker-a',
+				target: 'lead',
+				body: 'unread alpha',
+			});
+			const read_a = db.send_to_session_target({
+				from_session_id: 'worker-a',
+				target: 'lead',
+				body: 'read alpha',
+			});
+			const acknowledged_b = db.send_to_session_target({
+				from_session_id: 'worker-b',
+				target: 'lead',
+				body: 'acknowledged beta',
+			});
+			const unread_b = db.send_to_session_target({
+				from_session_id: 'worker-b',
+				target: 'lead',
+				body: 'unread beta',
+			});
+			db.mark_messages_read('lead', [read_a.message_id]);
+			db.mark_messages_acknowledged('lead', [
+				acknowledged_b.message_id,
+			]);
+			const context = {
+				ctx: { cwd: '/repo' },
+				coordination_db: db,
+				notify_coordination_messages: async () => undefined,
+				require_session_id: () => 'lead',
+			};
+
+			const full_default = await execute_coordination_action(
+				{ action: 'session_inbox', mode: 'full' },
+				context,
+			);
+			const beta = await execute_coordination_action(
+				{
+					action: 'session_inbox',
+					from: 'beta',
+					include_acknowledged: true,
+				},
+				context,
+			);
+			const unacknowledged = await execute_coordination_action(
+				{
+					action: 'message_list',
+					include_read: true,
+					unacknowledged_only: true,
+				},
+				context,
+			);
+			const broad = await execute_coordination_action(
+				{
+					action: 'session_inbox',
+					include_read: true,
+					include_acknowledged: true,
+					mode: 'full',
+					limit: 2,
+				},
+				context,
+			);
+
+			expect(full_default.details).toMatchObject({
+				returned_count: 2,
+				total_count: 2,
+			});
+			expect(full_default.content[0]?.text).toContain(
+				unread_a.message_id,
+			);
+			expect(full_default.content[0]?.text).toContain(
+				unread_b.message_id,
+			);
+			expect(full_default.content[0]?.text).not.toContain(
+				read_a.message_id,
+			);
+			expect(beta.details).toMatchObject({
+				returned_count: 2,
+				total_count: 2,
+			});
+			expect(unacknowledged.details).toMatchObject({
+				returned_count: 3,
+				total_count: 3,
+			});
+			expect(broad.details).toMatchObject({
+				returned_count: 2,
+				total_count: 4,
+				has_more: true,
+			});
+			expect(broad.content[0]?.text).toContain(
+				'Broad full-history inbox reads are paginated',
+			);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('bounds byte-heavy output with hundreds of sessions and messages', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			for (let index = 0; index < 240; index += 1)
+				db.register_session({
+					session_id: `peer-${index.toString().padStart(3, '0')}`,
+					cwd: '/repo',
+					agent_name: `worker-${index}`,
+				});
+			for (let index = 0; index < 240; index += 1)
+				db.send_to_session_target({
+					from_session_id: 'peer-000',
+					target: 'lead',
+					body: `payload-${index}-${'x'.repeat(800)}`,
+				});
+			const context = {
+				ctx: { cwd: '/repo' },
+				coordination_db: db,
+				notify_coordination_messages: async () => undefined,
+				require_session_id: () => 'lead',
+			};
+
+			const sessions = await execute_coordination_action(
+				{ action: 'session_list', mode: 'full' },
+				context,
+			);
+			const inbox = await execute_coordination_action(
+				{ action: 'session_inbox' },
+				context,
+			);
+			const next_messages = await execute_coordination_action(
+				{
+					action: 'message_list',
+					limit: 7,
+					offset: 20,
+				},
+				context,
+			);
+
+			expect(sessions.details).toMatchObject({
+				returned_count: 20,
+				total_count: 241,
+				has_more: true,
+			});
+			expect(inbox.details).toMatchObject({
+				returned_count: 20,
+				total_count: 240,
+				has_more: true,
+			});
+			expect(next_messages.details).toMatchObject({
+				returned_count: 7,
+				total_count: 240,
+				limit: 7,
+				offset: 20,
+				next_offset: 27,
+			});
+			expect(
+				Buffer.from(sessions.content[0]?.text ?? '').length,
+			).toBeLessThan(16_000);
+			expect(
+				Buffer.from(inbox.content[0]?.text ?? '').length,
+			).toBeLessThan(16_000);
+			expect(JSON.stringify(inbox.details)).not.toContain('payload-');
+		} finally {
+			db.close();
+		}
+	}, 15_000);
+
+	it('paginates project-scoped group and artifact lists with global opt-in', async () => {
+		const db = await tmp_db();
+		try {
+			db.register_session({ session_id: 'lead', cwd: '/repo' });
+			for (let index = 0; index < 25; index += 1) {
+				db.create_group({
+					name: `local-group-${index}`,
+					cwd: '/repo',
+					created_by_session_id: 'lead',
+				});
+				db.create_artifact({
+					kind: 'summary',
+					owner_session_id: 'lead',
+					cwd: '/repo',
+					title: `local-artifact-${index}`,
+					summary: 'summary',
+					body: 'body',
+				});
+			}
+			for (let index = 0; index < 3; index += 1) {
+				db.create_group({
+					name: `foreign-group-${index}`,
+					cwd: '/other-repo',
+				});
+				db.create_artifact({
+					kind: 'summary',
+					owner_session_id: 'lead',
+					cwd: '/other-repo',
+					title: `foreign-artifact-${index}`,
+					summary: 'summary',
+					body: 'body',
+				});
+			}
+			const context = {
+				ctx: { cwd: '/repo' },
+				coordination_db: db,
+				notify_coordination_messages: async () => undefined,
+				require_session_id: () => 'lead',
+			};
+
+			const groups = await execute_coordination_action(
+				{ action: 'group_list', limit: 5, offset: 5 },
+				context,
+			);
+			const global_groups = await execute_coordination_action(
+				{ action: 'group_list', global: true, limit: 100 },
+				context,
+			);
+			const artifacts = await execute_coordination_action(
+				{ action: 'artifact_list', limit: 5, offset: 5 },
+				context,
+			);
+			const global_artifacts = await execute_coordination_action(
+				{ action: 'artifact_list', global: true, limit: 100 },
+				context,
+			);
+
+			expect(groups.details).toMatchObject({
+				returned_count: 5,
+				total_count: 25,
+				limit: 5,
+				offset: 5,
+			});
+			expect(global_groups.details).toMatchObject({
+				returned_count: 28,
+				total_count: 28,
+			});
+			expect(artifacts.details).toMatchObject({
+				returned_count: 5,
+				total_count: 25,
+			});
+			expect(global_artifacts.details).toMatchObject({
+				returned_count: 28,
+				total_count: 28,
+			});
 		} finally {
 			db.close();
 		}
