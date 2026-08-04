@@ -75,9 +75,6 @@ catalogs:
     playwright:
       specifier: ^1.60.0
       version: 1.62.1
-    shadcn-svelte:
-      specifier: ^1.2.7
-      version: 1.4.2
     svead:
       specifier: ^0.0.16
       version: 0.0.16
@@ -99,6 +96,9 @@ catalogs:
     tw-animate-css:
       specifier: ^1.4.0
       version: 1.4.0
+    typebox:
+      specifier: ^1.1.38
+      version: 1.3.10
     typescript:
       specifier: ^7.0.0
       version: 7.0.2
@@ -291,7 +291,7 @@ importers:
         version: 1.62.1
       shadcn-svelte:
         specifier: 'catalog:'
-        version: 1.4.2(svelte@5.56.8)
+        version: 1.5.0(svelte@5.56.8)
       svead:
         specifier: 'catalog:'
         version: 0.0.16(svelte@5.56.8)(typescript@6.0.3)
@@ -3870,8 +3870,8 @@ packages:
   set-cookie-parser@3.1.2:
     resolution: {integrity: sha512-5/r/lTwbJ3zQ+qwdUFZYeRNqda7P5HD8zQKqlSjdGt1/S0cjLAphHusj4Y58ahDtWn/g32xrIS58/ikOvwl0Lw==}
 
-  shadcn-svelte@1.4.2:
-    resolution: {integrity: sha512-j7oDhXRmFuZ8bAhvF7Y65moMi9qM0iA68j5wEDNBiH0be9NWOEg1qo7myDeIf+h2oUSLBYHpVmeJIKYBmNT4Kg==}
+  shadcn-svelte@1.5.0:
+    resolution: {integrity: sha512-fcxTeUwEIvELkL/h0Vg2i/9Sf6exAmLG5u3GXc0aN8CA+3fNffKQnfrTdMgkjUEmx9XP619I+wcJOvlr5aDWYQ==}
     hasBin: true
     peerDependencies:
       svelte: ^5.0.0
@@ -6895,7 +6895,7 @@ snapshots:
 
   set-cookie-parser@3.1.2: {}
 
-  shadcn-svelte@1.4.2(svelte@5.56.8):
+  shadcn-svelte@1.5.0(svelte@5.56.8):
     dependencies:
       commander: 14.0.3
       node-fetch-native: 1.6.7
