@@ -33,8 +33,10 @@ Output ONLY the session name, nothing else.`;
 const AUTO_NAME_THRESHOLD = 1;
 const MAX_CHARS = 4000;
 const MAX_NAME_LEN = 50;
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAYS_MS = [1_500, 4_000];
 
-function clean_name(value: string): string {
+export function clean_name(value: string): string {
 	return value
 		.replace(/^["']|["']$/g, '')
 		.normalize('NFKD')
@@ -52,6 +54,58 @@ function truncate_conversation(value: string): string {
 		: value;
 }
 
+export function is_transient_error(message: string): boolean {
+	return (
+		/\b(429|500|502|503|529)\b/.test(message) ||
+		/overload|rate.?limit|temporarily unavailable|try again/i.test(
+			message,
+		)
+	);
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+	return new Promise((resolve) => {
+		const timer = setTimeout(resolve, ms);
+		signal?.addEventListener(
+			'abort',
+			() => {
+				clearTimeout(timer);
+				resolve();
+			},
+			{ once: true },
+		);
+	});
+}
+
+async function complete_with_retry(
+	model: Parameters<typeof complete>[0],
+	context: Parameters<typeof complete>[1],
+	options: NonNullable<Parameters<typeof complete>[2]>,
+): Promise<Awaited<ReturnType<typeof complete>>> {
+	let last_error: unknown = new Error('Unknown provider error');
+	for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+		if (attempt > 0) {
+			await sleep(RETRY_DELAYS_MS[attempt - 1], options.signal);
+			if (options.signal?.aborted) break;
+		}
+		try {
+			const response = await complete(model, context, options);
+			if (response.stopReason !== 'error') return response;
+			const message = response.errorMessage ?? 'Provider error';
+			if (!is_transient_error(message)) return response;
+			last_error = new Error(message);
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : String(err);
+			if (options.signal?.aborted || !is_transient_error(message)) {
+				throw err;
+			}
+			last_error = err;
+		}
+	}
+	throw last_error;
+}
+
 async function generate_session_name(
 	ctx: Pick<ExtensionCommandContext, 'modelRegistry'>,
 	model: NonNullable<
@@ -63,9 +117,11 @@ async function generate_session_name(
 	signal?: AbortSignal,
 ): Promise<string | null> {
 	const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-	if (!auth.ok || !auth.apiKey) {
+	if (!auth.ok || (!auth.apiKey && !auth.headers)) {
 		throw new Error(
-			auth.ok ? `No API key for ${model.provider}` : auth.error,
+			auth.ok
+				? `No credentials for ${model.provider} (API key or OAuth login required)`
+				: auth.error,
 		);
 	}
 
@@ -80,7 +136,7 @@ async function generate_session_name(
 		timestamp: Date.now(),
 	};
 
-	const response = await complete(
+	const response = await complete_with_retry(
 		model,
 		{ systemPrompt: SYSTEM_PROMPT, messages: [user_message] },
 		{ apiKey: auth.apiKey, headers: auth.headers, signal },
@@ -88,6 +144,13 @@ async function generate_session_name(
 
 	if (response.stopReason === 'aborted') {
 		return null;
+	}
+
+	if (response.stopReason === 'error') {
+		throw new Error(
+			response.errorMessage ??
+				`Provider error from ${model.provider}`,
+		);
 	}
 
 	return clean_name(
