@@ -1,5 +1,12 @@
 # @spences10/pi-codex-usage
 
+## 0.0.2
+
+### Patch Changes
+
+- ca63193: Add badge headers, preview images, install blocks, and
+  development sections to both usage package READMEs.
+
 ## 0.0.1
 
 ### Patch Changes

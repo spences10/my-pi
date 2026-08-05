@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-codex-usage",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "OpenAI Codex usage status for the Pi footer",
 	"keywords": [
 		"codex",
