@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.127
+
+### Patch Changes
+
+- 643c6b1: Add Kimi usage footer status extension showing Kimi For
+  Coding quota windows and reset timing.
+
 ## 0.1.126
 
 ## 0.1.125
