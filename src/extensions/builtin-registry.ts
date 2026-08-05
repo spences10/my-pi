@@ -120,6 +120,21 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 			(await import('@spences10/pi-codex-usage')).default,
 	},
 	{
+		key: 'kimi-usage',
+		label: 'Kimi usage',
+		docs_label: 'Kimi usage status',
+		description: 'Kimi For Coding usage status for the footer',
+		default_enabled: true,
+		option_name: 'kimi_usage',
+		cli_arg: 'no-kimi-usage',
+		cli_flag: '--no-kimi-usage',
+		cli_description: 'Disable Kimi usage footer status',
+		aliases: ['kimi-usage', 'kimi-status'],
+		external_package_name: '@spences10/pi-kimi-usage',
+		load: async () =>
+			(await import('@spences10/pi-kimi-usage')).default,
+	},
+	{
 		key: 'harness',
 		label: 'Harness',
 		docs_label: 'Task harness runtime',
