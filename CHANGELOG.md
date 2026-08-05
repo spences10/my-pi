@@ -1,5 +1,14 @@
 # my-pi
 
+## 0.1.128
+
+### Patch Changes
+
+- dcb67ca: Fix session-name extension OAuth auth check and retry
+  transient provider errors when auto-naming sessions.
+- 1f43e0f: Add explicit file extension to session-name test import so
+  type checking and format checks pass.
+
 ## 0.1.127
 
 ### Patch Changes
