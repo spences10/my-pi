@@ -94,6 +94,7 @@
 		"@spences10/pi-footer": "workspace:*",
 		"@spences10/pi-git-ui": "workspace:*",
 		"@spences10/pi-harness": "workspace:*",
+		"@spences10/pi-kimi-usage": "workspace:*",
 		"@spences10/pi-lsp": "workspace:*",
 		"@spences10/pi-mcp": "workspace:*",
 		"@spences10/pi-nopeek": "workspace:*",
