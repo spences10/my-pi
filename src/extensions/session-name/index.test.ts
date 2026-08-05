@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clean_name, is_transient_error } from './index';
+import { clean_name, is_transient_error } from './index.js';
 
 describe('clean_name', () => {
 	it('normalises to kebab-case', () => {
