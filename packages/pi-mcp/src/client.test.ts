@@ -10,6 +10,7 @@ import { McpClient } from './client.js';
 function read_json(req: IncomingMessage): Promise<{
 	id?: number | string;
 	method?: string;
+	params?: Record<string, unknown>;
 }> {
 	return new Promise((resolve, reject) => {
 		let body = '';
@@ -101,6 +102,16 @@ describe('McpClient http transport', () => {
 			}
 			const message = await read_json(req);
 			res.setHeader('content-type', 'application/json');
+			if (message.method === 'server/discover') {
+				res.end(
+					JSON.stringify({
+						jsonrpc: '2.0',
+						id: message.id,
+						error: { code: -32601, message: 'Method not found' },
+					}),
+				);
+				return;
+			}
 			if (message.method === 'initialize') {
 				res.setHeader('mcp-session-id', 'session-123');
 				res.end(
@@ -192,6 +203,7 @@ describe('McpClient http transport', () => {
 		clear_timeout.mockRestore();
 		expect(seen_session_headers).toEqual([
 			'',
+			'',
 			'session-123',
 			'session-123',
 			'session-123',
@@ -199,9 +211,130 @@ describe('McpClient http transport', () => {
 		]);
 	});
 
+	it('uses stateless modern requests and honors tool-list cache hints', async () => {
+		const requests: Array<{
+			method?: string;
+			params?: Record<string, unknown>;
+			headers: IncomingMessage['headers'];
+		}> = [];
+		let list_count = 0;
+		const server = createServer(async (req, res) => {
+			const message = await read_json(req);
+			requests.push({
+				method: message.method,
+				params: message.params,
+				headers: req.headers,
+			});
+			res.setHeader('content-type', 'application/json');
+			if (message.method === 'server/discover') {
+				res.end(
+					JSON.stringify({
+						jsonrpc: '2.0',
+						id: message.id,
+						result: {
+							resultType: 'complete',
+							supportedVersions: ['2026-07-28'],
+							capabilities: { tools: {} },
+							serverInfo: { name: 'modern', version: '1.0.0' },
+						},
+					}),
+				);
+				return;
+			}
+			if (message.method === 'tools/list') {
+				list_count += 1;
+				res.end(
+					JSON.stringify({
+						jsonrpc: '2.0',
+						id: message.id,
+						result: {
+							resultType: 'complete',
+							tools: [
+								{ name: 'ping', inputSchema: { type: 'object' } },
+							],
+							ttlMs: 60_000,
+							cacheScope: 'private',
+						},
+					}),
+				);
+				return;
+			}
+			res.end(
+				JSON.stringify({
+					jsonrpc: '2.0',
+					id: message.id,
+					result: {
+						resultType: 'complete',
+						content: [{ type: 'text', text: 'pong' }],
+					},
+				}),
+			);
+		});
+		await new Promise<void>((resolve) =>
+			server.listen(0, '127.0.0.1', resolve),
+		);
+		servers.push({
+			close: () =>
+				new Promise<void>((resolve, reject) =>
+					server.close((error) =>
+						error ? reject(error) : resolve(),
+					),
+				),
+		});
+
+		const address = server.address();
+		if (!address || typeof address === 'string') {
+			throw new Error('Expected TCP server address');
+		}
+		const client = new McpClient({
+			name: 'modern',
+			transport: 'http',
+			url: `http://127.0.0.1:${address.port}/mcp`,
+		});
+		await client.connect();
+		await client.listTools();
+		await client.listTools();
+		await client.callTool('ping', {});
+		await client.disconnect();
+
+		expect(list_count).toBe(1);
+		expect(requests.map(({ method }) => method)).toEqual([
+			'server/discover',
+			'tools/list',
+			'tools/call',
+		]);
+		for (const request of requests) {
+			expect(request.headers['mcp-protocol-version']).toBe(
+				'2026-07-28',
+			);
+			expect(request.headers['mcp-method']).toBe(request.method);
+			expect(request.headers['mcp-session-id']).toBeUndefined();
+			expect(request.params?._meta).toMatchObject({
+				'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+				'io.modelcontextprotocol/clientCapabilities': {},
+				'io.modelcontextprotocol/clientInfo': {
+					name: 'my-pi',
+					version: '0.0.1',
+				},
+			});
+		}
+		expect(requests[2]?.headers['mcp-name']).toBe('ping');
+	});
+
 	it('parses SSE responses from http MCP servers', async () => {
 		const server = createServer(async (req, res) => {
 			const message = await read_json(req);
+			if (message.method === 'server/discover') {
+				res.setHeader('content-type', 'application/json');
+				res.end(
+					JSON.stringify({
+						jsonrpc: '2.0',
+						id: message.id,
+						error: { code: -32601, message: 'Method not found' },
+					}),
+				);
+				return;
+			}
 			if (message.method === 'initialize') {
 				res.setHeader('content-type', 'application/json');
 				res.end(

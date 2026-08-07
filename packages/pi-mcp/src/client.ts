@@ -46,8 +46,35 @@ interface JsonRpcResponse {
 	jsonrpc?: '2.0';
 	id?: number;
 	result?: unknown;
-	error?: { code: number; message: string };
+	error?: { code: number; message: string; data?: unknown };
 }
+
+interface McpDiscoverResult {
+	supportedVersions: string[];
+	capabilities?: Record<string, unknown>;
+	serverInfo?: { name: string; version: string };
+}
+
+interface McpCacheableResult {
+	resultType?: 'complete' | 'input_required';
+	ttlMs?: number;
+	cacheScope?: 'public' | 'private';
+}
+
+class McpProtocolError extends Error {
+	constructor(
+		readonly code: number,
+		message: string,
+		readonly data?: unknown,
+	) {
+		super(`MCP error ${code}: ${message}`);
+	}
+}
+
+const MODERN_PROTOCOL_VERSION = '2026-07-28';
+const LEGACY_PROTOCOL_VERSION = '2024-11-05';
+const UNSUPPORTED_PROTOCOL_VERSION_ERROR = -32022;
+const CLIENT_INFO = { name: 'my-pi', version: '0.0.1' } as const;
 
 export interface McpToolInfo {
 	name: string;
@@ -70,6 +97,9 @@ export class McpClient {
 	#buffer = '';
 	#sessionId?: string;
 	#closedError?: Error;
+	#protocolEra?: 'modern' | 'legacy';
+	#protocolVersion?: string;
+	#toolsCache?: { tools: McpToolInfo[]; expiresAt: number };
 
 	constructor(config: McpServerConfig) {
 		this.#config = config;
@@ -80,12 +110,42 @@ export class McpClient {
 			await this.#connect_stdio();
 		}
 
-		await this.#request('initialize', {
-			protocolVersion: '2024-11-05',
-			capabilities: {},
-			clientInfo: { name: 'my-pi', version: '0.0.1' },
-		});
+		try {
+			const discovered = (await this.#request(
+				'server/discover',
+				{},
+				MODERN_PROTOCOL_VERSION,
+			)) as McpDiscoverResult;
+			if (
+				!discovered.supportedVersions?.includes(
+					MODERN_PROTOCOL_VERSION,
+				)
+			) {
+				throw new Error(
+					`MCP server ${this.#config.name} does not support ${MODERN_PROTOCOL_VERSION}`,
+				);
+			}
+			this.#protocolEra = 'modern';
+			this.#protocolVersion = MODERN_PROTOCOL_VERSION;
+			return;
+		} catch (error) {
+			if (this.#is_unsupported_protocol_error(error)) {
+				const supported = this.#get_supported_versions(error);
+				if (!supported.includes(MODERN_PROTOCOL_VERSION)) throw error;
+				this.#protocolEra = 'modern';
+				this.#protocolVersion = MODERN_PROTOCOL_VERSION;
+				return;
+			}
+			if (this.#is_modern_protocol_error(error)) throw error;
+		}
 
+		this.#protocolEra = 'legacy';
+		this.#protocolVersion = LEGACY_PROTOCOL_VERSION;
+		await this.#request('initialize', {
+			protocolVersion: LEGACY_PROTOCOL_VERSION,
+			capabilities: {},
+			clientInfo: CLIENT_INFO,
+		});
 		await this.#send({
 			jsonrpc: '2.0',
 			method: 'notifications/initialized',
@@ -93,9 +153,18 @@ export class McpClient {
 	}
 
 	async listTools(): Promise<McpToolInfo[]> {
+		if (this.#toolsCache && this.#toolsCache.expiresAt > Date.now()) {
+			return this.#toolsCache.tools;
+		}
 		const result = (await this.#request('tools/list', {})) as {
 			tools: McpToolInfo[];
-		};
+		} & McpCacheableResult;
+		if (typeof result.ttlMs === 'number' && result.ttlMs > 0) {
+			this.#toolsCache = {
+				tools: result.tools,
+				expiresAt: Date.now() + result.ttlMs,
+			};
+		}
 		return result.tools;
 	}
 
@@ -165,7 +234,13 @@ export class McpClient {
 		});
 	}
 
-	#request(method: string, params: unknown): Promise<unknown> {
+	#request(
+		method: string,
+		params: unknown,
+		protocol_version = this.#protocolEra === 'modern'
+			? this.#protocolVersion
+			: undefined,
+	): Promise<unknown> {
 		if (this.#closedError) return Promise.reject(this.#closedError);
 
 		return new Promise((resolve, reject) => {
@@ -178,16 +253,22 @@ export class McpClient {
 			}, this.#config.request_timeout_ms ?? 30_000);
 			timer.unref?.();
 			this.#pending.set(id, { resolve, reject, timer });
-			this.#send({ jsonrpc: '2.0', id, method, params }).catch(
-				(error) => {
-					const pending = this.#pending.get(id);
-					if (pending) {
-						this.#pending.delete(id);
-						clearTimeout(pending.timer);
-						reject(error as Error);
-					}
-				},
-			);
+			const request_params = protocol_version
+				? this.#with_modern_metadata(params, protocol_version)
+				: params;
+			this.#send({
+				jsonrpc: '2.0',
+				id,
+				method,
+				params: request_params,
+			}).catch((error) => {
+				const pending = this.#pending.get(id);
+				if (pending) {
+					this.#pending.delete(id);
+					clearTimeout(pending.timer);
+					reject(error as Error);
+				}
+			});
 		});
 	}
 
@@ -222,7 +303,13 @@ export class McpClient {
 		const headers = new Headers(config.headers ?? {});
 		headers.set('content-type', 'application/json');
 		headers.set('accept', 'application/json, text/event-stream');
-		if (this.#sessionId) {
+		const protocol_version = this.#get_request_protocol_version(msg);
+		if (protocol_version) {
+			headers.set('mcp-protocol-version', protocol_version);
+			headers.set('mcp-method', msg.method);
+			const method_name = this.#get_request_name(msg);
+			if (method_name) headers.set('mcp-name', method_name);
+		} else if (this.#sessionId) {
 			headers.set('mcp-session-id', this.#sessionId);
 		}
 
@@ -239,6 +326,14 @@ export class McpClient {
 
 		if (!response.ok) {
 			const body = await response.text().catch(() => '');
+			if (body) {
+				try {
+					this.#dispatch_message(JSON.parse(body));
+					return;
+				} catch {
+					// Fall through to the transport error when the body is not JSON-RPC.
+				}
+			}
 			throw new Error(
 				`MCP HTTP ${response.status}${body ? `: ${body}` : ''}`,
 			);
@@ -360,12 +455,86 @@ export class McpClient {
 		clearTimeout(pending.timer);
 		if (msg.error) {
 			pending.reject(
-				new Error(
-					`MCP error ${msg.error.code}: ${msg.error.message}`,
+				new McpProtocolError(
+					msg.error.code,
+					msg.error.message,
+					msg.error.data,
 				),
 			);
 			return;
 		}
 		pending.resolve(msg.result);
+	}
+
+	#with_modern_metadata(
+		params: unknown,
+		protocol_version: string,
+	): unknown {
+		const base =
+			params && typeof params === 'object' && !Array.isArray(params)
+				? (params as Record<string, unknown>)
+				: {};
+		return {
+			...base,
+			_meta: {
+				...(base._meta &&
+				typeof base._meta === 'object' &&
+				!Array.isArray(base._meta)
+					? (base._meta as Record<string, unknown>)
+					: {}),
+				'io.modelcontextprotocol/protocolVersion': protocol_version,
+				'io.modelcontextprotocol/clientCapabilities': {},
+				'io.modelcontextprotocol/clientInfo': CLIENT_INFO,
+			},
+		};
+	}
+
+	#get_request_protocol_version(
+		msg: JsonRpcRequest,
+	): string | undefined {
+		if (!msg.params || typeof msg.params !== 'object')
+			return undefined;
+		const meta = (msg.params as { _meta?: unknown })._meta;
+		if (!meta || typeof meta !== 'object') return undefined;
+		const version = (meta as Record<string, unknown>)[
+			'io.modelcontextprotocol/protocolVersion'
+		];
+		return typeof version === 'string' ? version : undefined;
+	}
+
+	#get_request_name(msg: JsonRpcRequest): string | undefined {
+		if (!msg.params || typeof msg.params !== 'object')
+			return undefined;
+		const name = (msg.params as { name?: unknown }).name;
+		return typeof name === 'string' ? name : undefined;
+	}
+
+	#is_modern_protocol_error(error: unknown): boolean {
+		return (
+			error instanceof McpProtocolError &&
+			error.code <= -32020 &&
+			error.code >= -32099
+		);
+	}
+
+	#is_unsupported_protocol_error(
+		error: unknown,
+	): error is McpProtocolError {
+		return (
+			error instanceof McpProtocolError &&
+			error.code === UNSUPPORTED_PROTOCOL_VERSION_ERROR
+		);
+	}
+
+	#get_supported_versions(error: McpProtocolError): string[] {
+		const supported =
+			error.data && typeof error.data === 'object'
+				? (error.data as { supported?: unknown }).supported
+				: undefined;
+		return Array.isArray(supported)
+			? supported.filter(
+					(version): version is string => typeof version === 'string',
+				)
+			: [];
 	}
 }

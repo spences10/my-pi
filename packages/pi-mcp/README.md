@@ -164,13 +164,19 @@ loaded into global or project MCP config after modal confirmation.
 
 - reads MCP server config
 - connects to stdio or HTTP MCP servers on demand
-- performs the MCP `initialize` handshake
-- discovers tools via `tools/list`
+- negotiates MCP `2026-07-28` with `server/discover` and stateless
+  per-request metadata, while falling back to the legacy `initialize`
+  handshake for older servers
+- sends the required modern Streamable HTTP routing headers without
+  reusing legacy session IDs
+- discovers tools via `tools/list` and honors modern `ttlMs` cache
+  hints
 - registers each discovered MCP tool with Pi
 - updates Pi's active tools as servers connect or disconnect; current
   Pi applies those changes to the next provider request in the same
   agent run
-- forwards model tool calls to the MCP server
+- forwards model tool calls to the MCP server and accepts both modern
+  `resultType` results and legacy results where the field is absent
 - disconnects idle connected servers after 15 minutes by default
   (`MY_PI_MCP_IDLE_TIMEOUT_MS=0` disables this globally; per-server
   `idle_timeout_ms` overrides it)
