@@ -1,5 +1,12 @@
 # @spences10/pi-mcp
 
+## 0.0.59
+
+### Patch Changes
+
+- f013887: Add modern MCP protocol support with stateless discovery,
+  cache hints, required headers, and legacy fallback.
+
 ## 0.0.58
 
 ### Patch Changes
