@@ -69,12 +69,11 @@ describe('umans-provider', () => {
 		await provider.refreshModels!({
 			credential: { type: 'api_key', key: 'stored-key' },
 			allowNetwork: true,
-			store: {
-				read: async () => undefined,
-				write: async (value) => {
-					writes.push(value);
-				},
-				delete: async () => {},
+			signal: new AbortController().signal,
+			publish: async (publication) => {
+				writes.push(publication.persist);
+				publication.update?.();
+				return true;
 			},
 		});
 
@@ -103,10 +102,11 @@ describe('umans-provider', () => {
 		await expect(
 			provider.refreshModels!({
 				allowNetwork: true,
-				store: {
-					read: async () => ({ models: stale, checkedAt: 1 }),
-					write: async () => {},
-					delete: async () => {},
+				signal: new AbortController().signal,
+				stored: { models: stale, checkedAt: 1 },
+				publish: async (publication) => {
+					publication.update?.();
+					return true;
 				},
 			}),
 		).rejects.toThrow('catalog unavailable');
@@ -123,10 +123,12 @@ describe('umans-provider', () => {
 			env: async () => undefined,
 			fileExists: async () => false,
 		};
+		const signal = new AbortController().signal;
 		await expect(
 			auth.resolve({
 				ctx,
 				credential: { type: 'api_key', key: 'stored-key' },
+				signal,
 			}),
 		).resolves.toEqual({
 			auth: {
@@ -134,7 +136,7 @@ describe('umans-provider', () => {
 			},
 			source: 'stored API key',
 		});
-		await expect(auth.resolve({ ctx })).resolves.toEqual({
+		await expect(auth.resolve({ ctx, signal })).resolves.toEqual({
 			auth: { headers: { authorization: 'Bearer env-key' } },
 			source: 'UMANS_API_KEY',
 		});
@@ -144,6 +146,7 @@ describe('umans-provider', () => {
 		const auth = create_umans_api_key_auth({});
 		await expect(
 			auth.login!({
+				signal: new AbortController().signal,
 				prompt: async () => '   ',
 				notify: () => {},
 			}),
