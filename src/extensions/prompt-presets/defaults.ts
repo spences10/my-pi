@@ -1,6 +1,7 @@
 import { parseFrontmatter } from '@earendil-works/pi-coding-agent';
 import type { PromptPreset, PromptPresetMap } from './types.js';
 
+import asd_ste100 from './defaults/asd-ste100.md';
 import bullets from './defaults/bullets.md';
 import clarify_first from './defaults/clarify-first.md';
 import detailed from './defaults/detailed.md';
@@ -18,6 +19,7 @@ const DEFAULT_PROMPT_PRESET_FILES = {
 	standard,
 	detailed,
 	'no-purple-prose': no_purple_prose,
+	'asd-ste100': asd_ste100,
 	bullets,
 	'clarify-first': clarify_first,
 	'include-risks': include_risks,
