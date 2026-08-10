@@ -5,13 +5,15 @@ packages:
 
 minimumReleaseAge: 2880
 
-minimumReleaseAgeExclude:
-  - basic-ftp@5.3.1
-  - fast-xml-parser@5.7.2
-  - postcss@8.5.12
-  - protobufjs@7.5.8
-  - ws@8.20.1
-  - cookie@0.7.0
+# Temporary/security pins. See docs/dependency-overrides.md.
+overrides:
+  brace-expansion: '5.0.9'
+  postcss: '8.5.23'
+  protobufjs: '7.6.5'
+  miniflare>ws: '8.21.0'
+  '@changesets/parse>js-yaml': '4.3.1'
+  '@sveltejs/kit>cookie': '0.7.0'
+  'read-yaml-file>js-yaml': '3.15.1'
 
 catalog:
   '@changesets/cli': ^2.31.0
@@ -56,15 +58,6 @@ catalog:
 catalogs:
   typescript6:
     typescript: ^6.0.3
-
-# Temporary/security pins. See docs/dependency-overrides.md.
-overrides:
-  basic-ftp: '5.3.1'
-  fast-xml-parser: '5.7.2'
-  postcss: '8.5.12'
-  protobufjs: '7.5.8'
-  miniflare>ws: '8.20.1'
-  '@sveltejs/kit>cookie': '0.7.0'
 
 allowBuilds:
   '@google/genai': true
