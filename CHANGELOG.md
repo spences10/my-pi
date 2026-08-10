@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.130
+
+### Patch Changes
+
+- c40b9b5: Add ASD-STE100 prompt preset runtime coverage and exempt
+  pinned security overrides from release-age delays safely.
+
 ## 0.1.129
 
 ## 0.1.128
