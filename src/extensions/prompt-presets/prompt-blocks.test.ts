@@ -12,6 +12,10 @@ function preset(
 		kind,
 		instructions,
 		source: 'builtin',
+		origin: 'builtin',
+		path: null,
+		editable: false,
+		fallbacks: [],
 	};
 }
 

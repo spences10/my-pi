@@ -13,8 +13,10 @@ import {
 	get_current_thinking_level,
 	get_default_footer_thinking_level,
 	load_persisted_prompt_state,
+	load_prompt_preset_catalog,
 	load_prompt_presets,
 	merge_prompt_presets,
+	migrate_legacy_prompt_presets,
 	normalize_prompt_presets,
 	read_prompt_presets_dir,
 	remove_project_prompt_preset,
@@ -125,6 +127,93 @@ describe('file-backed prompt presets', () => {
 		});
 	});
 
+	it('reports exact precedence, ownership, and fallback provenance', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-file-presets-'));
+		dirs.push(cwd);
+		save_project_prompt_presets(cwd, {
+			terse: { instructions: 'Use legacy project JSON.' },
+		});
+		save_prompt_preset_file(join(cwd, '.pi', 'presets'), 'terse', {
+			kind: 'base',
+			instructions: 'Use canonical project Markdown.',
+		});
+
+		const catalog = load_prompt_preset_catalog(cwd);
+		expect(catalog.presets.terse).toMatchObject({
+			origin: 'project-markdown',
+			path: join(cwd, '.pi', 'presets', 'terse.md'),
+			editable: true,
+			instructions: 'Use canonical project Markdown.',
+		});
+		expect(catalog.presets.terse.fallbacks[0]).toMatchObject({
+			origin: 'project-json',
+			path: join(cwd, '.pi', 'presets.json'),
+			editable: false,
+		});
+		expect(catalog.diagnostics).toContainEqual(
+			expect.objectContaining({
+				code: 'shadowed',
+				name: 'terse',
+				origin: 'project-json',
+			}),
+		);
+	});
+
+	it('keeps valid siblings and diagnoses malformed Markdown and JSON sources', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-invalid-presets-'));
+		dirs.push(cwd);
+		const dir = join(cwd, '.pi', 'presets');
+		const valid_path = save_prompt_preset_file(dir, 'valid', {
+			instructions: 'Still loaded.',
+		});
+		const invalid_path = join(dir, 'invalid.md');
+		writeFileSync(invalid_path, '---\nkind: base\n---\n');
+		const json_path = join(cwd, '.pi', 'presets.json');
+		writeFileSync(json_path, '{not json');
+
+		const catalog = load_prompt_preset_catalog(cwd);
+		expect(catalog.presets.valid).toMatchObject({
+			path: valid_path,
+			instructions: 'Still loaded.',
+		});
+		expect(catalog.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'invalid-source',
+					path: invalid_path,
+					origin: 'project-markdown',
+				}),
+				expect.objectContaining({
+					code: 'invalid-source',
+					path: json_path,
+					origin: 'project-json',
+				}),
+			]),
+		);
+		expect(read_prompt_presets_dir(dir)).toEqual({
+			valid: { kind: 'base', instructions: 'Still loaded.' },
+		});
+	});
+
+	it('reports the exact path of externally-created Markdown files', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-file-presets-'));
+		dirs.push(cwd);
+		const dir = join(cwd, '.pi', 'presets');
+		const path = join(dir, 'odd:name.md');
+		save_prompt_preset_file(dir, 'placeholder', {
+			instructions: 'Placeholder.',
+		});
+		writeFileSync(path, '---\nkind: base\n---\n\nExact path.\n');
+
+		expect(
+			load_prompt_preset_catalog(cwd).presets['odd:name'],
+		).toMatchObject({
+			path,
+			origin: 'project-markdown',
+			instructions: 'Exact path.',
+		});
+	});
+
 	it('lets project markdown preset files override built-in presets', () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-file-presets-'));
 		dirs.push(cwd);
@@ -149,18 +238,84 @@ describe('file-backed prompt presets', () => {
 		dirs.push(cwd);
 		process.env.MY_PI_PROMPT_PRESETS_PROJECT = 'skip';
 
-		save_prompt_preset_file(join(cwd, '.pi', 'presets'), 'terse', {
+		const project_dir = join(cwd, '.pi', 'presets');
+		save_prompt_preset_file(project_dir, 'terse', {
 			kind: 'base',
 			description: 'Project terse',
 			instructions: 'Use the project terse style.',
 		});
+		writeFileSync(
+			join(project_dir, 'invalid.md'),
+			'---\nkind: base\n---\n',
+		);
+		writeFileSync(join(cwd, '.pi', 'presets.json'), '{not json');
 
-		const preset = load_prompt_presets(cwd).terse;
+		const catalog = load_prompt_preset_catalog(cwd);
+		const preset = catalog.presets.terse;
 		expect(preset.name).toBe('terse');
 		expect(preset.source).not.toBe('project');
 		expect(preset.instructions).not.toBe(
 			'Use the project terse style.',
 		);
+		expect(
+			catalog.diagnostics.some((diagnostic) =>
+				diagnostic.origin.startsWith('project'),
+			),
+		).toBe(false);
+	});
+
+	it('migrates project JSON without overwriting Markdown and is idempotent', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-file-presets-'));
+		dirs.push(cwd);
+		save_project_prompt_presets(cwd, {
+			alpha: { instructions: 'Move me.' },
+			'a/b': { instructions: 'Keep this exact logical name.' },
+			collision: { instructions: 'Keep this legacy value.' },
+		});
+		save_prompt_preset_file(
+			join(cwd, '.pi', 'presets'),
+			'collision',
+			{
+				instructions: 'Do not overwrite me.',
+			},
+		);
+
+		const first = migrate_legacy_prompt_presets(cwd, 'project');
+		expect(first.written).toEqual([
+			join(cwd, '.pi', 'presets', 'alpha.md'),
+		]);
+		expect(first.remaining_legacy).toBe(2);
+		expect(first.collisions).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'migration-unsafe-name',
+					name: 'a/b',
+				}),
+				expect.objectContaining({
+					code: 'migration-collision',
+					name: 'collision',
+				}),
+			]),
+		);
+		expect(
+			readFileSync(
+				join(cwd, '.pi', 'presets', 'collision.md'),
+				'utf-8',
+			),
+		).toContain('Do not overwrite me.');
+		expect(
+			JSON.parse(
+				readFileSync(join(cwd, '.pi', 'presets.json'), 'utf-8'),
+			),
+		).toEqual({
+			'a/b': { instructions: 'Keep this exact logical name.' },
+			collision: { instructions: 'Keep this legacy value.' },
+		});
+
+		const second = migrate_legacy_prompt_presets(cwd, 'project');
+		expect(second.written).toEqual([]);
+		expect(second.remaining_legacy).toBe(2);
+		expect(second.collisions).toHaveLength(2);
 	});
 
 	it('removes project markdown preset files', () => {

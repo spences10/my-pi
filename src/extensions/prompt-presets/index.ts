@@ -53,8 +53,10 @@ export {
 } from './defaults.js';
 export {
 	load_persisted_prompt_state,
+	load_prompt_preset_catalog,
 	load_prompt_presets,
 	merge_prompt_presets,
+	migrate_legacy_prompt_presets,
 	normalize_prompt_presets,
 	read_prompt_presets_dir,
 	remove_project_prompt_preset,
@@ -65,8 +67,13 @@ export {
 export type {
 	LoadedPromptPreset,
 	PromptPreset,
+	PromptPresetCatalog,
+	PromptPresetDefinition,
+	PromptPresetDiagnostic,
 	PromptPresetKind,
 	PromptPresetMap,
+	PromptPresetMigrationResult,
+	PromptPresetOrigin,
 	PromptPresetSource,
 	PromptPresetState,
 } from './types.js';

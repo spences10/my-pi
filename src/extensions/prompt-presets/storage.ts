@@ -3,6 +3,7 @@ import {
 	parseFrontmatter,
 } from '@earendil-works/pi-coding-agent';
 import {
+	get_settings_path,
 	read_settings,
 	write_settings,
 } from '@spences10/pi-settings';
@@ -20,7 +21,12 @@ import { DEFAULT_PROMPT_PRESETS } from './defaults.js';
 import type {
 	LoadedPromptPreset,
 	PromptPreset,
+	PromptPresetCatalog,
+	PromptPresetDefinition,
+	PromptPresetDiagnostic,
 	PromptPresetMap,
+	PromptPresetMigrationResult,
+	PromptPresetOrigin,
 	PromptPresetSource,
 	PromptPresetState,
 } from './types.js';
@@ -78,10 +84,13 @@ export function merge_prompt_presets(
 	return Object.assign({}, ...sources);
 }
 
-function to_loaded_prompt_presets(
+function to_prompt_preset_definitions(
 	presets: PromptPresetMap,
 	source: PromptPresetSource,
-): Record<string, LoadedPromptPreset> {
+	origin: PromptPresetOrigin,
+	path: string | null,
+	editable: boolean,
+): Record<string, PromptPresetDefinition> {
 	return Object.fromEntries(
 		Object.entries(presets).map(([name, preset]) => [
 			name,
@@ -89,17 +98,80 @@ function to_loaded_prompt_presets(
 				name,
 				kind: preset.kind === 'layer' ? 'layer' : 'base',
 				source,
+				origin,
+				path,
+				editable,
 				...preset,
 			},
 		]),
 	);
 }
 
-function get_global_presets_path(): string {
+function read_prompt_preset_markdown_definitions(
+	dir: string,
+	source: PromptPresetSource,
+	origin: 'global-markdown' | 'project-markdown',
+): {
+	definitions: Record<string, PromptPresetDefinition>;
+	diagnostics: PromptPresetDiagnostic[];
+} {
+	const definitions: Record<string, PromptPresetDefinition> = {};
+	const diagnostics: PromptPresetDiagnostic[] = [];
+	if (!existsSync(dir)) return { definitions, diagnostics };
+	let entries;
+	try {
+		entries = readdirSync(dir, { withFileTypes: true });
+	} catch (error) {
+		diagnostics.push({
+			code: 'invalid-source',
+			message: `Could not read prompt preset directory: ${String(error)}`,
+			path: dir,
+			origin,
+		});
+		return { definitions, diagnostics };
+	}
+	for (const entry of entries
+		.filter((item) => item.isFile() && item.name.endsWith('.md'))
+		.sort((a, b) => a.name.localeCompare(b.name))) {
+		const name = entry.name.slice(0, -3).trim();
+		const path = join(dir, entry.name);
+		if (!name) continue;
+		try {
+			const { metadata, body } = parse_prompt_preset_markdown(
+				readFileSync(path, 'utf-8'),
+			);
+			if (!body) throw new Error('instructions body is empty');
+			definitions[name] = {
+				name,
+				kind: metadata.kind === 'layer' ? 'layer' : 'base',
+				instructions: body,
+				source,
+				origin,
+				path,
+				editable: true,
+				...(typeof metadata.description === 'string' &&
+				metadata.description.trim()
+					? { description: metadata.description }
+					: {}),
+			};
+		} catch (error) {
+			diagnostics.push({
+				code: 'invalid-source',
+				name,
+				message: `Could not read prompt preset Markdown: ${String(error)}`,
+				path,
+				origin,
+			});
+		}
+	}
+	return { definitions, diagnostics };
+}
+
+export function get_global_presets_path(): string {
 	return join(getAgentDir(), 'presets.json');
 }
 
-function get_project_presets_path(cwd: string): string {
+export function get_project_presets_path(cwd: string): string {
 	return join(cwd, '.pi', 'presets.json');
 }
 
@@ -153,6 +225,63 @@ function read_prompt_presets_file(path: string): PromptPresetMap {
 	}
 }
 
+function read_global_prompt_presets_source(): {
+	presets: PromptPresetMap;
+	diagnostics: PromptPresetDiagnostic[];
+} {
+	const path = get_settings_path();
+	try {
+		return {
+			presets: normalize_prompt_presets(
+				read_settings().promptPresets?.global ?? {},
+			),
+			diagnostics: [],
+		};
+	} catch (error) {
+		return {
+			presets: {},
+			diagnostics: [
+				{
+					code: 'invalid-source',
+					message: `Could not read legacy global prompt presets: ${String(error)}`,
+					path,
+					origin: 'legacy-global-settings',
+				},
+			],
+		};
+	}
+}
+
+function read_prompt_presets_json_source(
+	path: string,
+	origin: 'project-json',
+): {
+	presets: PromptPresetMap;
+	diagnostics: PromptPresetDiagnostic[];
+} {
+	if (!existsSync(path)) return { presets: {}, diagnostics: [] };
+	try {
+		return {
+			presets: normalize_prompt_presets(
+				JSON.parse(readFileSync(path, 'utf-8')),
+			),
+			diagnostics: [],
+		};
+	} catch (error) {
+		return {
+			presets: {},
+			diagnostics: [
+				{
+					code: 'invalid-source',
+					message: `Could not read prompt preset JSON: ${String(error)}`,
+					path,
+					origin,
+				},
+			],
+		};
+	}
+}
+
 export function parse_prompt_preset_markdown(content: string): {
 	metadata: Record<string, unknown>;
 	body: string;
@@ -164,32 +293,23 @@ export function parse_prompt_preset_markdown(content: string): {
 export function read_prompt_presets_dir(
 	path: string,
 ): PromptPresetMap {
-	if (!existsSync(path)) return {};
-
-	try {
-		const presets: PromptPresetMap = {};
-		for (const entry of readdirSync(path, { withFileTypes: true })
-			.filter((item) => item.isFile() && item.name.endsWith('.md'))
-			.sort((a, b) => a.name.localeCompare(b.name))) {
-			const name = entry.name.slice(0, -3).trim();
-			if (!name) continue;
-			const { metadata, body } = parse_prompt_preset_markdown(
-				readFileSync(join(path, entry.name), 'utf-8'),
-			);
-			if (!body) continue;
-			presets[name] = {
-				kind: metadata.kind === 'layer' ? 'layer' : 'base',
-				instructions: body,
-				...(typeof metadata.description === 'string' &&
-				metadata.description.trim()
-					? { description: metadata.description }
+	const { definitions } = read_prompt_preset_markdown_definitions(
+		path,
+		'user',
+		'global-markdown',
+	);
+	return Object.fromEntries(
+		Object.entries(definitions).map(([name, definition]) => [
+			name,
+			{
+				kind: definition.kind,
+				instructions: definition.instructions,
+				...(definition.description
+					? { description: definition.description }
 					: {}),
-			};
-		}
-		return presets;
-	} catch {
-		return {};
-	}
+			},
+		]),
+	);
 }
 
 export function format_prompt_preset_markdown(
@@ -258,33 +378,95 @@ function should_load_project_prompt_presets(): boolean {
 	);
 }
 
+export function load_prompt_preset_catalog(
+	cwd: string,
+): PromptPresetCatalog {
+	const legacy_global = read_global_prompt_presets_source();
+	const global_markdown = read_prompt_preset_markdown_definitions(
+		get_global_presets_dir(),
+		'user',
+		'global-markdown',
+	);
+	const project_json = read_prompt_presets_json_source(
+		get_project_presets_path(cwd),
+		'project-json',
+	);
+	const project_markdown = read_prompt_preset_markdown_definitions(
+		get_project_presets_dir(cwd),
+		'project',
+		'project-markdown',
+	);
+	const source_diagnostics: PromptPresetDiagnostic[] = [
+		...legacy_global.diagnostics,
+		...global_markdown.diagnostics,
+	];
+	const sources: Array<Record<string, PromptPresetDefinition>> = [
+		to_prompt_preset_definitions(
+			DEFAULT_PROMPT_PRESETS,
+			'builtin',
+			'builtin',
+			null,
+			false,
+		),
+		to_prompt_preset_definitions(
+			legacy_global.presets,
+			'user',
+			'legacy-global-settings',
+			get_settings_path(),
+			false,
+		),
+		global_markdown.definitions,
+	];
+	if (should_load_project_prompt_presets()) {
+		source_diagnostics.push(
+			...project_json.diagnostics,
+			...project_markdown.diagnostics,
+		);
+		sources.push(
+			to_prompt_preset_definitions(
+				project_json.presets,
+				'project',
+				'project-json',
+				get_project_presets_path(cwd),
+				false,
+			),
+			project_markdown.definitions,
+		);
+	}
+
+	const chains = new Map<string, PromptPresetDefinition[]>();
+	for (const source of sources) {
+		for (const definition of Object.values(source)) {
+			const chain = chains.get(definition.name) ?? [];
+			chain.push(definition);
+			chains.set(definition.name, chain);
+		}
+	}
+	const diagnostics: PromptPresetDiagnostic[] = [
+		...source_diagnostics,
+	];
+	const presets: Record<string, LoadedPromptPreset> = {};
+	for (const [name, chain] of chains) {
+		const winner = chain.at(-1)!;
+		const fallbacks = chain.slice(0, -1).reverse();
+		presets[name] = { ...winner, fallbacks };
+		for (const shadowed of fallbacks) {
+			diagnostics.push({
+				code: 'shadowed',
+				name,
+				message: `${shadowed.origin} definition is shadowed by ${winner.origin}`,
+				path: shadowed.path,
+				origin: shadowed.origin,
+			});
+		}
+	}
+	return { presets, diagnostics };
+}
+
 export function load_prompt_presets(
 	cwd: string,
 ): Record<string, LoadedPromptPreset> {
-	return Object.assign(
-		{},
-		to_loaded_prompt_presets(DEFAULT_PROMPT_PRESETS, 'builtin'),
-		to_loaded_prompt_presets(
-			read_prompt_presets_file(get_global_presets_path()),
-			'user',
-		),
-		to_loaded_prompt_presets(
-			read_prompt_presets_dir(get_global_presets_dir()),
-			'user',
-		),
-		...(should_load_project_prompt_presets()
-			? [
-					to_loaded_prompt_presets(
-						read_prompt_presets_file(get_project_presets_path(cwd)),
-						'project',
-					),
-					to_loaded_prompt_presets(
-						read_prompt_presets_dir(get_project_presets_dir(cwd)),
-						'project',
-					),
-				]
-			: []),
-	);
+	return load_prompt_preset_catalog(cwd).presets;
 }
 
 function sort_prompt_presets(
@@ -313,6 +495,134 @@ export function save_project_prompt_presets(
 	);
 	renameSync(tmp, path);
 	return path;
+}
+
+export function migrate_legacy_prompt_presets(
+	cwd: string,
+	scope: 'global' | 'project',
+): PromptPresetMigrationResult {
+	return migrate_legacy_prompt_presets_with_dependencies(cwd, scope, {
+		global_presets_dir: get_global_presets_dir(),
+		settings_path: get_settings_path(),
+		read_settings,
+		write_settings,
+	});
+}
+
+function migrate_legacy_prompt_presets_with_dependencies(
+	cwd: string,
+	scope: 'global' | 'project',
+	dependencies: {
+		global_presets_dir: string;
+		settings_path: string;
+		read_settings: typeof read_settings;
+		write_settings: typeof write_settings;
+	},
+): PromptPresetMigrationResult {
+	const read_global_settings = dependencies.read_settings;
+	const write_global_settings = dependencies.write_settings;
+	const legacy_path =
+		scope === 'global'
+			? dependencies.settings_path
+			: get_project_presets_path(cwd);
+	const destination =
+		scope === 'global'
+			? dependencies.global_presets_dir
+			: get_project_presets_dir(cwd);
+	const legacy =
+		scope === 'global'
+			? normalize_prompt_presets(
+					read_global_settings().promptPresets?.global ?? {},
+				)
+			: read_prompt_presets_file(legacy_path);
+	const written: string[] = [];
+	const collisions: PromptPresetDiagnostic[] = [];
+	const remaining: PromptPresetMap = {};
+	if (Object.keys(legacy).length === 0) {
+		return {
+			scope,
+			written,
+			collisions,
+			legacy_path,
+			remaining_legacy: 0,
+		};
+	}
+
+	for (const [name, preset] of Object.entries(legacy)) {
+		let path: string;
+		try {
+			path = get_prompt_preset_file_path(destination, name);
+		} catch {
+			remaining[name] = preset;
+			collisions.push({
+				code: 'migration-unsafe-name',
+				name,
+				message: `Kept legacy definition because its name cannot round-trip to a Markdown filename`,
+				path: legacy_path,
+				origin:
+					scope === 'global'
+						? 'legacy-global-settings'
+						: 'project-json',
+			});
+			continue;
+		}
+		if (path !== join(destination, `${name}.md`)) {
+			remaining[name] = preset;
+			collisions.push({
+				code: 'migration-unsafe-name',
+				name,
+				message: `Kept legacy definition because its name would change in Markdown`,
+				path: legacy_path,
+				origin:
+					scope === 'global'
+						? 'legacy-global-settings'
+						: 'project-json',
+			});
+			continue;
+		}
+		if (existsSync(path)) {
+			remaining[name] = preset;
+			collisions.push({
+				code: 'migration-collision',
+				name,
+				message: `Kept legacy definition because ${path} already exists`,
+				path,
+				origin:
+					scope === 'global'
+						? 'legacy-global-settings'
+						: 'project-json',
+			});
+			continue;
+		}
+		save_prompt_preset_file(destination, name, preset);
+		written.push(path);
+	}
+
+	if (scope === 'global') {
+		const settings = read_global_settings();
+		write_global_settings({
+			...settings,
+			promptPresets: {
+				...settings.promptPresets,
+				global:
+					Object.keys(remaining).length > 0
+						? sort_prompt_presets(remaining)
+						: undefined,
+			},
+		});
+	} else if (Object.keys(remaining).length > 0) {
+		save_project_prompt_presets(cwd, remaining);
+	} else if (existsSync(legacy_path)) {
+		unlinkSync(legacy_path);
+	}
+
+	return {
+		scope,
+		written,
+		collisions,
+		legacy_path,
+		remaining_legacy: Object.keys(remaining).length,
+	};
 }
 
 export function remove_project_prompt_preset(

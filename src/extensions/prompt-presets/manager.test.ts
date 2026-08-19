@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
 import type { ModalTheme } from '@spences10/pi-tui-modal';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	PromptPresetInspectorBody,
 	type PromptPresetManagerState,
@@ -17,6 +17,10 @@ function preset(
 		description,
 		instructions: `${name} instructions`,
 		source: 'builtin',
+		origin: 'builtin',
+		path: null,
+		editable: false,
+		fallbacks: [],
 	};
 }
 

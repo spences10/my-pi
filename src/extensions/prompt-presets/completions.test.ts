@@ -6,7 +6,16 @@ function preset(
 	name: string,
 	kind: LoadedPromptPreset['kind'],
 ): LoadedPromptPreset {
-	return { name, kind, instructions: name, source: 'builtin' };
+	return {
+		name,
+		kind,
+		instructions: name,
+		source: 'builtin',
+		origin: 'builtin',
+		path: null,
+		editable: false,
+		fallbacks: [],
+	};
 }
 
 describe('get_prompt_preset_completions', () => {
