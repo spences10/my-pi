@@ -60,11 +60,9 @@ export async function show_prompt_preset_manager(
 	>(
 		ctx,
 		{
-			title: 'Prompt preset inspector',
-			subtitle: () =>
-				`base: ${state.active_base_name ?? '(none)'} • ${state.active_layers.size} layer(s) currently active`,
-			footer:
-				'↑↓ navigate • space toggle/select • tab preview • e edit project • E edit global • enter apply • esc cancel',
+			title: 'Prompt presets',
+			subtitle: 'Choose one base preset, then add optional layers.',
+			footer: '↑↓ move • space select • enter apply • esc cancel',
 			overlay_options: {
 				width: '92%',
 				minWidth: 72,
@@ -93,9 +91,9 @@ export async function show_prompt_preset_manager(
 	}
 }
 
-class PromptPresetInspectorBody implements Component {
+export class PromptPresetInspectorBody implements Component {
 	private readonly rows: PresetRow[];
-	private selected_index = 1;
+	private selected_index: number;
 	private selected_base: string | undefined;
 	private readonly enabled_layers: Set<string>;
 	private preview_mode: 'item' | 'effective' = 'item';
@@ -137,7 +135,7 @@ class PromptPresetInspectorBody implements Component {
 		];
 		this.selected_base = state.active_base_name;
 		this.enabled_layers = new Set(state.active_layers);
-		this.skip_header(1);
+		this.selected_index = this.get_initial_selected_index();
 	}
 
 	render(width: number): string[] {
@@ -250,8 +248,8 @@ class PromptPresetInspectorBody implements Component {
 	private render_preview(width: number, max_lines: number): string[] {
 		const heading =
 			this.preview_mode === 'effective'
-				? 'Effective prompt contribution'
-				: 'Selected preset';
+				? 'Full prompt contribution'
+				: this.get_selected_heading();
 		const text =
 			this.preview_mode === 'effective'
 				? this.get_effective_prompt_text()
@@ -332,14 +330,8 @@ class PromptPresetInspectorBody implements Component {
 		}
 		const preset = row.preset;
 		return [
-			`# ${preset.name}`,
-			'',
-			`Kind: ${preset.kind}`,
-			`Source: ${get_prompt_source_label(preset.source)}`,
-			preset.description
-				? `Description: ${preset.description}`
-				: undefined,
-			'',
+			preset.description || undefined,
+			preset.description ? '' : undefined,
 			preset.instructions.trim() || '(empty preset)',
 		]
 			.filter((line): line is string => line !== undefined)
@@ -355,6 +347,29 @@ class PromptPresetInspectorBody implements Component {
 		return blocks.length > 0
 			? blocks.join('\n\n')
 			: '(No prompt preset text will be appended.)';
+	}
+
+	private get_selected_heading(): string {
+		const row = this.rows[this.selected_index];
+		if (!row || row.type === 'header') return 'Highlighted preset';
+		return row.type === 'base-none'
+			? 'No base preset'
+			: row.preset.name;
+	}
+
+	private get_initial_selected_index(): number {
+		if (this.selected_base) {
+			const base_index = this.rows.findIndex(
+				(row) =>
+					row.type === 'preset' && row.id === this.selected_base,
+			);
+			if (base_index >= 0) return base_index;
+		}
+		const active_layer_index = this.rows.findIndex(
+			(row) =>
+				row.type === 'preset' && this.enabled_layers.has(row.id),
+		);
+		return active_layer_index >= 0 ? active_layer_index : 1;
 	}
 
 	private toggle_selected(): void {
@@ -380,11 +395,6 @@ class PromptPresetInspectorBody implements Component {
 		} while (this.rows[next]?.type === 'header');
 		this.selected_index = next;
 		this.preview_offset = 0;
-	}
-
-	private skip_header(fallback: number): void {
-		if (this.rows[this.selected_index]?.type !== 'header') return;
-		this.selected_index = fallback;
 	}
 
 	private scroll_preview(delta: number): void {
