@@ -1,5 +1,21 @@
 # my-pi
 
+## 0.2.0
+
+### Minor Changes
+
+- 9d1dd0e: Define prompt preset ownership, precedence, provenance,
+  diagnostics, and safe migration for global and project sources.
+
+### Patch Changes
+
+- 3733cfb: Add safe prompt preset library operations for creating,
+  copying, renaming, deleting, resetting, and reloading presets.
+- 0d229fe: Refine prompt preset selection with clearer guidance,
+  active-item focus, and simpler instruction previews in TUI.
+- 4078d93: Expose safe prompt preset creation, editing, copying,
+  renaming, deletion, reset, and reload actions in TUI.
+
 ## 0.1.131
 
 ### Patch Changes
