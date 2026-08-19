@@ -16,6 +16,14 @@ import {
 } from './defaults.js';
 import { set_status } from './footer.js';
 import { format_prompt_preset_help, is_subcommand } from './help.js';
+import {
+	copy_prompt_preset,
+	delete_prompt_preset,
+	reload_prompt_preset_library,
+	rename_prompt_preset,
+	reset_prompt_preset_override,
+	type PromptPresetScope,
+} from './library.js';
 import { show_prompt_preset_manager } from './manager.js';
 import { build_active_prompt_blocks } from './prompt-blocks.js';
 import {
@@ -340,21 +348,176 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 		);
 	}
 
+	async function choose_scope(
+		ctx: ExtensionCommandContext,
+		action: string,
+	): Promise<PromptPresetScope | undefined> {
+		const choice = await ctx.ui.select(
+			`${action}: choose where to write`,
+			['Project (.pi/presets)', 'Global (~/.pi/agent/presets)'],
+		);
+		return choice?.startsWith('Project')
+			? 'project'
+			: choice
+				? 'global'
+				: undefined;
+	}
+
+	function refresh_after_management(
+		ctx: ExtensionCommandContext,
+	): void {
+		presets = load_prompt_presets(ctx.cwd);
+		const normalized = normalize_active_state(
+			presets,
+			active_base_name,
+			active_layers,
+		);
+		active_base_name = normalized.active_base_name;
+		active_layers = normalized.active_layers;
+		set_status(ctx, active_base_name, active_layers);
+		persist_state(pi, ctx, active_base_name, active_layers);
+	}
+
 	async function show_manager(
 		ctx: ExtensionCommandContext,
 	): Promise<void> {
-		await show_prompt_preset_manager(
-			ctx,
-			{ presets, active_base_name, active_layers },
-			(selected_base, enabled_layers) => {
-				commit_state(ctx, selected_base, enabled_layers, {
+		while (true) {
+			const result = await show_prompt_preset_manager(ctx, {
+				presets,
+				active_base_name,
+				active_layers,
+			});
+			if (result.action === 'cancel') return;
+			if (result.action === 'apply') {
+				commit_state(ctx, result.base_name, result.layers, {
 					notify: 'Updated prompt preset selection',
 				});
-			},
-			async (name, scope) => {
-				await edit_preset(name, ctx, scope);
-			},
-		);
+				return;
+			}
+			try {
+				if (result.action === 'reload') {
+					const catalog = reload_prompt_preset_library(ctx.cwd);
+					presets = catalog.presets;
+					refresh_after_management(ctx);
+					const diagnostics = catalog.diagnostics;
+					ctx.ui.notify(
+						diagnostics.length
+							? `Reloaded with ${diagnostics.length} validation issue(s):\n${diagnostics.map((item) => `${item.path}: ${item.message}`).join('\n')}`
+							: 'Reloaded prompt presets',
+						diagnostics.length ? 'warning' : 'info',
+					);
+					continue;
+				}
+
+				const selected = result.preset;
+				if (result.action === 'create') {
+					const name = await ctx.ui.input(
+						'Create preset',
+						'Preset name',
+					);
+					if (!name) continue;
+					const scope = await choose_scope(ctx, 'Create preset');
+					if (!scope) continue;
+					await edit_preset(name.trim(), ctx, scope);
+					continue;
+				}
+				if (!selected) continue;
+
+				if (result.action === 'edit' && !selected.editable) {
+					ctx.ui.notify(
+						'Built-in presets are read-only. Copy it before editing.',
+						'warning',
+					);
+					continue;
+				}
+				const scope = await choose_scope(
+					ctx,
+					`${result.action} ${selected.name}`,
+				);
+				if (!scope) continue;
+
+				if (result.action === 'edit') {
+					await edit_preset(selected.name, ctx, scope);
+				} else if (result.action === 'copy') {
+					const target = await ctx.ui.input(
+						'Copy preset',
+						selected.name,
+					);
+					if (!target) continue;
+					copy_prompt_preset(
+						ctx.cwd,
+						selected.name,
+						selected.origin === 'builtin'
+							? 'builtin'
+							: selected.origin.startsWith('project')
+								? 'project'
+								: 'global',
+						scope,
+						target.trim(),
+					);
+				} else if (result.action === 'rename') {
+					if (!selected.editable) {
+						ctx.ui.notify(
+							'Built-in presets are read-only. Copy it before renaming.',
+							'warning',
+						);
+						continue;
+					}
+					const target = await ctx.ui.input(
+						'Rename preset',
+						selected.name,
+					);
+					if (!target) continue;
+					const mutation = rename_prompt_preset(
+						ctx.cwd,
+						scope,
+						selected.name,
+						target.trim(),
+						{
+							base_name: active_base_name ?? null,
+							layer_names: [...active_layers],
+						},
+					);
+					if (mutation.state) {
+						active_base_name = mutation.state.base_name ?? undefined;
+						active_layers = new Set(mutation.state.layer_names);
+					}
+				} else {
+					if (!selected.editable) {
+						ctx.ui.notify(
+							'Built-in presets are read-only.',
+							'warning',
+						);
+						continue;
+					}
+					const confirmed = await ctx.ui.confirm(
+						result.action === 'delete'
+							? 'Delete preset?'
+							: 'Reset override?',
+						`${selected.name} (${scope})`,
+					);
+					if (!confirmed) continue;
+					if (result.action === 'delete')
+						delete_prompt_preset(ctx.cwd, scope, selected.name, true);
+					else
+						reset_prompt_preset_override(
+							ctx.cwd,
+							scope,
+							selected.name,
+						);
+				}
+				refresh_after_management(ctx);
+				ctx.ui.notify(
+					`${result.action} completed for "${selected.name}"`,
+					'info',
+				);
+			} catch (error) {
+				ctx.ui.notify(
+					error instanceof Error ? error.message : String(error),
+					'error',
+				);
+			}
+		}
 	}
 
 	pi.registerFlag('preset', {
@@ -373,7 +536,7 @@ export default async function prompt_presets(pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			const trimmed = args.trim();
 			if (!trimmed) {
-				if (ctx.hasUI) {
+				if (ctx.hasUI && ctx.mode === 'tui') {
 					await show_manager(ctx);
 					return;
 				}

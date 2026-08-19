@@ -1,5 +1,5 @@
 ---
-"my-pi": minor
+'my-pi': minor
 ---
 
 Define prompt preset ownership, precedence, provenance, diagnostics,

@@ -14,7 +14,7 @@ import {
 	list_layer_presets,
 } from './catalog.js';
 import { build_active_prompt_blocks } from './prompt-blocks.js';
-import { NONE_BASE_ID, sets_equal } from './state.js';
+import { NONE_BASE_ID } from './state.js';
 import type { LoadedPromptPreset } from './types.js';
 
 export interface PromptPresetManagerState {
@@ -23,13 +23,26 @@ export interface PromptPresetManagerState {
 	active_layers: ReadonlySet<string>;
 }
 
+export type PromptPresetManagementAction =
+	| 'create'
+	| 'edit'
+	| 'copy'
+	| 'rename'
+	| 'delete'
+	| 'reset'
+	| 'reload';
+
 export type PromptPresetManagerResult =
 	| {
 			action: 'apply';
 			base_name: string | undefined;
 			layers: ReadonlySet<string>;
 	  }
-	| { action: 'edit'; name: string; scope: 'project' | 'global' };
+	| { action: 'cancel' }
+	| {
+			action: PromptPresetManagementAction;
+			preset?: LoadedPromptPreset;
+	  };
 
 type PresetRow =
 	| { type: 'header'; id: string; label: string }
@@ -39,20 +52,12 @@ type PresetRow =
 export async function show_prompt_preset_manager(
 	ctx: ExtensionCommandContext,
 	state: PromptPresetManagerState,
-	on_change: (
-		base_name: string | undefined,
-		layers: ReadonlySet<string>,
-	) => void,
-	on_edit?: (
-		name: string,
-		scope: 'project' | 'global',
-	) => Promise<void>,
-): Promise<void> {
+): Promise<PromptPresetManagerResult> {
 	const base_presets = list_base_presets(state.presets);
 	const layer_presets = list_layer_presets(state.presets);
 	if (base_presets.length === 0 && layer_presets.length === 0) {
 		ctx.ui.notify('No prompt presets available', 'warning');
-		return;
+		return { action: 'cancel' };
 	}
 
 	const result = await show_modal<
@@ -62,11 +67,11 @@ export async function show_prompt_preset_manager(
 		{
 			title: 'Prompt presets',
 			subtitle: 'Choose one base preset, then add optional layers.',
-			footer: '↑↓ move • space select • enter apply • esc cancel',
+			footer: '↑↓ move • space select • enter Apply • esc Cancel',
 			overlay_options: {
-				width: '92%',
-				minWidth: 72,
-				maxHeight: '88%',
+				width: '94%',
+				minWidth: 44,
+				maxHeight: '92%',
 			},
 		},
 		({ done }, theme, layout) =>
@@ -78,17 +83,7 @@ export async function show_prompt_preset_manager(
 			),
 	);
 
-	if (!result) return;
-	if (result.action === 'edit') {
-		await on_edit?.(result.name, result.scope);
-		return;
-	}
-	if (
-		result.base_name !== state.active_base_name ||
-		!sets_equal(new Set(state.active_layers), result.layers)
-	) {
-		on_change(result.base_name, result.layers);
-	}
+	return result ?? { action: 'cancel' };
 }
 
 export class PromptPresetInspectorBody implements Component {
@@ -192,17 +187,25 @@ export class PromptPresetInspectorBody implements Component {
 				base_name: this.selected_base,
 				layers: new Set(this.enabled_layers),
 			});
-		} else if (data === 'e' || data === 'E') {
+		} else if ('neyrdxl'.includes(data)) {
+			const actions = {
+				n: 'create',
+				e: 'edit',
+				y: 'copy',
+				r: 'rename',
+				d: 'delete',
+				x: 'reset',
+				l: 'reload',
+			} as const;
 			const row = this.rows[this.selected_index];
-			if (row?.type === 'preset') {
-				this.done({
-					action: 'edit',
-					name: row.preset.name,
-					scope: data === 'E' ? 'global' : 'project',
-				});
+			const action = actions[data as keyof typeof actions];
+			if (action === 'create' || action === 'reload') {
+				this.done({ action });
+			} else if (row?.type === 'preset') {
+				this.done({ action, preset: row.preset });
 			}
 		} else if (matchesKey(data, Key.escape) || data === 'q') {
-			this.done(undefined);
+			this.done({ action: 'cancel' });
 		} else if (data === 'J') {
 			this.scroll_preview(1);
 		} else if (data === 'K') {
@@ -223,11 +226,16 @@ export class PromptPresetInspectorBody implements Component {
 	}
 
 	private render_list(width: number, max_lines: number): string[] {
+		const action_lines = wrapTextWithAnsi(
+			'N Create  E Edit  Y Copy  R Rename  D Delete  X Reset  L Reload',
+			Math.max(20, width),
+		).map((line) => this.theme.fg('dim', line));
 		const lines = [
 			this.theme.fg(
 				'accent',
-				`Draft selection: ${this.selected_base ?? '(none)'} + ${this.enabled_layers.size} layer(s)`,
+				`Draft: ${this.selected_base ?? '(none)'} + ${this.enabled_layers.size} layer(s)`,
 			),
+			...action_lines,
 			'',
 		];
 		const visible_rows = Math.max(1, max_lines - lines.length);

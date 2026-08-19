@@ -1,5 +1,5 @@
 ---
-"my-pi": patch
+'my-pi': patch
 ---
 
 Add safe prompt preset library operations for creating, copying,
