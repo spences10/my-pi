@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.1.131
+
+### Patch Changes
+
+- 71c4ccc: Fix generic extension CLI flag forwarding and validate
+  prompt preset injection across all runtime modes.
+
 ## 0.1.130
 
 ### Patch Changes
