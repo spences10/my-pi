@@ -52,6 +52,23 @@ export {
 	DEFAULT_PROMPT_PRESETS,
 } from './defaults.js';
 export {
+	copy_prompt_preset,
+	create_prompt_preset,
+	delete_prompt_preset,
+	get_delete_prompt_preset_confirmation,
+	PromptPresetLibraryError,
+	reload_prompt_preset_library,
+	rename_prompt_preset,
+	reset_prompt_preset_override,
+	validate_prompt_preset_name,
+} from './library.js';
+export type {
+	PromptPresetDeleteConfirmation,
+	PromptPresetLibraryErrorCode,
+	PromptPresetMutationResult,
+	PromptPresetScope,
+} from './library.js';
+export {
 	load_persisted_prompt_state,
 	load_prompt_preset_catalog,
 	load_prompt_presets,

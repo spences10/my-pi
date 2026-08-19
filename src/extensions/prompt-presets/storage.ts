@@ -140,6 +140,15 @@ function read_prompt_preset_markdown_definitions(
 			const { metadata, body } = parse_prompt_preset_markdown(
 				readFileSync(path, 'utf-8'),
 			);
+			if (
+				metadata.kind !== undefined &&
+				metadata.kind !== 'base' &&
+				metadata.kind !== 'layer'
+			) {
+				throw new Error(
+					`kind must be "base" or "layer", received ${JSON.stringify(metadata.kind)}`,
+				);
+			}
 			if (!body) throw new Error('instructions body is empty');
 			definitions[name] = {
 				name,
