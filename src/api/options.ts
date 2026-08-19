@@ -24,6 +24,7 @@ export interface CreateMyPiOptions extends BuiltinExtensionOptions {
 	extensions?: string[];
 	/** Named wrappers must not use the reserved `my-pi-` prefix. */
 	extensionFactories?: InlineExtension[];
+	extension_flag_values?: Map<string, boolean | string>;
 	runtime_mode?: MyPiRuntimeMode;
 	telemetry?: boolean;
 	telemetry_db_path?: string;

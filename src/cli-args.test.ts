@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	collect_flag_values,
 	create_builtin_disable_cli_args,
+	parse_extension_cli_args,
 	parse_extension_paths,
 	parse_skill_allowlist,
 	parse_thinking_level,
@@ -12,6 +13,83 @@ import {
 import { BUILTIN_EXTENSIONS } from './extensions/builtin-registry.js';
 
 describe('CLI arg helpers', () => {
+	const known_args = {
+		prompt: { type: 'string' as const, alias: 'p' },
+		json: { type: 'boolean' as const, alias: 'j' },
+		'agent-dir': { type: 'string' as const },
+		extension: { type: 'string' as const, alias: 'e' },
+	};
+
+	it('separates extension string flags from positional prompts', () => {
+		const spaced = parse_extension_cli_args(
+			['--preset', 'asd-ste100', 'summarize this repo'],
+			known_args,
+		);
+		const equals = parse_extension_cli_args(
+			['--preset=asd-ste100', 'summarize this repo'],
+			known_args,
+		);
+
+		expect(spaced.extension_flag_values.get('preset')).toBe(
+			'asd-ste100',
+		);
+		expect(equals.extension_flag_values.get('preset')).toBe(
+			'asd-ste100',
+		);
+		expect(spaced.positionals).toEqual(['summarize this repo']);
+		expect(equals.positionals).toEqual(['summarize this repo']);
+	});
+
+	it('excludes wrapper flags and their values from extension candidates', () => {
+		const parsed = parse_extension_cli_args(
+			[
+				'-e',
+				'./probe.ts',
+				'--preset',
+				'asd-ste100',
+				'--prompt',
+				'actual prompt',
+				'positional fallback',
+			],
+			known_args,
+		);
+
+		expect([...parsed.extension_flag_values]).toEqual([
+			['preset', 'asd-ste100'],
+		]);
+		expect(parsed.positionals).toEqual(['positional fallback']);
+	});
+
+	it('recognizes Citty camel-case and negated wrapper flags', () => {
+		const parsed = parse_extension_cli_args(
+			['--agentDir', '/tmp/agent', '--no-json', 'prompt'],
+			known_args,
+		);
+
+		expect(parsed.extension_flag_values.size).toBe(0);
+		expect(parsed.positionals).toEqual(['prompt']);
+	});
+
+	it('preserves boolean extension flags before wrapper flags', () => {
+		const parsed = parse_extension_cli_args(
+			['--plan', '--prompt', 'actual prompt'],
+			known_args,
+		);
+
+		expect(parsed.extension_flag_values.get('plan')).toBe(true);
+		expect(parsed.positionals).toEqual([]);
+	});
+
+	it('reports unknown short flags and respects the option terminator', () => {
+		const parsed = parse_extension_cli_args(
+			['-z', '--', '--literal', 'prompt'],
+			known_args,
+		);
+
+		expect(parsed.diagnostics).toEqual(['Unknown option: -z']);
+		expect(parsed.positionals).toEqual(['--literal', 'prompt']);
+	});
+
 	it('collects repeated flags in spaced and equals forms', () => {
 		expect(
 			collect_flag_values(

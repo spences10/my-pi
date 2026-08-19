@@ -67,6 +67,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		agent_dir,
 		extensions = [],
 		extensionFactories: user_factories = [],
+		extension_flag_values,
 		runtime_mode = 'interactive',
 		telemetry,
 		telemetry_db_path,
@@ -184,6 +185,7 @@ export async function create_my_pi(options: CreateMyPiOptions = {}) {
 		const services = await createAgentSessionServices({
 			cwd: runtime_cwd,
 			agentDir: effective_agent_dir,
+			extensionFlagValues: extension_flag_values,
 			resourceLoaderOptions: {
 				...(additional_skill_paths.length
 					? { additionalSkillPaths: additional_skill_paths }

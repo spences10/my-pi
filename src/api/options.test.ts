@@ -12,6 +12,7 @@ describe('api option types', () => {
 		>();
 		expectTypeOf<CreateMyPiOptions>().toExtend<{
 			cwd?: string;
+			extension_flag_values?: Map<string, boolean | string>;
 			runtime_mode?: MyPiRuntimeMode;
 			telemetry?: boolean;
 			untrusted_repo?: boolean;

@@ -479,6 +479,103 @@ describe('create_my_pi environment scoping', () => {
 		}
 	});
 
+	it('forwards string and boolean extension flags in every runtime mode', async () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-api-flags-'));
+
+		try {
+			for (const runtime_mode of [
+				'interactive',
+				'print',
+				'json',
+				'rpc',
+			] as const) {
+				const runtime = await create_my_pi({
+					cwd,
+					agent_dir: join(cwd, `agent-${runtime_mode}`),
+					runtime_mode,
+					extension_flag_values: new Map<string, boolean | string>([
+						['consumer-string', 'alpha'],
+						['consumer-boolean', true],
+					]),
+					extensionFactories: [
+						{
+							name: 'consumer-flags',
+							factory(pi) {
+								pi.registerFlag('consumer-string', {
+									type: 'string',
+								});
+								pi.registerFlag('consumer-boolean', {
+									type: 'boolean',
+								});
+							},
+						},
+					],
+					...disabled_builtins,
+				});
+
+				try {
+					const values =
+						runtime.services.resourceLoader.getExtensions().runtime
+							.flagValues;
+					expect(values.get('consumer-string')).toBe('alpha');
+					expect(values.get('consumer-boolean')).toBe(true);
+					expect(runtime.diagnostics).toEqual([]);
+				} finally {
+					await runtime.dispose();
+				}
+			}
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
+	it('returns Pi diagnostics for invalid extension flags', async () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-api-flag-errors-'));
+
+		try {
+			const runtime = await create_my_pi({
+				cwd,
+				agent_dir: join(cwd, 'agent'),
+				runtime_mode: 'json',
+				extension_flag_values: new Map<string, boolean | string>([
+					['consumer-string', true],
+					['missing-flag', true],
+				]),
+				extensionFactories: [
+					{
+						name: 'consumer-flags',
+						factory(pi) {
+							pi.registerFlag('consumer-string', {
+								type: 'string',
+							});
+						},
+					},
+				],
+				...disabled_builtins,
+			});
+
+			try {
+				expect(runtime.diagnostics).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							type: 'error',
+							message:
+								'Extension flag "--consumer-string" requires a value',
+						}),
+						expect.objectContaining({
+							type: 'error',
+							message: 'Unknown option: --missing-flag',
+						}),
+					]),
+				);
+			} finally {
+				await runtime.dispose();
+			}
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it('rejects managed-name collisions before path ownership can hide flag conflicts', async () => {
 		let consumer_factory_ran = false;
 

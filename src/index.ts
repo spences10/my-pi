@@ -12,12 +12,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
 	create_builtin_disable_cli_args,
+	parse_extension_cli_args,
 	parse_extension_paths,
 	parse_skill_allowlist,
 	parse_thinking_level,
 	parse_tool_allowlist,
 	parse_tool_excludelist,
 	resolve_builtin_extension_options,
+	type CliArgDefinitions,
 } from './cli-args.js';
 import { get_node_preflight_error } from './runtime-preflight.js';
 import { install_sqlite_warning_filter } from './warnings.js';
@@ -313,6 +315,15 @@ const main = defineCommand({
 	},
 	async run({ args }) {
 		const cwd = process.cwd();
+		const parsed_extension_cli = parse_extension_cli_args(
+			process.argv.slice(2),
+			main.args as CliArgDefinitions,
+		);
+		if (parsed_extension_cli.diagnostics.length) {
+			for (const message of parsed_extension_cli.diagnostics)
+				console.error(`Error: ${message}`);
+			process.exit(1);
+		}
 		const extension_paths = parse_extension_paths(process.argv, cwd);
 		const selected_tools = parse_tool_allowlist(process.argv);
 		const excluded_tools = parse_tool_excludelist(process.argv);
@@ -348,7 +359,7 @@ const main = defineCommand({
 		if (args.json) runtime_mode = 'json';
 		else if (args.print) runtime_mode = 'print';
 
-		const positionals = args._;
+		const positionals = parsed_extension_cli.positionals;
 		if (positionals?.[0] === 'observability') {
 			const { start_observability_server } =
 				await import('@spences10/pi-observability/server');
@@ -418,6 +429,8 @@ const main = defineCommand({
 			agent_dir: args['agent-dir'],
 			session_dir: args['session-dir'],
 			extensions: extension_paths,
+			extension_flag_values:
+				parsed_extension_cli.extension_flag_values,
 			runtime_mode,
 			...resolve_builtin_extension_options(args),
 			telemetry: telemetry_override,
@@ -434,6 +447,24 @@ const main = defineCommand({
 			append_system_prompt: args['append-system-prompt'],
 			untrusted_repo: args.untrusted,
 		});
+
+		for (const diagnostic of runtime.diagnostics) {
+			const prefix =
+				diagnostic.type === 'error'
+					? 'Error: '
+					: diagnostic.type === 'warning'
+						? 'Warning: '
+						: '';
+			console.error(`${prefix}${diagnostic.message}`);
+		}
+		if (
+			runtime.diagnostics.some(
+				(diagnostic) => diagnostic.type === 'error',
+			)
+		) {
+			await runtime.dispose();
+			process.exit(1);
+		}
 
 		if (runtime_mode === 'rpc') {
 			await runRpcMode(runtime);

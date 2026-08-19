@@ -30,6 +30,8 @@ function write_node_version_preload(
 }
 
 describe('package smoke', () => {
+	const cli_path = join(process.cwd(), 'dist', 'index.js');
+
 	it('packs the CLI and public API entrypoints', () => {
 		const raw = execFileSync(
 			'pnpm',
@@ -87,6 +89,186 @@ describe('package smoke', () => {
 			rmSync(agent_dir, { recursive: true, force: true });
 		}
 	});
+
+	it('forwards spaced and equals extension flags through the packed CLI', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-cli-flags-'));
+		const extension_path = join(cwd, 'flag-probe.ts');
+		writeFileSync(
+			extension_path,
+			`import { writeFileSync } from 'node:fs';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+export default function flag_probe(pi: ExtensionAPI) {
+  pi.registerFlag('probe-string', { type: 'string' });
+  pi.registerFlag('probe-boolean', { type: 'boolean' });
+  pi.on('session_start', () => writeFileSync(
+    process.env.FLAG_PROBE_OUT!,
+    JSON.stringify({
+      string: pi.getFlag('probe-string') ?? null,
+      boolean: pi.getFlag('probe-boolean') ?? null,
+    }),
+  ));
+}
+`,
+		);
+
+		try {
+			for (const [name, flags] of [
+				['spaced', ['--probe-string', 'alpha', '--probe-boolean']],
+				['equals', ['--probe-string=alpha', '--probe-boolean=true']],
+			] as const) {
+				const output_path = join(cwd, `${name}.json`);
+				const result = spawnSync(
+					process.execPath,
+					[
+						cli_path,
+						'--agent-dir',
+						join(cwd, `agent-${name}`),
+						'--no-builtin',
+						'-e',
+						extension_path,
+						'--mode',
+						'rpc',
+						...flags,
+					],
+					{
+						cwd,
+						encoding: 'utf-8',
+						env: {
+							...process.env,
+							FLAG_PROBE_OUT: output_path,
+						},
+						timeout: 30_000,
+					},
+				);
+
+				expect(result.status, result.stderr).toBe(0);
+				expect(
+					JSON.parse(readFileSync(output_path, 'utf-8')),
+				).toEqual({ string: 'alpha', boolean: true });
+			}
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
+	it('fails clearly for missing and unknown extension flags', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-cli-flag-errors-'));
+		const extension_path = join(cwd, 'flag-errors.ts');
+		writeFileSync(
+			extension_path,
+			`import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+export default function flag_errors(pi: ExtensionAPI) {
+  pi.registerFlag('probe-string', { type: 'string' });
+}
+`,
+		);
+
+		try {
+			for (const [name, flags, message] of [
+				[
+					'missing',
+					['--probe-string'],
+					'Extension flag "--probe-string" requires a value',
+				],
+				[
+					'unknown',
+					['--missing-flag'],
+					'Unknown option: --missing-flag',
+				],
+			] as const) {
+				const result = spawnSync(
+					process.execPath,
+					[
+						cli_path,
+						'--agent-dir',
+						join(cwd, `agent-${name}`),
+						'--no-builtin',
+						'-e',
+						extension_path,
+						'--mode',
+						'rpc',
+						...flags,
+					],
+					{ cwd, encoding: 'utf-8', timeout: 30_000 },
+				);
+
+				expect(result.status).toBe(1);
+				expect(result.stderr).toContain(`Error: ${message}`);
+			}
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	});
+
+	it('captures the selected preset in the effective prompt before any model request', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-cli-prompt-'));
+		const extension_path = join(cwd, 'prompt-capture.ts');
+		const output_path = join(cwd, 'effective-prompt.txt');
+		writeFileSync(
+			extension_path,
+			`import { writeFileSync } from 'node:fs';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+export default function prompt_capture(pi: ExtensionAPI) {
+  pi.registerProvider('capture-provider', {
+    name: 'Capture Provider',
+    baseUrl: 'http://127.0.0.1:1/v1',
+    apiKey: 'test-key',
+    api: 'openai-completions',
+    models: [{
+      id: 'capture-model',
+      name: 'Capture Model',
+      reasoning: false,
+      input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 10000,
+      maxTokens: 100,
+    }],
+  });
+  pi.on('before_agent_start', (event) => {
+    writeFileSync(process.env.PROMPT_CAPTURE_OUT!, event.systemPrompt);
+    process.exit(0);
+  });
+}
+`,
+		);
+
+		try {
+			const result = spawnSync(
+				process.execPath,
+				[
+					cli_path,
+					'--agent-dir',
+					join(cwd, 'agent'),
+					'--no-observability',
+					'-e',
+					extension_path,
+					'--model',
+					'capture-provider/capture-model',
+					'--preset',
+					'asd-ste100',
+					'--prompt',
+					'test prompt',
+				],
+				{
+					cwd,
+					encoding: 'utf-8',
+					env: {
+						...process.env,
+						PI_OFFLINE: '1',
+						PROMPT_CAPTURE_OUT: output_path,
+					},
+					timeout: 30_000,
+				},
+			);
+
+			expect(result.status, result.stderr).toBe(0);
+			expect(readFileSync(output_path, 'utf-8')).toContain(
+				'Use ASD-STE100 Simplified Technical English in all replies.',
+			);
+		} finally {
+			rmSync(cwd, { recursive: true, force: true });
+		}
+	}, 30_000);
 
 	it('fails the packed CLI cleanly below the minimum Node version', () => {
 		const agent_dir = mkdtempSync(join(tmpdir(), 'my-pi-cli-smoke-'));
