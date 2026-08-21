@@ -9,6 +9,7 @@ import {
 	dirs,
 	register_test_lsp_extension,
 } from '../test/support.js';
+import { DEFAULT_LSP_IDLE_TIMEOUT_MS } from './server-manager.js';
 
 describe('lsp server manager', () => {
 	it('closes documents after one-shot tool use', async () => {
@@ -108,7 +109,7 @@ describe('lsp server manager', () => {
 		expect(close_document).toHaveBeenCalledTimes(1);
 	});
 
-	it('stops idle servers and restarts them on later use', async () => {
+	it('stops idle servers by default and restarts them on later use', async () => {
 		vi.useFakeTimers();
 		try {
 			const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
@@ -136,7 +137,6 @@ describe('lsp server manager', () => {
 				create_client,
 				read_file: async () => 'export const value = 1;\n',
 				cwd: () => root,
-				idle_timeout_ms: 10,
 			});
 
 			await tools
@@ -148,7 +148,9 @@ describe('lsp server manager', () => {
 					undefined,
 					ctx,
 				);
-			await vi.advanceTimersByTimeAsync(11);
+			await vi.advanceTimersByTimeAsync(
+				DEFAULT_LSP_IDLE_TIMEOUT_MS + 1,
+			);
 			expect(first_stop).toHaveBeenCalledTimes(1);
 
 			await tools

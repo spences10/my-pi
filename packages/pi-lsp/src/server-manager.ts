@@ -31,6 +31,7 @@ import {
 } from './trust.js';
 
 const LSP_PROJECT_BINARY_ENV = 'MY_PI_LSP_PROJECT_BINARY';
+export const DEFAULT_LSP_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 export interface LspClientLike {
 	start(): Promise<void>;
@@ -158,15 +159,14 @@ export class LspServerManager {
 		this.#read_file =
 			options.read_file ??
 			((path: string) => readFile(path, 'utf-8'));
-		const env_idle_timeout = process.env.MY_PI_LSP_IDLE_TIMEOUT_MS
-			? Number(process.env.MY_PI_LSP_IDLE_TIMEOUT_MS)
-			: undefined;
+		const env_idle_timeout = process.env.MY_PI_LSP_IDLE_TIMEOUT_MS;
 		const idle_timeout_ms =
-			options.idle_timeout_ms ?? env_idle_timeout;
+			options.idle_timeout_ms ??
+			(env_idle_timeout === undefined
+				? DEFAULT_LSP_IDLE_TIMEOUT_MS
+				: Number(env_idle_timeout));
 		this.#idle_timeout_ms =
-			idle_timeout_ms &&
-			Number.isFinite(idle_timeout_ms) &&
-			idle_timeout_ms > 0
+			Number.isFinite(idle_timeout_ms) && idle_timeout_ms > 0
 				? idle_timeout_ms
 				: undefined;
 	}

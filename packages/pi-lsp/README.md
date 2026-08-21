@@ -134,6 +134,11 @@ preferring `lsp_diagnostics_many` for batches.
 Use `/lsp status` to inspect active clients and `/lsp restart` after
 dependency installs or language-server crashes.
 
+Language servers stop after five minutes without an active LSP request
+and start again on demand. Set `MY_PI_LSP_IDLE_TIMEOUT_MS` to a
+positive timeout in milliseconds, or set it to `0` to keep idle
+servers running until the Pi session exits.
+
 ## Using from a custom harness
 
 ```ts
