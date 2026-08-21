@@ -1,5 +1,12 @@
 # @spences10/pi-lsp
 
+## 0.0.46
+
+### Patch Changes
+
+- 4131625: Stop idle LSP servers after five minutes to prevent
+  excessive memory use in long-running sessions.
+
 ## 0.0.45
 
 ### Patch Changes
