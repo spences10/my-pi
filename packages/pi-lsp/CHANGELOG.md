@@ -1,5 +1,12 @@
 # @spences10/pi-lsp
 
+## 0.0.45
+
+### Patch Changes
+
+- 4b52968: Add TypeScript 7 native LSP support with global discovery,
+  classic fallback, diagnostics, status, and documentation.
+
 ## 0.0.44
 
 ### Patch Changes
