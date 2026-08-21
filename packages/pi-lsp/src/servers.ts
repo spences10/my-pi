@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import {
 	dirname,
 	extname,
@@ -11,6 +12,7 @@ export interface LspServerConfig {
 	language: string;
 	command: string;
 	args: string[];
+	backend?: string;
 	install_hint?: string;
 	is_project_local?: boolean;
 }
@@ -38,6 +40,7 @@ const LANGUAGE_SERVERS: Record<string, LspServerConfig> = {
 		language: 'typescript',
 		command: 'typescript-language-server',
 		args: ['--stdio'],
+		backend: 'typescript-language-server',
 		install_hint:
 			'Install TypeScript LSP with: pnpm add -D typescript typescript-language-server',
 	},
@@ -163,9 +166,32 @@ export function resolve_server_command(
 export function get_server_config(
 	language: string,
 	cwd: string = process.cwd(),
+	options: {
+		global_typescript_major?: () => number | undefined;
+	} = {},
 ): LspServerConfig | undefined {
 	const base = LANGUAGE_SERVERS[language];
 	if (!base) return undefined;
+	if (language === 'typescript') {
+		const native = resolve_native_typescript_server(cwd);
+		if (native) return native;
+		if (!has_project_typescript(cwd)) {
+			const global_major =
+				options.global_typescript_major?.() ??
+				resolve_global_typescript_major();
+			if (global_major !== undefined && global_major >= 7) {
+				return {
+					language: 'typescript',
+					command: 'tsc',
+					args: ['--lsp', '--stdio'],
+					backend: 'typescript-native',
+					is_project_local: false,
+					install_hint:
+						'TypeScript 7 native LSP requires tsc --lsp support on PATH.',
+				};
+			}
+		}
+	}
 	const resolved = resolve_server_command_info(base.command, cwd);
 	return {
 		...base,
@@ -222,6 +248,64 @@ function ancestor_directories(start: string): string[] {
 		current = parent;
 	}
 	return dirs;
+}
+
+function resolve_global_typescript_major(): number | undefined {
+	const result = spawnSync('tsc', ['--version'], {
+		encoding: 'utf8',
+		timeout: 2_000,
+		windowsHide: true,
+	});
+	if (result.status !== 0) return undefined;
+	const match = /Version\s+(\d+)/.exec(result.stdout);
+	return match ? Number.parseInt(match[1], 10) : undefined;
+}
+
+function has_project_typescript(cwd: string): boolean {
+	return ancestor_directories(cwd).some((dir) =>
+		existsSync(
+			join(dir, 'node_modules', 'typescript', 'package.json'),
+		),
+	);
+}
+
+function resolve_native_typescript_server(
+	cwd: string,
+): LspServerConfig | undefined {
+	for (const dir of ancestor_directories(cwd)) {
+		const package_dir = join(dir, 'node_modules', 'typescript');
+		const package_json = join(package_dir, 'package.json');
+		const command = resolve_local_binary(dir, 'tsc');
+		if (!command || !existsSync(package_json)) continue;
+		try {
+			const manifest = JSON.parse(
+				readFileSync(package_json, 'utf8'),
+			) as {
+				version?: string;
+			};
+			const major = Number.parseInt(
+				manifest.version?.split('.')[0] ?? '',
+				10,
+			);
+			if (
+				major >= 7 &&
+				!existsSync(join(package_dir, 'lib', 'tsserver.js'))
+			) {
+				return {
+					language: 'typescript',
+					command,
+					args: ['--lsp', '--stdio'],
+					backend: 'typescript-native',
+					is_project_local: true,
+					install_hint:
+						'TypeScript 7 native LSP requires a project-local TypeScript package with tsc --lsp support.',
+				};
+			}
+		} catch {
+			continue;
+		}
+	}
+	return undefined;
 }
 
 function resolve_local_binary(

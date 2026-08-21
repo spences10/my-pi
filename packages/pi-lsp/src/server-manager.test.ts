@@ -6,8 +6,8 @@ import {
 	create_command_context,
 	create_mock_client,
 	create_test_pi,
-	register_test_lsp_extension,
 	dirs,
+	register_test_lsp_extension,
 } from '../test/support.js';
 
 describe('lsp server manager', () => {
@@ -166,7 +166,7 @@ describe('lsp server manager', () => {
 		}
 	});
 
-	it('falls back to global LSP binary when project binary is untrusted and skipped', async () => {
+	it('falls back to the global TypeScript backend when a project binary is skipped', async () => {
 		const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
 		const file = join(root, 'src', 'main.ts');
 		dirs.push(root);
@@ -176,19 +176,21 @@ describe('lsp server manager', () => {
 		});
 		writeFileSync(join(root, 'package.json'), '{}\n');
 		writeFileSync(file, 'export const value = 1;\n');
+		mkdirSync(join(root, 'node_modules', 'typescript', 'lib'), {
+			recursive: true,
+		});
 		writeFileSync(
-			join(
-				root,
-				'node_modules',
-				'.bin',
-				'typescript-language-server',
-			),
+			join(root, 'node_modules', 'typescript', 'package.json'),
+			JSON.stringify({ version: '7.0.2' }),
+		);
+		writeFileSync(
+			join(root, 'node_modules', '.bin', 'tsc'),
 			'#!/bin/sh\n',
 			{ mode: 0o755 },
 		);
 		const create_client = vi.fn(() => create_mock_client());
 		const { pi, tools } = create_test_pi();
-		const { ctx, selections } = create_command_context();
+		const { ctx, selections, select } = create_command_context();
 		selections.push('Use global PATH binary instead');
 
 		await register_test_lsp_extension(pi, {
@@ -197,19 +199,26 @@ describe('lsp server manager', () => {
 			cwd: () => root,
 		});
 
-		await tools
-			.get('lsp_hover')
-			.execute(
-				'1',
-				{ file, line: 0, character: 0 },
-				undefined,
-				undefined,
-				ctx,
-			);
+		await Promise.all(
+			['1', '2', '3'].map((id) =>
+				tools
+					.get('lsp_hover')
+					.execute(
+						id,
+						{ file, line: 0, character: 0 },
+						undefined,
+						undefined,
+						ctx,
+					),
+			),
+		);
 
+		expect(select).toHaveBeenCalledTimes(1);
+		expect(create_client).toHaveBeenCalledTimes(1);
 		expect(create_client).toHaveBeenCalledWith(
 			expect.objectContaining({
-				command: 'typescript-language-server',
+				command: 'tsc',
+				args: ['--lsp', '--stdio'],
 			}),
 		);
 	});

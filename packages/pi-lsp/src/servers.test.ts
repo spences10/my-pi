@@ -120,13 +120,90 @@ describe('find_workspace_root', () => {
 });
 
 describe('get_server_config', () => {
+	it('selects the project-local TypeScript 7 native LSP', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
+		dirs.push(cwd);
+		mkdirSync(join(cwd, 'node_modules', '.bin'), { recursive: true });
+		mkdirSync(join(cwd, 'node_modules', 'typescript', 'lib'), {
+			recursive: true,
+		});
+		writeFileSync(
+			join(cwd, 'node_modules', 'typescript', 'package.json'),
+			JSON.stringify({ version: '7.0.2' }),
+		);
+		const tsc = join(cwd, 'node_modules', '.bin', 'tsc');
+		writeFileSync(tsc, '#!/bin/sh\n', { mode: 0o755 });
+
+		expect(get_server_config('typescript', cwd)).toEqual({
+			language: 'typescript',
+			command: tsc,
+			args: ['--lsp', '--stdio'],
+			backend: 'typescript-native',
+			is_project_local: true,
+			install_hint:
+				'TypeScript 7 native LSP requires a project-local TypeScript package with tsc --lsp support.',
+		});
+	});
+
+	it('retains typescript-language-server for classic TypeScript', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
+		dirs.push(cwd);
+		mkdirSync(join(cwd, 'node_modules', '.bin'), { recursive: true });
+		mkdirSync(join(cwd, 'node_modules', 'typescript', 'lib'), {
+			recursive: true,
+		});
+		writeFileSync(
+			join(cwd, 'node_modules', 'typescript', 'package.json'),
+			JSON.stringify({ version: '6.0.3' }),
+		);
+		writeFileSync(
+			join(cwd, 'node_modules', 'typescript', 'lib', 'tsserver.js'),
+			'',
+		);
+		const server = join(
+			cwd,
+			'node_modules',
+			'.bin',
+			'typescript-language-server',
+		);
+		writeFileSync(server, '#!/bin/sh\n', { mode: 0o755 });
+
+		expect(get_server_config('typescript', cwd)).toMatchObject({
+			command: server,
+			args: ['--stdio'],
+			backend: 'typescript-language-server',
+			is_project_local: true,
+		});
+	});
+
+	it('selects a global TypeScript 7 native LSP when no project TypeScript exists', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
+		dirs.push(cwd);
+		expect(
+			get_server_config('typescript', cwd, {
+				global_typescript_major: () => 7,
+			}),
+		).toEqual({
+			language: 'typescript',
+			command: 'tsc',
+			args: ['--lsp', '--stdio'],
+			backend: 'typescript-native',
+			is_project_local: false,
+			install_hint:
+				'TypeScript 7 native LSP requires tsc --lsp support on PATH.',
+		});
+	});
+
 	it('returns a resolved config for known languages', () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
 		dirs.push(cwd);
-		const config = get_server_config('typescript', cwd);
+		const config = get_server_config('typescript', cwd, {
+			global_typescript_major: () => 6,
+		});
 		expect(config).toMatchObject({
 			language: 'typescript',
 			args: ['--stdio'],
+			backend: 'typescript-language-server',
 		});
 		expect(config?.command).toBe('typescript-language-server');
 	});

@@ -17,6 +17,8 @@ export interface LspFormatServerState {
 	language: string;
 	workspace_root: string;
 	command: string;
+	args?: string[];
+	backend?: string;
 	active_request_count?: number;
 	last_used_at?: number;
 }
@@ -113,7 +115,9 @@ function format_running_server_line(
 	const idle_suffix = state.last_used_at
 		? `, idle=${Math.max(0, Math.round((Date.now() - state.last_used_at) / 1000))}s`
 		: '';
-	return `${state.language}: running (ready=${state.client.is_ready()}, open_docs=${open_documents}, active=${state.active_request_count ?? 0}${idle_suffix}) — ${state.command} [workspace ${state.workspace_root}]`;
+	const backend = state.backend ? ` via ${state.backend}` : '';
+	const command = [state.command, ...(state.args ?? [])].join(' ');
+	return `${state.language}: running (ready=${state.client.is_ready()}, open_docs=${open_documents}, active=${state.active_request_count ?? 0}${idle_suffix})${backend} — ${command} [workspace ${state.workspace_root}]`;
 }
 
 function format_failed_server_lines(
@@ -174,7 +178,9 @@ export function format_status_lines(
 		if (active_languages.has(language)) continue;
 		const config = get_server_config(language, cwd);
 		if (config) {
-			lines.push(`${language}: idle — ${config.command}`);
+			const backend = config.backend ? ` via ${config.backend}` : '';
+			const command = [config.command, ...config.args].join(' ');
+			lines.push(`${language}: idle${backend} — ${command}`);
 		}
 	}
 	return lines.length > 0

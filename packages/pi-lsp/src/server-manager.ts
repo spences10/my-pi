@@ -63,6 +63,8 @@ export interface ServerState {
 	workspace_root: string;
 	root_uri: string;
 	command: string;
+	args: string[];
+	backend?: string;
 	install_hint?: string;
 	active_request_count: number;
 	last_used_at?: number;
@@ -303,22 +305,22 @@ export class LspServerManager {
 		const in_flight = this.#starting_servers.get(key);
 		if (in_flight) return in_flight.promise;
 
-		let server_config = get_server_config(language, workspace_root);
-		if (!server_config) return undefined;
-		if (
-			server_config.is_project_local &&
-			!(await should_use_project_lsp_binary(server_config, ctx))
-		) {
-			server_config = get_server_config(language, '/');
-			if (!server_config) return undefined;
-		}
-		const root_uri = file_path_to_uri(workspace_root);
-
 		const startup: StartingServerState = {
 			cancelled: false,
 			promise: Promise.resolve<ServerState | undefined>(undefined),
 		};
+		this.#starting_servers.set(key, startup);
 		const start_promise = (async () => {
+			let server_config = get_server_config(language, workspace_root);
+			if (!server_config) return undefined;
+			if (
+				server_config.is_project_local &&
+				!(await should_use_project_lsp_binary(server_config, ctx))
+			) {
+				server_config = get_server_config(language, '/');
+				if (!server_config) return undefined;
+			}
+			const root_uri = file_path_to_uri(workspace_root);
 			const client = this.#create_client({
 				command: server_config.command,
 				args: server_config.args,
@@ -359,6 +361,8 @@ export class LspServerManager {
 				workspace_root,
 				root_uri,
 				command: server_config.command,
+				args: server_config.args,
+				backend: server_config.backend,
 				install_hint: server_config.install_hint,
 				active_request_count: 0,
 				last_used_at: Date.now(),
@@ -370,7 +374,6 @@ export class LspServerManager {
 		})();
 
 		startup.promise = start_promise;
-		this.#starting_servers.set(key, startup);
 		try {
 			return await start_promise;
 		} finally {

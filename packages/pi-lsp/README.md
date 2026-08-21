@@ -42,16 +42,34 @@ pi -e ./packages/pi-lsp
 
 ## Required language servers
 
-This package talks to language-server binaries installed in your
-project or on `PATH`. For TypeScript, JavaScript, and Svelte projects:
+This package talks to language-server binaries installed globally on
+`PATH` or locally in a project. Global installation makes one server
+available across projects:
 
 ```bash
-pnpm add -D typescript typescript-language-server svelte-language-server
+npm install -g typescript svelte-language-server
+# or
+pnpm add -g typescript svelte-language-server
 ```
+
+Project-local development dependencies let a repository pin and share
+specific server versions:
+
+```bash
+npm install -D typescript svelte-language-server
+# or
+pnpm add -D typescript svelte-language-server
+```
+
+For TypeScript 6 and earlier, add `typescript-language-server` to the
+same global or project-local command. Volta users can install global
+tools with `volta install typescript svelte-language-server`.
 
 Supported server discovery includes:
 
-- TypeScript / JavaScript via `typescript-language-server`
+- TypeScript 7 / JavaScript via the project-local native
+  `tsc --lsp --stdio` server
+- TypeScript 6 and earlier via `typescript-language-server --stdio`
 - Svelte via `svelteserver`
 - Python via `python-lsp-server`
 - Go via `gopls`
@@ -59,6 +77,15 @@ Supported server discovery includes:
 - Ruby via `solargraph`
 - Java via `jdtls`
 - Lua via `lua-language-server`
+
+The TypeScript backend is selected by capability. A project-local
+TypeScript installation takes priority. TypeScript 7 without
+`lib/tsserver.js` uses its native `tsc` LSP, while classic project
+installations use `typescript-language-server`. When a project does
+not pin TypeScript, a TypeScript 7 `tsc` on `PATH` provides the native
+LSP. `/lsp status` reports the selected backend and full command. A
+TypeScript 7 native server that cannot start reports a specific setup
+hint.
 
 Project-local binaries in `node_modules/.bin` are detected before
 global binaries, but are untrusted by default because they can execute

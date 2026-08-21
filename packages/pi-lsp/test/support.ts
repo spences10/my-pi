@@ -100,6 +100,7 @@ export function create_command_context(
 	const notifications: Array<{ message: string; level?: string }> =
 		[];
 	const selections: string[] = [];
+	const select = vi.fn(async () => selections.shift());
 	return {
 		ctx: {
 			mode: 'tui',
@@ -108,7 +109,7 @@ export function create_command_context(
 				notify(message: string, level?: string) {
 					notifications.push({ message, level });
 				},
-				select: vi.fn(async () => selections.shift()),
+				select,
 				custom: modal_results.length
 					? vi.fn(async (create_component: Function) => {
 							create_component(
@@ -127,6 +128,7 @@ export function create_command_context(
 		} as unknown as ExtensionCommandContext,
 		notifications,
 		selections,
+		select,
 	};
 }
 
