@@ -1,5 +1,12 @@
 # @spences10/pi-factory
 
+## 0.0.14
+
+### Patch Changes
+
+- Updated dependencies [c275674]
+  - @spences10/pi-harness@0.0.11
+
 ## 0.0.13
 
 ### Patch Changes

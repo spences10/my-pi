@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.2.1
+
+### Patch Changes
+
+- c275674: Refine harness guidance to favor direct workflows for
+  bounded work and reserve contracts for risk.
+
 ## 0.2.0
 
 ### Minor Changes
