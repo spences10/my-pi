@@ -1,5 +1,12 @@
 # @spences10/pi-harness
 
+## 0.0.11
+
+### Patch Changes
+
+- c275674: Refine harness guidance to favor direct workflows for
+  bounded work and reserve contracts for risk.
+
 ## 0.0.10
 
 ### Patch Changes
