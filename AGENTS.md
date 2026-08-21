@@ -55,9 +55,14 @@ or request that it be created and committed.
 
 Factory v1 is paused and disabled by default. Do not route repository
 work through Factory unless the user explicitly requests evaluation of
-the experimental package. Use a task harness for ambiguous or risky
-single-session work and Team Mode only for peer coordination already
-authorized by the user.
+the experimental package. Use a task harness when work benefits from
+an enforceable execution contract because it has material risk,
+unresolved scope, destructive effects, or complex coordination. Use
+the normal direct workflow for bounded, low-risk work that standard
+validation can verify, including routine docs, focused single-file
+fixes, config or metadata updates, test expectation changes,
+formatting, and reviewed commit or push follow-ups. Use Team Mode only
+for peer coordination already authorized by the user.
 
 ## Validation
 

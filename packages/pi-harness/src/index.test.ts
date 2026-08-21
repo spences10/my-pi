@@ -367,13 +367,54 @@ describe('harness enforcement helpers', () => {
 });
 
 describe('should_inject_harness_prompt', () => {
-	it('discourages harnesses for reviewed commit and push follow-ups', () => {
+	it('defines positive harness selection criteria', () => {
 		expect(HARNESS_SYSTEM_PROMPT).toContain(
-			'Do not create a harness merely to commit or push work the user has already reviewed',
+			'benefits from an enforceable execution contract',
+		);
+		for (const selection_criterion of [
+			'material risk',
+			'unresolved scope',
+			'destructive effects',
+			'complex coordination',
+		]) {
+			expect(HARNESS_SYSTEM_PROMPT).toContain(selection_criterion);
+		}
+	});
+
+	it('routes routine low-risk changes to direct work', () => {
+		for (const direct_work of [
+			'documentation or copy edits',
+			'focused single-file fixes',
+			'configuration or metadata updates',
+			'test expectation changes',
+			'formatting',
+		]) {
+			expect(HARNESS_SYSTEM_PROMPT).toContain(direct_work);
+		}
+	});
+
+	it('routes reviewed commit and push follow-ups to direct work', () => {
+		expect(HARNESS_SYSTEM_PROMPT).toContain(
+			'reviewed commit or push follow-ups',
 		);
 		expect(HARNESS_SYSTEM_PROMPT).toContain(
 			'automatically deactivates on the next direct user turn or session startup',
 		);
+	});
+
+	it('names work that can justify a harness', () => {
+		const prompt = HARNESS_SYSTEM_PROMPT.toLowerCase();
+		for (const justified_work of [
+			'broad uncertain refactor',
+			'destructive effects',
+			'migration',
+			'deployment',
+			'risky release',
+			'external side effect',
+			'explicit user request',
+		]) {
+			expect(prompt).toContain(justified_work);
+		}
 	});
 
 	it('injects when selected tools are unavailable or bash is active', () => {

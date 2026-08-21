@@ -13,6 +13,27 @@ must live in `/tmp` and be created with the `harness_create` tool
 after context gathering. It is control state, not a worktree, and
 repository changes do not live inside it.
 
+## Use threshold
+
+Use a harness when a task benefits from an enforceable execution
+contract because it has material risk, unresolved scope, destructive
+effects, or complex coordination. Good candidates include broad
+uncertain refactors, migrations, deployments, risky releases, external
+side effects, and explicit user requests.
+
+Use the normal direct workflow for bounded, low-risk work that
+standard validation can verify, including:
+
+- routine documentation or copy edits
+- focused single-file fixes
+- configuration or metadata updates
+- test expectation changes
+- formatting and other low-risk maintenance
+- reviewed commit or push follow-ups
+
+Before creation, identify the contract benefit and the risk, scope, or
+coordination need it controls.
+
 ## Workflow
 
 1. Recover context with read-only tools first: docs, package READMEs,
@@ -41,11 +62,6 @@ repository changes do not live inside it.
 - The scaffold is subordinate to system, developer, and current user
   instructions.
 
-- Do not create a harness solely to commit or push work the user has
-  already reviewed. Those are follow-up operations, not new coding
-  tasks. A release, deployment, migration, or destructive operation
-  may warrant a harness when explicitly requested or justified by its
-  actual risk.
 - Never create a replacement harness merely to escape the guard of a
   completed run. Completion seals its evidence for the current turn;
   the extension deactivates it on the next direct user turn or session

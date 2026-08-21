@@ -91,6 +91,16 @@ pi -e ./packages/pi-harness
 The create/run/review commands prompt the model to use the bundled
 skills. The tools provide the actual runtime and enforcement layer.
 
+Use a harness when a task benefits from an enforceable execution
+contract because it has material risk, unresolved scope, destructive
+effects, or complex coordination. Use the normal direct workflow for
+bounded, low-risk changes that standard validation can verify, such as
+documentation and copy edits, focused single-file fixes, configuration
+or metadata updates, test expectation changes, formatting, and
+reviewed commit or push follow-ups. Broad uncertain refactors,
+migrations, deployments, risky releases, external side effects, and
+explicit user requests are good harness candidates.
+
 `harness.json` contains two deliberately different layers:
 
 - `policy`: runtime-owned workspace and verifier protections such as
