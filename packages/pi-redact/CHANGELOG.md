@@ -1,5 +1,12 @@
 # @spences10/pi-redact
 
+## 0.0.15
+
+### Patch Changes
+
+- 7734992: Redact lowercase prefixed TOML secrets and direct shell
+  output before both enter the model context.
+
 ## 0.0.14
 
 ### Patch Changes
