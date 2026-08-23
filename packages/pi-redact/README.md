@@ -37,16 +37,17 @@ pi -e ./packages/pi-redact
 
 ## What it does
 
-`@spences10/pi-redact` listens for Pi `tool_result` events and
-rewrites text content before it is added to model context. It is
-intended as a last-mile safety net for accidental secrets in command
-output, file reads, logs, and config files.
+`@spences10/pi-redact` filters Pi `tool_result` content and direct `!`
+shell output before it is added to model context. It is intended as a
+last-mile safety net for accidental secrets in command output, file
+reads, logs, and config files.
 
 It currently detects and redacts:
 
 - quoted JSON and unquoted environment/config fields with sensitive
   names such as `password`, `client_secret`, `access_token`, and
-  `api_key`, including values containing shell punctuation
+  `api_key`, including lowercase prefixed TOML assignments and values
+  containing shell punctuation
 - GitHub, GitLab, Slack, npm, Google, SendGrid, JWT, and common
   vendor-prefixed tokens
 - AWS credentials, bearer tokens, and connection strings with embedded
@@ -102,7 +103,9 @@ through a secret without prior context. It intentionally does not
 blanket-redact unlabelled base64, compressed, encrypted, or other
 high-entropy output because source archives, hashes, and build
 artifacts commonly have the same shape. Broad patterns can also
-occasionally redact benign values.
+occasionally redact benign values. Direct `!` output is filtered from
+the transient model context, but Pi currently persists the original
+shell output in its session transcript before context filters run.
 
 Use proper secret hygiene as the primary control:
 

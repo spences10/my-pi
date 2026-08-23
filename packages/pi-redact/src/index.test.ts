@@ -93,6 +93,28 @@ describe('redact_text', () => {
 		expect(redacted).toContain('[REDACTED:Generic Password Field]');
 	});
 
+	it('redacts lowercase prefixed secret fields in TOML assignments', () => {
+		const values = {
+			auth: ['fake', '-auth-token-', 'value'].join(''),
+			cursor: ['fake', '-cursor-secret-', 'value'].join(''),
+			service: ['fake', '-service-password-', 'value'].join(''),
+			uppercase: ['fake', '-uppercase-token-', 'value'].join(''),
+		};
+		const input = `auth_token = "${values.auth}"
+cursor_secret = "${values.cursor}"
+service_password = '${values.service}' # primary
+AUTH_TOKEN = "${values.uppercase}"`;
+		const { redacted, count } = redact_text(input);
+
+		expect(count).toBe(4);
+		for (const value of Object.values(values)) {
+			expect(redacted).not.toContain(value);
+		}
+		expect(redacted).toContain(
+			`service_password = '[REDACTED:Generic Password Field]' # primary`,
+		);
+	});
+
 	it('redacts the complete value when an env secret contains shell punctuation', () => {
 		const value = ['p@', '$$', 'w0rd!', 'xyz#%&*?~^'].join('');
 		const input = `PASSWORD=${value}`;
@@ -364,6 +386,14 @@ describe('redact_text', () => {
 		expect(redacted).toBe(input);
 	});
 
+	it('does not broaden prefixed config matching into source declarations', () => {
+		const input = `const service_password = "configuration-placeholder-value";
+let cursor_secret = "another-placeholder-value";`;
+		const { redacted, count } = redact_text(input);
+		expect(count).toBe(0);
+		expect(redacted).toBe(input);
+	});
+
 	it('still redacts uppercase token-like env fields', () => {
 		const input = 'SERVICE_TOKEN = "CanaryPassword-Redaction-001!"';
 		const { redacted, count } = redact_text(input);
@@ -390,6 +420,77 @@ See https://github.com/spences10/nopeek for details.`;
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:Generic Secret Phrase]');
 		expect(redacted).not.toContain('CanaryPassword-Redaction-001!');
+	});
+});
+
+describe('filter_output', () => {
+	it('redacts direct shell output in model context and counts it once', async () => {
+		let context_handler:
+			| ((event: Record<string, unknown>) => unknown)
+			| undefined;
+		let stats_handler:
+			| ((
+					args: string,
+					ctx: { ui: { notify(message: string): void } },
+			  ) => unknown)
+			| undefined;
+		const pi = {
+			on(
+				name: string,
+				handler: (event: Record<string, unknown>) => unknown,
+			) {
+				if (name === 'context') context_handler = handler;
+			},
+			registerCommand(
+				name: string,
+				options: {
+					handler: (
+						args: string,
+						ctx: { ui: { notify(message: string): void } },
+					) => unknown;
+				},
+			) {
+				if (name === 'redact-stats') stats_handler = options.handler;
+			},
+		};
+		await filter_output(pi as never);
+		const secret = ['fake', '-shell-secret-', 'value'].join('');
+		const shell_message = {
+			role: 'bashExecution',
+			command: 'cat /tmp/pi-redact-test.toml',
+			output: `password = "${secret}"`,
+			exitCode: 0,
+			cancelled: false,
+			timestamp: 1_234,
+		};
+		const user_message = {
+			role: 'user',
+			content: [{ type: 'text', text: `password = "${secret}"` }],
+			timestamp: 1_235,
+		};
+		const event = { messages: [shell_message, user_message] };
+
+		const first = (await context_handler?.(event)) as {
+			messages?: Array<Record<string, unknown>>;
+		};
+		const second = (await context_handler?.(event)) as {
+			messages?: Array<Record<string, unknown>>;
+		};
+		const notifications: string[] = [];
+		await stats_handler?.('', {
+			ui: { notify: (message) => notifications.push(message) },
+		});
+
+		expect(first.messages?.[0]?.output).toContain(
+			'[REDACTED:Generic Password Field]',
+		);
+		expect(first.messages?.[0]?.output).not.toContain(secret);
+		expect(second.messages?.[0]?.output).not.toContain(secret);
+		expect(first.messages?.[1]).toEqual(user_message);
+		expect(shell_message.output).toContain(secret);
+		expect(notifications).toEqual([
+			'Secrets redacted this session: 1',
+		]);
 	});
 });
 
