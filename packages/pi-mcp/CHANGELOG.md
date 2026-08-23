@@ -1,5 +1,11 @@
 # @spences10/pi-mcp
 
+## 0.0.60
+
+### Patch Changes
+
+- @spences10/pi-context@0.1.16
+
 ## 0.0.59
 
 ### Patch Changes
