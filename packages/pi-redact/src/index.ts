@@ -126,6 +126,8 @@ const SECRET_FIELD_NAME =
 	'(?:[A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY)|password|passwd|secret|token|api[_-]?key|access[_-]?token|client[_-]?secret|private[_-]?key)';
 const JSON_SECRET_FIELD_NAME =
 	'[A-Za-z0-9_-]*(?:password|passwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)';
+const PREFIXED_CONFIG_SECRET_FIELD_NAME =
+	'[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)*[_-](?:password|passwd|secret|token|api[_-]?key)';
 const DOUBLE_QUOTED_JSON_SECRET_FIELD_PATTERN = new RegExp(
 	`(^|[^A-Za-z0-9_])((?:"${JSON_SECRET_FIELD_NAME}")[ \\t]*:[ \\t]*")((?:\\\\.|[^"\\\\]){8,})"`,
 	'gim',
@@ -141,6 +143,14 @@ const DOUBLE_QUOTED_SECRET_FIELD_PATTERN = new RegExp(
 const SINGLE_QUOTED_SECRET_FIELD_PATTERN = new RegExp(
 	`(^|[^A-Za-z0-9_])((?:'?${SECRET_FIELD_NAME}'?)[ \\t]*[:=][ \\t]*')((?:\\\\.|[^'\\\\]){8,})'`,
 	'gm',
+);
+const DOUBLE_QUOTED_PREFIXED_CONFIG_SECRET_FIELD_PATTERN = new RegExp(
+	`^([ \\t]*)((?:${PREFIXED_CONFIG_SECRET_FIELD_NAME})[ \\t]*=[ \\t]*")((?:\\\\.|[^"\\\\]){8,})"(?=[ \\t]*(?:#.*)?$)`,
+	'gim',
+);
+const SINGLE_QUOTED_PREFIXED_CONFIG_SECRET_FIELD_PATTERN = new RegExp(
+	`^([ \\t]*)((?:${PREFIXED_CONFIG_SECRET_FIELD_NAME})[ \\t]*=[ \\t]*')((?:\\\\.|[^'\\\\]){8,})'(?=[ \\t]*(?:#.*)?$)`,
+	'gim',
 );
 const UNQUOTED_SECRET_FIELD_PATTERN = new RegExp(
 	`(^|[^A-Za-z0-9_])((?:${SECRET_FIELD_NAME})[ \\t]*[:=][ \\t]*)([^\\s"',;}\\]]{8,})`,
@@ -246,6 +256,14 @@ function redact_secret_fields(text: string): RedactionResult {
 	redact_quoted(SINGLE_QUOTED_JSON_SECRET_FIELD_PATTERN, "'");
 	redact_quoted(DOUBLE_QUOTED_SECRET_FIELD_PATTERN, '"');
 	redact_quoted(SINGLE_QUOTED_SECRET_FIELD_PATTERN, "'");
+	redact_quoted(
+		DOUBLE_QUOTED_PREFIXED_CONFIG_SECRET_FIELD_PATTERN,
+		'"',
+	);
+	redact_quoted(
+		SINGLE_QUOTED_PREFIXED_CONFIG_SECRET_FIELD_PATTERN,
+		"'",
+	);
 	UNQUOTED_SECRET_FIELD_PATTERN.lastIndex = 0;
 	result = result.replace(
 		UNQUOTED_SECRET_FIELD_PATTERN,
@@ -332,6 +350,28 @@ export function redact_text(
 export default async function filter_output(pi: ExtensionAPI) {
 	let total_redacted = 0;
 	const partial_private_key_paths = new Set<string>();
+	const counted_bash_execution_timestamps = new Set<number>();
+
+	pi.on('context', async (event) => {
+		let modified = false;
+		const messages = event.messages.map((message) => {
+			if (message.role !== 'bashExecution' || !message.output) {
+				return message;
+			}
+
+			const { redacted, count } = redact_text(message.output);
+			if (count === 0) return message;
+
+			modified = true;
+			if (!counted_bash_execution_timestamps.has(message.timestamp)) {
+				counted_bash_execution_timestamps.add(message.timestamp);
+				total_redacted += count;
+			}
+			return { ...message, output: redacted };
+		});
+
+		if (modified) return { messages };
+	});
 
 	pi.on('tool_result', async (event) => {
 		if (!event.content) return;
