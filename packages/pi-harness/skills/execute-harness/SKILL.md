@@ -32,10 +32,13 @@ user instructions.
    evidence, and report changed files plus risks. If using a worktree,
    set `HARNESS_CWD` to that worktree for validation and review.
 6. Recover any remaining source-of-truth context needed to act safely.
-7. Execute surgically inside `scaffold.allowed_paths`. If user
-   direction or source evidence changes legitimate scope or strategy,
-   use `harness_amend` and record the reason rather than treating the
-   scaffold as immutable.
+7. Execute surgically inside `scaffold.allowed_paths`. Use
+   `harness_amend` for a bounded change inside the approved
+   capability. If user direction or source evidence introduces a new
+   capability, architecture decision, or outer-policy expansion, stop
+   execution and enter assessment instead of silently expanding the
+   harness. An approved harness recommendation may then amend the
+   active scaffold.
 8. Record decisions, phase changes, and validation evidence with
    `harness_update`, including team status and remaining risks when
    known.

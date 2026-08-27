@@ -45,8 +45,12 @@ pi -e ./packages/pi-harness
 
 `pi-harness` adds:
 
-- `/harness` command for create, run, review, status, use, and clear
-- `harness_create` tool to create `/tmp/my-pi-harness-*` runtimes
+- `/assess` command for evidence-gated capability assessment
+- `/harness` command for assess-before-create, run, review, status,
+  use, and clear
+- `harness_assess` and `harness_assessment_submit` tools for read-only
+  orientation and structured adoption decisions
+- guarded `harness_create` tool that cannot bypass assessment approval
 - `harness_amend` tool for audited, versioned changes to the inner
   scaffold
 - `harness_update` tool for phase/status/evidence logging
@@ -80,6 +84,11 @@ pi -e ./packages/pi-harness
 ## Commands
 
 ```text
+/assess <task>
+/assess status
+/assess approve [harness|direct]
+/assess reject
+/assess clear
 /harness create <task>
 /harness run <dir>
 /harness review <dir>
@@ -88,18 +97,38 @@ pi -e ./packages/pi-harness
 /harness clear
 ```
 
-The create/run/review commands prompt the model to use the bundled
-skills. The tools provide the actual runtime and enforcement layer.
+`/assess` and `/harness create` enter the same read-only assessment.
+The agent records repository evidence, existing primitives, rejected
+options, the smallest useful vertical slice, and one recommendation. A
+harness recommendation must include explicit allowed paths and
+validation commands. Direct user approval then creates and activates
+the harness, restores tools for approved direct work, or rejects the
+candidate without project changes.
 
-Use a harness when a task benefits from an enforceable execution
+An agent can enter assessment with `harness_assess`. If it calls
+`harness_create` without approval, the extension blocks the call and
+starts assessment. This backstop does not detect an agent that
+misclassifies a task and never asks for harness machinery.
+
+Use assessment when a task may benefit from an enforceable execution
 contract because it has material risk, unresolved scope, destructive
 effects, or complex coordination. Use the normal direct workflow for
 bounded, low-risk changes that standard validation can verify, such as
 documentation and copy edits, focused single-file fixes, configuration
 or metadata updates, test expectation changes, formatting, and
-reviewed commit or push follow-ups. Broad uncertain refactors,
-migrations, deployments, risky releases, external side effects, and
-explicit user requests are good harness candidates.
+reviewed commit or push follow-ups. A simple ambiguity may need only a
+clarifying question. Broad uncertain refactors, migrations,
+deployments, risky releases, external side effects, and explicit user
+requests are good assessment candidates.
+
+Assessment snapshots the current tool set, keeps an explicit read-only
+research subset active, and filters Bash through a strict
+single-command allowlist. Unknown and mutating custom tools are
+withheld. This is a workflow guard, not an operating-system sandbox.
+In print and JSON modes, an assessment can be submitted but remains
+waiting because direct approval cannot be inferred. RPC clients can
+answer Pi's extension UI request, or send `/assess approve ...` as an
+explicit command.
 
 `harness.json` contains two deliberately different layers:
 
@@ -139,17 +168,31 @@ linked git worktree, run `review.sh` from that worktree or set
 `HARNESS_CWD` so validation, guard checks, and outcome collection use
 the executor workspace.
 
-## Harness loop
+## Assessment and harness loops
 
-1. Context recovery
-2. Source-of-truth capture
-3. Assumption challenge
-4. Alignment checkpoint
-5. Surgical execution
-6. Validation evidence
-7. Drift review
-8. OUTCOME.md/outcome.json review
-9. Delta/risk report
+Assessment happens before harness creation:
+
+1. Read-only context recovery
+2. Source-of-truth and existing-primitive capture
+3. Assumption challenge and rejected options
+4. Smallest vertical slice
+5. Structured recommendation
+6. Direct user adoption decision
+
+An approved harness then runs:
+
+1. Contract recovery
+2. Surgical execution
+3. Validation evidence
+4. Drift review
+5. OUTCOME.md/outcome.json review
+6. Delta/risk report
+
+Use `harness_amend` for bounded inner-scaffold changes. A new
+capability or architecture decision requires assessment; an approved
+harness recommendation can then amend the active scaffold.
+Outer-policy expansion requires a separate execution contract instead
+of silent scope growth.
 
 ## Using from a custom harness
 

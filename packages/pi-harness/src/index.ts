@@ -1,10 +1,35 @@
 import {
+	harness_assess_params_schema,
+	harness_assessment_submit_params_schema,
+} from './assessment.js';
+import {
 	harness_amend_params_schema,
 	harness_create_params_schema,
 	harness_read_params_schema,
 	harness_update_params_schema,
 } from './schema.js';
 
+export {
+	assessment_active,
+	assessment_context,
+	assessment_tool_names,
+	check_assessment_command,
+	create_assessment_state,
+	format_assessment_record,
+	harness_assess_params_schema,
+	HARNESS_ASSESSMENT_CUSTOM_TYPE,
+	harness_assessment_submit_params_schema,
+	is_assessment_tool_allowed,
+	submit_assessment_record,
+} from './assessment.js';
+export type {
+	HarnessAssessmentRecommendation,
+	HarnessAssessmentRecord,
+	HarnessAssessmentSource,
+	HarnessAssessmentState,
+	HarnessAssessmentStatus,
+	HarnessAssessParams,
+} from './assessment.js';
 export {
 	check_command_allowed,
 	check_path_allowed,
@@ -55,6 +80,8 @@ export type {
 
 export const testing = {
 	harness_amend_params_schema,
+	harness_assess_params_schema,
+	harness_assessment_submit_params_schema,
 	harness_create_params_schema,
 	harness_read_params_schema,
 	harness_update_params_schema,

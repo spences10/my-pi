@@ -11,15 +11,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import harness, {
+	HARNESS_ASSESSMENT_CUSTOM_TYPE,
 	HARNESS_CUSTOM_TYPE,
 	HARNESS_SYSTEM_PROMPT,
 	active_harness_context,
 	amend_harness_runtime,
+	assessment_active,
+	assessment_tool_names,
+	check_assessment_command,
 	check_command_allowed,
 	check_path_allowed,
+	create_assessment_state,
 	create_harness_runtime,
+	format_assessment_record,
 	format_harness_status_line,
 	should_inject_harness_prompt,
+	submit_assessment_record,
 	update_harness_runtime,
 } from './index.js';
 
@@ -48,6 +55,7 @@ describe('create_harness_runtime', () => {
 				slug: 'harness-tests',
 				allowed_paths: ['src/**'],
 				validation_commands: ['pnpm test'],
+				escalation_rules: ['Stop if the source contract changes'],
 			},
 			cwd,
 		);
@@ -57,13 +65,16 @@ describe('create_harness_runtime', () => {
 		expect(contract.scaffold.task).toBe('Add harness tests');
 		expect(contract.scaffold.allowed_paths).toEqual(['src/**']);
 		expect(contract.scaffold.version).toBe(1);
+		expect(contract.scaffold.escalation_rules).toEqual([
+			'Stop if the source contract changes',
+		]);
 		expect(contract.policy.cwd).toBe(cwd);
 		expect(
 			readFileSync(join(harness_dir, 'SYSTEM.md'), 'utf8'),
 		).toContain('Outer policy');
 		expect(
 			readFileSync(join(harness_dir, 'TASK.md'), 'utf8'),
-		).toContain('Context recovery');
+		).toContain('Approved-contract recovery');
 		expect(
 			readFileSync(join(harness_dir, 'validate.sh'), 'utf8'),
 		).toContain('pnpm test');
@@ -195,6 +206,117 @@ describe('create_harness_runtime', () => {
 		expect(context).toContain(
 			'Do not create another harness merely to commit or push',
 		);
+	});
+});
+
+describe('harness assessment helpers', () => {
+	it('creates versioned assessment state and requires an evidence-backed contract', () => {
+		const state = create_assessment_state(
+			'Consider a plugin system',
+			'user',
+			['read', 'bash', 'edit', 'team'],
+			new Date('2026-08-27T00:00:00.000Z'),
+		);
+		expect(assessment_active(state)).toBe(true);
+		expect(state.id).toMatch(/^assessment-/);
+		expect(() =>
+			submit_assessment_record(state, {
+				task: state.task,
+				evidence: ['The repository has one implementation'],
+				existing_primitives: [],
+				rejected_options: [],
+				smallest_vertical_slice: 'Test one manual path',
+				recommendation: 'harness',
+				proposed_contract: { task: state.task },
+			}),
+		).toThrow('explicit allowed paths');
+
+		const submitted = submit_assessment_record(state, {
+			task: state.task,
+			evidence: ['The repository has one implementation'],
+			existing_primitives: ['Existing extension hook'],
+			rejected_options: ['New planner: no observed need'],
+			smallest_vertical_slice: 'Test one manual path',
+			recommendation: 'harness',
+			proposed_contract: {
+				task: state.task,
+				allowed_paths: ['src/**'],
+				validation_commands: ['pnpm test'],
+			},
+		});
+		expect(submitted).toMatchObject({
+			version: 2,
+			status: 'awaiting_approval',
+		});
+		expect(format_assessment_record(submitted)).toContain(
+			'Existing extension hook',
+		);
+		expect(format_assessment_record(submitted)).toContain(
+			'Allowed paths: src/**',
+		);
+		expect(format_assessment_record(submitted)).toContain(
+			'Validation: pnpm test',
+		);
+	});
+
+	it('keeps only explicit read-only tools during assessment', () => {
+		expect(
+			assessment_tool_names([
+				'read',
+				'bash',
+				'edit',
+				'write',
+				'team',
+				'lsp_hover',
+				'mcp__mcp-omnisearch__web_search',
+			]),
+		).toEqual([
+			'read',
+			'bash',
+			'lsp_hover',
+			'mcp__mcp-omnisearch__web_search',
+			'harness_assess',
+			'harness_assessment_submit',
+			'harness_read',
+		]);
+	});
+
+	it('allows focused inspection commands and blocks shell composition or mutation', () => {
+		expect(check_assessment_command('git status --short')).toEqual({
+			ok: true,
+		});
+		expect(check_assessment_command('gh issue view 524')).toEqual({
+			ok: true,
+		});
+		expect(
+			check_assessment_command("rg -n 'plugin|registry' ."),
+		).toEqual({ ok: true });
+		expect(
+			check_assessment_command('rg plugin . | tee result'),
+		).toMatchObject({
+			ok: false,
+		});
+		expect(
+			check_assessment_command('git status && rm -rf .'),
+		).toMatchObject({
+			ok: false,
+		});
+		expect(check_assessment_command('find . -delete')).toMatchObject({
+			ok: false,
+		});
+		expect(
+			check_assessment_command('git branch speculative'),
+		).toMatchObject({
+			ok: false,
+		});
+		expect(
+			check_assessment_command('git remote add origin x'),
+		).toMatchObject({
+			ok: false,
+		});
+		expect(
+			check_assessment_command('gh api repos/a/b/issues -f title=x'),
+		).toMatchObject({ ok: false });
 	});
 });
 
@@ -440,7 +562,7 @@ describe('should_inject_harness_prompt', () => {
 });
 
 describe('harness extension', () => {
-	it('registers commands, tools, and lifecycle hooks', async () => {
+	function extension_harness() {
 		const commands = new Map<string, { handler: Function }>();
 		const tools = new Map<
 			string,
@@ -451,130 +573,364 @@ describe('harness extension', () => {
 			}
 		>();
 		const handlers = new Map<string, Function>();
-		const register_command = vi.fn(
-			(name: string, definition: { handler: Function }) => {
+		const send_user_message = vi.fn();
+		const send_message = vi.fn();
+		const append_entry = vi.fn();
+		let active_tools = [
+			'read',
+			'bash',
+			'edit',
+			'write',
+			'team',
+			'harness_assess',
+			'harness_assessment_submit',
+			'harness_create',
+			'harness_read',
+		];
+		const set_active_tools = vi.fn((names: string[]) => {
+			active_tools = names;
+		});
+		const api = {
+			appendEntry: append_entry,
+			getActiveTools: () => active_tools,
+			on: (name: string, handler: Function) => {
+				handlers.set(name, handler);
+			},
+			registerCommand: (
+				name: string,
+				definition: { handler: Function },
+			) => {
 				commands.set(name, definition);
 			},
-		);
-		const register_tool = vi.fn(
-			(definition: {
+			registerTool: (definition: {
 				name: string;
 				execute: Function;
 				constrainedSampling?: unknown;
 			}) => {
 				tools.set(definition.name, definition);
 			},
-		);
-		const on = vi.fn((name: string, handler: Function) => {
-			handlers.set(name, handler);
-		});
-		const send_user_message = vi.fn();
-		const append_entry = vi.fn();
-
-		await harness({
-			appendEntry: append_entry,
-			on,
-			registerCommand: register_command,
-			registerTool: register_tool,
+			sendMessage: send_message,
 			sendUserMessage: send_user_message,
-		} as unknown as ExtensionAPI);
+			setActiveTools: set_active_tools,
+		} as unknown as ExtensionAPI;
+		return {
+			active_tools: () => active_tools,
+			api,
+			append_entry,
+			commands,
+			handlers,
+			send_message,
+			send_user_message,
+			set_active_tools,
+			tools,
+		};
+	}
 
-		expect(commands.has('harness')).toBe(true);
-		expect(tools.has('harness_create')).toBe(true);
-		expect(tools.has('harness_update')).toBe(true);
-		expect(tools.has('harness_read')).toBe(true);
-		expect(
-			Array.from(tools.values()).every(
-				(tool) => tool.constrainedSampling === undefined,
-			),
-		).toBe(true);
-		expect(handlers.has('before_agent_start')).toBe(true);
-		expect(handlers.has('input')).toBe(true);
-		expect(handlers.has('tool_call')).toBe(true);
+	function extension_context(cwd: string, select = vi.fn()) {
+		return {
+			cwd,
+			hasUI: true,
+			sessionManager: {
+				getBranch: (): unknown[] => [],
+				getEntries: (): unknown[] => [],
+			},
+			ui: {
+				notify: vi.fn(),
+				select,
+				setStatus: vi.fn(),
+				setWidget: vi.fn(),
+			},
+		};
+	}
 
-		commands.get('harness')!.handler('create add feature', {
-			ui: { notify: vi.fn(), setStatus: vi.fn(), setWidget: vi.fn() },
-		});
-		expect(send_user_message).toHaveBeenCalledWith(
-			expect.stringContaining('Use the create-harness skill'),
-		);
-		expect(send_user_message).toHaveBeenCalledWith(
-			expect.stringContaining('add a team task'),
-		);
+	it('routes harness creation into enforced assessment', async () => {
+		const fixture = extension_harness();
+		await harness(fixture.api);
+		const ctx = extension_context(temp_project());
 
-		commands.get('harness')!.handler('run /tmp/my-pi-harness-demo', {
-			ui: { notify: vi.fn(), setStatus: vi.fn(), setWidget: vi.fn() },
-		});
-		expect(send_user_message).toHaveBeenCalledWith(
+		expect(fixture.commands.has('assess')).toBe(true);
+		expect(fixture.commands.has('harness')).toBe(true);
+		expect(fixture.tools.has('harness_assess')).toBe(true);
+		expect(fixture.tools.has('harness_assessment_submit')).toBe(true);
+		expect(fixture.tools.has('harness_create')).toBe(true);
+		expect(fixture.handlers.has('agent_end')).toBe(true);
+		expect(fixture.handlers.has('tool_call')).toBe(true);
+
+		await fixture.commands
+			.get('harness')!
+			.handler('create add plugin architecture', ctx);
+		expect(fixture.send_user_message).toHaveBeenCalledWith(
 			expect.stringContaining(
-				'one mutating teammate only when useful',
+				'Assess this task before creating a harness',
 			),
 		);
+		expect(fixture.active_tools()).toContain('read');
+		expect(fixture.active_tools()).toContain(
+			'harness_assessment_submit',
+		);
+		expect(fixture.active_tools()).not.toContain('edit');
+		expect(fixture.active_tools()).not.toContain('team');
+		expect(fixture.append_entry).toHaveBeenCalledWith(
+			HARNESS_ASSESSMENT_CUSTOM_TYPE,
+			expect.objectContaining({
+				status: 'assessing',
+				task: 'add plugin architecture',
+			}),
+		);
 
+		await expect(
+			fixture.handlers.get('tool_call')?.(
+				{ toolName: 'edit', input: { path: 'src/index.ts' } },
+				ctx,
+			),
+		).resolves.toMatchObject({ block: true });
+		await expect(
+			fixture.handlers.get('tool_call')?.(
+				{
+					toolName: 'bash',
+					input: { command: 'git status --short' },
+				},
+				ctx,
+			),
+		).resolves.toBeUndefined();
+		await expect(
+			fixture.handlers.get('tool_call')?.(
+				{ toolName: 'bash', input: { command: 'touch new-file' } },
+				ctx,
+			),
+		).resolves.toMatchObject({ block: true });
+	});
+
+	it('blocks an unapproved harness_create call and starts assessment', async () => {
+		const fixture = extension_harness();
+		await harness(fixture.api);
+		const ctx = extension_context(temp_project());
+
+		await expect(
+			fixture.handlers.get('tool_call')?.(
+				{
+					toolName: 'harness_create',
+					input: { task: 'Replace the persistence layer' },
+				},
+				ctx,
+			),
+		).resolves.toMatchObject({
+			block: true,
+			reason: expect.stringContaining('requires direct approval'),
+		});
+		expect(fixture.active_tools()).not.toContain('write');
+	});
+
+	it('creates the exact approved harness and restores tools', async () => {
+		const fixture = extension_harness();
+		await harness(fixture.api);
+		const cwd = temp_project();
+		const select = vi
+			.fn()
+			.mockResolvedValue('Create and execute harness');
+		const ctx = extension_context(cwd, select);
+
+		await fixture.commands
+			.get('assess')!
+			.handler('Add a bounded adapter', ctx);
+		await fixture.tools.get('harness_assessment_submit')!.execute(
+			'assessment-call',
+			{
+				task: 'Add a bounded adapter',
+				evidence: ['src/adapter.ts is the current boundary'],
+				existing_primitives: ['Existing adapter interface'],
+				rejected_options: ['New task graph: no observed need'],
+				smallest_vertical_slice: 'Implement one adapter path',
+				recommendation: 'harness',
+				proposed_contract: {
+					task: 'Implement one adapter path',
+					allowed_paths: ['src/adapter.ts'],
+					validation_commands: ['pnpm test'],
+				},
+			},
+			undefined,
+			undefined,
+			ctx,
+		);
+		await fixture.handlers.get('agent_end')?.({}, ctx);
+
+		expect(select).toHaveBeenCalledOnce();
+		expect(fixture.active_tools()).toContain('edit');
+		expect(fixture.append_entry).toHaveBeenCalledWith(
+			HARNESS_ASSESSMENT_CUSTOM_TYPE,
+			expect.objectContaining({
+				status: 'approved',
+				decision: 'harness',
+			}),
+		);
+		const active_entry = fixture.append_entry.mock.calls
+			.filter(([type]) => type === HARNESS_CUSTOM_TYPE)
+			.at(-1)?.[1] as { active_harness_dir?: string };
+		expect(active_entry.active_harness_dir).toContain(
+			'my-pi-harness-implement-one-adapter-path',
+		);
+		cleanup_paths.push(active_entry.active_harness_dir!);
+		const contract = JSON.parse(
+			readFileSync(
+				join(active_entry.active_harness_dir!, 'harness.json'),
+				'utf8',
+			),
+		);
+		expect(contract.scaffold.allowed_paths).toEqual([
+			'src/adapter.ts',
+		]);
+		expect(contract.scaffold.validation_commands).toEqual([
+			'pnpm test',
+		]);
+		expect(fixture.send_message).toHaveBeenCalledWith(
+			expect.objectContaining({
+				content: expect.stringContaining('Execute harness'),
+			}),
+			expect.objectContaining({ triggerTurn: true }),
+		);
+	});
+
+	it('amends an active harness only after assessment approval', async () => {
+		const fixture = extension_harness();
+		await harness(fixture.api);
 		const cwd = temp_project();
 		const { harness_dir } = create_harness_runtime(
 			{
-				task: 'This deliberately long task must not appear in the persistent widget',
+				task: 'Initial capability',
+				allowed_paths: ['src/base.ts'],
+				validation_commands: ['pnpm test'],
 			},
 			cwd,
 		);
 		cleanup_paths.push(harness_dir);
-		const ui = {
-			notify: vi.fn(),
-			setStatus: vi.fn(),
-			setWidget: vi.fn(),
-		};
-		commands.get('harness')!.handler(`use ${harness_dir}`, { ui });
-		expect(ui.setStatus).toHaveBeenCalledWith(
-			'harness',
-			'🧪 created',
-		);
-		expect(ui.setWidget).toHaveBeenCalledWith('harness', undefined);
-		update_harness_runtime({ harness_dir, status: 'completed' });
-		await handlers.get('input')?.(
-			{ source: 'extension', text: 'queued follow-up' },
-			{ ui },
-		);
-		expect(append_entry).not.toHaveBeenLastCalledWith(
-			HARNESS_CUSTOM_TYPE,
-			{ active_harness_dir: undefined },
-		);
-		await handlers.get('input')?.(
-			{ source: 'interactive', text: 'next task' },
-			{ ui },
-		);
-		expect(append_entry).toHaveBeenLastCalledWith(
-			HARNESS_CUSTOM_TYPE,
-			{ active_harness_dir: undefined },
-		);
-
-		await handlers.get('session_start')?.(
-			{},
+		const select = vi
+			.fn()
+			.mockResolvedValue('Approve and amend active harness');
+		const ctx = extension_context(cwd, select);
+		await fixture.commands
+			.get('harness')!
+			.handler(`use ${harness_dir}`, ctx);
+		await fixture.commands
+			.get('assess')!
+			.handler('Adopt one evidenced capability', ctx);
+		await fixture.tools.get('harness_assessment_submit')!.execute(
+			'assessment-call',
 			{
-				sessionManager: {
-					getEntries: () => [
-						{
-							type: 'custom',
-							customType: HARNESS_CUSTOM_TYPE,
-							data: { active_harness_dir: harness_dir },
-						},
-					],
+				task: 'Adopt one evidenced capability',
+				evidence: ['The existing boundary supports one extension'],
+				existing_primitives: ['Existing extension boundary'],
+				rejected_options: ['New framework: no need'],
+				smallest_vertical_slice: 'Add one extension',
+				recommendation: 'harness',
+				proposed_contract: {
+					task: 'Add one approved extension',
+					allowed_paths: ['src/base.ts', 'src/extension.ts'],
+					validation_commands: ['pnpm test', 'pnpm run check'],
 				},
-				ui,
 			},
+			undefined,
+			undefined,
+			ctx,
 		);
-		expect(append_entry).toHaveBeenLastCalledWith(
+		await fixture.handlers.get('agent_end')?.({}, ctx);
+
+		const amended = JSON.parse(
+			readFileSync(join(harness_dir, 'harness.json'), 'utf8'),
+		);
+		expect(amended.scaffold.version).toBe(2);
+		expect(amended.scaffold.allowed_paths).toEqual([
+			'src/base.ts',
+			'src/extension.ts',
+		]);
+		expect(amended.amendments.at(-1).reason).toContain(
+			'Approved assessment',
+		);
+		expect(fixture.send_message).toHaveBeenCalledWith(
+			expect.objectContaining({
+				content: expect.stringContaining('approved scaffold v2'),
+			}),
+			expect.objectContaining({ triggerTurn: true }),
+		);
+	});
+
+	it('keeps headless assessment awaiting direct approval', async () => {
+		const fixture = extension_harness();
+		await harness(fixture.api);
+		const ctx = {
+			...extension_context(temp_project()),
+			hasUI: false,
+		};
+		await fixture.commands
+			.get('assess')!
+			.handler('Review a risky change', ctx);
+		await fixture.tools.get('harness_assessment_submit')!.execute(
+			'assessment-call',
+			{
+				task: 'Review a risky change',
+				evidence: ['Risk exists'],
+				existing_primitives: [],
+				rejected_options: [],
+				smallest_vertical_slice: 'No implementation yet',
+				recommendation: 'reject',
+			},
+			undefined,
+			undefined,
+			ctx,
+		);
+		await fixture.handlers.get('agent_end')?.({}, ctx);
+		expect(ctx.ui.select).not.toHaveBeenCalled();
+		expect(fixture.active_tools()).not.toContain('edit');
+		expect(fixture.append_entry).toHaveBeenLastCalledWith(
+			HARNESS_ASSESSMENT_CUSTOM_TYPE,
+			expect.objectContaining({ status: 'awaiting_approval' }),
+		);
+	});
+
+	it('restores terminal harness and active assessment state on session start', async () => {
+		const fixture = extension_harness();
+		await harness(fixture.api);
+		const cwd = temp_project();
+		const { harness_dir } = create_harness_runtime(
+			{ task: 'Completed work' },
+			cwd,
+		);
+		cleanup_paths.push(harness_dir);
+		update_harness_runtime({ harness_dir, status: 'completed' });
+		const assessment = create_assessment_state(
+			'Assess resumed work',
+			'user',
+			fixture.active_tools(),
+		);
+		const ctx = extension_context(cwd);
+		const entries = [
+			{
+				type: 'custom',
+				customType: HARNESS_CUSTOM_TYPE,
+				data: { active_harness_dir: harness_dir },
+			},
+			{
+				type: 'custom',
+				customType: HARNESS_ASSESSMENT_CUSTOM_TYPE,
+				data: assessment,
+			},
+		];
+		ctx.sessionManager.getBranch = () => entries;
+		ctx.sessionManager.getEntries = () => entries;
+		await fixture.handlers.get('session_start')?.({}, ctx);
+		expect(fixture.append_entry).toHaveBeenCalledWith(
 			HARNESS_CUSTOM_TYPE,
 			{ active_harness_dir: undefined },
 		);
-
+		expect(fixture.active_tools()).not.toContain('edit');
 		await expect(
-			handlers.get('before_agent_start')?.({
+			fixture.handlers.get('before_agent_start')?.({
 				systemPrompt: 'base',
 				systemPromptOptions: {},
 			}),
 		).resolves.toEqual({
-			systemPrompt: `base\n\n${HARNESS_SYSTEM_PROMPT}`,
+			systemPrompt: expect.stringContaining(
+				'Active harness assessment',
+			),
 		});
 	});
 });

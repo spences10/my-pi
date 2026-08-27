@@ -44,14 +44,13 @@ ${contract.scaffold.task}
 
 ## Required loop
 
-1. Context recovery
-2. Source-of-truth capture
-3. Assumption challenge
-4. Alignment checkpoint
-5. Surgical execution
-6. Validation evidence
-7. Drift review
-8. Delta/risk report
+1. Approved-contract recovery
+2. Source-of-truth confirmation
+3. Assumption-drift check
+4. Surgical execution
+5. Validation evidence
+6. Drift review
+7. Delta/risk report
 
 ## Escalation rules
 

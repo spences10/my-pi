@@ -1,90 +1,68 @@
 ---
 name: create-harness
 # prettier-ignore
-description: Use when creating executable /tmp Pi task harnesses for ambiguous or high-risk coding work. Builds contract, prompts, validation, logs, and enforcement rules.
+description: Use when assessing ambiguous or high-risk coding work before creating an approved task harness. Establishes evidence, existing primitives, rejected options, a smallest vertical slice, and an optional execution contract.
 compatibility:
   Requires my-pi or Pi with the pi-harness extension tools enabled.
 ---
 
-# Create Harness
+# Assess and Create Harness
 
-Create a real my-pi task harness, not a prose-only plan. The harness
-must live in `/tmp` and be created with the `harness_create` tool
-after context gathering. It is control state, not a worktree, and
-repository changes do not live inside it.
+A harness must be earned by an approved assessment. Do not turn
+candidate capabilities directly into an execution contract.
 
 ## Use threshold
 
-Use a harness when a task benefits from an enforceable execution
+Start assessment when work may benefit from an enforceable execution
 contract because it has material risk, unresolved scope, destructive
 effects, or complex coordination. Good candidates include broad
 uncertain refactors, migrations, deployments, risky releases, external
 side effects, and explicit user requests.
 
-Use the normal direct workflow for bounded, low-risk work that
-standard validation can verify, including:
-
-- routine documentation or copy edits
-- focused single-file fixes
-- configuration or metadata updates
-- test expectation changes
-- formatting and other low-risk maintenance
-- reviewed commit or push follow-ups
-
-Before creation, identify the contract benefit and the risk, scope, or
-coordination need it controls.
+Use direct work for bounded, low-risk tasks that standard validation
+can verify. A simple ambiguity may need only a clarifying question.
 
 ## Workflow
 
-1. Recover context with read-only tools first: docs, package READMEs,
-   source, tests, git, LSP, recall, browser, or MCP as relevant.
-2. Establish source of truth: list the concrete files, commands, docs,
-   or evidence the harness is grounded in.
-3. Challenge assumptions: identify uncertainties and whether the
-   executor may decide or must escalate.
-4. Define both layers: the outer policy contains workspace/verifier
-   protections; the inner scaffold contains task scope, validation,
-   test strategy, and model roles.
-5. Call `harness_create` with the task and contract fields.
-6. If the `team` tool is available, create or reuse a team and call
-   `task_create` with the harness directory in the description.
-7. Read back the created harness path and report how to run it with
-   `/harness run <dir>`.
+1. Call `harness_assess` before repository mutation. Call it by
+   itself.
+2. Recover context with the remaining read-only tools.
+3. Establish source of truth from concrete source, tests, docs,
+   history, and observed behavior.
+4. Find existing Pi, package, project, or platform primitives before
+   proposing a new capability.
+5. Challenge assumptions. Record rejected options and why the evidence
+   rejects them.
+6. Define the smallest useful vertical slice or falsifiable
+   experiment.
+7. Call `harness_assessment_submit` with one recommendation:
+   - `direct` for bounded work;
+   - `harness` when an execution contract adds value;
+   - `reject` when the work has not earned adoption.
+8. For a harness recommendation, include explicit allowed paths and
+   validation commands in the proposed contract.
+9. Wait for direct user approval. Do not infer approval from agent
+   text or continue implementation while approval is pending.
+10. The extension creates and activates an approved harness
+    atomically. Do not call `harness_create` to bypass assessment.
 
-## Policy and Scaffold Guidance
+## Scope changes
 
-- Outer policy fields (`cwd`, forbidden paths/commands, tool surface,
-  dirty baseline) are runtime-owned and cannot be weakened by
-  `harness_amend`.
-- Inner scaffold fields (task, allowed paths, validation, test policy,
-  model roles, escalation rules) are versioned and amendable when user
-  direction or evidence changes.
-- The scaffold is subordinate to system, developer, and current user
-  instructions.
+Use `harness_amend` for bounded changes inside an approved capability.
+A new capability, architecture decision, or outer-policy expansion
+requires another assessment.
 
-- Never create a replacement harness merely to escape the guard of a
-  completed run. Completion seals its evidence for the current turn;
-  the extension deactivates it on the next direct user turn or session
-  startup.
-- Keep `allowed_paths` narrow. Use `.` only when the task genuinely
-  spans the repo.
-- Set `allow_test_changes: false` unless changing tests is explicitly
-  part of the task.
-- Include validation commands whenever the project has a known check
-  path.
-- Add `forbidden_commands` for task-specific hazards.
-- Do not implement the task during harness creation unless the user
-  explicitly asks for combined create/run.
-- Do not spawn a teammate during creation; save spawning for the run
-  phase.
+## Rules
+
+- Assessment state is session control state, not project source.
+- Read-only mode forbids project edits, writes, commits, package
+  installation, delegation, and other mutating tools.
+- A rejected capability is a valid outcome.
+- Do not create a planner, task graph, or backlog from rejected
+  candidates.
+- Do not implement during assessment.
 
 ## Output
 
-Report only:
-
-- harness directory
-- source-of-truth inputs used
-- allowed scope
-- validation commands
-- team task id if one was created
-- open decisions or escalation triggers
+Submit only the structured assessment record. The extension presents
+it for user approval and handles the chosen exit.

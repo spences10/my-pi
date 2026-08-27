@@ -119,7 +119,7 @@ export function create_harness_runtime(
 			allowed_paths: params.allowed_paths ?? ['.'],
 			validation_commands: params.validation_commands ?? [],
 			allow_test_changes: params.allow_test_changes ?? false,
-			escalation_rules: [
+			escalation_rules: params.escalation_rules ?? [
 				'Required context contradicts the active scaffold or TASK.md.',
 				'Implementation needs edits outside scaffold.allowed_paths.',
 				'Validation requires weakening tests or changing public behavior outside the scaffold.',

@@ -53,6 +53,14 @@ export const harness_create_params_schema = Type.Object({
 			description: 'Whether executor may edit test files',
 		}),
 	),
+	escalation_rules: Type.Optional(
+		Type.Array(
+			Type.String({
+				description:
+					'Condition that requires execution to stop and escalate',
+			}),
+		),
+	),
 	planner_model: Type.Optional(Type.String()),
 	planner_thinking: Type.Optional(thinking_levels_schema),
 	executor_model: Type.Optional(Type.String()),
