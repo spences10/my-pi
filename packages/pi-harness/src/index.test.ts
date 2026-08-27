@@ -515,6 +515,12 @@ describe('should_inject_harness_prompt', () => {
 		}
 	});
 
+	it('keeps Factory outside normal harness execution', () => {
+		expect(HARNESS_SYSTEM_PROMPT).toContain(
+			'Harness approval does not authorize Factory',
+		);
+	});
+
 	it('routes reviewed commit and push follow-ups to direct work', () => {
 		expect(HARNESS_SYSTEM_PROMPT).toContain(
 			'reviewed commit or push follow-ups',
@@ -785,6 +791,20 @@ describe('harness extension', () => {
 		expect(fixture.send_message).toHaveBeenCalledWith(
 			expect.objectContaining({
 				content: expect.stringContaining('Execute harness'),
+			}),
+			expect.objectContaining({ triggerTurn: true }),
+		);
+		expect(fixture.send_message).toHaveBeenCalledWith(
+			expect.objectContaining({
+				content: expect.stringContaining('execute-harness skill'),
+			}),
+			expect.objectContaining({ triggerTurn: true }),
+		);
+		expect(fixture.send_message).toHaveBeenCalledWith(
+			expect.objectContaining({
+				content: expect.stringContaining(
+					'does not authorize Factory',
+				),
 			}),
 			expect.objectContaining({ triggerTurn: true }),
 		);

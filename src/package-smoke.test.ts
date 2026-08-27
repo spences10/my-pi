@@ -200,7 +200,7 @@ export default function flag_errors(pi: ExtensionAPI) {
 		}
 	});
 
-	it('captures the selected preset in the effective prompt before any model request', () => {
+	it('captures selected presets and excludes default-disabled tools from the effective prompt', () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-cli-prompt-'));
 		const extension_path = join(cwd, 'prompt-capture.ts');
 		const output_path = join(cwd, 'effective-prompt.txt');
@@ -262,9 +262,11 @@ export default function prompt_capture(pi: ExtensionAPI) {
 			);
 
 			expect(result.status, result.stderr).toBe(0);
-			expect(readFileSync(output_path, 'utf-8')).toContain(
+			const effective_prompt = readFileSync(output_path, 'utf-8');
+			expect(effective_prompt).toContain(
 				'Use ASD-STE100 Simplified Technical English in all replies.',
 			);
+			expect(effective_prompt).not.toContain('factory_start');
 		} finally {
 			rmSync(cwd, { recursive: true, force: true });
 		}

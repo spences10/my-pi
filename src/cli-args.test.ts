@@ -180,13 +180,19 @@ describe('CLI arg helpers', () => {
 		}
 	});
 
-	it('maps built-in disable flags to API options from the registry', () => {
+	it('maps built-in defaults and disable flags to API options from the registry', () => {
+		expect(resolve_builtin_extension_options({})).toMatchObject({
+			factory: false,
+			harness: true,
+			mcp: true,
+		});
 		expect(
 			resolve_builtin_extension_options({
 				'no-mcp': true,
 				'no-session-name': true,
 			}),
 		).toMatchObject({
+			factory: false,
 			mcp: false,
 			session_name: false,
 			recall: true,

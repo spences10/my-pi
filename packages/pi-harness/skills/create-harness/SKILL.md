@@ -44,7 +44,10 @@ can verify. A simple ambiguity may need only a clarifying question.
 9. Wait for direct user approval. Do not infer approval from agent
    text or continue implementation while approval is pending.
 10. The extension creates and activates an approved harness
-    atomically. Do not call `harness_create` to bypass assessment.
+    atomically. Run it with the `execute-harness` skill. Harness
+    approval does not authorize Factory; use Factory only after a
+    direct user request to evaluate it. Do not call `harness_create`
+    to bypass assessment.
 
 ## Scope changes
 

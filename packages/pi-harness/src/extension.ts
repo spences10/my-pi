@@ -294,7 +294,7 @@ export default async function harness(pi: ExtensionAPI) {
 				restore_tools_after_assessment(approved);
 				set_active_harness(active_harness_dir, ctx);
 				return {
-					message: `The user approved assessment ${approved.id} v${approved.version}. Resume harness ${contract.id} with approved scaffold v${contract.scaffold.version}.`,
+					message: `The user approved assessment ${approved.id} v${approved.version}. Resume harness ${contract.id} with approved scaffold v${contract.scaffold.version} using the execute-harness skill. Harness approval does not authorize Factory; use Factory only after a direct user request to evaluate it.`,
 					trigger: true,
 				};
 			}
@@ -306,7 +306,7 @@ export default async function harness(pi: ExtensionAPI) {
 			);
 			set_active_harness(harness_dir, ctx);
 			return {
-				message: `The user approved assessment ${approved.id} v${approved.version}. Execute harness ${contract.id} from ${harness_dir}.`,
+				message: `The user approved assessment ${approved.id} v${approved.version}. Execute harness ${contract.id} from ${harness_dir} using the execute-harness skill. Harness approval does not authorize Factory; use Factory only after a direct user request to evaluate it.`,
 				trigger: true,
 			};
 		}
@@ -497,7 +497,7 @@ export default async function harness(pi: ExtensionAPI) {
 				}
 				set_active_harness(harness_dir, ctx);
 				pi.sendUserMessage(
-					`Use the execute-harness skill to run this harness until validation completes: ${harness_dir}. If the team tool is available, create or reuse a team and create a task for this harness. Use one mutating teammate only when useful; use a worktree only when isolation and merge ownership are explicit. Then inspect team status/results before reporting.`,
+					`Use the execute-harness skill to run this harness until validation completes: ${harness_dir}. Harness execution does not authorize Factory; use Factory only after a direct user request to evaluate it. If the team tool is available, create or reuse a team and create a task for this harness. Use one mutating teammate only when useful; use a worktree only when isolation and merge ownership are explicit. Then inspect team status/results before reporting.`,
 				);
 				return;
 			}

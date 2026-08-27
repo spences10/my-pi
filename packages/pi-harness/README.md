@@ -103,7 +103,10 @@ options, the smallest useful vertical slice, and one recommendation. A
 harness recommendation must include explicit allowed paths and
 validation commands. Direct user approval then creates and activates
 the harness, restores tools for approved direct work, or rejects the
-candidate without project changes.
+candidate without project changes. Approved harnesses run through the
+bundled `execute-harness` skill. Harness approval does not authorize
+Factory; Factory requires a separate direct user request for
+evaluation.
 
 An agent can enter assessment with `harness_assess`. If it calls
 `harness_create` without approval, the extension blocks the call and

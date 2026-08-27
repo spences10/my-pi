@@ -79,7 +79,9 @@ export function resolve_builtin_extension_options(
 	return Object.fromEntries(
 		BUILTIN_EXTENSIONS.map((extension) => [
 			extension.option_name,
-			!no_builtin && !is_citty_no_flag_set(args, extension.cli_arg),
+			!no_builtin &&
+				!is_citty_no_flag_set(args, extension.cli_arg) &&
+				extension.default_enabled,
 		]),
 	) as Partial<Record<BuiltinExtensionOptionName, boolean>>;
 }
