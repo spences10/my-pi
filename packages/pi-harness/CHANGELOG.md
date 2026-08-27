@@ -1,5 +1,13 @@
 # @spences10/pi-harness
 
+## 0.1.0
+
+### Minor Changes
+
+- fbf0a07: Add evidence-gated pre-harness assessments requiring
+  read-only investigation and explicit user approval before execution
+  begins safely.
+
 ## 0.0.11
 
 ### Patch Changes
