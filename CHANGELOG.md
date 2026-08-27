@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.2.6
+
+### Patch Changes
+
+- 39fa567: Respect disabled extension defaults and keep harness
+  execution separate from experimental Factory workflows by default.
+
 ## 0.2.5
 
 ## 0.2.4

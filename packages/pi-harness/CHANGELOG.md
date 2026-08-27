@@ -1,5 +1,12 @@
 # @spences10/pi-harness
 
+## 0.1.1
+
+### Patch Changes
+
+- 39fa567: Respect disabled extension defaults and keep harness
+  execution separate from experimental Factory workflows by default.
+
 ## 0.1.0
 
 ### Minor Changes
