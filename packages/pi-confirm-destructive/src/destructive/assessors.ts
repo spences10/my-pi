@@ -4,9 +4,16 @@ import { resolve } from 'node:path';
 import {
 	get_git_recoverability,
 	git,
+	is_git_protected_path,
 	is_git_recoverable,
 } from './git.js';
-import { describe_path_risk, is_agent_temp_path } from './paths.js';
+import {
+	describe_path_risk,
+	is_disposable_temp_path,
+	is_session_created_path,
+	is_specific_literal_shell_path,
+	is_specific_path,
+} from './paths.js';
 import {
 	extract_command_paths,
 	extract_overwrite_paths,
@@ -17,7 +24,6 @@ import type { DestructiveAction } from './types.js';
 
 const DESTRUCTIVE_CUSTOM_TOOL_NAME =
 	/(^|[_-])(delete|destroy|drop|remove|archive|execute_write_query|execute_schema_query|bulk_insert)([_-]|$)/i;
-const DYNAMIC_PATH_PATTERN = /[*?[$`]|\$\(|\$\{/;
 const SAFE_REDIRECT_TARGETS = new Set([
 	'/dev/null',
 	'/dev/stderr',
@@ -69,6 +75,17 @@ function option_letters(args: string[]): string {
 		.join('');
 }
 
+function is_safe_disposable_temp_path(
+	cwd: string,
+	path: string,
+	options: { shell?: boolean } = {},
+): boolean {
+	return (
+		is_disposable_temp_path(cwd, path, options) &&
+		!is_git_protected_path(cwd, path)
+	);
+}
+
 function assess_rm_command(
 	command: string,
 	cwd: string,
@@ -83,13 +100,18 @@ function assess_rm_command(
 	const paths = extract_command_paths(command, 'rm');
 	if (paths && paths.length > 0) {
 		if (
-			paths.every((path) => {
-				const absolute = resolve(cwd, path);
-				return (
-					session_created_paths.has(absolute) ||
-					is_agent_temp_path(absolute)
-				);
-			})
+			paths.every(
+				(path) =>
+					is_specific_literal_shell_path(path) &&
+					(is_session_created_path(
+						cwd,
+						path,
+						session_created_paths,
+					) ||
+						is_safe_disposable_temp_path(cwd, path, {
+							shell: true,
+						})),
+			)
 		) {
 			return undefined;
 		}
@@ -206,12 +228,12 @@ function assess_overwrite_redirect(
 
 	const risky = paths.filter((path) => {
 		if (SAFE_REDIRECT_TARGETS.has(path)) return false;
-		if (DYNAMIC_PATH_PATTERN.test(path)) return true;
+		if (!is_specific_literal_shell_path(path)) return true;
 		const absolute = resolve(cwd, path);
 		if (!existsSync(absolute)) return false;
 		return (
-			!session_created_paths.has(absolute) &&
-			!is_agent_temp_path(absolute) &&
+			!is_session_created_path(cwd, path, session_created_paths) &&
+			!is_safe_disposable_temp_path(cwd, path, { shell: true }) &&
 			!is_git_recoverable(cwd, path)
 		);
 	});
@@ -487,8 +509,14 @@ function assess_file_write(
 	if (typeof path !== 'string' || !path.trim()) return undefined;
 	const absolute = resolve(cwd, path);
 	if (!existsSync(absolute)) return undefined;
-	if (session_created_paths.has(absolute)) return undefined;
-	if (is_git_recoverable(cwd, path)) return undefined;
+	if (
+		(is_specific_path(path) &&
+			(is_session_created_path(cwd, path, session_created_paths) ||
+				is_safe_disposable_temp_path(cwd, path))) ||
+		is_git_recoverable(cwd, path)
+	) {
+		return undefined;
+	}
 
 	const reason =
 		get_git_recoverability(cwd, path) === 'tracked-dirty'
@@ -525,9 +553,15 @@ function assess_file_edit(
 
 	if (removed_chars === 0 || removed_chars - added_chars < 200)
 		return undefined;
-	if (path && session_created_paths.has(resolve(cwd, path)))
+	if (
+		path &&
+		((is_specific_path(path) &&
+			(is_session_created_path(cwd, path, session_created_paths) ||
+				is_safe_disposable_temp_path(cwd, path))) ||
+			is_git_recoverable(cwd, path))
+	) {
 		return undefined;
-	if (path && is_git_recoverable(cwd, path)) return undefined;
+	}
 
 	return {
 		title: 'Confirm large content removal?',

@@ -61,6 +61,18 @@ on clean tracked files without prompting, while guarding:
 - custom/MCP tools with destructive names such as `delete`, `drop`,
   `execute_write_query`, or `execute_schema_query`
 
+Explicit absolute files and directories beneath the operating system's
+temporary directory are treated as disposable and can be overwritten
+or deleted without confirmation. Relative and tilde-expanded paths do
+not receive this exception, even when the current directory is
+temporary. The temporary-path exception is also rejected for the
+temporary root itself, wildcard or dynamic targets, parent-directory
+traversal, mixed temporary and non-temporary targets, symlinks that
+resolve outside the temporary directory, Git repository roots or
+metadata, and dirty tracked files. This exception does not apply to
+broad commands such as `find -delete` or to destructive Git, database,
+cloud, disk, and infrastructure operations.
+
 In interactive mode the prompt offers:
 
 - `Allow once`

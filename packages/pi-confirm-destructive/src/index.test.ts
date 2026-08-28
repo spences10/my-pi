@@ -7,6 +7,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	rmSync,
+	symlinkSync,
 	writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -52,14 +53,21 @@ function tmp_dir(): string {
 	return dir;
 }
 
+function work_dir(): string {
+	const dir = mkdtempSync(
+		join(process.cwd(), '.pi-confirm-destructive-test-'),
+	);
+	dirs.push(dir);
+	return dir;
+}
+
 function git(cwd: string, args: string[]) {
 	execFileSync('git', ['-C', cwd, ...args], {
 		stdio: ['ignore', 'ignore', 'ignore'],
 	});
 }
 
-function create_git_repo(): string {
-	const cwd = tmp_dir();
+function create_git_repo(cwd = work_dir()): string {
 	git(cwd, ['init']);
 	git(cwd, ['config', 'user.email', 'test@example.com']);
 	git(cwd, ['config', 'user.name', 'Test User']);
@@ -137,12 +145,79 @@ describe('assess_bash_command', () => {
 		).toBeUndefined();
 	});
 
-	it('still detects deleting arbitrary temp directories', () => {
+	it('allows deleting a specific literal temp directory', () => {
 		const path = join(tmpdir(), 'customer-export');
 
 		expect(
-			assess_bash_command(`rm -rf ${path}`, process.cwd())?.reason,
-		).toBe('Deletes files outside git recovery');
+			assess_bash_command(`rm -rf ${path}`, process.cwd()),
+		).toBeUndefined();
+	});
+
+	it.each([
+		() => `rm -rf ${tmpdir()}`,
+		() => `rm -rf ${join(tmpdir(), '*')}`,
+		() => 'rm -rf $TMPDIR/customer-export',
+		() => `rm -rf ${tmpdir()}/build/../customer-export`,
+	])(
+		'still detects an unbounded or ambiguous temp deletion',
+		(command) => {
+			expect(
+				assess_bash_command(command(), process.cwd()),
+			).toBeTruthy();
+		},
+	);
+
+	it('still detects relative and tilde-expanded paths from a temp cwd', () => {
+		const cwd = tmp_dir();
+		writeFileSync(join(cwd, 'scratch.md'), 'temporary');
+
+		expect(assess_bash_command('rm scratch.md', cwd)).toBeTruthy();
+		expect(
+			assess_bash_command('rm -rf ~/Documents', cwd),
+		).toBeTruthy();
+	});
+
+	it('still detects a command with both temp and non-temp targets', () => {
+		const outside = join(work_dir(), 'important');
+		expect(
+			assess_bash_command(
+				`rm -rf ${join(tmpdir(), 'build')} ${outside}`,
+				process.cwd(),
+			),
+		).toBeTruthy();
+	});
+
+	it.skipIf(process.platform === 'win32')(
+		'still detects a temp symlink that resolves outside the temp root',
+		() => {
+			const outside = work_dir();
+			const temp = tmp_dir();
+			const link = join(temp, 'outside-link');
+			symlinkSync(outside, link, 'dir');
+
+			expect(
+				assess_bash_command(`rm -rf ${link}`, process.cwd()),
+			).toBeTruthy();
+		},
+	);
+
+	it('preserves Git protection for explicit temp targets', () => {
+		const cwd = create_git_repo(tmp_dir());
+		const tracked = join(cwd, 'tracked.md');
+		writeFileSync(tracked, 'changed');
+
+		expect(
+			assess_bash_command(`rm -rf ${cwd}`, process.cwd()),
+		).toBeTruthy();
+		expect(
+			assess_bash_command(
+				`rm -rf ${join(cwd, '.git')}`,
+				process.cwd(),
+			),
+		).toBeTruthy();
+		expect(
+			assess_bash_command(`rm ${tracked}`, process.cwd()),
+		).toBeTruthy();
 	});
 
 	it('detects deleting tracked files with uncommitted changes', () => {
@@ -244,6 +319,22 @@ describe('assess_bash_command', () => {
 		).toBeUndefined();
 	});
 
+	it('allows overwriting an explicit absolute temp path by redirection', () => {
+		const cwd = tmp_dir();
+		const path = join(cwd, 'build.log');
+		writeFileSync(path, 'old output');
+
+		expect(
+			assess_bash_command(`echo replacement > ${path}`, cwd),
+		).toBeUndefined();
+		expect(
+			assess_bash_command('echo replacement > build.log', cwd),
+		).toBeTruthy();
+		expect(
+			assess_bash_command('echo replacement > ~/.bashrc', cwd),
+		).toBeTruthy();
+	});
+
 	it('treats the repository root as unrecoverable', () => {
 		const cwd = create_git_repo();
 		expect(assess_bash_command('rm -rf .', cwd)).toBeTruthy();
@@ -287,7 +378,7 @@ describe('assess_bash_command', () => {
 
 describe('assess_tool_call', () => {
 	it('detects overwriting an untracked existing file with write', () => {
-		const cwd = tmp_dir();
+		const cwd = work_dir();
 		writeFileSync(join(cwd, 'important.md'), 'keep me');
 
 		const action = assess_tool_call(
@@ -306,7 +397,7 @@ describe('assess_tool_call', () => {
 	});
 
 	it('allows overwriting files created during the current session', () => {
-		const cwd = tmp_dir();
+		const cwd = work_dir();
 		writeFileSync(join(cwd, 'draft.md'), 'first draft');
 
 		const action = assess_tool_call(
@@ -322,6 +413,88 @@ describe('assess_tool_call', () => {
 
 		expect(action).toBeUndefined();
 	});
+
+	it('allows overwriting an explicit absolute temp file', () => {
+		const cwd = tmp_dir();
+		const path = join(cwd, 'scratch.md');
+		writeFileSync(path, 'first draft');
+
+		const action = assess_tool_call(
+			{
+				type: 'tool_call',
+				toolCallId: 'tool-1',
+				toolName: 'write',
+				input: { path, content: 'second draft' },
+			} satisfies Parameters<typeof assess_tool_call>[0],
+			cwd,
+		);
+
+		expect(action).toBeUndefined();
+	});
+
+	it('still detects a relative overwrite inside a temp cwd', () => {
+		const cwd = tmp_dir();
+		writeFileSync(join(cwd, 'scratch.md'), 'first draft');
+
+		const action = assess_tool_call(
+			{
+				type: 'tool_call',
+				toolCallId: 'tool-1',
+				toolName: 'write',
+				input: { path: 'scratch.md', content: 'second draft' },
+			} satisfies Parameters<typeof assess_tool_call>[0],
+			cwd,
+		);
+
+		expect(action).toBeTruthy();
+	});
+
+	it('allows overwriting a descendant of a session-created directory', () => {
+		const cwd = work_dir();
+		const created = join(cwd, 'generated');
+		mkdirSync(created);
+		writeFileSync(join(created, 'result.md'), 'first draft');
+
+		const action = assess_tool_call(
+			{
+				type: 'tool_call',
+				toolCallId: 'tool-1',
+				toolName: 'write',
+				input: {
+					path: 'generated/result.md',
+					content: 'second draft',
+				},
+			} satisfies Parameters<typeof assess_tool_call>[0],
+			cwd,
+			new Set([created]),
+		);
+
+		expect(action).toBeUndefined();
+	});
+
+	it.skipIf(process.platform === 'win32')(
+		'still detects a temp write through a symlink outside the temp root',
+		() => {
+			const outside = work_dir();
+			const outside_file = join(outside, 'important.md');
+			writeFileSync(outside_file, 'keep me');
+			const temp = tmp_dir();
+			const link = join(temp, 'important.md');
+			symlinkSync(outside_file, link);
+
+			const action = assess_tool_call(
+				{
+					type: 'tool_call',
+					toolCallId: 'tool-1',
+					toolName: 'write',
+					input: { path: link, content: 'replace me' },
+				} satisfies Parameters<typeof assess_tool_call>[0],
+				process.cwd(),
+			);
+
+			expect(action).toBeTruthy();
+		},
+	);
 
 	it('allows overwriting a clean tracked file because git can restore it', () => {
 		const cwd = create_git_repo();
@@ -356,6 +529,24 @@ describe('assess_tool_call', () => {
 		expect(action?.reason).toBe(
 			'Overwrites a file with uncommitted changes',
 		);
+	});
+
+	it('preserves dirty tracked-file protection for temp writes', () => {
+		const cwd = create_git_repo(tmp_dir());
+		const path = join(cwd, 'tracked.md');
+		writeFileSync(path, 'changed');
+
+		const action = assess_tool_call(
+			{
+				type: 'tool_call',
+				toolCallId: 'tool-1',
+				toolName: 'write',
+				input: { path, content: 'replace me' },
+			} satisfies Parameters<typeof assess_tool_call>[0],
+			process.cwd(),
+		);
+
+		expect(action).toBeTruthy();
 	});
 
 	it('allows writing a new file', () => {
@@ -394,7 +585,7 @@ describe('assess_tool_call', () => {
 	});
 
 	it('detects large content removal from untracked files', () => {
-		const cwd = tmp_dir();
+		const cwd = work_dir();
 		writeFileSync(join(cwd, 'important.md'), 'x'.repeat(300));
 
 		const action = assess_tool_call(
@@ -413,6 +604,27 @@ describe('assess_tool_call', () => {
 		expect(action?.reason).toBe(
 			'Removes substantial content from a file git cannot fully restore',
 		);
+	});
+
+	it('allows large content removal from an explicit absolute temp file', () => {
+		const cwd = tmp_dir();
+		const path = join(cwd, 'scratch.md');
+		writeFileSync(path, 'x'.repeat(300));
+
+		const action = assess_tool_call(
+			{
+				type: 'tool_call',
+				toolCallId: 'tool-1',
+				toolName: 'edit',
+				input: {
+					path,
+					edits: [{ oldText: 'x'.repeat(250), newText: '' }],
+				},
+			} satisfies Parameters<typeof assess_tool_call>[0],
+			cwd,
+		);
+
+		expect(action).toBeUndefined();
 	});
 
 	it('detects destructive custom tool names', () => {
@@ -574,7 +786,7 @@ describe('confirm-destructive extension', () => {
 	});
 
 	it('does not prompt when deleting a file created by the agent', async () => {
-		const cwd = tmp_dir();
+		const cwd = work_dir();
 		const { pi, events } = create_test_pi();
 		await confirm_destructive(pi);
 
