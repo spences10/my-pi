@@ -17,9 +17,9 @@ overrides:
 
 catalog:
   '@changesets/cli': ^3.0.0
-  '@earendil-works/pi-ai': 0.84.4
-  '@earendil-works/pi-coding-agent': 0.84.4
-  '@earendil-works/pi-tui': 0.84.4
+  '@earendil-works/pi-ai': 0.85.0
+  '@earendil-works/pi-coding-agent': 0.85.0
+  '@earendil-works/pi-tui': 0.85.0
   '@fontsource-variable/victor-mono': ^5.2.8
   '@fontsource/victor-mono': ^5.2.8
   '@internationalized/date': ^3.12.1
