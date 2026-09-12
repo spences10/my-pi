@@ -100,7 +100,13 @@ export function create_command_context(
 	const notifications: Array<{ message: string; level?: string }> =
 		[];
 	const selections: string[] = [];
-	const select = vi.fn(async () => selections.shift());
+	const select = vi.fn(
+		async (
+			_title: string,
+			_options: string[],
+			_opts?: { signal?: AbortSignal },
+		) => selections.shift(),
+	);
 	return {
 		ctx: {
 			mode: 'tui',

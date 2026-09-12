@@ -65,9 +65,14 @@ async function with_file_state(
 	manager: LspServerManager,
 	file: string,
 	ctx: ExtensionContext | undefined,
+	signal: AbortSignal | undefined,
 	run: (result: FileState) => Promise<string>,
 ) {
-	const resolved = await manager.resolve_file_state(file, ctx);
+	const resolved = await manager.resolve_file_state(
+		file,
+		ctx,
+		signal,
+	);
 	if (!resolved.ok) {
 		return make_tool_error(resolved.error);
 	}
@@ -118,15 +123,21 @@ export function register_lsp_tools(
 					}),
 				),
 			}),
-			execute: async (_id, params, _signal, _on_update, ctx) =>
-				with_file_state(manager, params.file, ctx, async (result) => {
-					const diagnostics =
-						await result.state.client.wait_for_diagnostics(
-							result.uri,
-							params.wait_ms ?? 1500,
-						);
-					return format_diagnostics(result.abs, diagnostics);
-				}),
+			execute: async (_id, params, signal, _on_update, ctx) =>
+				with_file_state(
+					manager,
+					params.file,
+					ctx,
+					signal,
+					async (result) => {
+						const diagnostics =
+							await result.state.client.wait_for_diagnostics(
+								result.uri,
+								params.wait_ms ?? 1500,
+							);
+						return format_diagnostics(result.abs, diagnostics);
+					},
+				),
 		}),
 	);
 
@@ -150,7 +161,7 @@ export function register_lsp_tools(
 					}),
 				),
 			}),
-			execute: async (_id, params, _signal, _on_update, ctx) => {
+			execute: async (_id, params, signal, _on_update, ctx) => {
 				const wait_ms = params.wait_ms ?? 1500;
 				const lines_with_stats = await map_with_concurrency(
 					params.files,
@@ -159,6 +170,7 @@ export function register_lsp_tools(
 						const resolved = await manager.resolve_file_state(
 							file,
 							ctx,
+							signal,
 						);
 						if (!resolved.ok) {
 							return {
@@ -271,22 +283,27 @@ export function register_lsp_tools(
 					}),
 				),
 			}),
-			execute: async (_id, params, _signal, _on_update, ctx) =>
-				with_file_state(manager, params.file, ctx, async (result) => {
-					const symbols = await result.state.client.document_symbols(
-						result.uri,
-					);
-					return format_symbol_matches(
-						result.abs,
-						params.query,
-						find_symbol_matches(symbols, params.query, {
-							max_results: params.max_results ?? 20,
-							top_level_only: params.top_level_only ?? false,
-							exact_match: params.exact_match ?? false,
-							kinds: new Set(params.kinds ?? []),
-						}),
-					);
-				}),
+			execute: async (_id, params, signal, _on_update, ctx) =>
+				with_file_state(
+					manager,
+					params.file,
+					ctx,
+					signal,
+					async (result) => {
+						const symbols =
+							await result.state.client.document_symbols(result.uri);
+						return format_symbol_matches(
+							result.abs,
+							params.query,
+							find_symbol_matches(symbols, params.query, {
+								max_results: params.max_results ?? 20,
+								top_level_only: params.top_level_only ?? false,
+								exact_match: params.exact_match ?? false,
+								kinds: new Set(params.kinds ?? []),
+							}),
+						);
+					},
+				),
 		}),
 	);
 
@@ -305,14 +322,23 @@ export function register_lsp_tools(
 				},
 				{ additionalProperties: false },
 			),
-			execute: async (_id, params, _signal, _on_update, ctx) =>
-				with_file_state(manager, params.file, ctx, async (result) => {
-					const hover = await result.state.client.hover(result.uri, {
-						line: params.line,
-						character: params.character,
-					});
-					return format_hover(hover);
-				}),
+			execute: async (_id, params, signal, _on_update, ctx) =>
+				with_file_state(
+					manager,
+					params.file,
+					ctx,
+					signal,
+					async (result) => {
+						const hover = await result.state.client.hover(
+							result.uri,
+							{
+								line: params.line,
+								character: params.character,
+							},
+						);
+						return format_hover(hover);
+					},
+				),
 		}),
 	);
 
@@ -331,17 +357,26 @@ export function register_lsp_tools(
 				},
 				{ additionalProperties: false },
 			),
-			execute: async (_id, params, _signal, _on_update, ctx) =>
-				with_file_state(manager, params.file, ctx, async (result) => {
-					const locations = await result.state.client.definition(
-						result.uri,
-						{
-							line: params.line,
-							character: params.character,
-						},
-					);
-					return format_locations(locations, 'No definition found.');
-				}),
+			execute: async (_id, params, signal, _on_update, ctx) =>
+				with_file_state(
+					manager,
+					params.file,
+					ctx,
+					signal,
+					async (result) => {
+						const locations = await result.state.client.definition(
+							result.uri,
+							{
+								line: params.line,
+								character: params.character,
+							},
+						);
+						return format_locations(
+							locations,
+							'No definition found.',
+						);
+					},
+				),
 		}),
 	);
 
@@ -357,18 +392,27 @@ export function register_lsp_tools(
 				character: Type.Number(),
 				include_declaration: Type.Optional(Type.Boolean()),
 			}),
-			execute: async (_id, params, _signal, _on_update, ctx) =>
-				with_file_state(manager, params.file, ctx, async (result) => {
-					const locations = await result.state.client.references(
-						result.uri,
-						{
-							line: params.line,
-							character: params.character,
-						},
-						params.include_declaration ?? true,
-					);
-					return format_locations(locations, 'No references found.');
-				}),
+			execute: async (_id, params, signal, _on_update, ctx) =>
+				with_file_state(
+					manager,
+					params.file,
+					ctx,
+					signal,
+					async (result) => {
+						const locations = await result.state.client.references(
+							result.uri,
+							{
+								line: params.line,
+								character: params.character,
+							},
+							params.include_declaration ?? true,
+						);
+						return format_locations(
+							locations,
+							'No references found.',
+						);
+					},
+				),
 		}),
 	);
 
@@ -385,13 +429,18 @@ export function register_lsp_tools(
 				},
 				{ additionalProperties: false },
 			),
-			execute: async (_id, params, _signal, _on_update, ctx) =>
-				with_file_state(manager, params.file, ctx, async (result) => {
-					const symbols = await result.state.client.document_symbols(
-						result.uri,
-					);
-					return format_document_symbols(result.abs, symbols);
-				}),
+			execute: async (_id, params, signal, _on_update, ctx) =>
+				with_file_state(
+					manager,
+					params.file,
+					ctx,
+					signal,
+					async (result) => {
+						const symbols =
+							await result.state.client.document_symbols(result.uri);
+						return format_document_symbols(result.abs, symbols);
+					},
+				),
 		}),
 	);
 }

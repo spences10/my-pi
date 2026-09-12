@@ -95,6 +95,12 @@ binary unless `MY_PI_LSP_PROJECT_BINARY=allow` or
 `MY_PI_LSP_PROJECT_BINARY=trust` is set. `/lsp status` shows the
 resolved binary path for running and idle servers.
 
+An allow-once decision remains valid for the lifetime of the Pi
+session, including after an idle language-server restart. Interactive
+trust prompts follow tool cancellation and time out after 30 seconds,
+returning a tool error instead of leaving the session indefinitely in
+`Working`.
+
 Language servers receive a restricted child-process environment by
 default. Use `MY_PI_LSP_ENV_ALLOWLIST=NAME,OTHER_NAME` or the shared
 `MY_PI_CHILD_ENV_ALLOWLIST` to pass selected ambient variables

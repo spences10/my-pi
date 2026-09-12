@@ -32,6 +32,7 @@ import {
 
 const LSP_PROJECT_BINARY_ENV = 'MY_PI_LSP_PROJECT_BINARY';
 export const DEFAULT_LSP_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+export const DEFAULT_LSP_TRUST_PROMPT_TIMEOUT_MS = 30_000;
 
 export interface LspClientLike {
 	start(): Promise<void>;
@@ -93,6 +94,7 @@ export interface CreateLspServerManagerOptions {
 	read_file?: (path: string) => Promise<string>;
 	cwd?: () => string;
 	idle_timeout_ms?: number;
+	trust_prompt_timeout_ms?: number;
 }
 
 class LspStartupCancelledError extends Error {
@@ -104,12 +106,40 @@ class LspStartupCancelledError extends Error {
 	}
 }
 
+function throw_if_aborted(signal?: AbortSignal): void {
+	if (!signal?.aborted) return;
+	if (signal.reason instanceof Error) throw signal.reason;
+	throw new Error('LSP startup cancelled');
+}
+
 async function should_use_project_lsp_binary(
 	server_config: LspServerConfig,
+	session_allowed_binaries: Set<string>,
+	trust_prompt_timeout_ms: number,
 	ctx?: ExtensionContext,
+	signal?: AbortSignal,
 ): Promise<boolean> {
 	if (!server_config.is_project_local) return true;
-	if (is_lsp_binary_trusted(server_config.command)) return true;
+	if (
+		is_lsp_binary_trusted(server_config.command) ||
+		session_allowed_binaries.has(server_config.command)
+	) {
+		return true;
+	}
+	throw_if_aborted(signal);
+
+	const timeout_controller = new AbortController();
+	const timeout = setTimeout(() => {
+		timeout_controller.abort(
+			new Error(
+				`LSP binary trust prompt timed out after ${trust_prompt_timeout_ms}ms`,
+			),
+		);
+	}, trust_prompt_timeout_ms);
+	timeout.unref?.();
+	const prompt_signal = signal
+		? AbortSignal.any([signal, timeout_controller.signal])
+		: timeout_controller.signal;
 
 	const subject = {
 		...create_lsp_binary_trust_subject(server_config.command),
@@ -121,21 +151,30 @@ async function should_use_project_lsp_binary(
 		],
 		headless_warning: `Skipping untrusted project-local LSP binary: ${server_config.command}. Set ${LSP_PROJECT_BINARY_ENV}=allow to enable it for this run.`,
 	};
-	const decision = await resolve_project_trust(subject, {
-		env: process.env,
-		has_ui: ctx?.hasUI,
-		select: ctx?.hasUI
-			? async (message, choices) =>
-					(await ctx.ui.select(message, choices)) ?? ''
-			: undefined,
-		warn: console.warn,
-		trust_store_path: default_lsp_trust_store_path(),
-	});
-
-	return (
-		decision.action === 'allow-once' ||
-		decision.action === 'trust-persisted'
-	);
+	try {
+		const decision = await resolve_project_trust(subject, {
+			env: process.env,
+			has_ui: ctx?.hasUI,
+			select: ctx?.hasUI
+				? async (message, choices) =>
+						(await ctx.ui.select(message, choices, {
+							signal: prompt_signal,
+						})) ?? ''
+				: undefined,
+			warn: console.warn,
+			trust_store_path: default_lsp_trust_store_path(),
+		});
+		throw_if_aborted(prompt_signal);
+		if (decision.action === 'allow-once') {
+			session_allowed_binaries.add(server_config.command);
+		}
+		return (
+			decision.action === 'allow-once' ||
+			decision.action === 'trust-persisted'
+		);
+	} finally {
+		clearTimeout(timeout);
+	}
 }
 
 export class LspServerManager {
@@ -148,7 +187,9 @@ export class LspServerManager {
 	) => LspClientLike;
 	readonly #read_file: (path: string) => Promise<string>;
 	readonly #starting_servers = new Map<string, StartingServerState>();
+	readonly #session_allowed_binaries = new Set<string>();
 	readonly #idle_timeout_ms?: number;
+	readonly #trust_prompt_timeout_ms: number;
 
 	constructor(options: CreateLspServerManagerOptions = {}) {
 		this.cwd = options.cwd?.() ?? process.cwd();
@@ -169,6 +210,9 @@ export class LspServerManager {
 			Number.isFinite(idle_timeout_ms) && idle_timeout_ms > 0
 				? idle_timeout_ms
 				: undefined;
+		this.#trust_prompt_timeout_ms =
+			options.trust_prompt_timeout_ms ??
+			DEFAULT_LSP_TRUST_PROMPT_TIMEOUT_MS;
 	}
 
 	resolve_abs(file: string): string {
@@ -214,10 +258,11 @@ export class LspServerManager {
 	async resolve_file_state(
 		file: string,
 		ctx?: ExtensionContext,
+		signal?: AbortSignal,
 	): Promise<ResolveFileStateResult> {
 		const abs = this.resolve_abs(file);
 		try {
-			const result = await this.#get_file_state(abs, ctx);
+			const result = await this.#get_file_state(abs, ctx, signal);
 			if (!result) {
 				return {
 					ok: false,
@@ -265,9 +310,10 @@ export class LspServerManager {
 	async #get_file_state(
 		file: string,
 		ctx?: ExtensionContext,
+		signal?: AbortSignal,
 	): Promise<FileState | undefined> {
 		const abs = this.resolve_abs(file);
-		const state = await this.#get_or_start_client(abs, ctx);
+		const state = await this.#get_or_start_client(abs, ctx, signal);
 		if (!state) return undefined;
 		this.#clear_idle_timer(state);
 		state.active_request_count += 1;
@@ -291,6 +337,7 @@ export class LspServerManager {
 	async #get_or_start_client(
 		file_path: string,
 		ctx?: ExtensionContext,
+		signal?: AbortSignal,
 	): Promise<ServerState | undefined> {
 		const language = detect_language(file_path);
 		if (!language) return undefined;
@@ -315,7 +362,13 @@ export class LspServerManager {
 			if (!server_config) return undefined;
 			if (
 				server_config.is_project_local &&
-				!(await should_use_project_lsp_binary(server_config, ctx))
+				!(await should_use_project_lsp_binary(
+					server_config,
+					this.#session_allowed_binaries,
+					this.#trust_prompt_timeout_ms,
+					ctx,
+					signal,
+				))
 			) {
 				server_config = get_server_config(language, '/');
 				if (!server_config) return undefined;

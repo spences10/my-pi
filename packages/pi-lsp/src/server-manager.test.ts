@@ -9,7 +9,30 @@ import {
 	dirs,
 	register_test_lsp_extension,
 } from '../test/support.js';
-import { DEFAULT_LSP_IDLE_TIMEOUT_MS } from './server-manager.js';
+import {
+	DEFAULT_LSP_IDLE_TIMEOUT_MS,
+	DEFAULT_LSP_TRUST_PROMPT_TIMEOUT_MS,
+} from './server-manager.js';
+
+function create_typescript_7_project() {
+	const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
+	const file = join(root, 'src', 'main.ts');
+	const project_tsc = join(root, 'node_modules', '.bin', 'tsc');
+	dirs.push(root);
+	mkdirSync(join(root, 'src'), { recursive: true });
+	mkdirSync(join(root, 'node_modules', 'typescript', 'lib'), {
+		recursive: true,
+	});
+	mkdirSync(join(root, 'node_modules', '.bin'), { recursive: true });
+	writeFileSync(join(root, 'package.json'), '{}\n');
+	writeFileSync(file, 'export const value = 1;\n');
+	writeFileSync(
+		join(root, 'node_modules', 'typescript', 'package.json'),
+		JSON.stringify({ version: '7.0.2' }),
+	);
+	writeFileSync(project_tsc, '#!/bin/sh\n', { mode: 0o755 });
+	return { root, file, project_tsc };
+}
 
 describe('lsp server manager', () => {
 	it('closes documents after one-shot tool use', async () => {
@@ -163,6 +186,161 @@ describe('lsp server manager', () => {
 					ctx,
 				);
 			expect(create_client).toHaveBeenCalledTimes(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('reuses an allow-once project binary after an idle restart', async () => {
+		vi.useFakeTimers();
+		try {
+			const { root, file, project_tsc } =
+				create_typescript_7_project();
+			const first_stop = vi.fn().mockResolvedValue(undefined);
+			const create_client = vi
+				.fn()
+				.mockReturnValueOnce(
+					create_mock_client({
+						stop: first_stop,
+						hover: vi.fn().mockResolvedValue({ contents: 'first' }),
+					}),
+				)
+				.mockReturnValueOnce(
+					create_mock_client({
+						hover: vi.fn().mockResolvedValue({ contents: 'second' }),
+					}),
+				);
+			const { pi, tools } = create_test_pi();
+			const { ctx, selections, select } = create_command_context();
+			selections.push('Allow once for this session');
+
+			await register_test_lsp_extension(pi, {
+				create_client,
+				read_file: async () => 'export const value = 1;\n',
+				cwd: () => root,
+				idle_timeout_ms: 10,
+			});
+
+			await tools
+				.get('lsp_hover')
+				.execute(
+					'1',
+					{ file, line: 0, character: 0 },
+					undefined,
+					undefined,
+					ctx,
+				);
+			await vi.advanceTimersByTimeAsync(11);
+			expect(first_stop).toHaveBeenCalledTimes(1);
+
+			await tools
+				.get('lsp_hover')
+				.execute(
+					'2',
+					{ file, line: 0, character: 0 },
+					undefined,
+					undefined,
+					ctx,
+				);
+
+			expect(select).toHaveBeenCalledTimes(1);
+			expect(create_client).toHaveBeenCalledTimes(2);
+			expect(create_client).toHaveBeenLastCalledWith(
+				expect.objectContaining({ command: project_tsc }),
+			);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('cancels a pending project-binary trust prompt with the tool signal', async () => {
+		const { root, file } = create_typescript_7_project();
+		const create_client = vi.fn(() => create_mock_client());
+		const { pi, tools } = create_test_pi();
+		const { ctx, select } = create_command_context();
+		select.mockImplementation(
+			async (_title, _options, opts) =>
+				new Promise<string | undefined>((resolve) => {
+					opts?.signal?.addEventListener(
+						'abort',
+						() => resolve(undefined),
+						{ once: true },
+					);
+				}),
+		);
+		const controller = new AbortController();
+
+		await register_test_lsp_extension(pi, {
+			create_client,
+			read_file: async () => 'export const value = 1;\n',
+			cwd: () => root,
+		});
+
+		const pending = tools
+			.get('lsp_hover')
+			.execute(
+				'1',
+				{ file, line: 0, character: 0 },
+				controller.signal,
+				undefined,
+				ctx,
+			);
+		await vi.waitFor(() => expect(select).toHaveBeenCalledTimes(1));
+		const prompt_signal = select.mock.calls[0]?.[2]?.signal;
+		expect(prompt_signal).toBeInstanceOf(AbortSignal);
+		expect(prompt_signal).not.toBe(controller.signal);
+
+		controller.abort();
+		const result = await pending;
+
+		expect(result.details.ok).toBe(false);
+		expect(create_client).not.toHaveBeenCalled();
+	});
+
+	it('bounds project-binary trust prompts with a timeout', async () => {
+		vi.useFakeTimers();
+		try {
+			const { root, file } = create_typescript_7_project();
+			const create_client = vi.fn(() => create_mock_client());
+			const { pi, tools } = create_test_pi();
+			const { ctx, select } = create_command_context();
+			select.mockImplementation(
+				async (_title, _options, opts) =>
+					new Promise<string | undefined>((resolve) => {
+						opts?.signal?.addEventListener(
+							'abort',
+							() => resolve(undefined),
+							{ once: true },
+						);
+					}),
+			);
+
+			await register_test_lsp_extension(pi, {
+				create_client,
+				read_file: async () => 'export const value = 1;\n',
+				cwd: () => root,
+			});
+
+			const pending = tools
+				.get('lsp_hover')
+				.execute(
+					'1',
+					{ file, line: 0, character: 0 },
+					undefined,
+					undefined,
+					ctx,
+				);
+			await vi.waitFor(() => expect(select).toHaveBeenCalledTimes(1));
+			await vi.advanceTimersByTimeAsync(
+				DEFAULT_LSP_TRUST_PROMPT_TIMEOUT_MS,
+			);
+			const result = await pending;
+
+			expect(result.details.ok).toBe(false);
+			expect(result.content[0].text).toContain(
+				'LSP binary trust prompt timed out',
+			);
+			expect(create_client).not.toHaveBeenCalled();
 		} finally {
 			vi.useRealTimers();
 		}
