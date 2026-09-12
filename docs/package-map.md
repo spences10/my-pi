@@ -25,6 +25,7 @@ vanilla Pi.
 | `@spences10/pi-harness`             | Ephemeral task harness runtime.                               |
 | `@spences10/pi-skills`              | Skill management, discovery, profiles, import, and sync.      |
 | `@spences10/pi-sqlite-tools`        | Reminder to use `mcp-sqlite-tools` for safer SQLite work.     |
+| `@spences10/pi-starfield`           | Twinkling stars in the input editor.                          |
 | `@spences10/pi-svelte-guardrails`   | Svelte pattern guardrails.                                    |
 | `@spences10/pi-team-mode`           | Peer-session coordination, groups, artifacts, and mailboxes.  |
 | `@spences10/pi-telemetry`           | Local SQLite telemetry and `/telemetry`.                      |

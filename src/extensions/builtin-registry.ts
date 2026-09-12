@@ -293,6 +293,25 @@ export const BUILTIN_EXTENSION_REGISTRY = [
 			(await import('@spences10/pi-sqlite-tools')).default,
 	},
 	{
+		key: 'starfield',
+		label: 'Starfield',
+		docs_label: 'Starfield',
+		description: 'Subtle twinkling stars in the input editor',
+		default_enabled: true,
+		option_name: 'starfield',
+		cli_arg: 'no-starfield',
+		cli_flag: '--no-starfield',
+		cli_description: 'Disable the input star field',
+		aliases: ['starfield', 'stars'],
+		external_package_name: '@spences10/pi-starfield',
+		mode_constraints: {
+			disabled_in: ['print', 'json', 'rpc'],
+			reason: 'Starfield only renders in the interactive TUI',
+		},
+		load: async () =>
+			(await import('@spences10/pi-starfield')).default,
+	},
+	{
 		key: 'startup-screen',
 		label: 'Startup screen',
 		docs_label: 'Startup screen',

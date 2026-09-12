@@ -1,5 +1,12 @@
 # @spences10/pi-lsp
 
+## 0.0.47
+
+### Patch Changes
+
+- b9d2227: Prevent LSP trust prompts from repeatedly blocking
+  sessions, and honor cancellation with a bounded timeout.
+
 ## 0.0.46
 
 ### Patch Changes

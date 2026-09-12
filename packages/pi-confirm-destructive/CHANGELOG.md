@@ -1,5 +1,13 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.21
+
+### Patch Changes
+
+- a4e2fb9: Allow explicit absolute temporary-path cleanup while
+  preserving Git, symlink, expansion, traversal, and mixed-target
+  safety protections.
+
 ## 0.0.20
 
 ### Patch Changes

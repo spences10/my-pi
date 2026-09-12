@@ -1,6 +1,6 @@
 {
 	"name": "my-pi",
-	"version": "0.2.6",
+	"version": "0.2.7",
 	"description": "Composable pi coding agent with MCP, LSP, prompt presets, and local eval telemetry",
 	"keywords": [
 		"cli",
@@ -105,6 +105,7 @@
 		"@spences10/pi-skill-importer": "workspace:*",
 		"@spences10/pi-skills": "workspace:*",
 		"@spences10/pi-sqlite-tools": "workspace:*",
+		"@spences10/pi-starfield": "workspace:*",
 		"@spences10/pi-svelte-guardrails": "workspace:*",
 		"@spences10/pi-team-mode": "workspace:*",
 		"@spences10/pi-telemetry": "workspace:*"

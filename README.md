@@ -222,6 +222,7 @@ Full package list here:
 | [`@spences10/pi-harness`](./packages/pi-harness/README.md)                         | Ephemeral task harness runtime                             |
 | [`@spences10/pi-skills`](./packages/pi-skills/README.md)                           | Skill management, import, and sync                         |
 | [`@spences10/pi-sqlite-tools`](./packages/pi-sqlite-tools/README.md)               | `mcp-sqlite-tools` reminder for safer SQLite database work |
+| [`@spences10/pi-starfield`](./packages/pi-starfield/README.md)                     | Twinkling stars in the input editor                        |
 | [`@spences10/pi-svelte-guardrails`](./packages/pi-svelte-guardrails/README.md)     | Svelte pattern guardrails                                  |
 | [`@spences10/pi-team-mode`](./packages/pi-team-mode/README.md)                     | Peer-session coordination and durable mailboxes            |
 | [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md)                     | Local SQLite telemetry and `/telemetry`                    |

@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.2.7
+
+### Patch Changes
+
+- Add themed twinkling input backgrounds, persistent stars while
+  typing, rotating quotes, and configurable animation controls.
+
 ## 0.2.6
 
 ### Patch Changes

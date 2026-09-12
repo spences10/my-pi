@@ -1,20 +1,20 @@
 {
-	"name": "@spences10/pi-lsp",
-	"version": "0.0.47",
-	"description": "Language Server Protocol tools for Pi agents to inspect diagnostics, hovers, definitions, references, and symbols",
+	"name": "@spences10/pi-starfield",
+	"version": "0.0.1",
+	"description": "Theme-aware input stars and quotes for my-pi and Pi",
 	"keywords": [
-		"language-server",
-		"lsp",
 		"pi",
-		"pi-package"
+		"pi-package",
+		"stars",
+		"terminal"
 	],
-	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/pi-lsp#readme",
+	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/pi-starfield#readme",
 	"license": "MIT",
 	"author": "Scott Spence <me@scottspence.com>",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/spences10/my-pi.git",
-		"directory": "packages/pi-lsp"
+		"directory": "packages/pi-starfield"
 	},
 	"files": [
 		"dist",
@@ -43,19 +43,18 @@
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {
-		"@spences10/pi-child-env": "workspace:*",
-		"@spences10/pi-project-trust": "workspace:*",
-		"@spences10/pi-tui-modal": "workspace:*"
+		"@spences10/pi-settings": "workspace:*"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",
+		"@earendil-works/pi-tui": "catalog:",
 		"@types/node": "catalog:",
 		"typescript": "catalog:",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": "*",
-		"typebox": "*"
+		"@earendil-works/pi-coding-agent": ">=0.85.0",
+		"@earendil-works/pi-tui": ">=0.85.0"
 	},
 	"engines": {
 		"node": ">=24.15.0"

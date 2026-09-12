@@ -17,6 +17,21 @@ describe('src/extensions/builtin-registry.ts', () => {
 		expect(factory?.default_enabled).toBe(false);
 	});
 
+	it('enables starfield only in interactive mode with a CLI off switch', async () => {
+		const { BUILTIN_EXTENSION_REGISTRY } =
+			await import('./builtin-registry.js');
+		const extension = BUILTIN_EXTENSION_REGISTRY.find(
+			(entry) => entry.key === 'starfield',
+		);
+		expect(extension?.default_enabled).toBe(true);
+		expect(extension?.cli_flag).toBe('--no-starfield');
+		expect(extension?.mode_constraints?.disabled_in).toEqual([
+			'print',
+			'json',
+			'rpc',
+		]);
+	});
+
 	it('marks package-backed built-ins so duplicate agent-dir installs are skipped', async () => {
 		const { BUILTIN_EXTENSION_REGISTRY } =
 			await import('./builtin-registry.js');
@@ -33,6 +48,7 @@ describe('src/extensions/builtin-registry.ts', () => {
 			'harness',
 			'omnisearch',
 			'sqlite-tools',
+			'starfield',
 			'git-ui',
 			'lsp',
 			'confirm-destructive',
