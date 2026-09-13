@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	default_config,
+	find_coding_preference_violation,
+	format_coding_preference_violation,
 	get_project_config_path,
 	load_config,
 	should_block_coding_preference,
@@ -93,6 +95,61 @@ describe('coding preferences', () => {
 				config,
 			),
 		).toBeUndefined();
+	});
+
+	it('reports the matching rule and nested input field without the match', () => {
+		const config: CodingPreferencesConfig = {
+			rules: [
+				{
+					name: 'restricted-content',
+					toolNames: ['edit'],
+					target: 'input',
+					pattern: 'forbidden',
+					reason: 'Do not add restricted content.',
+				},
+			],
+		};
+		const violation = find_coding_preference_violation(
+			event('edit', {
+				path: 'src/example.ts',
+				edits: [
+					{
+						oldText: 'const value = 1;',
+						newText: "throw new Error('forbidden value');",
+					},
+				],
+			}),
+			config,
+		);
+
+		expect(violation).toEqual({
+			field: 'input.edits[0].newText',
+			reason: 'Do not add restricted content.',
+			rule_name: 'restricted-content',
+		});
+		expect(format_coding_preference_violation(violation!)).toBe(
+			'Do not add restricted content. [rule: restricted-content; field: input.edits[0].newText]',
+		);
+	});
+
+	it('preserves configured reasons for compatibility', () => {
+		const config: CodingPreferencesConfig = {
+			rules: [
+				{
+					name: 'no-npm',
+					target: 'command',
+					pattern: '^npm\\b',
+					reason: 'Use pnpm.',
+				},
+			],
+		};
+
+		expect(
+			should_block_coding_preference(
+				event('bash', { command: 'npm install' }),
+				config,
+			),
+		).toBe('Use pnpm.');
 	});
 
 	it('loads project config from .pi/coding-preferences.json', () => {
