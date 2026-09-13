@@ -1,5 +1,12 @@
 # @spences10/pi-coding-preferences
 
+## 0.0.16
+
+### Patch Changes
+
+- 93c7d91: Improve coding preference block diagnostics with rule and
+  field details, and document regex limitations clearly.
+
 ## 0.0.15
 
 ### Patch Changes
