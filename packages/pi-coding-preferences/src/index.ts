@@ -4,10 +4,7 @@ import {
 	type ToolCallEvent,
 	type ToolCallEventResult,
 } from '@earendil-works/pi-coding-agent';
-import {
-	extract_input_strings,
-	read_settings_section,
-} from '@spences10/pi-settings';
+import { read_settings_section } from '@spences10/pi-settings';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -21,6 +18,17 @@ export type PreferenceRuleConfig = {
 
 export type CodingPreferencesConfig = {
 	rules: PreferenceRuleConfig[];
+};
+
+export type CodingPreferenceViolation = {
+	field: string;
+	reason: string;
+	rule_name: string;
+};
+
+type TargetValue = {
+	field: string;
+	value: string;
 };
 
 export const default_config: CodingPreferencesConfig = {
@@ -64,29 +72,57 @@ function input_record(event: ToolCallEvent): Record<string, unknown> {
 	return event.input as Record<string, unknown>;
 }
 
-function path_from(event: ToolCallEvent): string | undefined {
+function path_value_from(
+	event: ToolCallEvent,
+): TargetValue | undefined {
 	const input = input_record(event);
 	for (const key of ['path', 'file_path', 'filePath']) {
 		const value = input[key];
-		if (typeof value === 'string') return value;
+		if (typeof value === 'string') {
+			return { field: `input.${key}`, value };
+		}
 	}
 	return undefined;
 }
 
-function command_from(event: ToolCallEvent): string | undefined {
+function command_value_from(
+	event: ToolCallEvent,
+): TargetValue | undefined {
 	const command = input_record(event).command;
-	return typeof command === 'string' ? command : undefined;
+	return typeof command === 'string'
+		? { field: 'input.command', value: command }
+		: undefined;
+}
+
+function input_values(
+	value: unknown,
+	field = 'input',
+): TargetValue[] {
+	if (typeof value === 'string') return [{ field, value }];
+	if (Array.isArray(value)) {
+		return value.flatMap((item, index) =>
+			input_values(item, `${field}[${index}]`),
+		);
+	}
+	if (!value || typeof value !== 'object') return [];
+	return Object.entries(value as Record<string, unknown>).flatMap(
+		([key, item]) => input_values(item, `${field}.${key}`),
+	);
 }
 
 function target_values(
 	event: ToolCallEvent,
 	target: PreferenceRuleConfig['target'] = 'input',
-): string[] {
-	if (target === 'command')
-		return command_from(event) ? [command_from(event)!] : [];
-	if (target === 'path')
-		return path_from(event) ? [path_from(event)!] : [];
-	return extract_input_strings(event.input);
+): TargetValue[] {
+	if (target === 'command') {
+		const command = command_value_from(event);
+		return command ? [command] : [];
+	}
+	if (target === 'path') {
+		const path = path_value_from(event);
+		return path ? [path] : [];
+	}
+	return input_values(event.input);
 }
 
 export function get_global_config_path(): string {
@@ -131,22 +167,39 @@ export function load_config(
 	};
 }
 
-export function should_block_coding_preference(
+export function find_coding_preference_violation(
 	event: ToolCallEvent,
 	config: CodingPreferencesConfig = load_config(),
-): string | undefined {
+): CodingPreferenceViolation | undefined {
 	for (const rule of config.rules) {
 		if (rule.toolNames && !rule.toolNames.includes(event.toolName))
 			continue;
 		const pattern = new RegExp(rule.pattern);
-		if (
-			target_values(event, rule.target).some((value) =>
-				pattern.test(value),
-			)
-		)
-			return rule.reason;
+		for (const target of target_values(event, rule.target)) {
+			pattern.lastIndex = 0;
+			if (pattern.test(target.value)) {
+				return {
+					field: target.field,
+					reason: rule.reason,
+					rule_name: rule.name,
+				};
+			}
+		}
 	}
 	return undefined;
+}
+
+export function should_block_coding_preference(
+	event: ToolCallEvent,
+	config: CodingPreferencesConfig = load_config(),
+): string | undefined {
+	return find_coding_preference_violation(event, config)?.reason;
+}
+
+export function format_coding_preference_violation(
+	violation: CodingPreferenceViolation,
+): string {
+	return `${violation.reason} [rule: ${violation.rule_name}; field: ${violation.field}]`;
 }
 
 export default function coding_preferences(pi: ExtensionAPI) {
@@ -154,9 +207,15 @@ export default function coding_preferences(pi: ExtensionAPI) {
 	pi.on(
 		'tool_call',
 		async (event): Promise<ToolCallEventResult | undefined> => {
-			const reason = should_block_coding_preference(event, config);
-			if (!reason) return undefined;
-			return { block: true, reason };
+			const violation = find_coding_preference_violation(
+				event,
+				config,
+			);
+			if (!violation) return undefined;
+			return {
+				block: true,
+				reason: format_coding_preference_violation(violation),
+			};
 		},
 	);
 }

@@ -36,7 +36,14 @@ rules are loaded instead of the built-in defaults.
 ```
 
 Rule targets are `command`, `path`, or `input`. Patterns are
-JavaScript regular expressions.
+JavaScript regular expressions. A blocked call reports the rule name
+and nested input field, but not the matched value.
+
+The `input` target checks every string in the tool input. For an
+`edit` call, this includes both `oldText` and `newText`. These checks
+are not syntax-aware. Use a language-aware linter for identifier
+naming and other rules that must distinguish code from comments or
+string content.
 
 <!-- package-readme:install:start -->
 
