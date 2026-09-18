@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { sanitize_status_text, strip_ansi } from './text.js';
 
 describe('footer text utils', () => {

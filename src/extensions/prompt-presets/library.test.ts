@@ -14,7 +14,7 @@ import {
 	expect,
 	it,
 	vi,
-} from 'vitest';
+} from 'vite-plus/test';
 
 const mocked = vi.hoisted(() => ({
 	root: '',
@@ -97,20 +97,18 @@ describe('prompt preset library', () => {
 			create_prompt_preset(cwd, 'other' as 'project', 'valid', {
 				instructions: 'x',
 			}),
-		).toThrowError(
-			expect.objectContaining({ code: 'invalid-scope' }),
-		);
+		).toThrow(expect.objectContaining({ code: 'invalid-scope' }));
 		expect(() =>
 			create_prompt_preset(cwd, 'project', 'valid', {
 				kind: 'other' as 'base',
 				instructions: 'x',
 			}),
-		).toThrowError(expect.objectContaining({ code: 'invalid-kind' }));
+		).toThrow(expect.objectContaining({ code: 'invalid-kind' }));
 		expect(() =>
 			create_prompt_preset(cwd, 'project', 'empty', {
 				instructions: '   ',
 			}),
-		).toThrowError(
+		).toThrow(
 			expect.objectContaining({ code: 'invalid-instructions' }),
 		);
 	});
@@ -134,7 +132,7 @@ describe('prompt preset library', () => {
 			create_prompt_preset(cwd, 'project', 'CUSTOM', {
 				instructions: 'Collision.',
 			}),
-		).toThrowError(expect.objectContaining({ code: 'collision' }));
+		).toThrow(expect.objectContaining({ code: 'collision' }));
 	});
 
 	it('copies built-in and custom presets into one target scope', () => {
@@ -271,7 +269,7 @@ describe('prompt preset library', () => {
 		});
 		expect(() =>
 			delete_prompt_preset(cwd, 'project', 'temporary'),
-		).toThrowError(
+		).toThrow(
 			expect.objectContaining({ code: 'confirmation-required' }),
 		);
 		expect(
@@ -279,7 +277,7 @@ describe('prompt preset library', () => {
 		).toBeUndefined();
 		expect(() =>
 			delete_prompt_preset(cwd, 'project', 'terse', true),
-		).toThrowError(expect.objectContaining({ code: 'read-only' }));
+		).toThrow(expect.objectContaining({ code: 'read-only' }));
 	});
 
 	it('resets exactly one Markdown override and preserves legacy bridge data', () => {
@@ -301,9 +299,7 @@ describe('prompt preset library', () => {
 		expect(existsSync(join(cwd, '.pi', 'presets.json'))).toBe(true);
 		expect(() =>
 			delete_prompt_preset(cwd, 'project', 'terse', true),
-		).toThrowError(
-			expect.objectContaining({ code: 'source-mismatch' }),
-		);
+		).toThrow(expect.objectContaining({ code: 'source-mismatch' }));
 		expect(existsSync(join(cwd, '.pi', 'presets.json'))).toBe(true);
 	});
 
@@ -348,8 +344,6 @@ describe('prompt preset library', () => {
 			create_prompt_preset(cwd, 'project', 'blocked', {
 				instructions: 'Blocked.',
 			}),
-		).toThrowError(
-			expect.objectContaining({ code: 'project-disabled' }),
-		);
+		).toThrow(expect.objectContaining({ code: 'project-disabled' }));
 	});
 });

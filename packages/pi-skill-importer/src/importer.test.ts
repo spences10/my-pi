@@ -15,7 +15,7 @@ import {
 	expect,
 	it,
 	vi,
-} from 'vitest';
+} from 'vite-plus/test';
 
 function tmp_test_dir(): string {
 	const dir = join(

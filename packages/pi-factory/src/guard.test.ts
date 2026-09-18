@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { HarnessContract } from '@spences10/pi-harness';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { create_factory_guard } from './guard.js';
 
 function guarded_tool_calls() {

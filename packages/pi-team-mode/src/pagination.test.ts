@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
 	DEFAULT_TEAM_LIST_LIMIT,
 	format_team_page,

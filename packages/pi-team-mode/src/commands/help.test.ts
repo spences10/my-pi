@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { show_team_help } from './help.js';
 import type { TeamCommandDeps } from './types.js';
 

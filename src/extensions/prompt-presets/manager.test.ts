@@ -1,5 +1,5 @@
 import type { ModalTheme } from '@spences10/pi-tui-modal';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import {
 	PromptPresetInspectorBody,
 	type PromptPresetManagerState,

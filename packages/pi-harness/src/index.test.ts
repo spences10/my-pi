@@ -9,7 +9,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import harness, {
 	HARNESS_ASSESSMENT_CUSTOM_TYPE,
 	HARNESS_CUSTOM_TYPE,

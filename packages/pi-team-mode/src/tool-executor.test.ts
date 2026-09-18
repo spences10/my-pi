@@ -2,7 +2,13 @@ import { SqliteBusyError } from '@spences10/pi-sqlite-core';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+} from 'vite-plus/test';
 import { TeamDatabase } from './db/index.js';
 import { execute_team_tool } from './tool-executor.js';
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { DEFAULT_FOOTER_STATE } from '../presets/types.js';
 import {
 	make_context,

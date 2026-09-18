@@ -15,7 +15,7 @@ import {
 	expect,
 	it,
 	vi,
-} from 'vitest';
+} from 'vite-plus/test';
 import starfield from './index.js';
 
 vi.mock('@spences10/pi-settings', () => ({

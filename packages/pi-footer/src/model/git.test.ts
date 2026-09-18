@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { format_git_summary, type GitSummary } from './git.js';
 
 const summary: GitSummary = {

@@ -3,7 +3,7 @@ import type {
 	ExtensionCommandContext,
 } from '@earendil-works/pi-coding-agent';
 import { rmSync } from 'node:fs';
-import { afterEach, vi } from 'vitest';
+import { afterEach, vi } from 'vite-plus/test';
 import {
 	create_lsp_extension,
 	type CreateLspExtensionOptions,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { build_active_prompt_blocks } from './prompt-blocks.js';
 import type { LoadedPromptPreset } from './types.js';
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('src/extensions/prompt-presets/footer.ts', () => {
 	it('loads without side effects', async () => {

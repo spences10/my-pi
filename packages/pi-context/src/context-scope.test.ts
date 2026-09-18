@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { should_skip_tool } from './context-scope.js';
 
 describe('packages/pi-context/src/context-scope.ts', () => {

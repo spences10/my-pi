@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import {
 	get_startup_coordination_retention_ms,
 	TEAM_RETENTION_DAYS_ENV,

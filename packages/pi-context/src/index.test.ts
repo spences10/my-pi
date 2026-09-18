@@ -11,7 +11,13 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+} from 'vite-plus/test';
 import { temp_config, temp_db } from '../test/support.js';
 import context_sidecar, {
 	get_context_store,

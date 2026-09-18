@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
 	append_team_system_prompt,
 	TEAM_PEER_AUTHORITY_GUIDELINES,

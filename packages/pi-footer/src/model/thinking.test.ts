@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { make_context } from '../test-utils.js';
 import {
 	get_current_thinking_level,

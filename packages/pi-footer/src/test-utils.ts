@@ -2,7 +2,7 @@ import type {
 	ExtensionContext,
 	ReadonlyFooterDataProvider,
 } from '@earendil-works/pi-coding-agent';
-import { vi } from 'vitest';
+import { vi } from 'vite-plus/test';
 import type { FooterTheme } from './theme/tokens.js';
 
 export const test_theme = {

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { TeamDatabase } from '../db/index.js';
 import { handle_session_command } from './coordination-commands.js';
 import type { TeamCommandDeps } from './types.js';

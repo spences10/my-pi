@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
 	is_resource_enabled,
 	MY_PI_RUNTIME_MODE_ENV,

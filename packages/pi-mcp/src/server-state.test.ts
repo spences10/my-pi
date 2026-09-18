@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { McpServerConfig } from './client.js';
 import {
 	count_pending_enabled_servers,

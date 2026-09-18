@@ -6,7 +6,7 @@ import {
 	it,
 	vi,
 	type Mock,
-} from 'vitest';
+} from 'vite-plus/test';
 import { describe_port_owner } from './port-owner.js';
 
 vi.mock('node:child_process', () => ({

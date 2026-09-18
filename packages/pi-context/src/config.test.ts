@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { temp_config } from '../test/support.js';
 import {
 	context_settings_from_preset,

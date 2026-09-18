@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { ServerState } from './server-state.js';
 import { format_mcp_server_list } from './ui.js';
 

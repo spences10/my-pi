@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { create_child_process_env } from './env.js';
 
 describe('create_child_process_env', () => {

@@ -1,4 +1,4 @@
-import { describe, expectTypeOf, it } from 'vitest';
+import { describe, expectTypeOf, it } from 'vite-plus/test';
 import type { Server } from 'node:http';
 import type { DatabaseSync } from 'node:sqlite';
 import type {

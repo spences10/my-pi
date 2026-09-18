@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { normalize_footer_state } from './config.js';
 import {
 	DEFAULT_FOOTER_STATUS_LAYOUT,

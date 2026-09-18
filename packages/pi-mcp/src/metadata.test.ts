@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
 	create_mcp_tool_registration_metadata,
 	evaluate_mcp_constrained_sampling,

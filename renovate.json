@@ -25,17 +25,32 @@
 			"groupSlug": "svelte-packages"
 		},
 		{
-			"description": "Keep test tooling aligned across the workspace",
+			"description": "Keep Playwright and browser test integration aligned across the workspace",
 			"matchManagers": ["npm"],
 			"matchPackageNames": [
 				"/^@playwright\\//",
 				"playwright",
-				"/^@vitest\\//",
-				"vitest",
 				"vitest-browser-svelte"
 			],
-			"groupName": "Test tooling",
-			"groupSlug": "test-tooling"
+			"groupName": "Browser test tooling",
+			"groupSlug": "browser-test-tooling"
+		},
+		{
+			"description": "Update Vite+ and its aliased Vite core together",
+			"matchManagers": ["npm"],
+			"matchPackageNames": [
+				"vite-plus",
+				"@voidzero-dev/vite-plus-core"
+			],
+			"groupName": "Vite+ toolchain",
+			"groupSlug": "vite-plus-toolchain",
+			"rangeStrategy": "pin"
+		},
+		{
+			"description": "Manage Vitest and its plugins through Vite+'s bundled versions",
+			"matchManagers": ["npm"],
+			"matchPackageNames": ["vitest", "/^@vitest\\//"],
+			"enabled": false
 		},
 		{
 			"description": "Group GitHub Actions updates",

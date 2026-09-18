@@ -10,7 +10,7 @@ import {
 	expect,
 	it,
 	vi,
-} from 'vitest';
+} from 'vite-plus/test';
 
 function write_skill(
 	base_dir: string,

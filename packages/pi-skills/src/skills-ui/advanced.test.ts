@@ -1,5 +1,5 @@
 import { show_picker_modal } from '@spences10/pi-tui-modal';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { show_advanced_skills_modal } from './advanced.js';
 
 vi.mock('@spences10/pi-tui-modal', () => ({

@@ -18,7 +18,7 @@ import {
 	expect,
 	it,
 	vi,
-} from 'vitest';
+} from 'vite-plus/test';
 import type { PromptPresetManagerResult } from './manager.js';
 import type { LoadedPromptPreset } from './types.js';
 

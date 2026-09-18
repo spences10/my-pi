@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { DetailedSettingsList, TextModalBody } from './bodies.js';
 import type { ModalTheme } from './types.js';
 

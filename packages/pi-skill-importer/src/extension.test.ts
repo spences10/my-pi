@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 
 vi.mock('@spences10/pi-tui-modal', () => ({
 	show_picker_modal: vi.fn(async () => undefined),

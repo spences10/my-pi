@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { format_prompt_preset_help, is_subcommand } from './help.js';
 
 describe('src/extensions/prompt-presets/help.ts', () => {

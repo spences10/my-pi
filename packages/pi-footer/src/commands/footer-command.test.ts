@@ -8,7 +8,7 @@ import {
 	expect,
 	it,
 	vi,
-} from 'vitest';
+} from 'vite-plus/test';
 import { load_footer_state } from '../config.js';
 import { DEFAULT_FOOTER_STATE } from '../presets/types.js';
 import { make_context } from '../test-utils.js';

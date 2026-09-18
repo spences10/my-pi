@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { should_inject_sqlite_tools_prompt } from './index.js';
 
 describe('should_inject_sqlite_tools_prompt', () => {

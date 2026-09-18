@@ -8,7 +8,7 @@ import {
 import { createServer, type IncomingMessage } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import mcp, { should_wait_for_mcp_connections } from './index.js';
 
 const dirs: string[] = [];

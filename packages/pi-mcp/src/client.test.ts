@@ -4,7 +4,7 @@ import {
 	type ServerResponse,
 } from 'node:http';
 import { execPath } from 'node:process';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { McpClient } from './client.js';
 
 function read_json(req: IncomingMessage): Promise<{

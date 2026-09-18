@@ -8,7 +8,7 @@ import {
 	expect,
 	it,
 	vi,
-} from 'vitest';
+} from 'vite-plus/test';
 import {
 	create_context_store,
 	temp_config,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { test_theme } from '../test-utils.js';
 import { error, muted, themed_text, warning } from './tokens.js';
 

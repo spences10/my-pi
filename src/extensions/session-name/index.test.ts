@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { clean_name, is_transient_error } from './index.js';
 
 describe('clean_name', () => {

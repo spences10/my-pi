@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { TeamCommandDeps } from './types.js';
 
 describe('packages/pi-team-mode/src/commands/types.ts', () => {

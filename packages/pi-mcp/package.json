@@ -38,8 +38,8 @@
 		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
 		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
 		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
-		"test:self": "vp exec vitest run",
-		"coverage:self": "vp exec vitest run --coverage",
+		"test:self": "vp test run",
+		"coverage:self": "vp test run --coverage",
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {
@@ -54,7 +54,7 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@types/node": "catalog:",
 		"typescript": "catalog:",
-		"vitest": "catalog:"
+		"vite-plus": "catalog:"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*"

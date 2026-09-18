@@ -35,10 +35,10 @@
 		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
 		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
 		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
-		"test:self": "vitest run --config vitest.config.mjs",
+		"test:self": "vp test run --config vitest.config.mjs",
 		"test:pack": "node scripts/pack-smoke.mjs",
 		"test:release": "pnpm run check:self && pnpm run test:self && pnpm run coverage:self && pnpm run test:pack",
-		"coverage:self": "vitest run --config vitest.config.mjs --coverage",
+		"coverage:self": "vp test run --config vitest.config.mjs --coverage",
 		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {
@@ -51,7 +51,7 @@
 		"@types/node": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
 		"typescript": "catalog:",
-		"vitest": "catalog:"
+		"vite-plus": "catalog:"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",

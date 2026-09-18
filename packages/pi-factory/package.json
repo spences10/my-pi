@@ -42,7 +42,7 @@
 		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
 		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
 		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
-		"test:self": "vp exec vitest run"
+		"test:self": "vp test run"
 	},
 	"dependencies": {
 		"@spences10/pi-child-env": "workspace:*",
@@ -53,7 +53,7 @@
 		"@types/node": "catalog:",
 		"typebox": "catalog:",
 		"typescript": "catalog:",
-		"vitest": "catalog:"
+		"vite-plus": "catalog:"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { register_session_name_sync } from './session-name-sync.js';
 
 function setup(fallback_agent_name?: string) {

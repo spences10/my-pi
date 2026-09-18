@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { get_default_telemetry_export_path } from './ui.js';
 
 describe('packages/pi-telemetry/src/ui.ts', () => {

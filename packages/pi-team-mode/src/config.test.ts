@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vite-plus/test';
 import {
 	AUTO_INJECT_ENV,
 	COORDINATION_DB_ENV,

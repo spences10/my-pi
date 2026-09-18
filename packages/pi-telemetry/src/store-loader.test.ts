@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('packages/pi-telemetry/src/store-loader.ts', () => {
 	it('loads without side effects', async () => {

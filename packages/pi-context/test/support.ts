@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach } from 'vitest';
+import { afterEach } from 'vite-plus/test';
 import { ContextStore } from '../src/store.js';
 
 const dirs: string[] = [];

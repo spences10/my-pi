@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import filter_output, {
 	looks_like_ssh_config,
 	redact_ssh_config_metadata,

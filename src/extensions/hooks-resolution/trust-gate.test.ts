@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { create_hooks_trust_subject } from './trust-gate.js';
 
 describe('src/extensions/hooks-resolution/trust-gate.ts', () => {

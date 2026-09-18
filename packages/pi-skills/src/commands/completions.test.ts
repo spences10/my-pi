@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
 	get_skill_argument_completions,
 	SKILL_SUBCOMMANDS,

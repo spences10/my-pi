@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { run_context_eval } from './index.js';
 
 describe('packages/pi-context/src/eval/index.ts', () => {

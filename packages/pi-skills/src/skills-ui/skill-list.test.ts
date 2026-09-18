@@ -2,7 +2,7 @@ import {
 	show_picker_modal,
 	show_text_modal,
 } from '@spences10/pi-tui-modal';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import {
 	pick_skill,
 	show_skill_detail_modal,
