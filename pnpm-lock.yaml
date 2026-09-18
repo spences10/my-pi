@@ -281,13 +281,6 @@ catalogs:
       version: 6.0.3
 
 overrides:
-  brace-expansion: 5.0.9
-  postcss: 8.5.23
-  protobufjs: 7.6.5
-  miniflare>ws: 8.21.0
-  '@changesets/parse>js-yaml': 4.3.1
-  '@sveltejs/kit>cookie': 0.7.0
-  read-yaml-file>js-yaml: 3.15.1
   vite@*: npm:@voidzero-dev/vite-plus-core@0.3.2
   vitest@*: 4.1.11
 
@@ -2998,8 +2991,8 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  cookie@0.7.0:
-    resolution: {integrity: sha512-qCf+V4dtlNhSRXGAZatc1TasyFO6GjohcOul807YOb5ik3+kQSnb4d7iajeCL8QHaJ4uZEjCgiCJerKXwdRVlQ==}
+  cookie@0.6.0:
+    resolution: {integrity: sha512-U71cyTamuh1CRNCfpGY6to28lxvNwPG4Guz/EVjgf3Jmzv0vlDp1atT9eS5dDjMYHucpHbWns6Lwf3BKz6svdw==}
     engines: {node: '>= 0.6'}
 
   cookie@1.1.1:
@@ -5056,7 +5049,7 @@ snapshots:
       '@sveltejs/vite-plugin-svelte': 7.3.0(@voidzero-dev/vite-plus-core@0.3.2(@types/node@25.9.5)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(svelte@5.57.0)
       '@types/cookie': 0.6.0
       acorn: 8.18.0
-      cookie: 0.7.0
+      cookie: 0.6.0
       devalue: 5.9.0
       esm-env: 1.2.2
       kleur: 4.1.5
@@ -5618,7 +5611,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  cookie@0.7.0: {}
+  cookie@0.6.0: {}
 
   cookie@1.1.1: {}
 
