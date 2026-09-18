@@ -256,7 +256,7 @@ catalogs:
       version: 1.4.0
     typebox:
       specifier: ^1.1.38
-      version: 1.3.25
+      version: 1.3.32
     typescript:
       specifier: ^7.0.0
       version: 7.0.2
@@ -569,7 +569,7 @@ importers:
         version: link:../pi-tui-modal
       typebox:
         specifier: '*'
-        version: 1.3.25
+        version: 1.3.32
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -601,7 +601,7 @@ importers:
         version: 25.9.7
       typebox:
         specifier: 'catalog:'
-        version: 1.3.25
+        version: 1.3.32
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -678,7 +678,7 @@ importers:
         version: 25.9.7
       typebox:
         specifier: 'catalog:'
-        version: 1.3.25
+        version: 1.3.32
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -714,7 +714,7 @@ importers:
         version: link:../pi-tui-modal
       typebox:
         specifier: '*'
-        version: 1.3.25
+        version: 1.3.32
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -1032,7 +1032,7 @@ importers:
         version: link:../pi-sqlite-core
       typebox:
         specifier: '*'
-        version: 1.3.25
+        version: 1.3.32
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -3782,8 +3782,8 @@ packages:
   tw-animate-css@1.4.0:
     resolution: {integrity: sha512-7bziOlRqH0hJx80h/3mbicLW7o8qLsH5+RaLR2t+OHM3D0JlWGODQKQ4cxbK7WlvmUxpcj6Kgu6EKqjrGFe3QQ==}
 
-  typebox@1.3.25:
-    resolution: {integrity: sha512-glTozrjba2L9Mqqy9Y9joPmrXGTW7aINuBPl8tdZJJIUIXprRWT1EU8riXUHhPOXSk4K3pDKL6OV5CkpoOKcbw==}
+  typebox@1.3.32:
+    resolution: {integrity: sha512-iOdeK75dQ3OSdYviLGldHC9jFSo4exAjr5pN0XcLnYkI8bfz7G9v2q55cz+AyWhE9i8oVrHbcvOMCssgfD10Cg==}
 
   typebox@1.3.7:
     resolution: {integrity: sha512-meKuifc33Pccx0O6PdIzYMq3Og8zvP4TIi/a+Bw3AEMZMxOD0+RHGQvpglEe6Zdy3wZ8nqn/j95h8LUZLk/6Hg==}
@@ -6435,7 +6435,7 @@ snapshots:
 
   tw-animate-css@1.4.0: {}
 
-  typebox@1.3.25: {}
+  typebox@1.3.32: {}
 
   typebox@1.3.7: {}
 
