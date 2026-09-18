@@ -226,7 +226,7 @@ catalogs:
       version: 3.1.0
     pirecall:
       specifier: ^0.1.3
-      version: 0.1.3
+      version: 0.1.4
     playwright:
       specifier: ^1.60.0
       version: 1.62.1
@@ -853,7 +853,7 @@ importers:
     dependencies:
       pirecall:
         specifier: 'catalog:'
-        version: 0.1.3
+        version: 0.1.4
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -3545,8 +3545,8 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
-  pirecall@0.1.3:
-    resolution: {integrity: sha512-bY4br/pn/miF3+a4uOzX8vrw3N3bKksrSVykUZ6pG5dOK6OBNDNOpSR7ofQvXmq7RlqSx5/V/Q6mcZgI+K7iZA==}
+  pirecall@0.1.4:
+    resolution: {integrity: sha512-AughqTQBNULrRVdEFBFXh6Aq4m7B07BT997pKk2qyWI1wvq/q4QS4iibU064ia3KuwcI4YtIeqdAv5zUm5f2Yw==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
@@ -6179,7 +6179,7 @@ snapshots:
 
   picomatch@4.0.7: {}
 
-  pirecall@0.1.3:
+  pirecall@0.1.4:
     dependencies:
       citty: 0.2.2
       tinyglobby: 0.2.17
