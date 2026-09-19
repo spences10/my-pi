@@ -232,7 +232,7 @@ catalogs:
       version: 1.63.0
     shadcn-svelte:
       specifier: ^1.2.7
-      version: 1.6.1
+      version: 1.7.0
     svead:
       specifier: ^0.0.16
       version: 0.0.16
@@ -451,7 +451,7 @@ importers:
         version: 1.63.0
       shadcn-svelte:
         specifier: 'catalog:'
-        version: 1.6.1(svelte@5.57.0)
+        version: 1.7.0(svelte@5.57.0)
       svead:
         specifier: 'catalog:'
         version: 0.0.16(svelte@5.57.0)(typescript@6.0.3)
@@ -2984,6 +2984,11 @@ packages:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
 
+  cn@0.3.0:
+    resolution: {integrity: sha512-qRoU0ARrZD3Bbj1wKFftEKxPjSnzTEdFkf22NVhW+zU9D/wajhoP+qUZ5DChhhSOBCH1onV12hrmGqfu1+5Z2Q==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   commander@14.0.3:
     resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
     engines: {node: '>=20'}
@@ -3631,8 +3636,8 @@ packages:
   set-cookie-parser@3.1.2:
     resolution: {integrity: sha512-5/r/lTwbJ3zQ+qwdUFZYeRNqda7P5HD8zQKqlSjdGt1/S0cjLAphHusj4Y58ahDtWn/g32xrIS58/ikOvwl0Lw==}
 
-  shadcn-svelte@1.6.1:
-    resolution: {integrity: sha512-qmbdBQ3GLO+kfLWlF7H+UZ0YbGOv4UnTy3r3LP6yK5QfO5SW+989ohKoAjKe+caHYWz7oFYqflVZablIewuBiw==}
+  shadcn-svelte@1.7.0:
+    resolution: {integrity: sha512-AK3ZsYOL8PN/RxcEBCHGvQj2TrLfaaBsbw0QohyEb3nn/yPNDRC/+9iSjnTp/uKEe+tAi0tBxB/Yhzno0N7EEg==}
     hasBin: true
     peerDependencies:
       svelte: ^5.0.0
@@ -5606,6 +5611,8 @@ snapshots:
 
   clsx@2.1.1: {}
 
+  cn@0.3.0: {}
+
   commander@14.0.3: {}
 
   convert-source-map@2.0.0: {}
@@ -6257,13 +6264,13 @@ snapshots:
 
   set-cookie-parser@3.1.2: {}
 
-  shadcn-svelte@1.6.1(svelte@5.57.0):
+  shadcn-svelte@1.7.0(svelte@5.57.0):
     dependencies:
+      cn: 0.3.0
       commander: 14.0.3
       node-fetch-native: 1.6.7
       postcss: 8.5.23
       svelte: 5.57.0
-      tailwind-merge: 3.6.0
 
   sharp@0.35.2:
     dependencies:
