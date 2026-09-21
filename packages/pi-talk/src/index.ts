@@ -1,17 +1,115 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
+import {
+	getAgentDir,
+	type ExtensionAPI,
+	type ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import {
+	Input,
 	isKeyRelease,
 	Key,
 	matchesKey,
 } from '@earendil-works/pi-tui';
 import { spawn } from 'node:child_process';
+import {
+	chmodSync,
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
 
 const HOLD_MS = 300;
 const DEEPGRAM_URL =
 	'wss://api.deepgram.com/v1/listen?model=nova-3&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&interim_results=false';
+const SECRETS_FILE = 'my-pi-secrets.json';
+
+type SecretsFile = {
+	version: 1;
+	packages: Record<
+		string,
+		{ deepgramApiKey?: string; enabled?: boolean } | undefined
+	>;
+};
+
+function emptySecrets(): SecretsFile {
+	return { version: 1, packages: {} };
+}
+
+export function readTalkSecrets(
+	path = join(getAgentDir(), SECRETS_FILE),
+) {
+	try {
+		const parsed = JSON.parse(
+			readFileSync(path, 'utf8'),
+		) as SecretsFile;
+		const talk = parsed.packages?.['pi-talk'];
+		return {
+			enabled: talk?.enabled === true,
+			apiKey:
+				typeof talk?.deepgramApiKey === 'string'
+					? talk.deepgramApiKey
+					: undefined,
+		};
+	} catch {
+		return { enabled: false, apiKey: undefined };
+	}
+}
+
+export function writeTalkSecrets(
+	value: { enabled: boolean; apiKey?: string },
+	path = join(getAgentDir(), SECRETS_FILE),
+): void {
+	let secrets = emptySecrets();
+	try {
+		secrets = JSON.parse(readFileSync(path, 'utf8')) as SecretsFile;
+	} catch (error) {
+		if (
+			!(error instanceof Error) ||
+			!('code' in error) ||
+			error.code !== 'ENOENT'
+		) {
+			throw error;
+		}
+	}
+	secrets.version = 1;
+	secrets.packages ??= {};
+	secrets.packages['pi-talk'] = {
+		enabled: value.enabled,
+		...(value.apiKey ? { deepgramApiKey: value.apiKey } : {}),
+	};
+	mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+	const temporary = `${path}.${process.pid}.tmp`;
+	writeFileSync(temporary, `${JSON.stringify(secrets, null, 2)}\n`, {
+		mode: 0o600,
+	});
+	chmodSync(temporary, 0o600);
+	renameSync(temporary, path);
+	chmodSync(path, 0o600);
+}
+
+export function forgetTalkSecrets(
+	path = join(getAgentDir(), SECRETS_FILE),
+): void {
+	let secrets: SecretsFile;
+	try {
+		secrets = JSON.parse(readFileSync(path, 'utf8')) as SecretsFile;
+	} catch {
+		return;
+	}
+	delete secrets.packages?.['pi-talk'];
+	if (Object.keys(secrets.packages ?? {}).length === 0) {
+		rmSync(path, { force: true });
+		return;
+	}
+	const temporary = `${path}.${process.pid}.tmp`;
+	writeFileSync(temporary, `${JSON.stringify(secrets, null, 2)}\n`, {
+		mode: 0o600,
+	});
+	renameSync(temporary, path);
+	chmodSync(path, 0o600);
+}
 
 type HoldCallbacks = {
 	onTap(): void;
@@ -101,7 +199,10 @@ class Dictation {
 	private baseText = '';
 	private finishing = false;
 
-	constructor(private readonly ctx: ExtensionContext) {}
+	constructor(
+		private readonly ctx: ExtensionContext,
+		private readonly getApiKey: () => string | undefined,
+	) {}
 
 	get active(): boolean {
 		return this.socket !== undefined;
@@ -109,8 +210,7 @@ class Dictation {
 
 	start(): void {
 		if (this.active) return;
-		const apiKey =
-			process.env.DEEPGRAM_API_KEY ?? process.env.DEEPGRAM;
+		const apiKey = this.getApiKey();
 		if (!apiKey) {
 			this.ctx.ui.notify(
 				'DEEPGRAM_API_KEY or DEEPGRAM is not set.',
@@ -227,19 +327,67 @@ class Dictation {
 	}
 }
 
+async function promptForSecret(
+	ctx: ExtensionContext,
+): Promise<string | undefined> {
+	return ctx.ui.custom<string | undefined>(
+		(tui, theme, _kb, done) => {
+			const input = new Input();
+			return {
+				focused: true,
+				handleInput(data: string) {
+					if (matchesKey(data, Key.enter)) {
+						done(input.getValue().trim() || undefined);
+						return;
+					}
+					if (matchesKey(data, Key.escape)) {
+						done(undefined);
+						return;
+					}
+					input.handleInput(data);
+					tui.requestRender();
+				},
+				render(_width: number) {
+					const label = theme.fg('accent', 'Deepgram API key: ');
+					const masked = '•'.repeat(input.getValue().length);
+					return [`${label}${masked}`];
+				},
+				invalidate() {},
+			};
+		},
+	);
+}
+
 export default function talk(pi: ExtensionAPI): void {
 	let unsubscribe: (() => void) | undefined;
 	let hold: HoldSpace | undefined;
 	let dictation: Dictation | undefined;
 	let context: ExtensionContext | undefined;
 	let legacyBaseText = '';
+	let enabled = false;
 
-	pi.on('session_start', (_event, ctx) => {
-		if (ctx.mode !== 'tui') return;
+	function currentApiKey(): string | undefined {
+		return (
+			process.env.DEEPGRAM_API_KEY ??
+			process.env.DEEPGRAM ??
+			readTalkSecrets().apiKey
+		);
+	}
+
+	function deactivate(): void {
 		unsubscribe?.();
+		unsubscribe = undefined;
+		hold?.reset();
 		dictation?.cancel();
+		context?.ui.setStatus('talk', undefined);
+		hold = undefined;
+		dictation = undefined;
+	}
+
+	function activate(ctx: ExtensionContext): void {
+		deactivate();
 		context = ctx;
-		dictation = new Dictation(ctx);
+		dictation = new Dictation(ctx, currentApiKey);
 		hold = new HoldSpace({
 			onTap: () => ctx.ui.pasteToEditor(' '),
 			onLegacyPress: () => {
@@ -255,16 +403,81 @@ export default function talk(pi: ExtensionAPI): void {
 		unsubscribe = ctx.ui.onTerminalInput((data) =>
 			hold?.handle(data) ? { consume: true } : undefined,
 		);
+	}
+
+	pi.on('session_start', (_event, ctx) => {
+		if (ctx.mode !== 'tui') return;
+		context = ctx;
+		enabled = readTalkSecrets().enabled;
+		if (enabled && currentApiKey()) activate(ctx);
+	});
+
+	pi.registerCommand('talk', {
+		description: 'Set up, enable, disable, or forget Talk',
+		handler: async (args, ctx) => {
+			if (ctx.mode !== 'tui') return;
+			const action = args.trim().toLowerCase() || 'status';
+			if (action === 'setup') {
+				const apiKey = await promptForSecret(ctx);
+				if (!apiKey) return;
+				enabled = true;
+				writeTalkSecrets({ enabled, apiKey });
+				activate(ctx);
+				ctx.ui.notify(
+					'Talk is ready. Hold Space to dictate.',
+					'info',
+				);
+				return;
+			}
+			if (action === 'on') {
+				if (!currentApiKey()) {
+					ctx.ui.notify('Run /talk setup first.', 'warning');
+					return;
+				}
+				enabled = true;
+				writeTalkSecrets({
+					enabled,
+					apiKey: readTalkSecrets().apiKey,
+				});
+				activate(ctx);
+				ctx.ui.notify('Talk is on.', 'info');
+				return;
+			}
+			if (action === 'off') {
+				enabled = false;
+				writeTalkSecrets({
+					enabled,
+					apiKey: readTalkSecrets().apiKey,
+				});
+				deactivate();
+				context = ctx;
+				ctx.ui.notify('Talk is off.', 'info');
+				return;
+			}
+			if (action === 'forget') {
+				enabled = false;
+				forgetTalkSecrets();
+				deactivate();
+				context = ctx;
+				ctx.ui.notify('Talk key removed.', 'info');
+				return;
+			}
+			if (action === 'status') {
+				ctx.ui.notify(
+					`Talk is ${enabled ? 'on' : 'off'}; key is ${currentApiKey() ? 'available' : 'not configured'}.`,
+					'info',
+				);
+				return;
+			}
+			ctx.ui.notify(
+				'Use /talk setup, /talk on, /talk off, /talk forget, or /talk status.',
+				'warning',
+			);
+		},
 	});
 
 	pi.on('session_shutdown', () => {
-		unsubscribe?.();
-		unsubscribe = undefined;
-		hold?.reset();
-		dictation?.cancel();
-		context?.ui.setStatus('talk', undefined);
-		hold = undefined;
-		dictation = undefined;
+		deactivate();
 		context = undefined;
 	});
 }

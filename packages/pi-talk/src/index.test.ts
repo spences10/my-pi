@@ -1,5 +1,18 @@
+import {
+	mkdtempSync,
+	readFileSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
-import { HoldSpace } from './index.js';
+import {
+	forgetTalkSecrets,
+	HoldSpace,
+	readTalkSecrets,
+	writeTalkSecrets,
+} from './index.js';
 
 function setup() {
 	const callbacks = {
@@ -12,6 +25,52 @@ function setup() {
 }
 
 afterEach(() => vi.useRealTimers());
+
+describe('Talk secrets', () => {
+	it('is disabled by default', () => {
+		const path = join(
+			mkdtempSync(join(tmpdir(), 'pi-talk-')),
+			'secrets.json',
+		);
+		expect(readTalkSecrets(path)).toEqual({
+			enabled: false,
+			apiKey: undefined,
+		});
+	});
+
+	it('stores the key with private permissions and can forget it', () => {
+		const path = join(
+			mkdtempSync(join(tmpdir(), 'pi-talk-')),
+			'secrets.json',
+		);
+		writeTalkSecrets({ enabled: true, apiKey: 'secret' }, path);
+		expect(readTalkSecrets(path)).toEqual({
+			enabled: true,
+			apiKey: 'secret',
+		});
+		expect(statSync(path).mode & 0o777).toBe(0o600);
+		forgetTalkSecrets(path);
+		expect(readTalkSecrets(path).enabled).toBe(false);
+	});
+
+	it('preserves other package secrets', () => {
+		const path = join(
+			mkdtempSync(join(tmpdir(), 'pi-talk-')),
+			'secrets.json',
+		);
+		writeTalkSecrets({ enabled: true, apiKey: 'secret' }, path);
+		const saved = JSON.parse(readFileSync(path, 'utf8')) as {
+			packages: Record<string, unknown>;
+		};
+		saved.packages.other = { token: 'keep' };
+		writeFileSync(path, JSON.stringify(saved));
+		writeTalkSecrets({ enabled: false, apiKey: 'secret' }, path);
+		expect(
+			(JSON.parse(readFileSync(path, 'utf8')) as typeof saved)
+				.packages.other,
+		).toEqual({ token: 'keep' });
+	});
+});
 
 describe('HoldSpace', () => {
 	it('inserts one space for a quick tap', () => {
