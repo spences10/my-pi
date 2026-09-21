@@ -404,6 +404,9 @@ importers:
       '@spences10/pi-svelte-guardrails':
         specifier: workspace:*
         version: link:packages/pi-svelte-guardrails
+      '@spences10/pi-talk':
+        specifier: workspace:*
+        version: link:packages/pi-talk
       '@spences10/pi-team-mode':
         specifier: workspace:*
         version: link:packages/pi-team-mode
@@ -1033,6 +1036,24 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.3.3(@opentelemetry/api@1.9.0)(@types/node@25.9.8)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(esbuild@0.28.1)(jiti@2.7.0)(svelte@5.57.1)(typescript@7.0.2)(yaml@2.9.0)
+
+  packages/pi-talk:
+    devDependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 0.85.1(supports-color@10.2.2)(ws@8.21.3)(zod@4.4.3)
+      '@earendil-works/pi-tui':
+        specifier: 'catalog:'
+        version: 0.85.1
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.7
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.3(@opentelemetry/api@1.9.0)(@types/node@25.9.7)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(esbuild@0.28.1)(jiti@2.7.0)(svelte@5.57.0)(typescript@7.0.2)(yaml@2.9.0)
 
   packages/pi-team-mode:
     dependencies:

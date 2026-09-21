@@ -27,6 +27,7 @@ vanilla Pi.
 | `@spences10/pi-sqlite-tools`        | Reminder to use `mcp-sqlite-tools` for safer SQLite work.     |
 | `@spences10/pi-starfield`           | Twinkling stars in the input editor.                          |
 | `@spences10/pi-svelte-guardrails`   | Svelte pattern guardrails.                                    |
+| `@spences10/pi-talk`                | Hold-Space Deepgram dictation.                                |
 | `@spences10/pi-team-mode`           | Peer-session coordination, groups, artifacts, and mailboxes.  |
 | `@spences10/pi-telemetry`           | Local SQLite telemetry and `/telemetry`.                      |
 | `@spences10/pi-themes`              | Bundled theme pack for Pi.                                    |

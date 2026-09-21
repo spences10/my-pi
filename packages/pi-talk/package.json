@@ -1,0 +1,72 @@
+{
+	"name": "@spences10/pi-talk",
+	"version": "0.0.1",
+	"description": "Opt-in hold-Space Deepgram dictation for Pi",
+	"keywords": [
+		"deepgram",
+		"dictation",
+		"hold-to-talk",
+		"pi",
+		"pi-extension",
+		"pi-package",
+		"speech-to-text",
+		"voice"
+	],
+	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/pi-talk#readme",
+	"bugs": {
+		"url": "https://github.com/spences10/my-pi/issues"
+	},
+	"license": "MIT",
+	"author": "Scott Spence <me@scottspence.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/spences10/my-pi.git",
+		"directory": "packages/pi-talk"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
+		"build:self": "vp exec tsc -p tsconfig.build.json",
+		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
+		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
+		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
+		"test:self": "vp test run",
+		"coverage": "pnpm run coverage:self",
+		"coverage:self": "vp test run --coverage"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@earendil-works/pi-tui": "catalog:",
+		"@types/node": "catalog:",
+		"typescript": "catalog:",
+		"vite-plus": "catalog:"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": ">=0.85.0",
+		"@earendil-works/pi-tui": ">=0.85.0"
+	},
+	"engines": {
+		"node": ">=24.15.0"
+	},
+	"pi": {
+		"extensions": [
+			"./dist/index.js"
+		],
+		"image": "https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png"
+	}
+}
