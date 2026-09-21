@@ -25,6 +25,13 @@
 			"groupSlug": "svelte-packages"
 		},
 		{
+			"description": "Keep the TypeScript 6 compiler API available for Svelte tooling; TypeScript 7 is installed separately as @typescript/native",
+			"matchManagers": ["npm"],
+			"matchDepNames": ["typescript"],
+			"matchCurrentVersion": "<7",
+			"allowedVersions": "<7"
+		},
+		{
 			"description": "Keep Playwright and browser test integration aligned across the workspace",
 			"matchManagers": ["npm"],
 			"matchPackageNames": [

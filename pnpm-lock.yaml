@@ -206,6 +206,9 @@ catalogs:
     '@types/node':
       specifier: ^25.8.0
       version: 25.9.8
+    '@typescript/native':
+      specifier: npm:typescript@^7.0.2
+      version: 7.0.2
     '@vitest/browser-playwright':
       specifier: 4.1.11
       version: 4.1.11
@@ -434,6 +437,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.8
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
       '@vitest/browser-playwright':
         specifier: 'catalog:'
         version: 4.1.11(@voidzero-dev/vite-plus-core@0.3.3(@types/node@25.9.8)(esbuild@0.28.1)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(playwright@1.63.0)(vitest@4.1.11)
@@ -802,6 +808,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.8
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
       svelte:
         specifier: 'catalog:'
         version: 5.57.1
