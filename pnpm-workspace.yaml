@@ -50,7 +50,7 @@ catalog:
 
 catalogs:
   typescript6:
-    typescript: ^6.0.3
+    typescript: ^7.0.0
 
 allowBuilds:
   '@google/genai': true
