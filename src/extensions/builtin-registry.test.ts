@@ -17,6 +17,21 @@ describe('src/extensions/builtin-registry.ts', () => {
 		expect(factory?.default_enabled).toBe(false);
 	});
 
+	it('enables talk only in interactive mode with a CLI off switch', async () => {
+		const { BUILTIN_EXTENSION_REGISTRY } =
+			await import('./builtin-registry.js');
+		const extension = BUILTIN_EXTENSION_REGISTRY.find(
+			(entry) => entry.key === 'talk',
+		);
+		expect(extension?.default_enabled).toBe(true);
+		expect(extension?.cli_flag).toBe('--no-talk');
+		expect(extension?.mode_constraints?.disabled_in).toEqual([
+			'print',
+			'json',
+			'rpc',
+		]);
+	});
+
 	it('enables starfield only in interactive mode with a CLI off switch', async () => {
 		const { BUILTIN_EXTENSION_REGISTRY } =
 			await import('./builtin-registry.js');
@@ -48,6 +63,7 @@ describe('src/extensions/builtin-registry.ts', () => {
 			'harness',
 			'omnisearch',
 			'sqlite-tools',
+			'talk',
 			'starfield',
 			'git-ui',
 			'lsp',

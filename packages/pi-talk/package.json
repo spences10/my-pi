@@ -1,0 +1,53 @@
+{
+	"name": "@spences10/pi-talk",
+	"version": "0.0.1",
+	"description": "Hold-Space Deepgram dictation for Pi",
+	"keywords": [
+		"deepgram",
+		"dictation",
+		"pi",
+		"pi-package",
+		"voice"
+	],
+	"license": "MIT",
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "pnpm run build:self",
+		"build:self": "vp exec tsc -p tsconfig.build.json",
+		"check": "pnpm run check:self",
+		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
+		"test": "pnpm run test:self",
+		"test:self": "vp test run"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@earendil-works/pi-tui": "catalog:",
+		"@types/node": "catalog:",
+		"typescript": "catalog:",
+		"vite-plus": "catalog:"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": ">=0.85.0",
+		"@earendil-works/pi-tui": ">=0.85.0"
+	},
+	"engines": {
+		"node": ">=24.15.0"
+	},
+	"pi": {
+		"extensions": [
+			"./dist/index.js"
+		]
+	}
+}

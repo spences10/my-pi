@@ -224,6 +224,7 @@ Full package list here:
 | [`@spences10/pi-sqlite-tools`](./packages/pi-sqlite-tools/README.md)               | `mcp-sqlite-tools` reminder for safer SQLite database work |
 | [`@spences10/pi-starfield`](./packages/pi-starfield/README.md)                     | Twinkling stars in the input editor                        |
 | [`@spences10/pi-svelte-guardrails`](./packages/pi-svelte-guardrails/README.md)     | Svelte pattern guardrails                                  |
+| [`@spences10/pi-talk`](./packages/pi-talk/README.md)                               | Hold-Space Deepgram dictation                              |
 | [`@spences10/pi-team-mode`](./packages/pi-team-mode/README.md)                     | Peer-session coordination and durable mailboxes            |
 | [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md)                     | Local SQLite telemetry and `/telemetry`                    |
 | [`@spences10/pi-themes`](./packages/pi-themes/README.md)                           | Bundled theme pack for Pi                                  |
