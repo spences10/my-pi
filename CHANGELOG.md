@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.3.0
+
+### Minor Changes
+
+- 0494ee3: Add opt-in hold-Space Deepgram dictation with masked key
+  setup and local private secret storage.
+
 ## 0.2.8
 
 No changes in this release.
