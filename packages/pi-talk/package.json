@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-talk",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Opt-in hold-Space Deepgram dictation for Pi",
 	"keywords": [
 		"deepgram",

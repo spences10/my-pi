@@ -1047,13 +1047,13 @@ importers:
         version: 0.85.1
       '@types/node':
         specifier: 'catalog:'
-        version: 25.9.7
+        version: 25.9.8
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
       vite-plus:
         specifier: 'catalog:'
-        version: 0.3.3(@opentelemetry/api@1.9.0)(@types/node@25.9.7)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(esbuild@0.28.1)(jiti@2.7.0)(svelte@5.57.0)(typescript@7.0.2)(yaml@2.9.0)
+        version: 0.3.3(@opentelemetry/api@1.9.0)(@types/node@25.9.8)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(esbuild@0.28.1)(jiti@2.7.0)(svelte@5.57.1)(typescript@7.0.2)(yaml@2.9.0)
 
   packages/pi-team-mode:
     dependencies:
