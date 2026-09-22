@@ -120,7 +120,7 @@ pi -e ./packages/pi-talk
 ## Using from a custom harness
 
 ```ts
-import talk from "@spences10/pi-talk";
+import talk from '@spences10/pi-talk';
 
 // Pass talk as an ExtensionFactory to your Pi runtime.
 ```

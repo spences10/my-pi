@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+### Patch Changes
+
+- 4af8e38: Fix hold-Space dictation deleting typed words, preserve
+  pending edits, and split implementation into focused modules.
+
 ## 0.1.0
 
 ### Minor Changes
