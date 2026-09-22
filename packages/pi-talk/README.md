@@ -77,14 +77,33 @@ An environment key does not enable Talk automatically; run `/talk on`.
 
 ## Runtime behavior
 
-- A normal Space tap passes through to the editor.
+- A normal Space tap passes through immediately, including when the
+  next key is pressed before Space is released.
+- Other typing, cursor movement, or pasted input cancels a pending
+  hold. Fast typing never restores an earlier copy of the editor.
+- Spaces inserted before a hold is recognized stay in the editor;
+  further repeats are consumed while recording.
 - A held Space starts mono 16-bit, 16 kHz capture through `pw-record`.
 - Audio streams to Deepgram's live `nova-3` API.
 - Releasing Space finalizes the stream and inserts final transcript
-  text into the editor.
+  text at the end of the current editor contents. Typing, edits, and
+  deletions made while waiting are preserved.
 - Talk stops its recorder and socket when disabled or when the session
   shuts down.
 - Audio and transcripts are not written to disk.
+
+Terminals that send explicit Space repeat/release events use those
+signals to detect a hold. In WezTerm's default mode and other
+terminals without those events, Talk uses consecutive spaces from
+keyboard repeat: at least three Space events over 300 ms, allowing up
+to 650 ms for the first repeat and 180 ms between subsequent repeats.
+A pause of 180 ms after repeats stops recording. Typing another key
+cancels the sequence immediately; two Space taps are preserved as
+ordinary input.
+
+Without release events, repeated taps with the same timing as keyboard
+repeat remain indistinguishable from a hold. Talk preserves existing
+editor text even if such a sequence activates recording.
 
 In `my-pi`, `--no-talk` prevents the built-in extension from loading
 for one launch.
@@ -101,7 +120,7 @@ pi -e ./packages/pi-talk
 ## Using from a custom harness
 
 ```ts
-import talk from '@spences10/pi-talk';
+import talk from "@spences10/pi-talk";
 
 // Pass talk as an ExtensionFactory to your Pi runtime.
 ```
