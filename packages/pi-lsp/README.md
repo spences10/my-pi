@@ -71,7 +71,9 @@ Supported server discovery includes:
   `tsc --lsp --stdio` server
 - TypeScript 6 and earlier via `typescript-language-server --stdio`
 - Svelte via `svelteserver`
-- Python via `python-lsp-server`
+- Python via `basedpyright-langserver` or `pyright-langserver` when
+  installed (project-local `node_modules/.bin` or `PATH`), otherwise
+  `python-lsp-server`
 - Go via `gopls`
 - Rust via `rust-analyzer`
 - Ruby via `solargraph`
