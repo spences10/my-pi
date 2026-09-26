@@ -208,6 +208,77 @@ describe('get_server_config', () => {
 		expect(config?.command).toBe('typescript-language-server');
 	});
 
+	it('prefers basedpyright over pyright and pylsp for Python', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
+		dirs.push(cwd);
+		expect(
+			get_server_config('python', cwd, {
+				command_on_path: (command) =>
+					command === 'basedpyright-langserver' ||
+					command === 'pyright-langserver',
+			}),
+		).toEqual({
+			language: 'python',
+			command: 'basedpyright-langserver',
+			args: ['--stdio'],
+			backend: 'basedpyright',
+			is_project_local: false,
+		});
+	});
+
+	it('selects pyright when basedpyright is missing', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
+		dirs.push(cwd);
+		expect(
+			get_server_config('python', cwd, {
+				command_on_path: (command) =>
+					command === 'pyright-langserver',
+			}),
+		).toMatchObject({
+			command: 'pyright-langserver',
+			args: ['--stdio'],
+			backend: 'pyright',
+		});
+	});
+
+	it('uses a project-local pyright server from node_modules/.bin', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
+		dirs.push(cwd);
+		mkdirSync(join(cwd, 'node_modules', '.bin'), { recursive: true });
+		const server = join(
+			cwd,
+			'node_modules',
+			'.bin',
+			'pyright-langserver',
+		);
+		writeFileSync(server, '#!/bin/sh\n', { mode: 0o755 });
+
+		expect(
+			get_server_config('python', cwd, {
+				command_on_path: () => false,
+			}),
+		).toMatchObject({
+			command: server,
+			backend: 'pyright',
+			is_project_local: true,
+		});
+	});
+
+	it('falls back to pylsp without a pyright-family server', () => {
+		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
+		dirs.push(cwd);
+		expect(
+			get_server_config('python', cwd, {
+				command_on_path: () => false,
+			}),
+		).toMatchObject({
+			command: 'pylsp',
+			args: [],
+			backend: 'pylsp',
+			is_project_local: false,
+		});
+	});
+
 	it('returns undefined for unknown languages', () => {
 		expect(get_server_config('elixir')).toBeUndefined();
 	});

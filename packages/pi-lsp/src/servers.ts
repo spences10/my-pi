@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import {
+	delimiter,
 	dirname,
 	extname,
 	isAbsolute,
@@ -48,8 +49,9 @@ const LANGUAGE_SERVERS: Record<string, LspServerConfig> = {
 		language: 'python',
 		command: 'pylsp',
 		args: [],
+		backend: 'pylsp',
 		install_hint:
-			'Install Python LSP with: pip install python-lsp-server',
+			'Install a Python LSP: basedpyright, pyright, or pip install python-lsp-server',
 	},
 	rust: {
 		language: 'rust',
@@ -168,10 +170,18 @@ export function get_server_config(
 	cwd: string = process.cwd(),
 	options: {
 		global_typescript_major?: () => number | undefined;
+		command_on_path?: (command: string) => boolean;
 	} = {},
 ): LspServerConfig | undefined {
 	const base = LANGUAGE_SERVERS[language];
 	if (!base) return undefined;
+	if (language === 'python') {
+		const type_checking = resolve_python_server(
+			cwd,
+			options.command_on_path ?? is_command_on_path,
+		);
+		if (type_checking) return type_checking;
+	}
 	if (language === 'typescript') {
 		const native = resolve_native_typescript_server(cwd);
 		if (native) return native;
@@ -198,6 +208,56 @@ export function get_server_config(
 		command: resolved.command,
 		is_project_local: resolved.is_project_local,
 	};
+}
+
+// Type-checking servers win over pylsp when installed, so diagnostics
+// match the project's pyright-based type check.
+const PYTHON_TYPE_CHECKING_SERVERS: {
+	command: string;
+	backend: string;
+}[] = [
+	{ command: 'basedpyright-langserver', backend: 'basedpyright' },
+	{ command: 'pyright-langserver', backend: 'pyright' },
+];
+
+function resolve_python_server(
+	cwd: string,
+	command_on_path: (command: string) => boolean,
+): LspServerConfig | undefined {
+	for (const candidate of PYTHON_TYPE_CHECKING_SERVERS) {
+		const resolved = resolve_server_command_info(
+			candidate.command,
+			cwd,
+		);
+		if (
+			resolved.is_project_local ||
+			command_on_path(candidate.command)
+		) {
+			return {
+				language: 'python',
+				command: resolved.command,
+				args: ['--stdio'],
+				backend: candidate.backend,
+				is_project_local: resolved.is_project_local,
+			};
+		}
+	}
+	return undefined;
+}
+
+function is_command_on_path(command: string): boolean {
+	const extensions =
+		process.platform === 'win32'
+			? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';')
+			: [''];
+	return (process.env.PATH ?? '')
+		.split(delimiter)
+		.filter(Boolean)
+		.some((dir) =>
+			extensions.some((extension) =>
+				existsSync(join(dir, command + extension)),
+			),
+		);
 }
 
 export function language_id_for_file(
