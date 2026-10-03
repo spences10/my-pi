@@ -35,8 +35,8 @@ do not claim peer process supervision.
 6. Repeat implementation and review until approved; never infer
    approval from tests, delivery, silence, or model output.
 7. After approval, let the user create the Changeset. Commit only
-   after explicit user authorization and a clean final validation
-   pass.
+   after explicit user authorization. Reuse passed validation if
+   inputs are unchanged; rerun only checks affected by new edits.
 8. Close the issue, confirm a clean tree, then assign only the next
    dependency-ordered issue.
 

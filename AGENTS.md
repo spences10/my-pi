@@ -66,14 +66,12 @@ for peer coordination already authorized by the user.
 
 ## Validation
 
-Before reporting implementation completion:
+Follow `.agents/pi-validation-flow/SKILL.md` for validation commands.
+Validate the final changed state once before reporting completion.
+Reuse passed checks for review, commit, and push if their inputs are
+unchanged. Rerun only affected checks when inputs change, or missing
+checks when prior results are unavailable. Keep Git hooks and CI
+enabled.
 
-1. Inspect `git diff --name-only`.
-2. Run the narrowest package check/test for touched packages.
-3. Run LSP diagnostics for changed TypeScript/Svelte source files.
-4. Run root checks when shared files, package manifests, lockfiles,
-   registry wiring, or tooling changed.
-5. For skill edits, run
-   `pnpx check-skills validate .agents --recursive --json`.
-
-Report changed files, validation run, and unresolved risks only.
+Report changed files, validation run or reused, and unresolved risks
+only.

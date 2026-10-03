@@ -23,10 +23,13 @@ describe('lsp prompt guidance', () => {
 			'Language server support via LSP tools',
 		);
 		expect(result.systemPrompt).toContain(
-			'check changed files with LSP diagnostics before reporting completion or committing',
+			'check changed language-server-supported files with LSP diagnostics before reporting completion',
 		);
 		expect(result.systemPrompt).toContain(
 			'Prefer LSP diagnostics over guessing from build output',
+		);
+		expect(result.systemPrompt).toContain(
+			'Rerun only affected or previously missing diagnostics, not because of a commit or push request alone.',
 		);
 	});
 

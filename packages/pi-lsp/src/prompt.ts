@@ -20,7 +20,9 @@ You have access to Language Server Protocol tools for diagnostics, hover/type in
 - Finding references more precisely than text search
 - Validating focused code changes before reporting completion
 
-After editing language-server-supported files, check changed files with LSP diagnostics before reporting completion or committing. Prefer lsp_diagnostics_many for batches: use git to identify changed files, filter to supported source files, then run diagnostics on that list.
+After the final relevant edit, check changed language-server-supported files with LSP diagnostics before reporting completion. Prefer lsp_diagnostics_many for batches.
+
+Reuse passed diagnostics for review, commit, and push if file contents, dependencies, configuration, and relevant environment are unchanged. Rerun only affected or previously missing diagnostics, not because of a commit or push request alone.
 
 Prefer LSP diagnostics over guessing from build output when a file-level check is enough. Use text search for broad discovery, then LSP tools for precise type and symbol questions.`;
 

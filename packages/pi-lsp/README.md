@@ -161,12 +161,12 @@ diagnostics without guessing from text search alone.
 
 ## Model reminder
 
-When LSP tools are active, the extension injects a small system prompt
-reminder telling the model to use LSP for focused diagnostics, type
-and symbol questions, definitions, references, and validation before
-reporting completion. It also reminds the model to run diagnostics on
-changed language-server-supported files before completion or commit,
-preferring `lsp_diagnostics_many` for batches.
+When LSP tools are active, the extension reminds the model to use LSP
+for code questions and validate changed files after the final relevant
+edit, preferring `lsp_diagnostics_many` for batches. Passed
+diagnostics can be reused for review, commit, and push if their inputs
+are unchanged. Only affected or previously missing diagnostics need to
+run; a commit or push request alone does not require another run.
 
 ## Commands
 
@@ -188,7 +188,7 @@ servers running until the Pi session exits.
 ## Using from a custom harness
 
 ```ts
-import lsp from '@spences10/pi-lsp';
+import lsp from "@spences10/pi-lsp";
 
 // pass `lsp` as an ExtensionFactory to your Pi runtime
 ```
@@ -197,7 +197,7 @@ For harnesses that need to provide their own language-server client
 factory, use the named extension factory:
 
 ```ts
-import { create_lsp_extension } from '@spences10/pi-lsp';
+import { create_lsp_extension } from "@spences10/pi-lsp";
 
 const lsp = create_lsp_extension({ create_client });
 ```
