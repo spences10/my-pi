@@ -1,7 +1,7 @@
 <script lang="ts">
+	import CommandLine from '#lib/components/command-line.svelte';
 	import MyPiHero from '#lib/components/my-pi-hero.svelte';
 	import SessionLog from '#lib/components/session-log.svelte';
-	import type { Turn } from '#lib/components/session-log/types.js';
 	import {
 		ArrowSquareOutIcon,
 		GithubLogoIcon,
@@ -18,6 +18,8 @@
 		stack_tree,
 		support_packages,
 	} from './page-content.js';
+
+	let { data } = $props();
 
 	const hero_copy = {
 		logo_lines,
@@ -38,73 +40,6 @@
 		'#00eaff',
 	];
 	const group_colors = ['#ccff00', '#ff00cc', '#00eaff'];
-
-	const demo_conversation: Turn[] = [
-		{
-			role: 'user',
-			text: 'add a token-bucket rate limiter to the public API guard, then run the unit tests',
-		},
-		{
-			role: 'working',
-			text: 'recalling previous session…',
-		},
-		{
-			role: 'assistant',
-			text: 'Recall has notes from yesterday: the limiter belongs in the route guard, keyed by client IP. Adding a token bucket and wiring it in.',
-		},
-		{
-			role: 'read',
-			path: 'src/lib/server/guard.ts',
-			range: '1-9',
-			code: `import type { RequestEvent } from '@sveltejs/kit';
-import { error } from '@sveltejs/kit';
-
-export function guard(event: RequestEvent) {
-  // auth + validation runs here
-  return event;
-}`,
-			lines_below: 23,
-		},
-		{
-			role: 'assistant',
-			text: 'lsp_diagnostics(src/lib/server/guard.ts) → 0 errors · 0 warnings · 4 symbols',
-		},
-		{
-			role: 'diff',
-			path: 'src/lib/server/guard.ts',
-			hunks: [
-				{
-					line_number: 3,
-					after: [
-						'const buckets = new Map<string, number>();',
-						'const LIMIT = 60;',
-						'',
-					],
-				},
-				{
-					line_number: 6,
-					before: ['  // auth + validation runs here'],
-					after: [
-						'  const ip = event.getClientAddress();',
-						'  const left = buckets.get(ip) ?? LIMIT;',
-						"  if (left <= 0) throw error(429, 'rate limited');",
-						'  buckets.set(ip, left - 1);',
-					],
-				},
-			],
-		},
-		{
-			role: 'bash',
-			command: 'pnpm test:unit -- --run',
-			output:
-				' Test Files  3 passed (3)\n      Tests  18 passed (18)\n   Duration  1.42s',
-			exit_code: 0,
-		},
-		{
-			role: 'assistant',
-			text: 'Done — limiter in place, LSP shows the file clean, all 18 tests green. Want me to open a PR or hand it to a peer for review?',
-		},
-	];
 </script>
 
 <Head {seo_config} />
@@ -128,10 +63,7 @@ export function guard(event: RequestEvent) {
 					coordination.
 				</p>
 
-				<div class="command echo" aria-label="Quick start command">
-					<span aria-hidden="true">$</span>
-					<code>pnpx my-pi@latest</code>
-				</div>
+				<CommandLine command="pnpx my-pi@latest" echo />
 
 				<nav class="links" aria-label="Project links">
 					<a href="https://github.com/spences10/my-pi">
@@ -176,7 +108,7 @@ export function guard(event: RequestEvent) {
 			<div class="echo">
 				<SessionLog
 					note="scripted example session"
-					conversation={demo_conversation}
+					conversation={data.session}
 				/>
 			</div>
 		</section>
@@ -218,10 +150,7 @@ export function guard(event: RequestEvent) {
 						Choose this when you want all included extensions and
 						my-pi defaults configured together.
 					</p>
-					<div class="command">
-						<span aria-hidden="true">$</span>
-						<code>pnpx my-pi@latest</code>
-					</div>
+					<CommandLine command="pnpx my-pi@latest" />
 					<small>
 						Also works with npx or bunx. Do not use
 						<code>pi install</code>.
@@ -233,10 +162,7 @@ export function guard(event: RequestEvent) {
 						Choose this when you already use Pi and only want one
 						extension from this repository.
 					</p>
-					<div class="command">
-						<span aria-hidden="true">$</span>
-						<code>pi install npm:@spences10/pi-lsp</code>
-					</div>
+					<CommandLine command="pi install npm:@spences10/pi-lsp" />
 					<a href="#packages">View all 18 installable packages</a>
 				</div>
 			</div>
@@ -318,10 +244,7 @@ export function guard(event: RequestEvent) {
 				Run the full setup. Or install only what you need.
 			</h2>
 			<div class="closing-line">
-				<div class="command echo">
-					<span aria-hidden="true">$</span>
-					<code>pnpx my-pi@latest</code>
-				</div>
+				<CommandLine command="pnpx my-pi@latest" echo />
 				<a href="https://github.com/spences10/my-pi">
 					<GithubLogoIcon aria-hidden="true" /> Open the GitHub repository
 				</a>
@@ -401,15 +324,6 @@ export function guard(event: RequestEvent) {
 		opacity: 0.85;
 	}
 
-	/* The offset outlines of the ASCII logo, as the only shadow on the page. */
-	.echo {
-		box-shadow:
-			6px 6px 0 -1px var(--afterglow-background),
-			6px 6px 0 0 var(--afterglow-terminal-magenta),
-			12px 12px 0 -1px var(--afterglow-background),
-			12px 12px 0 0 var(--afterglow-terminal-blue);
-	}
-
 	h1,
 	h2,
 	h3 {
@@ -475,30 +389,6 @@ export function guard(event: RequestEvent) {
 		max-width: 54ch;
 		margin: 1.75rem 0 2.25rem;
 		font-size: clamp(1rem, 1.7vw, 1.15rem);
-	}
-
-	.command {
-		display: flex;
-		align-items: center;
-		width: fit-content;
-		max-width: 100%;
-		border: 1px solid var(--afterglow-border);
-		background: var(--afterglow-background);
-	}
-
-	.command span {
-		padding: 0.9rem 0 0.9rem 1rem;
-		color: var(--afterglow-terminal-magenta);
-		font-weight: 800;
-	}
-
-	.command code {
-		overflow-x: auto;
-		padding: 0.9rem 1rem 0.9rem 0.75rem;
-		color: var(--afterglow-terminal-green);
-		font-size: clamp(0.8rem, 1.5vw, 0.95rem);
-		font-weight: 700;
-		white-space: nowrap;
 	}
 
 	.links {
@@ -854,14 +744,6 @@ export function guard(event: RequestEvent) {
 		.site,
 		.page-footer {
 			width: calc(100% - 2rem);
-		}
-
-		.echo {
-			box-shadow:
-				4px 4px 0 -1px var(--afterglow-background),
-				4px 4px 0 0 var(--afterglow-terminal-magenta),
-				8px 8px 0 -1px var(--afterglow-background),
-				8px 8px 0 0 var(--afterglow-terminal-blue);
 		}
 
 		.plates li {

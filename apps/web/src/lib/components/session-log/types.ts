@@ -1,22 +1,36 @@
 export type Hunk = {
 	before?: string[];
 	after?: string[];
-	line_number?: number;
+};
+
+type TextTurn = {
+	role: 'user' | 'assistant' | 'working';
+	text: string;
+};
+type ReadTurn = {
+	role: 'read';
+	path: string;
+	range?: string;
+	code: string;
+	// Fence metadata for marked lines, for example `{5}`.
+	highlight?: string;
+	lines_below?: number;
+};
+type BashTurn = {
+	role: 'bash';
+	command: string;
+	output?: string;
+	exit_code?: number;
 };
 
 export type Turn =
-	| { role: 'user' | 'assistant' | 'working'; text: string }
-	| {
-			role: 'read';
-			path: string;
-			range?: string;
-			code: string;
-			lines_below?: number;
-	  }
-	| { role: 'diff'; path: string; hunks: Hunk[] }
-	| {
-			role: 'bash';
-			command: string;
-			output?: string;
-			exit_code?: number;
-	  };
+	| TextTurn
+	| ReadTurn
+	| BashTurn
+	| { role: 'diff'; path: string; hunks: Hunk[] };
+
+export type RenderedTurn =
+	| TextTurn
+	| (Omit<ReadTurn, 'code' | 'highlight'> & { html: string })
+	| (BashTurn & { command_html: string })
+	| { role: 'diff'; path: string; html: string };

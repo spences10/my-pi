@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Turn } from './session-log/types.js';
+	import type { RenderedTurn } from './session-log/types.js';
 
 	let {
 		title = 'session.log',
@@ -8,30 +8,45 @@
 	}: {
 		title?: string;
 		note?: string;
-		conversation: Turn[];
+		conversation: RenderedTurn[];
 	} = $props();
+
+	// All steps show at first. Step mode starts again from the prompt.
+	let shown = $state<number>();
+	const count = $derived(shown ?? conversation.length);
+	const stepping = $derived(count < conversation.length);
 </script>
 
 <div class="log">
 	<header>
 		<span>{title}</span>
 		{#if note}<span>{note}</span>{/if}
+		<div class="controls">
+			{#if stepping}
+				<button type="button" onclick={() => (shown = count + 1)}>
+					Next step {count}/{conversation.length}
+				</button>
+				<button type="button" onclick={() => (shown = undefined)}>
+					Show all
+				</button>
+			{:else}
+				<button type="button" onclick={() => (shown = 1)}>
+					Step through
+				</button>
+			{/if}
+		</div>
 	</header>
 
-	<ol>
-		{#each conversation as turn (turn)}
+	<ol aria-live="polite">
+		{#each conversation.slice(0, count) as turn (turn)}
 			<li class={turn.role}>
-				{#if turn.role === 'user'}
-					<p><span aria-hidden="true">&gt;</span> {turn.text}</p>
-				{:else if turn.role === 'assistant' || turn.role === 'working'}
-					<p>{turn.text}</p>
-				{:else if turn.role === 'read'}
+				{#if turn.role === 'read'}
 					<figure>
 						<figcaption>
 							read <b>{turn.path}</b
 							>{#if turn.range}:{turn.range}{/if}
 						</figcaption>
-						<pre><code>{turn.code}</code></pre>
+						{@html turn.html}
 						{#if turn.lines_below}
 							<small>… {turn.lines_below} more lines</small>
 						{/if}
@@ -39,18 +54,13 @@
 				{:else if turn.role === 'diff'}
 					<figure>
 						<figcaption>edit <b>{turn.path}</b></figcaption>
-						<pre><code
-								>{#each turn.hunks as hunk (hunk)}{#each hunk.before ?? [] as line, index (index)}<del
-											>- {line}{'\n'}</del
-										>{/each}{#each hunk.after ?? [] as line, index (index)}<ins
-											>+ {line}{'\n'}</ins
-										>{/each}{/each}</code
-							></pre>
+						{@html turn.html}
 					</figure>
 				{:else if turn.role === 'bash'}
 					<figure>
 						<figcaption>
-							<span aria-hidden="true">$</span> <b>{turn.command}</b>
+							<span aria-hidden="true">$</span>
+							{@html turn.command_html}
 							{#if turn.exit_code !== undefined}
 								<i class:failed={turn.exit_code !== 0}
 									>exit {turn.exit_code}</i
@@ -58,9 +68,13 @@
 							{/if}
 						</figcaption>
 						{#if turn.output}
-							<pre><code>{turn.output}</code></pre>
+							<pre class="output">{turn.output}</pre>
 						{/if}
 					</figure>
+				{:else if turn.role === 'user'}
+					<p><span aria-hidden="true">&gt;</span> {turn.text}</p>
+				{:else}
+					<p>{turn.text}</p>
 				{/if}
 			</li>
 		{/each}
@@ -85,17 +99,38 @@
 	header {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.25rem 1rem;
-		justify-content: space-between;
-		padding: 0.7rem clamp(1rem, 3vw, 1.75rem);
+		gap: 0.4rem 1rem;
+		align-items: center;
+		padding: 0.6rem clamp(1rem, 3vw, 1.75rem);
 		border-bottom: 1px solid var(--line);
 		color: var(--afterglow-text-muted);
 		font-size: 0.72rem;
 	}
 
-	header span:first-child {
+	header > span:first-child {
 		color: var(--afterglow-terminal-magenta);
 		font-weight: 700;
+	}
+
+	.controls {
+		display: flex;
+		gap: 0.5rem;
+		margin-left: auto;
+	}
+
+	button {
+		padding: 0.3rem 0.65rem;
+		border: 1px solid var(--afterglow-border-variant);
+		background: transparent;
+		color: var(--afterglow-terminal-cyan);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	button:hover {
+		border-color: var(--afterglow-terminal-magenta);
+		color: var(--afterglow-terminal-magenta);
 	}
 
 	ol {
@@ -155,7 +190,7 @@
 		font-weight: 650;
 	}
 
-	figcaption span {
+	figcaption > span {
 		color: var(--afterglow-terminal-magenta);
 		font-weight: 800;
 	}
@@ -170,40 +205,132 @@
 		color: var(--afterglow-terminal-red);
 	}
 
-	pre {
-		overflow-x: auto;
-		margin: 0.5rem 0 0;
-		padding: 0.8rem 0.9rem;
-		border-left: 0.5rem solid var(--afterglow-border-variant);
-		background: var(--afterglow-background);
-		color: var(--afterglow-text-muted);
-		font-family: inherit;
-		font-size: 0.78rem;
-		line-height: 1.55;
-	}
-
-	.bash pre {
-		border-left-color: var(--afterglow-terminal-green);
-	}
-
-	ins,
-	del {
-		display: block;
-		text-decoration: none;
-	}
-
-	ins {
-		color: var(--afterglow-terminal-green);
-	}
-
-	del {
-		color: var(--afterglow-terminal-red);
-	}
-
 	small {
 		display: block;
 		margin-top: 0.35rem;
 		color: var(--afterglow-comment);
 		font-size: 0.72rem;
+	}
+
+	/* Twinkleplop output, in the afterglow palette. */
+	.log :global(pre) {
+		overflow-x: auto;
+		margin: 0.5rem 0 0;
+		padding-block: 0.8rem;
+		border-left: 0.5rem solid var(--afterglow-border-variant);
+		background: var(--afterglow-background);
+		color: var(--afterglow-text);
+		font-family: inherit;
+		font-size: 0.78rem;
+		line-height: 1.55;
+		tab-size: 2;
+	}
+
+	.log :global(pre.output) {
+		padding-inline: 0.9rem;
+		border-left-color: var(--afterglow-terminal-green);
+		color: var(--afterglow-text-muted);
+	}
+
+	.log :global(pre code) {
+		display: grid;
+		width: max-content;
+		min-width: 100%;
+		font: inherit;
+	}
+
+	.log :global(.l) {
+		min-height: 1lh;
+		padding-inline: 0.9rem;
+	}
+
+	.log :global(.l.highlight) {
+		background: color-mix(
+			in srgb,
+			var(--afterglow-terminal-yellow) 14%,
+			transparent
+		);
+		box-shadow: inset 3px 0 0 var(--afterglow-terminal-yellow);
+	}
+
+	.log :global(.l[data-highlighted-line-id='added']) {
+		background: color-mix(
+			in srgb,
+			var(--afterglow-terminal-green) 11%,
+			transparent
+		);
+		box-shadow: inset 3px 0 0 var(--afterglow-terminal-green);
+	}
+
+	.log :global(.l[data-highlighted-line-id='removed']) {
+		background: color-mix(
+			in srgb,
+			var(--afterglow-terminal-red) 14%,
+			transparent
+		);
+		box-shadow: inset 3px 0 0 var(--afterglow-terminal-red);
+		opacity: 0.75;
+	}
+
+	.log :global(.l[data-highlighted-line-id='added'])::before,
+	.log :global(.l[data-highlighted-line-id='removed'])::before {
+		display: inline-block;
+		width: 2ch;
+		color: var(--afterglow-terminal-green);
+		content: '+';
+	}
+
+	.log :global(.l[data-highlighted-line-id='removed'])::before {
+		color: var(--afterglow-terminal-red);
+		content: '-';
+	}
+
+	.log :global(.comment) {
+		color: var(--afterglow-comment);
+		font-style: italic;
+	}
+
+	.log :global(:is(.punctuation, .operator)) {
+		color: var(--afterglow-text-muted);
+	}
+
+	.log :global(.keyword) {
+		color: var(--afterglow-terminal-magenta);
+	}
+
+	.log :global(:is(.string, .template, .regex)) {
+		color: var(--afterglow-terminal-green);
+	}
+
+	.log :global(:is(.type, .class_name, .builtin, .namespace)) {
+		color: var(--afterglow-terminal-yellow);
+	}
+
+	.log :global(:is(.function, .property)) {
+		color: var(--afterglow-terminal-cyan);
+	}
+
+	.log :global(:is(.number, .boolean, .null, .constant)) {
+		color: var(--afterglow-border);
+	}
+
+	/* The command in a caption: inline, no block frame. */
+	.log figcaption :global(pre) {
+		overflow: visible;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: none;
+		font-size: inherit;
+		font-weight: 650;
+		white-space: pre-wrap;
+	}
+
+	.log figcaption :global(pre code) {
+		display: inline;
+	}
+
+	.log figcaption :global(.l) {
+		padding: 0;
 	}
 </style>
