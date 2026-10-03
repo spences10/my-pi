@@ -1,6 +1,8 @@
 <script lang="ts">
 	import CommandLine from '#lib/components/command-line.svelte';
+	import FaqItem from '#lib/components/faq-item.svelte';
 	import MyPiHero from '#lib/components/my-pi-hero.svelte';
+	import PixelRule from '#lib/components/pixel-rule.svelte';
 	import SessionLog from '#lib/components/session-log.svelte';
 	import {
 		ArrowSquareOutIcon,
@@ -10,6 +12,7 @@
 	import { Head, SchemaOrg } from 'svead';
 	import {
 		faq_lines,
+		layer_packages,
 		logo_lines,
 		package_groups,
 		page_schema,
@@ -42,6 +45,22 @@
 		'#00eaff',
 	];
 	const group_colors = ['#ccff00', '#ff00cc', '#00eaff'];
+
+	const package_count = package_groups.reduce(
+		(total, group) => total + group.packages.length,
+		0,
+	);
+
+	// A selected plate shows its packages and marks them in the package list.
+	let selected_layer = $state<string>();
+	const selected_packages = $derived(
+		selected_layer ? layer_packages[selected_layer] : [],
+	);
+	const selected_color = $derived(
+		band_colors[
+			stack_tree.findIndex(([layer]) => layer === selected_layer)
+		],
+	);
 </script>
 
 <Head {seo_config} />
@@ -81,22 +100,48 @@
 				<ol>
 					{#each stack_tree as [layer, contents], index (layer)}
 						<li style:--band={band_colors[index]}>
-							<strong>{layer}</strong>
-							<span>{contents}</span>
+							<button
+								type="button"
+								aria-pressed={selected_layer === layer}
+								class:dimmed={selected_layer &&
+									selected_layer !== layer}
+								onclick={() =>
+									(selected_layer =
+										selected_layer === layer ? undefined : layer)}
+							>
+								<strong>{layer}</strong>
+								<span>{contents}</span>
+							</button>
 						</li>
 					{/each}
 				</ol>
+				<p
+					class="layer-detail"
+					style:--band={selected_color}
+					aria-live="polite"
+				>
+					{#if !selected_layer}
+						Select a layer to see its packages.
+					{:else if selected_packages.length}
+						{#each selected_packages as name (name)}
+							<a href={`#pkg-${name}`}>@spences10/{name}</a>
+						{/each}
+					{:else}
+						This layer is Pi itself. my-pi adds no package here.
+					{/if}
+				</p>
 				<p class="local">
 					<i aria-hidden="true"></i> context, recall, and telemetry stay
 					local
 				</p>
 				<p class="facts">
+					{#if data.version}my-pi {data.version} /{/if}
 					node &gt;=24.15.0 / tui, print, json, rpc / built on Pi
 				</p>
 			</aside>
 		</section>
 
-		<hr class="pixel-rule" />
+		<PixelRule />
 
 		<section class="session" aria-labelledby="session-heading">
 			<header class="section-head">
@@ -115,7 +160,7 @@
 			</div>
 		</section>
 
-		<hr class="pixel-rule" />
+		<PixelRule />
 
 		<section class="workflows" aria-labelledby="workflows-heading">
 			<header class="section-head">
@@ -139,7 +184,7 @@
 			</ul>
 		</section>
 
-		<hr class="pixel-rule" />
+		<PixelRule />
 
 		<section class="install" aria-labelledby="install-heading">
 			<header class="section-head">
@@ -165,12 +210,14 @@
 						extension from this repository.
 					</p>
 					<CommandLine command="pi install npm:@spences10/pi-lsp" />
-					<a href="#packages">View all 18 installable packages</a>
+					<a href="#packages"
+						>View all {package_count} installable packages</a
+					>
 				</div>
 			</div>
 		</section>
 
-		<hr class="pixel-rule" />
+		<PixelRule />
 
 		<section
 			id="packages"
@@ -193,7 +240,11 @@
 						<h3>{group.label}</h3>
 						<ul>
 							{#each group.packages as [name, description] (name)}
-								<li>
+								<li
+									id={`pkg-${name}`}
+									class:marked={selected_packages.includes(name)}
+									style:--mark={selected_color}
+								>
 									<a
 										href={`https://github.com/spences10/my-pi/tree/main/packages/${name}`}
 									>
@@ -223,7 +274,7 @@
 			</aside>
 		</section>
 
-		<hr class="pixel-rule" />
+		<PixelRule />
 
 		<section class="help" aria-labelledby="help-heading">
 			<h2 id="help-heading">
@@ -231,15 +282,12 @@
 			</h2>
 			<div class="help-list">
 				{#each faq_lines as [question, answer] (question)}
-					<details>
-						<summary>{question}<i aria-hidden="true">+</i></summary>
-						<p>{answer}</p>
-					</details>
+					<FaqItem {question} {answer} />
 				{/each}
 			</div>
 		</section>
 
-		<hr class="pixel-rule" />
+		<PixelRule />
 
 		<section class="closing" aria-labelledby="closing-heading">
 			<h2 id="closing-heading">
@@ -306,26 +354,6 @@
 		padding-top: clamp(1rem, 4vw, 3rem);
 	}
 
-	/* A row of blocks in the logo gradient: one block for each logo column. */
-	.pixel-rule {
-		height: 0.5rem;
-		margin: 0;
-		border: 0;
-		background: linear-gradient(
-			90deg,
-			var(--afterglow-terminal-green),
-			var(--afterglow-terminal-yellow),
-			var(--afterglow-terminal-magenta),
-			var(--afterglow-terminal-blue)
-		);
-		mask-image: repeating-linear-gradient(
-			90deg,
-			#000 0 calc(2.5% - 4px),
-			transparent calc(2.5% - 4px) 2.5%
-		);
-		opacity: 0.85;
-	}
-
 	h1,
 	h2,
 	h3 {
@@ -371,8 +399,7 @@
 	.section-head p,
 	.lede,
 	.workflow-list p,
-	.install-option p,
-	details p {
+	.install-option p {
 		margin: 0;
 		color: var(--copy);
 		font-family: var(--font-sans);
@@ -427,15 +454,38 @@
 		list-style: none;
 	}
 
-	.plates li {
+	.plates button {
 		display: grid;
 		grid-template-columns: 8.5rem 1fr;
 		gap: 1rem;
 		align-items: baseline;
+		width: 100%;
 		padding: 0.85rem 1rem;
+		border: 0;
 		border-left: 0.75rem solid var(--band);
 		background: color-mix(in srgb, var(--band) 13%, transparent);
+		color: inherit;
+		font: inherit;
 		font-size: 0.8rem;
+		text-align: left;
+		cursor: pointer;
+		transition:
+			background-color 150ms ease,
+			opacity 150ms ease,
+			translate 150ms ease;
+	}
+
+	.plates button:hover,
+	.plates button[aria-pressed='true'] {
+		background: color-mix(in srgb, var(--band) 30%, transparent);
+	}
+
+	.plates button[aria-pressed='true'] {
+		translate: 0.5rem 0;
+	}
+
+	.plates button.dimmed {
+		opacity: 0.55;
 	}
 
 	.plates strong {
@@ -443,8 +493,28 @@
 		font-weight: 720;
 	}
 
-	.plates li span {
+	.plates button span {
 		color: var(--copy);
+	}
+
+	.layer-detail {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem 1rem;
+		min-height: 2.6rem;
+		margin: 0.9rem 0 0;
+		color: var(--afterglow-text-muted);
+		font-size: 0.78rem;
+	}
+
+	.layer-detail a {
+		color: var(--band);
+		font-weight: 700;
+		text-decoration: none;
+	}
+
+	.layer-detail a:hover {
+		text-decoration: underline;
 	}
 
 	.local,
@@ -555,6 +625,20 @@
 		list-style: none;
 	}
 
+	.package-groups li {
+		scroll-margin-top: 6rem;
+		transition: background-color 200ms ease;
+	}
+
+	.package-groups li.marked {
+		background: color-mix(in srgb, var(--mark) 14%, transparent);
+		box-shadow: inset 0.4rem 0 0 var(--mark);
+	}
+
+	.package-groups li.marked a {
+		padding-left: 1rem;
+	}
+
 	.package-groups li + li {
 		border-top: 1px solid
 			color-mix(in srgb, var(--line) 60%, transparent);
@@ -631,45 +715,8 @@
 		font-size: clamp(1.5rem, 2.8vw, 2.3rem);
 	}
 
-	details {
-		border-bottom: 1px solid var(--line);
-	}
-
-	details:first-child {
+	.help-list {
 		border-top: 1px solid var(--line);
-	}
-
-	summary {
-		display: flex;
-		gap: 1rem;
-		align-items: center;
-		justify-content: space-between;
-		padding: 1.2rem 0;
-		font-size: 0.9rem;
-		font-weight: 700;
-		cursor: pointer;
-		list-style: none;
-	}
-
-	summary::-webkit-details-marker {
-		display: none;
-	}
-
-	summary i {
-		color: var(--afterglow-terminal-magenta);
-		font-size: 1.1rem;
-		font-style: normal;
-		transition: transform 150ms ease;
-	}
-
-	details[open] summary i {
-		transform: rotate(45deg);
-	}
-
-	details p {
-		max-width: 66ch;
-		margin: -0.25rem 0 1.5rem;
-		font-size: 0.92rem;
 	}
 
 	/* Closing */
@@ -748,7 +795,7 @@
 			width: calc(100% - 2rem);
 		}
 
-		.plates li {
+		.plates button {
 			grid-template-columns: 1fr;
 			gap: 0.25rem;
 		}

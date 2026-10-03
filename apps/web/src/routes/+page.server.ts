@@ -12,7 +12,29 @@ const hero_code = (edit?.hunks ?? [])
 	.filter(Boolean)
 	.join('\n');
 
-export const load = () => ({
+// Static page: the npm version is read one time, at build.
+export const prerender = true;
+
+async function published_version() {
+	try {
+		const response = await fetch(
+			'https://registry.npmjs.org/my-pi/latest',
+			{
+				signal: AbortSignal.timeout(5000),
+			},
+		);
+		if (!response.ok) return null;
+		const { version } = (await response.json()) as {
+			version?: string;
+		};
+		return version ?? null;
+	} catch {
+		return null;
+	}
+}
+
+export const load = async () => ({
+	version: await published_version(),
 	session: demo_conversation.map(render_turn),
 	hero_code: {
 		path: edit?.path ?? '',

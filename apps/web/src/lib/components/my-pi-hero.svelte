@@ -6,6 +6,7 @@
 		HERO_DURATION,
 		HERO_FONT,
 		type HeroCopy,
+		type HeroInteraction,
 	} from './my-pi-hero/scene.js';
 
 	let { copy }: { copy: HeroCopy } = $props();
@@ -30,11 +31,24 @@
 		let visible = false;
 		let font_ready = false;
 
+		const interaction: HeroInteraction = {
+			pointer: null,
+			taps: [],
+			clock: 0,
+		};
+
+		// Returns true while the logo cubes still move.
 		const paint = () => {
 			const { width } = scene.size(compact_query.matches);
 			const scale = canvas.width / width;
 			ctx.setTransform(scale, 0, 0, scale, 0, 0);
-			scene.draw(ctx, elapsed, compact_query.matches);
+			interaction.clock = performance.now() / 1000;
+			return scene.draw(
+				ctx,
+				elapsed,
+				compact_query.matches,
+				interaction,
+			);
 		};
 		const tick = (now: number) => {
 			frame = 0;
@@ -63,6 +77,47 @@
 			frame = 0;
 			last_time = 0;
 		};
+
+		// After the logo is built, the cubes react to the pointer. Frames
+		// are drawn only while something moves.
+		const react = () => {
+			if (frame || !visible || reduced_motion) return;
+			if (elapsed < HERO_DURATION) return;
+			frame = requestAnimationFrame(() => {
+				frame = 0;
+				if (paint() || interaction.pointer) react();
+			});
+		};
+		const scene_point = (event: PointerEvent) => {
+			const bounds = canvas.getBoundingClientRect();
+			const { width } = scene.size(compact_query.matches);
+			const scale = width / bounds.width;
+			return [
+				(event.clientX - bounds.left) * scale,
+				(event.clientY - bounds.top) * scale,
+			] as [number, number];
+		};
+		const on_move = (event: PointerEvent) => {
+			if (event.pointerType !== 'mouse') return;
+			interaction.pointer = scene_point(event);
+			react();
+		};
+		const on_leave = () => {
+			interaction.pointer = null;
+			react();
+		};
+		const on_down = (event: PointerEvent) => {
+			const [x, y] = scene_point(event);
+			const start = performance.now() / 1000;
+			interaction.taps = [
+				...interaction.taps.slice(-3),
+				{ x, y, start },
+			];
+			react();
+		};
+		canvas.addEventListener('pointermove', on_move);
+		canvas.addEventListener('pointerleave', on_leave);
+		canvas.addEventListener('pointerdown', on_down);
 		const resize = () => {
 			const { width, height } = scene.size(compact_query.matches);
 			const pixel_ratio = Math.min(devicePixelRatio, 2);
@@ -90,6 +145,9 @@
 
 		return () => {
 			pause();
+			canvas.removeEventListener('pointermove', on_move);
+			canvas.removeEventListener('pointerleave', on_leave);
+			canvas.removeEventListener('pointerdown', on_down);
 			resize_observer.disconnect();
 			visibility_observer.disconnect();
 		};

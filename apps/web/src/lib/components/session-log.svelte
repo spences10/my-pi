@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition';
 	import type { RenderedTurn } from './session-log/types.js';
 
 	let {
@@ -39,7 +40,7 @@
 
 	<ol aria-live="polite">
 		{#each conversation.slice(0, count) as turn (turn)}
-			<li class={turn.role}>
+			<li class={turn.role} in:slide={{ duration: 260 }}>
 				{#if turn.role === 'read'}
 					<figure>
 						<figcaption>

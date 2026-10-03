@@ -2,11 +2,18 @@
 // All motion is a pure function of `t`, so any time can be drawn alone.
 
 type Vec3 = [number, number, number];
-type Point = [number, number];
+export type Point = [number, number];
 
 export interface CodeToken {
 	text: string;
 	type: string;
+}
+
+// Pointer input for the finished logo, in scene coordinates.
+export interface HeroInteraction {
+	pointer: Point | null;
+	taps: { x: number; y: number; start: number }[];
+	clock: number;
 }
 
 export interface HeroCopy {
@@ -800,11 +807,63 @@ export function create_hero_scene(copy: HeroCopy) {
 		}
 	}
 
+	// How far each logo cube is pushed toward the viewer: 0 to 1.
+	const pushes = new Float32Array(count);
+	const TAP_LIFE = 1.3;
+
+	// Ease each cube toward the pointer and tap rings. Returns true while
+	// a cube still moves, so the caller knows to draw one more frame.
+	function update_pushes(t: number, interaction?: HeroInteraction) {
+		const live = interaction && t >= HERO_DURATION;
+		const reach = layout.width * 0.085;
+		let moving = false;
+		for (const v of voxels) {
+			let target = 0;
+			if (live) {
+				const [x, y] = project(to_camera(v.logo));
+				const { pointer, taps, clock } = interaction;
+				if (pointer)
+					target = smooth(
+						1 - Math.hypot(x - pointer[0], y - pointer[1]) / reach,
+					);
+				for (const tap of taps) {
+					const age = clock - tap.start;
+					if (age < 0 || age > TAP_LIFE) continue;
+					const ring = age * layout.width * 0.7;
+					const band =
+						1 -
+						Math.abs(Math.hypot(x - tap.x, y - tap.y) - ring) / reach;
+					target = Math.max(
+						target,
+						smooth(band) * (1 - age / TAP_LIFE),
+					);
+					moving = true;
+				}
+			}
+			const push = pushes[v.index] + (target - pushes[v.index]) * 0.2;
+			pushes[v.index] = Math.abs(push) < 0.003 && !target ? 0 : push;
+			if (pushes[v.index] > 0) moving = true;
+		}
+		return moving;
+	}
+
 	function draw_voxels(t: number) {
 		if (t < timeline.shatter) return;
 		draw_echo(t);
 		const faces: Face[] = [];
-		for (const v of voxels) push_faces(voxel_state(v, t), faces);
+		for (const v of voxels) {
+			const state = voxel_state(v, t);
+			const push = pushes[v.index];
+			if (push > 0) {
+				state.pos = [
+					state.pos[0],
+					state.pos[1] - push * 0.5,
+					state.pos[2] - push * 2.6,
+				];
+				state.color = lerp3(state.color, WHITE, push * 0.4);
+			}
+			push_faces(state, faces);
+		}
 		faces.sort((a, b) => b.depth - a.depth);
 		ctx.lineJoin = 'round';
 		ctx.lineWidth = 1.4;
@@ -1198,6 +1257,7 @@ export function create_hero_scene(copy: HeroCopy) {
 		context: CanvasRenderingContext2D,
 		time: number,
 		is_compact: boolean,
+		interaction?: HeroInteraction,
 	) {
 		ctx = context;
 		compact = is_compact;
@@ -1207,6 +1267,7 @@ export function create_hero_scene(copy: HeroCopy) {
 		ctx.globalAlpha = 1;
 		ctx.globalCompositeOperation = 'source-over';
 		set_camera(t);
+		const moving = update_pushes(t, interaction);
 		draw_background(t);
 		draw_floor(t);
 		draw_dust(t);
@@ -1243,6 +1304,7 @@ export function create_hero_scene(copy: HeroCopy) {
 			ctx.fillStyle = `rgba(0,0,0,${fade_in})`;
 			ctx.fillRect(0, 0, width, height);
 		}
+		return moving;
 	}
 
 	return {
