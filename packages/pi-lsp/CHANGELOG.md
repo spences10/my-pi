@@ -1,5 +1,13 @@
 # @spences10/pi-lsp
 
+## 0.0.48
+
+### Patch Changes
+
+- b7b802f: Fix Python server discovery and selection while preserving
+  pylsp defaults; thanks @DeLuke84 for reporting
+  [#599](https://github.com/spences10/my-pi/pull/599).
+
 ## 0.0.47
 
 ### Patch Changes
