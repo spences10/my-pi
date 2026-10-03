@@ -188,7 +188,7 @@ servers running until the Pi session exits.
 ## Using from a custom harness
 
 ```ts
-import lsp from "@spences10/pi-lsp";
+import lsp from '@spences10/pi-lsp';
 
 // pass `lsp` as an ExtensionFactory to your Pi runtime
 ```
@@ -197,7 +197,7 @@ For harnesses that need to provide their own language-server client
 factory, use the named extension factory:
 
 ```ts
-import { create_lsp_extension } from "@spences10/pi-lsp";
+import { create_lsp_extension } from '@spences10/pi-lsp';
 
 const lsp = create_lsp_extension({ create_client });
 ```

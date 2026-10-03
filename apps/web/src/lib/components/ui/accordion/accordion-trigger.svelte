@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { cn } from '#lib/utils.js';
 	import { Accordion as AccordionPrimitive } from 'bits-ui';
 	import { CaretDownIcon } from 'phosphor-svelte';
-	import { cn } from '$lib/utils.js';
 	import type { ComponentProps } from 'svelte';
 
 	let {

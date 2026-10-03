@@ -1,7 +1,6 @@
 <script lang="ts">
-	import MyPiTerminal, {
-		type Turn,
-	} from '$lib/components/my-pi-terminal.svelte';
+	import MyPiTerminal from '#lib/components/my-pi-terminal.svelte';
+	import type { Turn } from '#lib/components/my-pi-terminal/types.js';
 	import {
 		ArrowSquareOutIcon,
 		GithubLogoIcon,

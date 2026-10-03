@@ -1,24 +1,25 @@
 <script lang="ts">
-	import CodeBlock from "./code-block.svelte";
-	import CollapseHint from "./collapse-hint.svelte";
-	import type { RenderedTurn } from "./types";
+	import CodeBlock from './code-block.svelte';
+	import CollapseHint from './collapse-hint.svelte';
+	import type { RenderedTurn } from './types';
 
 	let { turn }: { turn: RenderedTurn } = $props();
 </script>
 
-{#if turn.role === "user"}
+{#if turn.role === 'user'}
 	<div class="user-turn">
 		<span class="user-chev">›</span>
 		<span class="user-text">{turn.text}</span>
 	</div>
-{:else if turn.role === "assistant"}
+{:else if turn.role === 'assistant'}
 	<div class="assistant-turn">{turn.text}</div>
-{:else if turn.role === "read" || turn.role === "write"}
+{:else if turn.role === 'read' || turn.role === 'write'}
 	<div class="file-turn">
 		<div class="file-head">
 			<span class="file-verb">{turn.role}</span>
 			<span class="file-path">{turn.path}</span
-			>{#if turn.role === "read" && turn.range}<span class="file-colon">:</span
+			>{#if turn.role === 'read' && turn.range}<span
+					class="file-colon">:</span
 				><span class="file-range">{turn.range}</span>{/if}
 		</div>
 		{#if turn.lines_above != null && turn.lines_above > 0}
@@ -29,11 +30,14 @@
 		<CodeBlock code={turn.code} />
 		{#if turn.lines_below != null && turn.lines_below > 0}
 			<div class="collapse-wrap">
-				<CollapseHint more={turn.lines_below} total={turn.total_lines} />
+				<CollapseHint
+					more={turn.lines_below}
+					total={turn.total_lines}
+				/>
 			</div>
 		{/if}
 	</div>
-{:else if turn.role === "bash"}
+{:else if turn.role === 'bash'}
 	<div class="bash-turn">
 		<div class="bash-head">
 			<span class="file-verb">bash</span>
@@ -47,7 +51,7 @@
 			<div class="bash-exit">exit {turn.exit_code}</div>
 		{/if}
 	</div>
-{:else if turn.role === "diff"}
+{:else if turn.role === 'diff'}
 	<div class="diff-turn">
 		<div class="file-head">
 			<span class="file-verb">edit</span>
@@ -61,12 +65,12 @@
 					{/if}
 					{#each hunk.before ?? [] as ln, li (`b-${li}`)}
 						<div class="diff-line removed">
-							<span class="sign">-</span><span>{ln || "\u00a0"}</span>
+							<span class="sign">-</span><span>{ln || '\u00a0'}</span>
 						</div>
 					{/each}
 					{#each hunk.after ?? [] as ln, li (`a-${li}`)}
 						<div class="diff-line added">
-							<span class="sign">+</span><span>{ln || "\u00a0"}</span>
+							<span class="sign">+</span><span>{ln || '\u00a0'}</span>
 						</div>
 					{/each}
 				</div>

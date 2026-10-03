@@ -3,13 +3,17 @@
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
+	},
 	"scripts": {
 		"dev": "vp dev",
 		"build": "vp build",
 		"preview": "wrangler dev .svelte-kit/cloudflare/_worker.js --port 4173",
 		"prepare": "vp exec svelte-kit sync || echo ''",
-		"check": "vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json --tsgo-experimental-api",
-		"check:watch": "vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json --watch --tsgo-experimental-api",
+		"check": "vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json --tsgo",
+		"check:watch": "vp exec svelte-kit sync && vp exec svelte-check --tsconfig ./tsconfig.json --watch --tsgo",
 		"lint": "vp fmt --check \"**/*.svelte\"",
 		"format": "vp fmt \"**/*.svelte\"",
 		"test:unit": "vp test",

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { format_k } from "./syntax";
-	import type { Metrics } from "./types";
+	import { format_k } from './syntax';
+	import type { Metrics } from './types';
 
 	let {
 		cwd,
@@ -33,9 +33,9 @@
 			<span>${metrics.cost.toFixed(3)}</span>
 			<span>(sub)</span>
 			<span
-				>{((metrics.ctx_used / metrics.ctx_max) * 100).toFixed(1)}%/{format_k(
-					metrics.ctx_max,
-				)}</span
+				>{((metrics.ctx_used / metrics.ctx_max) * 100).toFixed(
+					1,
+				)}%/{format_k(metrics.ctx_max)}</span
 			>
 		</div>
 		<div class="mcp-status">MCP 5/5 connected</div>

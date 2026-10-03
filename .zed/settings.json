@@ -3,7 +3,8 @@
 		"oxfmt": {
 			"initialization_options": {
 				"settings": {
-					"configPath": "./vite.config.ts",
+					"fmt.configPath": "./vite.config.ts",
+					"fmt.disableNestedConfig": true,
 					"run": "onSave"
 				}
 			}
@@ -19,6 +20,11 @@
 		}
 	},
 	"languages": {
+		"Svelte": {
+			"format_on_save": "on",
+			"prettier": { "allowed": false },
+			"formatter": [{ "language_server": { "name": "oxfmt" } }]
+		},
 		"JavaScript": {
 			"format_on_save": "on",
 			"prettier": { "allowed": false },

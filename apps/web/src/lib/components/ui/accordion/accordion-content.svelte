@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { cn } from "$lib/utils.js";
-	import { Accordion as AccordionPrimitive } from "bits-ui";
-	import type { ComponentProps } from "svelte";
-	import { slide } from "svelte/transition";
+	import { cn } from '#lib/utils.js';
+	import { Accordion as AccordionPrimitive } from 'bits-ui';
+	import type { ComponentProps } from 'svelte';
+	import { slide } from 'svelte/transition';
 
 	let {
 		ref = $bindable(null),
@@ -16,7 +16,7 @@
 	{#snippet child({ props, open })}
 		<div
 			{...props}
-			class={cn("overflow-hidden leading-7 text-muted", class_name)}
+			class={cn('overflow-hidden leading-7 text-muted', class_name)}
 		>
 			{#if open}
 				<div transition:slide={{ duration: 180 }} class="pb-5">

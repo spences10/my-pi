@@ -1,16 +1,22 @@
+import adapter from '@sveltejs/adapter-cloudflare';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { playwright } from 'vite-plus/test/browser-playwright';
 
 export default {
-	plugins: [tailwindcss(), sveltekit()],
-	fmt: {
-		useTabs: true,
-		singleQuote: true,
-		printWidth: 70,
-		trailingComma: 'all',
-		proseWrap: 'always',
-	},
+	plugins: [
+		tailwindcss(),
+		sveltekit({
+			adapter: adapter(),
+			compilerOptions: {
+				// Keep runes mode for project files, but not libraries.
+				runes: ({ filename }) =>
+					filename.split(/[/\\]/).includes('node_modules')
+						? undefined
+						: true,
+			},
+		}),
+	],
 	lint: {
 		ignorePatterns: [
 			'.svelte-kit/**',

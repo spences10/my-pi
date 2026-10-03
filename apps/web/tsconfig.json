@@ -1,5 +1,5 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
+	"extends": "$app/tsconfig",
 	"compilerOptions": {
 		"rewriteRelativeImportExtensions": true,
 		"allowJs": true,
@@ -11,7 +11,12 @@
 		"sourceMap": true,
 		"strict": true,
 		"moduleResolution": "bundler",
-		"types": ["./worker-configuration.d.ts"]
+		"types": ["$app/types"]
 	},
-	"exclude": ["./.svelte-kit/output", "./.svelte-kit/cloudflare"]
+	"include": ["src", "*"],
+	"exclude": [
+		"src/service-worker",
+		".svelte-kit/output",
+		".svelte-kit/cloudflare"
+	]
 }

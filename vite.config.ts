@@ -34,7 +34,21 @@ export default defineConfig({
 		printWidth: 70,
 		trailingComma: 'all',
 		proseWrap: 'always',
-		ignorePatterns: ['apps/web/**'],
+		ignorePatterns: [
+			'apps/web/.svelte-kit/**',
+			'apps/web/worker-configuration.d.ts',
+		],
+		overrides: [
+			{
+				files: ['apps/web/src/**/*.svelte'],
+				options: {
+					svelte: true,
+					sortTailwindcss: {
+						stylesheet: './apps/web/src/routes/layout.css',
+					},
+				},
+			},
+		],
 	},
 	lint: {
 		rules: {

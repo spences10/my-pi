@@ -1,5 +1,6 @@
 {
 	"editor.defaultFormatter": "oxc.oxc-vscode",
 	"editor.formatOnSave": true,
-	"oxc.fmt.configPath": "./vite.config.ts"
+	"oxc.fmt.configPath": "./vite.config.ts",
+	"oxc.fmt.disableNestedConfig": true
 }
