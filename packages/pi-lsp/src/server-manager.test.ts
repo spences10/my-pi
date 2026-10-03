@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vite-plus/test';
+import { dirname, join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
 	create_command_context,
 	create_mock_client,
@@ -13,6 +13,44 @@ import {
 	DEFAULT_LSP_IDLE_TIMEOUT_MS,
 	DEFAULT_LSP_TRUST_PROMPT_TIMEOUT_MS,
 } from './server-manager.js';
+
+afterEach(() => {
+	vi.unstubAllEnvs();
+});
+
+function create_python_project() {
+	const root = mkdtempSync(join(tmpdir(), 'my-pi-python-lsp-'));
+	const file = join(root, 'main.py');
+	const suffix = process.platform === 'win32' ? '.exe' : '';
+	const project_bin = join(
+		root,
+		'.venv',
+		process.platform === 'win32' ? 'Scripts' : 'bin',
+	);
+	const project_server = join(
+		project_bin,
+		'pyright-langserver' + suffix,
+	);
+	const global_bin = join(root, 'global');
+	const global_server = join(
+		global_bin,
+		'pyright-langserver' + suffix,
+	);
+	dirs.push(root);
+	mkdirSync(project_bin, { recursive: true });
+	mkdirSync(global_bin, { recursive: true });
+	writeFileSync(
+		join(root, 'pyproject.toml'),
+		'[project]\nname = "test"\n',
+	);
+	writeFileSync(file, 'value: int = 1\n');
+	writeFileSync(project_server, '#!/bin/sh\n', { mode: 0o755 });
+	writeFileSync(global_server, '#!/bin/sh\n', { mode: 0o755 });
+	vi.stubEnv('PATH', global_bin);
+	vi.stubEnv('MY_PI_LSP_PYTHON_SERVER', 'pyright');
+	vi.stubEnv('MY_PI_LSP_PROJECT_BINARY', '');
+	return { root, file, project_server, global_server };
+}
 
 function create_typescript_7_project() {
 	const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
@@ -400,6 +438,154 @@ describe('lsp server manager', () => {
 				command: 'tsc',
 				args: ['--lsp', '--stdio'],
 			}),
+		);
+	});
+
+	it('prompts before starting a Python virtual-environment server', async () => {
+		const { root, file, project_server } = create_python_project();
+		const create_client = vi.fn(() => create_mock_client());
+		const { pi, tools, commands } = create_test_pi();
+		const { ctx, selections, select, notifications } =
+			create_command_context();
+		selections.push('Allow once for this session');
+		await register_test_lsp_extension(pi, {
+			create_client,
+			read_file: async () => 'value: int = 1\n',
+			cwd: () => root,
+		});
+		for (const id of ['1', '2']) {
+			await tools
+				.get('lsp_hover')
+				.execute(
+					id,
+					{ file, line: 0, character: 0 },
+					undefined,
+					undefined,
+					ctx,
+				);
+		}
+		expect(select).toHaveBeenCalledTimes(1);
+		expect(select.mock.calls[0]?.[0]).toContain(project_server);
+		expect(create_client).toHaveBeenCalledTimes(1);
+		expect(create_client).toHaveBeenCalledWith(
+			expect.objectContaining({
+				command: project_server,
+				args: ['--stdio'],
+			}),
+		);
+		await commands.get('lsp').handler('status', ctx);
+		expect(notifications.at(-1)?.message).toContain('via pyright');
+		expect(notifications.at(-1)?.message).toContain(project_server);
+	});
+
+	it.each([true, false])(
+		'uses only the global Python server after skipping local trust (hasUI=%s)',
+		async (hasUI) => {
+			const { root, file, global_server } = create_python_project();
+			const create_client = vi.fn(() => create_mock_client());
+			const { pi, tools } = create_test_pi();
+			const { ctx, selections, select } = create_command_context();
+			selections.push('Use global PATH binary instead');
+			const warn = vi
+				.spyOn(console, 'warn')
+				.mockImplementation(() => {});
+			try {
+				await register_test_lsp_extension(pi, {
+					create_client,
+					read_file: async () => 'value: int = 1\n',
+					cwd: () => root,
+				});
+				await tools
+					.get('lsp_hover')
+					.execute(
+						'1',
+						{ file, line: 0, character: 0 },
+						undefined,
+						undefined,
+						{ ...ctx, hasUI },
+					);
+				expect(select).toHaveBeenCalledTimes(hasUI ? 1 : 0);
+				expect(create_client).toHaveBeenCalledTimes(1);
+				expect(create_client).toHaveBeenCalledWith(
+					expect.objectContaining({ command: global_server }),
+				);
+			} finally {
+				warn.mockRestore();
+			}
+		},
+	);
+
+	it('does not launch a skipped Python virtual-environment server through PATH in headless mode', async () => {
+		const { root, file, project_server } = create_python_project();
+		vi.stubEnv('PATH', dirname(project_server));
+		const create_client = vi.fn(() => create_mock_client());
+		const { pi, tools } = create_test_pi();
+		const { ctx } = create_command_context();
+		const warn = vi
+			.spyOn(console, 'warn')
+			.mockImplementation(() => {});
+		try {
+			await register_test_lsp_extension(pi, {
+				create_client,
+				read_file: async () => 'value: int = 1\n',
+				cwd: () => root,
+			});
+			const result = await tools
+				.get('lsp_hover')
+				.execute(
+					'1',
+					{ file, line: 0, character: 0 },
+					undefined,
+					undefined,
+					{ ...ctx, hasUI: false },
+				);
+			expect(result.details.ok).toBe(false);
+			expect(result.content[0].text).toContain(
+				'No pyright server on PATH outside the project',
+			);
+			expect(create_client).not.toHaveBeenCalled();
+		} finally {
+			warn.mockRestore();
+		}
+	});
+
+	it('reports the selected Python backend setup hint without changing backends on failure', async () => {
+		const { root, file } = create_python_project();
+		vi.stubEnv('MY_PI_LSP_PYTHON_SERVER', 'basedpyright');
+		const client = create_mock_client({
+			start: vi.fn().mockRejectedValue(
+				Object.assign(new Error('server missing'), {
+					code: 'ENOENT',
+				}),
+			),
+		});
+		const create_client = vi.fn(() => client);
+		const { pi, tools } = create_test_pi();
+		const { ctx } = create_command_context();
+		await register_test_lsp_extension(pi, {
+			create_client,
+			read_file: async () => 'value: int = 1\n',
+			cwd: () => root,
+		});
+		const result = await tools
+			.get('lsp_hover')
+			.execute(
+				'1',
+				{ file, line: 0, character: 0 },
+				undefined,
+				undefined,
+				ctx,
+			);
+		expect(result.details.ok).toBe(false);
+		expect(result.content[0].text).toContain(
+			'basedpyright-langserver',
+		);
+		expect(result.content[0].text).toContain(
+			'pip install basedpyright',
+		);
+		expect(create_client).toHaveBeenCalledTimes(1);
+		expect(create_client).toHaveBeenCalledWith(
+			expect.objectContaining({ command: 'basedpyright-langserver' }),
 		);
 	});
 

@@ -370,7 +370,9 @@ export class LspServerManager {
 					signal,
 				))
 			) {
-				server_config = get_server_config(language, '/');
+				server_config = get_server_config(language, workspace_root, {
+					allow_project_local: false,
+				});
 				if (!server_config) return undefined;
 			}
 			const root_uri = file_path_to_uri(workspace_root);

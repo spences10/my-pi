@@ -1,6 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
 import {
+	accessSync,
+	constants,
+	existsSync,
+	readFileSync,
+	realpathSync,
+	statSync,
+} from 'node:fs';
+import {
+	delimiter,
 	dirname,
 	extname,
 	isAbsolute,
@@ -168,14 +176,26 @@ export function get_server_config(
 	cwd: string = process.cwd(),
 	options: {
 		global_typescript_major?: () => number | undefined;
+		env?: NodeJS.ProcessEnv;
+		allow_project_local?: boolean;
 	} = {},
 ): LspServerConfig | undefined {
 	const base = LANGUAGE_SERVERS[language];
 	if (!base) return undefined;
+	const allow_project_local = options.allow_project_local ?? true;
+	if (language === 'python') {
+		return resolve_python_server(
+			cwd,
+			options.env,
+			allow_project_local,
+		);
+	}
 	if (language === 'typescript') {
-		const native = resolve_native_typescript_server(cwd);
+		const native = allow_project_local
+			? resolve_native_typescript_server(cwd)
+			: undefined;
 		if (native) return native;
-		if (!has_project_typescript(cwd)) {
+		if (!allow_project_local || !has_project_typescript(cwd)) {
 			const global_major =
 				options.global_typescript_major?.() ??
 				resolve_global_typescript_major();
@@ -192,7 +212,9 @@ export function get_server_config(
 			}
 		}
 	}
-	const resolved = resolve_server_command_info(base.command, cwd);
+	const resolved = allow_project_local
+		? resolve_server_command_info(base.command, cwd)
+		: { command: base.command, is_project_local: false };
 	return {
 		...base,
 		command: resolved.command,
@@ -317,4 +339,180 @@ function resolve_local_binary(
 		join(directory, 'node_modules', '.bin', `${command}.cmd`),
 	];
 	return candidates.find((candidate) => existsSync(candidate));
+}
+
+const PYTHON_SERVER_ENV = 'MY_PI_LSP_PYTHON_SERVER';
+
+const PYTHON_SERVERS = {
+	pylsp: {
+		command: 'pylsp',
+		args: [],
+		install_hint:
+			'Install Python LSP with: pip install python-lsp-server',
+	},
+	basedpyright: {
+		command: 'basedpyright-langserver',
+		args: ['--stdio'],
+		install_hint:
+			'Install Basedpyright with: pip install basedpyright',
+	},
+	pyright: {
+		command: 'pyright-langserver',
+		args: ['--stdio'],
+		install_hint: 'Install Pyright with: pip install pyright',
+	},
+} satisfies Record<
+	string,
+	{ command: string; args: string[]; install_hint: string }
+>;
+
+type PythonServer = keyof typeof PYTHON_SERVERS;
+const TYPE_CHECKING_SERVERS: PythonServer[] = [
+	'basedpyright',
+	'pyright',
+];
+
+function resolve_python_server(
+	cwd: string,
+	env: NodeJS.ProcessEnv = process.env,
+	allow_project_local = true,
+): LspServerConfig {
+	const selection = env[PYTHON_SERVER_ENV]?.trim() || 'auto';
+	if (selection !== 'auto') {
+		if (!Object.hasOwn(PYTHON_SERVERS, selection)) {
+			throw new Error(
+				`${PYTHON_SERVER_ENV} must be auto, pylsp, basedpyright, or pyright (received ${JSON.stringify(selection)}).`,
+			);
+		}
+		const backend = selection as PythonServer;
+		const config =
+			(allow_project_local && find_local_server(cwd, [backend])) ||
+			find_path_server(cwd, env, [backend], allow_project_local);
+		if (config) return config;
+		if (!allow_project_local) {
+			throw new Error(
+				`No ${backend} server on PATH outside the project. ${PYTHON_SERVERS[backend].install_hint}`,
+			);
+		}
+		return server_config(backend);
+	}
+
+	// Keep an existing pylsp setup, including its plugins, unchanged.
+	const config =
+		(allow_project_local && find_local_server(cwd, ['pylsp'])) ||
+		find_path_server(cwd, env, ['pylsp'], allow_project_local) ||
+		(allow_project_local &&
+			find_local_server(cwd, TYPE_CHECKING_SERVERS)) ||
+		find_path_server(
+			cwd,
+			env,
+			TYPE_CHECKING_SERVERS,
+			allow_project_local,
+		);
+	if (config) return config;
+	if (!allow_project_local) {
+		throw new Error(
+			`No Python language server on PATH outside the project. ${PYTHON_SERVERS.pylsp.install_hint}`,
+		);
+	}
+	return server_config('pylsp');
+}
+
+function server_config(
+	backend: PythonServer,
+	command = PYTHON_SERVERS[backend].command,
+	is_project_local = false,
+): LspServerConfig {
+	return {
+		language: 'python',
+		...PYTHON_SERVERS[backend],
+		args: [...PYTHON_SERVERS[backend].args],
+		command,
+		backend,
+		is_project_local,
+	};
+}
+
+function find_local_server(
+	cwd: string,
+	backends: readonly PythonServer[],
+): LspServerConfig | undefined {
+	for (const directory of ancestor_directories(cwd)) {
+		for (const backend of backends) {
+			for (const bin_directory of python_bin_directories(directory)) {
+				const command = find_executable(
+					bin_directory,
+					PYTHON_SERVERS[backend].command,
+				);
+				if (command) return server_config(backend, command, true);
+			}
+		}
+	}
+	return undefined;
+}
+
+function find_path_server(
+	cwd: string,
+	env: NodeJS.ProcessEnv,
+	backends: readonly PythonServer[],
+	allow_project_local: boolean,
+): LspServerConfig | undefined {
+	for (const backend of backends) {
+		for (const directory of (env.PATH ?? '')
+			.split(delimiter)
+			.filter(Boolean)) {
+			const command = find_executable(
+				directory,
+				PYTHON_SERVERS[backend].command,
+			);
+			if (!command) continue;
+			const is_project_local = ancestor_directories(cwd).some(
+				(directory) =>
+					python_bin_directories(directory).some((bin_directory) => {
+						const local = find_executable(
+							bin_directory,
+							PYTHON_SERVERS[backend].command,
+						);
+						return (
+							local !== undefined &&
+							realpathSync(local) === realpathSync(command)
+						);
+					}),
+			);
+			if (is_project_local && !allow_project_local) continue;
+			return server_config(backend, command, is_project_local);
+		}
+	}
+	return undefined;
+}
+
+function python_bin_directories(directory: string): string[] {
+	return [
+		join(
+			directory,
+			'.venv',
+			process.platform === 'win32' ? 'Scripts' : 'bin',
+		),
+		join(directory, 'node_modules', '.bin'),
+	];
+}
+
+function find_executable(
+	directory: string,
+	command: string,
+): string | undefined {
+	// Windows shell wrappers cannot be launched by the client's shell-free spawn.
+	const extensions =
+		process.platform === 'win32' ? ['.exe', ''] : [''];
+	for (const extension of extensions) {
+		const path = resolve(directory, command + extension);
+		try {
+			if (!statSync(path).isFile()) continue;
+			accessSync(path, constants.X_OK);
+			return path;
+		} catch {
+			// Missing, broken, or non-executable candidates must not block discovery.
+		}
+	}
+	return undefined;
 }

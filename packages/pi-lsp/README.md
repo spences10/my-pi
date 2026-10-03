@@ -71,7 +71,7 @@ Supported server discovery includes:
   `tsc --lsp --stdio` server
 - TypeScript 6 and earlier via `typescript-language-server --stdio`
 - Svelte via `svelteserver`
-- Python via `python-lsp-server`
+- Python via `python-lsp-server`, Basedpyright, or Pyright
 - Go via `gopls`
 - Rust via `rust-analyzer`
 - Ruby via `solargraph`
@@ -87,8 +87,48 @@ LSP. `/lsp status` reports the selected backend and full command. A
 TypeScript 7 native server that cannot start reports a specific setup
 hint.
 
-Project-local binaries in `node_modules/.bin` are detected before
-global binaries, but are untrusted by default because they can execute
+### Python server selection
+
+Python keeps `pylsp` when it is available, so installing another type
+checker does not replace an existing pylsp setup or its plugins. When
+pylsp is missing, project-local Basedpyright or Pyright takes priority
+over global tools. The nearest project installation wins; within the
+same directory, Basedpyright takes priority over Pyright. Global
+fallback uses Basedpyright before Pyright.
+
+Set `MY_PI_LSP_PYTHON_SERVER` to `pylsp`, `basedpyright`, or `pyright`
+to select a specific backend. Unset it or use `auto` for the default
+selection above. For example:
+
+```bash
+MY_PI_LSP_PYTHON_SERVER=pyright pi
+```
+
+An explicit selection never switches to another backend. Missing or
+failed servers report an error and an installation hint. Install with
+`pip install python-lsp-server`, `pip install basedpyright`, or
+`pip install pyright`. Pyright-family servers use `--stdio`.
+
+Python discovery checks executable files in ancestor `.venv/bin`
+folders (`.venv/Scripts` on Windows), `node_modules/.bin`, and `PATH`.
+Directories, broken links, and non-executable files are skipped. On
+Windows, use native executables such as the `.exe` launchers from pip;
+`.cmd` and `.bat` wrappers are not supported by the shell-free client.
+`/lsp status` shows the selected backend and resolved command.
+
+If project-binary trust is skipped, Python discovery excludes those
+binaries even when an active virtual environment puts them on `PATH`.
+Without a separate global server, the tool reports an error instead of
+starting the skipped binary.
+
+Server discovery does not select the Python interpreter used for
+analysis. Configure the server's interpreter or virtual environment
+settings separately when needed.
+
+### Project-local binary trust
+
+Project-local binaries in `node_modules/.bin` and Python `.venv`
+folders are untrusted by default because they can execute
 repo-controlled code. Interactive sessions prompt before starting a
 project-local binary; headless sessions fall back to the global `PATH`
 binary unless `MY_PI_LSP_PROJECT_BINARY=allow` or
