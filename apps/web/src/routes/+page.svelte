@@ -5,12 +5,13 @@
 		ArrowSquareOutIcon,
 		GithubLogoIcon,
 		PackageIcon,
+		SpeakerHighIcon,
+		SpeakerSlashIcon,
 		TerminalWindowIcon,
 	} from 'phosphor-svelte';
 	import { Head, SchemaOrg } from 'svead';
 	import {
 		faq_lines,
-		logo_lines,
 		package_groups,
 		page_schema,
 		seo_config,
@@ -18,6 +19,17 @@
 		stack_tree,
 		support_packages,
 	} from './page-content.js';
+
+	let hero_muted = $state(true);
+
+	// Autoplay only when the visitor accepts motion; the poster shows the logo.
+	const play_hero = (video: HTMLVideoElement) => {
+		if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			video.controls = true;
+			return;
+		}
+		video.play().catch(() => (video.controls = true));
+	};
 
 	const demo_conversation: Turn[] = [
 		{
@@ -114,12 +126,21 @@ export function guard(event: RequestEvent) {
 				class="rounded-4xl bg-[color-mix(in_srgb,var(--afterglow-surface-background)_88%,black)] shadow-[0_0_80px_rgb(255_0_204/0.18)]"
 			>
 				<div
-					class="rounded-[1.35rem] bg-[#05010a] p-5 font-mono text-[clamp(0.55rem,1.35vw,1.05rem)] leading-none text-accent sm:p-8"
+					class="relative overflow-hidden rounded-[1.35rem] bg-[#05010a]"
 				>
-					<pre
-						class="logo-gradient mx-auto w-max max-w-full overflow-hidden text-[1em] leading-[0.95] font-black tracking-[-0.08em]">{logo_lines.join(
-							'\n',
-						)}</pre>
+					<video
+						{@attach play_hero}
+						class="hero-video"
+						src="/hero/my-pi-hero.mp4"
+						poster="/hero/my-pi-hero.webp"
+						width="1600"
+						height="900"
+						muted={hero_muted}
+						loop
+						playsinline
+						preload="metadata"
+						aria-label="my-pi logo animation: coloured cubes assemble into the My-Pi wordmark"
+					></video>
 				</div>
 			</div>
 			<a
@@ -128,6 +149,19 @@ export function guard(event: RequestEvent) {
 			>
 				github.com/spences10/my-pi
 			</a>
+			<button
+				class="hero-sound"
+				type="button"
+				aria-pressed={!hero_muted}
+				aria-label={hero_muted ? 'Turn sound on' : 'Turn sound off'}
+				onclick={() => (hero_muted = !hero_muted)}
+			>
+				{#if hero_muted}
+					<SpeakerSlashIcon aria-hidden="true" />
+				{:else}
+					<SpeakerHighIcon aria-hidden="true" />
+				{/if}
+			</button>
 		</div>
 	</section>
 
@@ -416,17 +450,38 @@ export function guard(event: RequestEvent) {
 		scroll-behavior: smooth;
 	}
 
-	.logo-gradient {
-		background: linear-gradient(
-			90deg,
-			var(--afterglow-terminal-green),
-			var(--afterglow-terminal-yellow),
-			var(--afterglow-terminal-magenta),
-			var(--afterglow-terminal-blue)
+	.hero-video {
+		display: block;
+		width: min(64rem, calc(100vw - 2.5rem));
+		height: auto;
+		aspect-ratio: 16 / 9;
+	}
+
+	.hero-sound {
+		position: absolute;
+		right: 0;
+		bottom: -0.5rem;
+		display: grid;
+		place-items: center;
+		width: 2.25rem;
+		height: 2.25rem;
+		border: 1px solid var(--afterglow-border-variant);
+		background: color-mix(
+			in srgb,
+			var(--afterglow-background) 80%,
+			transparent
 		);
-		background-clip: text;
-		color: transparent;
-		filter: drop-shadow(0 0 10px rgb(255 0 204 / 0.22));
+		color: var(--afterglow-text-muted);
+		cursor: pointer;
+		transition:
+			color 150ms ease,
+			border-color 150ms ease;
+	}
+
+	.hero-sound:hover,
+	.hero-sound[aria-pressed='true'] {
+		border-color: var(--afterglow-terminal-magenta);
+		color: var(--afterglow-terminal-magenta);
 	}
 
 	.site-shell,
