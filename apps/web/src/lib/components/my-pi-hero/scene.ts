@@ -4,8 +4,16 @@
 type Vec3 = [number, number, number];
 type Point = [number, number];
 
+export interface CodeToken {
+	text: string;
+	type: string;
+}
+
 export interface HeroCopy {
 	logo_lines: readonly string[];
+	// Lines of real syntax tokens: each character becomes the start of a cube.
+	code: readonly (readonly CodeToken[])[];
+	code_path: string;
 	stack: readonly (readonly [string, string])[];
 	prompt: string;
 	comment: string;
@@ -17,7 +25,7 @@ export interface HeroCopy {
 interface Voxel {
 	layer: number;
 	tile: number;
-	line: Vec3;
+	index: number;
 	swarm: Vec3;
 	logo: Vec3;
 	burst: Vec3;
@@ -58,6 +66,7 @@ interface Layout {
 	logo_y: number;
 	headline_y: number;
 	tagline_y: number;
+	code_size: number;
 }
 
 // Afterglow theme, as in routes/layout.css
@@ -78,21 +87,44 @@ export const HERO_FONT = `600 40px ${FONT}`;
 const FLOOR = 11;
 const TAU = Math.PI * 2;
 const timeline = {
-	type_start: 0.55,
-	char_step: 0.08,
-	enter: 2.3,
-	layer_start: 4.3,
+	type_start: 0.4,
+	char_step: 0.06,
+	enter: 1.8,
+	code_start: 1.9,
+	code_end: 2.9,
+	shatter: 3.05,
+	layer_start: 5.05,
 	layer_step: 0.8,
 	layer_length: 0.62,
-	status: 8.45,
-	compress: 9.3,
-	snap: 9.95,
-	burst: 10.5,
-	land: 12.0,
-	tagline: 12.25,
-	command: 13.2,
+	status: 9.2,
+	compress: 10.05,
+	snap: 10.7,
+	burst: 11.25,
+	land: 12.75,
+	tagline: 13.0,
+	command: 13.95,
 };
-export const HERO_DURATION = 14.3;
+// Camera on the code block: the cubes start exactly on its characters.
+const CODE_CAMERA = { pitch: 0.1, dist: 46 };
+const TOKEN_COLORS: Record<string, Vec3> = {
+	keyword: MAGENTA,
+	string: GREEN,
+	template: GREEN,
+	type: YELLOW,
+	class_name: YELLOW,
+	builtin: YELLOW,
+	namespace: YELLOW,
+	function: BLUE,
+	property: BLUE,
+	number: VIOLET,
+	boolean: VIOLET,
+	constant: VIOLET,
+	comment: MUTED,
+	punctuation: MUTED,
+	operator: MUTED,
+};
+const token_color = (type: string) => TOKEN_COLORS[type] ?? TEXT;
+export const HERO_DURATION = 15.05;
 
 const LAYOUTS: Record<'wide' | 'compact', Layout> = {
 	wide: {
@@ -106,6 +138,7 @@ const LAYOUTS: Record<'wide' | 'compact', Layout> = {
 		logo_y: 440,
 		headline_y: 172,
 		tagline_y: 770,
+		code_size: 34,
 	},
 	compact: {
 		width: 1080,
@@ -118,6 +151,7 @@ const LAYOUTS: Record<'wide' | 'compact', Layout> = {
 		logo_y: 400,
 		headline_y: 130,
 		tagline_y: 660,
+		code_size: 28,
 	},
 };
 
@@ -218,7 +252,7 @@ export function create_hero_scene(copy: HeroCopy) {
 		return {
 			layer: Math.floor(k / per_layer),
 			tile: k % per_layer,
-			line: [((k + 0.5) / count - 0.5) * 17, 0, 0],
+			index: k,
 			swarm,
 			logo: [
 				column - (columns - 1) / 2,
@@ -244,8 +278,34 @@ export function create_hero_scene(copy: HeroCopy) {
 		size: 0.6 + random() * 1.6,
 		phase: random() * TAU,
 	}));
+	// One cell for each visible character of the code.
+	const code_cells: { line: number; column: number; color: Vec3 }[] =
+		[];
+	let code_columns = 0;
+	let code_length = 0;
+	copy.code.forEach((tokens, line) => {
+		let column = 0;
+		for (const token of tokens) {
+			for (const char of token.text) {
+				if (char.trim())
+					code_cells.push({
+						line,
+						column,
+						color: token_color(token.type),
+					});
+				column++;
+			}
+		}
+		code_columns = Math.max(code_columns, column);
+		code_length += column;
+	});
+	const cell_of = (v: Voxel) =>
+		code_cells[
+			Math.floor(((v.index + 0.5) / count) * code_cells.length)
+		];
+
 	const ripples = [
-		{ start: timeline.enter, speed: 26, gain: 0.8, color: MAGENTA },
+		{ start: timeline.shatter, speed: 26, gain: 0.8, color: MAGENTA },
 		...copy.stack.map((_, k) => ({
 			start: lock_at(k),
 			speed: 15,
@@ -276,29 +336,34 @@ export function create_hero_scene(copy: HeroCopy) {
 		);
 
 	function voxel_state(v: Voxel, t: number): VoxelState {
-		// prompt line → swarm
+		// code character → swarm
 		const out = ease_out(
 			span(
 				t,
-				timeline.enter + v.delay * 0.22,
-				timeline.enter + 1.05 + v.delay * 0.22,
+				timeline.shatter + v.delay * 0.22,
+				timeline.shatter + 1.05 + v.delay * 0.22,
 			),
 		);
-		const since = t - timeline.enter;
+		const since = t - timeline.shatter;
 		const cos = Math.cos(since * 0.32);
 		const sin = Math.sin(since * 0.32);
 		const wx = v.swarm[0] + Math.sin(t * 0.7 + v.phase) * 1.1;
 		const wy = v.swarm[1] + Math.cos(t * 0.9 + v.phase * 2);
 		const wz = v.swarm[2] + Math.sin(t * 0.6 + v.phase * 3) * 1.1;
+		const cell = cell_of(v);
 		let pos = lerp3(
-			v.line,
+			code_position(cell.line, cell.column),
 			[wx * cos - wz * sin, wy, wx * sin + wz * cos],
 			out,
 		);
-		let half = lerp3([0.1, 0.22, 0.1], [0.78, 0.78, 0.78], out);
+		let half = lerp3([0.24, 0.4, 0.1], [0.78, 0.78, 0.78], out);
 		let rot_a = v.spin_a * since * out;
 		let rot_b = v.spin_b * since * out;
-		let color = gradient_at(v.grad_x);
+		let color = lerp3(
+			cell.color,
+			gradient_at(v.grad_x),
+			smooth(out * 1.5),
+		);
 		let lit = 0.55 * out + 0.9 * (1 - out);
 
 		// swarm → plate
@@ -374,8 +439,23 @@ export function create_hero_scene(copy: HeroCopy) {
 		// time, yaw, pitch, distance, centre x, centre y
 		const keys = [
 			[0, -0.14, 0.08, 42, mid_x, mid_y],
-			[timeline.enter, 0, 0.1, 46, mid_x, mid_y],
-			[timeline.enter + 1.7, 0.5, 0.32, 56, mid_x, mid_y + 10],
+			[
+				timeline.enter,
+				0,
+				CODE_CAMERA.pitch,
+				CODE_CAMERA.dist,
+				mid_x,
+				mid_y,
+			],
+			[
+				timeline.shatter,
+				0,
+				CODE_CAMERA.pitch,
+				CODE_CAMERA.dist,
+				mid_x,
+				mid_y,
+			],
+			[timeline.shatter + 1.5, 0.5, 0.32, 56, mid_x, mid_y + 10],
 			[orbit_start, 0.78, 0.47, stack_dist, stack_x, stack_y],
 			[timeline.compress, 0.78, 0.47, stack_dist, stack_x, stack_y],
 			[
@@ -411,13 +491,16 @@ export function create_hero_scene(copy: HeroCopy) {
 		const u =
 			i === keys.length - 2
 				? 1 - Math.pow(1 - raw, 2)
-				: i === 5
+				: i === 6
 					? ease_in_out(raw)
 					: smooth(raw);
 		const key = (j: number) => lerp(from[j], to[j], u);
 		const x = clamp(t, orbit_start, timeline.burst) - orbit_start;
 		const yaw = key(1) + 0.16 * (x < 1 ? (x * x) / 2 : x - 0.5);
-		const pitch = key(2) + Math.sin(t * 0.8) * 0.012;
+		const sway = smooth(
+			span(t, timeline.shatter, timeline.shatter + 1),
+		);
+		const pitch = key(2) + Math.sin(t * 0.8) * 0.012 * sway;
 		const shake =
 			t > timeline.burst
 				? Math.exp(-(t - timeline.burst) * 7) * 9
@@ -449,6 +532,54 @@ export function create_hero_scene(copy: HeroCopy) {
 		cam.cx + (layout.focal * q[0]) / q[2],
 		cam.cy + (layout.focal * q[1]) / q[2],
 	];
+
+	function code_metrics() {
+		const size = layout.code_size;
+		ctx.font = `600 ${size}px ${FONT}`;
+		ctx.letterSpacing = '0px';
+		const char_width = ctx.measureText('M').width;
+		const line_height = size * 1.5;
+		return {
+			size,
+			char_width,
+			line_height,
+			x: layout.width / 2 - (char_width * code_columns) / 2,
+			y:
+				layout.height / 2 -
+				(line_height * (copy.code.length - 1)) / 2,
+		};
+	}
+
+	// World position on the z = 0 plane that the code camera projects onto
+	// the centre of a character. Cached for each layout.
+	const code_positions = new Map<Layout, Vec3[][]>();
+	function code_position(line: number, column: number): Vec3 {
+		let lines = code_positions.get(layout);
+		if (!lines) {
+			const metrics = code_metrics();
+			const cos = Math.cos(CODE_CAMERA.pitch);
+			const sin = Math.sin(CODE_CAMERA.pitch);
+			lines = copy.code.map((_, row) =>
+				Array.from({ length: code_columns }, (_, col): Vec3 => {
+					const dx =
+						metrics.x +
+						(col + 0.5) * metrics.char_width -
+						layout.width / 2;
+					const dy =
+						metrics.y +
+						row * metrics.line_height -
+						metrics.size * 0.32 -
+						layout.height / 2;
+					const y =
+						(dy * CODE_CAMERA.dist) / (layout.focal * cos - dy * sin);
+					const depth = y * sin + CODE_CAMERA.dist;
+					return [(dx * depth) / layout.focal, y, 0];
+				}),
+			);
+			code_positions.set(layout, lines);
+		}
+		return lines[line][column];
+	}
 
 	function push_faces(state: VoxelState, faces: Face[]) {
 		const { pos, half } = state;
@@ -670,7 +801,7 @@ export function create_hero_scene(copy: HeroCopy) {
 	}
 
 	function draw_voxels(t: number) {
-		if (t < timeline.enter) return;
+		if (t < timeline.shatter) return;
 		draw_echo(t);
 		const faces: Face[] = [];
 		for (const v of voxels) push_faces(voxel_state(v, t), faces);
@@ -799,6 +930,40 @@ export function create_hero_scene(copy: HeroCopy) {
 			align: 'center',
 			alpha: alpha * smooth(span(t, 0.5, 1.1)),
 			weight: 400,
+		});
+	}
+
+	function draw_code(t: number) {
+		const gone = span(t, timeline.shatter, timeline.shatter + 0.14);
+		if (t < timeline.code_start || gone >= 1) return;
+		const metrics = code_metrics();
+		const alpha = 1 - gone;
+		let budget = Math.ceil(
+			code_length * span(t, timeline.code_start, timeline.code_end),
+		);
+		draw_text(
+			copy.code_path,
+			metrics.x,
+			metrics.y - metrics.line_height * 1.3,
+			metrics.size * 0.6,
+			MUTED,
+			{ weight: 400, alpha },
+		);
+		copy.code.forEach((tokens, line) => {
+			let column = 0;
+			for (const token of tokens) {
+				if (budget <= 0) return;
+				draw_text(
+					token.text.slice(0, budget),
+					metrics.x + column * metrics.char_width,
+					metrics.y + line * metrics.line_height,
+					metrics.size,
+					token_color(token.type),
+					{ weight: 600, alpha },
+				);
+				column += token.text.length;
+				budget -= token.text.length;
+			}
 		});
 	}
 
@@ -1047,7 +1212,7 @@ export function create_hero_scene(copy: HeroCopy) {
 		draw_dust(t);
 		draw_voxels(t);
 		for (const [start, color, gain] of [
-			[timeline.enter, MAGENTA, 0.16],
+			[timeline.shatter, MAGENTA, 0.16],
 			[timeline.burst, WHITE, 0.3],
 		] as const) {
 			if (t < start) continue;
@@ -1069,6 +1234,7 @@ export function create_hero_scene(copy: HeroCopy) {
 		ctx.fillStyle = vignette;
 		ctx.fillRect(0, 0, width, height);
 		draw_prompt(t);
+		draw_code(t);
 		draw_callouts(t);
 		draw_lockup(t);
 		draw_frame(t);

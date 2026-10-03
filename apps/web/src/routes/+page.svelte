@@ -21,15 +21,17 @@
 
 	let { data } = $props();
 
-	const hero_copy = {
+	const hero_copy = $derived({
 		logo_lines,
+		code: data.hero_code.lines,
+		code_path: data.hero_code.path,
 		stack: stack_tree,
 		prompt: 'pnpx my-pi@latest',
 		comment: '// a curated Pi distribution',
 		headline: 'Run Pi with project tools already connected.',
 		status: 'context, recall, and telemetry stay local',
 		tagline: 'a curated Pi coding-agent distribution',
-	};
+	});
 
 	// One colour for each stack layer, sampled from the logo gradient.
 	const band_colors = [
