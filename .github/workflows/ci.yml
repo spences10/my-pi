@@ -64,10 +64,12 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
 
+      # apps/web is installed too: the root formatter sorts Tailwind
+      # classes in its Svelte files and must resolve its stylesheet imports.
       - name: Install dependencies
         run:
           pnpm install --frozen-lockfile --filter . --filter
-          "./packages/*"
+          "./packages/*" --filter ./apps/web
 
       - name: Check (lint + format)
         run: pnpm run check
