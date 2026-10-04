@@ -168,6 +168,13 @@ pnpx my-pi@latest
 pnpx my-pi@latest observability
 ```
 
+Positional prompt arguments are joined with a single space. Everything
+following `--` is prompt text, including tokens that look like
+options. A non-empty `--prompt` (`-p`) value takes precedence over
+positional text; stdin is used only when neither supplies a prompt.
+`--mode json` and `--json` both select NDJSON output; `--mode print`
+and `-P` both select plain text output.
+
 Pi handles model authentication natively. For provider-specific model
 examples, see the Pi docs and the relevant extension/package README.
 

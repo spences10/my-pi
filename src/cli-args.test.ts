@@ -106,6 +106,42 @@ describe('CLI arg helpers', () => {
 		).toEqual(['ui', 'audit']);
 	});
 
+	it('stops every option collector at the terminator', () => {
+		const argv = [
+			'--extension=./before.ts',
+			'--tools=read',
+			'--exclude-tools=write',
+			'--skill=review',
+			'--',
+			'-e',
+			'./after.ts',
+			'-t',
+			'bash',
+			'-xt',
+			'edit',
+			'--skill',
+			'audit',
+		];
+		expect(parse_extension_paths(argv, '/repo')).toEqual([
+			'/repo/before.ts',
+		]);
+		expect(parse_tool_allowlist(argv)).toEqual(['read']);
+		expect(parse_tool_excludelist(argv)).toEqual(['write']);
+		expect(parse_skill_allowlist(argv)).toEqual(['review']);
+	});
+
+	it('does not consume the terminator as a string flag value', () => {
+		expect(
+			collect_flag_values(['--skill', '--', 'audit'], ['--skill']),
+		).toEqual([]);
+		const parsed = parse_extension_cli_args(
+			['--prompt', '--', '--literal', 'text'],
+			known_args,
+		);
+		expect(parsed.positionals).toEqual(['--literal', 'text']);
+		expect(parsed.extension_flag_values.size).toBe(0);
+	});
+
 	it('parses extension paths from short and long flags', () => {
 		expect(
 			parse_extension_paths(

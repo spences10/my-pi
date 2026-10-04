@@ -121,6 +121,9 @@ NOTES
     MCP, LSP, prompt presets, recall, nopeek, Omnisearch, SQLite tools, hooks, and secret redaction.
   - UI-only built-ins like session auto-naming are skipped.
   - Repeat -e / --extension to compose multiple extensions.
+  - Positional prompt arguments are joined with a single space.
+  - Everything after -- is prompt text, not options.
+  - --prompt takes precedence over positional prompt text and stdin.
 
 NESTED RUNS
 
@@ -315,8 +318,9 @@ const main = defineCommand({
 	},
 	async run({ args }) {
 		const cwd = process.cwd();
+		const cli_argv = process.argv.slice(2);
 		const parsed_extension_cli = parse_extension_cli_args(
-			process.argv.slice(2),
+			cli_argv,
 			main.args as CliArgDefinitions,
 		);
 		if (parsed_extension_cli.diagnostics.length) {
@@ -324,10 +328,10 @@ const main = defineCommand({
 				console.error(`Error: ${message}`);
 			process.exit(1);
 		}
-		const extension_paths = parse_extension_paths(process.argv, cwd);
-		const selected_tools = parse_tool_allowlist(process.argv);
-		const excluded_tools = parse_tool_excludelist(process.argv);
-		const selected_skills = parse_skill_allowlist(process.argv);
+		const extension_paths = parse_extension_paths(cli_argv, cwd);
+		const selected_tools = parse_tool_allowlist(cli_argv);
+		const excluded_tools = parse_tool_excludelist(cli_argv);
+		const selected_skills = parse_skill_allowlist(cli_argv);
 		let selected_thinking;
 		try {
 			selected_thinking = parse_thinking_level(args.thinking);
@@ -370,7 +374,7 @@ const main = defineCommand({
 		// Resolve prompt: named --prompt flag > positional > stdin
 		let prompt = args.prompt;
 		if (!prompt && positionals && positionals.length > 0) {
-			prompt = positionals[0];
+			prompt = positionals.join(' ');
 		}
 		if (!prompt && !process.stdin.isTTY && runtime_mode !== 'rpc') {
 			prompt = await read_stdin();
@@ -379,9 +383,7 @@ const main = defineCommand({
 			runtime_mode = 'print';
 
 		if (
-			!args.print &&
-			!args.json &&
-			runtime_mode !== 'rpc' &&
+			runtime_mode === 'interactive' &&
 			!prompt &&
 			!process.stdout.isTTY
 		) {
@@ -468,13 +470,9 @@ const main = defineCommand({
 
 		if (runtime_mode === 'rpc') {
 			await runRpcMode(runtime);
-		} else if (args.print || args.json || prompt) {
-			let output_mode: 'json' | 'text' = 'text';
-			if (args.json) {
-				output_mode = 'json';
-			}
+		} else if (runtime_mode === 'print' || runtime_mode === 'json') {
 			const code = await runPrintMode(runtime, {
-				mode: output_mode,
+				mode: runtime_mode === 'json' ? 'json' : 'text',
 				initialMessage: prompt || '',
 				initialImages: [],
 				messages: [],

@@ -128,7 +128,8 @@ export function parse_extension_cli_args(
 			if (
 				equals_index === -1 &&
 				(known_type === 'string' || known_type === 'enum') &&
-				i + 1 < argv.length
+				i + 1 < argv.length &&
+				argv[i + 1] !== '--'
 			) {
 				i += 1;
 			}
@@ -177,6 +178,7 @@ export function collect_flag_values(
 
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i];
+		if (arg === '--') break;
 		if (!arg) continue;
 
 		const equals_index = arg.indexOf('=');
@@ -190,7 +192,7 @@ export function collect_flag_values(
 
 		if (flag_set.has(arg) && i + 1 < argv.length) {
 			const next = argv[i + 1];
-			if (next !== undefined) {
+			if (next !== undefined && next !== '--') {
 				values.push(next);
 				i += 1;
 			}

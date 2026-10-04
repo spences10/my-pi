@@ -272,6 +272,158 @@ export default function prompt_capture(pi: ExtensionAPI) {
 		}
 	}, 30_000);
 
+	it.each([
+		{
+			name: 'JSON flag',
+			args: ['--json', 'review this', 'focus on security'],
+			prompt: 'review this focus on security',
+			mode: 'json',
+		},
+		{
+			name: 'JSON mode',
+			args: ['--mode=json', 'review this', 'focus on security'],
+			prompt: 'review this focus on security',
+			mode: 'json',
+		},
+		{
+			name: 'print mode',
+			args: ['--mode', 'print', 'first', 'second'],
+			prompt: 'first second',
+			mode: 'print',
+		},
+		{
+			name: 'literal options',
+			args: [
+				'--mode=json',
+				'--tools=read',
+				'--',
+				'--extension=./must-not-load.ts',
+				'--tools=write',
+				'--exclude-tools=read',
+				'--skill=must-not-select',
+				'--probe-string=must-not-set',
+			],
+			prompt:
+				'--extension=./must-not-load.ts --tools=write --exclude-tools=read --skill=must-not-select --probe-string=must-not-set',
+			mode: 'json',
+			tools: ['read'],
+		},
+		{
+			name: 'named prompt precedence',
+			args: [
+				'--mode=json',
+				'-p',
+				'named',
+				'ignored',
+				'--',
+				'literal',
+			],
+			input: 'ignored stdin',
+			prompt: 'named',
+			mode: 'json',
+		},
+		{
+			name: 'positional precedence over stdin',
+			args: ['--mode=json', 'first', 'second'],
+			input: 'ignored stdin',
+			prompt: 'first second',
+			mode: 'json',
+		},
+		{
+			name: 'stdin fallback',
+			args: ['--mode', 'json'],
+			input: 'stdin prompt\n',
+			prompt: 'stdin prompt',
+			mode: 'json',
+		},
+	])(
+		'preserves packed CLI input and output: $name',
+		(test_case) => {
+			const cwd = mkdtempSync(join(tmpdir(), 'my-pi-cli-input-'));
+			const extension_path = join(cwd, 'input-probe.ts');
+			const output_path = join(cwd, 'input.json');
+			writeFileSync(
+				extension_path,
+				`import { writeFileSync } from 'node:fs';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+export default function input_probe(pi: ExtensionAPI) {
+  pi.registerFlag('probe-string', { type: 'string' });
+  pi.registerProvider('input-probe', {
+    name: 'Input Probe',
+    baseUrl: 'http://127.0.0.1:1/v1',
+    apiKey: 'test-key',
+    api: 'openai-completions',
+    models: [{
+      id: 'capture', name: 'Capture', reasoning: false, input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 10000, maxTokens: 100,
+    }],
+  });
+  pi.on('input', (event, ctx) => {
+    writeFileSync(process.env.INPUT_PROBE_OUT!, JSON.stringify({
+      prompt: event.text,
+      mode: ctx.mode,
+      tools: pi.getActiveTools(),
+      flag: pi.getFlag('probe-string') ?? null,
+    }));
+    // Consume input before generation: this test never calls a provider.
+    return { action: 'handled' as const };
+  });
+}
+`,
+			);
+			try {
+				const result = spawnSync(
+					process.execPath,
+					[
+						cli_path,
+						'--agent-dir',
+						join(cwd, 'agent'),
+						'--no-builtin',
+						'-e',
+						extension_path,
+						'--model=input-probe/capture',
+						...test_case.args,
+					],
+					{
+						cwd,
+						input: test_case.input ?? '',
+						encoding: 'utf-8',
+						env: {
+							...process.env,
+							PI_OFFLINE: '1',
+							INPUT_PROBE_OUT: output_path,
+						},
+						timeout: 30_000,
+					},
+				);
+				expect(result.status, result.stderr).toBe(0);
+				const captured = JSON.parse(
+					readFileSync(output_path, 'utf-8'),
+				);
+				expect(captured).toMatchObject({
+					prompt: test_case.prompt,
+					mode: test_case.mode,
+					flag: null,
+				});
+				if (test_case.tools)
+					expect(captured.tools).toEqual(test_case.tools);
+				if (test_case.mode === 'json') {
+					const events = result.stdout
+						.trim()
+						.split('\n')
+						.map((line) => JSON.parse(line));
+					expect(events[0]).toMatchObject({ type: 'session' });
+				} else {
+					expect(result.stdout).toBe('');
+				}
+			} finally {
+				rmSync(cwd, { recursive: true, force: true });
+			}
+		},
+		30_000,
+	);
+
 	it('fails the packed CLI cleanly below the minimum Node version', () => {
 		const agent_dir = mkdtempSync(join(tmpdir(), 'my-pi-cli-smoke-'));
 		try {
