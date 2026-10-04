@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.3.3
+
+### Patch Changes
+
+- 8e77d2d: Preserve all CLI prompt arguments, respect option
+  terminators, and honour resolved JSON and print modes.
+
 ## 0.3.2
 
 No changes in this release.
