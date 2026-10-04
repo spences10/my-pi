@@ -27,6 +27,15 @@ export const stack_tree = [
 	['operations', 'Git UI · telemetry · observability'],
 ] as const;
 
+// Packages that supply each stack layer. The runtime layer is Pi itself.
+export const layer_packages: Record<string, readonly string[]> = {
+	runtime: [],
+	'project tools': ['pi-mcp', 'pi-lsp', 'pi-skills'],
+	context: ['pi-context', 'pi-recall', 'pi-redact'],
+	workflows: ['pi-harness', 'pi-team-mode'],
+	operations: ['pi-git-ui', 'pi-telemetry', 'pi-observability'],
+};
+
 export const stack_rows = [
 	{
 		label: 'Finish with evidence, not confidence',

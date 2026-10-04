@@ -120,6 +120,27 @@
 	}
 }
 
+/* The offset outlines of the ASCII logo, as the only shadow on the site. */
+.echo {
+	--echo-step: 6px;
+
+	box-shadow:
+		var(--echo-step) var(--echo-step) 0 -1px
+			var(--afterglow-background),
+		var(--echo-step) var(--echo-step) 0 0
+			var(--afterglow-terminal-magenta),
+		calc(var(--echo-step) * 2) calc(var(--echo-step) * 2) 0 -1px
+			var(--afterglow-background),
+		calc(var(--echo-step) * 2) calc(var(--echo-step) * 2) 0 0
+			var(--afterglow-terminal-blue);
+}
+
+@media (max-width: 580px) {
+	.echo {
+		--echo-step: 4px;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	::before,

@@ -1,1 +1,0 @@
-<span class="caret"></span>
