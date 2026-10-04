@@ -1,3 +1,7 @@
-# allow crawling everything by default
+# my-pi.dev wants to be found: search engines and AI crawlers are welcome.
+# Summary for language models: https://my-pi.dev/llms.txt
+
 User-agent: *
-Disallow:
+Allow: /
+
+Sitemap: https://my-pi.dev/sitemap.xml

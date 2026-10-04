@@ -58,6 +58,7 @@
 		"eval:local": "node scripts/run-eval-case.ts",
 		"eval:suite": "node scripts/run-eval-suite.ts",
 		"preview:generate": "node scripts/generate-startup-preview.ts",
+		"web:share-card": "node scripts/generate-web-share-card.ts",
 		"changeset": "changeset",
 		"version": "changeset version && pnpm run preview:generate",
 		"release": "git diff --quiet && git diff --cached --quiet && pnpm run build && changeset publish",

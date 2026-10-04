@@ -4,6 +4,8 @@
 	import MyPiHero from '#lib/components/my-pi-hero.svelte';
 	import PixelRule from '#lib/components/pixel-rule.svelte';
 	import SessionLog from '#lib/components/session-log.svelte';
+	import { logo_lines } from '#lib/config/logo.js';
+	import { site_config } from '#lib/config/site.js';
 	import {
 		ArrowSquareOutIcon,
 		GithubLogoIcon,
@@ -13,7 +15,6 @@
 	import {
 		faq_lines,
 		layer_packages,
-		logo_lines,
 		package_groups,
 		page_schema,
 		seo_config,
@@ -64,7 +65,20 @@
 </script>
 
 <Head {seo_config} />
-<SchemaOrg schema={page_schema} />
+<SchemaOrg schema={page_schema(data.version)} />
+
+<svelte:head>
+	<meta property="og:image:type" content="image/png" />
+	<meta
+		property="og:image:width"
+		content={String(site_config.share_card.width)}
+	/>
+	<meta
+		property="og:image:height"
+		content={String(site_config.share_card.height)}
+	/>
+	<meta name="theme-color" content={site_config.theme_color} />
+</svelte:head>
 
 <main>
 	<section class="hero-section">

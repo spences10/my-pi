@@ -1,23 +1,20 @@
+import { site_config } from '#lib/config/site.js';
 import type { SchemaOrgProps, SeoConfig } from 'svead';
 
-export const seo_config: SeoConfig = {
-	title: 'my-pi — a curated Pi coding-agent distribution',
-	description:
-		'Run a ready-to-use Pi coding-agent CLI, or add individual @spences10/pi-* extensions to your own Pi setup.',
-	url: 'https://github.com/spences10/my-pi',
-	website: 'github.com/spences10/my-pi',
-	site_name: 'my-pi',
-	twitter_card_type: 'summary',
-};
+const share_card_url = `${site_config.url}${site_config.share_card.path}`;
 
-export const logo_lines = [
-	'███╗   ███╗                  ██████╗ ██╗',
-	'████╗ ████║ ██╗   ██╗        ██╔══██╗   ',
-	'██╔████╔██║ ╚██╗ ██╔╝ ████╗  ██████╔╝██╗',
-	'██║╚██╔╝██║  ╚████╔╝ ╚═══╝   ██╔═══╝ ██║',
-	'██║ ╚═╝ ██║   ╚██╔╝          ██║     ██║',
-	'╚═╝     ╚═╝   ██╔╝           ╚═╝     ╚═╝',
-] as const;
+export const seo_config: SeoConfig = {
+	title: site_config.title,
+	description: site_config.description,
+	url: `${site_config.url}/`,
+	website: new URL(site_config.url).host,
+	language: 'en_GB',
+	site_name: site_config.name,
+	author_name: site_config.author.name,
+	open_graph_image: share_card_url,
+	open_graph_image_alt: site_config.share_card.alt,
+	twitter_card_type: 'summary_large_image',
+};
 
 export const stack_tree = [
 	['runtime', 'TUI · print · JSON · RPC · SDK'],
@@ -205,21 +202,44 @@ export const faq_lines = [
 	],
 ] as const;
 
-export const page_schema: SchemaOrgProps['schema'] = [
+const author = {
+	'@type': 'Person',
+	name: site_config.author.name,
+	url: site_config.author.url,
+} as const;
+
+// `version` is the published npm version, or null when it is not known.
+export const page_schema = (
+	version: string | null,
+): SchemaOrgProps['schema'] => [
+	{
+		'@type': 'WebSite',
+		name: site_config.name,
+		url: `${site_config.url}/`,
+		description: seo_config.description,
+		inLanguage: 'en-GB',
+		author,
+	},
 	{
 		'@type': 'SoftwareApplication',
 		name: 'my-pi',
+		url: `${site_config.url}/`,
+		image: share_card_url,
 		applicationCategory: 'DeveloperApplication',
 		operatingSystem: 'Linux, macOS, Windows',
 		description: seo_config.description,
+		downloadUrl: site_config.npm,
+		...(version ? { softwareVersion: version } : {}),
+		author,
 		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 	},
 	{
 		'@type': 'SoftwareSourceCode',
 		name: 'my-pi source code',
-		codeRepository: 'https://github.com/spences10/my-pi',
+		codeRepository: site_config.repository,
 		programmingLanguage: 'TypeScript',
 		runtimePlatform: 'Node.js',
+		author,
 		description:
 			'Source for the my-pi distribution and independently installable Pi extension packages.',
 	},
