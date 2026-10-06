@@ -24,7 +24,7 @@ catalog:
   '@sveltejs/vite-plugin-svelte': ^7.1.2
   '@tailwindcss/vite': ^4.3.0
   '@twinkleplop/bash': ^0.1.5
-  '@twinkleplop/markdown-core': ^0.1.5
+  '@twinkleplop/markdown-core': ^0.2.0
   '@twinkleplop/typescript': ^0.1.5
   '@types/node': ^25.8.0
   '@typescript/native': npm:typescript@^7.0.2
