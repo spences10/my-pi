@@ -207,8 +207,8 @@ catalogs:
       specifier: ^0.1.5
       version: 0.1.5
     '@twinkleplop/markdown-core':
-      specifier: ^0.1.5
-      version: 0.1.5
+      specifier: ^0.2.0
+      version: 0.2.1
     '@twinkleplop/typescript':
       specifier: ^0.1.5
       version: 0.1.5
@@ -451,7 +451,7 @@ importers:
         version: 0.1.5
       '@twinkleplop/markdown-core':
         specifier: 'catalog:'
-        version: 0.1.5
+        version: 0.2.1
       '@twinkleplop/typescript':
         specifier: 'catalog:'
         version: 0.1.5
@@ -2580,6 +2580,9 @@ packages:
   '@twinkleplop/core@0.2.2':
     resolution: {integrity: sha512-xJpsL0QdgZ0gKDkTW+S1FAzVzyTns+jKPXER52vc/69qCe6gXCpsoclhTjERnFUbkZgTBEA/iVJxaufhY8Oqrw==}
 
+  '@twinkleplop/core@0.3.1':
+    resolution: {integrity: sha512-fMbce7NcJlVROsyI34tz3DCWkAWRWLRlBNCbgwz36mm6yoEO09eyafi8JRN5HJGQIzMr0qjXQ3t3asc7MFSh8Q==}
+
   '@twinkleplop/css@0.1.5':
     resolution: {integrity: sha512-dL3uPkpsqujMYepE2uzv7jsluvhYiJrV8fhYZsEl0fMm8F0ZimO2uY4r1FsppfmzrUUsYIztQVRfe+qBh9gFPg==}
 
@@ -2589,8 +2592,8 @@ packages:
   '@twinkleplop/javascript@0.1.5':
     resolution: {integrity: sha512-0gynjT75JRAuR9EkD/ljRCSJ+qdWjTNXLYUptmwncsfiyHEulfHbSr0k7uo5GmxkvyOx08bqTxZdFlrBzmJN0w==}
 
-  '@twinkleplop/markdown-core@0.1.5':
-    resolution: {integrity: sha512-znzz7XFyDakQ4FguwOJwCCXFP9EQAhmdTiQKfdqn/hQ68lWLT9fWnUZpmX/dzZEIhSPQXFHrw9mfaczw/Dm17A==}
+  '@twinkleplop/markdown-core@0.2.1':
+    resolution: {integrity: sha512-B8SBW5kKCwmVKTtm2r1hK0PyJk4qQYem33v7aIHQv0f2jNsuvnkhboM1p/oCNyt/Q8lau2yjygP4soSvTi+ALA==}
 
   '@twinkleplop/typescript@0.1.5':
     resolution: {integrity: sha512-OFrw5unMFNQOOy/TvXU7X2kMmzWn/Nn3F9HdB+kkfFyYgmMaYoyXbRIBZQjVebQqp0hy0Jzfv4DtJi3FrBefDg==}
@@ -5335,6 +5338,8 @@ snapshots:
 
   '@twinkleplop/core@0.2.2': {}
 
+  '@twinkleplop/core@0.3.1': {}
+
   '@twinkleplop/css@0.1.5':
     dependencies:
       '@twinkleplop/core': 0.2.2
@@ -5351,9 +5356,9 @@ snapshots:
       '@twinkleplop/css': 0.1.5
       '@twinkleplop/html': 0.1.5
 
-  '@twinkleplop/markdown-core@0.1.5':
+  '@twinkleplop/markdown-core@0.2.1':
     dependencies:
-      '@twinkleplop/core': 0.2.2
+      '@twinkleplop/core': 0.3.1
 
   '@twinkleplop/typescript@0.1.5':
     dependencies:
