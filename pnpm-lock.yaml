@@ -268,7 +268,7 @@ catalogs:
       version: 1.4.0
     typebox:
       specifier: ^1.1.38
-      version: 1.3.36
+      version: 1.3.37
     typescript:
       specifier: ^7.0.0
       version: 7.0.2
@@ -596,7 +596,7 @@ importers:
         version: link:../pi-tui-modal
       typebox:
         specifier: '*'
-        version: 1.3.36
+        version: 1.3.37
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -628,7 +628,7 @@ importers:
         version: 25.9.9
       typebox:
         specifier: 'catalog:'
-        version: 1.3.36
+        version: 1.3.37
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -705,7 +705,7 @@ importers:
         version: 25.9.9
       typebox:
         specifier: 'catalog:'
-        version: 1.3.36
+        version: 1.3.37
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -741,7 +741,7 @@ importers:
         version: link:../pi-tui-modal
       typebox:
         specifier: '*'
-        version: 1.3.36
+        version: 1.3.37
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -1080,7 +1080,7 @@ importers:
         version: link:../pi-sqlite-core
       typebox:
         specifier: '*'
-        version: 1.3.36
+        version: 1.3.37
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -3833,8 +3833,8 @@ packages:
   typebox@1.3.27:
     resolution: {integrity: sha512-zu+jc1pcy4UiNThxikUr36f0Rybk9PEeCg/NE6adeWr/SKsdNO4EzZHYRDlv2YCVAfj3Odq3dESSo/jNyoBXzA==}
 
-  typebox@1.3.36:
-    resolution: {integrity: sha512-bu2Ec2Ti9B4IFSFj1FcZbtLNB/W7igQwxocMGJLAG2NTv1nI+ImtIA34YgHW4CVyGVlJqNXR1GJyLmdWgV3DuA==}
+  typebox@1.3.37:
+    resolution: {integrity: sha512-k+Qogwk7lztlItGvFf5v4GZPPStFAFehAyOKYeuqIHzi3dfTFqPOTx38JG09hmpcK6TQgctrTD06U/0CTTpM1g==}
 
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
@@ -6548,7 +6548,7 @@ snapshots:
 
   typebox@1.3.27: {}
 
-  typebox@1.3.36: {}
+  typebox@1.3.37: {}
 
   typescript@6.0.3: {}
 
