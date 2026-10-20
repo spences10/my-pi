@@ -151,6 +151,8 @@ Intentional sidecar-backed output:
 
 Intentionally skipped output:
 
+- Failed tool results: preserve complete error diagnostics in the Pi session
+  rather than replacing them with an expiring sidecar receipt.
 - `context_*` tools: avoids recursive indexing of
   retrieval/maintenance output.
 - Non-text/image results: ignored by `pi-context`; image/file handling
