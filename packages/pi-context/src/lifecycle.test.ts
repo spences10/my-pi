@@ -85,6 +85,18 @@ describe('register_context_lifecycle', () => {
 			}),
 		).toBeUndefined();
 
+		const failed_text = `failure-diagnostic-marker\n${'error detail\n'.repeat(400)}`;
+		expect(
+			await tool_result({
+				toolName: 'bash',
+				isError: true,
+				content: [{ type: 'text', text: failed_text }],
+			}),
+		).toBeUndefined();
+		expect(
+			get_context_store().search('failure-diagnostic-marker', { global: true }),
+		).toHaveLength(0);
+
 		const replacement = (await tool_result(
 			{
 				toolName: 'bash',

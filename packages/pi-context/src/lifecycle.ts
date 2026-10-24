@@ -29,6 +29,8 @@ export function register_context_lifecycle(pi: ExtensionAPI): void {
 	});
 
 	pi.on('tool_result', async (event, ctx) => {
+		// Preserve full failure diagnostics in the Pi session, not an expiring receipt.
+		if (event.isError) return;
 		const tool_name = String(event.toolName ?? 'tool');
 		if (should_skip_tool(tool_name)) return;
 		if (!Array.isArray(event.content)) return;
