@@ -61,7 +61,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
           cache: 'pnpm'
 
       # apps/web is installed too: the root formatter sorts Tailwind
