@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import { homedir } from 'node:os';
 import { authenticated_dashboard_url } from './dashboard-url.js';
@@ -147,6 +147,24 @@ function summarize_text(value: string, limit: number): string {
 	return value.length > limit ? `${value.slice(0, limit)}…` : value;
 }
 
+// Provider requests repeat the same system prompt on every turn. The
+// agent_start event keeps a preview, so requests store only a
+// fingerprint that shows when the prompt changes.
+export function text_fingerprint(value: string): {
+	type: 'string';
+	length: number;
+	sha256: string;
+} {
+	return {
+		type: 'string',
+		length: value.length,
+		sha256: createHash('sha256')
+			.update(value)
+			.digest('hex')
+			.slice(0, 16),
+	};
+}
+
 function detailed_object_summary(
 	key: string,
 	value: Record<string, unknown>,
@@ -165,6 +183,11 @@ function detailed_object_summary(
 				'reasoning',
 				'text',
 				'tool_choice',
+				'role',
+				'stopReason',
+				'errorMessage',
+				'durationMs',
+				'thinkingLevel',
 			].includes(child_key)
 		) {
 			summary[child_key] =
@@ -174,7 +197,7 @@ function detailed_object_summary(
 		} else if (child_key === 'instructions') {
 			summary[child_key] =
 				typeof child === 'string'
-					? summarize_text(child, 2000)
+					? text_fingerprint(child)
 					: summarize_metric_value(child);
 		} else if (
 			key === 'input' &&
@@ -204,6 +227,7 @@ export function summarize_payload(
 		'toolName',
 		'toolCallId',
 		'isError',
+		'updateCount',
 		'status',
 		'model',
 		'previousSessionFile',
@@ -532,6 +556,7 @@ export default function observability(pi: ExtensionAPI) {
 	let queue: EventQueue | null = null;
 	let session: SessionInfo | null = null;
 	let seq = 0;
+	const tool_update_counts = new Map<string, number>();
 
 	function emit(
 		type: ObservabilityEventType,
@@ -562,6 +587,7 @@ export default function observability(pi: ExtensionAPI) {
 		if (config.auto_start_server)
 			await ensure_local_server(config.server_url, config.token);
 		seq = 0;
+		tool_update_counts.clear();
 		session = {
 			session_id: ctx.sessionManager.getSessionId(),
 			session_file: ctx.sessionManager.getSessionFile(),
@@ -586,8 +612,21 @@ export default function observability(pi: ExtensionAPI) {
 	observe('tool_call', 'tool_call');
 	observe('tool_result', 'tool_result');
 	observe('tool_execution_start', 'tool_execution_start');
-	observe('tool_execution_update', 'tool_execution_update');
-	observe('tool_execution_end', 'tool_execution_end');
+	// Updates carry only partial output, which summaries reduce to key
+	// names. Count them and report the count on the end event.
+	pi.on('tool_execution_update', (event) => {
+		const id = event.toolCallId;
+		tool_update_counts.set(id, (tool_update_counts.get(id) ?? 0) + 1);
+	});
+	pi.on('tool_execution_end', (event) => {
+		const update_count =
+			tool_update_counts.get(event.toolCallId) ?? 0;
+		tool_update_counts.delete(event.toolCallId);
+		emit('tool_execution_end', {
+			...event,
+			updateCount: update_count,
+		});
+	});
 	observe('before_provider_request', 'provider_request');
 	observe('after_provider_response', 'provider_response');
 	observe('session_compact', 'compaction');

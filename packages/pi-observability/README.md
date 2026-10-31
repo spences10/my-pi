@@ -155,7 +155,24 @@ Events are stored as ordered envelopes with:
 
 The extension listens for session, agent, turn, message, tool,
 provider, model, compaction, and branch events when the installed Pi
-version emits them. Session renames update stored dashboard metadata
+version emits them.
+
+Some events are reduced before they are sent:
+
+- `tool_execution_update` events are not stored. The extension counts
+  them and adds the count to `tool_execution_end` as `updateCount`.
+- `provider_request` stores the request `instructions` (the system
+  prompt) as a fingerprint (`length` and a 16-character `sha256`
+  prefix). The `agent_start` event keeps the prompt preview.
+- Message summaries keep `role`, `stopReason`, `errorMessage`,
+  `durationMs`, and `thinkingLevel`, so provider latency and errors
+  are available without the message content.
+
+`provider_response` depends on the provider transport. Pi emits
+`after_provider_response` only for HTTP responses. The `openai-codex`
+provider uses WebSocket by default, so this event appears only when it
+falls back to SSE. Use `durationMs` on assistant `message_end` events
+for provider latency. Session renames update stored dashboard metadata
 from Pi's native `session_info_changed` event. `/sessions` and
 `/events/stream` support `pool`, `tag`, and `session_id` filters where
 relevant.

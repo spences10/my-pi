@@ -8,6 +8,7 @@ import observability, {
 	resolve_dashboard_command,
 	resolve_observability_config,
 	summarize_payload,
+	text_fingerprint,
 } from './index.js';
 import { redact_value, truncate_json_value } from './redact.js';
 import type { ObservabilityEvent } from './types.js';
@@ -346,6 +347,53 @@ describe('payload safety', () => {
 		});
 	});
 
+	it('keeps provider latency and stop reason on assistant messages', () => {
+		expect(
+			summarize_payload({
+				message: {
+					role: 'assistant',
+					stopReason: 'error',
+					errorMessage: 'rate limited',
+					durationMs: 1840,
+					content: [{ type: 'text', text: 'secret body' }],
+				},
+			}),
+		).toEqual({
+			message: {
+				type: 'object',
+				keys: [
+					'role',
+					'stopReason',
+					'errorMessage',
+					'durationMs',
+					'content',
+				],
+				role: 'assistant',
+				stopReason: 'error',
+				errorMessage: 'rate limited',
+				durationMs: 1840,
+			},
+		});
+	});
+
+	it('stores a fingerprint instead of provider request instructions', () => {
+		const instructions = 'You are a coding agent. '.repeat(200);
+		const summary = summarize_payload({
+			payload: { model: 'm', instructions },
+		}) as { payload: Record<string, unknown> };
+		expect(summary.payload.instructions).toEqual(
+			text_fingerprint(instructions),
+		);
+		expect(text_fingerprint(instructions)).toMatchObject({
+			type: 'string',
+			length: instructions.length,
+			sha256: expect.stringMatching(/^[0-9a-f]{16}$/),
+		});
+		expect(text_fingerprint('a').sha256).not.toBe(
+			text_fingerprint('b').sha256,
+		);
+	});
+
 	it('truncates large json values', () => {
 		expect(
 			truncate_json_value({ text: 'x'.repeat(100) }, 20),
@@ -398,6 +446,55 @@ describe('session names', () => {
 			agent_name: 'override',
 			session_name: 'after',
 		});
+		harness.fetch_mock.mockRestore();
+	});
+});
+
+describe('tool execution updates', () => {
+	it('counts updates on the end event instead of sending each one', async () => {
+		const harness = observability_harness();
+		await harness.trigger('session_start');
+		for (let i = 0; i < 3; i += 1)
+			await harness.trigger('tool_execution_update', {
+				type: 'tool_execution_update',
+				toolCallId: 'call-1',
+				toolName: 'bash',
+				partialResult: { content: [] },
+			});
+		await harness.trigger('tool_execution_end', {
+			type: 'tool_execution_end',
+			toolCallId: 'call-1',
+			toolName: 'bash',
+			isError: false,
+			durationMs: 42,
+		});
+		await harness.trigger('tool_execution_end', {
+			type: 'tool_execution_end',
+			toolCallId: 'call-2',
+			toolName: 'read',
+			isError: false,
+		});
+		await harness.trigger('session_shutdown');
+		expect(
+			harness.sent.some(
+				(event) => event.type === 'tool_execution_update',
+			),
+		).toBe(false);
+		expect(
+			harness.sent
+				.filter((event) => event.type === 'tool_execution_end')
+				.map((event) => event.payload),
+		).toEqual([
+			expect.objectContaining({
+				toolCallId: 'call-1',
+				updateCount: 3,
+				durationMs: 42,
+			}),
+			expect.objectContaining({
+				toolCallId: 'call-2',
+				updateCount: 0,
+			}),
+		]);
 		harness.fetch_mock.mockRestore();
 	});
 });
