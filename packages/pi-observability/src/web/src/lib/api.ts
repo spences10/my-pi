@@ -4,8 +4,8 @@ import type {
 	ObservabilityEvent,
 	OverviewResponse,
 	SessionSpansResponse,
-	SessionTimeline,
 	SessionStats,
+	SessionTimeline,
 	ToolStats,
 	TraceSummary,
 } from '../../../types';
@@ -99,6 +99,11 @@ export const api = {
 	failures: (since: string | null, limit = 50) =>
 		get_json<{ failures: FailureRow[] }>(
 			`/stats/failures${query({ since, limit })}`,
+		),
+	/** Substring search over every stored event payload. */
+	search_events: (q: string, limit = 12) =>
+		get_json<{ events: DashboardEvent[] }>(
+			`/events/search${query({ q, limit })}`,
 		),
 	events: (id: string, limit = 1000) =>
 		get_json<{ events: DashboardEvent[] }>(

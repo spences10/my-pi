@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { has_token } from '#lib/api.js';
 	import AppSidebar from '#lib/components/app-sidebar.svelte';
+	import CommandPalette from '#lib/components/command-palette.svelte';
 	import LiveIndicator from '#lib/components/live-indicator.svelte';
 	import RangeSelect from '#lib/components/range-select.svelte';
 	import ThemeToggle from '#lib/components/theme-toggle.svelte';
@@ -76,14 +77,15 @@
 					<Sidebar.Trigger class="-ml-1" />
 					<Separator
 						orientation="vertical"
-						class="mx-1 data-vertical:h-4"
+						class="mx-1 hidden sm:block data-vertical:h-4"
 					/>
 					<h1 class="hidden text-sm font-medium sm:block">
 						{titles[route.name]}
 					</h1>
-					<div
-						class="ml-auto flex min-w-0 items-center gap-1 sm:gap-2"
-					>
+					<div class="ml-2 min-w-0 flex-1">
+						<CommandPalette />
+					</div>
+					<div class="flex shrink-0 items-center gap-1 sm:gap-2">
 						{#if route.name !== 'session'}
 							<RangeSelect />
 						{/if}
