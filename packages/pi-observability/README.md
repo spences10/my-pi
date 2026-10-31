@@ -220,11 +220,19 @@ summarizing large arrays/objects and recursively redacting secrets.
 Set `MY_PI_OBSERVABILITY_DETAIL=summary` or
 `--observability-detail summary` for key-only nested object summaries.
 Raw payload mode is opt-in with `--observability-raw` or
-`MY_PI_OBSERVABILITY_RAW=true`; redaction and a payload byte cap still
-apply. Redaction replaces the values of keys that look like
-credentials (for example `api_key`, `authorization`, `access_token`).
-Keys that count tokens, such as `totalTokens` or `max_tokens`, are
-kept.
+`MY_PI_OBSERVABILITY_RAW=true`; redaction still applies. Redaction
+replaces the values of keys that look like credentials (for example
+`api_key`, `authorization`, `access_token`). Keys that count tokens,
+such as `totalTokens` or `max_tokens`, are kept.
+
+Events have no size cap by default; retention
+(`MY_PI_OBSERVABILITY_RETENTION_DAYS`,
+`MY_PI_OBSERVABILITY_MAX_EVENTS`) bounds the database. Set
+`MY_PI_OBSERVABILITY_MAX_PAYLOAD_BYTES` on the agent process to cap
+each event. The server rejects request bodies over
+`MY_PI_OBSERVABILITY_MAX_BODY_BYTES`; the extension then sends smaller
+batches, and stores a single event that is still too large as a
+truncated preview (or drops it if the preview is too large).
 
 This extension's generic `x-pi-session-id` attribution header is
 disabled by default and requires Pi 0.80.4 or newer. With vanilla

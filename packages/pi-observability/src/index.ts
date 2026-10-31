@@ -24,7 +24,10 @@ export type {
 	ObservabilityEvent,
 } from './types.js';
 
-const DEFAULT_MAX_PAYLOAD_BYTES = 32_768;
+// 0 means no per-event cap. The server's request body limit is the
+// real bound; EventQueue splits batches and shrinks single events that
+// exceed it.
+const DEFAULT_MAX_PAYLOAD_BYTES = 0;
 const DEFAULT_POOL = 'default';
 const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_MAX_QUEUE_SIZE = 10_000;
@@ -105,12 +108,16 @@ export function resolve_observability_config(
 			pi.getFlag('observability-detail') ??
 				env.MY_PI_OBSERVABILITY_DETAIL,
 		),
-		max_payload_bytes: Number(
-			env.MY_PI_OBSERVABILITY_MAX_PAYLOAD_BYTES ??
-				DEFAULT_MAX_PAYLOAD_BYTES,
+		max_payload_bytes: payload_cap(
+			env.MY_PI_OBSERVABILITY_MAX_PAYLOAD_BYTES,
 		),
 		auto_start_server: !configured_server_url,
 	};
+}
+
+function payload_cap(value: string | undefined): number {
+	const parsed = Number(value ?? DEFAULT_MAX_PAYLOAD_BYTES);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 export type DashboardCommand = 'web' | 'tui' | 'url';
@@ -294,10 +301,13 @@ export function create_event_envelope(
 		provider: session.provider,
 		model: session.model,
 		seq,
-		payload: truncate_json_value(
-			redact_value(safe_payload),
-			config.max_payload_bytes,
-		),
+		payload:
+			config.max_payload_bytes > 0
+				? truncate_json_value(
+						redact_value(safe_payload),
+						config.max_payload_bytes,
+					)
+				: redact_value(safe_payload),
 	};
 }
 
@@ -389,18 +399,60 @@ export function open_dashboard(url: string): void {
 	child.unref();
 }
 
+async function rejected_body_limit(
+	response: Response,
+): Promise<number | null> {
+	try {
+		const body = (await response.json()) as { max_bytes?: unknown };
+		return typeof body.max_bytes === 'number' && body.max_bytes > 0
+			? body.max_bytes
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+function is_truncated_payload(payload: unknown): boolean {
+	return (
+		!!payload &&
+		typeof payload === 'object' &&
+		(payload as { truncated?: unknown }).truncated === true
+	);
+}
+
+/**
+ * Fits one event under the server's body limit. The preview is a slice
+ * of the payload JSON, which grows when escaped again, so it gets a
+ * quarter of the limit.
+ */
+export function shrink_event_to_fit(
+	event: ObservabilityEvent,
+	max_bytes: number,
+): ObservabilityEvent {
+	return {
+		...event,
+		payload: truncate_json_value(
+			event.payload,
+			Math.floor(max_bytes / 4),
+		),
+	};
+}
+
 export class EventQueue {
 	private queue: ObservabilityEvent[] = [];
 	private timer: NodeJS.Timeout | null = null;
 	private backoff_ms = 250;
 	private flushing = false;
+	private batch_limit: number;
 
 	constructor(
 		private readonly server_url: string,
 		private readonly token: string | undefined,
 		private readonly batch_size = DEFAULT_BATCH_SIZE,
 		private readonly max_queue_size = DEFAULT_MAX_QUEUE_SIZE,
-	) {}
+	) {
+		this.batch_limit = batch_size;
+	}
 
 	push(event: ObservabilityEvent): void {
 		if (this.queue.length >= this.max_queue_size) this.queue.shift();
@@ -420,7 +472,8 @@ export class EventQueue {
 	async flush(): Promise<void> {
 		if (this.flushing || this.queue.length === 0) return;
 		this.flushing = true;
-		const batch = this.queue.slice(0, this.batch_size);
+		const batch = this.queue.slice(0, this.batch_limit);
+		let retry_now = false;
 		try {
 			const headers: Record<string, string> = {
 				'content-type': 'application/json',
@@ -434,14 +487,37 @@ export class EventQueue {
 					body: safe_json(batch),
 				},
 			);
+			if (response.status === 413) {
+				// Retrying the same batch would fail forever and block every
+				// later event. Send fewer events; a single event that is
+				// still too large is shrunk once, then dropped.
+				const max_bytes = await rejected_body_limit(response);
+				if (batch.length > 1) {
+					this.batch_limit = Math.max(
+						1,
+						Math.floor(batch.length / 2),
+					);
+				} else if (
+					max_bytes &&
+					!is_truncated_payload(batch[0]!.payload)
+				) {
+					this.queue[0] = shrink_event_to_fit(batch[0]!, max_bytes);
+				} else {
+					this.queue.shift();
+				}
+				retry_now = true;
+				return;
+			}
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
 			this.queue.splice(0, batch.length);
+			this.batch_limit = this.batch_size;
 			this.backoff_ms = 250;
 		} catch {
 			this.backoff_ms = Math.min(this.backoff_ms * 2, 5_000);
 		} finally {
 			this.flushing = false;
-			if (this.queue.length > 0) this.schedule();
+			if (retry_now) void this.flush();
+			else if (this.queue.length > 0) this.schedule();
 		}
 	}
 

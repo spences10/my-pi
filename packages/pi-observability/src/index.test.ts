@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import observability, {
 	create_event_envelope,
+	EventQueue,
 	parse_tags,
 	resolve_dashboard_command,
 	resolve_observability_config,
@@ -527,3 +528,117 @@ describe('create_event_envelope', () => {
 		expect(event.event_id).toEqual(expect.any(String));
 	});
 });
+
+function queue_event(seq: number, text = 'ok'): ObservabilityEvent {
+	return {
+		event_id: `e${seq}`,
+		ts: '2026-10-31T10:00:00.000Z',
+		type: 'tool_result',
+		session_id: 's1',
+		cwd: '/repo',
+		pool: 'default',
+		tags: [],
+		seq,
+		payload: { text },
+	};
+}
+
+describe('EventQueue body limit', () => {
+	function limited_server(max_bytes: number) {
+		const accepted: ObservabilityEvent[] = [];
+		let requests = 0;
+		const fetch_mock = vi
+			.spyOn(globalThis, 'fetch')
+			.mockImplementation(async (_input, init) => {
+				requests += 1;
+				const body = typeof init?.body === 'string' ? init.body : '';
+				if (Buffer.byteLength(body) > max_bytes)
+					return new Response(JSON.stringify({ max_bytes }), {
+						status: 413,
+					});
+				accepted.push(...(JSON.parse(body) as ObservabilityEvent[]));
+				return new Response('{}', { status: 200 });
+			});
+		return { accepted, fetch_mock, requests: () => requests };
+	}
+
+	it('splits a rejected batch instead of retrying it forever', async () => {
+		const server = limited_server(700);
+		const queue = new EventQueue('http://obs.test', undefined, 4);
+		for (let seq = 0; seq < 4; seq += 1)
+			queue.push(queue_event(seq, 'x'.repeat(120)));
+		await vi.waitFor(() =>
+			expect(server.accepted.map((event) => event.seq)).toEqual([
+				0, 1, 2, 3,
+			]),
+		);
+		await queue.stop();
+		server.fetch_mock.mockRestore();
+	});
+
+	it('shrinks one oversized event, keeps later events flowing', async () => {
+		const server = limited_server(2_000);
+		const queue = new EventQueue('http://obs.test', undefined, 1);
+		queue.push(queue_event(0, 'y'.repeat(10_000)));
+		queue.push(queue_event(1));
+		await vi.waitFor(() => expect(server.accepted).toHaveLength(2));
+		expect(server.accepted[0]?.payload).toMatchObject({
+			truncated: true,
+		});
+		expect(server.accepted[1]?.payload).toEqual({ text: 'ok' });
+		await queue.stop();
+		server.fetch_mock.mockRestore();
+	});
+
+	it('drops an event that is still too large after shrinking', async () => {
+		const server = limited_server(10);
+		const queue = new EventQueue('http://obs.test', undefined, 1);
+		queue.push(queue_event(0, 'z'.repeat(5_000)));
+		await vi.waitFor(() => expect(server.requests()).toBe(2));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(server.requests()).toBe(2);
+		expect(server.accepted).toHaveLength(0);
+		await queue.stop();
+		server.fetch_mock.mockRestore();
+	});
+});
+
+describe('payload cap', () => {
+	it('keeps large payloads whole unless a cap is configured', () => {
+		const session = {
+			session_id: 's1',
+			cwd: '/repo',
+			pool: 'default',
+			tags: [],
+		};
+		const payload = {
+			prompt: 'p'.repeat(100),
+			detail: 'd'.repeat(50_000),
+		};
+		const uncapped = create_event_envelope(
+			'custom',
+			payload,
+			session,
+			0,
+			{
+				raw_payloads: true,
+				detail_level: 'detailed',
+				max_payload_bytes: 0,
+			},
+		);
+		expect(uncapped.payload).toEqual(payload);
+		const capped = create_event_envelope(
+			'custom',
+			payload,
+			session,
+			0,
+			{
+				raw_payloads: true,
+				detail_level: 'detailed',
+				max_payload_bytes: 1_000,
+			},
+		);
+		expect(capped.payload).toMatchObject({ truncated: true });
+	});
+});
+
