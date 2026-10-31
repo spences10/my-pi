@@ -168,6 +168,9 @@ The extension listens for session, agent, turn, message, tool,
 provider, model, compaction, and branch events when the installed Pi
 version emits them.
 
+Failed tool calls keep their full text output as `errorText` and the
+exit code as `exitCode` (detailed mode), after redaction.
+
 Some events are reduced before they are sent:
 
 - `tool_execution_update` events are not stored. The extension counts

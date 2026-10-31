@@ -642,3 +642,84 @@ describe('payload cap', () => {
 	});
 });
 
+describe('failure details', () => {
+	const output = `ls: cannot access '/does-not-exist': No such file\n${'x'.repeat(5_000)}`;
+
+	it('keeps the full error text and exit code of a failed tool result', () => {
+		expect(
+			summarize_payload({
+				type: 'tool_result',
+				toolName: 'bash',
+				toolCallId: 'c1',
+				isError: true,
+				content: [{ type: 'text', text: output }],
+				structuredContent: { exit_code: 2, output },
+			}),
+		).toMatchObject({
+			errorText: output,
+			exitCode: 2,
+			isError: true,
+		});
+	});
+
+	it('reads failures nested under result on tool_execution_end', () => {
+		expect(
+			summarize_payload({
+				type: 'tool_execution_end',
+				toolCallId: 'c1',
+				parentToolCallId: 'p1',
+				isError: true,
+				result: {
+					content: [
+						{ type: 'text', text: 'first' },
+						{ type: 'image', data: 'abc' },
+						{ type: 'text', text: 'second' },
+					],
+					details: { exitCode: 1 },
+				},
+			}),
+		).toMatchObject({
+			errorText: 'first\nsecond',
+			exitCode: 1,
+			parentToolCallId: 'p1',
+		});
+	});
+
+	it('adds nothing to successful calls or summary mode', () => {
+		const success = summarize_payload({
+			isError: false,
+			content: [{ type: 'text', text: 'ok' }],
+		});
+		expect(success).not.toHaveProperty('errorText');
+		const summary = summarize_payload(
+			{ isError: true, content: [{ type: 'text', text: 'boom' }] },
+			'summary',
+		);
+		expect(summary).not.toHaveProperty('errorText');
+	});
+
+	it('redacts secrets inside the error text', () => {
+		const event = create_event_envelope(
+			'tool_result',
+			{
+				isError: true,
+				content: [
+					{
+						type: 'text',
+						text: 'auth failed for ghp_abcdefghijklmnopqrstuvwxyz0123456789',
+					},
+				],
+			},
+			{ session_id: 's1', cwd: '/repo', pool: 'default', tags: [] },
+			0,
+			{
+				raw_payloads: false,
+				detail_level: 'detailed',
+				max_payload_bytes: 0,
+			},
+		);
+		expect(event.payload).toMatchObject({
+			errorText: 'auth failed for [REDACTED]',
+		});
+	});
+});

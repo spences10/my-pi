@@ -221,6 +221,51 @@ function detailed_object_summary(
 	return summary;
 }
 
+function record_of(value: unknown): Record<string, unknown> {
+	return value && typeof value === 'object' && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
+}
+
+/** Text blocks of a tool result, joined in order. */
+function content_text(content: unknown): string {
+	if (!Array.isArray(content)) return '';
+	return content
+		.map((item) => record_of(item))
+		.filter(
+			(item) => item.type === 'text' && typeof item.text === 'string',
+		)
+		.map((item) => item.text as string)
+		.join('\n');
+}
+
+/**
+ * What a failed tool call reported: its full text output and exit code.
+ * tool_result carries content at the top level; tool_execution_end
+ * carries it under result.
+ */
+export function failure_details(event: Record<string, unknown>): {
+	error_text?: string;
+	exit_code?: number;
+} {
+	const result = record_of(event.result);
+	const text =
+		content_text(event.content) || content_text(result.content);
+	const sources = [
+		record_of(event.structuredContent),
+		record_of(event.details),
+		record_of(result.structuredContent),
+		record_of(result.details),
+	];
+	const exit_code = sources
+		.flatMap((source) => [source.exit_code, source.exitCode])
+		.find((value): value is number => typeof value === 'number');
+	return {
+		...(text ? { error_text: text } : {}),
+		...(exit_code === undefined ? {} : { exit_code }),
+	};
+}
+
 export function summarize_payload(
 	event: unknown,
 	detail_level: ObservabilityConfig['detail_level'] = 'detailed',
@@ -233,6 +278,7 @@ export function summarize_payload(
 		'turnIndex',
 		'toolName',
 		'toolCallId',
+		'parentToolCallId',
 		'isError',
 		'updateCount',
 		'status',
@@ -270,6 +316,14 @@ export function summarize_payload(
 		} else {
 			summary[key] = value;
 		}
+	}
+	// Failures keep the full output; it is what explains the error.
+	if (detail_level === 'detailed' && object.isError === true) {
+		const failure = failure_details(object);
+		if (failure.error_text !== undefined)
+			summary.errorText = failure.error_text;
+		if (failure.exit_code !== undefined)
+			summary.exitCode = failure.exit_code;
 	}
 	return summary;
 }
