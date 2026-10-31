@@ -111,3 +111,95 @@ export interface ObservabilityConfig {
 	max_payload_bytes: number;
 	auto_start_server: boolean;
 }
+
+/** Aggregates over events with ts >= since (all retained events when null). */
+export interface StatsTotals {
+	sessions: number;
+	turns: number;
+	tool_calls: number;
+	tool_errors: number;
+	input_tokens: number;
+	output_tokens: number;
+	cache_read_tokens: number;
+	cache_write_tokens: number;
+	cost_usd: number;
+	/** Assistant message durationMs percentiles; null when no message has one. */
+	provider_p50_ms: number | null;
+	provider_p95_ms: number | null;
+}
+
+/** One local calendar day (YYYY-MM-DD, server local time). */
+export interface DailyStats {
+	day: string;
+	sessions: number;
+	turns: number;
+	tool_calls: number;
+	tool_errors: number;
+	input_tokens: number;
+	output_tokens: number;
+	cache_read_tokens: number;
+	cache_write_tokens: number;
+	cost_usd: number;
+}
+
+export interface ToolStats {
+	name: string;
+	calls: number;
+	errors: number;
+	total_ms: number;
+	p50_ms: number;
+	p95_ms: number;
+	max_ms: number;
+	updates: number;
+}
+
+export interface SessionStats extends DashboardSession {
+	turns: number;
+	tool_calls: number;
+	tool_errors: number;
+	input_tokens: number;
+	output_tokens: number;
+	cache_read_tokens: number;
+	cost_usd: number;
+}
+
+export interface OverviewResponse {
+	since: string | null;
+	totals: StatsTotals;
+	daily: DailyStats[];
+	tools: ToolStats[];
+	sessions: SessionStats[];
+}
+
+export interface TurnSpanRow {
+	start_seq: number;
+	turn_index: number | null;
+	start_ts: string;
+	end_ts: string;
+	duration_ms: number;
+	stop_reason: string | null;
+	provider_ms: number | null;
+	tool_ms: number | null;
+	tool_calls: number;
+	tool_errors: number;
+	input_tokens: number | null;
+	output_tokens: number | null;
+	cache_read_tokens: number | null;
+	cache_write_tokens: number | null;
+	cost_usd: number | null;
+}
+
+export interface ToolSpanRow {
+	tool_call_id: string;
+	tool_name: string | null;
+	start_ts: string;
+	end_ts: string | null;
+	duration_ms: number | null;
+	is_error: number | null;
+	update_count: number | null;
+}
+
+export interface SessionSpansResponse {
+	turns: TurnSpanRow[];
+	tools: ToolSpanRow[];
+}

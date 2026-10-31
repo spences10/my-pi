@@ -43,6 +43,7 @@ import type {
 	ObservabilityServerOptions,
 	RunningObservabilityServer,
 } from './server-options.js';
+import { create_stats_queries, parse_since } from './stats.js';
 import { trace_summary } from './trace-summary.js';
 import type { ObservabilityEvent } from './types.js';
 
@@ -81,6 +82,7 @@ export function start_observability_server(
 ): RunningObservabilityServer {
 	const token = options.token || generate_observability_token();
 	const { db, statements } = prepare_db(options.db_path);
+	const stats = create_stats_queries(db);
 	let next_subscriber_id = 1;
 	const subscribers = new Map<number, Subscriber>();
 
@@ -285,9 +287,45 @@ export function start_observability_server(
 				});
 				return json(res, 200, { sessions });
 			}
+			if (req_url.pathname === '/stats/overview') {
+				return json(
+					res,
+					200,
+					stats.overview(
+						parse_since(req_url.searchParams.get('since')),
+						bounded_limit(req_url.searchParams.get('limit'), 20, 200),
+					),
+				);
+			}
+			if (req_url.pathname === '/stats/tools') {
+				return json(res, 200, {
+					tools: stats.tool_stats(
+						parse_since(req_url.searchParams.get('since')),
+					),
+				});
+			}
+			if (req_url.pathname === '/stats/sessions') {
+				return json(res, 200, {
+					sessions: stats.session_stats(
+						parse_since(req_url.searchParams.get('since')),
+						bounded_limit(
+							req_url.searchParams.get('limit'),
+							100,
+							500,
+						),
+					),
+				});
+			}
 			const session_route = req_url.pathname.match(
-				/^\/sessions\/([^/]+)\/(events|trace)$/,
+				/^\/sessions\/([^/]+)\/(events|trace|spans)$/,
 			);
+			if (session_route?.[2] === 'spans') {
+				return json(
+					res,
+					200,
+					stats.session_spans(decodeURIComponent(session_route[1])),
+				);
+			}
 			if (session_route) {
 				const session_id = decodeURIComponent(session_route[1]);
 				const is_trace = session_route[2] === 'trace';
