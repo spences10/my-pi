@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { DashboardEvent } from '#lib/api.js';
-	import CopyButton from '#lib/components/copy-button.svelte';
+	import CodeBlock from '#lib/components/code-block.svelte';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { ScrollArea } from '#lib/components/ui/scroll-area/index.js';
 	import * as Sheet from '#lib/components/ui/sheet/index.js';
@@ -38,15 +38,8 @@
 					<p class="text-sm break-words">{summary}</p>
 				{/if}
 			</Sheet.Header>
-			<div class="flex items-center justify-between px-4 pt-3">
-				<span class="text-xs font-medium text-muted-foreground"
-					>Payload</span
-				>
-				<CopyButton value={json} label="Copy payload JSON" />
-			</div>
-			<ScrollArea class="min-h-0 flex-1 px-4 pb-4">
-				<pre
-					class="rounded-lg bg-muted p-3 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{json}</pre>
+			<ScrollArea class="min-h-0 flex-1 p-4">
+				<CodeBlock code={json} language="json" label="Payload" />
 			</ScrollArea>
 		{/if}
 	</Sheet.Content>

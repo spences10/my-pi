@@ -2,6 +2,7 @@
 @import 'tw-animate-css';
 @import '@fontsource-variable/mona-sans/wdth.css';
 @import '@fontsource-variable/martian-mono';
+@import './lib/twinkleplop.css';
 
 @custom-variant dark (&:is(.dark *));
 

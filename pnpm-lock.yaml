@@ -210,11 +210,20 @@ catalogs:
       specifier: ^4.3.0
       version: 4.3.3
     '@twinkleplop/bash':
-      specifier: ^0.1.5
+      specifier: ^0.1.7
       version: 0.1.7
+    '@twinkleplop/json':
+      specifier: ^0.1.7
+      version: 0.1.7
+    '@twinkleplop/markdown':
+      specifier: ^0.2.1
+      version: 0.2.1
     '@twinkleplop/markdown-core':
       specifier: ^0.2.0
       version: 0.2.1
+    '@twinkleplop/theme-night-owl':
+      specifier: ^0.1.4
+      version: 0.1.4
     '@twinkleplop/typescript':
       specifier: ^0.1.5
       version: 0.1.7
@@ -844,6 +853,18 @@ importers:
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.3.3(@voidzero-dev/vite-plus-core@1.4.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))
+      '@twinkleplop/bash':
+        specifier: 'catalog:'
+        version: 0.1.7
+      '@twinkleplop/json':
+        specifier: 'catalog:'
+        version: 0.1.7
+      '@twinkleplop/markdown':
+        specifier: 'catalog:'
+        version: 0.2.1
+      '@twinkleplop/theme-night-owl':
+        specifier: 'catalog:'
+        version: 0.1.4
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -2492,8 +2513,17 @@ packages:
   '@twinkleplop/javascript@0.1.7':
     resolution: {integrity: sha512-qZDFx0bTM8YdKBTCxIS+6dZ1itaTnn1Udf2wFW5Uo+S6liGm40Lq2rlCk3PYa+Hm4lmX6HSzFeO4ZaDqk6Cn9Q==}
 
+  '@twinkleplop/json@0.1.7':
+    resolution: {integrity: sha512-3V2BmcvHCF7MTmDxNSk0sliZqwW1BDB29ZQY2W07auiOGyPQJVhYPiyeoIIN51Q02YnvSg+hxfXSRY9FptMJKg==}
+
   '@twinkleplop/markdown-core@0.2.1':
     resolution: {integrity: sha512-B8SBW5kKCwmVKTtm2r1hK0PyJk4qQYem33v7aIHQv0f2jNsuvnkhboM1p/oCNyt/Q8lau2yjygP4soSvTi+ALA==}
+
+  '@twinkleplop/markdown@0.2.1':
+    resolution: {integrity: sha512-uff5OXuSnlSWuPCYJWCQ+yMsOAvGCzljP8mIDQ4oj2ezkMAdhwh/McNXZ1odg4xpSp7hlwbu+UHbRl5FvG4kSQ==}
+
+  '@twinkleplop/theme-night-owl@0.1.4':
+    resolution: {integrity: sha512-Eq7Qpr660LEV9b4BAUmfdc56tIWO//S1iytgm63qAVYpMfL8jAJhuCCnCicbG/LkqLe7q9dZfjAsMAZQBrlFtA==}
 
   '@twinkleplop/typescript@0.1.7':
     resolution: {integrity: sha512-3lVdFUnOc40QQUJPnmTsiyTf7+RSEoXhDnmMwkUQ5Kzgemkk6eeXQGietPjxro8k+QuTAY/aQuWOtR/nUgfENw==}
@@ -5317,7 +5347,19 @@ snapshots:
       '@twinkleplop/css': 0.1.7
       '@twinkleplop/html': 0.1.7
 
+  '@twinkleplop/json@0.1.7':
+    dependencies:
+      '@twinkleplop/core': 0.3.1
+
   '@twinkleplop/markdown-core@0.2.1':
+    dependencies:
+      '@twinkleplop/core': 0.3.1
+
+  '@twinkleplop/markdown@0.2.1':
+    dependencies:
+      '@twinkleplop/core': 0.3.1
+
+  '@twinkleplop/theme-night-owl@0.1.4':
     dependencies:
       '@twinkleplop/core': 0.3.1
 

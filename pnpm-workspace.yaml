@@ -26,7 +26,10 @@ catalog:
   '@sveltejs/kit': ^3.0.0
   '@sveltejs/vite-plugin-svelte': ^7.1.2
   '@tailwindcss/vite': ^4.3.0
-  '@twinkleplop/bash': ^0.1.5
+  '@twinkleplop/bash': ^0.1.7
+  '@twinkleplop/json': ^0.1.7
+  '@twinkleplop/markdown': ^0.2.1
+  '@twinkleplop/theme-night-owl': ^0.1.4
   '@twinkleplop/markdown-core': ^0.2.0
   '@twinkleplop/typescript': ^0.1.5
   '@types/node': ^26.0.0

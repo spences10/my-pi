@@ -100,6 +100,8 @@ token only in the `Authorization` header. The dashboard includes:
   other time, and tabs for turns, tool calls, a searchable event list
   with a JSON payload drawer, and session context (cwd, session file,
   model, reasoning settings, and initial prompts).
+- Commands, JSON payloads, and prompts are highlighted with
+  [twinkleplop](https://twinkleplop.pngwn.at).
 
 The time range applies to every aggregate view. Live events refresh
 the open view about once a second; pause updates from the header.

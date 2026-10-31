@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { DashboardEvent } from '#lib/api.js';
+	import CodeBlock from '#lib/components/code-block.svelte';
 	import CopyButton from '#lib/components/copy-button.svelte';
 	import * as Collapsible from '#lib/components/ui/collapsible/index.js';
 	import { payload_value, text_preview } from '#lib/events.js';
@@ -88,8 +89,11 @@
 				>
 			</Collapsible.Trigger>
 			<Collapsible.Content>
-				<pre
-					class="max-h-[32rem] overflow-auto border-t bg-muted/40 p-3 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{text}</pre>
+				<CodeBlock
+					code={text}
+					language="markdown"
+					class="max-h-[32rem] rounded-none border-x-0 border-b-0"
+				/>
 			</Collapsible.Content>
 		</Collapsible.Root>
 	{/each}
