@@ -1,6 +1,7 @@
 import {
 	SQLITE_PERSISTENT_PRAGMAS,
 	sqlite_pragmas,
+	with_sqlite_transaction,
 } from '@spences10/pi-sqlite-core';
 import {
 	chmodSync,
@@ -10,6 +11,30 @@ import {
 } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import {
+	derive_event_columns,
+	EVENT_COLUMN_NAMES,
+	event_column_values,
+} from './event-columns.js';
+
+export const OBSERVABILITY_SCHEMA_VERSION = 1;
+
+const DERIVED_COLUMN_TYPES: Record<
+	(typeof EVENT_COLUMN_NAMES)[number],
+	string
+> = {
+	turn_index: 'INTEGER',
+	tool_call_id: 'TEXT',
+	tool_name: 'TEXT',
+	is_error: 'INTEGER',
+	duration_ms: 'REAL',
+	stop_reason: 'TEXT',
+	input_tokens: 'INTEGER',
+	output_tokens: 'INTEGER',
+	cache_read_tokens: 'INTEGER',
+	cache_write_tokens: 'INTEGER',
+	cost_usd: 'REAL',
+};
 
 export interface PreparedStatements {
 	next_event_seq: StatementSync;
@@ -40,19 +65,17 @@ export function prepare_db(db_path: string): {
 } {
 	mkdirSync(dirname(db_path), { recursive: true });
 	const db = new DatabaseSync(db_path);
+	// auto_vacuum only takes effect on a new database; existing
+	// databases switch over with one VACUUM in migrate_db.
+	db.exec('PRAGMA auto_vacuum = INCREMENTAL;');
 	db.exec(PERSISTENT_PRAGMAS);
 	db.exec(CONNECTION_PRAGMAS);
-	db.exec(SCHEMA);
+	migrate_db(db);
 	for (const path of [db_path, `${db_path}-wal`, `${db_path}-shm`]) {
 		if (existsSync(path)) chmodSync(path, 0o600);
 	}
-	const session_columns = db
-		.prepare('PRAGMA table_info(sessions)')
-		.all() as Array<{ name: string }>;
-	if (
-		!session_columns.some((column) => column.name === 'session_name')
-	)
-		db.exec('ALTER TABLE sessions ADD COLUMN session_name TEXT');
+	const derived_columns = EVENT_COLUMN_NAMES.join(', ');
+	const derived_params = EVENT_COLUMN_NAMES.map(() => '?').join(', ');
 	return {
 		db,
 		statements: {
@@ -63,8 +86,8 @@ export function prepare_db(db_path: string): {
 			`),
 			insert_event: db.prepare(`
 				INSERT OR IGNORE INTO events
-				(event_id, session_id, seq, ts, type, pool, tags_json, payload_json, provider, model)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				(event_id, session_id, seq, ts, type, pool, tags_json, payload_json, provider, model, ${derived_columns})
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${derived_params})
 			`),
 			upsert_session: db.prepare(`
 				INSERT INTO sessions
@@ -124,4 +147,97 @@ export function prepare_db(db_path: string): {
 			`),
 		},
 	};
+}
+
+function table_columns(db: DatabaseSync, table: string): Set<string> {
+	const rows = db
+		.prepare(`PRAGMA table_info(${table})`)
+		.all() as Array<{ name: string }>;
+	return new Set(rows.map((row) => row.name));
+}
+
+function scalar(db: DatabaseSync, sql: string): number {
+	const row = db.prepare(sql).get() as Record<string, unknown>;
+	return Number(Object.values(row)[0] ?? 0);
+}
+
+/**
+ * Brings any older database up to OBSERVABILITY_SCHEMA_VERSION.
+ *
+ * Version 0 had no derived event columns, no span views, and
+ * auto_vacuum off. The migration adds the columns, fills them from
+ * payload_json, then runs one VACUUM to enable incremental vacuum.
+ */
+export function migrate_db(db: DatabaseSync): void {
+	const version = scalar(db, 'PRAGMA user_version');
+	if (version > OBSERVABILITY_SCHEMA_VERSION)
+		throw new Error(
+			`Observability database schema version ${version} is newer than supported version ${OBSERVABILITY_SCHEMA_VERSION}`,
+		);
+
+	const event_columns = table_columns(db, 'events');
+	const existing_events = event_columns.size > 0;
+	if (existing_events) {
+		for (const name of EVENT_COLUMN_NAMES) {
+			if (!event_columns.has(name))
+				db.exec(
+					`ALTER TABLE events ADD COLUMN ${name} ${DERIVED_COLUMN_TYPES[name]}`,
+				);
+		}
+	}
+	const session_columns = table_columns(db, 'sessions');
+	if (
+		session_columns.size > 0 &&
+		!session_columns.has('session_name')
+	)
+		db.exec('ALTER TABLE sessions ADD COLUMN session_name TEXT');
+
+	db.exec(SCHEMA);
+
+	if (version < 1 && existing_events) backfill_event_columns(db);
+	if (version < OBSERVABILITY_SCHEMA_VERSION)
+		db.exec(`PRAGMA user_version = ${OBSERVABILITY_SCHEMA_VERSION}`);
+	if (scalar(db, 'PRAGMA auto_vacuum') !== 2) {
+		db.exec('PRAGMA auto_vacuum = INCREMENTAL;');
+		db.exec('VACUUM');
+	}
+}
+
+function backfill_event_columns(db: DatabaseSync): void {
+	const assignments = EVENT_COLUMN_NAMES.map(
+		(name) => `${name} = ?`,
+	).join(', ');
+	const update = db.prepare(
+		`UPDATE events SET ${assignments} WHERE event_id = ?`,
+	);
+	const rows = db
+		.prepare('SELECT event_id, type, payload_json FROM events')
+		.all() as Array<{
+		event_id: string;
+		type: string;
+		payload_json: string;
+	}>;
+	with_sqlite_transaction(
+		db,
+		() => {
+			for (const row of rows) {
+				let payload: unknown;
+				try {
+					payload = JSON.parse(row.payload_json);
+				} catch {
+					continue;
+				}
+				update.run(
+					...event_column_values(
+						derive_event_columns(row.type, payload),
+					),
+					row.event_id,
+				);
+			}
+		},
+		{
+			immediate: true,
+			operation: 'Backfill observability event columns',
+		},
+	);
 }

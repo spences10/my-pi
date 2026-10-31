@@ -14,14 +14,18 @@ import {
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { prepare_db } from './db.js';
 import {
-	create_health_proof,
-	valid_health_challenge,
-} from './health-auth.js';
+	derive_event_columns,
+	event_column_values,
+} from './event-columns.js';
 import {
 	to_row_event,
 	to_session_row,
 	valid_event,
 } from './event-rows.js';
+import {
+	create_health_proof,
+	valid_health_challenge,
+} from './health-auth.js';
 import {
 	binary,
 	BodyTooLargeError,
@@ -111,11 +115,20 @@ export function start_observability_server(
 	}
 
 	function prune_events(): void {
-		statements.delete_old_events.run(options.retention_days ?? 14);
-		statements.delete_over_limit_events.run(
-			options.max_events ?? 100_000,
-		);
+		const deleted =
+			Number(
+				statements.delete_old_events.run(options.retention_days ?? 14)
+					.changes,
+			) +
+			Number(
+				statements.delete_over_limit_events.run(
+					options.max_events ?? 100_000,
+				).changes,
+			);
 		statements.delete_orphan_sessions.run();
+		// Return pages freed by retention to the OS so the file does not
+		// keep its peak size.
+		if (deleted > 0) db.exec('PRAGMA incremental_vacuum');
 	}
 
 	function ingest(
@@ -141,6 +154,9 @@ export function start_observability_server(
 			JSON.stringify(server_event.payload ?? {}),
 			server_event.provider ?? null,
 			server_event.model ?? null,
+			...event_column_values(
+				derive_event_columns(server_event.type, server_event.payload),
+			),
 		);
 		if (result.changes === 0) return null;
 		statements.upsert_session.run(

@@ -177,6 +177,30 @@ from Pi's native `session_info_changed` event. `/sessions` and
 `/events/stream` support `pool`, `tag`, and `session_id` filters where
 relevant.
 
+## SQLite schema
+
+The schema source is `src/schema.sql` in this package. The current
+schema version is tracked with `PRAGMA user_version` (version 1).
+Databases from a newer version fail fast.
+
+At ingest the server copies these values from the payload into
+`events` columns: `turn_index`, `tool_call_id`, `tool_name`,
+`is_error`, `duration_ms`, `stop_reason`, `input_tokens`,
+`output_tokens`, `cache_read_tokens`, `cache_write_tokens`, and
+`cost_usd`. Token and cost columns are set on `message_end` only.
+
+Two views join the events into spans:
+
+- `tool_spans` — one row per tool execution, with duration, error
+  flag, and update count.
+- `turn_spans` — one row per agent turn, with duration, provider and
+  tool time, tool calls and errors, tokens, and cost.
+
+Upgrading an older database adds the columns, fills them from the
+stored payloads, and runs one `VACUUM` to enable
+`auto_vacuum = INCREMENTAL`. After that, retention pruning returns
+freed pages to the file system.
+
 ## Safety
 
 By default payloads use `MY_PI_OBSERVABILITY_DETAIL=detailed`, which
