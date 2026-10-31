@@ -11,7 +11,6 @@
 	import { live } from '#lib/live.svelte.js';
 	import { recent_sessions } from '#lib/recent-sessions.svelte.js';
 	import { router } from '#lib/router.svelte.js';
-	import { theme } from '#lib/theme.svelte.js';
 	import OverviewView from '#lib/views/overview-view.svelte';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import { onMount } from 'svelte';
@@ -32,14 +31,17 @@
 
 	const route = $derived(router.route);
 
-	$effect(() => theme.apply());
-
-	$effect(() => {
-		void live.revision;
+	onMount(() => {
 		void recent_sessions.load();
+		const stop_refresh = live.on_refresh(
+			() => void recent_sessions.load(),
+		);
+		const disconnect = live.connect();
+		return () => {
+			stop_refresh();
+			disconnect();
+		};
 	});
-
-	onMount(() => live.connect());
 </script>
 
 <svelte:head
@@ -106,7 +108,11 @@
 					{:else}
 						{#await load_session_view() then module}
 							{#key route.id}
-								<module.default id={route.id} tab={route.tab} />
+								<module.default
+									id={route.id}
+									tab={route.tab}
+									span={route.span}
+								/>
 							{/key}
 						{/await}
 					{/if}

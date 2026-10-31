@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Badge } from '#lib/components/ui/badge/index.js';
-	import { Button } from '#lib/components/ui/button/index.js';
+	import * as ToggleGroup from '#lib/components/ui/toggle-group/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
 	import { clock, duration, tool_label } from '#lib/format.js';
 	import ArrowDownWideNarrowIcon from '@lucide/svelte/icons/arrow-down-wide-narrow';
@@ -20,20 +20,27 @@
 	);
 </script>
 
-<div class="flex justify-end gap-1 px-4 pb-2">
-	<Button
-		variant={order === 'time' ? 'secondary' : 'ghost'}
+<div class="flex justify-end px-4 pb-2">
+	<!-- Single choice: clicking the active item would clear it, so the
+		setter ignores empty values. -->
+	<ToggleGroup.Root
+		type="single"
 		size="sm"
-		aria-pressed={order === 'time'}
-		onclick={() => (order = 'time')}><ClockIcon />In order</Button
+		aria-label="Order tool calls"
+		bind:value={
+			() => order,
+			(value) => {
+				if (value === 'time' || value === 'slowest') order = value;
+			}
+		}
 	>
-	<Button
-		variant={order === 'slowest' ? 'secondary' : 'ghost'}
-		size="sm"
-		aria-pressed={order === 'slowest'}
-		onclick={() => (order = 'slowest')}
-		><ArrowDownWideNarrowIcon />Slowest first</Button
-	>
+		<ToggleGroup.Item value="time"
+			><ClockIcon />In order</ToggleGroup.Item
+		>
+		<ToggleGroup.Item value="slowest"
+			><ArrowDownWideNarrowIcon />Slowest first</ToggleGroup.Item
+		>
+	</ToggleGroup.Root>
 </div>
 <Table.Root>
 	<Table.Header>

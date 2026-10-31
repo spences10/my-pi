@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api } from '#lib/api.js';
 	import ToolLatencyChart from '#lib/charts/tool-latency-chart.svelte';
+	import FailuresList from '#lib/components/failures-list.svelte';
 	import StatTile from '#lib/components/stat-tile.svelte';
 	import ToolsTable from '#lib/components/tools-table.svelte';
 	import * as Alert from '#lib/components/ui/alert/index.js';
@@ -14,6 +15,10 @@
 	const tools = resource(() => {
 		void live.revision;
 		return api.tools(range.since());
+	});
+	const failures = resource(() => {
+		void live.revision;
+		return api.failures(range.since(), 30);
 	});
 
 	const rows = $derived(tools.data?.tools ?? []);
@@ -66,6 +71,19 @@
 			/>
 			<StatTile label="Time in tools" value={duration(total_ms)} />
 		</section>
+
+		<Card.Root class="pb-0">
+			<Card.Header>
+				<Card.Title>Recent failures</Card.Title>
+				<Card.Description>
+					Newest first. Open one to see its full output in the session
+					trace.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="max-h-112 overflow-auto border-t px-0">
+				<FailuresList failures={failures.data?.failures ?? []} />
+			</Card.Content>
+		</Card.Root>
 
 		<Card.Root>
 			<Card.Header>

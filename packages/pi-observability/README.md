@@ -96,10 +96,20 @@ token only in the `Authorization` header. The dashboard includes:
   tokens, and cost, searchable and filterable by project.
 - **Tools** — calls, errors, p50/p95/max duration, and total time per
   tool.
+- **Tools** also lists recent failures across sessions with their
+  error output; each links to the failing span in its session trace.
 - **Session detail** — totals, a per-turn chart of model, tool, and
-  other time, and tabs for turns, tool calls, a searchable event list
-  with a JSON payload drawer, and session context (cwd, session file,
-  model, reasoning settings, and initial prompts).
+  other time, and tabs:
+  - **Trace** (default) — each prompt as a timeline of turns, model
+    calls, and tool calls on a shared time axis, with nested tool
+    calls under their parent. Failed spans are outlined and marked;
+    "Failures only" and "Next failure" find them. Selecting a span
+    opens a drawer with its full input, error output, exit code,
+    tokens, cost, and the raw events, and puts the span in the URL
+    (`&span=<id>`).
+  - **Turns**, **Tools**, **Events** (searchable, with a JSON payload
+    drawer), and **Context** (cwd, session file, model, reasoning
+    settings, and initial prompts).
 - Commands, JSON payloads, and prompts are highlighted with
   [twinkleplop](https://twinkleplop.pngwn.at).
 

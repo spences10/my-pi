@@ -1,8 +1,10 @@
 import type {
 	DashboardSession,
+	FailureRow,
 	ObservabilityEvent,
 	OverviewResponse,
 	SessionSpansResponse,
+	SessionTimeline,
 	SessionStats,
 	ToolStats,
 	TraceSummary,
@@ -92,6 +94,12 @@ export const api = {
 		get_json<TraceSummary>(`${session_path(id)}/trace`),
 	spans: (id: string) =>
 		get_json<SessionSpansResponse>(`${session_path(id)}/spans`),
+	timeline: (id: string) =>
+		get_json<SessionTimeline>(`${session_path(id)}/timeline`),
+	failures: (since: string | null, limit = 50) =>
+		get_json<{ failures: FailureRow[] }>(
+			`/stats/failures${query({ since, limit })}`,
+		),
 	events: (id: string, limit = 1000) =>
 		get_json<{ events: DashboardEvent[] }>(
 			`${session_path(id)}/events${query({ limit })}`,

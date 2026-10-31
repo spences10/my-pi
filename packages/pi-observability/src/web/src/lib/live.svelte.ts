@@ -17,6 +17,7 @@ class Live {
 	readonly last_seen = new SvelteMap<string, number>();
 	readonly #session_revisions = new SvelteMap<string, number>();
 	readonly #listeners = new Set<(event: DashboardEvent) => void>();
+	readonly #refresh_listeners = new Set<() => void>();
 	#refresh_timer: ReturnType<typeof setTimeout> | null = null;
 	#pending_sessions = new Set<string>();
 
@@ -35,6 +36,12 @@ class Live {
 	on_event(listener: (event: DashboardEvent) => void): () => void {
 		this.#listeners.add(listener);
 		return () => this.#listeners.delete(listener);
+	}
+
+	/** Runs after each batched refresh, for loaders outside views. */
+	on_refresh(listener: () => void): () => void {
+		this.#refresh_listeners.add(listener);
+		return () => this.#refresh_listeners.delete(listener);
 	}
 
 	toggle_paused(): void {
@@ -63,6 +70,7 @@ class Live {
 				);
 			this.#pending_sessions.clear();
 			this.revision += 1;
+			for (const listener of this.#refresh_listeners) listener();
 		}, REFRESH_DELAY_MS);
 	}
 

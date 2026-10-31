@@ -91,12 +91,11 @@ export function short_id(id: string): string {
 	return id.length > 8 ? id.slice(0, 8) : id;
 }
 
-export function session_title(
-	session: Pick<
-		DashboardSession,
-		'session_id' | 'session_name' | 'agent_name'
-	>,
-): string {
+export function session_title(session: {
+	session_id: string;
+	session_name?: string | null;
+	agent_name?: string | null;
+}): string {
 	return (
 		session.session_name ||
 		session.agent_name ||

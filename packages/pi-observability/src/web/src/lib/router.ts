@@ -1,12 +1,24 @@
-export type SessionTab = 'turns' | 'tools' | 'events' | 'context';
+export type SessionTab =
+	| 'trace'
+	| 'turns'
+	| 'tools'
+	| 'events'
+	| 'context';
 
 export type Route =
 	| { name: 'overview' }
 	| { name: 'sessions' }
 	| { name: 'tools' }
-	| { name: 'session'; id: string; tab: SessionTab };
+	| {
+			name: 'session';
+			id: string;
+			tab: SessionTab;
+			/** Trace span to select, e.g. tool:<call id>. */
+			span: string | null;
+	  };
 
 const SESSION_TABS: SessionTab[] = [
+	'trace',
 	'turns',
 	'tools',
 	'events',
@@ -25,7 +37,8 @@ export function parse_route(url: URL): Route {
 		return {
 			name: 'session',
 			id,
-			tab: tab && SESSION_TABS.includes(tab) ? tab : 'turns',
+			tab: tab && SESSION_TABS.includes(tab) ? tab : 'trace',
+			span: url.searchParams.get('span'),
 		};
 	}
 	return { name: 'overview' };
@@ -38,12 +51,16 @@ export function href(route: Route): string {
 		view: 'session',
 		session: route.id,
 	});
-	if (route.tab !== 'turns') params.set('tab', route.tab);
+	if (route.tab !== 'trace') params.set('tab', route.tab);
+	if (route.span) params.set('span', route.span);
 	return `/?${params}`;
 }
 
-export const session_href = (id: string, tab: SessionTab = 'turns') =>
-	href({ name: 'session', id, tab });
+export const session_href = (
+	id: string,
+	tab: SessionTab = 'trace',
+	span: string | null = null,
+) => href({ name: 'session', id, tab, span });
 
 /** True for a plain left click on a same-origin link to the dashboard. */
 export function is_app_navigation(

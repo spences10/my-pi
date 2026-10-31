@@ -10,6 +10,9 @@ class Router {
 
 	navigate(target: string, { replace = false } = {}): void {
 		const next = new URL(target, window.location.href);
+		// Writing the same URL would still create a new route object and
+		// re-run every effect that reads the route.
+		if (next.href === this.url.href) return;
 		if (replace) history.replaceState(null, '', next);
 		else history.pushState(null, '', next);
 		const same_view =

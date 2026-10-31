@@ -25,11 +25,13 @@ class Theme {
 	constructor() {
 		system_dark.addEventListener('change', (event) => {
 			this.#system_dark = event.matches;
+			this.apply();
 		});
 	}
 
 	set(mode: ThemeMode): void {
 		this.mode = mode;
+		this.apply();
 		try {
 			if (mode === 'system') localStorage.removeItem(storage_key);
 			else localStorage.setItem(storage_key, mode);

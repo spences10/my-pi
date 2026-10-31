@@ -2,7 +2,6 @@
 	import type { DashboardEvent } from '#lib/api.js';
 	import CodeBlock from '#lib/components/code-block.svelte';
 	import { Badge } from '#lib/components/ui/badge/index.js';
-	import { ScrollArea } from '#lib/components/ui/scroll-area/index.js';
 	import * as Sheet from '#lib/components/ui/sheet/index.js';
 	import {
 		event_has_error,
@@ -22,7 +21,9 @@
 </script>
 
 <Sheet.Root bind:open>
-	<Sheet.Content class="w-full gap-0 sm:max-w-xl">
+	<Sheet.Content
+		class="gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[min(56rem,70vw)]"
+	>
 		{#if event}
 			<Sheet.Header class="border-b">
 				<Sheet.Title class="flex items-center gap-2">
@@ -38,9 +39,9 @@
 					<p class="text-sm break-words">{summary}</p>
 				{/if}
 			</Sheet.Header>
-			<ScrollArea class="min-h-0 flex-1 p-4">
+			<div class="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
 				<CodeBlock code={json} language="json" label="Payload" />
-			</ScrollArea>
+			</div>
 		{/if}
 	</Sheet.Content>
 </Sheet.Root>

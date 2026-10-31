@@ -30,18 +30,24 @@
 	import ContextTab from './session/context-tab.svelte';
 	import EventsTab from './session/events-tab.svelte';
 	import ToolsTab from './session/tools-tab.svelte';
+	import TraceTab from './session/trace-tab.svelte';
 	import TurnsTab from './session/turns-tab.svelte';
 
-	let { id, tab }: { id: string; tab: SessionTab } = $props();
+	let {
+		id,
+		tab,
+		span = null,
+	}: { id: string; tab: SessionTab; span?: string | null } = $props();
 
 	const detail = resource(async () => {
 		void live.session_revision(id);
-		const [trace, spans, events] = await Promise.all([
+		const [trace, spans, events, timeline] = await Promise.all([
 			api.trace(id),
 			api.spans(id),
 			api.events(id),
+			api.timeline(id),
 		]);
-		return { trace, spans, events: events.events };
+		return { trace, spans, events: events.events, timeline };
 	});
 
 	const session = $derived(detail.data?.trace.session ?? null);
@@ -68,6 +74,13 @@
 			replace: true,
 		});
 	}
+
+	// Keep the selected span in the URL so a link reopens it.
+	function select_span(span_id: string | null): void {
+		router.navigate(session_href(id, 'trace', span_id), {
+			replace: true,
+		});
+	}
 </script>
 
 <div
@@ -79,14 +92,14 @@
 	<Breadcrumb.Root>
 		<Breadcrumb.List>
 			<Breadcrumb.Item>
-				<Breadcrumb.Link href={href({ name: 'sessions' })}
-					>Sessions</Breadcrumb.Link
-				>
+				<Breadcrumb.Link href={href({ name: 'sessions' })}>
+					Sessions
+				</Breadcrumb.Link>
 			</Breadcrumb.Item>
 			<Breadcrumb.Separator />
-			<Breadcrumb.Item
-				>{session ? repo_name(session) : '…'}</Breadcrumb.Item
-			>
+			<Breadcrumb.Item>
+				{session ? repo_name(session) : '…'}
+			</Breadcrumb.Item>
 			<Breadcrumb.Separator />
 			<Breadcrumb.Item>
 				<Breadcrumb.Page>{short_id(id)}</Breadcrumb.Page>
@@ -117,9 +130,9 @@
 		<header class="flex flex-wrap items-start gap-x-4 gap-y-2">
 			<div class="min-w-0 flex-1">
 				<h2 class="flex items-center gap-1 text-2xl">
-					<span class="truncate"
-						>{session ? session_title(session) : short_id(id)}</span
-					>
+					<span class="truncate">
+						{session ? session_title(session) : short_id(id)}
+					</span>
 					<CopyButton value={id} label="Copy session id" />
 				</h2>
 				<p class="truncate font-mono text-xs text-muted-foreground">
@@ -128,18 +141,20 @@
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
 				{#if active}
-					<Badge variant="outline" class="gap-1.5"
-						><span class="size-1.5 rounded-full bg-success"
-						></span>Live</Badge
-					>
+					<Badge variant="outline" class="gap-1.5">
+						<span class="size-1.5 rounded-full bg-success"></span>
+						Live
+					</Badge>
 				{:else}
-					<Badge variant="secondary"
-						>Ended {date_time(session?.last_ts)}</Badge
-					>
+					<Badge variant="secondary">
+						Ended {date_time(session?.last_ts)}
+					</Badge>
 				{/if}
-				{#if session?.model}<Badge variant="outline" class="font-mono"
-						>{session.model}</Badge
-					>{/if}
+				{#if session?.model}
+					<Badge variant="outline" class="font-mono">
+						{session.model}
+					</Badge>
+				{/if}
 				{#each session?.tags ?? [] as tag (tag)}
 					<Badge variant="secondary">{tag}</Badge>
 				{/each}
@@ -202,21 +217,22 @@
 			<Tabs.Root value={tab} onValueChange={select_tab}>
 				<div class="flex flex-wrap items-center gap-2 px-4">
 					<Tabs.List>
-						<Tabs.Trigger value="turns"
-							>Turns <span class="text-muted-foreground"
-								>{turns.length}</span
-							></Tabs.Trigger
-						>
-						<Tabs.Trigger value="tools"
-							>Tools <span class="text-muted-foreground"
-								>{tools.length}</span
-							></Tabs.Trigger
-						>
-						<Tabs.Trigger value="events"
-							>Events <span class="text-muted-foreground"
-								>{events.length}</span
-							></Tabs.Trigger
-						>
+						<Tabs.Trigger value="trace">Trace</Tabs.Trigger>
+						<Tabs.Trigger value="turns">
+							Turns <span class="text-muted-foreground">
+								{turns.length}
+							</span>
+						</Tabs.Trigger>
+						<Tabs.Trigger value="tools">
+							Tools <span class="text-muted-foreground">
+								{tools.length}
+							</span>
+						</Tabs.Trigger>
+						<Tabs.Trigger value="events">
+							Events <span class="text-muted-foreground">
+								{events.length}
+							</span>
+						</Tabs.Trigger>
 						<Tabs.Trigger value="context">Context</Tabs.Trigger>
 					</Tabs.List>
 					{#if partial}
@@ -226,18 +242,26 @@
 						</span>
 					{/if}
 				</div>
-				<Tabs.Content value="turns" class="pt-2"
-					><TurnsTab {turns} /></Tabs.Content
-				>
-				<Tabs.Content value="tools" class="pt-2"
-					><ToolsTab {tools} /></Tabs.Content
-				>
-				<Tabs.Content value="events" class="pt-2"
-					><EventsTab {events} /></Tabs.Content
-				>
-				<Tabs.Content value="context" class="pt-2"
-					><ContextTab {session} {events} /></Tabs.Content
-				>
+				<Tabs.Content value="trace" class="pt-2">
+					<TraceTab
+						timeline={detail.data.timeline}
+						{events}
+						selected_id={span}
+						on_select={select_span}
+					/>
+				</Tabs.Content>
+				<Tabs.Content value="turns" class="pt-2">
+					<TurnsTab {turns} />
+				</Tabs.Content>
+				<Tabs.Content value="tools" class="pt-2">
+					<ToolsTab {tools} />
+				</Tabs.Content>
+				<Tabs.Content value="events" class="pt-2">
+					<EventsTab {events} />
+				</Tabs.Content>
+				<Tabs.Content value="context" class="pt-2">
+					<ContextTab {session} {events} />
+				</Tabs.Content>
 			</Tabs.Root>
 		</Card.Root>
 	{/if}

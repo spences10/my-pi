@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { DashboardEvent } from '#lib/api.js';
 	import CodeBlock from '#lib/components/code-block.svelte';
+	import { slide_open } from '#lib/motion.js';
 	import CopyButton from '#lib/components/copy-button.svelte';
 	import * as Collapsible from '#lib/components/ui/collapsible/index.js';
 	import { payload_value, text_preview } from '#lib/events.js';
@@ -88,12 +89,18 @@
 					>{text.length.toLocaleString()} characters</span
 				>
 			</Collapsible.Trigger>
-			<Collapsible.Content>
-				<CodeBlock
-					code={text}
-					language="markdown"
-					class="max-h-[32rem] rounded-none border-x-0 border-b-0"
-				/>
+			<Collapsible.Content forceMount>
+				{#snippet child({ props, open })}
+					{#if open}
+						<div {...props} transition:slide_open>
+							<CodeBlock
+								code={text}
+								language="markdown"
+								class="max-h-[32rem] rounded-none border-x-0 border-b-0"
+							/>
+						</div>
+					{/if}
+				{/snippet}
 			</Collapsible.Content>
 		</Collapsible.Root>
 	{/each}
