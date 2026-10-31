@@ -8,7 +8,6 @@ import { fileURLToPath } from 'node:url';
 import {
 	content_type,
 	read_dashboard_asset,
-	read_dashboard_font,
 	render_dashboard,
 } from './assets.js';
 import { authenticated_dashboard_url } from './dashboard-url.js';
@@ -219,10 +218,6 @@ export function start_observability_server(
 					content_type(req_url.pathname),
 					asset,
 				);
-			}
-			if (req_url.pathname.startsWith('/fonts/')) {
-				const font = read_dashboard_font(req_url.pathname);
-				if (font) return binary(res, 200, 'font/woff2', font);
 			}
 			if (!is_authorized(token, req.headers.authorization)) {
 				return json(res, 401, { error: 'unauthorized' });

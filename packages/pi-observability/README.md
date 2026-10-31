@@ -13,8 +13,8 @@
 
 Live local observability for Pi sessions. When enabled, the extension
 auto-starts a local server, streams redacted lifecycle events to it,
-and serves a browser trace dashboard with bottleneck, waterfall, and
-event-inspector views over Server-Sent Events.
+and serves a browser dashboard with overview, sessions, tools, and
+per-session trace views, updated live over Server-Sent Events.
 
 ## Installation
 
@@ -89,15 +89,26 @@ fragment carries the token to the browser without sending it in an
 HTTP query string. The browser removes the fragment and sends the
 token only in the `Authorization` header. The dashboard includes:
 
-- **Trace summary** — elapsed time, blocking time, errors, token, and
-  cost rollups for the selected session.
-- **Session context** — session id, friendly name when configured,
-  cwd, session file, provider, model, thinking/reasoning settings, and
-  initial user/system prompt previews.
-- **Waterfall bottlenecks** — normalized tool/provider/message spans
-  sorted by duration.
-- **Event inspector** — searchable event summaries with extracted key
-  fields and lazy JSON payload details.
+- **Overview** — cost, turns, tool calls, tool error rate, tokens, and
+  model latency (p50/p95) for the selected time range, with cost and
+  turns per day, the slowest tools, and recent sessions.
+- **Sessions** — every session in the range with turns, tool errors,
+  tokens, and cost, searchable and filterable by project.
+- **Tools** — calls, errors, p50/p95/max duration, and total time per
+  tool.
+- **Session detail** — totals, a per-turn chart of model, tool, and
+  other time, and tabs for turns, tool calls, a searchable event list
+  with a JSON payload drawer, and session context (cwd, session file,
+  model, reasoning settings, and initial prompts).
+
+The time range applies to every aggregate view. Live events refresh
+the open view about once a second; pause updates from the header.
+Views live in the query string (`/?view=tools`,
+`/?view=session&session=<id>`).
+
+The dashboard reads these authenticated JSON endpoints:
+`/stats/overview`, `/stats/tools`, `/stats/sessions` (each takes an
+ISO `since`), and `/sessions/<id>/spans`.
 
 Trace token and cost rollups follow Pi's persisted session accounting.
 They include assistant responses, nested LLM usage returned by tools,

@@ -351,7 +351,7 @@ describe('start_observability_server', () => {
 
 		const response = await fetch(server.url);
 		const html = await response.text();
-		expect(html).toContain('Pi Observability');
+		expect(html).toContain('π observability');
 		expect(html).toContain('<div id="app"></div>');
 	});
 

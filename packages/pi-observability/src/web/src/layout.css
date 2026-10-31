@@ -1,0 +1,245 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource-variable/mona-sans/wdth.css';
+@import '@fontsource-variable/martian-mono';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+	--background: #f5f6f7;
+	--foreground: #15171c;
+	--card: #eef0f2;
+	--card-foreground: #15171c;
+	--popover: #ffffff;
+	--popover-foreground: #15171c;
+	--primary: #15171c;
+	--primary-foreground: #f5f6f7;
+	--secondary: #e7e9ec;
+	--secondary-foreground: #15171c;
+	--muted: #e9ebee;
+	--muted-foreground: #5a5f6b;
+	/* accent is the text-safe link colour; signal is the raw fill */
+	--accent: #6d28d9;
+	--accent-foreground: #ffffff;
+	--signal: #7c3aed;
+	--destructive: #c4262e;
+	--warning: #a15c00;
+	--border: #dadde2;
+	--input: #dadde2;
+	--ring: #7c3aed;
+	--radius: 0.5rem;
+	/* Categorical series slots, checked with the dataviz palette
+	   validator (all pairs, light on --card). Charts use at most three. */
+	--chart-1: #7c3aed;
+	--chart-2: #1f9d6b;
+	--chart-3: #e8590c;
+	--success: #1a7f56;
+	--sidebar: #eef0f2;
+	--sidebar-foreground: #15171c;
+	--sidebar-primary: #15171c;
+	--sidebar-primary-foreground: #f5f6f7;
+	--sidebar-accent: #e2e5e9;
+	--sidebar-accent-foreground: #15171c;
+	--sidebar-border: #dadde2;
+	--sidebar-ring: #7c3aed;
+}
+
+.dark {
+	--background: #101114;
+	--foreground: #ecedef;
+	--card: #17191d;
+	--card-foreground: #ecedef;
+	--popover: #17191d;
+	--popover-foreground: #ecedef;
+	--primary: #ecedef;
+	--primary-foreground: #101114;
+	--secondary: #1f2126;
+	--secondary-foreground: #ecedef;
+	--muted: #1b1d22;
+	--muted-foreground: #9499a3;
+	--accent: #a78bfa;
+	--accent-foreground: #101114;
+	--signal: #8b5cf6;
+	--destructive: #f0616a;
+	--warning: #e0a030;
+	--border: #26282e;
+	--input: #26282e;
+	--ring: #8b5cf6;
+	/* Dark steps validated separately against the dark --card. */
+	--chart-1: #8b5cf6;
+	--chart-2: #2fae7a;
+	--chart-3: #dd5f20;
+	--success: #45c491;
+	--sidebar: #141519;
+	--sidebar-foreground: #ecedef;
+	--sidebar-primary: #ecedef;
+	--sidebar-primary-foreground: #101114;
+	--sidebar-accent: #1f2126;
+	--sidebar-accent-foreground: #ecedef;
+	--sidebar-border: #26282e;
+	--sidebar-ring: #8b5cf6;
+}
+
+/* layerchart reads these at runtime for tooltips, axes, and legends,
+   so they must be real variables, not inlined theme values. They
+   follow the light and dark tokens above. */
+:root {
+	color-scheme: light;
+	--color-surface-100: var(--popover);
+	--color-surface-200: var(--muted);
+	--color-surface-300: var(--popover);
+	--color-surface-content: var(--foreground);
+	--color-danger: var(--destructive);
+}
+
+/* Declared in CSS (not only from theme.svelte.ts) so the build defines
+   the variables its light-dark() fallback needs. */
+.dark {
+	color-scheme: dark;
+}
+
+@theme inline {
+	--font-sans:
+		'Mona Sans Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-ui: var(--font-sans);
+	--font-mono: 'Martian Mono Variable', ui-monospace, monospace;
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-warning: var(--warning);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-signal: var(--signal);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-success: var(--success);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(
+		--sidebar-primary-foreground
+	);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	html {
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+	body {
+		@apply bg-background text-foreground;
+		font-family: var(--font-sans);
+		font-size: 1rem;
+		line-height: 1.6;
+		font-feature-settings: 'ss01';
+	}
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-stretch: 112%;
+		font-weight: 680;
+		letter-spacing: -0.025em;
+		text-wrap: balance;
+	}
+	::selection {
+		background: color-mix(in oklab, var(--signal) 28%, transparent);
+	}
+}
+
+/* shadcn custom variants */
+@custom-variant data-open {
+	&:where([data-state='open']),
+	&:where([data-open]:not([data-open='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-closed {
+	&:where([data-state='closed']),
+	&:where([data-closed]:not([data-closed='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-checked {
+	&:where([data-state='checked']),
+	&:where([data-checked]:not([data-checked='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-unchecked {
+	&:where([data-state='unchecked']),
+	&:where([data-unchecked]:not([data-unchecked='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-selected {
+	&:where([data-selected]) {
+		@slot;
+	}
+}
+
+@custom-variant data-disabled {
+	&:where([data-disabled='true']),
+	&:where([data-disabled]:not([data-disabled='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-active {
+	&:where([data-state='active']),
+	&:where([data-active]:not([data-active='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-horizontal {
+	&:where([data-orientation='horizontal']) {
+		@slot;
+	}
+}
+
+@custom-variant data-vertical {
+	&:where([data-orientation='vertical']) {
+		@slot;
+	}
+}
+
+@utility no-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}

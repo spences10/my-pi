@@ -48,6 +48,16 @@ export default defineConfig({
 					},
 				},
 			},
+			{
+				files: ['packages/pi-observability/src/web/**/*.svelte'],
+				options: {
+					svelte: true,
+					sortTailwindcss: {
+						stylesheet:
+							'./packages/pi-observability/src/web/src/layout.css',
+					},
+				},
+			},
 		],
 	},
 	lint: {
