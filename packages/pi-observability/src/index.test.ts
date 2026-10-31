@@ -270,6 +270,26 @@ describe('payload safety', () => {
 		).toEqual({ nested: { api_key: '[REDACTED]', safe: 'ok' } });
 	});
 
+	it('keeps token counters but redacts token credentials', () => {
+		expect(
+			redact_value({
+				usage: {
+					totalTokens: 120,
+					max_tokens: 4096,
+					tokenCount: 7,
+				},
+				access_token: 'abc',
+				refreshToken: 'def',
+				token: 'ghi',
+			}),
+		).toEqual({
+			usage: { totalTokens: 120, max_tokens: 4096, tokenCount: 7 },
+			access_token: '[REDACTED]',
+			refreshToken: '[REDACTED]',
+			token: '[REDACTED]',
+		});
+	});
+
 	it('preserves useful nested detail by default', () => {
 		expect(
 			summarize_payload({

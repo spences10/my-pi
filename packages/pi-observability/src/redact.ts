@@ -1,5 +1,12 @@
 const SECRET_KEY_RE =
 	/(api[_-]?key|authorization|bearer|client[_-]?secret|cookie|password|secret|token)/i;
+// Usage counters such as totalTokens, max_tokens, or tokenCount hold
+// numbers, not credentials.
+const TOKEN_COUNT_KEY_RE = /(tokens|token[_-]?count)$/i;
+
+export function is_secret_key(key: string): boolean {
+	return SECRET_KEY_RE.test(key) && !TOKEN_COUNT_KEY_RE.test(key);
+}
 const SECRET_VALUE_PATTERNS = [
 	/\b[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b/g,
 	/\b(?:sk|pk|ghp|github_pat|glpat|xox[baprs])-?[A-Za-z0-9_-]{20,}\b/g,
@@ -21,7 +28,7 @@ export function redact_value(value: unknown): unknown {
 
 	const output: Record<string, unknown> = {};
 	for (const [key, item] of Object.entries(value)) {
-		output[key] = SECRET_KEY_RE.test(key)
+		output[key] = is_secret_key(key)
 			? '[REDACTED]'
 			: redact_value(item);
 	}
