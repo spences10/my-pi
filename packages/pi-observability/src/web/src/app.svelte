@@ -91,7 +91,7 @@
 				</header>
 
 				<main
-					class="mx-auto w-full max-w-[96rem] min-w-0 flex-1 p-4 md:p-6"
+					class="mx-auto w-full max-w-384 min-w-0 flex-1 p-4 md:p-6"
 				>
 					{#if route.name === 'overview'}
 						<OverviewView />
