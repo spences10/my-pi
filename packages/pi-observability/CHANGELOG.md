@@ -1,5 +1,16 @@
 # @spences10/pi-observability
 
+## 0.0.24
+
+### Patch Changes
+
+- b5822f7: Dashboard rebuilt with shadcn-svelte: overview, sessions,
+  tools, and session views with live charts and stats.
+- c3d695e: Keep token counts unredacted, trim repeated payloads, and
+  add versioned schema with span views.
+- 76e6f42: Add session trace view with full failure output, timeline
+  API, and Night Owl syntax highlighting.
+
 ## 0.0.23
 
 ### Patch Changes
