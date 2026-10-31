@@ -13,8 +13,8 @@
 
 Live local observability for Pi sessions. When enabled, the extension
 auto-starts a local server, streams redacted lifecycle events to it,
-and serves a browser trace dashboard with bottleneck, waterfall, and
-event-inspector views over Server-Sent Events.
+and serves a browser dashboard with overview, sessions, tools, and
+per-session trace views, updated live over Server-Sent Events.
 
 ## Installation
 
@@ -89,15 +89,39 @@ fragment carries the token to the browser without sending it in an
 HTTP query string. The browser removes the fragment and sends the
 token only in the `Authorization` header. The dashboard includes:
 
-- **Trace summary** — elapsed time, blocking time, errors, token, and
-  cost rollups for the selected session.
-- **Session context** — session id, friendly name when configured,
-  cwd, session file, provider, model, thinking/reasoning settings, and
-  initial user/system prompt previews.
-- **Waterfall bottlenecks** — normalized tool/provider/message spans
-  sorted by duration.
-- **Event inspector** — searchable event summaries with extracted key
-  fields and lazy JSON payload details.
+- **Overview** — cost, turns, tool calls, tool error rate, tokens, and
+  model latency (p50/p95) for the selected time range, with cost and
+  turns per day, the slowest tools, and recent sessions.
+- **Sessions** — every session in the range with turns, tool errors,
+  tokens, and cost, searchable and filterable by project.
+- **Tools** — calls, errors, p50/p95/max duration, and total time per
+  tool.
+- **Tools** also lists recent failures across sessions with their
+  error output; each links to the failing span in its session trace.
+- **Session detail** — totals, a per-turn chart of model, tool, and
+  other time, and tabs:
+  - **Trace** (default) — each prompt as a timeline of turns, model
+    calls, and tool calls on a shared time axis, with nested tool
+    calls under their parent. Failed spans are outlined and marked;
+    "Failures only" and "Next failure" find them. Selecting a span
+    opens a drawer with its full input, error output, exit code,
+    tokens, cost, and the raw events, and puts the span in the URL
+    (`&span=<id>`).
+  - **Turns**, **Tools**, **Events** (searchable, with a JSON payload
+    drawer), and **Context** (cwd, session file, model, reasoning
+    settings, and initial prompts).
+- Commands, JSON payloads, and prompts are highlighted with
+  [twinkleplop](https://twinkleplop.pngwn.at).
+
+The time range applies to every aggregate view. Live events refresh
+the open view about once a second; pause updates from the header.
+Views live in the query string (`/?view=tools`,
+`/?view=session&session=<id>`).
+
+The dashboard reads these authenticated JSON endpoints:
+`/stats/overview`, `/stats/tools`, `/stats/sessions`,
+`/stats/failures` (each takes an ISO `since`), `/sessions/<id>/spans`,
+and `/sessions/<id>/timeline`.
 
 Trace token and cost rollups follow Pi's persisted session accounting.
 They include assistant responses, nested LLM usage returned by tools,
@@ -155,10 +179,55 @@ Events are stored as ordered envelopes with:
 
 The extension listens for session, agent, turn, message, tool,
 provider, model, compaction, and branch events when the installed Pi
-version emits them. Session renames update stored dashboard metadata
+version emits them.
+
+Failed tool calls keep their full text output as `errorText` and the
+exit code as `exitCode` (detailed mode), after redaction.
+
+Some events are reduced before they are sent:
+
+- `tool_execution_update` events are not stored. The extension counts
+  them and adds the count to `tool_execution_end` as `updateCount`.
+- `provider_request` stores the request `instructions` (the system
+  prompt) as a fingerprint (`length` and a 16-character `sha256`
+  prefix). The `agent_start` event keeps the prompt preview.
+- Message summaries keep `role`, `stopReason`, `errorMessage`,
+  `durationMs`, and `thinkingLevel`, so provider latency and errors
+  are available without the message content.
+
+`provider_response` depends on the provider transport. Pi emits
+`after_provider_response` only for HTTP responses. The `openai-codex`
+provider uses WebSocket by default, so this event appears only when it
+falls back to SSE. Use `durationMs` on assistant `message_end` events
+for provider latency. Session renames update stored dashboard metadata
 from Pi's native `session_info_changed` event. `/sessions` and
 `/events/stream` support `pool`, `tag`, and `session_id` filters where
 relevant.
+
+## SQLite schema
+
+The schema source is `src/schema.sql` in this package. The current
+schema version is tracked with `PRAGMA user_version` (version 2).
+Databases from a newer version fail fast.
+
+At ingest the server copies these values from the payload into
+`events` columns: `turn_index`, `tool_call_id`, `tool_name`,
+`is_error`, `duration_ms`, `stop_reason`, `input_tokens`,
+`output_tokens`, `cache_read_tokens`, `cache_write_tokens`,
+`cost_usd`, `error_text`, `exit_code`, and `parent_tool_call_id`.
+Token and cost columns are set on `message_end` only.
+
+Two views join the events into spans:
+
+- `tool_spans` — one row per tool execution, with duration, error
+  flag, and update count.
+- `turn_spans` — one row per agent turn, with duration, provider and
+  tool time, tool calls and errors, tokens, and cost.
+
+Upgrading an older database adds the columns, fills them from the
+stored payloads, and runs one `VACUUM` to enable
+`auto_vacuum = INCREMENTAL`. After that, retention pruning returns
+freed pages to the file system.
 
 ## Safety
 
@@ -168,8 +237,19 @@ summarizing large arrays/objects and recursively redacting secrets.
 Set `MY_PI_OBSERVABILITY_DETAIL=summary` or
 `--observability-detail summary` for key-only nested object summaries.
 Raw payload mode is opt-in with `--observability-raw` or
-`MY_PI_OBSERVABILITY_RAW=true`; redaction and a payload byte cap still
-apply.
+`MY_PI_OBSERVABILITY_RAW=true`; redaction still applies. Redaction
+replaces the values of keys that look like credentials (for example
+`api_key`, `authorization`, `access_token`). Keys that count tokens,
+such as `totalTokens` or `max_tokens`, are kept.
+
+Events have no size cap by default; retention
+(`MY_PI_OBSERVABILITY_RETENTION_DAYS`,
+`MY_PI_OBSERVABILITY_MAX_EVENTS`) bounds the database. Set
+`MY_PI_OBSERVABILITY_MAX_PAYLOAD_BYTES` on the agent process to cap
+each event. The server rejects request bodies over
+`MY_PI_OBSERVABILITY_MAX_BODY_BYTES`; the extension then sends smaller
+batches, and stores a single event that is still too large as a
+truncated preview (or drops it if the preview is too large).
 
 This extension's generic `x-pi-session-id` attribution header is
 disabled by default and requires Pi 0.80.4 or newer. With vanilla

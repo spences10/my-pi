@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
 	content_type,
 	read_dashboard_asset,
-	read_dashboard_font,
 	render_dashboard,
 } from './assets.js';
 
@@ -33,14 +32,11 @@ describe('dashboard assets', () => {
 			'text/javascript; charset=utf-8',
 		);
 		expect(content_type('/assets/icon.svg')).toBe('image/svg+xml');
+		expect(content_type('/assets/mona-sans.woff2')).toBe(
+			'font/woff2',
+		);
 		expect(content_type('/assets/data.bin')).toBe(
 			'application/octet-stream',
 		);
-	});
-
-	it('does not read unexpected font paths', () => {
-		expect(
-			read_dashboard_font('/fonts/missing.woff2'),
-		).toBeUndefined();
 	});
 });

@@ -1,0 +1,44 @@
+/* Syntax colours: Light Owl on :root, Night Owl under .dark, from
+   @twinkleplop/theme-night-owl. This file only lays out the block. */
+@import '@twinkleplop/theme-night-owl';
+
+.twinkleplop {
+	color: var(--twp-identifier);
+	background: var(--twp-background);
+	font-family:
+		var(--font-mono, ui-monospace), SFMono-Regular, Menlo, Consolas,
+		monospace;
+	font-size: 0.75rem;
+	line-height: 1.7;
+	text-align: left;
+	white-space: pre;
+	word-spacing: normal;
+	word-break: normal;
+	overflow-wrap: normal;
+	tab-size: 2;
+	hyphens: none;
+	overflow: auto;
+	/* The gutter lives on each line */
+	padding-inline: 0;
+	padding-block: 0.5rem;
+}
+
+/* Each line is a full width row, as wide as the longest line when the
+   block scrolls */
+.twinkleplop code {
+	display: grid;
+	min-width: 100%;
+	width: max-content;
+	color: inherit;
+	font: inherit;
+	white-space: inherit;
+}
+
+.twinkleplop .l {
+	min-height: 1lh;
+	padding-inline: var(--code-gutter, 0.75rem);
+}
+
+.twinkleplop :is(.space, .tab, .newline) {
+	white-space: pre;
+}

@@ -4,22 +4,6 @@ const DASHBOARD_HTML_URL = new URL(
 	'./web/index.html',
 	import.meta.url,
 );
-const FONT_URLS = new Map([
-	[
-		'/fonts/victor-mono-latin-400-normal.woff2',
-		new URL(
-			'./fonts/victor-mono-latin-400-normal.woff2',
-			import.meta.url,
-		),
-	],
-	[
-		'/fonts/victor-mono-latin-700-normal.woff2',
-		new URL(
-			'./fonts/victor-mono-latin-700-normal.woff2',
-			import.meta.url,
-		),
-	],
-]);
 const SERVER_STARTED_AT = new Date().toISOString();
 
 function read_dashboard_html(): string {
@@ -42,14 +26,9 @@ export function content_type(pathname: string): string {
 	if (pathname.endsWith('.js'))
 		return 'text/javascript; charset=utf-8';
 	if (pathname.endsWith('.svg')) return 'image/svg+xml';
+	if (pathname.endsWith('.woff2')) return 'font/woff2';
+	if (pathname.endsWith('.woff')) return 'font/woff';
 	return 'application/octet-stream';
-}
-
-export function read_dashboard_font(
-	pathname: string,
-): Buffer | undefined {
-	const url = FONT_URLS.get(pathname);
-	return url ? readFileSync(url) : undefined;
 }
 
 function escape_html(value: string): string {

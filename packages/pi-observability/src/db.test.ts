@@ -10,6 +10,10 @@ import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { prepare_db } from './db.js';
+import {
+	derive_event_columns,
+	event_column_values,
+} from './event-columns.js';
 
 const dirs: string[] = [];
 
@@ -95,6 +99,244 @@ describe('prepare_db', () => {
 			}>;
 			expect(columns.map((column) => column.name)).toContain(
 				'session_name',
+			);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('migrates a version 0 events table, backfills columns, and enables incremental vacuum', () => {
+		const db_path = tmp_db();
+		mkdirSync(dirname(db_path), { recursive: true });
+		const legacy = new DatabaseSync(db_path);
+		legacy.exec(`
+			CREATE TABLE events (
+				event_id TEXT PRIMARY KEY,
+				session_id TEXT NOT NULL,
+				seq INTEGER NOT NULL,
+				ts TEXT NOT NULL,
+				type TEXT NOT NULL,
+				pool TEXT NOT NULL DEFAULT 'default',
+				tags_json TEXT NOT NULL DEFAULT '[]',
+				payload_json TEXT NOT NULL,
+				provider TEXT,
+				model TEXT
+			)
+		`);
+		const insert = legacy.prepare(
+			'INSERT INTO events (event_id, session_id, seq, ts, type, payload_json) VALUES (?, ?, ?, ?, ?, ?)',
+		);
+		const rows: Array<[string, string, unknown]> = [
+			['2026-10-31T10:00:00.000Z', 'turn_start', { turnIndex: 0 }],
+			[
+				'2026-10-31T10:00:00.100Z',
+				'tool_execution_start',
+				{ toolCallId: 'c1', toolName: 'bash' },
+			],
+			[
+				'2026-10-31T10:00:00.400Z',
+				'tool_execution_end',
+				{
+					toolCallId: 'c1',
+					toolName: 'bash',
+					isError: true,
+					durationMs: 250,
+				},
+			],
+			[
+				'2026-10-31T10:00:01.000Z',
+				'message_end',
+				{
+					message: {
+						role: 'assistant',
+						durationMs: 600,
+						usage: {
+							input: 100,
+							output: 20,
+							cacheRead: 5,
+							cacheWrite: 0,
+							totalTokens: '[REDACTED]',
+							cost: { total: 0.01 },
+						},
+					},
+				},
+			],
+			[
+				'2026-10-31T10:00:02.000Z',
+				'turn_end',
+				{ turnIndex: 0, message: { usage: { input: 100 } } },
+			],
+		];
+		rows.forEach(([ts, type, payload], seq) =>
+			insert.run(
+				`e${seq}`,
+				's1',
+				seq,
+				ts,
+				type,
+				JSON.stringify(payload),
+			),
+		);
+		legacy.close();
+
+		const { db } = prepare_db(db_path);
+		try {
+			expect(db.prepare('PRAGMA user_version').get()).toMatchObject({
+				user_version: 2,
+			});
+			expect(db.prepare('PRAGMA auto_vacuum').get()).toMatchObject({
+				auto_vacuum: 2,
+			});
+			expect(
+				db
+					.prepare(
+						'SELECT tool_name, duration_ms, is_error, update_count FROM tool_spans',
+					)
+					.all(),
+			).toEqual([
+				{
+					tool_name: 'bash',
+					duration_ms: 250,
+					is_error: 1,
+					update_count: null,
+				},
+			]);
+			expect(
+				db
+					.prepare(
+						'SELECT start_seq, turn_index, duration_ms, tool_calls, tool_errors, tool_ms, provider_ms, input_tokens, output_tokens, cache_read_tokens, cost_usd FROM turn_spans',
+					)
+					.get(),
+			).toMatchObject({
+				start_seq: 0,
+				turn_index: 0,
+				tool_calls: 1,
+				tool_errors: 1,
+				tool_ms: 250,
+				provider_ms: 600,
+				input_tokens: 100,
+				output_tokens: 20,
+				cache_read_tokens: 5,
+				cost_usd: 0.01,
+			});
+		} finally {
+			db.close();
+		}
+	});
+
+	it('pairs repeated turn indexes with the next turn_end', () => {
+		const { db, statements } = prepare_db(tmp_db());
+		try {
+			const types = [
+				'turn_start',
+				'turn_end',
+				'turn_start',
+				'turn_end',
+			];
+			types.forEach((type, seq) =>
+				statements.insert_event.run(
+					`e${seq}`,
+					's1',
+					seq,
+					`2026-10-31T10:00:0${seq}.000Z`,
+					type,
+					'default',
+					'[]',
+					'{"turnIndex":0}',
+					null,
+					null,
+					...event_column_values(
+						derive_event_columns(type, { turnIndex: 0 }),
+					),
+				),
+			);
+			expect(
+				db
+					.prepare(
+						'SELECT start_seq, duration_ms FROM turn_spans ORDER BY start_seq',
+					)
+					.all(),
+			).toEqual([
+				{ start_seq: 0, duration_ms: 1000 },
+				{ start_seq: 2, duration_ms: 1000 },
+			]);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('refuses databases from a newer schema version', () => {
+		const db_path = tmp_db();
+		mkdirSync(dirname(db_path), { recursive: true });
+		const future = new DatabaseSync(db_path);
+		future.exec('PRAGMA user_version = 99');
+		future.close();
+		expect(() => prepare_db(db_path)).toThrow(
+			'schema version 99 is newer',
+		);
+	});
+
+	it('creates new databases with incremental vacuum and no rebuild', () => {
+		const { db } = prepare_db(tmp_db());
+		try {
+			expect(db.prepare('PRAGMA auto_vacuum').get()).toMatchObject({
+				auto_vacuum: 2,
+			});
+			expect(db.prepare('PRAGMA user_version').get()).toMatchObject({
+				user_version: 2,
+			});
+		} finally {
+			db.close();
+		}
+	});
+
+	it('upgrades a version 1 database with failure columns and new views', () => {
+		const db_path = tmp_db();
+		const first = prepare_db(db_path);
+		first.db.exec(`
+			DROP VIEW tool_spans;
+			CREATE VIEW tool_spans AS SELECT 1 AS old_view;
+			PRAGMA user_version = 1;
+		`);
+		first.db
+			.prepare(
+				`INSERT INTO events (event_id, session_id, seq, ts, type, payload_json)
+			VALUES ('e1', 's1', 0, '2026-10-31T10:00:00.000Z', 'tool_execution_end', ?)`,
+			)
+			.run(
+				JSON.stringify({
+					toolCallId: 'c1',
+					parentToolCallId: 'p1',
+					isError: true,
+					errorText: 'boom',
+					exitCode: 3,
+				}),
+			);
+		first.db.close();
+
+		const { db } = prepare_db(db_path);
+		try {
+			expect(db.prepare('PRAGMA user_version').get()).toMatchObject({
+				user_version: 2,
+			});
+			expect(
+				db
+					.prepare(
+						'SELECT error_text, exit_code, parent_tool_call_id FROM events',
+					)
+					.get(),
+			).toEqual({
+				error_text: 'boom',
+				exit_code: 3,
+				parent_tool_call_id: 'p1',
+			});
+			const columns = (
+				db.prepare('PRAGMA table_info(tool_spans)').all() as Array<{
+					name: string;
+				}>
+			).map((column) => column.name);
+			expect(columns).toEqual(
+				expect.arrayContaining(['error_text', 'exit_code']),
 			);
 		} finally {
 			db.close();

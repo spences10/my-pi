@@ -351,7 +351,7 @@ describe('start_observability_server', () => {
 
 		const response = await fetch(server.url);
 		const html = await response.text();
-		expect(html).toContain('Pi Observability');
+		expect(html).toContain('π observability');
 		expect(html).toContain('<div id="app"></div>');
 	});
 
@@ -494,6 +494,136 @@ describe('start_observability_server', () => {
 			(await fetch(`${server.url}/sessions?token=dev-token`)).status,
 		).toBe(401);
 		expect((await fetch(`${server.url}/sessions`)).status).toBe(200);
+	});
+
+	it('serves stats and session spans behind header auth', async () => {
+		const server = start_observability_server({
+			host: '127.0.0.1',
+			port: test_port(),
+			token: 'stats-token',
+			db_path: tmp_db_path(),
+			log: false,
+		});
+		servers.push(server);
+		await wait_for_health(server.url);
+
+		const base = Date.now();
+		const ts = (offset: number) =>
+			new Date(base + offset).toISOString();
+		const events: ObservabilityEvent[] = [
+			{
+				...event(0),
+				ts: ts(0),
+				type: 'turn_start',
+				payload: { turnIndex: 0 },
+			},
+			{
+				...event(1),
+				ts: ts(10),
+				type: 'tool_execution_start',
+				payload: { toolCallId: 'c1', toolName: 'bash' },
+			},
+			{
+				...event(2),
+				ts: ts(250),
+				type: 'tool_execution_end',
+				payload: {
+					toolCallId: 'c1',
+					toolName: 'bash',
+					isError: true,
+					durationMs: 240,
+				},
+			},
+			{
+				...event(3),
+				ts: ts(900),
+				type: 'message_end',
+				payload: {
+					message: {
+						role: 'assistant',
+						durationMs: 600,
+						usage: { input: 50, output: 5, cost: { total: 0.02 } },
+					},
+				},
+			},
+			{
+				...event(4),
+				ts: ts(1000),
+				type: 'turn_end',
+				payload: { turnIndex: 0 },
+			},
+		];
+		const ingest = await fetch(`${server.url}/events`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(events),
+		});
+		expect(await ingest.json()).toMatchObject({ ingested: 5 });
+
+		const overview = (await (
+			await fetch(`${server.url}/stats/overview?since=not-a-date`)
+		).json()) as Record<string, unknown>;
+		expect(overview).toMatchObject({
+			since: null,
+			totals: {
+				sessions: 1,
+				turns: 1,
+				tool_calls: 1,
+				tool_errors: 1,
+				input_tokens: 50,
+				provider_p50_ms: 600,
+			},
+			tools: [{ name: 'bash', calls: 1, errors: 1, max_ms: 240 }],
+			sessions: [{ session_id: 'session-1', turns: 1 }],
+		});
+
+		const spans = (await (
+			await fetch(`${server.url}/sessions/session-1/spans`)
+		).json()) as Record<string, unknown>;
+		expect(spans).toMatchObject({
+			turns: [{ turn_index: 0, provider_ms: 600, tool_ms: 240 }],
+			tools: [{ tool_call_id: 'c1', is_error: 1, duration_ms: 240 }],
+		});
+
+		const timeline = (await (
+			await fetch(`${server.url}/sessions/session-1/timeline`)
+		).json()) as { runs: Array<{ children: unknown[] }> };
+		expect(timeline.runs.length).toBeGreaterThan(0);
+		expect(JSON.stringify(timeline)).toContain('"kind":"tool"');
+
+		const failures = (await (
+			await fetch(`${server.url}/stats/failures`)
+		).json()) as { failures: unknown[] };
+		expect(failures.failures).toEqual([
+			expect.objectContaining({
+				kind: 'tool',
+				session_id: 'session-1',
+				name: 'bash',
+				span_id: 'tool:c1',
+			}),
+		]);
+
+		const tools = (await (
+			await fetch(`${server.url}/stats/tools`)
+		).json()) as { tools: unknown[] };
+		expect(tools.tools).toHaveLength(1);
+		const sessions = (await (
+			await fetch(`${server.url}/stats/sessions?limit=1`)
+		).json()) as { sessions: unknown[] };
+		expect(sessions.sessions).toHaveLength(1);
+
+		for (const path of [
+			'/stats/overview',
+			'/stats/tools',
+			'/stats/sessions',
+			'/sessions/session-1/spans',
+			'/sessions/session-1/timeline',
+			'/stats/failures',
+		]) {
+			expect(
+				(await fetch(`${server.url}${path}?unauthorized=1`)).status,
+			).toBe(401);
+		}
 	});
 
 	it('broadcasts ingested events to SSE subscribers', async () => {

@@ -4,10 +4,12 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import observability, {
 	create_event_envelope,
+	EventQueue,
 	parse_tags,
 	resolve_dashboard_command,
 	resolve_observability_config,
 	summarize_payload,
+	text_fingerprint,
 } from './index.js';
 import { redact_value, truncate_json_value } from './redact.js';
 import type { ObservabilityEvent } from './types.js';
@@ -270,6 +272,26 @@ describe('payload safety', () => {
 		).toEqual({ nested: { api_key: '[REDACTED]', safe: 'ok' } });
 	});
 
+	it('keeps token counters but redacts token credentials', () => {
+		expect(
+			redact_value({
+				usage: {
+					totalTokens: 120,
+					max_tokens: 4096,
+					tokenCount: 7,
+				},
+				access_token: 'abc',
+				refreshToken: 'def',
+				token: 'ghi',
+			}),
+		).toEqual({
+			usage: { totalTokens: 120, max_tokens: 4096, tokenCount: 7 },
+			access_token: '[REDACTED]',
+			refreshToken: '[REDACTED]',
+			token: '[REDACTED]',
+		});
+	});
+
 	it('preserves useful nested detail by default', () => {
 		expect(
 			summarize_payload({
@@ -324,6 +346,53 @@ describe('payload safety', () => {
 				},
 			},
 		});
+	});
+
+	it('keeps provider latency and stop reason on assistant messages', () => {
+		expect(
+			summarize_payload({
+				message: {
+					role: 'assistant',
+					stopReason: 'error',
+					errorMessage: 'rate limited',
+					durationMs: 1840,
+					content: [{ type: 'text', text: 'secret body' }],
+				},
+			}),
+		).toEqual({
+			message: {
+				type: 'object',
+				keys: [
+					'role',
+					'stopReason',
+					'errorMessage',
+					'durationMs',
+					'content',
+				],
+				role: 'assistant',
+				stopReason: 'error',
+				errorMessage: 'rate limited',
+				durationMs: 1840,
+			},
+		});
+	});
+
+	it('stores a fingerprint instead of provider request instructions', () => {
+		const instructions = 'You are a coding agent. '.repeat(200);
+		const summary = summarize_payload({
+			payload: { model: 'm', instructions },
+		}) as { payload: Record<string, unknown> };
+		expect(summary.payload.instructions).toEqual(
+			text_fingerprint(instructions),
+		);
+		expect(text_fingerprint(instructions)).toMatchObject({
+			type: 'string',
+			length: instructions.length,
+			sha256: expect.stringMatching(/^[0-9a-f]{16}$/),
+		});
+		expect(text_fingerprint('a').sha256).not.toBe(
+			text_fingerprint('b').sha256,
+		);
 	});
 
 	it('truncates large json values', () => {
@@ -382,6 +451,55 @@ describe('session names', () => {
 	});
 });
 
+describe('tool execution updates', () => {
+	it('counts updates on the end event instead of sending each one', async () => {
+		const harness = observability_harness();
+		await harness.trigger('session_start');
+		for (let i = 0; i < 3; i += 1)
+			await harness.trigger('tool_execution_update', {
+				type: 'tool_execution_update',
+				toolCallId: 'call-1',
+				toolName: 'bash',
+				partialResult: { content: [] },
+			});
+		await harness.trigger('tool_execution_end', {
+			type: 'tool_execution_end',
+			toolCallId: 'call-1',
+			toolName: 'bash',
+			isError: false,
+			durationMs: 42,
+		});
+		await harness.trigger('tool_execution_end', {
+			type: 'tool_execution_end',
+			toolCallId: 'call-2',
+			toolName: 'read',
+			isError: false,
+		});
+		await harness.trigger('session_shutdown');
+		expect(
+			harness.sent.some(
+				(event) => event.type === 'tool_execution_update',
+			),
+		).toBe(false);
+		expect(
+			harness.sent
+				.filter((event) => event.type === 'tool_execution_end')
+				.map((event) => event.payload),
+		).toEqual([
+			expect.objectContaining({
+				toolCallId: 'call-1',
+				updateCount: 3,
+				durationMs: 42,
+			}),
+			expect.objectContaining({
+				toolCallId: 'call-2',
+				updateCount: 0,
+			}),
+		]);
+		harness.fetch_mock.mockRestore();
+	});
+});
+
 describe('create_event_envelope', () => {
 	it('adds ordering and session identity', () => {
 		const event = create_event_envelope(
@@ -408,5 +526,200 @@ describe('create_event_envelope', () => {
 			payload: { toolName: 'read' },
 		});
 		expect(event.event_id).toEqual(expect.any(String));
+	});
+});
+
+function queue_event(seq: number, text = 'ok'): ObservabilityEvent {
+	return {
+		event_id: `e${seq}`,
+		ts: '2026-10-31T10:00:00.000Z',
+		type: 'tool_result',
+		session_id: 's1',
+		cwd: '/repo',
+		pool: 'default',
+		tags: [],
+		seq,
+		payload: { text },
+	};
+}
+
+describe('EventQueue body limit', () => {
+	function limited_server(max_bytes: number) {
+		const accepted: ObservabilityEvent[] = [];
+		let requests = 0;
+		const fetch_mock = vi
+			.spyOn(globalThis, 'fetch')
+			.mockImplementation(async (_input, init) => {
+				requests += 1;
+				const body = typeof init?.body === 'string' ? init.body : '';
+				if (Buffer.byteLength(body) > max_bytes)
+					return new Response(JSON.stringify({ max_bytes }), {
+						status: 413,
+					});
+				accepted.push(...(JSON.parse(body) as ObservabilityEvent[]));
+				return new Response('{}', { status: 200 });
+			});
+		return { accepted, fetch_mock, requests: () => requests };
+	}
+
+	it('splits a rejected batch instead of retrying it forever', async () => {
+		const server = limited_server(700);
+		const queue = new EventQueue('http://obs.test', undefined, 4);
+		for (let seq = 0; seq < 4; seq += 1)
+			queue.push(queue_event(seq, 'x'.repeat(120)));
+		await vi.waitFor(() =>
+			expect(server.accepted.map((event) => event.seq)).toEqual([
+				0, 1, 2, 3,
+			]),
+		);
+		await queue.stop();
+		server.fetch_mock.mockRestore();
+	});
+
+	it('shrinks one oversized event, keeps later events flowing', async () => {
+		const server = limited_server(2_000);
+		const queue = new EventQueue('http://obs.test', undefined, 1);
+		queue.push(queue_event(0, 'y'.repeat(10_000)));
+		queue.push(queue_event(1));
+		await vi.waitFor(() => expect(server.accepted).toHaveLength(2));
+		expect(server.accepted[0]?.payload).toMatchObject({
+			truncated: true,
+		});
+		expect(server.accepted[1]?.payload).toEqual({ text: 'ok' });
+		await queue.stop();
+		server.fetch_mock.mockRestore();
+	});
+
+	it('drops an event that is still too large after shrinking', async () => {
+		const server = limited_server(10);
+		const queue = new EventQueue('http://obs.test', undefined, 1);
+		queue.push(queue_event(0, 'z'.repeat(5_000)));
+		await vi.waitFor(() => expect(server.requests()).toBe(2));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(server.requests()).toBe(2);
+		expect(server.accepted).toHaveLength(0);
+		await queue.stop();
+		server.fetch_mock.mockRestore();
+	});
+});
+
+describe('payload cap', () => {
+	it('keeps large payloads whole unless a cap is configured', () => {
+		const session = {
+			session_id: 's1',
+			cwd: '/repo',
+			pool: 'default',
+			tags: [],
+		};
+		const payload = {
+			prompt: 'p'.repeat(100),
+			detail: 'd'.repeat(50_000),
+		};
+		const uncapped = create_event_envelope(
+			'custom',
+			payload,
+			session,
+			0,
+			{
+				raw_payloads: true,
+				detail_level: 'detailed',
+				max_payload_bytes: 0,
+			},
+		);
+		expect(uncapped.payload).toEqual(payload);
+		const capped = create_event_envelope(
+			'custom',
+			payload,
+			session,
+			0,
+			{
+				raw_payloads: true,
+				detail_level: 'detailed',
+				max_payload_bytes: 1_000,
+			},
+		);
+		expect(capped.payload).toMatchObject({ truncated: true });
+	});
+});
+
+describe('failure details', () => {
+	const output = `ls: cannot access '/does-not-exist': No such file\n${'x'.repeat(5_000)}`;
+
+	it('keeps the full error text and exit code of a failed tool result', () => {
+		expect(
+			summarize_payload({
+				type: 'tool_result',
+				toolName: 'bash',
+				toolCallId: 'c1',
+				isError: true,
+				content: [{ type: 'text', text: output }],
+				structuredContent: { exit_code: 2, output },
+			}),
+		).toMatchObject({
+			errorText: output,
+			exitCode: 2,
+			isError: true,
+		});
+	});
+
+	it('reads failures nested under result on tool_execution_end', () => {
+		expect(
+			summarize_payload({
+				type: 'tool_execution_end',
+				toolCallId: 'c1',
+				parentToolCallId: 'p1',
+				isError: true,
+				result: {
+					content: [
+						{ type: 'text', text: 'first' },
+						{ type: 'image', data: 'abc' },
+						{ type: 'text', text: 'second' },
+					],
+					details: { exitCode: 1 },
+				},
+			}),
+		).toMatchObject({
+			errorText: 'first\nsecond',
+			exitCode: 1,
+			parentToolCallId: 'p1',
+		});
+	});
+
+	it('adds nothing to successful calls or summary mode', () => {
+		const success = summarize_payload({
+			isError: false,
+			content: [{ type: 'text', text: 'ok' }],
+		});
+		expect(success).not.toHaveProperty('errorText');
+		const summary = summarize_payload(
+			{ isError: true, content: [{ type: 'text', text: 'boom' }] },
+			'summary',
+		);
+		expect(summary).not.toHaveProperty('errorText');
+	});
+
+	it('redacts secrets inside the error text', () => {
+		const event = create_event_envelope(
+			'tool_result',
+			{
+				isError: true,
+				content: [
+					{
+						type: 'text',
+						text: 'auth failed for ghp_abcdefghijklmnopqrstuvwxyz0123456789',
+					},
+				],
+			},
+			{ session_id: 's1', cwd: '/repo', pool: 'default', tags: [] },
+			0,
+			{
+				raw_payloads: false,
+				detail_level: 'detailed',
+				max_payload_bytes: 0,
+			},
+		);
+		expect(event.payload).toMatchObject({
+			errorText: 'auth failed for [REDACTED]',
+		});
 	});
 });

@@ -6,8 +6,10 @@
 		"allowJs": true,
 		"checkJs": true,
 		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"lib": ["ES2024", "DOM", "DOM.Iterable"],
 		"types": ["vite/client"]
 	},
 	"include": ["src/**/*.ts", "src/**/*.svelte"],
-	"exclude": ["node_modules"]
+	"exclude": ["node_modules", "src/**/*.test.ts"]
 }

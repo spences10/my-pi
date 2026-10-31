@@ -8,20 +8,23 @@ import { fileURLToPath } from 'node:url';
 import {
 	content_type,
 	read_dashboard_asset,
-	read_dashboard_font,
 	render_dashboard,
 } from './assets.js';
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { prepare_db } from './db.js';
 import {
-	create_health_proof,
-	valid_health_challenge,
-} from './health-auth.js';
+	derive_event_columns,
+	event_column_values,
+} from './event-columns.js';
 import {
 	to_row_event,
 	to_session_row,
 	valid_event,
 } from './event-rows.js';
+import {
+	create_health_proof,
+	valid_health_challenge,
+} from './health-auth.js';
 import {
 	binary,
 	BodyTooLargeError,
@@ -39,6 +42,8 @@ import type {
 	ObservabilityServerOptions,
 	RunningObservabilityServer,
 } from './server-options.js';
+import { create_stats_queries, parse_since } from './stats.js';
+import { create_timeline_query } from './timeline.js';
 import { trace_summary } from './trace-summary.js';
 import type { ObservabilityEvent } from './types.js';
 
@@ -77,6 +82,8 @@ export function start_observability_server(
 ): RunningObservabilityServer {
 	const token = options.token || generate_observability_token();
 	const { db, statements } = prepare_db(options.db_path);
+	const stats = create_stats_queries(db);
+	const timeline = create_timeline_query(db);
 	let next_subscriber_id = 1;
 	const subscribers = new Map<number, Subscriber>();
 
@@ -111,11 +118,20 @@ export function start_observability_server(
 	}
 
 	function prune_events(): void {
-		statements.delete_old_events.run(options.retention_days ?? 14);
-		statements.delete_over_limit_events.run(
-			options.max_events ?? 100_000,
-		);
+		const deleted =
+			Number(
+				statements.delete_old_events.run(options.retention_days ?? 14)
+					.changes,
+			) +
+			Number(
+				statements.delete_over_limit_events.run(
+					options.max_events ?? 100_000,
+				).changes,
+			);
 		statements.delete_orphan_sessions.run();
+		// Return pages freed by retention to the OS so the file does not
+		// keep its peak size.
+		if (deleted > 0) db.exec('PRAGMA incremental_vacuum');
 	}
 
 	function ingest(
@@ -141,6 +157,9 @@ export function start_observability_server(
 			JSON.stringify(server_event.payload ?? {}),
 			server_event.provider ?? null,
 			server_event.model ?? null,
+			...event_column_values(
+				derive_event_columns(server_event.type, server_event.payload),
+			),
 		);
 		if (result.changes === 0) return null;
 		statements.upsert_session.run(
@@ -201,10 +220,6 @@ export function start_observability_server(
 					content_type(req_url.pathname),
 					asset,
 				);
-			}
-			if (req_url.pathname.startsWith('/fonts/')) {
-				const font = read_dashboard_font(req_url.pathname);
-				if (font) return binary(res, 200, 'font/woff2', font);
 			}
 			if (!is_authorized(token, req.headers.authorization)) {
 				return json(res, 401, { error: 'unauthorized' });
@@ -269,9 +284,60 @@ export function start_observability_server(
 				});
 				return json(res, 200, { sessions });
 			}
+			if (req_url.pathname === '/stats/overview') {
+				return json(
+					res,
+					200,
+					stats.overview(
+						parse_since(req_url.searchParams.get('since')),
+						bounded_limit(req_url.searchParams.get('limit'), 20, 200),
+					),
+				);
+			}
+			if (req_url.pathname === '/stats/tools') {
+				return json(res, 200, {
+					tools: stats.tool_stats(
+						parse_since(req_url.searchParams.get('since')),
+					),
+				});
+			}
+			if (req_url.pathname === '/stats/sessions') {
+				return json(res, 200, {
+					sessions: stats.session_stats(
+						parse_since(req_url.searchParams.get('since')),
+						bounded_limit(
+							req_url.searchParams.get('limit'),
+							100,
+							500,
+						),
+					),
+				});
+			}
+			if (req_url.pathname === '/stats/failures') {
+				return json(res, 200, {
+					failures: stats.failures(
+						parse_since(req_url.searchParams.get('since')),
+						bounded_limit(req_url.searchParams.get('limit'), 50, 500),
+					),
+				});
+			}
 			const session_route = req_url.pathname.match(
-				/^\/sessions\/([^/]+)\/(events|trace)$/,
+				/^\/sessions\/([^/]+)\/(events|trace|spans|timeline)$/,
 			);
+			if (session_route?.[2] === 'timeline') {
+				return json(
+					res,
+					200,
+					timeline(decodeURIComponent(session_route[1])),
+				);
+			}
+			if (session_route?.[2] === 'spans') {
+				return json(
+					res,
+					200,
+					stats.session_spans(decodeURIComponent(session_route[1])),
+				);
+			}
 			if (session_route) {
 				const session_id = decodeURIComponent(session_route[1]);
 				const is_trace = session_route[2] === 'trace';
