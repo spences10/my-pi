@@ -1,9 +1,9 @@
-import { losslessCompressPngSync } from '@napi-rs/image';
-import { Resvg } from '@resvg/resvg-js';
 import type {
 	ExtensionContext,
 	Theme,
 } from '@earendil-works/pi-coding-agent';
+import { losslessCompressPngSync } from '@napi-rs/image';
+import { Resvg } from '@resvg/resvg-js';
 import { writeFileSync } from 'node:fs';
 import { render_startup_header } from '../src/extensions/startup-screen/index.ts';
 
