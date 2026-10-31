@@ -19,6 +19,7 @@ catalog:
   '@fontsource-variable/victor-mono': ^5.2.8
   '@fontsource/victor-mono': ^5.2.8
   '@internationalized/date': ^3.12.1
+  '@napi-rs/image': ^1.16.0
   '@lucide/svelte': ^1.61.0
   '@playwright/test': ^1.60.0
   '@resvg/resvg-js': ^2.6.2

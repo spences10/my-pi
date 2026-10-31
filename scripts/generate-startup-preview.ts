@@ -1,3 +1,4 @@
+import { losslessCompressPngSync } from '@napi-rs/image';
 import { Resvg } from '@resvg/resvg-js';
 import type {
 	ExtensionContext,
@@ -201,5 +202,7 @@ const png = new Resvg(svg, {
 	.render()
 	.asPng();
 
-writeFileSync(OUTPUT_PATH, png);
+// Lossless oxipng pass so committed PNGs need no later optimisation
+// (ImgBot otherwise opens a PR after every regeneration).
+writeFileSync(OUTPUT_PATH, losslessCompressPngSync(png));
 console.log(`Generated ${OUTPUT_PATH}`);

@@ -79,6 +79,7 @@
 	},
 	"devDependencies": {
 		"@changesets/cli": "catalog:",
+		"@napi-rs/image": "catalog:",
 		"@resvg/resvg-js": "catalog:",
 		"@types/node": "catalog:",
 		"@vitest/coverage-v8": "catalog:",

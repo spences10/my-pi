@@ -1,5 +1,6 @@
 // Renders the link-preview card for the landing page to
 // apps/web/static/og.png. Run it again when the logo or tagline changes.
+import { losslessCompressPngSync } from '@napi-rs/image';
 import { Resvg } from '@resvg/resvg-js';
 import { writeFileSync } from 'node:fs';
 import { logo_lines } from '../apps/web/src/lib/config/logo.ts';
@@ -147,5 +148,7 @@ const png = new Resvg(svg, { fitTo: { mode: 'original' } })
 	.render()
 	.asPng();
 
-writeFileSync(OUTPUT_PATH, png);
+// Lossless oxipng pass so committed PNGs need no later optimisation
+// (ImgBot otherwise opens a PR after every regeneration).
+writeFileSync(OUTPUT_PATH, losslessCompressPngSync(png));
 console.log(`Generated ${OUTPUT_PATH}`);
