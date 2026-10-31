@@ -77,4 +77,30 @@ describe('derive_event_columns', () => {
 			event_column_values(derive_event_columns('custom', 'text')),
 		).toHaveLength(EVENT_COLUMN_NAMES.length);
 	});
+
+	it('reads failure text, exit code, and parent call', () => {
+		expect(
+			derive_event_columns('tool_execution_end', {
+				toolCallId: 'c2',
+				parentToolCallId: 'c1',
+				isError: true,
+				errorText: 'No such file',
+				exitCode: 2,
+			}),
+		).toMatchObject({
+			error_text: 'No such file',
+			exit_code: 2,
+			parent_tool_call_id: 'c1',
+			is_error: 1,
+		});
+		expect(
+			derive_event_columns('message_end', {
+				message: {
+					role: 'assistant',
+					stopReason: 'error',
+					errorMessage: '429 rate limited',
+				},
+			}).error_text,
+		).toBe('429 rate limited');
+	});
 });

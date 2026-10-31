@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { to_session_row } from './event-rows.js';
 import type {
 	DailyStats,
+	FailureRow,
 	OverviewResponse,
 	SessionSpansResponse,
 	SessionStats,
@@ -242,8 +243,60 @@ export function create_stats_queries(db: DatabaseSync) {
 			duration_ms: nullable_number(row.duration_ms),
 			is_error: nullable_number(row.is_error),
 			update_count: nullable_number(row.update_count),
+			error_text: nullable_text(row.error_text),
+			exit_code: nullable_number(row.exit_code),
+			parent_tool_call_id: nullable_text(row.parent_tool_call_id),
 		}));
 		return { turns, tools };
+	}
+
+	// Tool failures come from tool_execution_end; model failures from
+	// assistant messages that ended with stopReason "error".
+	const failures_statement = db.prepare(`
+		SELECT e.type, e.session_id, e.ts, e.tool_call_id, e.tool_name,
+			e.error_text, e.exit_code, e.duration_ms,
+			COALESCE(e.model, s.model) AS model,
+			s.session_name, s.agent_name, s.cwd
+		FROM events e
+		LEFT JOIN sessions s ON s.session_id = e.session_id
+		WHERE ($since IS NULL OR e.ts >= $since)
+			AND (
+				(e.type = 'tool_execution_end' AND e.is_error = 1)
+				OR (e.type = 'message_end' AND e.stop_reason = 'error')
+			)
+		ORDER BY e.ts DESC
+		LIMIT $limit
+	`);
+
+	function failures(
+		since: string | null,
+		limit: number,
+	): FailureRow[] {
+		return (failures_statement.all({ since, limit }) as Row[]).map(
+			(row) => {
+				const tool = row.type === 'tool_execution_end';
+				return {
+					kind: tool ? 'tool' : 'model',
+					session_id: String(row.session_id),
+					session_name: nullable_text(row.session_name),
+					agent_name: nullable_text(row.agent_name),
+					cwd: nullable_text(row.cwd),
+					ts: String(row.ts),
+					name:
+						(tool
+							? nullable_text(row.tool_name)
+							: nullable_text(row.model)) ??
+						(tool ? 'tool' : 'model'),
+					span_id:
+						tool && typeof row.tool_call_id === 'string'
+							? `tool:${row.tool_call_id}`
+							: null,
+					error_text: nullable_text(row.error_text),
+					exit_code: nullable_number(row.exit_code),
+					duration_ms: nullable_number(row.duration_ms),
+				};
+			},
+		);
 	}
 
 	return {
@@ -253,6 +306,7 @@ export function create_stats_queries(db: DatabaseSync) {
 		session_stats,
 		overview,
 		session_spans,
+		failures,
 	};
 }
 

@@ -11,6 +11,9 @@ export interface EventColumns {
 	cache_read_tokens: number | null;
 	cache_write_tokens: number | null;
 	cost_usd: number | null;
+	error_text: string | null;
+	exit_code: number | null;
+	parent_tool_call_id: string | null;
 }
 
 /** Column order used by the insert statement and the backfill. */
@@ -26,6 +29,9 @@ export const EVENT_COLUMN_NAMES = [
 	'cache_read_tokens',
 	'cache_write_tokens',
 	'cost_usd',
+	'error_text',
+	'exit_code',
+	'parent_tool_call_id',
 ] as const satisfies ReadonlyArray<keyof EventColumns>;
 
 function record(value: unknown): Record<string, unknown> {
@@ -79,6 +85,15 @@ export function derive_event_columns(
 		cache_read_tokens: number_or_null(usage.cacheRead),
 		cache_write_tokens: number_or_null(usage.cacheWrite),
 		cost_usd: number_or_null(record(usage.cost).total),
+		// Tool failures carry errorText; failed model calls carry the
+		// provider's errorMessage on the assistant message.
+		error_text:
+			text_or_null(body.errorText) ??
+			(stop_reason === 'error'
+				? text_or_null(message.errorMessage)
+				: null),
+		exit_code: number_or_null(body.exitCode),
+		parent_tool_call_id: text_or_null(body.parentToolCallId),
 	};
 }
 

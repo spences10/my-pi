@@ -197,9 +197,67 @@ export interface ToolSpanRow {
 	duration_ms: number | null;
 	is_error: number | null;
 	update_count: number | null;
+	error_text: string | null;
+	exit_code: number | null;
+	parent_tool_call_id: string | null;
 }
 
 export interface SessionSpansResponse {
 	turns: TurnSpanRow[];
 	tools: ToolSpanRow[];
+}
+
+export type TimelineSpanKind = 'run' | 'turn' | 'model' | 'tool';
+
+/** One bar in the session trace. Times are ms from the first event. */
+export interface TimelineSpan {
+	id: string;
+	kind: TimelineSpanKind;
+	/** Run: prompt preview. Turn: "Turn n". Model: model id. Tool: name. */
+	name: string;
+	/** Tool: command, path, or query. Model: stop reason. */
+	detail: string | null;
+	start_ts: string;
+	start_ms: number;
+	end_ms: number;
+	/** Pi's measured duration when reported, else end_ms - start_ms. */
+	duration_ms: number;
+	/** No end event yet: still running, or the session stopped. */
+	open: boolean;
+	error: boolean;
+	error_text: string | null;
+	exit_code: number | null;
+	/** Row offset for tool calls that overlap within one parent. */
+	lane: number;
+	update_count: number | null;
+	input_tokens: number | null;
+	output_tokens: number | null;
+	cache_read_tokens: number | null;
+	cost_usd: number | null;
+	/** Event seq numbers that make up this span, for the event drawer. */
+	event_seqs: number[];
+	children: TimelineSpan[];
+}
+
+export interface SessionTimeline {
+	start_ts: string | null;
+	end_ms: number;
+	runs: TimelineSpan[];
+}
+
+/** A failed tool call or model call, newest first. */
+export interface FailureRow {
+	kind: 'tool' | 'model';
+	session_id: string;
+	session_name: string | null;
+	agent_name: string | null;
+	cwd: string | null;
+	ts: string;
+	/** Tool name, or the model id for a model failure. */
+	name: string;
+	/** Timeline span id for tool failures (tool:<call id>). */
+	span_id: string | null;
+	error_text: string | null;
+	exit_code: number | null;
+	duration_ms: number | null;
 }

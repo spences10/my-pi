@@ -1,5 +1,5 @@
 -- Source of truth for local observability SQLite DDL.
--- This file is the schema for observability database version 1.
+-- This file is the schema for observability database version 2.
 -- Database setup pragmas and migrations are applied in code (db.ts).
 
 
@@ -39,7 +39,10 @@ CREATE TABLE IF NOT EXISTS events (
 	output_tokens INTEGER,
 	cache_read_tokens INTEGER,
 	cache_write_tokens INTEGER,
-	cost_usd REAL
+	cost_usd REAL,
+	error_text TEXT,
+	exit_code INTEGER,
+	parent_tool_call_id TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_session_seq ON events(session_id, seq);
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
@@ -50,9 +53,13 @@ CREATE INDEX IF NOT EXISTS idx_events_session_tool_call
 CREATE INDEX IF NOT EXISTS idx_events_tool_name
 	ON events(tool_name) WHERE tool_name IS NOT NULL;
 
+-- Views are dropped and recreated on every start, so changing one
+-- needs no migration.
+
 -- One row per tool execution. duration_ms prefers Pi's monotonic
 -- durationMs and falls back to the event timestamp difference.
-CREATE VIEW IF NOT EXISTS tool_spans AS
+DROP VIEW IF EXISTS tool_spans;
+CREATE VIEW tool_spans AS
 SELECT
 	s.session_id,
 	s.tool_call_id,
@@ -64,7 +71,10 @@ SELECT
 		(unixepoch(e.ts, 'subsec') - unixepoch(s.ts, 'subsec')) * 1000.0
 	) AS duration_ms,
 	e.is_error,
-	json_extract(e.payload_json, '$.updateCount') AS update_count
+	json_extract(e.payload_json, '$.updateCount') AS update_count,
+	e.error_text,
+	e.exit_code,
+	s.parent_tool_call_id
 FROM events s
 LEFT JOIN events e
 	ON e.session_id = s.session_id
@@ -77,7 +87,8 @@ WHERE s.type = 'tool_execution_start';
 -- provider_ms is the sum of assistant message durationMs values.
 -- Pi restarts turnIndex for each prompt, so a turn_start is paired
 -- with the next turn_end by seq; start_seq identifies the turn.
-CREATE VIEW IF NOT EXISTS turn_spans AS
+DROP VIEW IF EXISTS turn_spans;
+CREATE VIEW turn_spans AS
 SELECT
 	s.session_id,
 	s.seq AS start_seq,

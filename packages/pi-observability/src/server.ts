@@ -43,6 +43,7 @@ import type {
 	RunningObservabilityServer,
 } from './server-options.js';
 import { create_stats_queries, parse_since } from './stats.js';
+import { create_timeline_query } from './timeline.js';
 import { trace_summary } from './trace-summary.js';
 import type { ObservabilityEvent } from './types.js';
 
@@ -82,6 +83,7 @@ export function start_observability_server(
 	const token = options.token || generate_observability_token();
 	const { db, statements } = prepare_db(options.db_path);
 	const stats = create_stats_queries(db);
+	const timeline = create_timeline_query(db);
 	let next_subscriber_id = 1;
 	const subscribers = new Map<number, Subscriber>();
 
@@ -311,9 +313,24 @@ export function start_observability_server(
 					),
 				});
 			}
+			if (req_url.pathname === '/stats/failures') {
+				return json(res, 200, {
+					failures: stats.failures(
+						parse_since(req_url.searchParams.get('since')),
+						bounded_limit(req_url.searchParams.get('limit'), 50, 500),
+					),
+				});
+			}
 			const session_route = req_url.pathname.match(
-				/^\/sessions\/([^/]+)\/(events|trace|spans)$/,
+				/^\/sessions\/([^/]+)\/(events|trace|spans|timeline)$/,
 			);
+			if (session_route?.[2] === 'timeline') {
+				return json(
+					res,
+					200,
+					timeline(decodeURIComponent(session_route[1])),
+				);
+			}
 			if (session_route?.[2] === 'spans') {
 				return json(
 					res,

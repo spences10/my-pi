@@ -107,8 +107,9 @@ Views live in the query string (`/?view=tools`,
 `/?view=session&session=<id>`).
 
 The dashboard reads these authenticated JSON endpoints:
-`/stats/overview`, `/stats/tools`, `/stats/sessions` (each takes an
-ISO `since`), and `/sessions/<id>/spans`.
+`/stats/overview`, `/stats/tools`, `/stats/sessions`,
+`/stats/failures` (each takes an ISO `since`), `/sessions/<id>/spans`,
+and `/sessions/<id>/timeline`.
 
 Trace token and cost rollups follow Pi's persisted session accounting.
 They include assistant responses, nested LLM usage returned by tools,
@@ -194,14 +195,15 @@ relevant.
 ## SQLite schema
 
 The schema source is `src/schema.sql` in this package. The current
-schema version is tracked with `PRAGMA user_version` (version 1).
+schema version is tracked with `PRAGMA user_version` (version 2).
 Databases from a newer version fail fast.
 
 At ingest the server copies these values from the payload into
 `events` columns: `turn_index`, `tool_call_id`, `tool_name`,
 `is_error`, `duration_ms`, `stop_reason`, `input_tokens`,
-`output_tokens`, `cache_read_tokens`, `cache_write_tokens`, and
-`cost_usd`. Token and cost columns are set on `message_end` only.
+`output_tokens`, `cache_read_tokens`, `cache_write_tokens`,
+`cost_usd`, `error_text`, `exit_code`, and `parent_tool_call_id`.
+Token and cost columns are set on `message_end` only.
 
 Two views join the events into spans:
 

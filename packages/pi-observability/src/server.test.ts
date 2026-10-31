@@ -585,6 +585,24 @@ describe('start_observability_server', () => {
 			tools: [{ tool_call_id: 'c1', is_error: 1, duration_ms: 240 }],
 		});
 
+		const timeline = (await (
+			await fetch(`${server.url}/sessions/session-1/timeline`)
+		).json()) as { runs: Array<{ children: unknown[] }> };
+		expect(timeline.runs.length).toBeGreaterThan(0);
+		expect(JSON.stringify(timeline)).toContain('"kind":"tool"');
+
+		const failures = (await (
+			await fetch(`${server.url}/stats/failures`)
+		).json()) as { failures: unknown[] };
+		expect(failures.failures).toEqual([
+			expect.objectContaining({
+				kind: 'tool',
+				session_id: 'session-1',
+				name: 'bash',
+				span_id: 'tool:c1',
+			}),
+		]);
+
 		const tools = (await (
 			await fetch(`${server.url}/stats/tools`)
 		).json()) as { tools: unknown[] };
@@ -599,6 +617,8 @@ describe('start_observability_server', () => {
 			'/stats/tools',
 			'/stats/sessions',
 			'/sessions/session-1/spans',
+			'/sessions/session-1/timeline',
+			'/stats/failures',
 		]) {
 			expect(
 				(await fetch(`${server.url}${path}?unauthorized=1`)).status,

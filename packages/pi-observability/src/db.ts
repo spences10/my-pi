@@ -17,7 +17,7 @@ import {
 	event_column_values,
 } from './event-columns.js';
 
-export const OBSERVABILITY_SCHEMA_VERSION = 1;
+export const OBSERVABILITY_SCHEMA_VERSION = 2;
 
 const DERIVED_COLUMN_TYPES: Record<
 	(typeof EVENT_COLUMN_NAMES)[number],
@@ -34,6 +34,9 @@ const DERIVED_COLUMN_TYPES: Record<
 	cache_read_tokens: 'INTEGER',
 	cache_write_tokens: 'INTEGER',
 	cost_usd: 'REAL',
+	error_text: 'TEXT',
+	exit_code: 'INTEGER',
+	parent_tool_call_id: 'TEXT',
 };
 
 export interface PreparedStatements {
@@ -165,8 +168,11 @@ function scalar(db: DatabaseSync, sql: string): number {
  * Brings any older database up to OBSERVABILITY_SCHEMA_VERSION.
  *
  * Version 0 had no derived event columns, no span views, and
- * auto_vacuum off. The migration adds the columns, fills them from
- * payload_json, then runs one VACUUM to enable incremental vacuum.
+ * auto_vacuum off. Version 1 added the derived columns. Version 2 adds
+ * error_text, exit_code, and parent_tool_call_id. A migration adds the
+ * missing columns and fills all derived columns from payload_json; a
+ * database still on auto_vacuum off gets one VACUUM. schema.sql drops
+ * and recreates the views on every start.
  */
 export function migrate_db(db: DatabaseSync): void {
 	const version = scalar(db, 'PRAGMA user_version');
@@ -194,7 +200,9 @@ export function migrate_db(db: DatabaseSync): void {
 
 	db.exec(SCHEMA);
 
-	if (version < 1 && existing_events) backfill_event_columns(db);
+	// Every version so far adds derived columns, so re-derive them all.
+	if (version < OBSERVABILITY_SCHEMA_VERSION && existing_events)
+		backfill_event_columns(db);
 	if (version < OBSERVABILITY_SCHEMA_VERSION)
 		db.exec(`PRAGMA user_version = ${OBSERVABILITY_SCHEMA_VERSION}`);
 	if (scalar(db, 'PRAGMA auto_vacuum') !== 2) {

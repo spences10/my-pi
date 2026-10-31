@@ -10,6 +10,10 @@ import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { prepare_db } from './db.js';
+import {
+	derive_event_columns,
+	event_column_values,
+} from './event-columns.js';
 
 const dirs: string[] = [];
 
@@ -178,7 +182,7 @@ describe('prepare_db', () => {
 		const { db } = prepare_db(db_path);
 		try {
 			expect(db.prepare('PRAGMA user_version').get()).toMatchObject({
-				user_version: 1,
+				user_version: 2,
 			});
 			expect(db.prepare('PRAGMA auto_vacuum').get()).toMatchObject({
 				auto_vacuum: 2,
@@ -241,17 +245,9 @@ describe('prepare_db', () => {
 					'{"turnIndex":0}',
 					null,
 					null,
-					0,
-					null,
-					null,
-					null,
-					null,
-					null,
-					null,
-					null,
-					null,
-					null,
-					null,
+					...event_column_values(
+						derive_event_columns(type, { turnIndex: 0 }),
+					),
 				),
 			);
 			expect(
@@ -287,8 +283,61 @@ describe('prepare_db', () => {
 				auto_vacuum: 2,
 			});
 			expect(db.prepare('PRAGMA user_version').get()).toMatchObject({
-				user_version: 1,
+				user_version: 2,
 			});
+		} finally {
+			db.close();
+		}
+	});
+
+	it('upgrades a version 1 database with failure columns and new views', () => {
+		const db_path = tmp_db();
+		const first = prepare_db(db_path);
+		first.db.exec(`
+			DROP VIEW tool_spans;
+			CREATE VIEW tool_spans AS SELECT 1 AS old_view;
+			PRAGMA user_version = 1;
+		`);
+		first.db
+			.prepare(
+				`INSERT INTO events (event_id, session_id, seq, ts, type, payload_json)
+			VALUES ('e1', 's1', 0, '2026-10-31T10:00:00.000Z', 'tool_execution_end', ?)`,
+			)
+			.run(
+				JSON.stringify({
+					toolCallId: 'c1',
+					parentToolCallId: 'p1',
+					isError: true,
+					errorText: 'boom',
+					exitCode: 3,
+				}),
+			);
+		first.db.close();
+
+		const { db } = prepare_db(db_path);
+		try {
+			expect(db.prepare('PRAGMA user_version').get()).toMatchObject({
+				user_version: 2,
+			});
+			expect(
+				db
+					.prepare(
+						'SELECT error_text, exit_code, parent_tool_call_id FROM events',
+					)
+					.get(),
+			).toEqual({
+				error_text: 'boom',
+				exit_code: 3,
+				parent_tool_call_id: 'p1',
+			});
+			const columns = (
+				db.prepare('PRAGMA table_info(tool_spans)').all() as Array<{
+					name: string;
+				}>
+			).map((column) => column.name);
+			expect(columns).toEqual(
+				expect.arrayContaining(['error_text', 'exit_code']),
+			);
 		} finally {
 			db.close();
 		}

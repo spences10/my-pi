@@ -356,4 +356,39 @@ describe('create_stats_queries', () => {
 			db.close();
 		}
 	});
+
+	it('lists tool and model failures newest first', () => {
+		const { db, stats } = setup();
+		try {
+			db.prepare(
+				`INSERT INTO events (event_id, session_id, seq, ts, type, payload_json, model, stop_reason, error_text)
+				VALUES ('m1', 's2', 99, '${DAY_B}:09.000Z', 'message_end', '{}', 'gpt-test', 'error', '429 rate limited')`,
+			).run();
+			db.prepare(
+				`UPDATE events SET error_text = 'ENOENT', exit_code = 1 WHERE tool_call_id = 'c2' AND type = 'tool_execution_end'`,
+			).run();
+			expect(stats.failures(null, 10)).toEqual([
+				expect.objectContaining({
+					kind: 'model',
+					session_id: 's2',
+					name: 'gpt-test',
+					span_id: null,
+					error_text: '429 rate limited',
+				}),
+				expect.objectContaining({
+					kind: 'tool',
+					session_id: 's1',
+					name: 'read',
+					span_id: 'tool:c2',
+					error_text: 'ENOENT',
+					exit_code: 1,
+					cwd: '/repo/s1',
+				}),
+			]);
+			expect(stats.failures(`${DAY_B}:00.000Z`, 10)).toHaveLength(1);
+			expect(stats.failures(null, 1)).toHaveLength(1);
+		} finally {
+			db.close();
+		}
+	});
 });
