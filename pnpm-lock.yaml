@@ -253,7 +253,7 @@ catalogs:
       version: 2.1.1
     layerchart:
       specifier: ^2.7.0
-      version: 2.9.1
+      version: 2.9.2
     phosphor-svelte:
       specifier: ^3.1.0
       version: 3.1.1
@@ -885,7 +885,7 @@ importers:
         version: 2.1.1
       layerchart:
         specifier: 'catalog:'
-        version: 2.9.1(svelte@5.57.3)(zod@4.4.3)
+        version: 2.9.2(svelte@5.57.3)(zod@4.4.3)
       svelte:
         specifier: 'catalog:'
         version: 5.57.3
@@ -3486,8 +3486,8 @@ packages:
   launch-editor@2.14.1:
     resolution: {integrity: sha512-QWBrQsMpH7gPr965dsKD/3cKWiNoTjpATQf++Xq63N6sKRGMwlVXz41O1IZTMfZQgBctD/K5Zt06+/I6pP6+HA==}
 
-  layerchart@2.9.1:
-    resolution: {integrity: sha512-ftS5hcrogs+AhfSnNzTkFZCMTjPh3UYcU7MNMpN+M+SHx1AIm/IKxY2t2cJMmxAmc+JJfbB5Z6BmnqV6v7IOnw==}
+  layerchart@2.9.2:
+    resolution: {integrity: sha512-KC2eH8657diyZ8pdSlsgxGMCk61GQslP/wpcfbaGoIgKTnefw3sl7Xl+vrYnhPdSst4IxGGclPTXOeOeCYC6PQ==}
     peerDependencies:
       svelte: ^5.0.0
 
@@ -6291,7 +6291,7 @@ snapshots:
       picocolors: 1.1.1
       shell-quote: 1.10.0
 
-  layerchart@2.9.1(svelte@5.57.3)(zod@4.4.3):
+  layerchart@2.9.2(svelte@5.57.3)(zod@4.4.3):
     dependencies:
       '@dagrejs/dagre': 2.0.4
       '@layerstack/svelte-actions': 1.0.1-next.20
