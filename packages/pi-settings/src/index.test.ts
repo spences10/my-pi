@@ -1,4 +1,11 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+	mkdtempSync,
+	readFileSync,
+	readdirSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
@@ -7,6 +14,7 @@ import {
 	get_settings_path,
 	read_package_settings,
 	read_settings,
+	read_settings_section,
 	read_trust_settings,
 	write_package_settings,
 	write_settings,
@@ -31,6 +39,14 @@ afterEach(() => {
 });
 
 describe('@spences10/pi-settings', () => {
+	it('resolves the global settings file in the configured agent directory', () => {
+		const dir = use_temp_agent_dir();
+
+		expect(get_settings_path()).toBe(
+			join(dir, 'my-pi-settings.json'),
+		);
+	});
+
 	it('returns defaults when the settings file does not exist', () => {
 		use_temp_agent_dir();
 
@@ -40,10 +56,48 @@ describe('@spences10/pi-settings', () => {
 			trust: {},
 			packages: {},
 		});
+		expect(
+			read_settings_section('codingPreferences', 'fallback'),
+		).toBe('fallback');
 	});
 
-	it('writes settings atomically with version 1', () => {
+	it('merges defaults into a partially populated settings file', () => {
 		use_temp_agent_dir();
+		write_settings({
+			version: 1,
+			codingPreferences: { profile: 'strict' },
+		});
+
+		expect(read_settings()).toEqual({
+			version: 1,
+			extensions: { enabled: {} },
+			trust: {},
+			packages: {},
+			codingPreferences: { profile: 'strict' },
+		});
+	});
+
+	it.each([false, 0, '', null, []])(
+		'preserves an explicitly saved section value of %j instead of using the fallback',
+		(value) => {
+			use_temp_agent_dir();
+			write_settings({ version: 1, codingPreferences: value });
+
+			expect(
+				read_settings_section<unknown>(
+					'codingPreferences',
+					'fallback',
+				),
+			).toEqual(value);
+		},
+	);
+
+	it('replaces existing settings without leaving temporary files', () => {
+		const dir = use_temp_agent_dir();
+		write_settings({
+			version: 1,
+			extensions: { enabled: { mcp: true } },
+		});
 
 		write_settings({
 			version: 1,
@@ -60,6 +114,32 @@ describe('@spences10/pi-settings', () => {
 			version: 1,
 			extensions: { enabled: { mcp: false } },
 		});
+		expect(readdirSync(dir)).toEqual(['my-pi-settings.json']);
+	});
+
+	it.skipIf(process.platform === 'win32')(
+		'creates missing agent directories and settings files with private permissions',
+		() => {
+			const dir = use_temp_agent_dir();
+			const nested_agent_dir = join(dir, 'nested', 'agent');
+			process.env.PI_CODING_AGENT_DIR = nested_agent_dir;
+
+			write_settings({ version: 1 });
+
+			expect(statSync(nested_agent_dir).mode & 0o777).toBe(0o700);
+			expect(statSync(get_settings_path()).mode & 0o777).toBe(0o600);
+			expect(read_settings().version).toBe(1);
+		},
+	);
+
+	it('reports malformed JSON without overwriting the settings file', () => {
+		use_temp_agent_dir();
+		writeFileSync(get_settings_path(), '{invalid json');
+
+		expect(() => read_settings()).toThrow(SyntaxError);
+		expect(readFileSync(get_settings_path(), 'utf-8')).toBe(
+			'{invalid json',
+		);
 	});
 
 	it('extracts nested input strings from arrays and objects', () => {
@@ -91,4 +171,52 @@ describe('@spences10/pi-settings', () => {
 		write_trust_settings('lspBinaries', ['repo']);
 		expect(read_trust_settings('lspBinaries', [])).toEqual(['repo']);
 	});
+
+	it('preserves unrelated settings and namespaces during package and trust updates', () => {
+		use_temp_agent_dir();
+		write_settings({
+			version: 1,
+			extensions: { enabled: { footer: false } },
+			codingPreferences: { profile: 'strict' },
+			packages: {
+				footer: { preset: 'compact' },
+				demo: { enabled: true },
+			},
+			trust: { existing: ['repo-a'], lspBinaries: ['old-repo'] },
+		});
+
+		write_package_settings('demo', { enabled: false });
+		write_trust_settings('lspBinaries', ['new-repo']);
+
+		expect(read_settings()).toEqual({
+			version: 1,
+			extensions: { enabled: { footer: false } },
+			codingPreferences: { profile: 'strict' },
+			packages: {
+				footer: { preset: 'compact' },
+				demo: { enabled: false },
+			},
+			trust: { existing: ['repo-a'], lspBinaries: ['new-repo'] },
+		});
+	});
+
+	it.each([null, undefined])(
+		'uses fallbacks for %j package and trust sections and can populate them',
+		(value) => {
+			use_temp_agent_dir();
+			writeFileSync(
+				get_settings_path(),
+				JSON.stringify({ version: 1, packages: value, trust: value }),
+			);
+
+			expect(read_package_settings('demo', false)).toBe(false);
+			expect(read_trust_settings('resources', [])).toEqual([]);
+
+			write_package_settings('demo', true);
+			write_trust_settings('resources', ['repo']);
+
+			expect(read_package_settings('demo', false)).toBe(true);
+			expect(read_trust_settings('resources', [])).toEqual(['repo']);
+		},
+	);
 });

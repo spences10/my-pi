@@ -21,7 +21,9 @@
 		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
 		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
 		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
-		"test:self": "vp test run"
+		"test:self": "vp test run",
+		"coverage:self": "vp test run --coverage",
+		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
 	},
 	"dependencies": {},
 	"devDependencies": {
