@@ -11,9 +11,7 @@ import { dirname, join } from 'node:path';
 export interface MyPiSettingsFile {
 	version: 1;
 	extensions?: { enabled?: Record<string, boolean> };
-	mcp?: { policy?: unknown };
 	codingPreferences?: unknown;
-	promptPresets?: { global?: unknown; state?: unknown };
 	trust?: Record<string, unknown>;
 	packages?: Record<string, unknown>;
 }

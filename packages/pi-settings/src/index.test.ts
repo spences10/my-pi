@@ -87,8 +87,8 @@ describe('@spences10/pi-settings', () => {
 			},
 		);
 
-		expect(read_trust_settings('hooks', [])).toEqual([]);
-		write_trust_settings('hooks', ['repo']);
-		expect(read_trust_settings('hooks', [])).toEqual(['repo']);
+		expect(read_trust_settings('lspBinaries', [])).toEqual([]);
+		write_trust_settings('lspBinaries', ['repo']);
+		expect(read_trust_settings('lspBinaries', [])).toEqual(['repo']);
 	});
 });

@@ -122,18 +122,6 @@ export interface ProjectTrustWrapper {
 	) => void;
 }
 
-export const PROJECT_TRUST_UNTRUSTED_DEFAULTS: Record<
-	string,
-	string
-> = {
-	MY_PI_MCP_PROJECT_CONFIG: 'skip',
-	MY_PI_HOOKS_CONFIG: 'skip',
-	MY_PI_LSP_PROJECT_BINARY: 'global',
-	MY_PI_PROMPT_PRESETS_PROJECT: 'skip',
-	MY_PI_PROJECT_SKILLS: 'skip',
-	MY_PI_TEAM_PROFILES_PROJECT: 'skip',
-};
-
 const ALLOW_VALUES = new Set(['1', 'true', 'yes', 'allow']);
 const SKIP_VALUES = new Set(['0', 'false', 'no', 'skip', 'disable']);
 const GLOBAL_FALLBACK_VALUES = new Set(['global', 'global-only']);
@@ -179,20 +167,6 @@ export function create_project_trust_wrapper(
 	};
 }
 
-export function apply_project_trust_untrusted_defaults(
-	env: NodeJS.ProcessEnv = process.env,
-): string[] {
-	const applied: string[] = [];
-	for (const [key, value] of Object.entries(
-		PROJECT_TRUST_UNTRUSTED_DEFAULTS,
-	)) {
-		if (env[key] !== undefined) continue;
-		env[key] = value;
-		applied.push(key);
-	}
-	return applied;
-}
-
 export function normalize_project_trust_env_decision(
 	value: string | undefined,
 	options: { fallback?: ProjectTrustFallback } = {},
@@ -213,10 +187,6 @@ export function normalize_project_trust_env_decision(
 
 function trust_settings_key(path: string): string | undefined {
 	switch (basename(path)) {
-		case 'trusted-hooks.json':
-			return 'hooks';
-		case 'trusted-mcp-projects.json':
-			return 'mcpProjects';
 		case 'trusted-lsp-binaries.json':
 			return 'lspBinaries';
 		case 'trusted-project-resources.json':
