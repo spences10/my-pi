@@ -15,12 +15,11 @@
 - `packages/<name>/README.md`
 - `packages/<name>/CHANGELOG.md` if package is versioned
 
-## Built-in wiring
+## Default in my-pi (optional)
 
-- Root `package.json` optional dependency points to `workspace:*`.
-- `src/extensions/builtin-registry.ts` has key, option name, flag,
-  aliases, description, and dynamic import.
-- Registry tests updated when extension list/order changes.
+- `packages/my-pi/package.json` dependency points to `workspace:*`.
+- `packages/my-pi/src/extensions.ts` lists it; update
+  `extensions.test.ts`.
 - Root lockfile updated with `pnpm install` when dependencies change.
 
 ## Validation

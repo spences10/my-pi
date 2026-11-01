@@ -1,7 +1,7 @@
 ---
 name: pi-validation-flow
 # prettier-ignore
-description: Use when validating Pi monorepo changes after editing TypeScript, Svelte, package manifests, built-in registry, tests, repo tooling, skills, or docs.
+description: Use when validating Pi monorepo changes after editing TypeScript, Svelte, package manifests, tests, repo tooling, skills, or docs.
 compatibility:
   Requires the Pi coding-agent monorepo validation scripts.
 ---
@@ -19,8 +19,8 @@ not just file names. Rerun only affected or previously missing checks.
 2. Run the narrowest package validation for changed packages.
 3. Run LSP diagnostics for changed TypeScript/Svelte source files.
 4. Use root validation for shared files, root scripts, package
-   manifests, lockfile, or built-in registry changes; do not repeat
-   package checks it already covers.
+   manifests, or lockfile changes; do not repeat package checks it
+   already covers.
 5. Report failures honestly: separate new failures, pre-existing
    failures, skipped checks, and unavailable tools.
 

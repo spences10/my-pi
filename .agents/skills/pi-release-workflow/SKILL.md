@@ -50,7 +50,6 @@ from this repo.
 
 - `pnpm changeset status` for pending release intent.
 - `pnpm install --frozen-lockfile` to verify committed lockfile state.
-- `pnpm run preview:generate` when preview image output should change.
 - `pnpm run check` before release PRs or publishing.
 - Use `pi-package-sandbox-test` for normal-user install/load
   validation of published Pi packages.

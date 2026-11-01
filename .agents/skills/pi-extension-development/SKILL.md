@@ -13,18 +13,18 @@ repo.
 
 ## Workflow
 
-1. Identify the package boundary first: root app, `src/extensions/*`,
-   or a `packages/pi-*` workspace package.
-2. For new built-ins, add a package under `packages/`, wire root
-   `package.json` optional dependencies, and register in
-   `src/extensions/builtin-registry.ts`.
+1. Check upstream Pi first (`pi-primitive-check`). Add a package only
+   for behaviour Pi does not provide.
+2. New extensions go in a `packages/pi-*` workspace package. Load one
+   by default only by adding it to `packages/my-pi/src/extensions.ts`
+   and the `my-pi` package dependencies.
 3. Keep extension entrypoints small: export a default extension
    function and pure helper functions for testable trigger logic.
 4. Put user-facing injected prompt text in one obvious template block;
    gate injection by selected tools/options when possible.
 5. Update package README and Changeset when behavior changes.
-6. Validate with the package script first, then root checks if
-   registry/root files changed.
+6. Validate with the package script first, then root checks if root
+   files changed.
 
 ## Project conventions
 
