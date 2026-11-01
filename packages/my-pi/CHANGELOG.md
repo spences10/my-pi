@@ -1,5 +1,14 @@
 # my-pi
 
+## 0.5.1
+
+### Patch Changes
+
+- Updated dependencies [3e180e8]
+- Updated dependencies [d55178f]
+  - @spences10/pi-context@0.3.0
+  - @spences10/pi-team-mode@0.1.0
+
 ## 0.5.0
 
 ### Minor Changes

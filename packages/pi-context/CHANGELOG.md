@@ -1,5 +1,13 @@
 # @spences10/pi-context
 
+## 0.3.0
+
+### Minor Changes
+
+- 3e180e8: Breaking: codemode now returns objects; preserve
+  intermediates, defer maintenance, shorten receipts, and document
+  reproducible benchmarks.
+
 ## 0.2.1
 
 ### Patch Changes

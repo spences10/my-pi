@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.1.0
+
+### Minor Changes
+
+- d55178f: Reduce repeated team messages with retry-safe sends, quiet
+  status updates, bounded deliveries, and context summaries.
+
 ## 0.0.59
 
 ### Patch Changes
