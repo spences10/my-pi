@@ -50,6 +50,15 @@ configuration are upstream Pi features. See the
 | [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md)                     | Local SQLite telemetry and `/telemetry`                    |
 | [`@spences10/pi-themes`](./packages/pi-themes/README.md)                           | Bundled theme pack for Pi                                  |
 
+Additional bundled extensions:
+
+- [`@spences10/pi-turn-timer`](./packages/pi-turn-timer/README.md):
+  live timing and saved completion durations.
+- [`@spences10/pi-session-name`](./packages/pi-session-name/README.md):
+  automatic names using the selected model.
+- [`@spences10/pi-tool-guidance`](./packages/pi-tool-guidance/README.md):
+  portable nopeek, Omnisearch, and SQLite skills and reminders.
+
 Support libraries (dependencies, not for `pi install`):
 `pi-child-env`, `pi-project-trust`, `pi-settings`, `pi-sqlite-core`,
 `pi-tui-modal`. See [`docs/package-map.md`](./docs/package-map.md).

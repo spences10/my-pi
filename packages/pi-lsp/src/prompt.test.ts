@@ -13,24 +13,30 @@ describe('lsp prompt guidance', () => {
 			cwd: () => '/repo',
 		});
 
-		const result = await events.get('before_agent_start')({
+		const event = {
 			systemPrompt: 'base prompt',
-			systemPromptOptions: { selectedTools: ['lsp_diagnostics'] },
-		});
-
-		expect(result.systemPrompt).toContain('base prompt');
-		expect(result.systemPrompt).toContain(
+			systemPromptOptions: {
+				selectedTools: ['lsp_diagnostics'],
+				sections: { unrelated: 'keep' } as Record<string, string>,
+			},
+		};
+		expect(
+			await events.get('before_agent_start')(event),
+		).toBeUndefined();
+		expect(event.systemPrompt).toBe('base prompt');
+		expect(event.systemPromptOptions.sections.unrelated).toBe('keep');
+		for (const text of [
 			'Language server support via LSP tools',
-		);
-		expect(result.systemPrompt).toContain(
 			'check changed language-server-supported files with LSP diagnostics before reporting completion',
-		);
-		expect(result.systemPrompt).toContain(
 			'Prefer LSP diagnostics over guessing from build output',
-		);
-		expect(result.systemPrompt).toContain(
 			'Rerun only affected or previously missing diagnostics, not because of a commit or push request alone.',
-		);
+		])
+			expect(event.systemPromptOptions.sections.lsp).toContain(text);
+		event.systemPromptOptions.selectedTools = ['read'];
+		await events.get('before_agent_start')(event);
+		expect(event.systemPromptOptions.sections).toEqual({
+			unrelated: 'keep',
+		});
 	});
 
 	it('only injects LSP workflow guidance when relevant tools are available', () => {

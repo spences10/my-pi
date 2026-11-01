@@ -1,7 +1,7 @@
 import { type ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { register_lsp_command } from './commands.js';
 import {
-	append_lsp_system_prompt,
+	LSP_SYSTEM_PROMPT,
 	should_inject_lsp_prompt,
 } from './prompt.js';
 import {
@@ -24,10 +24,12 @@ export function create_lsp_extension(
 		register_lsp_tools(pi, manager);
 
 		pi.on('before_agent_start', async (event) => {
-			if (!should_inject_lsp_prompt(event)) return {};
-			return {
-				systemPrompt: append_lsp_system_prompt(event.systemPrompt),
-			};
+			if (should_inject_lsp_prompt(event)) {
+				event.systemPromptOptions.sections.lsp =
+					LSP_SYSTEM_PROMPT.trim();
+			} else {
+				delete event.systemPromptOptions.sections.lsp;
+			}
 		});
 
 		register_lsp_command(pi, manager);

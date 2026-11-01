@@ -10,6 +10,28 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { run_recall_resume } from './resume.js';
 
+export const RECALL_SYSTEM_PROMPT = `
+
+## Session Recall
+
+You have access to past Pi session history via \`pirecall\`, an LLM-oriented CLI for recalling prior work. Use it when:
+- The user references prior work ("what did we do", "last time", "remember when")
+- You need context from a previous session about this project
+- You want to avoid repeating work already done
+
+Preferred workflow:
+- In pnpm projects, use \`pnpx pirecall ...\`; otherwise use \`npx pirecall ...\`
+- Always pass \`--json\` for structured output
+- Use \`pnpx pirecall sync --json\` before searching when freshness matters
+
+Quick reference:
+- \`pnpx pirecall recall "<query>" --json\` — LLM-optimised context retrieval with surrounding messages
+- \`pnpx pirecall search "<query>" --json\` — full-text search (supports FTS5: AND, OR, NOT, "phrase", prefix*)
+- \`pnpx pirecall search "<query>" --json --project my-pi\` — filter by project
+- \`pnpx pirecall search "<query>" --json --after 2026-04-10\` — filter by date
+- \`pnpx pirecall sessions --json\` — list recent sessions
+- \`pnpx pirecall stats --json\` — database statistics`;
+
 const DEFAULT_DB_PATH = join(
 	process.env.HOME ?? process.env.USERPROFILE ?? '',
 	'.pi',
@@ -68,35 +90,12 @@ export default async function recall(pi: ExtensionAPI) {
 		await sync_recall_db({ wait: true });
 	});
 
-	pi.on(
-		'before_agent_start',
-		async (event: BeforeAgentStartEvent) => {
-			if (!should_inject_recall_prompt(event)) return {};
-			return {
-				systemPrompt:
-					event.systemPrompt +
-					`
-
-## Session Recall
-
-You have access to past Pi session history via \`pirecall\`, an LLM-oriented CLI for recalling prior work. Use it when:
-- The user references prior work ("what did we do", "last time", "remember when")
-- You need context from a previous session about this project
-- You want to avoid repeating work already done
-
-Preferred workflow:
-- In pnpm projects, use \`pnpx pirecall ...\`; otherwise use \`npx pirecall ...\`
-- Always pass \`--json\` for structured output
-- Use \`pnpx pirecall sync --json\` before searching when freshness matters
-
-Quick reference:
-- \`pnpx pirecall recall "<query>" --json\` — LLM-optimised context retrieval with surrounding messages
-- \`pnpx pirecall search "<query>" --json\` — full-text search (supports FTS5: AND, OR, NOT, "phrase", prefix*)
-- \`pnpx pirecall search "<query>" --json --project my-pi\` — filter by project
-- \`pnpx pirecall search "<query>" --json --after 2026-04-10\` — filter by date
-- \`pnpx pirecall sessions --json\` — list recent sessions
-- \`pnpx pirecall stats --json\` — database statistics`,
-			};
-		},
-	);
+	pi.on('before_agent_start', (event) => {
+		if (should_inject_recall_prompt(event)) {
+			event.systemPromptOptions.sections.session_recall =
+				RECALL_SYSTEM_PROMPT.trim();
+		} else {
+			delete event.systemPromptOptions.sections.session_recall;
+		}
+	});
 }

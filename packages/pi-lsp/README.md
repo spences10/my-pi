@@ -11,6 +11,10 @@
 
 <!-- package-readme:header:end -->
 
+Prompt guidance uses Pi's named system-prompt sections. It coexists
+with user `SYSTEM.md` and `APPEND_SYSTEM.md` files and other
+extensions without replacing the complete prompt.
+
 Give agents precise code intelligence instead of guesswork. `pi-lsp`
 exposes language-server diagnostics, hovers, definitions, references,
 and symbols as Pi tools so models can validate edits and navigate

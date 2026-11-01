@@ -11,6 +11,10 @@
 
 <!-- package-readme:header:end -->
 
+Prompt guidance uses Pi's named system-prompt sections. It coexists
+with user `SYSTEM.md` and `APPEND_SYSTEM.md` files and other
+extensions without replacing the complete prompt.
+
 Find the old decision, bugfix, or implementation detail instead of
 rediscovering it. `pi-recall` keeps `pirecall` synced and reminds the
 model to query past Pi sessions when history would save time or avoid

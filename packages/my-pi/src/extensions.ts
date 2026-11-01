@@ -131,6 +131,40 @@ export const EXTENSIONS: readonly MyPiExtension[] = [
 				.default,
 	},
 	{
+		key: 'turn-timer',
+		label: 'Turn timer',
+		description:
+			'Live elapsed time and persisted completion durations',
+		load: async () =>
+			((await import('@spences10/pi-turn-timer')) as ExtensionModule)
+				.default,
+	},
+	{
+		key: 'session-name',
+		label: 'Session autonaming',
+		description: 'Names new sessions through the configured model',
+		load: async () =>
+			(
+				(await import('@spences10/pi-session-name')) as ExtensionModule
+			).default,
+	},
+	{
+		key: 'tool-guidance',
+		label: 'Tool workflow guidance',
+		description:
+			'Bundled nopeek, Omnisearch and SQLite guidance and skills',
+		load: async () => {
+			const entry = import.meta
+				.resolve('@spences10/pi-tool-guidance');
+			const { default: factory } = (await import(
+				entry
+			)) as ExtensionModule;
+			return with_resources(factory, {
+				skillPaths: [join(package_dir(entry), 'skills')],
+			});
+		},
+	},
+	{
 		key: 'codex-usage',
 		label: 'Codex usage',
 		description: 'OpenAI Codex usage in the footer',

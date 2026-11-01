@@ -193,7 +193,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 				standby_registration,
 			);
 		}
-		if (!should_inject_team_prompt(event)) return {};
+		if (!should_inject_team_prompt(event)) {
+			delete event.systemPromptOptions.sections.team_mode;
+			return;
+		}
 		const own_session = own_session_id
 			? coordination_db.get_session(own_session_id)
 			: undefined;
@@ -203,11 +206,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 					{ thinking_level: own_session?.thinking_level },
 				)
 			: undefined;
-		return {
-			systemPrompt: append_team_system_prompt(event.systemPrompt, {
+		event.systemPromptOptions.sections.team_mode =
+			append_team_system_prompt('', {
 				coordination_identity,
-			}),
-		};
+			}).trim();
 	});
 
 	pi.on('agent_end', async () => {

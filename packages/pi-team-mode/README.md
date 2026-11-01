@@ -11,6 +11,10 @@
 
 <!-- package-readme:header:end -->
 
+Prompt guidance uses Pi's named system-prompt sections. It coexists
+with user `SYSTEM.md` and `APPEND_SYSTEM.md` files and other
+extensions without replacing the complete prompt.
+
 Peer-session coordination for independently opened Pi TUI sessions.
 The package registers each running session in a local SQLite bus,
 delivers durable messages, stores larger artifacts, and coordinates

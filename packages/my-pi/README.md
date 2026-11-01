@@ -15,6 +15,9 @@ built in.
 | `team-mode`           | [`pi-team-mode`](https://github.com/spences10/my-pi/tree/main/packages/pi-team-mode#readme)                     |
 | `harness`             | [`pi-harness`](https://github.com/spences10/my-pi/tree/main/packages/pi-harness#readme)                         |
 | `git-ui`              | [`pi-git-ui`](https://github.com/spences10/my-pi/tree/main/packages/pi-git-ui#readme)                           |
+| `turn-timer`          | [`pi-turn-timer`](https://github.com/spences10/my-pi/tree/main/packages/pi-turn-timer#readme)                   |
+| `session-name`        | [`pi-session-name`](https://github.com/spences10/my-pi/tree/main/packages/pi-session-name#readme)               |
+| `tool-guidance`       | [`pi-tool-guidance`](https://github.com/spences10/my-pi/tree/main/packages/pi-tool-guidance#readme)             |
 | `footer`              | [`pi-footer`](https://github.com/spences10/my-pi/tree/main/packages/pi-footer#readme)                           |
 | `codex-usage`         | [`pi-codex-usage`](https://github.com/spences10/my-pi/tree/main/packages/pi-codex-usage#readme)                 |
 | `kimi-usage`          | [`pi-kimi-usage`](https://github.com/spences10/my-pi/tree/main/packages/pi-kimi-usage#readme)                   |
@@ -27,6 +30,24 @@ built in.
 ```bash
 pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
 ```
+
+## Session conveniences and tool guidance
+
+`turn-timer` restores live timing and saved completion durations.
+`session-name` names unnamed interactive sessions through your
+selected model after a successful exchange; this makes an additional
+model request. Manual names set with upstream `/name` are never
+overwritten. Use `/session-name` to retry generation for an unnamed
+session.
+
+`tool-guidance` bundles native skills for nopeek, Omnisearch, and
+SQLite, with concise structured prompt reminders. No local maintainer
+files, credential setup, or automatic MCP installation are required or
+performed. The reminders coexist with user `SYSTEM.md` and
+`APPEND_SYSTEM.md`; use normal Pi configuration for the CLI and MCP
+servers themselves.
+
+All three are enabled by default and individually switchable below.
 
 ## Turn extensions on or off
 

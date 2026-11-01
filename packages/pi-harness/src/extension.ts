@@ -332,11 +332,12 @@ export default function harness(pi: ExtensionAPI) {
 				? active_harness_context(active_harness_dir)
 				: '',
 		].filter(Boolean);
-		return contexts.length
-			? {
-					systemPrompt: `${event.systemPrompt}\n\n${contexts.join('\n\n')}`,
-				}
-			: undefined;
+		if (contexts.length) {
+			event.systemPromptOptions.sections.harness =
+				contexts.join('\n\n');
+		} else {
+			delete event.systemPromptOptions.sections.harness;
+		}
 	});
 	pi.on('tool_call', async (event, ctx) => {
 		if (

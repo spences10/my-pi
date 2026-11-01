@@ -11,6 +11,10 @@
 
 <!-- package-readme:header:end -->
 
+Prompt guidance uses Pi's named system-prompt sections. It coexists
+with user `SYSTEM.md` and `APPEND_SYSTEM.md` files and other
+extensions without replacing the complete prompt.
+
 Optional task scaffolding for Pi: a contract, working-state baseline,
 validation scripts, progress log, and reviewable outcome. Pi still
 owns the agent loop, sessions, tools, and permission hooks.

@@ -54,6 +54,7 @@
 		"@spences10/pi-observability": "workspace:*",
 		"@spences10/pi-recall": "workspace:*",
 		"@spences10/pi-redact": "workspace:*",
+		"@spences10/pi-session-name": "workspace:*",
 		"@spences10/pi-settings": "workspace:*",
 		"@spences10/pi-starfield": "workspace:*",
 		"@spences10/pi-svelte-guardrails": "workspace:*",
@@ -61,7 +62,9 @@
 		"@spences10/pi-team-mode": "workspace:*",
 		"@spences10/pi-telemetry": "workspace:*",
 		"@spences10/pi-themes": "workspace:*",
-		"@spences10/pi-tui-modal": "workspace:*"
+		"@spences10/pi-tool-guidance": "workspace:*",
+		"@spences10/pi-tui-modal": "workspace:*",
+		"@spences10/pi-turn-timer": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",

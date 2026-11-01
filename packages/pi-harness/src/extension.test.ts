@@ -90,6 +90,30 @@ function fixture() {
 		},
 	};
 }
+it('adds harness context without freezing other prompt sections', async () => {
+	const f = fixture();
+	harness(f.api);
+	const event = {
+		systemPrompt: 'custom system and append',
+		systemPromptOptions: {
+			selectedTools: ['bash'],
+			sections: { unrelated: 'keep' } as Record<string, string>,
+		},
+	};
+	await expect(
+		f.handlers.get('before_agent_start')!(event),
+	).resolves.toBeUndefined();
+	expect(event.systemPromptOptions.sections.harness).toContain(
+		'harness',
+	);
+	expect(event.systemPrompt).toBe('custom system and append');
+	event.systemPromptOptions.selectedTools = ['read'];
+	await f.handlers.get('before_agent_start')!(event);
+	expect(event.systemPromptOptions.sections).toEqual({
+		unrelated: 'keep',
+	});
+});
+
 async function create(
 	f: ReturnType<typeof fixture>,
 	checks = ['true'],

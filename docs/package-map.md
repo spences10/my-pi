@@ -27,6 +27,16 @@ vanilla Pi.
 | `@spences10/pi-telemetry`           | Local SQLite telemetry and `/telemetry`.                      |
 | `@spences10/pi-themes`              | Bundled theme pack for Pi.                                    |
 
+The distribution also bundles these independently installable
+packages:
+
+- `@spences10/pi-turn-timer`: live timing and persisted completion
+  durations.
+- `@spences10/pi-session-name`: model-generated names for unnamed
+  sessions.
+- `@spences10/pi-tool-guidance`: native workflow skills and structured
+  prompt guidance.
+
 ## Shared support packages
 
 These are published as dependencies but are not normally installed

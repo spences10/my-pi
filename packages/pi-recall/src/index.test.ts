@@ -4,11 +4,12 @@ import recall, * as recall_entrypoint from './index.js';
 
 type PromptEvent = {
 	systemPrompt: string;
-	systemPromptOptions?: { selectedTools?: string[] };
+	systemPromptOptions: {
+		selectedTools?: string[];
+		sections: Record<string, string>;
+	};
 };
-type PromptHandler = (
-	event: PromptEvent,
-) => Promise<Record<string, unknown>>;
+type PromptHandler = (event: PromptEvent) => void;
 
 async function register_extension() {
 	const handlers = new Map<string, Function>();
@@ -61,49 +62,46 @@ describe('recall extension', () => {
 		).resolves.toBeUndefined();
 	});
 
-	it('injects guidance when selected tools are unavailable', async () => {
-		const { handlers } = await register_extension();
-		const handler = handlers.get(
-			'before_agent_start',
-		) as PromptHandler;
-		await expect(
-			handler({ systemPrompt: 'base', systemPromptOptions: {} }),
-		).resolves.toEqual({
-			systemPrompt: expect.stringMatching(
-				/^base\n\n## Session Recall/,
-			),
-		});
-	});
-
-	it('injects guidance when bash is active', async () => {
-		const { handlers } = await register_extension();
-		const handler = handlers.get(
-			'before_agent_start',
-		) as PromptHandler;
-		await expect(
-			handler({
+	it.each([undefined, ['read', 'bash']])(
+		'adds a named section with shell tools %j',
+		async (selectedTools) => {
+			const { handlers } = await register_extension();
+			const handler = handlers.get(
+				'before_agent_start',
+			) as PromptHandler;
+			const event: PromptEvent = {
 				systemPrompt: 'base',
 				systemPromptOptions: {
-					selectedTools: ['read', 'bash'],
+					selectedTools,
+					sections: { unrelated: 'keep' },
 				},
-			}),
-		).resolves.toEqual({
-			systemPrompt: expect.stringContaining('Session Recall'),
-		});
-	});
+			};
+			expect(handler(event)).toBeUndefined();
+			expect(event.systemPrompt).toBe('base');
+			expect(
+				event.systemPromptOptions.sections.session_recall,
+			).toContain('Session Recall');
+			expect(event.systemPromptOptions.sections.unrelated).toBe(
+				'keep',
+			);
+		},
+	);
 
-	it('skips guidance when bash is unavailable', async () => {
+	it('clears its section when bash becomes unavailable', async () => {
 		const { handlers } = await register_extension();
 		const handler = handlers.get(
 			'before_agent_start',
 		) as PromptHandler;
-		await expect(
-			handler({
-				systemPrompt: 'base',
-				systemPromptOptions: {
-					selectedTools: ['read', 'write'],
-				},
-			}),
-		).resolves.toEqual({});
+		const event: PromptEvent = {
+			systemPrompt: 'base',
+			systemPromptOptions: {
+				selectedTools: ['read', 'write'],
+				sections: { session_recall: 'stale', unrelated: 'keep' },
+			},
+		};
+		expect(handler(event)).toBeUndefined();
+		expect(event.systemPromptOptions.sections).toEqual({
+			unrelated: 'keep',
+		});
 	});
 });
