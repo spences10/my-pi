@@ -1,5 +1,18 @@
 # @spences10/pi-harness
 
+## 0.2.0
+
+### Minor Changes
+
+- 20bfa27: Simplify harness creation, fix dirty baselines, and verify
+  completion; breaking APIs now require asynchronous updates.
+
+### Patch Changes
+
+- 720eb07: Restore timers, session autonaming, and portable tool
+  guidance while preserving native Pi prompt configuration
+  compatibility.
+
 ## 0.1.2
 
 ### Patch Changes

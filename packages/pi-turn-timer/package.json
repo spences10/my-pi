@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-turn-timer",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Live turn timing and persisted completion durations for Pi",
 	"keywords": [
 		"pi",

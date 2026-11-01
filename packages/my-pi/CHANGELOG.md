@@ -1,5 +1,25 @@
 # my-pi
 
+## 0.5.0
+
+### Minor Changes
+
+- 720eb07: Restore timers, session autonaming, and portable tool
+  guidance while preserving native Pi prompt configuration
+  compatibility.
+
+### Patch Changes
+
+- Updated dependencies [20bfa27]
+- Updated dependencies [720eb07]
+  - @spences10/pi-harness@0.2.0
+  - @spences10/pi-turn-timer@0.1.0
+  - @spences10/pi-session-name@0.1.0
+  - @spences10/pi-tool-guidance@0.1.0
+  - @spences10/pi-recall@0.0.17
+  - @spences10/pi-lsp@0.0.51
+  - @spences10/pi-team-mode@0.0.59
+
 ## 0.4.2
 
 ### Patch Changes

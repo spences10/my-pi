@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-session-name",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Automatic session names through Pi's configured model",
 	"keywords": [
 		"pi",

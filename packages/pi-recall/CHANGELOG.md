@@ -1,5 +1,13 @@
 # @spences10/pi-recall
 
+## 0.0.17
+
+### Patch Changes
+
+- 720eb07: Restore timers, session autonaming, and portable tool
+  guidance while preserving native Pi prompt configuration
+  compatibility.
+
 ## 0.0.16
 
 ### Patch Changes
