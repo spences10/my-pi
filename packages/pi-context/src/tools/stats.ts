@@ -3,10 +3,22 @@ import { Type } from 'typebox';
 import { format_stats } from '../context-format.js';
 import { scope_from_context } from '../context-scope.js';
 import { get_context_store } from '../store.js';
+import {
+	context_stats_output_schema,
+	context_tool_namespace,
+} from './output-schemas.js';
 
 export function register_context_stats_tool(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: 'context_stats',
+		namespace: context_tool_namespace,
+		outputSchema: context_stats_output_schema,
+		exposure: 'deferred',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			openWorldHint: false,
+		},
 		label: 'Context Stats',
 		description:
 			'Show byte accounting for the local SQLite context sidecar.',
@@ -28,6 +40,7 @@ export function register_context_stats_tool(pi: ExtensionAPI): void {
 					{ type: 'text' as const, text: format_stats(stats) },
 				],
 				details: stats,
+				structuredContent: { ...stats },
 			};
 		},
 	});

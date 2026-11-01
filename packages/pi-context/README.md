@@ -12,13 +12,36 @@
 <!-- package-readme:header:end -->
 
 Keep huge tool output useful without flooding the model context.
-`pi-context` stores oversized command, file, MCP, and LSP results in a
-local searchable SQLite sidecar, then gives the agent compact receipts
-it can search or retrieve when needed.
+`pi-context` stores oversized model-facing command, file, MCP, and LSP
+results in a local searchable SQLite sidecar, then gives the agent
+compact receipts it can search or retrieve when needed.
+
+With native Pi codemode, intermediate tool results pass through
+unchanged by the sidecar so scripts can filter or aggregate them
+before returning anything to the model. Only oversized final output is
+captured. Existing permission and redaction hooks still apply. The
+sidecar is a searchable overflow fallback, not a replacement for
+codemode filtering.
+
+A deterministic native-codemode benchmark (five workloads, three
+repeats) reduced model-facing output from **5,872 to 831 bytes** per
+suite compared with the previous sidecar behavior, with identical
+answers and retrieval calls reduced from four to one. These are
+**output bytes, not measured API tokens or billed cost**. Filtering
+workloads matched native-only output size without SQLite captures;
+final oversized output remained searchable. Methodology, native-only
+comparison, limitations, and reproduction commands are in the
+[benchmark notes](https://github.com/spences10/my-pi/blob/main/docs/pi-context-benchmark.md#native-codemode-benchmark).
 
 The context tools use normal object-schema tool calling because their
 optional filters are not portable across providers' strict-schema
-rules.
+rules. They also declare native output schemas: codemode receives
+structured results rather than formatted prose. Search returns
+`{ results }`, get returns `{ chunks, message }`, list returns
+`{ sources }`, export returns metadata including `file_path`, and
+stats/purge return their accounting/deletion fields. Missing get or
+export results carry an explanatory `message`; export uses
+`exported: false` and `file_path: null` when nothing was written.
 
 In a SvelteKit docs extraction benchmark against the published
 full-chunk retrieval flow, snippet-first search plus focused retrieval
@@ -86,6 +109,11 @@ pi -e ./packages/pi-context
 - `/context settings` — choose retention/size presets or inspect the
   effective saved/env-backed policy.
 
+`context_stats` and `context_purge` use native deferred exposure to
+avoid adding their definitions to every model request. Find them with
+codemode `searchTools()` or an enabled native `tool_search`; their
+slash commands remain available without codemode.
+
 Use `/context` in interactive mode for a small modal with list, stats,
 settings, and purge actions.
 
@@ -106,8 +134,10 @@ sidecar helpers used by sibling packages and custom harnesses:
 The `./store` subpath exposes the store API, including
 `maybe_store_context_output()`, for store-only consumers.
 
-Receipts include the source id, first exact chunk id, why the output
-was captured, and a low-context retrieval path:
+Receipts include the source id, first exact chunk id, capture reason,
+and a preview capped at eight lines / 768 bytes (plus an omission
+notice). Reusable retrieval guidance lives in tool descriptions rather
+than being repeated in every receipt. Use the ids with these tools:
 
 ```text
 First chunk id: ctx_..._0001
@@ -134,11 +164,20 @@ The tool returns only export metadata.
 
 Intentional sidecar-backed output:
 
-- `read` and `bash` text output: handled by the generic `tool_result`
-  hook when output exceeds byte/line thresholds.
+- Top-level `read`, `bash`, and final `codemode` text output: handled
+  by the generic `tool_result` hook when output exceeds byte/line
+  thresholds. Non-text content such as images is preserved alongside
+  the receipt.
 - Pi native MCP tool output: handled by the generic hook like other
-  text tool results. Text that already contains a `[context-sidecar]`
-  receipt is not indexed again.
+  top-level text tool results. Text that already contains a
+  `[context-sidecar]` receipt is not indexed again.
+- Native Bash/PowerShell structured output and text-only MCP results
+  are preferred over their potentially truncated model-facing
+  previews. The sidecar redacts this text before persistence. Native
+  bounded output is explicitly marked partial; the sidecar does not
+  automatically read native temporary files or recover omitted text.
+  Read results and converted MCP resources retain their native
+  selected-range/truncation semantics.
 - LSP tool output: handled by the generic hook for large text
   diagnostics or symbol/reference dumps; small structured summaries
   stay inline.
@@ -150,6 +189,10 @@ Intentional sidecar-backed output:
 
 Intentionally skipped output:
 
+- Nested calls carrying `parentToolCallId`, including codemode tool
+  calls: intermediate output belongs to the calling tool, which can
+  filter it before deciding what to return to the model. This also
+  preserves native structured result contracts.
 - Results marked `isError: true`: error diagnostics stay inline in the
   session instead of depending on the expiring sidecar.
 - `context_*` tools: avoids recursive indexing of

@@ -104,26 +104,27 @@ describe('ContextStore', () => {
 
 		expect(stored?.source_id).toMatch(/^ctx_/);
 		expect(stored?.receipt).toContain('context-sidecar');
-		expect(stored?.receipt).toContain('Project:');
-		expect(stored?.receipt).toContain('Session:');
+		expect(stored?.receipt).not.toContain('Project:');
+		expect(stored?.receipt).not.toContain('Session:');
+		expect(Buffer.byteLength(stored!.receipt, 'utf8')).toBeLessThan(
+			1400,
+		);
 		expect(stored?.receipt).toContain('Captured:');
 		expect(stored?.receipt).toContain('exceeds 10 B');
-		expect(stored?.receipt).toContain('Next actions:');
 		expect(stored?.receipt).toContain(
-			`context_search query:"..." source_id:"${stored!.source_id}"`,
-		);
-		expect(stored?.receipt).toContain('before:1 after:1');
-		expect(stored?.receipt).toContain(
-			`context_export source_id:"${stored!.source_id}"`,
+			'Search snippets with context_search',
 		);
 		expect(stored?.receipt).toContain(
-			'Avoid full context_get without chunk_id',
+			'context_get for focused chunks',
+		);
+		expect(stored?.receipt).toContain(
+			'context_export for broad processing',
 		);
 		expect(stored?.receipt).toContain(
 			`First chunk id: ${stored!.source_id}_0001`,
 		);
 		expect(stored?.first_chunk_id).toBe(`${stored!.source_id}_0001`);
-		expect(stored?.receipt).toContain('context_list');
+		expect(stored?.receipt).not.toContain('Next actions:');
 		expect(stored?.receipt).toContain('Preview:');
 		expect(stored?.chunk_count).toBeGreaterThan(1);
 

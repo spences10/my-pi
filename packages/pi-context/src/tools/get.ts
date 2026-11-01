@@ -3,10 +3,21 @@ import { Type } from 'typebox';
 import { format_get_result } from '../context-format.js';
 import { scope_from_context } from '../context-scope.js';
 import { get_context_store } from '../store.js';
+import {
+	context_get_output_schema,
+	context_tool_namespace,
+} from './output-schemas.js';
 
 export function register_context_get_tool(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: 'context_get',
+		namespace: context_tool_namespace,
+		outputSchema: context_get_output_schema,
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			openWorldHint: false,
+		},
 		label: 'Context Get',
 		description:
 			'Retrieve focused chunks from the local SQLite context sidecar. Normally pass source_id plus chunk_id and use before/after neighbors; omitting chunk_id retrieves the full source into chat.',
@@ -66,6 +77,10 @@ export function register_context_get_tool(pi: ExtensionAPI): void {
 			return {
 				content: [{ type: 'text' as const, text }],
 				details: { count: chunks.length },
+				structuredContent: {
+					chunks: chunks.map((chunk) => ({ ...chunk })),
+					message: chunks.length === 0 ? text : '',
+				},
 			};
 		},
 	});

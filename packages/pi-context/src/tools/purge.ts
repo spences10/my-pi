@@ -3,10 +3,22 @@ import { Type } from 'typebox';
 import { format_purge_details } from '../context-format.js';
 import { scope_from_context } from '../context-scope.js';
 import { get_context_store } from '../store.js';
+import {
+	context_purge_output_schema,
+	context_tool_namespace,
+} from './output-schemas.js';
 
 export function register_context_purge_tool(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: 'context_purge',
+		namespace: context_tool_namespace,
+		outputSchema: context_purge_output_schema,
+		exposure: 'deferred',
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: true,
+			openWorldHint: false,
+		},
 		label: 'Context Purge',
 		description:
 			'Delete indexed context-sidecar output by age, source, project, session, or active retention policy.',
@@ -78,6 +90,7 @@ export function register_context_purge_tool(pi: ExtensionAPI): void {
 					},
 				],
 				details,
+				structuredContent: { ...details },
 			};
 		},
 	});

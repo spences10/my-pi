@@ -11,6 +11,7 @@ import {
 	set_context_sidecar_enabled,
 	should_index_text,
 } from './store.js';
+import { select_context_output } from './tool-output.js';
 
 export function register_context_lifecycle(pi: ExtensionAPI): void {
 	set_context_sidecar_enabled(true, { project_path: process.cwd() });
@@ -29,7 +30,8 @@ export function register_context_lifecycle(pi: ExtensionAPI): void {
 	});
 
 	pi.on('tool_result', async (event, ctx) => {
-		if (event.isError) return;
+		// Nested results belong to the calling tool, not the model transcript.
+		if (event.isError || event.parentToolCallId) return;
 
 		const tool_name = String(event.toolName ?? 'tool');
 		if (should_skip_tool(tool_name)) return;
@@ -37,8 +39,11 @@ export function register_context_lifecycle(pi: ExtensionAPI): void {
 
 		const text_items = event.content.filter(is_text_content);
 		if (text_items.length === 0) return;
-		const text = text_items.map((item) => item.text).join('\n');
-		if (text.includes('[context-sidecar]')) return;
+		const visible_text = text_items
+			.map((item) => item.text)
+			.join('\n');
+		if (visible_text.includes('[context-sidecar]')) return;
+		const text = select_context_output(event, visible_text);
 		if (!should_index_text(text)) return;
 
 		try {
@@ -50,7 +55,10 @@ export function register_context_lifecycle(pi: ExtensionAPI): void {
 			});
 			if (!stored) return;
 			return {
-				content: [{ type: 'text' as const, text: stored.receipt }],
+				content: [
+					{ type: 'text' as const, text: stored.receipt },
+					...event.content.filter((item) => !is_text_content(item)),
+				],
 			};
 		} catch {
 			return;

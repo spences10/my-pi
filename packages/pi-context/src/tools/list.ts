@@ -3,10 +3,21 @@ import { Type } from 'typebox';
 import { format_list_results } from '../context-format.js';
 import { scope_from_context } from '../context-scope.js';
 import { get_context_store } from '../store.js';
+import {
+	context_list_output_schema,
+	context_tool_namespace,
+} from './output-schemas.js';
 
 export function register_context_list_tool(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: 'context_list',
+		namespace: context_tool_namespace,
+		outputSchema: context_list_output_schema,
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			openWorldHint: false,
+		},
 		label: 'Context List',
 		description:
 			'List indexed sources in the local SQLite context sidecar.',
@@ -78,6 +89,9 @@ export function register_context_list_tool(pi: ExtensionAPI): void {
 					},
 				],
 				details: { count: results.length },
+				structuredContent: {
+					sources: results.map((result) => ({ ...result })),
+				},
 			};
 		},
 	});

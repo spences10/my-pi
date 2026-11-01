@@ -88,6 +88,98 @@ describe('register_context_lifecycle', () => {
 		},
 	);
 
+	it.each(['bash', 'read', 'mcp__docs__extract', 'codemode'])(
+		'leaves nested %s output intact without indexing it',
+		async (toolName) => {
+			process.env.MY_PI_CONTEXT_DB = temp_db();
+			const { pi, hooks } = fake_pi();
+			register_context_lifecycle(pi);
+			const event = {
+				toolName,
+				parentToolCallId: 'script-1',
+				content: [
+					{ type: 'text', text: 'nested-marker\n'.repeat(400) },
+				],
+				structuredContent: {
+					output: 'nested-marker\n'.repeat(400),
+					truncated: false,
+				},
+			};
+			const original = structuredClone(event);
+			expect(
+				await hooks.get('tool_result')![0](event),
+			).toBeUndefined();
+			expect(event).toEqual(original);
+			expect(get_context_store().stats().sources).toBe(0);
+		},
+	);
+
+	it('captures final codemode output and preserves images', async () => {
+		process.env.MY_PI_CONTEXT_DB = temp_db();
+		const { pi, hooks } = fake_pi();
+		register_context_lifecycle(pi);
+		const image = {
+			type: 'image',
+			data: 'eA==',
+			mimeType: 'image/png',
+		};
+		const result = (await hooks.get('tool_result')![0]({
+			toolName: 'codemode',
+			content: [
+				{ type: 'text', text: 'final-marker\n'.repeat(400) },
+				image,
+			],
+		})) as { content: unknown[] };
+		expect(result.content).toContainEqual(image);
+		expect(
+			get_context_store().search('final-marker', { global: true }),
+		).not.toHaveLength(0);
+	});
+
+	it('indexes the complete native MCP text rather than its chat preview', async () => {
+		process.env.MY_PI_CONTEXT_DB = temp_db();
+		const { pi, hooks } = fake_pi();
+		register_context_lifecycle(pi);
+		await hooks.get('tool_result')![0]({
+			toolName: 'mcp__docs__extract',
+			content: [{ type: 'text', text: 'truncated preview' }],
+			structuredContent: {
+				content: [
+					{
+						type: 'text',
+						text: `${'raw content\n'.repeat(400)}middle-marker`,
+					},
+				],
+			},
+		});
+		expect(
+			get_context_store().search('middle-marker', { global: true }),
+		).toHaveLength(1);
+	});
+
+	it('redacts native structured output before persistence', async () => {
+		process.env.MY_PI_CONTEXT_DB = temp_db();
+		const { pi, hooks } = fake_pi();
+		register_context_lifecycle(pi);
+		await hooks.get('tool_result')![0]({
+			toolName: 'bash',
+			content: [
+				{ type: 'text', text: 'chat preview omits the middle' },
+			],
+			structuredContent: {
+				output: `${'safe-marker\n'.repeat(400)}{"password":"synthetic-benchmark-secret"}`,
+				truncated: false,
+			},
+		});
+		const store = get_context_store();
+		const source = store.list({ global: true })[0]!;
+		const text = store.export_content(source.source_id, undefined, {
+			global: true,
+		}).content;
+		expect(text).toContain('[REDACTED:');
+		expect(text).not.toContain('synthetic-benchmark-secret');
+	});
+
 	it('indexes only oversized text tool results for the active scope', async () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
 		const { pi, hooks } = fake_pi();

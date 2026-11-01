@@ -3,10 +3,21 @@ import { Type } from 'typebox';
 import { format_search_results } from '../context-format.js';
 import { scope_from_context } from '../context-scope.js';
 import { get_context_store } from '../store.js';
+import {
+	context_search_output_schema,
+	context_tool_namespace,
+} from './output-schemas.js';
 
 export function register_context_search_tool(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: 'context_search',
+		namespace: context_tool_namespace,
+		outputSchema: context_search_output_schema,
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			openWorldHint: false,
+		},
 		label: 'Context Search',
 		description:
 			'Search large tool output stored in the local SQLite context sidecar. Use this snippet-first before retrieving chunks; reserve full_content:true for small matched chunks, not broad retrieval.',
@@ -58,6 +69,9 @@ export function register_context_search_tool(pi: ExtensionAPI): void {
 					},
 				],
 				details: { count: results.length },
+				structuredContent: {
+					results: results.map((result) => ({ ...result })),
+				},
 			};
 		},
 	});
