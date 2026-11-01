@@ -2,7 +2,7 @@ export const site_config = {
 	name: 'my-pi',
 	title: 'my-pi — a curated Pi coding-agent distribution',
 	description:
-		'Run a ready-to-use Pi coding-agent CLI, or add individual @spences10/pi-* extensions to your own Pi setup.',
+		'Run upstream Pi with every @spences10/pi-* extension built in and switchable, or add individual extensions to your own Pi setup.',
 	url: 'https://my-pi.dev',
 	repository: 'https://github.com/spences10/my-pi',
 	npm: 'https://www.npmjs.com/package/my-pi',

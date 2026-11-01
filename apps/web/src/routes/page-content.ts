@@ -18,19 +18,30 @@ export const seo_config: SeoConfig = {
 
 export const stack_tree = [
 	['runtime', 'upstream Pi: TUI · MCP · skills · RPC · SDK'],
-	['project tools', 'LSP'],
+	['project tools', 'LSP · guardrails'],
 	['context', 'sidecar · recall · redaction'],
 	['workflows', 'harness · team mode'],
-	['operations', 'Git UI · telemetry · observability'],
+	['operations', 'Git UI · telemetry · observability · usage'],
 ] as const;
 
 // Packages that supply each stack layer. The runtime layer is Pi itself.
 export const layer_packages: Record<string, readonly string[]> = {
 	runtime: [],
-	'project tools': ['pi-lsp'],
+	'project tools': [
+		'pi-lsp',
+		'pi-confirm-destructive',
+		'pi-coding-preferences',
+		'pi-svelte-guardrails',
+	],
 	context: ['pi-context', 'pi-recall', 'pi-redact'],
 	workflows: ['pi-harness', 'pi-team-mode'],
-	operations: ['pi-git-ui', 'pi-telemetry', 'pi-observability'],
+	operations: [
+		'pi-git-ui',
+		'pi-telemetry',
+		'pi-observability',
+		'pi-codex-usage',
+		'pi-kimi-usage',
+	],
 };
 
 export const stack_rows = [
@@ -136,11 +147,24 @@ export const package_groups = [
 				'pi-svelte-guardrails',
 				'Checks that block configured Svelte anti-patterns.',
 			],
+		] as const,
+	},
+	{
+		label: 'terminal & usage',
+		prompt: 'style',
+		packages: [
 			['pi-footer', 'A configurable footer status line.'],
+			['pi-codex-usage', 'OpenAI Codex usage status in the footer.'],
+			[
+				'pi-kimi-usage',
+				'Kimi For Coding usage status in the footer.',
+			],
 			[
 				'pi-themes',
 				'A bundled theme pack selected through Pi settings.',
 			],
+			['pi-starfield', 'Theme-aware input stars and quotes.'],
+			['pi-talk', 'Opt-in hold-Space Deepgram dictation.'],
 		] as const,
 	},
 ] as const;
@@ -160,7 +184,15 @@ export const faq_lines = [
 	],
 	[
 		'How do I run the full distribution?',
-		'Run pnpx my-pi@latest (or npx/bunx). It runs upstream Pi with redaction, destructive-command confirmation, the context sidecar, and LSP loaded; do not install it with pi install.',
+		'Run pnpx my-pi@latest (or npx/bunx). It runs upstream Pi with every extension in this repository built in; do not install it with pi install.',
+	],
+	[
+		'How do I turn an extension off?',
+		'Run /extensions inside my-pi. The choice is saved in ~/.pi/agent/my-pi-settings.json and applies on reload.',
+	],
+	[
+		'Where are MCP, skills, and models?',
+		'They are upstream Pi features. Every Pi option and subcommand, including my-pi config and my-pi install, works in my-pi.',
 	],
 	[
 		'Can I use the packages without my-pi?',

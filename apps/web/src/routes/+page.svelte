@@ -45,7 +45,7 @@
 		'#bf3ad9',
 		'#00eaff',
 	];
-	const group_colors = ['#ccff00', '#ff00cc', '#00eaff'];
+	const group_colors = ['#ccff00', '#ff00cc', '#00eaff', '#f2c400'];
 
 	const package_count = package_groups.reduce(
 		(total, group) => total + group.packages.length,
@@ -92,10 +92,10 @@
 					Run Pi with project tools already connected.
 				</h1>
 				<p class="lede">
-					my-pi runs upstream Pi with redaction, destructive-command
-					confirmation, a context sidecar, and LSP loaded. Add recall,
-					guardrails, observability, and peer coordination as separate
-					Pi packages.
+					my-pi runs upstream Pi with every extension in this
+					repository built in: LSP, a context sidecar, recall,
+					redaction, guardrails, observability, and peer coordination.
+					Turn each one on or off with <code>/extensions</code>.
 				</p>
 
 				<CommandLine command="pnpx my-pi@latest" echo />
@@ -208,8 +208,8 @@
 				<div class="install-option echo">
 					<h3>Run the distribution</h3>
 					<p>
-						Choose this when you want all included extensions and
-						my-pi defaults configured together.
+						Choose this when you want every extension built in. Turn
+						any of them off with <code>/extensions</code>.
 					</p>
 					<CommandLine command="pnpx my-pi@latest" />
 					<small>
