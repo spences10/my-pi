@@ -51,6 +51,21 @@ export const stack_rows = [
 		body: 'Inspect the diff, run the narrow check and test, then query diagnostics on changed files before handing work back.',
 	},
 	{
+		label: 'Get the next prompt ready',
+		packages: 'pi-starfield',
+		body: 'After each turn, the session model suggests your next prompt as dim text in the empty input. Press Tab to use it; typing hides it.',
+	},
+	{
+		label: 'Stop risky commands before they run',
+		packages: 'pi-confirm-destructive',
+		body: 'Deletes, resets, force pushes, and other destructive commands wait for your confirmation, with Git-aware checks for work you could lose.',
+	},
+	{
+		label: 'Review and commit without leaving Pi',
+		packages: 'pi-git-ui',
+		body: 'Stage files, review diffs, and write the commit in a modal inside Pi instead of switching to a separate Git client.',
+	},
+	{
 		label: 'Keep large output searchable',
 		packages: 'pi-context',
 		body: 'Large reads and tool results become compact receipts; search snippets first, retrieve nearby chunks, and export only for broad offline processing.',
@@ -163,7 +178,10 @@ export const package_groups = [
 				'pi-themes',
 				'A bundled theme pack selected through Pi settings.',
 			],
-			['pi-starfield', 'Theme-aware input stars and quotes.'],
+			[
+				'pi-starfield',
+				'Input stars and a suggested next prompt (Tab).',
+			],
 			['pi-talk', 'Opt-in hold-Space Deepgram dictation.'],
 		] as const,
 	},
