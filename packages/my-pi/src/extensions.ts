@@ -175,7 +175,7 @@ export const EXTENSIONS: readonly MyPiExtension[] = [
 	{
 		key: 'starfield',
 		label: 'Starfield',
-		description: 'Twinkling stars in the input editor',
+		description: 'Input stars and a suggested next prompt (Tab)',
 		load: async () =>
 			((await import('@spences10/pi-starfield')) as ExtensionModule)
 				.default,

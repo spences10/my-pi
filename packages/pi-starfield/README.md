@@ -11,8 +11,8 @@
 
 <!-- package-readme:header:end -->
 
-A shaded input with quiet, twinkling stars and short, original quotes
-for Pi. Install it as an extension in upstream Pi 0.85.0 or newer.
+A shaded input with quiet, twinkling stars and a suggested next prompt
+for Pi. Press Tab to use the suggestion. Needs Pi 1.4.0 or newer.
 
 ## Installation
 
@@ -39,21 +39,24 @@ pi -e ./packages/pi-starfield
   empty or typing. It starts at three shaded rows and grows with text.
 - Single-dot Braille stars stay in fixed cells with dim, slow 9–14
   second pulses. Typing does not stop or restart the animation.
+- While the input has text, only the row below it twinkles, so Pi
+  never redraws your text and a mouse selection in it stays put.
 - Stars remain in the padding above and below typed text. Text rows,
   cursor cells, scroll indicators, and autocomplete stay clear.
-- Twelve original quotes use a `my-pi` label in the empty input. A
-  random quote starts each editor session; the next quote appears when
-  typed input is cleared or sent. Quotes do not change on an idle
-  timer and are never submitted.
+- After each agent turn, one short call to the session model (no
+  thinking, at most 60 output tokens) predicts your next prompt from
+  your last prompt and the agent's final reply. It shows as dim text
+  in the empty input with `⇥`. Tab puts it in the input; typing hides
+  it. It is never sent on its own. A new turn clears it.
 - Pasted text, history, shortcuts, and autocomplete keep Pi's input
   and layout behavior. Scroll indicators remain visible for long
   input.
-- Animation requests a normal Pi render every 150 ms while the editor
+- Animation requests a normal Pi render every 500 ms while the editor
   has focus. It stops when another component takes focus, the editor
   is replaced, or the session shuts down. No raw terminal writes.
 - Theme changes apply on the next render. Stars blend `muted` toward
   `userMessageBg` in truecolor themes. Other palettes use `dim`, which
-  is also used for quote text.
+  is also used for suggestion text.
 - `NO_COLOR` and `TERM=dumb` disable the custom editor. Print, JSON,
   and RPC modes do not install it.
 - Another custom editor is not replaced. Disable the other extension
@@ -65,6 +68,7 @@ pi -e ./packages/pi-starfield
 /starfield on      Animate stars (default)
 /starfield static  Keep a still star field, with no animation timer
 /starfield off     Restore Pi's normal editor
+/starfield suggest on|off   Suggested next prompts (default on)
 ```
 
 The choice is saved globally in `~/.pi/agent/my-pi-settings.json` (or
@@ -73,7 +77,7 @@ in the configured Pi agent directory), under:
 ```json
 {
 	"packages": {
-		"pi-starfield": { "mode": "static" }
+		"pi-starfield": { "mode": "static", "suggest": true }
 	}
 }
 ```

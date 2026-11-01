@@ -9,19 +9,21 @@ import {
 	type TUI,
 } from '@earendil-works/pi-tui';
 import { star_color, star_frame, type Star } from './stars.js';
-import { QUOTES } from './quotes.js';
 
 export type StarfieldMode = 'on' | 'static' | 'off';
-export const FRAME_MS = 150;
+// Stars pulse over 9–14 s, so a slower frame looks the same.
+export const FRAME_MS = 500;
 const RESET = '\x1b[0m';
 
 export class StarfieldEditor extends CustomEditor {
 	private timer?: ReturnType<typeof setTimeout>;
 	private disposed = false;
 	private started = performance.now();
-	private quote_index = Math.floor(Math.random() * QUOTES.length);
-	private was_empty = true;
 	private stars: Star[] = [];
+	private top_stars: Star[] = [];
+	// Set while the input has text: the top row stays still so Pi's
+	// redraw starts below the text and keeps any mouse selection in it.
+	private text_elapsed?: number;
 
 	constructor(
 		tui: TUI,
@@ -31,6 +33,9 @@ export class StarfieldEditor extends CustomEditor {
 			theme: () => Theme;
 			mode: () => StarfieldMode;
 			active: () => boolean;
+			/** Ghost-text prompt shown in the empty input; Tab accepts it. */
+			suggestion?: () => string | undefined;
+			on_accept_suggestion?: () => void;
 		},
 	) {
 		super(tui, editor_theme, keybindings);
@@ -44,10 +49,14 @@ export class StarfieldEditor extends CustomEditor {
 		);
 	}
 
-	private star_cells(width: number, row: number): string[] {
+	private star_cells(
+		width: number,
+		row: number,
+		stars: Star[] = this.stars,
+	): string[] {
 		const cells = Array<string>(width).fill(' ');
 		const theme = this.options.theme();
-		for (const star of this.stars) {
+		for (const star of stars) {
 			if (star.y !== row) continue;
 			const color =
 				star_color(
@@ -65,7 +74,7 @@ export class StarfieldEditor extends CustomEditor {
 		hidden: number,
 	): string {
 		return this.enabled() && hidden === 0
-			? this.star_cells(width, 0).join('')
+			? this.star_cells(width, 0, this.top_stars).join('')
 			: super.renderTopBorder(width, hidden);
 	}
 
@@ -88,6 +97,22 @@ export class StarfieldEditor extends CustomEditor {
 		this.stop();
 	}
 
+	override handleInput(data: string): void {
+		const suggestion = this.options.suggestion?.();
+		if (
+			data === '\t' &&
+			suggestion &&
+			this.getText() === '' &&
+			!this.isShowingAutocomplete()
+		) {
+			this.setText(suggestion);
+			this.options.on_accept_suggestion?.();
+			this.tui.requestRender();
+			return;
+		}
+		super.handleInput(data);
+	}
+
 	refresh(): void {
 		this.stop();
 		this.tui.requestRender();
@@ -99,15 +124,19 @@ export class StarfieldEditor extends CustomEditor {
 		const animated =
 			this.options.mode() === 'on' && this.focused && width >= 4;
 		const elapsed = animated ? performance.now() - this.started : 0;
+		const has_text = this.getText() !== '';
+		if (!has_text) this.text_elapsed = undefined;
+		else this.text_elapsed ??= elapsed;
 		this.stars = width >= 4 ? star_frame(width, elapsed) : [];
+		this.top_stars =
+			width >= 4 && this.text_elapsed !== undefined
+				? star_frame(width, this.text_elapsed)
+				: this.stars;
 		// Let Pi lay out text and autocomplete. Only its padding rows get stars.
 		const lines = super.render(width);
 		const theme = this.options.theme();
 		const background = theme.getBgAnsi('userMessageBg');
 		const empty = this.getText() === '';
-		if (empty && !this.was_empty)
-			this.quote_index = (this.quote_index + 1) % QUOTES.length;
-		this.was_empty = empty;
 
 		if (empty && !this.isShowingAutocomplete() && width >= 4) {
 			const cells = this.star_cells(width, 1);
@@ -115,11 +144,11 @@ export class StarfieldEditor extends CustomEditor {
 				this.getPaddingX(),
 				Math.floor((width - 1) / 2),
 			);
-			const text = `my-pi · ${QUOTES[this.quote_index]}`.slice(
-				0,
-				width - padding - 1,
-			);
-			// Replace all quote cells, including spaces, to protect them from stars.
+			const suggestion = this.options.suggestion?.();
+			const text = suggestion
+				? `${suggestion}  ⇥`.slice(0, width - padding - 1)
+				: '';
+			// Replace all suggestion cells, including spaces, to protect them from stars.
 			for (let index = 0; index < text.length; index++) {
 				cells[padding + index] = theme.fg('dim', text[index]!);
 			}

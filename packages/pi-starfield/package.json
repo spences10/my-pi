@@ -1,7 +1,7 @@
 {
 	"name": "@spences10/pi-starfield",
 	"version": "0.0.2",
-	"description": "Theme-aware input stars and quotes for my-pi and Pi",
+	"description": "Theme-aware input stars with suggested next prompts for Pi",
 	"keywords": [
 		"pi",
 		"pi-package",
@@ -46,6 +46,7 @@
 		"@spences10/pi-settings": "workspace:*"
 	},
 	"devDependencies": {
+		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
 		"@types/node": "catalog:",
@@ -53,8 +54,9 @@
 		"vite-plus": "catalog:"
 	},
 	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": ">=0.85.0",
-		"@earendil-works/pi-tui": ">=0.85.0"
+		"@earendil-works/pi-ai": ">=1.4.0",
+		"@earendil-works/pi-coding-agent": ">=1.4.0",
+		"@earendil-works/pi-tui": ">=1.4.0"
 	},
 	"engines": {
 		"node": ">=24.15.0"

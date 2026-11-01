@@ -24,7 +24,6 @@ import {
 	StarfieldEditor,
 	type StarfieldMode,
 } from './editor.js';
-import { QUOTES } from './quotes.js';
 import { star_color, star_frame } from './stars.js';
 
 const identity = (text: string) => text;
@@ -70,10 +69,16 @@ function setup() {
 	let mode: StarfieldMode = 'on';
 	let active = true;
 	let theme = make_theme();
+	let suggestion: string | undefined;
+	const on_accept = vi.fn(() => {
+		suggestion = undefined;
+	});
 	const editor = new StarfieldEditor(tui, editor_theme, keybindings, {
 		theme: () => theme,
 		mode: () => mode,
 		active: () => active,
+		suggestion: () => suggestion,
+		on_accept_suggestion: on_accept,
 	});
 	editor.focused = true;
 	return {
@@ -89,6 +94,10 @@ function setup() {
 		set_theme: (value: Theme) => {
 			theme = value;
 		},
+		set_suggestion: (value: string | undefined) => {
+			suggestion = value;
+		},
+		on_accept,
 	};
 }
 
@@ -134,19 +143,16 @@ describe('star frames', () => {
 });
 
 describe('StarfieldEditor', () => {
-	it('renders a shaded three-row field without putting the placeholder in input', () => {
-		const { editor } = setup();
+	it('renders a shaded three-row field without putting the suggestion in input', () => {
+		const { editor, set_suggestion } = setup();
 		editor.setPaddingX(1);
+		set_suggestion('run the tests');
 		const lines = editor.render(100);
 		expect(lines).toHaveLength(3);
 		expect(lines.every((line) => visibleWidth(line) === 100)).toBe(
 			true,
 		);
-		expect(
-			QUOTES.some((quote) =>
-				plain(lines)[1]?.slice(1).startsWith(`my-pi · ${quote}`),
-			),
-		).toBe(true);
+		expect(plain(lines)[1]?.slice(1)).toMatch(/^run the tests {2}⇥/);
 		expect(lines.join('').split(CURSOR_MARKER)).toHaveLength(2);
 		expect(lines[1]).toContain(` ${CURSOR_MARKER}`);
 		expect(editor.getText()).toBe('');
@@ -190,23 +196,28 @@ describe('StarfieldEditor', () => {
 		editor.handleInput('\x1b[A');
 		expect(editor.getText()).toBe('earlier prompt');
 		editor.setText('');
-		expect(plain(editor.render(80))[1]).toContain('my-pi · ');
+		expect(plain(editor.render(80))[1]).not.toMatch(/[a-z]/i);
 	});
 
-	it('keeps a quote stable while empty and cycles the full set after typing', () => {
-		const { editor, set_mode } = setup();
-		set_mode('static');
-		const seen = new Set<string>();
-		for (let index = 0; index < QUOTES.length; index++) {
-			const line = plain(editor.render(100))[1]!;
-			seen.add(line);
-			vi.advanceTimersByTime(2000);
-			expect(plain(editor.render(100))[1]).toBe(line);
-			editor.setText('draft');
-			editor.render(100);
-			editor.setText('');
-		}
-		expect(seen.size).toBe(QUOTES.length);
+	it('accepts the suggestion with Tab only while the input is empty', () => {
+		const { editor, set_suggestion, on_accept } = setup();
+		set_suggestion('commit and push');
+		editor.handleInput('x');
+		editor.handleInput('\t');
+		expect(editor.getText()).not.toBe('commit and push');
+		expect(on_accept).not.toHaveBeenCalled();
+		editor.setText('');
+		editor.handleInput('\t');
+		expect(editor.getText()).toBe('commit and push');
+		expect(on_accept).toHaveBeenCalledTimes(1);
+		expect(plain(editor.render(80))[1]).not.toContain('⇥');
+	});
+
+	it('hides the suggestion while typing', () => {
+		const { editor, set_suggestion } = setup();
+		set_suggestion('commit and push');
+		editor.handleInput('c');
+		expect(plain(editor.render(80)).join('')).not.toContain('⇥');
 	});
 
 	it('keeps the background through typing, cursor resets, and multiline input', () => {
@@ -248,9 +259,7 @@ describe('StarfieldEditor', () => {
 		expect(plain(editor.render(80)).join('\n')).toContain(
 			'starfield',
 		);
-		expect(plain(editor.render(80)).join('\n')).not.toContain(
-			'my-pi · ',
-		);
+		expect(plain(editor.render(80)).join('\n')).not.toContain('⇥');
 	});
 
 	it('keeps the same stars and animation phase when typing and clearing text', () => {
@@ -268,6 +277,16 @@ describe('StarfieldEditor', () => {
 		const cleared = editor.render(100);
 		expect(cleared[0]).toBe(before[0]);
 		expect(cleared[2]).toBe(before[2]);
+	});
+
+	it('keeps rows above the bottom star row still while the input has text', () => {
+		const { editor } = setup();
+		editor.setText('copy me');
+		const before = editor.render(100);
+		vi.advanceTimersByTime(4000);
+		const after = editor.render(100);
+		expect(after.slice(0, -1)).toEqual(before.slice(0, -1));
+		expect(after.at(-1)).not.toBe(before.at(-1));
 	});
 
 	it('uses one timer while typing and stops on focus loss, replacement, and disposal', () => {
@@ -309,7 +328,7 @@ describe('StarfieldEditor', () => {
 		set_theme(make_theme('#eeeeee', '256color'));
 		expect(editor.render(80)[0]).not.toContain('\x1b[38;2;');
 		set_mode('off');
-		expect(plain(editor.render(80))[1]).not.toContain('my-pi · ');
+		expect(plain(editor.render(80))[1]).not.toContain('⇥');
 		expect(vi.getTimerCount()).toBe(0);
 	});
 });

@@ -20,7 +20,7 @@ vanilla Pi.
 | `@spences10/pi-recall`              | `pirecall` reminder and background sync.                      |
 | `@spences10/pi-redact`              | Output redaction and `/redact-stats`.                         |
 | `@spences10/pi-harness`             | Ephemeral task harness runtime.                               |
-| `@spences10/pi-starfield`           | Twinkling stars in the input editor.                          |
+| `@spences10/pi-starfield`           | Input stars and a suggested next prompt (Tab).                |
 | `@spences10/pi-svelte-guardrails`   | Svelte pattern guardrails.                                    |
 | `@spences10/pi-talk`                | Hold-Space Deepgram dictation.                                |
 | `@spences10/pi-team-mode`           | Peer-session coordination, groups, artifacts, and mailboxes.  |

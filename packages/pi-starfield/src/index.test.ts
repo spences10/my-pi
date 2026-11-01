@@ -47,9 +47,16 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 	const set_editor = vi.fn((value: EditorFactory) => {
 		factory = value;
 	});
+	const stream_simple = vi.fn(() => ({
+		result: async () => ({
+			content: [{ type: 'text', text: '"run the tests"' }],
+		}),
+	}));
 	const ctx = {
 		mode,
 		hasUI: mode === 'tui' || mode === 'rpc',
+		model: { id: 'test-model' },
+		modelRegistry: { streamSimple: stream_simple },
 		ui: {
 			getEditorComponent: () => factory,
 			setEditorComponent: set_editor,
@@ -61,7 +68,9 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 		ctx,
 		set_editor,
 		notify,
-		emit: (event: string) => handlers.get(event)?.({}, ctx),
+		stream_simple,
+		emit: (event: string, payload: unknown = {}) =>
+			handlers.get(event)?.(payload, ctx),
 		command: (args: string) =>
 			command.handler(args, ctx as ExtensionCommandContext),
 		get_factory: () => factory,
@@ -128,13 +137,13 @@ describe('starfield extension', () => {
 		expect(app.get_factory()).toBe(factory);
 		expect(write_package_settings).toHaveBeenLastCalledWith(
 			'pi-starfield',
-			{ mode: 'static' },
+			{ mode: 'static', suggest: true },
 		);
 		await app.command('off');
 		expect(app.get_factory()).toBeUndefined();
 		expect(write_package_settings).toHaveBeenLastCalledWith(
 			'pi-starfield',
-			{ mode: 'off' },
+			{ mode: 'off', suggest: true },
 		);
 	});
 
@@ -168,5 +177,32 @@ describe('starfield extension', () => {
 			'error',
 		);
 		expect(app.get_factory()).toEqual(expect.any(Function));
+	});
+
+	it('asks the session model for a short next prompt after each turn', async () => {
+		const app = setup();
+		app.emit('session_start');
+		const turn = {
+			messages: [
+				{ role: 'user', content: 'fix the bug' },
+				{
+					role: 'assistant',
+					content: [{ type: 'text', text: 'Fixed.' }],
+				},
+			],
+		};
+		app.emit('agent_end', turn);
+		expect(app.stream_simple).toHaveBeenCalledWith(
+			{ id: 'test-model' },
+			expect.objectContaining({ systemPrompt: expect.any(String) }),
+			expect.objectContaining({ maxTokens: 60 }),
+		);
+		await app.command('suggest off');
+		expect(write_package_settings).toHaveBeenLastCalledWith(
+			'pi-starfield',
+			{ mode: 'on', suggest: false },
+		);
+		app.emit('agent_end', turn);
+		expect(app.stream_simple).toHaveBeenCalledTimes(1);
 	});
 });

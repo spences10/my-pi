@@ -8,6 +8,7 @@ import {
 	write_package_settings,
 } from '@spences10/pi-settings';
 import { StarfieldEditor, type StarfieldMode } from './editor.js';
+import { clean_suggestion, suggestion_context } from './suggest.js';
 
 type EditorFactory = Parameters<
 	ExtensionUIContext['setEditorComponent']
@@ -20,8 +21,30 @@ function is_mode(value: unknown): value is StarfieldMode {
 
 export default function starfield(pi: ExtensionAPI): void {
 	let mode: StarfieldMode = 'on';
+	let suggest = true;
+	let suggestion: string | undefined;
+	let suggestion_abort: AbortController | undefined;
 	let editor: StarfieldEditor | undefined;
 	let factory: EditorFactory;
+
+	function clear_suggestion(): void {
+		suggestion_abort?.abort();
+		suggestion_abort = undefined;
+		suggestion = undefined;
+	}
+
+	function save(ctx: ExtensionContext): boolean {
+		try {
+			write_package_settings(PACKAGE, { mode, suggest });
+			return true;
+		} catch (error) {
+			ctx.ui.notify(
+				`Starfield changed for this session but could not save settings: ${String(error)}`,
+				'error',
+			);
+			return false;
+		}
+	}
 
 	function uninstall(ctx: ExtensionContext): void {
 		editor?.dispose();
@@ -55,6 +78,8 @@ export default function starfield(pi: ExtensionAPI): void {
 				theme: () => ctx.ui.theme,
 				mode: () => mode,
 				active: () => ctx.ui.getEditorComponent() === factory,
+				suggestion: () => (suggest ? suggestion : undefined),
+				on_accept_suggestion: clear_suggestion,
 			});
 			return editor;
 		};
@@ -70,22 +95,79 @@ export default function starfield(pi: ExtensionAPI): void {
 			process.env.NO_COLOR !== undefined
 		)
 			return;
-		const settings = read_package_settings<{ mode?: unknown } | null>(
-			PACKAGE,
-			{},
-		);
+		const settings = read_package_settings<{
+			mode?: unknown;
+			suggest?: unknown;
+		} | null>(PACKAGE, {});
 		mode = is_mode(settings?.mode) ? settings.mode : 'on';
+		suggest = settings?.suggest !== false;
 		apply(ctx);
 	});
 
+	pi.on('agent_start', () => {
+		clear_suggestion();
+		editor?.refresh();
+	});
+
+	pi.on('agent_end', (event, ctx) => {
+		if (
+			ctx.mode !== 'tui' ||
+			!suggest ||
+			mode === 'off' ||
+			!ctx.model
+		)
+			return;
+		const context = suggestion_context(event.messages);
+		if (!context) return;
+		clear_suggestion();
+		const controller = new AbortController();
+		suggestion_abort = controller;
+		// Fire and forget: a failed suggestion just leaves the input empty.
+		void ctx.modelRegistry
+			.streamSimple(ctx.model, context, {
+				maxTokens: 60,
+				signal: controller.signal,
+			})
+			.result()
+			.then((message) => {
+				if (controller.signal.aborted) return;
+				const text = message.content
+					.flatMap((block) =>
+						block.type === 'text' ? [block.text] : [],
+					)
+					.join('');
+				suggestion = clean_suggestion(text);
+				suggestion_abort = undefined;
+				editor?.refresh();
+			})
+			.catch(() => {});
+	});
+
 	pi.registerCommand('starfield', {
-		description: 'Input stars: /starfield on|static|off',
+		description:
+			'Input stars: /starfield on|static|off, /starfield suggest on|off',
 		handler: async (args, ctx) => {
 			if (ctx.mode !== 'tui') return;
-			const next = args.trim();
+			const [first, second] = args.trim().split(/\s+/);
+			if (first === 'suggest') {
+				if (second !== 'on' && second !== 'off') {
+					ctx.ui.notify(
+						`Suggestions: ${suggest ? 'on' : 'off'}. Use /starfield suggest on|off.`,
+						'info',
+					);
+					return;
+				}
+				suggest = second === 'on';
+				if (!suggest) clear_suggestion();
+				editor?.refresh();
+				if (save(ctx))
+					ctx.ui.notify(`Suggestions: ${second}.`, 'info');
+				return;
+			}
+			const next = first ?? '';
 			if (!is_mode(next)) {
 				ctx.ui.notify(
-					`Starfield: ${mode}. Use /starfield on|static|off.`,
+					`Starfield: ${mode}, suggestions ${suggest ? 'on' : 'off'}. Use /starfield on|static|off or /starfield suggest on|off.`,
 					'info',
 				);
 				return;
@@ -107,19 +189,12 @@ export default function starfield(pi: ExtensionAPI): void {
 				mode = previous;
 				return;
 			}
-			try {
-				write_package_settings(PACKAGE, { mode });
-				ctx.ui.notify(`Starfield: ${mode}.`, 'info');
-			} catch (error) {
-				ctx.ui.notify(
-					`Starfield changed for this session but could not save settings: ${String(error)}`,
-					'error',
-				);
-			}
+			if (save(ctx)) ctx.ui.notify(`Starfield: ${mode}.`, 'info');
 		},
 	});
 
 	pi.on('session_shutdown', (_event, ctx) => {
+		clear_suggestion();
 		if (ctx.mode === 'tui') uninstall(ctx);
 	});
 }
