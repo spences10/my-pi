@@ -1,6 +1,6 @@
 ---
-'@spences10/pi-harness': patch
+'@spences10/pi-harness': minor
 ---
 
-Detect later changes to dirty baseline files without hiding task edits
-or modifying the index.
+Simplify harness creation, fix dirty baselines, and verify completion;
+breaking APIs now require asynchronous updates.
