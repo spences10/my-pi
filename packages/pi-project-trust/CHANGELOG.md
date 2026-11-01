@@ -1,5 +1,17 @@
 # @spences10/pi-project-trust
 
+## 0.1.0
+
+### Minor Changes
+
+- efe01c2: Run my-pi on upstream Pi with /extensions toggles; drop
+  code upstream now covers.
+
+### Patch Changes
+
+- Updated dependencies [efe01c2]
+  - @spences10/pi-settings@0.1.0
+
 ## 0.0.19
 
 ### Patch Changes

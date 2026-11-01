@@ -1,5 +1,12 @@
 # @spences10/pi-child-env
 
+## 0.2.0
+
+### Minor Changes
+
+- efe01c2: Run my-pi on upstream Pi with /extensions toggles; drop
+  code upstream now covers.
+
 ## 0.1.10
 
 ### Patch Changes

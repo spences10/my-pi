@@ -1,5 +1,12 @@
 # @spences10/pi-settings
 
+## 0.1.0
+
+### Minor Changes
+
+- efe01c2: Run my-pi on upstream Pi with /extensions toggles; drop
+  code upstream now covers.
+
 ## 0.0.3
 
 ### Patch Changes

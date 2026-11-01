@@ -1,5 +1,24 @@
 # my-pi
 
+## 0.4.0
+
+### Minor Changes
+
+- efe01c2: Run my-pi on upstream Pi with /extensions toggles; drop
+  code upstream now covers.
+
+### Patch Changes
+
+- Updated dependencies [efe01c2]
+  - @spences10/pi-context@0.2.0
+  - @spences10/pi-settings@0.1.0
+  - @spences10/pi-lsp@0.0.50
+  - @spences10/pi-coding-preferences@0.0.17
+  - @spences10/pi-footer@0.0.17
+  - @spences10/pi-starfield@0.0.2
+  - @spences10/pi-svelte-guardrails@0.0.17
+  - @spences10/pi-telemetry@0.0.34
+
 ## 0.3.6
 
 No changes in this release.

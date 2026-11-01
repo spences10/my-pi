@@ -1,5 +1,12 @@
 # @spences10/pi-svelte-guardrails
 
+## 0.0.17
+
+### Patch Changes
+
+- Updated dependencies [efe01c2]
+  - @spences10/pi-settings@0.1.0
+
 ## 0.0.16
 
 ### Patch Changes
