@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [de45605]
+  - @spences10/pi-starfield@0.0.3
+
 ## 0.4.0
 
 ### Minor Changes

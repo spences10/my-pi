@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-starfield",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Theme-aware input stars with suggested next prompts for Pi",
 	"keywords": [
 		"pi",

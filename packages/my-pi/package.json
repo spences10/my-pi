@@ -1,6 +1,6 @@
 {
 	"name": "my-pi",
-	"version": "0.4.0",
+	"version": "0.4.1",
 	"description": "Pi with Scott Spence's extensions built in, switchable with /extensions",
 	"keywords": [
 		"cli",

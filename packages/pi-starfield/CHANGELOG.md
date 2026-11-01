@@ -1,5 +1,12 @@
 # @spences10/pi-starfield
 
+## 0.0.3
+
+### Patch Changes
+
+- de45605: Replace starfield quotes with Tab-accepted next-prompt
+  suggestions; keep text selections intact while stars twinkle.
+
 ## 0.0.2
 
 ### Patch Changes
