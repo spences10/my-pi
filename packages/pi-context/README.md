@@ -150,6 +150,8 @@ Intentional sidecar-backed output:
 
 Intentionally skipped output:
 
+- Results marked `isError: true`: error diagnostics stay inline in the
+  session instead of depending on the expiring sidecar.
 - `context_*` tools: avoids recursive indexing of
   retrieval/maintenance output.
 - Non-text/image results: ignored by `pi-context`; image/file handling

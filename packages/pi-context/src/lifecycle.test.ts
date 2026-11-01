@@ -60,6 +60,34 @@ describe('register_context_lifecycle', () => {
 		expect(is_context_sidecar_enabled()).toBe(false);
 	});
 
+	it.each([
+		['line', 'diagnostic detail\n'.repeat(400)],
+		['byte', 'diagnostic detail '.repeat(2000)],
+	])(
+		'leaves failed results above the %s threshold unchanged',
+		async (_limit, text) => {
+			process.env.MY_PI_CONTEXT_DB = temp_db();
+			const { pi, hooks } = fake_pi();
+			register_context_lifecycle(pi);
+			const event = {
+				toolName: 'bash',
+				isError: true,
+				content: [{ type: 'text', text: `failure-marker\n${text}` }],
+			};
+			const original = structuredClone(event);
+
+			expect(
+				await hooks.get('tool_result')![0](event),
+			).toBeUndefined();
+			expect(event).toEqual(original);
+			expect(
+				get_context_store().search('failure-marker', {
+					global: true,
+				}),
+			).toHaveLength(0);
+		},
+	);
+
 	it('indexes only oversized text tool results for the active scope', async () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
 		const { pi, hooks } = fake_pi();
@@ -109,6 +137,7 @@ describe('register_context_lifecycle', () => {
 		const team_replacement = (await tool_result(
 			{
 				toolName: 'team',
+				isError: false,
 				input: {
 					action: 'session_inbox',
 					include_read: true,
