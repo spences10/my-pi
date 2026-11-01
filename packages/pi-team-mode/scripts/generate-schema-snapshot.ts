@@ -67,7 +67,7 @@ try {
 			.map(({ name }) => name)
 			.sort((a, b) => String(a).localeCompare(String(b)));
 		if (
-			version.user_version !== files.length ||
+			version?.user_version !== files.length ||
 			JSON.stringify(names) !== JSON.stringify(expected_names)
 		) {
 			throw new Error(

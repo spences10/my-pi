@@ -28,7 +28,7 @@ const forbidden_paths = [
 	/^dist\/__pack_smoke_stale__\.js$/,
 ];
 
-function run(command, args) {
+function run(command: string, args: string[]) {
 	return execFileSync(command, args, {
 		cwd: package_root,
 		encoding: 'utf8',
@@ -40,7 +40,7 @@ function build() {
 	run('pnpm', ['run', 'build:self']);
 }
 
-function pack(destination) {
+function pack(destination: string) {
 	mkdirSync(destination, { recursive: true });
 	run('npm', [
 		'pack',
@@ -57,7 +57,7 @@ function pack(destination) {
 	return join(destination, tarballs[0]);
 }
 
-function entries(tarball) {
+function entries(tarball: string) {
 	return run('tar', ['-tzf', tarball])
 		.split('\n')
 		.filter(Boolean)
