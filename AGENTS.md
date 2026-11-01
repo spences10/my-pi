@@ -5,8 +5,9 @@ Guidance for coding agents working in this repository.
 ## Orientation
 
 This repo holds reusable `@spences10/pi-*` Pi packages and the `my-pi`
-launcher (`packages/my-pi`), which runs upstream Pi with a few of them
-loaded by default. Prefer upstream Pi features over new custom code.
+command (`packages/my-pi`): upstream Pi with all of them built in and
+switchable with `/extensions`. Prefer upstream Pi features over new
+custom code.
 
 Start with:
 

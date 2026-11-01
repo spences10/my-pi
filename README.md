@@ -4,21 +4,19 @@
 [![built with vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
 [![tested with vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest)](https://vitest.dev)
 
-Extensions for [Pi](https://pi.dev), plus `my-pi`: upstream Pi with a
-few of them loaded by default.
+`my-pi` is my [Pi](https://pi.dev): upstream Pi with my extensions
+built in. Each extension is also published on its own.
 
 ![my-pi package preview](./assets/pi-package-preview.png)
 
 ## Use
 
-Run upstream Pi with redaction, destructive-command confirmation, the
-context sidecar, and LSP tools:
-
 ```bash
 pnpx my-pi@latest
 ```
 
-Or install single packages into your own Pi:
+Turn extensions on or off with `/extensions`. Or install single
+packages into your own Pi:
 
 ```bash
 pi install npm:@spences10/pi-lsp
@@ -32,7 +30,7 @@ configuration are upstream Pi features. See the
 
 | Package                                                                            | Purpose                                                    |
 | ---------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [`my-pi`](./packages/my-pi/README.md)                                              | Launcher: upstream Pi with the default extensions          |
+| [`my-pi`](./packages/my-pi/README.md)                                              | My Pi: upstream Pi with all of these built in              |
 | [`@spences10/pi-coding-preferences`](./packages/pi-coding-preferences/README.md)   | Configurable coding-workflow guardrails                    |
 | [`@spences10/pi-confirm-destructive`](./packages/pi-confirm-destructive/README.md) | Destructive action confirmations                           |
 | [`@spences10/pi-context`](./packages/pi-context/README.md)                         | Scoped SQLite FTS overflow cache for oversized tool output |

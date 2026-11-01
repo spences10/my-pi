@@ -214,7 +214,7 @@ The package also exports `CreateLspExtensionOptions`,
 `should_inject_lsp_prompt`, and `LspClientLike` for custom harnesses
 and tests that need to share the same prompt-gating or client seam.
 
-`my-pi` loads this package by default.
+`my-pi` includes this package.
 
 ## Development
 

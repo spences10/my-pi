@@ -444,18 +444,66 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+      '@spences10/pi-codex-usage':
+        specifier: workspace:*
+        version: link:../pi-codex-usage
+      '@spences10/pi-coding-preferences':
+        specifier: workspace:*
+        version: link:../pi-coding-preferences
       '@spences10/pi-confirm-destructive':
         specifier: workspace:*
         version: link:../pi-confirm-destructive
       '@spences10/pi-context':
         specifier: workspace:*
         version: link:../pi-context
+      '@spences10/pi-footer':
+        specifier: workspace:*
+        version: link:../pi-footer
+      '@spences10/pi-git-ui':
+        specifier: workspace:*
+        version: link:../pi-git-ui
+      '@spences10/pi-harness':
+        specifier: workspace:*
+        version: link:../pi-harness
+      '@spences10/pi-kimi-usage':
+        specifier: workspace:*
+        version: link:../pi-kimi-usage
       '@spences10/pi-lsp':
         specifier: workspace:*
         version: link:../pi-lsp
+      '@spences10/pi-observability':
+        specifier: workspace:*
+        version: link:../pi-observability
+      '@spences10/pi-recall':
+        specifier: workspace:*
+        version: link:../pi-recall
       '@spences10/pi-redact':
         specifier: workspace:*
         version: link:../pi-redact
+      '@spences10/pi-settings':
+        specifier: workspace:*
+        version: link:../pi-settings
+      '@spences10/pi-starfield':
+        specifier: workspace:*
+        version: link:../pi-starfield
+      '@spences10/pi-svelte-guardrails':
+        specifier: workspace:*
+        version: link:../pi-svelte-guardrails
+      '@spences10/pi-talk':
+        specifier: workspace:*
+        version: link:../pi-talk
+      '@spences10/pi-team-mode':
+        specifier: workspace:*
+        version: link:../pi-team-mode
+      '@spences10/pi-telemetry':
+        specifier: workspace:*
+        version: link:../pi-telemetry
+      '@spences10/pi-themes':
+        specifier: workspace:*
+        version: link:../pi-themes
+      '@spences10/pi-tui-modal':
+        specifier: workspace:*
+        version: link:../pi-tui-modal
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

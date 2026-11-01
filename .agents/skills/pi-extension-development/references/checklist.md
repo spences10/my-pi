@@ -15,7 +15,7 @@
 - `packages/<name>/README.md`
 - `packages/<name>/CHANGELOG.md` if package is versioned
 
-## Default in my-pi (optional)
+## Add to my-pi
 
 - `packages/my-pi/package.json` dependency points to `workspace:*`.
 - `packages/my-pi/src/extensions.ts` lists it; update

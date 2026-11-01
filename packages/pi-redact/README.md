@@ -92,7 +92,7 @@ import redact from '@spences10/pi-redact';
 // pass `redact` as an ExtensionFactory to your Pi runtime
 ```
 
-`my-pi` loads this package by default.
+`my-pi` includes this package.
 
 ## Limitations
 

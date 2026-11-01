@@ -15,9 +15,9 @@ repo.
 
 1. Check upstream Pi first (`pi-primitive-check`). Add a package only
    for behaviour Pi does not provide.
-2. New extensions go in a `packages/pi-*` workspace package. Load one
-   by default only by adding it to `packages/my-pi/src/extensions.ts`
-   and the `my-pi` package dependencies.
+2. New extensions go in a `packages/pi-*` workspace package. Add it to
+   my-pi with an entry in `packages/my-pi/src/extensions.ts` and a
+   `workspace:*` dependency in `packages/my-pi/package.json`.
 3. Keep extension entrypoints small: export a default extension
    function and pure helper functions for testable trigger logic.
 4. Put user-facing injected prompt text in one obvious template block;
