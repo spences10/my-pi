@@ -55,6 +55,16 @@ agent procedure, and the root README for commands. If prose disagrees
 with the code or current user request, investigate and correct the
 mismatch rather than treating the prose as a new approval gate.
 
+## Team Mode messaging
+
+For authorized peer work, follow the
+[agent send recipes](packages/pi-team-mode/README.md#agent-send-recipes).
+Use `action` for tasks, blockers, and results needing a response; use
+`status` with a task/topic `status_key` for useful FYIs that can wait.
+Reuse an `idempotency_key` only for an identical send retry; changed
+progress keeps its `status_key` but needs a new retry key. Use
+targeted receipt updates instead of acknowledgement-only replies.
+
 ## Commit and Changeset ownership
 
 Do not commit changes or create a Changeset unless the user explicitly

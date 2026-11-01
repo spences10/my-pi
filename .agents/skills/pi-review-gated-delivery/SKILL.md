@@ -40,6 +40,25 @@ do not claim peer process supervision.
 8. Close the issue, confirm a clean tree, then assign only the next
    dependency-ordered issue.
 
+## Messaging
+
+Read the "Agent send recipes" section of
+`packages/pi-team-mode/README.md` from the repository root.
+
+- Send issue contracts, blockers, final artifact handoffs, and review
+  decisions as `message_type: action`; they need the peer to act.
+- Give each distinct send an `idempotency_key` tied to the issue and
+  handoff/review revision. Retry unchanged sends with the same key;
+  changed content, options, or recipients require a new key.
+- If a useful FYI is warranted, use `message_type: status` and a
+  stable task/topic `status_key`. Give changed updates new retry keys.
+  Status cannot be urgent or require acknowledgement; it is not a
+  substitute for the final actionable handoff or permission to add
+  progress checkpoints to the delivery loop.
+- Use `session_read` after review and `session_ack` after processing,
+  with the received `message_ids`. Do not echo handoffs, send
+  acknowledgement-only replies, or repeatedly send unchanged status.
+
 ## Boundaries
 
 - Do not start parallel mutation in a shared working tree.

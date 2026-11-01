@@ -160,18 +160,70 @@ message details and surfaces all corresponding receipts; original
 bodies remain available in the mailbox. Acknowledgements are receipt
 updates through `session_ack`, not messages back to the sender.
 
-Example tool arguments:
+### Agent send recipes
+
+Choose the message type by what the recipient needs to do:
+
+| Information                                                                             | Send as                                           |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Task contract, blocker, review request, requested changes, or result needing a response | `action`                                          |
+| Useful progress or FYI that needs no response and can wait                              | `status` with a `status_key`                      |
+| Unchanged status, echoed handoff, or acknowledgement-only reply                         | Do not send; use receipt updates when appropriate |
+
+**Request work or a decision.** Keep actionable results out of quiet
+status, even when the result says "done". For large results, create an
+artifact and include its returned id in the message instead of pasting
+the body.
 
 ```json
 {
 	"action": "session_send",
 	"to": "reviewer",
-	"message": "Build is still running",
-	"message_type": "status",
-	"status_key": "build",
-	"idempotency_key": "build-progress-3"
+	"message": "Task 42 is ready for review. Please review the result artifact before assigning the next task.",
+	"message_type": "action",
+	"requires_ack": true,
+	"idempotency_key": "task-42-review-request-1"
 }
 ```
+
+Include the actual artifact id when using this pattern. Set `urgent`
+only when the actionable message genuinely needs priority; ordinary
+actions already wake an idle peer.
+
+**Report changed progress without interrupting.** Reuse `status_key`
+for the same task and topic so pending updates can coalesce:
+
+```json
+{
+	"action": "session_send",
+	"to": "reviewer",
+	"message": "Task 42 build passed; focused tests are now running.",
+	"message_type": "status",
+	"status_key": "task-42-build",
+	"idempotency_key": "task-42-build-progress-2"
+}
+```
+
+A later changed update keeps `status_key: "task-42-build"` but gets a
+new `idempotency_key`, such as `task-42-build-progress-3`. Do not set
+`urgent` or `requires_ack` on status messages. Do not send periodic
+"still running" updates with no new information.
+
+**Retry the same send.** If delivery confirmation is uncertain, retry
+the exact send arguments with the original `idempotency_key`. Do not
+generate a fresh key for a retry. A changed body, target, recipient
+set, or send option is a new request and needs a new key. A
+`status_key` groups changing progress; an `idempotency_key` identifies
+one immutable send. Neither key proves task completion or that the
+peer is currently running.
+
+These fields work the same way with `message_send` and `group_send`;
+use `team_id` for the group target. After receiving a message, use a
+focused `message_id` read if its preview is insufficient,
+`session_read` after reviewing it, and `session_ack` after completing
+it. Pass the received ids in `message_ids` so other pending work is
+not accidentally acknowledged. Do not send a separate "received" or
+"acknowledged" message.
 
 ## Bounded list retrieval
 
