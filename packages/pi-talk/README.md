@@ -11,9 +11,9 @@
 
 <!-- package-readme:header:end -->
 
-Opt-in hold-to-talk dictation for **my-pi** and Pi. Hold Space to
-record, then release it to transcribe into the active editor. A quick
-Space tap remains a normal space.
+Opt-in hold-to-talk dictation for Pi. Hold Space to record, then
+release it to transcribe into the active editor. A quick Space tap
+remains a normal space.
 
 Talk is off by default. It does not intercept Space until you enable
 it through `/talk setup` or `/talk on`.
@@ -104,9 +104,6 @@ ordinary input.
 Without release events, repeated taps with the same timing as keyboard
 repeat remain indistinguishable from a hold. Talk preserves existing
 editor text even if such a sequence activates recording.
-
-In `my-pi`, `--no-talk` prevents the built-in extension from loading
-for one launch.
 
 ## Local development
 

@@ -205,9 +205,6 @@ import harness from '@spences10/pi-harness';
 // pass `harness` as an ExtensionFactory to your Pi runtime
 ```
 
-`my-pi` imports this package directly and enables it as the built-in
-harness workflow.
-
 ## Development
 
 ```bash

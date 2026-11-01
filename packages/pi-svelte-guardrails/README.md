@@ -34,15 +34,9 @@ not inherit it unless they install the package.
 
 ## Status and disabling
 
-Use `/extensions` or `/extensions list` in `my-pi` to inspect whether
-Svelte guardrails are enabled, disabled by saved settings, or
-force-disabled for the current process.
-
 Disable options:
 
-- CLI: start `my-pi` with `--no-svelte-guardrails`.
-- TUI: toggle `Svelte guardrails` in `/extensions` and reload.
-- SDK/API: pass `svelte_guardrails: false` to `create_my_pi()`.
+- Pi: disable the package with `pi config` or `pi remove`.
 - Rule config: set `"mode": "off"` or `"blockEffect": false` in the
   config file below.
 

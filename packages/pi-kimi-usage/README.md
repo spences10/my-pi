@@ -38,11 +38,7 @@ pi install npm:@spences10/pi-kimi-usage
 
 <!-- package-readme:install:end -->
 
-Disable the built-in with:
-
-```bash
-my-pi --no-kimi-usage
-```
+Disable it with `pi config` or `pi remove`.
 
 ## Development
 

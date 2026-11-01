@@ -17,17 +17,17 @@ export const seo_config: SeoConfig = {
 };
 
 export const stack_tree = [
-	['runtime', 'TUI · print · JSON · RPC · SDK'],
-	['project tools', 'MCP · LSP · skills'],
+	['runtime', 'upstream Pi: TUI · MCP · skills · RPC · SDK'],
+	['project tools', 'LSP'],
 	['context', 'sidecar · recall · redaction'],
-	['workflows', 'presets · harness · team mode'],
+	['workflows', 'harness · team mode'],
 	['operations', 'Git UI · telemetry · observability'],
 ] as const;
 
 // Packages that supply each stack layer. The runtime layer is Pi itself.
 export const layer_packages: Record<string, readonly string[]> = {
 	runtime: [],
-	'project tools': ['pi-mcp', 'pi-lsp', 'pi-skills'],
+	'project tools': ['pi-lsp'],
 	context: ['pi-context', 'pi-recall', 'pi-redact'],
 	workflows: ['pi-harness', 'pi-team-mode'],
 	operations: ['pi-git-ui', 'pi-telemetry', 'pi-observability'],
@@ -61,18 +61,13 @@ export const stack_rows = [
 	},
 	{
 		label: 'Use credentials without putting them in chat',
-		packages: 'pi-nopeek  pi-redact',
+		packages: 'pi-redact',
 		body: 'Discover available key names, load only what a command needs, and return the result without putting the credential into chat.',
 	},
 	{
 		label: 'See why an agent run failed',
 		packages: 'pi-telemetry  pi-observability',
 		body: 'Local usage data and live traces expose slow requests, noisy tools, failed calls, and coordination state while work is happening.',
-	},
-	{
-		label: 'Load only what the repository needs',
-		packages: 'pi-mcp  pi-skills  native project tools',
-		body: 'Activate relevant MCP servers and skills by project, then follow that repository’s own README, agent guidance, and validation flow.',
 	},
 ] as const;
 
@@ -86,16 +81,8 @@ export const package_groups = [
 				'Language-server diagnostics, hover, definitions, references, and symbols.',
 			],
 			[
-				'pi-mcp',
-				'Project-aware MCP servers, tool discovery, and the /mcp control surface.',
-			],
-			[
 				'pi-context',
 				'A searchable SQLite sidecar for oversized tool output.',
-			],
-			[
-				'pi-skills',
-				'Skill discovery, profiles, import, enablement, and sync.',
 			],
 			[
 				'pi-harness',
@@ -138,10 +125,6 @@ export const package_groups = [
 				'Sensitive-output redaction with session statistics.',
 			],
 			[
-				'pi-nopeek',
-				'Prompts agents toward secret-safe environment loading.',
-			],
-			[
 				'pi-confirm-destructive',
 				'Explicit confirmation before destructive actions.',
 			],
@@ -153,14 +136,7 @@ export const package_groups = [
 				'pi-svelte-guardrails',
 				'Checks that block configured Svelte anti-patterns.',
 			],
-			[
-				'pi-omnisearch',
-				'Prompts agents toward source-verified web research.',
-			],
-			[
-				'pi-sqlite-tools',
-				'Prompts agents toward safer structured SQLite operations.',
-			],
+			['pi-footer', 'A configurable footer status line.'],
 			[
 				'pi-themes',
 				'A bundled theme pack selected through Pi settings.',
@@ -171,10 +147,8 @@ export const package_groups = [
 
 export const support_packages = [
 	'pi-child-env',
-	'pi-footer',
 	'pi-project-trust',
 	'pi-settings',
-	'pi-skill-importer',
 	'pi-sqlite-core',
 	'pi-tui-modal',
 ] as const;
@@ -186,7 +160,7 @@ export const faq_lines = [
 	],
 	[
 		'How do I run the full distribution?',
-		'Run pnpx my-pi@latest (or npx/bunx). The root package is its own CLI wrapper; do not install it with pi install.',
+		'Run pnpx my-pi@latest (or npx/bunx). It runs upstream Pi with redaction, destructive-command confirmation, the context sidecar, and LSP loaded; do not install it with pi install.',
 	],
 	[
 		'Can I use the packages without my-pi?',

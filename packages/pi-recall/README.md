@@ -87,9 +87,6 @@ import recall from '@spences10/pi-recall';
 // pass `recall` as an ExtensionFactory to your Pi runtime
 ```
 
-`my-pi` imports this package directly and enables it as the built-in
-recall reminder.
-
 ## Development
 
 <!-- package-readme:development:start commands="check,test,build" -->

@@ -95,8 +95,7 @@ import confirm_destructive from '@spences10/pi-confirm-destructive';
 // pass `confirm_destructive` as an ExtensionFactory to your Pi runtime
 ```
 
-`my-pi` imports this package directly and enables it as the built-in
-confirm-destructive guard.
+`my-pi` loads this package by default.
 
 ## Development
 

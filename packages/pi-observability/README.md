@@ -35,19 +35,13 @@ pi install ./packages/pi-observability
 
 ## Usage
 
-For the `my-pi` distribution, observability is ambient: start Pi as
-usual, then open the browser dashboard from the TUI with
-`/observability`. Use `/observability tui` for the terminal dashboard.
+With the package installed, start Pi as usual, then open the browser
+dashboard from the TUI with `/observability`. Use `/observability tui`
+for the terminal dashboard.
+
+To start the dashboard server directly:
 
 ```bash
-pnpx my-pi@latest
-```
-
-You can also start/open the dashboard directly:
-
-```bash
-pnpx my-pi@latest observability
-# or from this package binary
 pnpx pi-observability-server
 ```
 
@@ -151,8 +145,7 @@ MY_PI_OBSERVABILITY_TAG=agent-a,experiment-1 \
 pi
 ```
 
-Equivalent extension flags when this package is loaded by vanilla
-upstream `pi` (the `my-pi` wrapper does not forward extension flags):
+Equivalent extension flags:
 
 ```text
 --observability-url
@@ -252,14 +245,13 @@ batches, and stores a single event that is still too large as a
 truncated preview (or drops it if the preview is too large).
 
 This extension's generic `x-pi-session-id` attribution header is
-disabled by default and requires Pi 0.80.4 or newer. With vanilla
-upstream `pi`, enable `--observability-forward-session-id`. With the
-`my-pi` executable, set `MY_PI_OBSERVABILITY_FORWARD_SESSION_ID=true`
-on the agent process, not only on a separately launched observability
-server. Either option adds the stable local Pi session identifier to
-every outgoing provider request, so enable it only for endpoints you
-trust. The observability bearer token, pool, tags, and event payloads
-are never added to provider headers.
+disabled by default. Enable `--observability-forward-session-id`, or
+set `MY_PI_OBSERVABILITY_FORWARD_SESSION_ID=true` on the agent
+process, not only on a separately launched observability server.
+Either option adds the stable local Pi session identifier to every
+outgoing provider request, so enable it only for endpoints you trust.
+The observability bearer token, pool, tags, and event payloads are
+never added to provider headers.
 
 This setting controls only the extension's generic header. Pinned Pi
 0.82.0 independently sends the same stable identifier as

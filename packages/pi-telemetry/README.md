@@ -36,10 +36,10 @@ pi install npm:@spences10/pi-telemetry
 
 ## Runtime
 
-Requires Node.js `>=24.15.0` for native `node:sqlite`. The `my-pi` CLI
-suppresses Node's expected `node:sqlite` `ExperimentalWarning`;
-standalone package consumers own their process warning policy until
-Node marks `node:sqlite` stable.
+Requires Node.js `>=24.15.0` for native `node:sqlite`. The `pi` and
+`my-pi` CLIs suppress Node's expected `node:sqlite`
+`ExperimentalWarning`; standalone package consumers own their process
+warning policy until Node marks `node:sqlite` stable.
 
 Local development from this monorepo:
 
@@ -152,9 +152,6 @@ const telemetry = create_telemetry_extension({
 
 // pass `telemetry` as an ExtensionFactory to your Pi runtime
 ```
-
-`my-pi` imports this package directly and wires it to the
-`--telemetry`, `--no-telemetry`, and `--telemetry-db` CLI flags.
 
 ## SQLite schema
 

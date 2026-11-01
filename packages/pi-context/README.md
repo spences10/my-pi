@@ -43,7 +43,7 @@ session memory. Use `pirecall` for durable session history.
 ## Runtime
 
 Requires Node.js `>=24.15.0` for native `node:sqlite` plus FTS5. The
-`my-pi` CLI suppresses Node's expected `node:sqlite`
+`pi` and `my-pi` CLIs suppress Node's expected `node:sqlite`
 `ExperimentalWarning`; standalone package consumers own their process
 warning policy until Node marks `node:sqlite` stable.
 
@@ -94,18 +94,17 @@ settings, and purge actions.
 The default export is the Pi extension. The root module also exposes
 sidecar helpers used by sibling packages and custom harnesses:
 
-- context settings helpers such as `get_context_mcp_output_limits()`
-  and `load_context_settings_config()` for sharing retention and
-  capture policy.
-- store helpers such as `maybe_store_context_output()`,
-  `get_context_store()`, and `set_context_sidecar_enabled()` for
-  controlled direct indexing and tests.
+- context settings helpers such as `get_context_capture_limits()` and
+  `load_context_settings_config()` for sharing retention and capture
+  policy.
+- store helpers such as `get_context_store()` and
+  `set_context_sidecar_enabled()` for controlled direct indexing and
+  tests.
 - eval helpers `run_context_eval()` and `run_context_eval_cli()` for
   package evaluation workflows.
 
-`@spences10/pi-mcp` uses these root exports to store oversized MCP
-results in the sidecar before falling back to temporary files. The
-`./store` subpath remains available for store-only consumers.
+The `./store` subpath exposes the store API, including
+`maybe_store_context_output()`, for store-only consumers.
 
 Receipts include the source id, first exact chunk id, why the output
 was captured, and a low-context retrieval path:
@@ -137,9 +136,9 @@ Intentional sidecar-backed output:
 
 - `read` and `bash` text output: handled by the generic `tool_result`
   hook when output exceeds byte/line thresholds.
-- MCP tool output: handled directly in `@spences10/pi-mcp` before
-  temp-file fallback, then ignored by the generic hook because
-  receipts already contain `[context-sidecar]`.
+- Pi native MCP tool output: handled by the generic hook like other
+  text tool results. Text that already contains a `[context-sidecar]`
+  receipt is not indexed again.
 - LSP tool output: handled by the generic hook for large text
   diagnostics or symbol/reference dumps; small structured summaries
   stay inline.
@@ -189,8 +188,7 @@ custom values are available with:
 
 Capture thresholds control when large tool output is moved into the
 sidecar instead of staying inline in the model context. Defaults match
-historical behavior: generic tools capture after `24 KiB` or `300`
-lines; MCP output captures after `50 KiB` or `2000` lines.
+historical behavior: tools capture after `24 KiB` or `300` lines.
 
 Environment variables override saved settings:
 
@@ -202,8 +200,6 @@ Environment variables override saved settings:
   sources are removed first when exceeded.
 - `MY_PI_CONTEXT_CAPTURE_MAX_KB` / `MY_PI_CONTEXT_CAPTURE_MAX_LINES` —
   generic tool-output capture threshold.
-- `MY_PI_CONTEXT_MCP_MAX_KB` / `MY_PI_CONTEXT_MCP_MAX_LINES` — MCP
-  output capture threshold.
 - `MY_PI_CONTEXT_CONFIG` — override the saved settings file path.
 
 ## Safety model

@@ -92,10 +92,10 @@
 					Run Pi with project tools already connected.
 				</h1>
 				<p class="lede">
-					my-pi is a ready-to-run coding-agent CLI with the tools and
-					workflows this repository actually uses: scoped MCP, LSP,
-					skills, context, recall, guardrails, observability, and peer
-					coordination.
+					my-pi runs upstream Pi with redaction, destructive-command
+					confirmation, a context sidecar, and LSP loaded. Add recall,
+					guardrails, observability, and peer coordination as separate
+					Pi packages.
 				</p>
 
 				<CommandLine command="pnpx my-pi@latest" echo />

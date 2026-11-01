@@ -42,9 +42,7 @@ All profiles honor `MY_PI_CHILD_ENV_ALLOWLIST=NAME,OTHER_NAME`.
 
 Profile-specific allowlists:
 
-- `mcp` — `MY_PI_MCP_ENV_ALLOWLIST`
 - `lsp` — `MY_PI_LSP_ENV_ALLOWLIST`
-- `hooks` — `MY_PI_HOOKS_ENV_ALLOWLIST`
 - `team-mode` — `MY_PI_TEAM_MODE_ENV_ALLOWLIST`
 
 Use allowlists only for variables the child process truly needs.
@@ -57,15 +55,12 @@ Use allowlists only for variables the child process truly needs.
 default child environment: callers must derive and pass a fresh
 explicit object for each short-lived process.
 
-| Child boundary                         | Pi metadata                                              | Reason                                                                                               |
-| -------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Trusted command hooks                  | All five, derived from the current hook event context    | Short-lived and already protected by project trust                                                   |
-| MCP stdio servers                      | None by default                                          | Long-lived and potentially project-controlled; avoids transcript-path exposure and stale model state |
-| LSP servers                            | None by default                                          | Long-lived and potentially project-local; metadata would become stale                                |
-| Factory executors/reviewers            | None from the parent                                     | Each child Pi creates and exposes its own session identity                                           |
-| Harness validation/review scripts      | Supplied by Pi's built-in bash runtime, not this package | Uses the child session's current metadata                                                            |
-| Observability browser launcher         | None                                                     | Metadata is irrelevant to opening a URL                                                              |
-| Telemetry and in-process observability | No child process                                         | Correlation uses extension lifecycle context directly                                                |
+| Child boundary                         | Pi metadata                                              | Reason                                                                |
+| -------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------- |
+| LSP servers                            | None by default                                          | Long-lived and potentially project-local; metadata would become stale |
+| Harness validation/review scripts      | Supplied by Pi's built-in bash runtime, not this package | Uses the child session's current metadata                             |
+| Observability browser launcher         | None                                                     | Metadata is irrelevant to opening a URL                               |
+| Telemetry and in-process observability | No child process                                         | Correlation uses extension lifecycle context directly                 |
 
 Explicit shared or profile allowlists remain an operator override.
 Provider credentials and unrelated secrets are still stripped unless
