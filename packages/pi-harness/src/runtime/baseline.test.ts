@@ -65,7 +65,11 @@ function project(): string {
 
 function harness(cwd: string, allowed_paths = ['src/**']) {
 	const runtime = create_harness_runtime(
-		{ task: 'Baseline regression', allowed_paths },
+		{
+			task: 'Baseline regression',
+			allowed_paths,
+			validation_commands: ['true'],
+		},
 		cwd,
 	);
 	cleanup_paths.push(runtime.harness_dir);

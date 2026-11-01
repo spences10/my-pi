@@ -11,18 +11,15 @@
 
 <!-- package-readme:header:end -->
 
-Build and run ephemeral task harnesses with my-pi primitives. A
-harness is a `/tmp` runtime containing a machine-readable contract,
-executor prompt, task brief, validation script, review script, logs,
-status, and runtime enforcement. Inspired by Ornith's self-scaffolding
-design, the runtime separates an immutable outer policy from a
-versioned, amendable inner scaffold.
+Optional task scaffolding for Pi: a contract, working-state baseline,
+validation scripts, progress log, and reviewable outcome. Pi still
+owns the agent loop, sessions, tools, and permission hooks.
 
-The harness tools use normal object-schema tool calling because their
-optional policy fields are not portable across providers'
-strict-schema rules.
+Use direct work for routine changes. Use a harness when the user asks
+for one or a concrete execution contract adds value. Assessment is
+optional advice, not a prerequisite or a read-only security mode.
 
-## Installation
+## Install
 
 <!-- package-readme:install:start -->
 
@@ -32,193 +29,125 @@ pi install npm:@spences10/pi-harness
 
 <!-- package-readme:install:end -->
 
-Local development from this monorepo:
-
-```bash
-pnpm --filter @spences10/pi-harness run build
-pi install ./packages/pi-harness
-# or for one run only
-pi -e ./packages/pi-harness
-```
-
-## What it does
-
-`pi-harness` adds:
-
-- `/assess` command for evidence-gated capability assessment
-- `/harness` command for assess-before-create, run, review, status,
-  use, and clear
-- `harness_assess` and `harness_assessment_submit` tools for read-only
-  orientation and structured adoption decisions
-- guarded `harness_create` tool that cannot bypass assessment approval
-- `harness_amend` tool for audited, versioned changes to the inner
-  scaffold
-- `harness_update` tool for phase/status/evidence logging
-- generated `OUTCOME.md` and `outcome.json` review artifacts
-- dirty-baseline tracking so pre-existing repo changes are reported
-  but not treated as task drift
-- worktree-aware validate/review scripts for team-mode executors
-- `harness_read` tool for summaries
-- `before_agent_start` context injection for the active harness
-- `tool_call` enforcement for edit/write paths and forbidden commands
-- compact TUI status for the active harness
-- bundled `create-harness`, `execute-harness`, and `review-harness`
-  skills
-
-## Runtime layout
+## Create and execute
 
 ```text
-/tmp/my-pi-harness-<id>/
-  harness.json      # outer policy, versioned inner scaffold, amendment history
-  SYSTEM.md         # executor system prompt
-  TASK.md           # task brief and required loop
-  status.json       # phase/status/evidence log
-  OUTCOME.md        # reviewable outcome summary
-  outcome.json      # machine-readable outcome summary
-  outcome.mjs       # outcome artifact refresher
-  validate.sh       # validation runner
-  review.sh         # drift/review helper
-  logs/events.jsonl # append-only event log
-```
-
-## Commands
-
-```text
-/assess <task>
-/assess status
-/assess approve [harness|direct]
-/assess reject
-/assess clear
 /harness create <task>
-/harness run <dir>
-/harness review <dir>
+```
+
+The agent calls `harness_create` with the task and at least one
+accepted validation command. Scope defaults to the project; provide
+`allowed_paths` to narrow it. Normal project test development is
+allowed by default. Set `allow_test_changes: false` only when the task
+explicitly requires protecting those files.
+
+Creation does not require a separate assessment or approval roundtrip.
+It does not authorize new capabilities, commits, pushes, releases,
+deployments, destructive operations, or peer collaboration beyond the
+user's request.
+
+The runtime lives under `/tmp/my-pi-harness-<id>/`:
+
+- `harness.json`: accepted maximum scope and checks, plus the
+  execution scaffold and amendment history.
+- `TASK.md` and `SYSTEM.md`: task and workflow guidance.
+- `validate.sh` and `review.sh`: manual validation and drift review.
+- `status.json` and `logs/`: progress, executed checks and output.
+- `OUTCOME.md` and `outcome.json`: review artifacts.
+
+### Completion means checks ran
+
+Request `status: completed` through `harness_update`. The extension
+runs the accepted commands, any additional scaffold checks, and the
+drift guard through Pi's normal nested Bash tool pipeline. Permission
+hooks, cancellation and tool-result handling still apply.
+
+Completion requires successful checks against an unchanged contract
+and Git-visible working state. A failure, denied tool, interruption or
+concurrent change cannot become success merely because an agent writes
+“passed”. Results include executed-check records and output-file
+references. Manual evidence strings are self-reported notes, not
+validation proof.
+
+Failed checks can be fixed and retried; there is no one-attempt
+escalation rule. Completed runs reject further API amendments and
+status mutations. Their active guard clears on the next direct user
+turn or session startup; do not create another harness just to commit
+already-reviewed work.
+
+### Amend strategy, not acceptance
+
+`harness_amend` records a versioned strategy change. It cannot remove
+or replace the accepted validation commands or relax an explicit
+no-test-edit restriction. Additional checks are allowed. Scaffold
+scope always intersects the accepted maximum scope, so broadening a
+strategy does not grant access outside the contract.
+
+A genuinely larger task needs user authorization and a new contract,
+not an executor-authored relaxation of its own acceptance criteria.
+
+### Baseline and worktrees
+
+Dirty files are fingerprinted without changing the working tree, HEAD
+or Git index. Later content, index, mode, symlink, deletion and rename
+changes remain visible, including initially untracked files. Only
+fingerprints are saved, not file contents.
+
+A baseline belongs to the workspace where it was captured. Linked
+worktrees use their own Git state, without another workspace's dirty
+file exemptions. Run manual scripts from the execution worktree or set
+`HARNESS_CWD`. Completion uses the current Pi execution directory and
+rejects unrelated repositories.
+
+### Optional assessment
+
+`/assess <task>`, `harness_assess` and `harness_assessment_submit`
+record evidence, existing primitives and a recommendation. Tools,
+native codemode, discovery and MCP remain available. This is advisory
+investigation: it does not enforce read-only access or add an approval
+queue. Normal user authorization still applies.
+
+## Commands and tools
+
+```text
+/harness create <task>
+/harness run [dir]
+/harness review [dir]
 /harness status [dir]
 /harness use <dir>
 /harness clear
+/assess <task>
+/assess status
+/assess clear
 ```
 
-`/assess` and `/harness create` enter the same read-only assessment.
-The agent records repository evidence, existing primitives, rejected
-options, the smallest useful vertical slice, and one recommendation. A
-harness recommendation must include explicit allowed paths and
-validation commands. Direct user approval then creates and activates
-the harness, restores tools for approved direct work, or rejects the
-candidate without project changes. Approved harnesses run through the
-bundled `execute-harness` skill. Harness approval does not authorize
-Factory; Factory requires a separate direct user request for
-evaluation.
+Tools: `harness_create`, `harness_amend`, `harness_update`,
+`harness_read`, `harness_assess`, `harness_assessment_submit`.
 
-An agent can enter assessment with `harness_assess`. If it calls
-`harness_create` without approval, the extension blocks the call and
-starts assessment. This backstop does not detect an agent that
-misclassifies a task and never asks for harness machinery.
+Execution is direct by default. Team Mode can coordinate independently
+opened peers only when the user authorizes collaboration. This package
+does not spawn or supervise workers.
 
-Use assessment when a task may benefit from an enforceable execution
-contract because it has material risk, unresolved scope, destructive
-effects, or complex coordination. Use the normal direct workflow for
-bounded, low-risk changes that standard validation can verify, such as
-documentation and copy edits, focused single-file fixes, configuration
-or metadata updates, test expectation changes, formatting, and
-reviewed commit or push follow-ups. A simple ambiguity may need only a
-clarifying question. Broad uncertain refactors, migrations,
-deployments, risky releases, external side effects, and explicit user
-requests are good assessment candidates.
+## Safety and compatibility
 
-Assessment snapshots the current tool set, keeps an explicit read-only
-research subset active, and filters Bash through a strict
-single-command allowlist. Unknown and mutating custom tools are
-withheld. This is a workflow guard, not an operating-system sandbox.
-In print and JSON modes, an assessment can be submitted but remains
-waiting because direct approval cannot be inferred. RPC clients can
-answer Pi's extension UI request, or send `/assess approve ...` as an
-explicit command.
+This is workflow scaffolding, **not an OS sandbox**. Direct edit/write
+hooks and final Git drift checks enforce the accepted paths through
+those interfaces. Shell commands and other tools retain the host
+user's permissions and can modify control files; the runtime is not a
+security boundary against hostile code. Use OS/container isolation for
+that threat model. Explicit `forbidden_commands` are optional
+substring checks, not a general shell parser.
 
-`harness.json` contains two deliberately different layers:
+Existing temporary runtimes keep old generated scripts: recreate them
+before relying on these changes. Contracts without accepted checks and
+scope cannot complete or amend through the current API.
 
-- `policy`: runtime-owned workspace and verifier protections such as
-  cwd, forbidden paths/commands, available tools, and the dirty
-  baseline. Executors cannot weaken these through amendments.
-- `scaffold`: the model's task interpretation and execution strategy,
-  including allowed paths, validation, test policy, and model roles.
-  It is subordinate to system, developer, and current user
-  instructions and can be revised with `harness_amend`.
-
-Every scaffold amendment increments its version, records its reason
-and requester, regenerates runtime prompts/scripts, and appends an
-audit event. A harness enforcement block reports a contract mismatch;
-it is not a platform-policy refusal. When a harness is active, the TUI
-shows a compact footer/status indicator; use `/harness status [dir]`
-or `harness_read` for the full contract, task, validation, and outcome
-details.
-
-A terminal `completed` or `failed` status seals the run and keeps
-enforcement active for the remainder of the current turn, so an
-executor cannot escape the outer policy by declaring its own work
-complete. The extension automatically deactivates that terminal
-harness on the next direct user turn or when the session starts again.
-Extension-injected messages do not trigger cleanup. Use
-`/harness clear` only to abandon a non-terminal run. Clearing or
-deleting a harness affects only its `/tmp` control state; repository
-changes remain in the working tree. Do not create a new harness merely
-to commit or push already-reviewed work. A risky release, deployment,
-migration, or destructive operation can still justify a dedicated
-harness when explicitly requested or warranted by its actual risk.
-
-Harnesses fingerprint dirty files at creation time without changing
-the working tree or Git index. Review and outcome artifacts ignore
-unchanged baseline state, but report later content, index, mode or
-symlink changes, deletions, and renames—including changes to initially
-untracked files. Only fingerprints are saved, not file contents;
-`baseline_changed_files` still lists the original dirty paths in
-`outcome.json`. Explicitly logged task changes are also retained.
-
-Baselines apply only to the workspace where they were captured. If a
-team-mode executor runs in a linked git worktree, run `review.sh` from
-that worktree or set `HARNESS_CWD` so validation, guard checks, and
-outcome collection use the executor workspace. Its changes are
-compared with its own Git state, without exemptions from the original
-workspace's dirty files.
-
-Existing `/tmp` runtimes keep their previously generated scripts;
-recreate an old harness before relying on this fix. Current collectors
-and newly generated scripts treat contracts without fingerprints and
-unsupported file types conservatively, without filename-only
-exemptions. Do not recapture a baseline after task execution has
-begun.
-
-## Assessment and harness loops
-
-Assessment happens before harness creation:
-
-1. Read-only context recovery
-2. Source-of-truth and existing-primitive capture
-3. Assumption challenge and rejected options
-4. Smallest vertical slice
-5. Structured recommendation
-6. Direct user adoption decision
-
-An approved harness then runs:
-
-1. Contract recovery
-2. Surgical execution
-3. Validation evidence
-4. Drift review
-5. OUTCOME.md/outcome.json review
-6. Delta/risk report
-
-Use `harness_amend` for bounded inner-scaffold changes. A new
-capability or architecture decision requires assessment; an approved
-harness recommendation can then amend the active scaffold.
-Outer-policy expansion requires a separate execution contract instead
-of silent scope growth.
-
-## Using from a custom harness
-
-```ts
-import harness from '@spences10/pi-harness';
-
-// pass `harness` as an ExtensionFactory to your Pi runtime
-```
+For programmatic consumers, `create_harness_runtime` now requires
+`validation_commands`. `update_harness_runtime` is asynchronous;
+completion requires a trusted `HarnessVerificationOptions.run` backend
+that executes the supplied commands in the supplied cwd and respects
+the signal. The extension supplies this through Pi's tool pipeline.
+Removed assessment-locking helpers are no longer exported.
 
 ## Development
 
@@ -227,7 +156,3 @@ pnpm --filter @spences10/pi-harness run check
 pnpm --filter @spences10/pi-harness run test
 pnpm --filter @spences10/pi-harness run build
 ```
-
-## License
-
-MIT

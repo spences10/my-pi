@@ -2,13 +2,8 @@ import { Type, type Static } from 'typebox';
 
 export const HARNESS_VERSION = 2;
 export const HARNESS_CUSTOM_TYPE = 'pi-harness-state';
-export const DEFAULT_FORBIDDEN_COMMANDS = [
-	'rm -rf .git',
-	'git reset --hard',
-	'git clean -fd',
-	'--updateSnapshot',
-	' -u ',
-];
+// Explicit command exclusions are optional workflow checks, not a shell sandbox.
+export const DEFAULT_FORBIDDEN_COMMANDS: string[] = [];
 
 export const thinking_levels_schema = Type.Union([
 	Type.Literal('off'),
@@ -40,8 +35,12 @@ export const harness_create_params_schema = Type.Object({
 			Type.String({ description: 'Path the executor may not edit' }),
 		),
 	),
-	validation_commands: Type.Optional(
-		Type.Array(Type.String({ description: 'Command run from cwd' })),
+	validation_commands: Type.Array(
+		Type.String({
+			minLength: 1,
+			description: 'Accepted check run before completion',
+		}),
+		{ minItems: 1 },
 	),
 	forbidden_commands: Type.Optional(
 		Type.Array(
@@ -146,7 +145,9 @@ export type HarnessThinking = Static<typeof thinking_levels_schema>;
 export interface HarnessPolicy {
 	cwd: string;
 	forbidden_paths: string[];
-	allowed_tools: string[];
+	allowed_paths?: string[];
+	allow_test_changes?: boolean;
+	validation_commands?: string[];
 	forbidden_commands: string[];
 	baseline_changed_files: string[];
 	baseline_file_states?: Record<string, string>;
@@ -192,6 +193,13 @@ export interface HarnessLogEntry {
 	team_status?: string;
 	remaining_risks?: string[];
 	changed_files?: string[];
+	checks?: HarnessValidationCheck[];
+}
+
+export interface HarnessValidationCheck {
+	command: string;
+	passed: boolean;
+	output_file: string;
 }
 
 export interface HarnessOutcome {
@@ -206,6 +214,7 @@ export interface HarnessOutcome {
 	baseline_changed_files: string[];
 	validation: {
 		commands: string[];
+		checks: HarnessValidationCheck[];
 		evidence: Array<{
 			timestamp: string;
 			phase?: string;

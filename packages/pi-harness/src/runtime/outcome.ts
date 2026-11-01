@@ -79,7 +79,13 @@ export function collect_harness_outcome(
 		),
 		baseline_changed_files: contract.policy.baseline_changed_files,
 		validation: {
-			commands: contract.scaffold.validation_commands,
+			commands: [
+				...new Set([
+					...(contract.policy.validation_commands ?? []),
+					...contract.scaffold.validation_commands,
+				]),
+			],
+			checks: status_file.log.flatMap((entry) => entry.checks ?? []),
 			evidence: validation_evidence,
 		},
 		team_status:
@@ -128,10 +134,19 @@ ${list(outcome.baseline_changed_files, 'No dirty baseline files recorded')}
 
 ## Validation evidence
 
+Executed checks:
+${list(
+	outcome.validation.checks.map(
+		(check) =>
+			`${check.passed ? 'PASS' : 'FAIL'} ${check.command} — ${check.output_file}`,
+	),
+	'No executed checks recorded',
+)}
+
 Commands:
 ${list(outcome.validation.commands, 'No validation commands configured')}
 
-Evidence:
+Self-reported notes (not execution proof):
 ${validation_evidence}
 
 ## Team status
@@ -146,8 +161,9 @@ ${list(outcome.remaining_risks, 'No remaining risks recorded')}
 
 export function write_outcome_artifacts(
 	harness_dir: string,
+	cwd?: string,
 ): HarnessOutcome {
-	const outcome = collect_harness_outcome(harness_dir);
+	const outcome = collect_harness_outcome(harness_dir, cwd);
 	const paths = harness_paths(harness_dir);
 	json_write(paths.outcome, outcome);
 	writeFileSync(

@@ -1,3 +1,4 @@
+import { build_path_helpers } from '../enforcement/policy.js';
 import type { HarnessContract } from '../schema.js';
 import { build_baseline_helpers } from './baseline.js';
 import { shell_quote } from './files.js';
@@ -9,12 +10,14 @@ export function build_system_markdown(
 
 You are working inside a my-pi task harness. The harness directory is external control state, not project source. System, developer, and current user instructions remain authoritative.
 
-## Outer policy (runtime-enforced)
+## Outer policy (accepted contract)
 
 - Project cwd: \`${contract.policy.cwd}\`
 - Forbidden edit paths: ${contract.policy.forbidden_paths.map((path) => `\`${path}\``).join(', ') || 'none'}
+- Accepted maximum scope: ${(contract.policy.allowed_paths ?? []).map((path) => `\`${path}\``).join(', ') || 'legacy contract; recreate before execution'}
+- Accepted checks: ${(contract.policy.validation_commands ?? []).map((command) => `\`${command}\``).join(', ') || 'none'}
 
-The outer policy protects the workspace and verifier. It cannot be weakened by the executor or by \`harness_amend\`.
+The API and final drift guard preserve this scope and accepted checks. Shell commands retain the host user's permissions; these workflow checks are not OS isolation.
 
 ## Inner scaffold v${contract.scaffold.version} (amendable execution plan)
 
@@ -30,7 +33,7 @@ The outer policy protects the workspace and verifier. It cannot be weakened by t
 4. Edit only allowed paths.
 5. Do not weaken tests, fake outputs, or bypass validation.
 6. Run \`validate.sh\` before completion.
-7. Escalate instead of silently expanding the outer policy.
+7. Ask for new authority rather than expanding accepted scope. Retry ordinary failures without a fixed attempt limit.
 `;
 }
 
@@ -79,9 +82,12 @@ export HARNESS_CWD="$run_cwd"`;
 export function build_validate_script(
 	contract: HarnessContract,
 ): string {
-	const commands = contract.scaffold.validation_commands.length
-		? contract.scaffold.validation_commands
-		: ['echo "No validation commands configured"'];
+	const commands = [
+		...new Set([
+			...(contract.policy.validation_commands ?? []),
+			...contract.scaffold.validation_commands,
+		]),
+	];
 	return `#!/usr/bin/env bash
 set -euo pipefail
 ${build_resolve_cwd_script(contract)}
@@ -102,7 +108,7 @@ export function build_guard_script(): string {
 	return `import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { isAbsolute, matchesGlob, relative, resolve } from 'node:path';
 
 const contract = JSON.parse(readFileSync(new URL('./harness.json', import.meta.url), 'utf8'));
 
@@ -120,30 +126,7 @@ function resolve_cwd() {
 const cwd = resolve_cwd();
 ${build_baseline_helpers()}
 
-function escape_regex(value) {
-  const special = new Set(['.', '*', '+', '?', '^', '$', '{', '}', '(', ')', '|', '[', ']', '\\\\', '-']);
-  return [...value].map((char) => special.has(char) ? '\\\\' + char : char).join('');
-}
-
-function pattern_to_relative(pattern) {
-  const normalized_pattern = pattern.replaceAll('\\\\', '/');
-  if (!isAbsolute(pattern)) return normalized_pattern;
-  return relative(cwd, resolve(pattern)).replaceAll('\\\\', '/');
-}
-
-function pattern_matches(pattern, relative_path) {
-  const normalized_pattern = pattern_to_relative(pattern);
-  if (normalized_pattern === '.') return true;
-  if (normalized_pattern.endsWith('/**')) {
-    const prefix = normalized_pattern.slice(0, -3);
-    return relative_path === prefix || relative_path.startsWith(prefix + '/');
-  }
-  if (normalized_pattern.includes('*')) {
-    const regex = new RegExp('^' + escape_regex(normalized_pattern).replaceAll('\\\\*\\\\*', '.*').replaceAll('\\\\*', '[^/]*') + '$');
-    return regex.test(relative_path);
-  }
-  return relative_path === normalized_pattern || relative_path.startsWith(normalized_pattern + '/');
-}
+${build_path_helpers()}
 
 function is_test_path(relative_path) {
   return /(^|\\/)(__tests__|tests?)\\//.test(relative_path) || /\\.(test|spec)\\.[cm]?[jt]sx?$/.test(relative_path);
@@ -154,8 +137,8 @@ for (const path of collect_task_changed_files(cwd, contract.policy)) {
   const absolute_path = resolve(cwd, path);
   if (absolute_path !== cwd && !absolute_path.startsWith(cwd + '/')) violations.push(path + ' is outside cwd');
   if (contract.policy.forbidden_paths.some((pattern) => pattern_matches(pattern, path))) violations.push(path + ' matches forbidden_paths');
-  if (!contract.scaffold.allow_test_changes && is_test_path(path)) violations.push(path + ' is a test change but allow_test_changes is false');
-  if (!contract.scaffold.allowed_paths.some((pattern) => pattern_matches(pattern, path))) violations.push(path + ' is outside allowed_paths');
+  if ((!contract.scaffold.allow_test_changes || contract.policy.allow_test_changes === false) && is_test_path(path)) violations.push(path + ' is a test change but allow_test_changes is false');
+  if (!contract.scaffold.allowed_paths.some((pattern) => pattern_matches(pattern, path)) || !(contract.policy.allowed_paths ?? contract.scaffold.allowed_paths).some((pattern) => pattern_matches(pattern, path))) violations.push(path + ' is outside allowed_paths');
 }
 
 if (violations.length) {
@@ -209,7 +192,8 @@ const outcome = {
   changed_files: unique([...task_files, ...logged_files]).sort(),
   baseline_changed_files: contract.policy.baseline_changed_files || [],
   validation: {
-    commands: contract.scaffold.validation_commands,
+    commands: [...new Set([...(contract.policy.validation_commands ?? []), ...contract.scaffold.validation_commands])],
+    checks: status.log.flatMap((entry) => entry.checks ?? []),
     evidence: status.log
       .filter((entry) => entry.evidence)
       .map((entry) => ({ timestamp: entry.timestamp, phase: entry.phase, evidence: entry.evidence })),
@@ -230,7 +214,8 @@ const markdown = '# Harness outcome: ' + outcome.id + '\\n\\n'
   + '## Task\\n\\n' + outcome.task + '\\n\\n'
   + '## Changed files\\n\\n' + list(outcome.changed_files, 'No changed files detected') + '\\n\\n'
   + '## Baseline files\\n\\n' + list(outcome.baseline_changed_files, 'No dirty baseline files recorded') + '\\n\\n'
-  + '## Validation evidence\\n\\nCommands:\\n' + list(outcome.validation.commands, 'No validation commands configured') + '\\n\\nEvidence:\\n' + evidence + '\\n\\n'
+  + '## Executed checks\\n\\n' + list(outcome.validation.checks.map((check) => (check.passed ? 'PASS ' : 'FAIL ') + check.command + ' — ' + check.output_file), 'No executed checks recorded') + '\\n\\n'
+  + '## Validation evidence\\n\\nCommands:\\n' + list(outcome.validation.commands, 'No validation commands configured') + '\\n\\nSelf-reported notes (not execution proof):\\n' + evidence + '\\n\\n'
   + '## Team status\\n\\n' + outcome.team_status + '\\n\\n'
   + '## Remaining risks\\n\\n' + list(outcome.remaining_risks, 'No remaining risks recorded') + '\\n';
 

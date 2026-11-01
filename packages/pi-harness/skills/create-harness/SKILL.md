@@ -1,71 +1,28 @@
 ---
 name: create-harness
 # prettier-ignore
-description: Use when assessing ambiguous or high-risk coding work before creating an approved task harness. Establishes evidence, existing primitives, rejected options, a smallest vertical slice, and an optional execution contract.
-compatibility:
-  Requires my-pi or Pi with the pi-harness extension tools enabled.
+description: Use when the user requests a task harness or a concrete execution contract adds value for risky work. Creates task scaffolding directly; assessment is optional.
+compatibility: Requires Pi with the pi-harness extension enabled.
 ---
 
-# Assess and Create Harness
+# Create a Task Harness
 
-A harness must be earned by an approved assessment. Do not turn
-candidate capabilities directly into an execution contract.
+Use direct work for routine changes. Do not introduce a harness just
+to satisfy process, or expand a candidate idea into a larger project.
 
-## Use threshold
+1. Recover the user's task, repository conventions and acceptance
+   checks.
+2. Call `harness_create` with the task and non-empty validation
+   commands. Add `allowed_paths` when a scope narrower than the
+   project is useful. Normal source and test development are allowed
+   by default.
+3. Read the resulting contract and use the `execute-harness` skill.
 
-Start assessment when work may benefit from an enforceable execution
-contract because it has material risk, unresolved scope, destructive
-effects, or complex coordination. Good candidates include broad
-uncertain refactors, migrations, deployments, risky releases, external
-side effects, and explicit user requests.
+No separate assessment or approval roundtrip is required to create the
+scaffold. If the need or architecture is genuinely uncertain, optional
+`harness_assess` can record investigation and a recommendation without
+locking tools. It is not a read-only security mode.
 
-Use direct work for bounded, low-risk tasks that standard validation
-can verify. A simple ambiguity may need only a clarifying question.
-
-## Workflow
-
-1. Call `harness_assess` before repository mutation. Call it by
-   itself.
-2. Recover context with the remaining read-only tools.
-3. Establish source of truth from concrete source, tests, docs,
-   history, and observed behavior.
-4. Find existing Pi, package, project, or platform primitives before
-   proposing a new capability.
-5. Challenge assumptions. Record rejected options and why the evidence
-   rejects them.
-6. Define the smallest useful vertical slice or falsifiable
-   experiment.
-7. Call `harness_assessment_submit` with one recommendation:
-   - `direct` for bounded work;
-   - `harness` when an execution contract adds value;
-   - `reject` when the work has not earned adoption.
-8. For a harness recommendation, include explicit allowed paths and
-   validation commands in the proposed contract.
-9. Wait for direct user approval. Do not infer approval from agent
-   text or continue implementation while approval is pending.
-10. The extension creates and activates an approved harness
-    atomically. Run it with the `execute-harness` skill. Harness
-    approval does not authorize Factory; use Factory only after a
-    direct user request to evaluate it. Do not call `harness_create`
-    to bypass assessment.
-
-## Scope changes
-
-Use `harness_amend` for bounded changes inside an approved capability.
-A new capability, architecture decision, or outer-policy expansion
-requires another assessment.
-
-## Rules
-
-- Assessment state is session control state, not project source.
-- Read-only mode forbids project edits, writes, commits, package
-  installation, delegation, and other mutating tools.
-- A rejected capability is a valid outcome.
-- Do not create a planner, task graph, or backlog from rejected
-  candidates.
-- Do not implement during assessment.
-
-## Output
-
-Submit only the structured assessment record. The extension presents
-it for user approval and handles the chosen exit.
+Creation does not authorize commits, pushes, releases, destructive
+operations or scope outside the user's request. A broader accepted
+contract needs user authorization, not an executor's self-amendment.

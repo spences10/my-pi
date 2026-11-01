@@ -1,6 +1,6 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import {
 	DEFAULT_FORBIDDEN_COMMANDS,
 	HARNESS_VERSION,
@@ -29,6 +29,12 @@ import {
 	build_task_markdown,
 	build_validate_script,
 } from './renderers.js';
+import {
+	verify_harness,
+	type HarnessVerificationOptions,
+} from './verification.js';
+
+const completing = new Set<string>();
 
 function now_iso(): string {
 	return new Date().toISOString();
@@ -67,11 +73,26 @@ export function create_harness_runtime(
 	default_cwd: string,
 ): { harness_dir: string; contract: HarnessContract } {
 	const cwd = resolve(params.cwd ?? default_cwd);
+	if (
+		!params.validation_commands?.length ||
+		params.validation_commands.some((command) => !command.trim())
+	) {
+		throw new Error(
+			'At least one non-empty accepted validation command is required',
+		);
+	}
 	const id = `${slugify(params.slug ?? params.task)}-${Date.now().toString(36)}`;
 	const harness_dir = join(tmpdir(), `my-pi-harness-${id}`);
 	const paths = harness_paths(harness_dir);
 	mkdirSync(paths.logs, { recursive: true });
 	const created_at = now_iso();
+	const normalize_paths = (paths: string[]) =>
+		paths.map((path) =>
+			isAbsolute(path) ? relative(cwd, path) || '.' : path,
+		);
+	const allowed_paths = normalize_paths(
+		params.allowed_paths ?? ['.'],
+	);
 	const contract: HarnessContract = {
 		version: HARNESS_VERSION,
 		id,
@@ -79,20 +100,18 @@ export function create_harness_runtime(
 		status: 'created',
 		policy: {
 			cwd,
-			forbidden_paths: params.forbidden_paths ?? [
-				'.git/**',
-				'node_modules/**',
-				'dist/**',
-				'.env',
-				'.env.*',
-			],
-			allowed_tools: [
-				'read',
-				'bash',
-				'edit',
-				'write',
-				'lsp_diagnostics',
-			],
+			forbidden_paths: normalize_paths(
+				params.forbidden_paths ?? [
+					'.git/**',
+					'node_modules/**',
+					'dist/**',
+					'.env',
+					'.env.*',
+				],
+			),
+			allowed_paths: [...allowed_paths],
+			allow_test_changes: params.allow_test_changes ?? true,
+			validation_commands: [...params.validation_commands],
 			forbidden_commands: [
 				...DEFAULT_FORBIDDEN_COMMANDS,
 				...(params.forbidden_commands ?? []),
@@ -114,14 +133,14 @@ export function create_harness_runtime(
 				model: params.reviewer_model,
 				thinking: params.reviewer_thinking ?? 'high',
 			},
-			allowed_paths: params.allowed_paths ?? ['.'],
-			validation_commands: params.validation_commands ?? [],
-			allow_test_changes: params.allow_test_changes ?? false,
+			allowed_paths: [...allowed_paths],
+			validation_commands: [...params.validation_commands],
+			allow_test_changes: params.allow_test_changes ?? true,
 			escalation_rules: params.escalation_rules ?? [
 				'Required context contradicts the active scaffold or TASK.md.',
 				'Implementation needs edits outside scaffold.allowed_paths.',
 				'Validation requires weakening tests or changing public behavior outside the scaffold.',
-				'Validation still fails after one focused fix attempt.',
+				'Validation exposes a decision or permission outside the accepted task.',
 			],
 		},
 		amendments: [],
@@ -152,6 +171,36 @@ export function amend_harness_runtime(
 	params: HarnessAmendParams,
 ): HarnessContract {
 	const contract = read_contract(params.harness_dir);
+	if (
+		completing.has(resolve(params.harness_dir)) ||
+		read_status(params.harness_dir).status === 'completed'
+	) {
+		throw new Error('Cannot amend a validating or completed harness');
+	}
+	if (
+		!contract.policy.validation_commands ||
+		!contract.policy.allowed_paths
+	) {
+		throw new Error(
+			'Recreate this legacy harness before amending its contract',
+		);
+	}
+	if (
+		params.validation_commands &&
+		contract.policy.validation_commands.some(
+			(command) => !params.validation_commands!.includes(command),
+		)
+	) {
+		throw new Error(
+			'Cannot remove or replace accepted validation commands',
+		);
+	}
+	if (
+		params.allow_test_changes &&
+		contract.policy.allow_test_changes === false
+	) {
+		throw new Error('Cannot relax the accepted test restriction');
+	}
 	const scaffold = contract.scaffold;
 	const changes: string[] = [];
 	const assign = <K extends keyof typeof scaffold>(
@@ -164,7 +213,14 @@ export function amend_harness_runtime(
 		}
 	};
 	assign('task', params.task);
-	assign('allowed_paths', params.allowed_paths);
+	assign(
+		'allowed_paths',
+		params.allowed_paths?.map((path) =>
+			isAbsolute(path)
+				? relative(contract.policy.cwd, path) || '.'
+				: path,
+		),
+	);
 	assign('validation_commands', params.validation_commands);
 	assign('allow_test_changes', params.allow_test_changes);
 	assign('escalation_rules', params.escalation_rules);
@@ -207,7 +263,7 @@ export function amend_harness_runtime(
 	const timestamp = now_iso();
 	contract.amendments.push({
 		timestamp,
-		requested_by: params.requested_by ?? 'user',
+		requested_by: params.requested_by ?? 'planner',
 		reason: params.reason,
 		from_version,
 		to_version: scaffold.version,
@@ -227,31 +283,59 @@ export function amend_harness_runtime(
 	return contract;
 }
 
-export function update_harness_runtime(
+export async function update_harness_runtime(
 	params: HarnessUpdateParams,
-): HarnessStatusFile {
+	options: HarnessVerificationOptions = {},
+): Promise<HarnessStatusFile> {
+	if (completing.has(resolve(params.harness_dir)))
+		throw new Error('Harness validation is already running');
 	const contract = read_contract(params.harness_dir);
 	const status = read_status(params.harness_dir);
+	if (status.status === 'completed')
+		throw new Error('Completed harness is sealed');
+	let verification:
+		| Awaited<ReturnType<typeof verify_harness>>
+		| undefined;
+	if (params.status === 'completed') {
+		completing.add(resolve(params.harness_dir));
+		try {
+			verification = await verify_harness(
+				params.harness_dir,
+				contract,
+				options,
+			);
+		} finally {
+			completing.delete(resolve(params.harness_dir));
+		}
+	}
+	const next_status = verification?.error ? 'failed' : params.status;
 	const entry: HarnessLogEntry = {
 		timestamp: now_iso(),
-		status: params.status,
+		status: next_status,
 		phase: params.phase,
+		checks: verification?.checks,
 		note: params.note,
-		evidence: params.evidence,
+		evidence: verification?.error ?? params.evidence,
 		team_status: params.team_status,
 		remaining_risks: params.remaining_risks,
 		changed_files: params.changed_files,
 	};
-	if (params.status) {
-		status.status = params.status;
-		contract.status = params.status;
+	if (next_status) {
+		status.status = next_status;
+		contract.status = next_status;
 	}
 	if (params.phase) status.phase = params.phase;
 	status.log.push(entry);
 	write_status(params.harness_dir, status);
 	write_contract(params.harness_dir, contract);
 	append_event(params.harness_dir, entry);
-	write_outcome_artifacts(params.harness_dir);
+	write_outcome_artifacts(
+		params.harness_dir,
+		verification?.cwd ??
+			(verification ? contract.policy.cwd : options.cwd),
+	);
+	if (verification?.error)
+		throw new Error(`Harness not completed: ${verification.error}`);
 	return status;
 }
 
@@ -271,7 +355,8 @@ export function format_harness_summary(harness_dir: string): string {
 		`Status: ${status.status}${status.phase ? ` (${status.phase})` : ''}`,
 		`Scaffold: v${contract.scaffold.version} (${contract.amendments.length} amendments)`,
 		`Task: ${contract.scaffold.task}`,
-		`Allowed paths: ${contract.scaffold.allowed_paths.join(', ') || '(none)'}`,
+		`Accepted maximum scope: ${contract.policy.allowed_paths?.join(', ') ?? '(legacy contract)'}`,
+		`Allowed paths (within maximum): ${contract.scaffold.allowed_paths.join(', ') || '(none)'}`,
 		`Validation: ${contract.scaffold.validation_commands.join(' && ') || '(none)'}`,
 		`Outcome: ${harness_paths(harness_dir).outcome_markdown}`,
 	].join('\n');
@@ -281,9 +366,9 @@ export function active_harness_context(harness_dir: string): string {
 	const paths = harness_paths(harness_dir);
 	const contract = read_contract(harness_dir);
 	const status = read_status(harness_dir);
-	const terminal_guidance =
-		status.status === 'completed' || status.status === 'failed'
-			? '\n\nThis run is sealed for the remainder of the current turn so the executor cannot escape policy by self-reporting completion. Do not create another harness merely to commit or push its already-reviewed changes. The extension will deactivate this terminal harness on the next direct user turn or session startup.'
+	const sealed =
+		status.status === 'completed'
+			? '\n\nThis run is sealed: its API rejects amendments and status mutations. It deactivates on the next direct user turn or session startup. Do not create another harness merely to commit or push already-reviewed work.'
 			: '';
-	return `## Active my-pi harness\n\nHarness directory: \`${harness_dir}\`\nHarness id: \`${contract.id}\`\nStatus: \`${status.status}\`\nProject cwd: \`${contract.policy.cwd}\`\nScaffold version: \`${contract.scaffold.version}\`\n\nThe outer policy is runtime-enforced. The inner scaffold is an amendable execution plan subordinate to system, developer, and current user instructions. If the user changes scope or evidence contradicts the scaffold, use \`harness_amend\`; a harness block is not a platform-policy refusal. Read \`${paths.system}\`, \`${paths.task}\`, and \`${paths.contract}\` before work. Use \`harness_update\` for progress and evidence. Run \`${paths.validate}\` and \`${paths.review}\` before completion.${terminal_guidance}`;
+	return `## Active task harness\n\nDirectory: ${harness_dir}\nTask: ${contract.scaffold.task}\nStatus: ${status.status}\n\nRead ${paths.contract} and ${paths.task}. Work inside the accepted maximum scope; amendments adjust strategy, not authority. Normal project test development and validation retries are allowed unless explicitly excluded. Request completed with harness_update to run accepted checks and the drift guard and record their outputs. Manual notes do not prove completion. This is workflow scaffolding, not an OS sandbox.${sealed}`;
 }

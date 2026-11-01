@@ -12,14 +12,11 @@ import {
 export {
 	assessment_active,
 	assessment_context,
-	assessment_tool_names,
-	check_assessment_command,
 	create_assessment_state,
 	format_assessment_record,
 	harness_assess_params_schema,
 	HARNESS_ASSESSMENT_CUSTOM_TYPE,
 	harness_assessment_submit_params_schema,
-	is_assessment_tool_allowed,
 	submit_assessment_record,
 } from './assessment.js';
 export type {
@@ -52,6 +49,7 @@ export {
 	render_outcome_markdown,
 	write_outcome_artifacts,
 } from './runtime/outcome.js';
+export type { HarnessVerificationOptions } from './runtime/verification.js';
 export {
 	DEFAULT_FORBIDDEN_COMMANDS,
 	harness_amend_params_schema,
@@ -76,6 +74,7 @@ export type {
 	HarnessStatusFile,
 	HarnessThinking,
 	HarnessUpdateParams,
+	HarnessValidationCheck,
 } from './schema.js';
 
 export const testing = {

@@ -1,60 +1,31 @@
-import { isAbsolute, relative, resolve } from 'node:path';
+import {
+	isAbsolute,
+	matchesGlob,
+	relative,
+	resolve,
+} from 'node:path';
 import type { HarnessContract } from '../schema.js';
 
-function resolve_project_path(
-	cwd: string,
-	input_path: string,
-): string {
-	return resolve(cwd, input_path);
-}
-
-function pattern_to_relative(cwd: string, pattern: string): string {
-	const normalized_pattern = pattern.replaceAll('\\', '/');
-	if (!isAbsolute(pattern)) return normalized_pattern;
-	return relative(cwd, resolve(pattern)).replaceAll('\\', '/');
-}
-
-function pattern_matches(
+export function pattern_matches(
 	cwd: string,
 	pattern: string,
-	absolute_path: string,
+	path: string,
 ): boolean {
-	const normalized_pattern = pattern_to_relative(cwd, pattern);
-	const relative_path = relative(cwd, absolute_path).replaceAll(
+	const normalized = (
+		isAbsolute(pattern) ? relative(cwd, pattern) : pattern
+	).replaceAll('\\', '/');
+	const candidate = relative(cwd, resolve(cwd, path)).replaceAll(
 		'\\',
 		'/',
 	);
-	if (normalized_pattern === '.') return true;
-	if (normalized_pattern.endsWith('/**')) {
-		const prefix = normalized_pattern.slice(0, -3);
+	if (normalized === '.') return true;
+	if (!/[*?[{]/.test(normalized)) {
 		return (
-			relative_path === prefix ||
-			relative_path.startsWith(`${prefix}/`)
+			candidate === normalized ||
+			candidate.startsWith(`${normalized}/`)
 		);
 	}
-	if (normalized_pattern.includes('*')) {
-		const regex = new RegExp(
-			`^${normalized_pattern
-				.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-				.replaceAll('**', '.*')
-				.replaceAll('*', '[^/]*')}$`,
-		);
-		return regex.test(relative_path);
-	}
-	const target = isAbsolute(pattern)
-		? resolve(pattern)
-		: resolve_project_path(cwd, pattern);
-	return (
-		absolute_path === target || absolute_path.startsWith(`${target}/`)
-	);
-}
-
-function is_test_path(absolute_path: string): boolean {
-	const path = absolute_path.replaceAll('\\', '/');
-	return (
-		/(^|\/)(__tests__|tests?)\//.test(path) ||
-		/\.(test|spec)\.[cm]?[jt]sx?$/.test(path)
-	);
+	return matchesGlob(candidate, normalized);
 }
 
 export function check_path_allowed(
@@ -62,45 +33,39 @@ export function check_path_allowed(
 	input_path: string,
 ): { ok: true } | { ok: false; reason: string } {
 	const cwd = resolve(contract.policy.cwd);
-	const absolute_path = resolve_project_path(cwd, input_path);
-	const inside_cwd =
-		absolute_path === cwd || absolute_path.startsWith(`${cwd}/`);
-	if (!inside_cwd) {
-		return {
-			ok: false,
-			reason: `Harness ${contract.id}: path is outside cwd: ${input_path}`,
-		};
-	}
-	if (
+	const absolute_path = resolve(cwd, input_path);
+	let reason: string | undefined;
+	if (absolute_path !== cwd && !absolute_path.startsWith(`${cwd}/`)) {
+		reason = 'path is outside cwd';
+	} else if (
 		contract.policy.forbidden_paths.some((pattern) =>
-			pattern_matches(cwd, pattern, absolute_path),
+			pattern_matches(cwd, pattern, input_path),
 		)
 	) {
-		return {
-			ok: false,
-			reason: `Harness ${contract.id}: path is forbidden: ${input_path}`,
-		};
-	}
-	if (
-		!contract.scaffold.allow_test_changes &&
-		is_test_path(absolute_path)
+		reason = 'path is forbidden';
+	} else if (
+		(!contract.scaffold.allow_test_changes ||
+			contract.policy.allow_test_changes === false) &&
+		(/(^|\/)(__tests__|tests?)\//.test(input_path) ||
+			/\.(test|spec)\.[cm]?[jt]sx?$/.test(input_path))
 	) {
-		return {
-			ok: false,
-			reason: `Harness ${contract.id}: test changes are not allowed by harness.json`,
-		};
-	}
-	if (
+		reason = 'test changes are not allowed by harness.json';
+	} else if (
 		!contract.scaffold.allowed_paths.some((pattern) =>
-			pattern_matches(cwd, pattern, absolute_path),
-		)
+			pattern_matches(cwd, pattern, input_path),
+		) ||
+		!(
+			contract.policy.allowed_paths ?? contract.scaffold.allowed_paths
+		).some((pattern) => pattern_matches(cwd, pattern, input_path))
 	) {
-		return {
-			ok: false,
-			reason: `Harness ${contract.id}: path is outside allowed_paths: ${input_path}`,
-		};
+		reason = 'path is outside allowed_paths';
 	}
-	return { ok: true };
+	return reason
+		? {
+				ok: false,
+				reason: `Harness ${contract.id}: ${reason}: ${input_path}`,
+			}
+		: { ok: true };
 }
 
 export function check_command_allowed(
@@ -110,22 +75,22 @@ export function check_command_allowed(
 	const blocked = contract.policy.forbidden_commands.find((needle) =>
 		command.includes(needle),
 	);
-	if (blocked) {
-		return {
-			ok: false,
-			reason: `Harness ${contract.id}: command contains forbidden pattern: ${blocked}`,
-		};
-	}
-	if (
-		!contract.scaffold.allow_test_changes &&
-		/\brm\b.*((^|\/)(__tests__|tests?)\/|\.(test|spec)\.)/.test(
-			command,
-		)
-	) {
-		return {
-			ok: false,
-			reason: `Harness ${contract.id}: deleting tests is not allowed`,
-		};
-	}
-	return { ok: true };
+	return blocked
+		? {
+				ok: false,
+				reason: `Harness ${contract.id}: command contains forbidden pattern: ${blocked}`,
+			}
+		: { ok: true };
+}
+
+export function build_path_helpers(): string {
+	return String.raw`
+function pattern_matches(pattern, path) {
+  const normalized = (isAbsolute(pattern) ? relative(cwd, pattern) : pattern).replaceAll('\\', '/');
+  const candidate = relative(cwd, resolve(cwd, path)).replaceAll('\\', '/');
+  if (normalized === '.') return true;
+  if (!/[*?[{]/.test(normalized)) return candidate === normalized || candidate.startsWith(normalized + '/');
+  return matchesGlob(candidate, normalized);
+}
+`;
 }
