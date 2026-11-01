@@ -25,7 +25,7 @@ built in.
 | `themes`              | [`pi-themes`](https://github.com/spences10/my-pi/tree/main/packages/pi-themes#readme)                           |
 
 ```bash
-pnpx my-pi@latest
+pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
 ```
 
 ## Turn extensions on or off

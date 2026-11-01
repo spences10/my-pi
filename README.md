@@ -12,7 +12,7 @@ built in. Each extension is also published on its own.
 ## Use
 
 ```bash
-pnpx my-pi@latest
+pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
 ```
 
 Turn extensions on or off with `/extensions`. Or install single
@@ -43,7 +43,7 @@ configuration are upstream Pi features. See the
 | [`@spences10/pi-observability`](./packages/pi-observability/README.md)             | Live local event stream and browser dashboard              |
 | [`@spences10/pi-recall`](./packages/pi-recall/README.md)                           | `pirecall` reminder and background sync                    |
 | [`@spences10/pi-redact`](./packages/pi-redact/README.md)                           | Output redaction and `/redact-stats`                       |
-| [`@spences10/pi-starfield`](./packages/pi-starfield/README.md)                     | Twinkling stars in the input editor                        |
+| [`@spences10/pi-starfield`](./packages/pi-starfield/README.md)                     | Input stars and a suggested next prompt (Tab)              |
 | [`@spences10/pi-svelte-guardrails`](./packages/pi-svelte-guardrails/README.md)     | Svelte pattern guardrails                                  |
 | [`@spences10/pi-talk`](./packages/pi-talk/README.md)                               | Hold-Space Deepgram dictation                              |
 | [`@spences10/pi-team-mode`](./packages/pi-team-mode/README.md)                     | Peer-session coordination and durable mailboxes            |
