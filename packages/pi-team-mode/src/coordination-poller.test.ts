@@ -209,12 +209,16 @@ describe('CoordinationPoller', () => {
 			}),
 			{ deliverAs: 'followUp', triggerTurn: true },
 		);
+		expect(db.mark_messages_delivered).not.toHaveBeenCalled();
+		expect(db.mark_messages_read).not.toHaveBeenCalled();
+		poller.confirm_delivery({
+			role: 'custom',
+			...pi.sendMessage.mock.calls[0]?.[0],
+		});
 		expect(db.mark_messages_delivered).toHaveBeenCalledWith(
 			'session-1',
 			['m1'],
 		);
-		expect(db.mark_messages_read).toHaveBeenCalledWith('session-1', [
-			'm1',
-		]);
+		expect(db.mark_messages_read).not.toHaveBeenCalled();
 	});
 });

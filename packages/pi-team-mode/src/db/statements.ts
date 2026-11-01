@@ -107,8 +107,8 @@ export function prepare_statements(
 			`),
 		insert_message: db.prepare(`
 				INSERT INTO messages
-				(message_id, from_session_id, scope, target, body, urgent, reply_to, expires_at, requires_ack, created_at, metadata_json)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				(message_id, from_session_id, scope, target, body, urgent, reply_to, expires_at, requires_ack, created_at, metadata_json, message_type, status_key, idempotency_key, request_hash)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`),
 		insert_message_receipt: db.prepare(`
 				INSERT OR IGNORE INTO message_receipts (message_id, to_session_id, created_at)
@@ -123,19 +123,19 @@ export function prepare_statements(
 				JOIN messages ON messages.message_id = message_receipts.message_id
 				LEFT JOIN sessions ON sessions.session_id = messages.from_session_id
 				WHERE message_receipts.to_session_id = ?
-				ORDER BY messages.created_at ASC
+				ORDER BY messages.created_at ASC, messages.rowid ASC
 			`),
 		mark_messages_delivered: db.prepare(`
 				UPDATE message_receipts SET delivered_at = COALESCE(delivered_at, ?)
 				WHERE message_id = ? AND to_session_id = ?
 			`),
 		mark_messages_read: db.prepare(`
-				UPDATE message_receipts SET read_at = COALESCE(read_at, ?)
-				WHERE message_id = ? AND to_session_id = ?
+				UPDATE message_receipts SET delivered_at = COALESCE(delivered_at, ?1), read_at = COALESCE(read_at, ?1)
+				WHERE message_id = ?2 AND to_session_id = ?3
 			`),
 		mark_messages_acknowledged: db.prepare(`
-				UPDATE message_receipts SET acknowledged_at = COALESCE(acknowledged_at, ?)
-				WHERE message_id = ? AND to_session_id = ?
+				UPDATE message_receipts SET delivered_at = COALESCE(delivered_at, ?1), read_at = COALESCE(read_at, ?1), acknowledged_at = COALESCE(acknowledged_at, ?1)
+				WHERE message_id = ?2 AND to_session_id = ?3
 			`),
 		insert_event: db.prepare(`
 				INSERT INTO events (event_id, type, session_id, group_id, message_id, created_at, data_json)

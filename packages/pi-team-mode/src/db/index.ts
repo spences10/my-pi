@@ -2,7 +2,7 @@ import {
 	with_sqlite_busy_retry,
 	with_sqlite_transaction,
 } from '@spences10/pi-sqlite-core';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -26,10 +26,10 @@ import { prepare_statements } from './statements.js';
 import type {
 	ArtifactRow,
 	CoordinationArtifact,
-	CoordinationCleanupOptions,
-	CoordinationCleanupResult,
 	CoordinationArtifactInput,
 	CoordinationArtifactKind,
+	CoordinationCleanupOptions,
+	CoordinationCleanupResult,
 	CoordinationGroup,
 	CoordinationGroupMember,
 	CoordinationGroupMembership,
@@ -59,10 +59,10 @@ import {
 export { LATEST_TEAM_SCHEMA_VERSION } from './schema.js';
 export type {
 	CoordinationArtifact,
-	CoordinationCleanupOptions,
-	CoordinationCleanupResult,
 	CoordinationArtifactInput,
 	CoordinationArtifactKind,
+	CoordinationCleanupOptions,
+	CoordinationCleanupResult,
 	CoordinationGroup,
 	CoordinationGroupMember,
 	CoordinationGroupMembership,
@@ -437,12 +437,67 @@ export class TeamDatabase {
 		);
 		if (recipients.length === 0)
 			throw new Error('No message recipients');
+		const message_type = input.message_type ?? 'action';
+		if (!['action', 'status'].includes(message_type))
+			throw new Error('Invalid message_type');
+		if (
+			message_type === 'status' &&
+			(input.urgent || input.requires_ack)
+		)
+			throw new Error(
+				'Status messages cannot be urgent or require acknowledgement',
+			);
+		if (
+			input.status_key !== undefined &&
+			(!input.status_key.trim() || message_type !== 'status')
+		)
+			throw new Error(
+				'status_key requires a status message and a non-empty key',
+			);
+		if (
+			input.idempotency_key !== undefined &&
+			!input.idempotency_key.trim()
+		)
+			throw new Error('idempotency_key must not be empty');
+		const request_hash = createHash('sha256')
+			.update(
+				JSON.stringify([
+					input.scope,
+					input.target,
+					[...recipients].sort(),
+					input.body.trim(),
+					message_type,
+					input.status_key ?? null,
+					!!input.urgent,
+					input.reply_to ?? null,
+					input.ttl_ms ?? null,
+					!!input.requires_ack,
+					input.metadata ?? {},
+				]),
+			)
+			.digest('hex');
 		const timestamp = now();
 		const message_id = `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
 		const expires_at = input.ttl_ms
 			? new Date(Date.now() + input.ttl_ms).toISOString()
 			: null;
-		this.transaction(() => {
+		return this.transaction(() => {
+			if (input.idempotency_key !== undefined) {
+				const existing = this.db
+					.prepare(
+						'SELECT message_id, request_hash FROM messages WHERE from_session_id = ? AND idempotency_key = ?',
+					)
+					.get(input.from_session_id, input.idempotency_key) as
+					| { message_id: string; request_hash: string }
+					| undefined;
+				if (existing) {
+					if (existing.request_hash !== request_hash)
+						throw new Error(
+							'idempotency_key was already used with a different message',
+						);
+					return this.list_message_by_id(existing.message_id)!;
+				}
+			}
 			this.statements.insert_message.run(
 				message_id,
 				input.from_session_id,
@@ -455,6 +510,10 @@ export class TeamDatabase {
 				input.requires_ack ? 1 : 0,
 				timestamp,
 				json(input.metadata ?? {}),
+				message_type,
+				input.status_key ?? null,
+				input.idempotency_key ?? null,
+				request_hash,
 			);
 			for (const session_id of recipients) {
 				this.statements.insert_message_receipt.run(
@@ -473,8 +532,8 @@ export class TeamDatabase {
 					recipients,
 				},
 			});
+			return this.list_message_by_id(message_id)!;
 		});
-		return this.list_message_by_id(message_id)!;
 	}
 
 	send_to_session_target(
@@ -717,6 +776,9 @@ export class TeamDatabase {
 			scope: row.scope,
 			target: row.target,
 			body: row.body,
+			message_type: row.message_type,
+			status_key: optional(row.status_key),
+			idempotency_key: optional(row.idempotency_key),
 			urgent: bool(row.urgent),
 			reply_to: optional(row.reply_to),
 			expires_at: optional(row.expires_at),

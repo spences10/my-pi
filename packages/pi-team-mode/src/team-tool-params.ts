@@ -64,6 +64,15 @@ export const TeamToolParams: TSchema = Type.Object(
 		reply_to: Type.Optional(Type.String()),
 		ttl_ms: Type.Optional(Type.Number()),
 		requires_ack: Type.Optional(Type.Boolean()),
+		message_type: Type.Optional(
+			StringEnum(['action', 'status'] as const),
+		),
+		status_key: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 100 }),
+		),
+		idempotency_key: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 200 }),
+		),
 		include_read: Type.Optional(Type.Boolean()),
 		include_acknowledged: Type.Optional(Type.Boolean()),
 		include_offline: Type.Optional(Type.Boolean()),
@@ -105,6 +114,9 @@ export type TeamToolParams = {
 	reply_to?: string;
 	ttl_ms?: number;
 	requires_ack?: boolean;
+	message_type?: 'action' | 'status';
+	status_key?: string;
+	idempotency_key?: string;
 	include_read?: boolean;
 	include_acknowledged?: boolean;
 	include_offline?: boolean;
@@ -148,6 +160,9 @@ const ACTION_ALLOWED_FIELDS = {
 	],
 	session_send: [
 		'action',
+		'message_type',
+		'status_key',
+		'idempotency_key',
 		'from',
 		'to',
 		'message',
@@ -200,6 +215,9 @@ const ACTION_ALLOWED_FIELDS = {
 	],
 	group_send: [
 		'action',
+		'message_type',
+		'status_key',
+		'idempotency_key',
 		'team_id',
 		'name',
 		'to',
@@ -235,6 +253,9 @@ const ACTION_ALLOWED_FIELDS = {
 	],
 	message_send: [
 		'action',
+		'message_type',
+		'status_key',
+		'idempotency_key',
 		'from',
 		'to',
 		'message',
@@ -329,6 +350,25 @@ export function validate_team_tool_params(
 	params: TeamToolParams,
 ): void {
 	reject_inapplicable_fields(params);
+	if (
+		params.message_type === 'status' &&
+		(params.urgent || params.requires_ack)
+	)
+		throw new Error(
+			'Status messages cannot be urgent or require acknowledgement',
+		);
+	if (
+		params.status_key !== undefined &&
+		(params.message_type !== 'status' || !params.status_key.trim())
+	)
+		throw new Error(
+			'status_key requires a status message and a non-empty key',
+		);
+	if (
+		params.idempotency_key !== undefined &&
+		!params.idempotency_key.trim()
+	)
+		throw new Error('idempotency_key must not be empty');
 	if (
 		params.limit !== undefined &&
 		(!Number.isInteger(params.limit) ||

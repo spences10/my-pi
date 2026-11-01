@@ -32,6 +32,8 @@ into Pi.
 - [Package releases](./releases.md): Changesets, publishing, and tags.
 - [Context benchmarks](./pi-context-benchmark.md): measured workloads,
   limitations, and reproduction.
+- [Team Mode benchmarks](./pi-team-mode-benchmark.md): delivery noise,
+  bounded batches, and quiet status updates.
 - [Website development](../apps/web/README.md): local preview and
   Cloudflare deployment.
 

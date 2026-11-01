@@ -76,6 +76,10 @@ export async function handle_session_command(
 			format_inbox(messages, { full: tail.includes('--full') }),
 			'info',
 		);
+		deps.coordination_db.mark_messages_delivered(
+			require_session_id(deps),
+			messages.map((message) => message.message_id),
+		);
 		return;
 	}
 	if (sub === 'read' || sub === 'ack') {

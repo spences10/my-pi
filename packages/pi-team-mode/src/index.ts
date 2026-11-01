@@ -1,4 +1,7 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from '@earendil-works/pi-coding-agent';
 import {
 	append_team_system_prompt,
 	handle_team_command,
@@ -11,6 +14,7 @@ import {
 	TEAM_MEMBER_ENV,
 	TEAM_ROLE_ENV,
 } from './config.js';
+import { summarize_completed_peer_messages } from './context.js';
 import {
 	CoordinationBrokerClient,
 	ensure_coordination_broker,
@@ -114,7 +118,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 	);
 	let own_session_id: string | undefined;
 	let current_cwd: string | undefined;
-	let agent_active = false;
+	let session_context: ExtensionContext | undefined;
+	let auto_delivery_paused = false;
+	let team_prompt_enabled = true;
+	let stopped = false;
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'peer';
 	const own_role = process.env[TEAM_ROLE_ENV] || 'peer';
 	const fallback_agent_name =
@@ -123,8 +130,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 	const coordination_poller = new CoordinationPoller({
 		db: coordination_db,
 		get_session_id: () => own_session_id,
-		should_auto_inject_messages,
-		is_agent_active: () => agent_active,
+		should_auto_inject_messages: () =>
+			team_prompt_enabled &&
+			pi.getActiveTools().includes('team') &&
+			should_auto_inject_messages(),
+		is_agent_active: () =>
+			auto_delivery_paused || !session_context?.isIdle(),
 	});
 	const coordination_broker = new CoordinationBrokerClient({
 		get_session_id: () => own_session_id,
@@ -134,6 +145,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 	pi.on('session_start', async (_event, ctx) => {
 		own_session_id = ctx.sessionManager.getSessionId();
 		current_cwd = ctx.cwd;
+		session_context = ctx;
 		coordination_db.register_session({
 			session_id: own_session_id,
 			session_file: ctx.sessionManager.getSessionFile(),
@@ -156,6 +168,9 @@ export default async function team_mode(pi: ExtensionAPI) {
 				.map((tag) => tag.trim())
 				.filter(Boolean),
 		});
+		for (const entry of ctx.sessionManager.getBranch())
+			if (entry.type === 'custom_message')
+				coordination_poller.confirm_delivery(entry);
 		coordination_db.mark_stale_sessions_offline();
 		const retention_ms = get_startup_coordination_retention_ms();
 		if (retention_ms !== undefined)
@@ -174,14 +189,24 @@ export default async function team_mode(pi: ExtensionAPI) {
 	);
 
 	pi.on('session_shutdown', async () => {
+		if (stopped) return;
+		stopped = true;
 		coordination_broker.stop();
 		coordination_poller.stop();
-		if (own_session_id)
-			coordination_db.mark_session_status(own_session_id, 'offline');
+		session_context = undefined;
+		const session_id = own_session_id;
+		own_session_id = undefined;
+		try {
+			if (session_id)
+				coordination_db.mark_session_status(session_id, 'offline');
+		} finally {
+			coordination_db.close();
+		}
 	});
 
 	pi.on('before_agent_start', async (event) => {
-		agent_active = true;
+		if (event.messageType === 'user') auto_delivery_paused = false;
+		team_prompt_enabled = should_inject_team_prompt(event);
 		const standby_registration = detect_standby_registration(
 			extract_latest_user_text(event),
 		);
@@ -193,7 +218,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				standby_registration,
 			);
 		}
-		if (!should_inject_team_prompt(event)) {
+		if (!team_prompt_enabled) {
 			delete event.systemPromptOptions.sections.team_mode;
 			return;
 		}
@@ -210,11 +235,48 @@ export default async function team_mode(pi: ExtensionAPI) {
 			append_team_system_prompt('', {
 				coordination_identity,
 			}).trim();
+		const message = coordination_poller.take_delivery(true);
+		return message ? { message } : undefined;
 	});
 
-	pi.on('agent_end', async () => {
-		agent_active = false;
-		coordination_poller.poll(pi);
+	pi.on('message_end', async (event) => {
+		coordination_poller.confirm_delivery(event.message);
+	});
+
+	pi.on('agent_before_settle', async (event) => {
+		if (event.outcome !== 'completed') {
+			auto_delivery_paused = true;
+			return;
+		}
+		if (auto_delivery_paused) return;
+		const message = coordination_poller.take_delivery(false);
+		return message
+			? {
+					entries: [{ type: 'custom_message' as const, ...message }],
+					continue: true,
+				}
+			: undefined;
+	});
+
+	pi.on('agent_settled', async (event) => {
+		if (event.aborted) auto_delivery_paused = true;
+	});
+
+	pi.on('context', async (event) => {
+		if (!own_session_id) return;
+		for (const message of event.messages)
+			if (message.role === 'custom')
+				coordination_poller.confirm_delivery(message);
+		return {
+			messages: summarize_completed_peer_messages(
+				event.messages,
+				own_session_id,
+				coordination_db.list_inbox(own_session_id, {
+					include_read: true,
+					include_acknowledged: true,
+				}),
+			),
+		};
 	});
 
 	pi.registerCommand('team', {

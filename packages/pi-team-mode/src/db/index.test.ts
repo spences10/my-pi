@@ -55,7 +55,7 @@ describe('TeamDatabase coordination store', () => {
 		const db = await TeamDatabase.open(db_path);
 		try {
 			expect(existsSync(db_path)).toBe(true);
-			expect(db.get_schema_version()).toBe(4);
+			expect(db.get_schema_version()).toBe(5);
 			expect(
 				db.read_rows<{ name: string }>(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'message_receipts'",
@@ -89,7 +89,7 @@ describe('TeamDatabase coordination store', () => {
 		}
 		const db = await TeamDatabase.open(db_path);
 		try {
-			expect(db.get_schema_version()).toBe(4);
+			expect(db.get_schema_version()).toBe(5);
 			expect(
 				db.read_rows<{ name: string }>(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('session_runtimes', 'runtime_events') ORDER BY name",
@@ -117,7 +117,7 @@ describe('TeamDatabase coordination store', () => {
 
 		const db = await TeamDatabase.open(db_path);
 		try {
-			expect(db.get_schema_version()).toBe(4);
+			expect(db.get_schema_version()).toBe(5);
 			expect(
 				db.read_rows<{ name: string }>(
 					"SELECT name FROM pragma_table_info('sessions') WHERE name IN ('thinking_level', 'availability') ORDER BY name",

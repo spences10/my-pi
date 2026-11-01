@@ -56,10 +56,20 @@ pi -e ./packages/pi-team-mode
    delivery as a visible Pi custom message carrying structured peer
    provenance. It is never injected as a direct user turn.
 
-Messages sent while a peer is offline remain durable and are surfaced
-after the peer opens again. Messages sent while a peer is running wait
-until its current agent run finishes. Team Mode does not steer an
-active remote run.
+Actionable messages sent while a peer is offline remain durable and
+are surfaced after the peer opens again. Messages arriving during a
+run wait for Pi's pre-settlement boundary, after retries and queued
+work. Team Mode does not steer an active remote run. Aborting or
+failing a run pauses automatic wake-ups until the next direct user
+prompt.
+
+Automatic batches contain at most eight visible messages and 4 KiB of
+UTF-8 content, including provenance and retrieval instructions. Each
+body preview remains capped at 240 characters. Urgent actions come
+first; remaining messages stay durable for later batches. Full
+authority rules live in the named system-prompt section rather than
+being repeated in every delivery. Automatic delivery requires the
+`team` tool to be active.
 
 Automatic deliveries include only a bounded message-body preview. The
 mailbox remains the full-text source: use a focused `message_id` with
@@ -126,6 +136,43 @@ notification, with SQLite polling as the durable fallback.
 peer mailbox operations. Use artifacts for larger handoffs and send
 artifact ids in messages instead of copying large bodies.
 
+## Retry-safe sends and quiet status
+
+`session_send`, `message_send`, and `group_send` accept:
+
+- `idempotency_key`: an optional non-empty retry key, scoped to the
+  sender. Repeating the same key and request returns the original
+  message without another receipt or send event. Reusing it with a
+  different payload or resolved recipient set fails. Retries do not
+  renew TTL or reset receipts. The key remains reserved while its
+  message is retained. Sends without a key are intentionally distinct.
+- `message_type`: `action` (default) or `status`. Status never starts
+  a model run and cannot be urgent or require acknowledgement. Use
+  actions for tasks, blockers, and anything requiring a response.
+- `status_key`: an optional key for status updates. Pending updates
+  with the same sender, scope, target, and key surface only the latest
+  preview. Unkeyed statuses and actions are never coalesced.
+
+Status stays in SQLite until an existing run starts, or piggybacks on
+an actionable delivery. It is not repeatedly queued into Pi while
+idle. Coalescing records every represented message id in the custom
+message details and surfaces all corresponding receipts; original
+bodies remain available in the mailbox. Acknowledgements are receipt
+updates through `session_ack`, not messages back to the sender.
+
+Example tool arguments:
+
+```json
+{
+	"action": "session_send",
+	"to": "reviewer",
+	"message": "Build is still running",
+	"message_type": "status",
+	"status_key": "build",
+	"idempotency_key": "build-progress-3"
+}
+```
+
 ## Bounded list retrieval
 
 The `session_list`, `session_inbox`, `message_list`, `group_list`, and
@@ -158,15 +205,36 @@ handoffs rather than repeatedly rendering mailbox bodies.
 
 ## Receipt semantics
 
-- `delivered_at`: the message was injected into the owning open
-  session.
-- `read_at`: the recipient reviewed the message.
-- `acknowledged_at`: processing is complete and redelivery can be
-  suppressed.
+- `delivered_at`: surfaced by an inbox/wait tool or inbox command, or
+  confirmed in persisted Pi custom-message history. This suppresses
+  automatic replay, even before acknowledgement.
+- `read_at`: the recipient explicitly reviewed the message; also
+  implies delivery.
+- `acknowledged_at`: processing is complete; also implies review and
+  delivery. It does not send a reply or erase the message.
 
 Mailbox state is coordination evidence, not proof that a model
 completed work. Use `session_read` after reviewing a message and
-`session_ack` after completing it.
+`session_ack` after completing it. Tool retrieval and automatic
+injection do not claim that review or completion happened. Inbox pages
+remain stable while surfacing messages; already-surfaced unread
+messages can still be intentionally retrieved again.
+
+Queued automatic deliveries use an in-flight lease and are confirmed
+from persisted message/context events, not merely a successful
+`sendMessage` call. Unconfirmed deliveries become retryable after 30
+seconds. On restart, the active Pi branch reconciles receipts for
+already-persisted deliveries. This is at-least-once recovery, not an
+exactly-once guarantee across independent stores and process crashes.
+
+For subsequent model requests, fully acknowledged Team Mode custom
+messages can collapse into one smaller summary with recent quoted
+excerpts and mailbox retrieval guidance. Partially completed batches,
+missing receipts, other message types, and tool-result pairing remain
+untouched. This is a request-local context projection: neither session
+history nor the coordination audit is deleted. Like other context
+transforms, it may invalidate an existing provider prompt-cache
+prefix.
 
 ## Peer provenance and authority
 
@@ -246,11 +314,17 @@ starting Team Mode never applies that manual default.
 
 ## Database compatibility
 
-Released numbered migrations are immutable. Schema version 4 contains
-dormant persistent-runtime tables from an earlier experiment so
-databases upgraded by version `0.0.48` continue to open safely.
-Peer-only Team Mode never operates those runtimes; cleanup only checks
-for dormant references so their historical sessions remain compatible.
+Released numbered migrations are immutable. Schema version 5 adds
+message type, status key, and sender-scoped retry-key storage without
+rewriting existing messages. Existing messages default to actionable.
+Upgrade/reload peer sessions together; older package versions reject a
+database with a newer schema version.
+
+Schema version 4 contains dormant persistent-runtime tables from an
+earlier experiment so databases upgraded by version `0.0.48` continue
+to open safely. Peer-only Team Mode never operates those runtimes;
+cleanup only checks for dormant references so their historical
+sessions remain compatible.
 
 ## Development
 
@@ -261,4 +335,11 @@ pnpm --filter @spences10/pi-team-mode run coverage:self
 pnpm --filter @spences10/pi-team-mode run test:pack
 pnpm --filter @spences10/pi-team-mode run test:release
 pnpm --filter @spences10/pi-team-mode run build
+pnpm --filter @spences10/pi-team-mode run benchmark:self
 ```
+
+The benchmark runs directly with Node using `scripts/benchmark.ts`;
+build first. See
+[delivery benchmark](https://github.com/spences10/my-pi/blob/main/docs/pi-team-mode-benchmark.md)
+for baseline measurements and the distinction between wake-ups and
+provider continuations.

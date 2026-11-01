@@ -138,6 +138,9 @@ export interface CoordinationMessageInput {
 	scope: 'session' | 'group' | 'broadcast';
 	target: string;
 	body: string;
+	message_type?: 'action' | 'status';
+	status_key?: string;
+	idempotency_key?: string;
 	urgent?: boolean;
 	reply_to?: string;
 	ttl_ms?: number;
@@ -166,6 +169,9 @@ export interface CoordinationMessage {
 	scope: 'session' | 'group' | 'broadcast';
 	target: string;
 	body: string;
+	message_type?: 'action' | 'status';
+	status_key?: string;
+	idempotency_key?: string;
 	urgent: boolean;
 	reply_to?: string;
 	expires_at?: string;
@@ -254,6 +260,10 @@ export interface InboxRow {
 	scope: 'session' | 'group' | 'broadcast';
 	target: string;
 	body: string;
+	message_type: 'action' | 'status';
+	status_key: string | null;
+	idempotency_key: string | null;
+	request_hash: string | null;
 	urgent: number;
 	reply_to: string | null;
 	expires_at: string | null;

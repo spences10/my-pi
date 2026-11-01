@@ -324,7 +324,7 @@ describe('coordination actions', () => {
 		}
 	});
 
-	it('marks waited messages read so auto-injection does not repeat them', async () => {
+	it('marks waited messages surfaced so auto-injection does not repeat them', async () => {
 		const db = await tmp_db();
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });

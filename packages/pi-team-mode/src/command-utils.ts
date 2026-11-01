@@ -37,13 +37,14 @@ Rules:
 - Every independently opened my-pi session registers in the global coordination bus. session_list is compact, bounded, and scoped to the current project by default; pass global: true only for intentional cross-project discovery and include_offline: true only for history.
 - If the user mentions standby sessions, existing sessions, handoffs, or other active sessions, call session_list and prefer registered standby sessions.
 - Follow returned_count, total_count, has_more, and next_offset instead of requesting unbounded Team Mode history.
-- Inbox states are separate: delivered means queued to a session, read means reviewed, acknowledged means fully processed and safe to suppress redelivery. Prefer targeted compact session_inbox/message_list calls using from, state filters, or message_id; use mode: full only for the focused bodies you need.
+- Inbox states are separate: delivered means surfaced by a tool or persisted session message, read means reviewed, acknowledged means fully processed. Surfacing suppresses automatic replay; completion does not erase history. Prefer targeted compact session_inbox/message_list calls using from, state filters, or message_id; use mode: full only for the focused bodies you need.
 - Use session_read after reviewing peer messages and session_ack after acting on them.
 - Use session_wait to wait on your own inbox; pass from (or to for compatibility) to wait for a specific sender, not to inspect that sender's inbox.
 - Use artifact_create, artifact_get, and artifact_list for larger handoffs, plans, findings, logs, diffs, or results; send artifact ids instead of large mailbox bodies.
 - Use group_create, group_add_session, and group_send to coordinate independently running sessions.
 - This package does not spawn or supervise Pi sessions. Ask the user to open another TUI session when another peer is needed.
-- Use urgent peer messaging for coordination instead of assuming shared context.
+- Send only new actionable information; use message_type: status with a status_key for coalescible progress that must not wake a peer. Use idempotency_key for send retries; reuse it only with the same payload.
+- Use session_ack for completion, not acknowledgement-only replies. Do not echo received messages or send unchanged status repeatedly. Urgent messages must be actionable, not status.
 ${TEAM_PEER_AUTHORITY_GUIDELINES.map((guideline) => `- ${guideline}`).join('\n')}`
 	);
 }

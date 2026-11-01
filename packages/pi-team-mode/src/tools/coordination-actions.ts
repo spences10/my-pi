@@ -167,6 +167,9 @@ export async function execute_coordination_action(
 				from_session_id,
 				target,
 				body,
+				message_type: params.message_type,
+				status_key: params.status_key,
+				idempotency_key: params.idempotency_key,
 				urgent: params.urgent,
 				reply_to: params.reply_to,
 				ttl_ms: params.ttl_ms,
@@ -203,7 +206,10 @@ export async function execute_coordination_action(
 			);
 			const visible_messages = coordination_db
 				.list_inbox(target, {
-					include_read: params.include_read || focused,
+					include_read:
+						params.include_read ||
+						params.include_acknowledged ||
+						focused,
 					include_acknowledged:
 						params.include_acknowledged || focused,
 				})
@@ -221,6 +227,10 @@ export async function execute_coordination_action(
 				params,
 			);
 			const chunk_text = format_message_chunk(messages, params);
+			coordination_db.mark_messages_delivered(
+				target,
+				messages.map((message) => message.message_id),
+			);
 			const warning =
 				params.mode === 'full' &&
 				(params.include_read || params.include_acknowledged)
@@ -266,6 +276,7 @@ export async function execute_coordination_action(
 				coordination_db
 					.list_inbox(target, {
 						include_read: params.include_read,
+						undelivered_only: !params.include_read,
 					})
 					.filter(
 						(message) =>
@@ -282,12 +293,10 @@ export async function execute_coordination_action(
 					(message) => message.message_id,
 				);
 				coordination_db.mark_messages_delivered(target, message_ids);
-				coordination_db.mark_messages_read(target, message_ids);
 				const surfaced_at = new Date().toISOString();
 				messages = messages.map((message) => ({
 					...message,
 					delivered_at: message.delivered_at ?? surfaced_at,
-					read_at: message.read_at ?? surfaced_at,
 				}));
 			}
 			const chunk_text = format_message_chunk(messages, params);
@@ -509,6 +518,9 @@ export async function execute_coordination_action(
 					from_session_id,
 					target: group_target,
 					body,
+					message_type: params.message_type,
+					status_key: params.status_key,
+					idempotency_key: params.idempotency_key,
 					urgent: params.urgent,
 					reply_to: params.reply_to,
 					ttl_ms: params.ttl_ms,
