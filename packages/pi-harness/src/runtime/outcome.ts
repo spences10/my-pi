@@ -1,7 +1,11 @@
-import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { HarnessLogEntry, HarnessOutcome } from '../schema.js';
+import type {
+	HarnessLogEntry,
+	HarnessOutcome,
+	HarnessPolicy,
+} from '../schema.js';
+import { collect_task_changed_files } from './baseline.js';
 import {
 	harness_paths,
 	json_write,
@@ -17,44 +21,18 @@ function unique(values: Array<string | undefined>): string[] {
 	return [...new Set(values.filter(Boolean) as string[])];
 }
 
-function git_lines(cwd: string, args: string[]): string[] {
-	try {
-		return execFileSync('git', ['-C', cwd, ...args], {
-			encoding: 'utf8',
-			stdio: ['ignore', 'pipe', 'ignore'],
-		})
-			.split('\n')
-			.map((line) => line.trimEnd())
-			.filter(Boolean);
-	} catch {
-		return [];
-	}
-}
-
-export function collect_git_changed_files(cwd: string): string[] {
-	const status_files = git_lines(cwd, [
-		'status',
-		'--short',
-		'--untracked-files=all',
-	]).map((line) =>
-		line.slice(3).split(' -> ').pop()?.replace(/\/$/, ''),
-	);
-	const diff_files = git_lines(cwd, ['diff', '--name-only']);
-	return unique([...status_files, ...diff_files]).sort();
-}
-
 function changed_files(
 	cwd: string,
 	log: HarnessLogEntry[],
-	baseline_changed_files: string[],
+	policy: HarnessPolicy,
 ): string[] {
-	const baseline = new Set(baseline_changed_files);
 	const logged_files = log.flatMap(
 		(entry) => entry.changed_files ?? [],
 	);
-	return unique([...collect_git_changed_files(cwd), ...logged_files])
-		.filter((file) => !baseline.has(file))
-		.sort();
+	return unique([
+		...collect_task_changed_files(cwd, policy),
+		...logged_files,
+	]).sort();
 }
 
 function latest_log_value<K extends keyof HarnessLogEntry>(
@@ -97,7 +75,7 @@ export function collect_harness_outcome(
 		changed_files: changed_files(
 			execution_cwd,
 			status_file.log,
-			contract.policy.baseline_changed_files,
+			contract.policy,
 		),
 		baseline_changed_files: contract.policy.baseline_changed_files,
 		validation: {
@@ -144,7 +122,7 @@ ${outcome.task}
 
 ${list(outcome.changed_files, 'No changed files detected')}
 
-## Baseline ignored files
+## Baseline files
 
 ${list(outcome.baseline_changed_files, 'No dirty baseline files recorded')}
 

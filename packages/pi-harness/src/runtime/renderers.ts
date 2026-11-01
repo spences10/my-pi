@@ -1,4 +1,5 @@
 import type { HarnessContract } from '../schema.js';
+import { build_baseline_helpers } from './baseline.js';
 import { shell_quote } from './files.js';
 
 export function build_system_markdown(
@@ -99,7 +100,8 @@ bash -lc ${shell_quote(command)}`,
 
 export function build_guard_script(): string {
 	return `import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
 const contract = JSON.parse(readFileSync(new URL('./harness.json', import.meta.url), 'utf8'));
@@ -116,19 +118,7 @@ function resolve_cwd() {
 }
 
 const cwd = resolve_cwd();
-const baseline = new Set(contract.policy.baseline_changed_files || []);
-
-function changed_paths() {
-  const status = execFileSync('git', ['-C', cwd, 'status', '--short', '--untracked-files=all'], { encoding: 'utf8' })
-    .split('\\n')
-    .map((line) => line.trimEnd())
-    .filter(Boolean)
-    .map((line) => line.slice(3).split(' -> ').pop());
-  const diff = execFileSync('git', ['-C', cwd, 'diff', '--name-only'], { encoding: 'utf8' })
-    .split('\\n')
-    .filter(Boolean);
-  return [...new Set([...status, ...diff])];
-}
+${build_baseline_helpers()}
 
 function escape_regex(value) {
   const special = new Set(['.', '*', '+', '?', '^', '$', '{', '}', '(', ')', '|', '[', ']', '\\\\', '-']);
@@ -160,8 +150,7 @@ function is_test_path(relative_path) {
 }
 
 const violations = [];
-for (const path of changed_paths()) {
-  if (baseline.has(path)) continue;
+for (const path of collect_task_changed_files(cwd, contract.policy)) {
   const absolute_path = resolve(cwd, path);
   if (absolute_path !== cwd && !absolute_path.startsWith(cwd + '/')) violations.push(path + ' is outside cwd');
   if (contract.policy.forbidden_paths.some((pattern) => pattern_matches(pattern, path))) violations.push(path + ' matches forbidden_paths');
@@ -180,8 +169,9 @@ console.log('Harness guard passed');
 
 export function build_outcome_script(): string {
 	return `import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { lstatSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const harness_dir = dirname(fileURLToPath(import.meta.url));
@@ -199,25 +189,13 @@ function resolve_cwd() {
 }
 
 const cwd = resolve_cwd();
-const baseline = new Set(contract.policy.baseline_changed_files || []);
-
-function git_lines(args) {
-  try {
-    return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
-      .split('\\n')
-      .map((line) => line.trimEnd())
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
-}
+${build_baseline_helpers()}
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
-const status_files = git_lines(['status', '--short', '--untracked-files=all']).map((line) => line.slice(3).split(' -> ').pop()?.replace(/\\/$/, ''));
-const diff_files = git_lines(['diff', '--name-only']);
+const task_files = collect_task_changed_files(cwd, contract.policy);
 const logged_files = status.log.flatMap((entry) => entry.changed_files ?? []);
 const latest = (key) => [...status.log].reverse().find((entry) => entry[key] !== undefined)?.[key];
 const outcome = {
@@ -228,7 +206,7 @@ const outcome = {
   cwd: contract.policy.cwd,
   execution_cwd: cwd,
   generated_at: new Date().toISOString(),
-  changed_files: unique([...status_files, ...diff_files, ...logged_files]).filter((file) => !baseline.has(file)).sort(),
+  changed_files: unique([...task_files, ...logged_files]).sort(),
   baseline_changed_files: contract.policy.baseline_changed_files || [],
   validation: {
     commands: contract.scaffold.validation_commands,
@@ -251,6 +229,7 @@ const markdown = '# Harness outcome: ' + outcome.id + '\\n\\n'
   + '- Project cwd: ' + outcome.cwd + '\\n\\n'
   + '## Task\\n\\n' + outcome.task + '\\n\\n'
   + '## Changed files\\n\\n' + list(outcome.changed_files, 'No changed files detected') + '\\n\\n'
+  + '## Baseline files\\n\\n' + list(outcome.baseline_changed_files, 'No dirty baseline files recorded') + '\\n\\n'
   + '## Validation evidence\\n\\nCommands:\\n' + list(outcome.validation.commands, 'No validation commands configured') + '\\n\\nEvidence:\\n' + evidence + '\\n\\n'
   + '## Team status\\n\\n' + outcome.team_status + '\\n\\n'
   + '## Remaining risks\\n\\n' + list(outcome.remaining_risks, 'No remaining risks recorded') + '\\n';
@@ -271,10 +250,10 @@ set -euo pipefail
 ${build_resolve_cwd_script(contract)}
 cd "$HARNESS_CWD"
 echo "## git status"
-git status --short || true
+git --no-optional-locks status --short || true
 echo
 echo "## diff stat"
-git diff --stat || true
+git --no-optional-locks diff --stat || true
 echo
 echo "## outcome"
 node ${shell_quote(outcome_script_path)}

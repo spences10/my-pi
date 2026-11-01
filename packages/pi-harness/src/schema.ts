@@ -149,6 +149,7 @@ export interface HarnessPolicy {
 	allowed_tools: string[];
 	forbidden_commands: string[];
 	baseline_changed_files: string[];
+	baseline_file_states?: Record<string, string>;
 }
 
 export interface HarnessScaffold {

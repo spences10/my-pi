@@ -164,12 +164,27 @@ to commit or push already-reviewed work. A risky release, deployment,
 migration, or destructive operation can still justify a dedicated
 harness when explicitly requested or warranted by its actual risk.
 
-Harnesses snapshot dirty files at creation time. Review and outcome
-artifacts focus on changes after that baseline, while still recording
-baseline files in `outcome.json`. If a team-mode executor runs in a
-linked git worktree, run `review.sh` from that worktree or set
-`HARNESS_CWD` so validation, guard checks, and outcome collection use
-the executor workspace.
+Harnesses fingerprint dirty files at creation time without changing
+the working tree or Git index. Review and outcome artifacts ignore
+unchanged baseline state, but report later content, index, mode or
+symlink changes, deletions, and renames—including changes to initially
+untracked files. Only fingerprints are saved, not file contents;
+`baseline_changed_files` still lists the original dirty paths in
+`outcome.json`. Explicitly logged task changes are also retained.
+
+Baselines apply only to the workspace where they were captured. If a
+team-mode executor runs in a linked git worktree, run `review.sh` from
+that worktree or set `HARNESS_CWD` so validation, guard checks, and
+outcome collection use the executor workspace. Its changes are
+compared with its own Git state, without exemptions from the original
+workspace's dirty files.
+
+Existing `/tmp` runtimes keep their previously generated scripts;
+recreate an old harness before relying on this fix. Current collectors
+and newly generated scripts treat contracts without fingerprints and
+unsupported file types conservatively, without filename-only
+exemptions. Do not recapture a baseline after task execution has
+begun.
 
 ## Assessment and harness loops
 

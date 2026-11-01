@@ -11,6 +11,7 @@ import {
 	type HarnessStatusFile,
 	type HarnessUpdateParams,
 } from '../schema.js';
+import { capture_baseline } from './baseline.js';
 import {
 	append_event,
 	harness_paths,
@@ -19,10 +20,7 @@ import {
 	write_contract,
 	write_status,
 } from './files.js';
-import {
-	collect_git_changed_files,
-	write_outcome_artifacts,
-} from './outcome.js';
+import { write_outcome_artifacts } from './outcome.js';
 import {
 	build_guard_script,
 	build_outcome_script,
@@ -99,7 +97,7 @@ export function create_harness_runtime(
 				...DEFAULT_FORBIDDEN_COMMANDS,
 				...(params.forbidden_commands ?? []),
 			],
-			baseline_changed_files: collect_git_changed_files(cwd),
+			...capture_baseline(cwd),
 		},
 		scaffold: {
 			version: 1,
