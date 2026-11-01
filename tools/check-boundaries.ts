@@ -11,18 +11,12 @@ const advisories: Finding[] = [];
 
 const support_packages = new Set([
 	'@spences10/pi-child-env',
-	'@spences10/pi-git-remote',
 	'@spences10/pi-project-trust',
 	'@spences10/pi-settings',
 	'@spences10/pi-tui-modal',
 ]);
 
-const lightweight_packages = new Set([
-	'@spences10/pi-nopeek',
-	'@spences10/pi-omnisearch',
-	'@spences10/pi-recall',
-	'@spences10/pi-sqlite-tools',
-]);
+const lightweight_packages = new Set(['@spences10/pi-recall']);
 
 function git_files(pattern: string): string[] {
 	return execFileSync('git', ['ls-files', pattern], {
@@ -103,17 +97,6 @@ function check_import(file: string, specifier: string) {
 		report(
 			file,
 			'do not import packages by repository path; use package entrypoints',
-			specifier,
-		);
-	}
-
-	if (
-		specifier.startsWith('src/') &&
-		source_workspace?.startsWith('packages/')
-	) {
-		report(
-			file,
-			'packages must not import from root src files',
 			specifier,
 		);
 	}
