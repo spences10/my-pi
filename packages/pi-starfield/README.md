@@ -12,8 +12,7 @@
 <!-- package-readme:header:end -->
 
 A shaded input with quiet, twinkling stars and short, original quotes
-for **my-pi**. Included by default in interactive `my-pi` sessions, or
-install it as an extension in upstream Pi 0.85.0 or newer.
+for Pi. Install it as an extension in upstream Pi 0.85.0 or newer.
 
 ## Installation
 
@@ -79,8 +78,6 @@ in the configured Pi agent directory), under:
 }
 ```
 
-In `my-pi`, `--no-starfield` disables the extension for one launch.
-
 ## Using from a custom harness
 
 ```ts
@@ -88,9 +85,6 @@ import starfield from '@spences10/pi-starfield';
 
 // Pass starfield as an ExtensionFactory to your Pi runtime.
 ```
-
-`my-pi` imports this package directly and enables it as the built-in
-starfield extension.
 
 ## Local testing
 

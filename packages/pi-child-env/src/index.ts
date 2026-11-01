@@ -1,4 +1,4 @@
-export type ChildEnvProfile = 'mcp' | 'lsp' | 'hooks' | 'team-mode';
+export type ChildEnvProfile = 'lsp' | 'team-mode';
 
 export interface PiSessionMetadata {
 	session_id?: string;
@@ -55,9 +55,7 @@ export function create_pi_session_env(
 }
 
 const PROFILE_ENV_ALLOWLIST_KEYS: Record<ChildEnvProfile, string> = {
-	mcp: 'MY_PI_MCP_ENV_ALLOWLIST',
 	lsp: 'MY_PI_LSP_ENV_ALLOWLIST',
-	hooks: 'MY_PI_HOOKS_ENV_ALLOWLIST',
 	'team-mode': 'MY_PI_TEAM_MODE_ENV_ALLOWLIST',
 };
 

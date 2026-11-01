@@ -4,37 +4,16 @@
 	"cases": [
 		{
 			"id": "cli-help-contract",
-			"description": "CLI help exposes eval, telemetry, and safety flags without requiring provider auth.",
+			"description": "CLI help works without provider auth.",
 			"command": "node",
-			"args": ["dist/index.js", "--help"],
+			"args": ["packages/my-pi/dist/index.js", "--help"],
 			"assert": {
 				"exit_code": 0,
-				"stdout_contains": [
-					"my-pi",
-					"--telemetry",
-					"--telemetry-db",
-					"--untrusted",
-					"--no-mcp"
-				],
+				"stdout_contains": ["--no-mcp", "--no-extensions"],
 				"output_not_contains": [
 					"[object Object]",
 					"UnhandledPromiseRejection"
 				]
-			}
-		},
-		{
-			"id": "no-mcp-removes-mcp-tools",
-			"description": "Disabling MCP removes all MCP tools from the active tool registry.",
-			"command": "node",
-			"args": [
-				"--input-type=module",
-				"-e",
-				"const { mkdtempSync, rmSync } = await import('node:fs'); const { tmpdir } = await import('node:os'); const { join } = await import('node:path'); const { create_my_pi } = await import('./dist/api.js'); const cwd = mkdtempSync(join(tmpdir(), 'my-pi-eval-no-mcp-')); const runtime = await create_my_pi({ cwd, runtime_mode: 'json', context_sidecar: false, mcp: false, skills: false, filter_output: false, recall: false, nopeek: false, omnisearch: false, sqlite_tools: false, prompt_presets: false, lsp: false, session_name: false, confirm_destructive: false, hooks_resolution: false, svelte_guardrails: false, team_mode: false }); const extensions = await runtime.services.resourceLoader.getExtensions(); const mcpTools = extensions.runtime.getAllTools().map((tool) => tool.name).filter((name) => name.startsWith('mcp__')); await runtime.dispose(); rmSync(cwd, { recursive: true, force: true }); if (mcpTools.length) { console.error(JSON.stringify(mcpTools.slice(0, 10))); process.exit(1); } console.log('mcp tools absent');"
-			],
-			"assert": {
-				"exit_code": 0,
-				"stdout_contains": ["mcp tools absent"],
-				"output_not_contains": ["mcp__"]
 			}
 		},
 		{

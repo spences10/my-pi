@@ -245,9 +245,6 @@ catalogs:
     bits-ui:
       specifier: ^2.18.1
       version: 2.20.2
-    citty:
-      specifier: ^0.2.2
-      version: 0.2.2
     clsx:
       specifier: ^2.1.1
       version: 2.1.1
@@ -320,31 +317,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      '@earendil-works/pi-ai':
-        specifier: 'catalog:'
-        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(undici@8.10.2)(ws@8.22.0)(zod@4.4.3)
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
-      '@earendil-works/pi-tui':
-        specifier: 'catalog:'
-        version: 1.4.0
-      '@spences10/pi-project-trust':
-        specifier: workspace:*
-        version: link:packages/pi-project-trust
-      '@spences10/pi-settings':
-        specifier: workspace:*
-        version: link:packages/pi-settings
-      '@spences10/pi-themes':
-        specifier: workspace:*
-        version: link:packages/pi-themes
-      '@spences10/pi-tui-modal':
-        specifier: workspace:*
-        version: link:packages/pi-tui-modal
-      citty:
-        specifier: 'catalog:'
-        version: 0.2.2
     devDependencies:
       '@changesets/cli':
         specifier: 'catalog:'
@@ -370,82 +342,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/browser-preview@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0))
-    optionalDependencies:
-      '@spences10/pi-child-env':
-        specifier: workspace:*
-        version: link:packages/pi-child-env
-      '@spences10/pi-codex-usage':
-        specifier: workspace:*
-        version: link:packages/pi-codex-usage
-      '@spences10/pi-coding-preferences':
-        specifier: workspace:*
-        version: link:packages/pi-coding-preferences
-      '@spences10/pi-confirm-destructive':
-        specifier: workspace:*
-        version: link:packages/pi-confirm-destructive
-      '@spences10/pi-context':
-        specifier: workspace:*
-        version: link:packages/pi-context
-      '@spences10/pi-factory':
-        specifier: workspace:*
-        version: link:packages/pi-factory
-      '@spences10/pi-footer':
-        specifier: workspace:*
-        version: link:packages/pi-footer
-      '@spences10/pi-git-ui':
-        specifier: workspace:*
-        version: link:packages/pi-git-ui
-      '@spences10/pi-harness':
-        specifier: workspace:*
-        version: link:packages/pi-harness
-      '@spences10/pi-kimi-usage':
-        specifier: workspace:*
-        version: link:packages/pi-kimi-usage
-      '@spences10/pi-lsp':
-        specifier: workspace:*
-        version: link:packages/pi-lsp
-      '@spences10/pi-mcp':
-        specifier: workspace:*
-        version: link:packages/pi-mcp
-      '@spences10/pi-nopeek':
-        specifier: workspace:*
-        version: link:packages/pi-nopeek
-      '@spences10/pi-observability':
-        specifier: workspace:*
-        version: link:packages/pi-observability
-      '@spences10/pi-omnisearch':
-        specifier: workspace:*
-        version: link:packages/pi-omnisearch
-      '@spences10/pi-recall':
-        specifier: workspace:*
-        version: link:packages/pi-recall
-      '@spences10/pi-redact':
-        specifier: workspace:*
-        version: link:packages/pi-redact
-      '@spences10/pi-skill-importer':
-        specifier: workspace:*
-        version: link:packages/pi-skill-importer
-      '@spences10/pi-skills':
-        specifier: workspace:*
-        version: link:packages/pi-skills
-      '@spences10/pi-sqlite-tools':
-        specifier: workspace:*
-        version: link:packages/pi-sqlite-tools
-      '@spences10/pi-starfield':
-        specifier: workspace:*
-        version: link:packages/pi-starfield
-      '@spences10/pi-svelte-guardrails':
-        specifier: workspace:*
-        version: link:packages/pi-svelte-guardrails
-      '@spences10/pi-talk':
-        specifier: workspace:*
-        version: link:packages/pi-talk
-      '@spences10/pi-team-mode':
-        specifier: workspace:*
-        version: link:packages/pi-team-mode
-      '@spences10/pi-telemetry':
-        specifier: workspace:*
-        version: link:packages/pi-telemetry
 
   apps/web:
     devDependencies:
@@ -543,6 +439,82 @@ importers:
         specifier: 'catalog:'
         version: 4.156.0(@types/node@26.6.6)
 
+  packages/my-pi:
+    dependencies:
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+      '@spences10/pi-codex-usage':
+        specifier: workspace:*
+        version: link:../pi-codex-usage
+      '@spences10/pi-coding-preferences':
+        specifier: workspace:*
+        version: link:../pi-coding-preferences
+      '@spences10/pi-confirm-destructive':
+        specifier: workspace:*
+        version: link:../pi-confirm-destructive
+      '@spences10/pi-context':
+        specifier: workspace:*
+        version: link:../pi-context
+      '@spences10/pi-footer':
+        specifier: workspace:*
+        version: link:../pi-footer
+      '@spences10/pi-git-ui':
+        specifier: workspace:*
+        version: link:../pi-git-ui
+      '@spences10/pi-harness':
+        specifier: workspace:*
+        version: link:../pi-harness
+      '@spences10/pi-kimi-usage':
+        specifier: workspace:*
+        version: link:../pi-kimi-usage
+      '@spences10/pi-lsp':
+        specifier: workspace:*
+        version: link:../pi-lsp
+      '@spences10/pi-observability':
+        specifier: workspace:*
+        version: link:../pi-observability
+      '@spences10/pi-recall':
+        specifier: workspace:*
+        version: link:../pi-recall
+      '@spences10/pi-redact':
+        specifier: workspace:*
+        version: link:../pi-redact
+      '@spences10/pi-settings':
+        specifier: workspace:*
+        version: link:../pi-settings
+      '@spences10/pi-starfield':
+        specifier: workspace:*
+        version: link:../pi-starfield
+      '@spences10/pi-svelte-guardrails':
+        specifier: workspace:*
+        version: link:../pi-svelte-guardrails
+      '@spences10/pi-talk':
+        specifier: workspace:*
+        version: link:../pi-talk
+      '@spences10/pi-team-mode':
+        specifier: workspace:*
+        version: link:../pi-team-mode
+      '@spences10/pi-telemetry':
+        specifier: workspace:*
+        version: link:../pi-telemetry
+      '@spences10/pi-themes':
+        specifier: workspace:*
+        version: link:../pi-themes
+      '@spences10/pi-tui-modal':
+        specifier: workspace:*
+        version: link:../pi-tui-modal
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
+
   packages/pi-child-env:
     devDependencies:
       '@types/node':
@@ -635,31 +607,6 @@ importers:
         specifier: 'catalog:'
         version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
 
-  packages/pi-factory:
-    dependencies:
-      '@spences10/pi-child-env':
-        specifier: workspace:*
-        version: link:../pi-child-env
-      '@spences10/pi-harness':
-        specifier: workspace:*
-        version: link:../pi-harness
-    devDependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      typebox:
-        specifier: 'catalog:'
-        version: 1.4.3
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite-plus:
-        specifier: 'catalog:'
-        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
-
   packages/pi-footer:
     dependencies:
       '@spences10/pi-settings':
@@ -678,18 +625,6 @@ importers:
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 1.4.0
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite-plus:
-        specifier: 'catalog:'
-        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
-
-  packages/pi-git-remote:
-    devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -766,55 +701,6 @@ importers:
       typebox:
         specifier: '*'
         version: 1.4.3
-    devDependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite-plus:
-        specifier: 'catalog:'
-        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
-
-  packages/pi-mcp:
-    dependencies:
-      '@spences10/pi-child-env':
-        specifier: workspace:*
-        version: link:../pi-child-env
-      '@spences10/pi-context':
-        specifier: workspace:*
-        version: link:../pi-context
-      '@spences10/pi-git-remote':
-        specifier: workspace:*
-        version: link:../pi-git-remote
-      '@spences10/pi-project-trust':
-        specifier: workspace:*
-        version: link:../pi-project-trust
-      '@spences10/pi-settings':
-        specifier: workspace:*
-        version: link:../pi-settings
-      '@spences10/pi-tui-modal':
-        specifier: workspace:*
-        version: link:../pi-tui-modal
-    devDependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite-plus:
-        specifier: 'catalog:'
-        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
-
-  packages/pi-nopeek:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -914,21 +800,6 @@ importers:
         specifier: 'catalog:'
         version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@6.0.3)(yaml@2.9.0)
 
-  packages/pi-omnisearch:
-    devDependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite-plus:
-        specifier: 'catalog:'
-        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
-
   packages/pi-project-trust:
     dependencies:
       '@spences10/pi-settings':
@@ -1000,76 +871,8 @@ importers:
         specifier: 'catalog:'
         version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
 
-  packages/pi-skill-importer:
-    dependencies:
-      '@spences10/pi-tui-modal':
-        specifier: workspace:*
-        version: link:../pi-tui-modal
-    devDependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
-      '@earendil-works/pi-tui':
-        specifier: 'catalog:'
-        version: 1.4.0
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite-plus:
-        specifier: 'catalog:'
-        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
-
-  packages/pi-skills:
-    dependencies:
-      '@spences10/pi-git-remote':
-        specifier: workspace:*
-        version: link:../pi-git-remote
-      '@spences10/pi-settings':
-        specifier: workspace:*
-        version: link:../pi-settings
-      '@spences10/pi-skill-importer':
-        specifier: workspace:*
-        version: link:../pi-skill-importer
-      '@spences10/pi-tui-modal':
-        specifier: workspace:*
-        version: link:../pi-tui-modal
-    devDependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
-      '@earendil-works/pi-tui':
-        specifier: 'catalog:'
-        version: 1.4.0
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite-plus:
-        specifier: 'catalog:'
-        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
-
   packages/pi-sqlite-core:
     devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite-plus:
-        specifier: 'catalog:'
-        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
-
-  packages/pi-sqlite-tools:
-    devDependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6

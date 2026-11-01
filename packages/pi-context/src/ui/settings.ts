@@ -133,8 +133,6 @@ const CAPTURE_SIZE_SETTING_OPTIONS = [
 		description: 'Capture after 16 KiB / 200 lines',
 		capture_max_bytes: 16 * 1024,
 		capture_max_lines: 200,
-		mcp_max_bytes: 32 * 1024,
-		mcp_max_lines: 1_000,
 	},
 	{
 		value: 'default',
@@ -142,8 +140,6 @@ const CAPTURE_SIZE_SETTING_OPTIONS = [
 		description: 'Capture after 24 KiB / 300 lines',
 		capture_max_bytes: 24 * 1024,
 		capture_max_lines: 300,
-		mcp_max_bytes: 50 * 1024,
-		mcp_max_lines: 2_000,
 	},
 	{
 		value: 'large',
@@ -151,8 +147,6 @@ const CAPTURE_SIZE_SETTING_OPTIONS = [
 		description: 'Capture after 48 KiB / 600 lines',
 		capture_max_bytes: 48 * 1024,
 		capture_max_lines: 600,
-		mcp_max_bytes: 96 * 1024,
-		mcp_max_lines: 3_000,
 	},
 	{
 		value: 'huge',
@@ -160,8 +154,6 @@ const CAPTURE_SIZE_SETTING_OPTIONS = [
 		description: 'Capture after 64 KiB / 1,000 lines',
 		capture_max_bytes: 64 * 1024,
 		capture_max_lines: 1_000,
-		mcp_max_bytes: 128 * 1024,
-		mcp_max_lines: 4_000,
 	},
 ] as const;
 
@@ -316,8 +308,6 @@ async function show_context_capture_size_settings(
 	save_context_settings_patch(ctx, {
 		capture_max_bytes: option.capture_max_bytes,
 		capture_max_lines: option.capture_max_lines,
-		mcp_max_bytes: option.mcp_max_bytes,
-		mcp_max_lines: option.mcp_max_lines,
 	});
 }
 
@@ -458,12 +448,6 @@ export async function handle_context_settings(
 				capture_max_lines: capture_lines_text
 					? parse_positive_setting_number(capture_lines_text)
 					: base.capture_max_lines,
-				mcp_max_bytes: capture_kb_text
-					? parse_positive_setting_number(capture_kb_text) * 1024
-					: base.mcp_max_bytes,
-				mcp_max_lines: capture_lines_text
-					? parse_positive_setting_number(capture_lines_text)
-					: base.mcp_max_lines,
 				purge_on_shutdown: parse_optional_setting_boolean(
 					purge_text,
 					base.purge_on_shutdown,

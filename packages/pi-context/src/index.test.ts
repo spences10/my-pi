@@ -402,12 +402,12 @@ describe('context_sidecar extension', () => {
 		).toHaveLength(1);
 	});
 
-	it('does not re-index an existing context-sidecar receipt such as direct MCP storage', async () => {
+	it('does not re-index an existing context-sidecar receipt', async () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
 		const fake = create_fake_pi();
 		context_sidecar(fake.pi);
 		const stored = get_context_store().store({
-			text: large_output('mcp-direct-token'),
+			text: large_output('receipt-token'),
 			tool_name: 'mcp__demo__large',
 			force: true,
 		});
@@ -423,7 +423,7 @@ describe('context_sidecar extension', () => {
 			1,
 		);
 		expect(
-			get_context_store().search('mcp-direct-token', {
+			get_context_store().search('receipt-token', {
 				global: true,
 			}),
 		).toHaveLength(1);

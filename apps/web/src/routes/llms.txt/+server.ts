@@ -26,6 +26,7 @@ const llms_txt = `# ${site_config.name}
 ## Run
 
 - Full distribution: \`pnpx my-pi@latest\` (also works with npx or bunx)
+- Turn extensions on or off inside my-pi: \`/extensions\`
 - One extension in an existing Pi setup: \`pi install npm:@spences10/pi-lsp\`
 
 ## Workflows

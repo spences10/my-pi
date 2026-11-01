@@ -28,9 +28,9 @@ export function should_skip_tool(tool_name: string): boolean {
 	//   recurse and make the sidecar harder to reason about.
 	// - Team Mode lists are bounded at source, while unusually large full-detail
 	//   results use this generic overflow path so they do not flood model context.
-	// - MCP receipts are produced before generic tool_result hooks; the hook also
-	//   ignores existing [context-sidecar] receipts so direct MCP storage is not
-	//   indexed a second time.
+	// - Pi native MCP tool results use this generic overflow path like other
+	//   tools. Text that already holds a [context-sidecar] receipt is not
+	//   indexed again.
 	return tool_name.startsWith('context_');
 }
 

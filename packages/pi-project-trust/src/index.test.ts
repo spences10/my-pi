@@ -9,7 +9,6 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
-	apply_project_trust_untrusted_defaults,
 	create_project_trust_wrapper,
 	default_project_trust_store_path,
 	is_project_subject_trusted,
@@ -37,11 +36,11 @@ function subject(
 	overrides: Partial<ProjectTrustSubject> = {},
 ): ProjectTrustSubject {
 	return {
-		kind: 'mcp-config',
-		id: '/repo/mcp.json',
+		kind: 'project-config',
+		id: '/repo/config.json',
 		hash: 'hash-a',
-		env_key: 'MY_PI_MCP_PROJECT_CONFIG',
-		prompt_title: 'Trust project MCP config?',
+		env_key: 'MY_PI_EXAMPLE_PROJECT_CONFIG',
+		prompt_title: 'Trust project config?',
 		summary_lines: ['- demo: stdio demo'],
 		...overrides,
 	};
@@ -104,30 +103,6 @@ describe('normalize_project_trust_env_decision', () => {
 		expect(
 			normalize_project_trust_env_decision('maybe'),
 		).toBeUndefined();
-	});
-});
-
-describe('apply_project_trust_untrusted_defaults', () => {
-	it('sets conservative project-resource defaults without overriding explicit choices', () => {
-		const env: NodeJS.ProcessEnv = {
-			MY_PI_MCP_PROJECT_CONFIG: 'allow',
-		};
-
-		expect(apply_project_trust_untrusted_defaults(env)).toEqual([
-			'MY_PI_HOOKS_CONFIG',
-			'MY_PI_LSP_PROJECT_BINARY',
-			'MY_PI_PROMPT_PRESETS_PROJECT',
-			'MY_PI_PROJECT_SKILLS',
-			'MY_PI_TEAM_PROFILES_PROJECT',
-		]);
-		expect(env).toMatchObject({
-			MY_PI_MCP_PROJECT_CONFIG: 'allow',
-			MY_PI_HOOKS_CONFIG: 'skip',
-			MY_PI_LSP_PROJECT_BINARY: 'global',
-			MY_PI_PROMPT_PRESETS_PROJECT: 'skip',
-			MY_PI_PROJECT_SKILLS: 'skip',
-			MY_PI_TEAM_PROFILES_PROJECT: 'skip',
-		});
 	});
 });
 
@@ -317,7 +292,7 @@ describe('resolve_project_trust', () => {
 		await expect(
 			resolve_project_trust(trusted, {
 				trust_store_path: store,
-				env: { MY_PI_MCP_PROJECT_CONFIG: 'skip' },
+				env: { MY_PI_EXAMPLE_PROJECT_CONFIG: 'skip' },
 			}),
 		).resolves.toEqual({
 			action: 'trust-persisted',
@@ -333,7 +308,7 @@ describe('resolve_project_trust', () => {
 		await expect(
 			resolve_project_trust(target, {
 				trust_store_path: store,
-				env: { MY_PI_MCP_PROJECT_CONFIG: 'trust' },
+				env: { MY_PI_EXAMPLE_PROJECT_CONFIG: 'trust' },
 			}),
 		).resolves.toEqual({
 			action: 'trust-persisted',
@@ -350,7 +325,7 @@ describe('resolve_project_trust', () => {
 		await expect(
 			resolve_project_trust(target, {
 				trust_store_path: store,
-				env: { MY_PI_MCP_PROJECT_CONFIG: 'allow' },
+				env: { MY_PI_EXAMPLE_PROJECT_CONFIG: 'allow' },
 			}),
 		).resolves.toEqual({
 			action: 'allow-once',
@@ -365,7 +340,7 @@ describe('resolve_project_trust', () => {
 
 		await expect(
 			resolve_project_trust(subject(), {
-				env: { MY_PI_MCP_PROJECT_CONFIG: 'skip' },
+				env: { MY_PI_EXAMPLE_PROJECT_CONFIG: 'skip' },
 				has_ui: true,
 				select,
 			}),
@@ -392,7 +367,9 @@ describe('resolve_project_trust', () => {
 			metadata_trusted: false,
 		});
 		expect(warn).toHaveBeenCalledWith(
-			expect.stringContaining('Set MY_PI_MCP_PROJECT_CONFIG=allow'),
+			expect.stringContaining(
+				'Set MY_PI_EXAMPLE_PROJECT_CONFIG=allow',
+			),
 		);
 	});
 

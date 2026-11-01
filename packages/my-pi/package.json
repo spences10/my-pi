@@ -1,0 +1,74 @@
+{
+	"name": "my-pi",
+	"version": "0.3.6",
+	"description": "Pi with Scott Spence's extensions built in, switchable with /extensions",
+	"keywords": [
+		"cli",
+		"coding-agent",
+		"lsp",
+		"pi"
+	],
+	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/my-pi#readme",
+	"bugs": {
+		"url": "https://github.com/spences10/my-pi/issues"
+	},
+	"license": "MIT",
+	"author": "Scott Spence <spences10apps@gmail.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/spences10/my-pi.git",
+		"directory": "packages/my-pi"
+	},
+	"bin": {
+		"my-pi": "./dist/index.js"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"type": "module",
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
+		"build:self": "vp exec tsc -p tsconfig.build.json",
+		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
+		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
+		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
+		"test:self": "vp test run",
+		"coverage:self": "vp test run --coverage",
+		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
+	},
+	"dependencies": {
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@spences10/pi-codex-usage": "workspace:*",
+		"@spences10/pi-coding-preferences": "workspace:*",
+		"@spences10/pi-confirm-destructive": "workspace:*",
+		"@spences10/pi-context": "workspace:*",
+		"@spences10/pi-footer": "workspace:*",
+		"@spences10/pi-git-ui": "workspace:*",
+		"@spences10/pi-harness": "workspace:*",
+		"@spences10/pi-kimi-usage": "workspace:*",
+		"@spences10/pi-lsp": "workspace:*",
+		"@spences10/pi-observability": "workspace:*",
+		"@spences10/pi-recall": "workspace:*",
+		"@spences10/pi-redact": "workspace:*",
+		"@spences10/pi-settings": "workspace:*",
+		"@spences10/pi-starfield": "workspace:*",
+		"@spences10/pi-svelte-guardrails": "workspace:*",
+		"@spences10/pi-talk": "workspace:*",
+		"@spences10/pi-team-mode": "workspace:*",
+		"@spences10/pi-telemetry": "workspace:*",
+		"@spences10/pi-themes": "workspace:*",
+		"@spences10/pi-tui-modal": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"typescript": "catalog:",
+		"vite-plus": "catalog:"
+	},
+	"engines": {
+		"node": ">=24.15.0"
+	}
+}

@@ -17,11 +17,10 @@ From `main`, with the intended Changesets committed, run:
 pnpm run version && pnpm run format && git add . && git commit -m "chore: bump version" && pnpm run release
 ```
 
-`pnpm run version` applies pending Changesets and regenerates the
-package preview. `pnpm run release` requires a clean Git state, builds
-the packages, and runs `changeset publish`. Publishing creates local
-package tags; pushing the version commit and tags remains a separate,
-explicit owner action.
+`pnpm run version` applies pending Changesets. `pnpm run release`
+requires a clean Git state, builds the packages, and runs
+`changeset publish`. Publishing creates local package tags; pushing
+the version commit and tags remains a separate, explicit owner action.
 
 This local workflow uses the npm credentials from the owner's active
 session. It does not use GitHub OIDC trusted publishing or create npm

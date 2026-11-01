@@ -1,16 +1,14 @@
 #!/usr/bin/env node
 /// <reference types="node" />
 import { spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 interface EvalOptions {
 	run: string;
 	suite: string;
 	attempt: string;
-	db: string;
 	agent_dir: string;
-	bin: string;
 	trusted: boolean;
 }
 
@@ -21,10 +19,9 @@ Options:
   --run <id>          Eval run id (default: local-<timestamp>)
   --suite <id>        Eval suite id (default: local)
   --attempt <n>       Attempt number (default: 1)
-  --db <path>         Telemetry DB path (default: .tmp/evals.db)
-  --agent-dir <path>  Isolated Pi agent dir (default: .tmp/pi-agent)
-  --bin <path>        Built my-pi entrypoint (default: dist/index.js)
-  --trusted           Do not pass --untrusted
+  --agent-dir <path>  Isolated Pi agent dir; telemetry is written to
+                      <agent-dir>/telemetry.db (default: .tmp/pi-agent)
+  --trusted           Trust project files (default: --no-approve)
 `);
 	process.exit(2);
 }
@@ -40,9 +37,7 @@ const options: EvalOptions = {
 	run: `local-${new Date().toISOString().replaceAll(/[:.]/g, '-')}`,
 	suite: 'local',
 	attempt: '1',
-	db: '.tmp/evals.db',
 	agent_dir: '.tmp/pi-agent',
-	bin: 'dist/index.js',
 	trusted: false,
 };
 let case_id = '';
@@ -59,10 +54,8 @@ for (let index = 0; index < own_args.length; index++) {
 	if (arg === '--run') options.run = next_value(index++);
 	else if (arg === '--suite') options.suite = next_value(index++);
 	else if (arg === '--attempt') options.attempt = next_value(index++);
-	else if (arg === '--db') options.db = next_value(index++);
 	else if (arg === '--agent-dir')
 		options.agent_dir = next_value(index++);
-	else if (arg === '--bin') options.bin = next_value(index++);
 	else if (arg === '--case') case_id = next_value(index++);
 	else if (arg === '--prompt') prompt = next_value(index++);
 	else if (arg === '--trusted') options.trusted = true;
@@ -71,11 +64,17 @@ for (let index = 0; index < own_args.length; index++) {
 
 if (!case_id || !prompt) usage();
 
-const db_path = resolve(options.db);
 const agent_dir = resolve(options.agent_dir);
-const bin_path = resolve(options.bin);
-mkdirSync(dirname(db_path), { recursive: true });
+const db_path = join(agent_dir, 'telemetry.db');
+const my_pi_bin = resolve('packages/my-pi/dist/index.js');
 mkdirSync(agent_dir, { recursive: true });
+writeFileSync(
+	join(agent_dir, 'my-pi-settings.json'),
+	JSON.stringify({
+		version: 1,
+		packages: { telemetry: { version: 1, enabled: true } },
+	}),
+);
 
 console.error(
 	JSON.stringify(
@@ -93,13 +92,13 @@ console.error(
 );
 
 const my_pi_args = [
-	bin_path,
-	'--telemetry',
-	'--telemetry-db',
-	db_path,
-	...(options.trusted ? [] : ['--untrusted']),
+	my_pi_bin,
+	options.trusted ? '--approve' : '--no-approve',
+	'--observability-disable',
 	...extra_args,
-	'--json',
+	'--mode',
+	'json',
+	'-p',
 	prompt,
 ];
 

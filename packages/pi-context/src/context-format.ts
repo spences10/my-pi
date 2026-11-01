@@ -1,7 +1,6 @@
 import {
 	CONTEXT_SETTINGS_PRESETS,
 	get_context_capture_limits,
-	get_context_mcp_output_limits,
 	get_context_settings_config_path,
 	load_context_settings_config,
 } from './config.js';
@@ -210,7 +209,6 @@ export function format_context_settings_status(
 ): string {
 	const saved = load_context_settings_config();
 	const capture_limits = get_context_capture_limits();
-	const mcp_limits = get_context_mcp_output_limits();
 	const rows = [
 		`Config path: ${get_context_settings_config_path()}`,
 		`Saved preset: ${saved?.preset ?? '(none; using built-in defaults)'}`,
@@ -218,7 +216,6 @@ export function format_context_settings_status(
 		`Effective max size: ${format_max_mb(stats.max_mb)}`,
 		`Effective purge on shutdown: ${stats.purge_on_shutdown}`,
 		`Effective tool capture threshold: ${format_output_limit(capture_limits.max_bytes, capture_limits.max_lines)}`,
-		`Effective MCP capture threshold: ${format_output_limit(mcp_limits.max_bytes, mcp_limits.max_lines)}`,
 	];
 	const presets = Object.entries(CONTEXT_SETTINGS_PRESETS).map(
 		([key, preset]) => `${key}: ${preset.description}`,

@@ -92,8 +92,7 @@ import redact from '@spences10/pi-redact';
 // pass `redact` as an ExtensionFactory to your Pi runtime
 ```
 
-`my-pi` imports this package directly and enables it as the built-in
-`filter-output` extension.
+`my-pi` includes this package.
 
 ## Limitations
 

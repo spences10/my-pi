@@ -18,10 +18,10 @@ and project deltas using `autoload: false`. Use those native settings
 for packages, extensions, skills, prompts, and themes.
 
 This package intentionally keeps `my-pi-settings.json` as a separate,
-global store for namespaced extension state such as MCP policy,
-profiles, UI preferences, and resource-specific trust records. Those
-values are outside Pi's `SettingsManager` schema and must not be read
-from repo-controlled `.pi/settings.json`. The store delegates agent
+global store for namespaced extension state such as profiles, UI
+preferences, and resource-specific trust records. Those values are
+outside Pi's `SettingsManager` schema and must not be read from
+repo-controlled `.pi/settings.json`. The store delegates agent
 directory resolution to Pi's `getAgentDir()`; it does not duplicate
 Pi's global/project resource merge behavior.
 

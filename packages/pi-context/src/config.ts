@@ -30,8 +30,6 @@ export interface ContextSettingsValues {
 	purge_on_shutdown: boolean;
 	capture_max_bytes: number;
 	capture_max_lines: number;
-	mcp_max_bytes: number;
-	mcp_max_lines: number;
 }
 
 export interface ContextSettingsConfig extends ContextSettingsValues {
@@ -46,8 +44,6 @@ export interface ContextSettingsPresetDefinition extends ContextSettingsValues {
 
 export const DEFAULT_CONTEXT_CAPTURE_MAX_BYTES = 24 * 1024;
 export const DEFAULT_CONTEXT_CAPTURE_MAX_LINES = 300;
-export const DEFAULT_CONTEXT_MCP_MAX_BYTES = 50 * 1024;
-export const DEFAULT_CONTEXT_MCP_MAX_LINES = 2_000;
 
 export const CONTEXT_SETTINGS_PRESETS: Record<
 	ContextSettingsPreset,
@@ -62,8 +58,6 @@ export const CONTEXT_SETTINGS_PRESETS: Record<
 		purge_on_shutdown: false,
 		capture_max_bytes: DEFAULT_CONTEXT_CAPTURE_MAX_BYTES,
 		capture_max_lines: DEFAULT_CONTEXT_CAPTURE_MAX_LINES,
-		mcp_max_bytes: DEFAULT_CONTEXT_MCP_MAX_BYTES,
-		mcp_max_lines: DEFAULT_CONTEXT_MCP_MAX_LINES,
 	},
 	light: {
 		label: 'Light',
@@ -74,8 +68,6 @@ export const CONTEXT_SETTINGS_PRESETS: Record<
 		purge_on_shutdown: false,
 		capture_max_bytes: 16 * 1024,
 		capture_max_lines: 200,
-		mcp_max_bytes: 32 * 1024,
-		mcp_max_lines: 1_000,
 	},
 	balanced: {
 		label: 'Balanced',
@@ -86,8 +78,6 @@ export const CONTEXT_SETTINGS_PRESETS: Record<
 		purge_on_shutdown: false,
 		capture_max_bytes: DEFAULT_CONTEXT_CAPTURE_MAX_BYTES,
 		capture_max_lines: DEFAULT_CONTEXT_CAPTURE_MAX_LINES,
-		mcp_max_bytes: DEFAULT_CONTEXT_MCP_MAX_BYTES,
-		mcp_max_lines: DEFAULT_CONTEXT_MCP_MAX_LINES,
 	},
 	research: {
 		label: 'Research',
@@ -98,8 +88,6 @@ export const CONTEXT_SETTINGS_PRESETS: Record<
 		purge_on_shutdown: false,
 		capture_max_bytes: 48 * 1024,
 		capture_max_lines: 600,
-		mcp_max_bytes: 96 * 1024,
-		mcp_max_lines: 3_000,
 	},
 	archive: {
 		label: 'Archive',
@@ -110,8 +98,6 @@ export const CONTEXT_SETTINGS_PRESETS: Record<
 		purge_on_shutdown: false,
 		capture_max_bytes: 64 * 1024,
 		capture_max_lines: 1_000,
-		mcp_max_bytes: 128 * 1024,
-		mcp_max_lines: 4_000,
 	},
 };
 
@@ -126,8 +112,6 @@ export const DEFAULT_CONTEXT_SETTINGS: ContextSettingsConfig = {
 		CONTEXT_SETTINGS_PRESETS.default.capture_max_bytes,
 	capture_max_lines:
 		CONTEXT_SETTINGS_PRESETS.default.capture_max_lines,
-	mcp_max_bytes: CONTEXT_SETTINGS_PRESETS.default.mcp_max_bytes,
-	mcp_max_lines: CONTEXT_SETTINGS_PRESETS.default.mcp_max_lines,
 };
 
 export function get_context_settings_config_path(): string {
@@ -150,8 +134,6 @@ export function context_settings_from_preset(
 		purge_on_shutdown: definition.purge_on_shutdown,
 		capture_max_bytes: definition.capture_max_bytes,
 		capture_max_lines: definition.capture_max_lines,
-		mcp_max_bytes: definition.mcp_max_bytes,
-		mcp_max_lines: definition.mcp_max_lines,
 	};
 }
 
@@ -211,23 +193,6 @@ export function get_context_capture_limits(
 	};
 }
 
-export function get_context_mcp_output_limits(
-	env: NodeJS.ProcessEnv = process.env,
-): ContextOutputLimits {
-	const saved = load_context_settings_config();
-	const fallback = saved ?? DEFAULT_CONTEXT_SETTINGS;
-	return {
-		max_bytes: parse_positive_byte_env(
-			env.MY_PI_CONTEXT_MCP_MAX_KB,
-			fallback.mcp_max_bytes,
-		),
-		max_lines: parse_positive_number_env(
-			env.MY_PI_CONTEXT_MCP_MAX_LINES,
-			fallback.mcp_max_lines,
-		),
-	};
-}
-
 export function normalize_context_settings_config(
 	value: Partial<ContextSettingsConfig>,
 ): ContextSettingsConfig {
@@ -263,14 +228,6 @@ export function normalize_context_settings_config(
 		capture_max_lines: normalize_positive_number(
 			value.capture_max_lines,
 			base.capture_max_lines,
-		),
-		mcp_max_bytes: normalize_positive_number(
-			value.mcp_max_bytes,
-			base.mcp_max_bytes,
-		),
-		mcp_max_lines: normalize_positive_number(
-			value.mcp_max_lines,
-			base.mcp_max_lines,
 		),
 	};
 }

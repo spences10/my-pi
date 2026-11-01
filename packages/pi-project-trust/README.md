@@ -17,8 +17,7 @@ when a path, command, or project-owned resource is safe to use.
 
 Use this package when an extension needs to decide whether to load
 repo-controlled resources that can execute code or influence model
-context, such as project MCP config, hook config, or project-local LSP
-binaries.
+context, such as project-local LSP binaries.
 
 ## Relationship to upstream Pi
 
@@ -31,13 +30,13 @@ package/resource overrides, including `autoload: false`; this package
 does not wrap those settings.
 
 `pi-project-trust` remains additive for individual resources Pi does
-not discover or hash, including root `mcp.json`, hook commands, and
-project-local executables. It supports per-subject hashes, allow-once
-decisions, environment policy, and global fallbacks. These records
-stay in the global `my-pi-settings.json` store so a project cannot
-grant trust to its own resources through `.pi/settings.json`. Callers
-whose resources are already fully covered by Pi's project trust should
-use `ctx.isProjectTrusted()` instead of adding another prompt.
+not discover or hash, such as project-local executables. It supports
+per-subject hashes, allow-once decisions, environment policy, and
+global fallbacks. These records stay in the global
+`my-pi-settings.json` store so a project cannot grant trust to its own
+resources through `.pi/settings.json`. Callers whose resources are
+already fully covered by Pi's project trust should use
+`ctx.isProjectTrusted()` instead of adding another prompt.
 
 ## Usage
 
@@ -46,14 +45,12 @@ import { resolve_project_trust } from '@spences10/pi-project-trust';
 
 const decision = await resolve_project_trust(
 	{
-		kind: 'mcp-config',
-		id: '/repo/mcp.json',
-		hash: 'sha256',
-		store_key: '/repo/mcp.json',
-		env_key: 'MY_PI_MCP_PROJECT_CONFIG',
+		kind: 'lsp-binary',
+		id: '/repo/node_modules/.bin/typescript-language-server',
+		env_key: 'MY_PI_LSP_PROJECT_BINARY',
 		prompt_title:
-			'Project mcp.json can spawn local commands. Trust this config?',
-		summary_lines: ['- sqlite: npx mcp-sqlite-tools'],
+			'Project-local LSP binary can run local code. Trust this binary?',
+		fallback: 'global',
 	},
 	{
 		has_ui: ctx.hasUI,
@@ -97,17 +94,6 @@ Environment values are normalized consistently across extensions:
 Allow-once is intentionally not trust. Callers can use
 `decision.metadata_trusted` to keep untrusted model-facing metadata
 suppressed while still allowing a resource for the current run.
-
-## Untrusted repo defaults
-
-`apply_project_trust_untrusted_defaults()` sets conservative defaults
-for project resources without overriding explicit operator choices:
-
-- `MY_PI_MCP_PROJECT_CONFIG=skip`
-- `MY_PI_HOOKS_CONFIG=skip`
-- `MY_PI_LSP_PROJECT_BINARY=global`
-- `MY_PI_PROMPT_PRESETS_PROJECT=skip`
-- `MY_PI_PROJECT_SKILLS=skip`
 
 ## Trust stores
 

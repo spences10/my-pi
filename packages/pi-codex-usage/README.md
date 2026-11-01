@@ -29,11 +29,7 @@ pi install npm:@spences10/pi-codex-usage
 
 <!-- package-readme:install:end -->
 
-Disable the built-in with:
-
-```bash
-my-pi --no-codex-usage
-```
+Disable it with `pi config` or `pi remove`.
 
 ## Development
 
