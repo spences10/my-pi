@@ -1,4 +1,23 @@
+---
+title: pi-context benchmark notes
+tags: [benchmarks, pi-context, codemode]
+aliases: [Context benchmarks]
+---
+
 # pi-context benchmark notes
+
+This page records two different experiments: a historical LLM-driven
+retrieval comparison and a deterministic native-codemode fixture. They
+measure different things and are not general performance guarantees.
+See [pi-context](../packages/pi-context/README.md) for current
+behaviour.
+
+The historical figures were recorded in
+[the retrieval-overhead change](https://github.com/spences10/my-pi/commit/c29d036).
+The native-codemode results below have a checked-in runner and
+[raw measurements](../packages/pi-context/test/codemode-benchmark-results.json).
+
+## Historical retrieval comparison
 
 Benchmarked on 2026-06-19 while evaluating lower-context retrieval
 changes for `@spences10/pi-context`.
@@ -17,9 +36,13 @@ include_raw_contents: true
 large_result_mode: inline
 ```
 
-Compared published `pnpx my-pi@latest` against local
+Compared the then-published `pnpx my-pi@latest` against the then-local
 `node ./dist/index.js` with the same prompt, isolated session
-directories, telemetry DBs, and context DBs.
+directories, telemetry DBs, and context DBs. “Published” and “local”
+in these historical tables refer to those runs, not today's releases.
+The current checkout entrypoint is `packages/my-pi/dist/index.js`.
+This section preserves the recorded comparison; it is not a fresh
+benchmark run.
 
 ## Results
 

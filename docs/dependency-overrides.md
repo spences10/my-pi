@@ -1,30 +1,60 @@
+---
+title: Dependency overrides
+tags: [dependencies, pnpm, vite-plus]
+aliases: [Dependency resolution]
+---
+
 # Dependency overrides
 
-`pnpm-workspace.yaml` contains repo-wide `overrides` for transitive
-dependencies. These are intentionally excluded from normal Renovate
-update PRs in `renovate.json` because they are temporary/security
-pins, not direct project dependencies.
+Dependency resolution is configured in
+[pnpm-workspace.yaml](../pnpm-workspace.yaml), with the resolved tree
+in [pnpm-lock.yaml](../pnpm-lock.yaml). Check those files when
+updating dependencies; a remembered security pin may no longer be
+present.
 
 ## Current overrides
 
-| Package                     | Pin      | Why                                                                                                                | Current path                                           | Removal condition                                                                           |
-| --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `brace-expansion`           | `5.0.9`  | Fixes current `pnpm audit` denial-of-service advisories for `brace-expansion <5.0.9`.                              | `@earendil-works/pi-coding-agent` → `minimatch`.       | Remove when Pi resolves to a safe version without an override.                              |
-| `postcss`                   | `8.5.23` | Fixes current `pnpm audit` PostCSS advisories (`<=8.5.22`).                                                        | Web/dev tooling: `vite`, `vite-plus`, `shadcn-svelte`. | Remove when direct/tooling dependencies resolve to a safe version without an override.      |
-| `protobufjs`                | `7.6.5`  | Fixes current `pnpm audit` protobufjs advisories (`<=7.6.4`).                                                      | `@earendil-works/pi-ai` → `@google/genai`.             | Remove when `@google/genai` / Pi dependency resolves to a safe version without an override. |
-| `miniflare>ws`              | `8.21.0` | Fixes current `pnpm audit` high severity for `ws >=8.0.0 <8.21.0`. Scoped to avoid changing unrelated `ws` users.  | `apps/web` → `wrangler` / `miniflare`.                 | Remove when Cloudflare tooling resolves to a safe version without an override.              |
-| `@changesets/parse>js-yaml` | `4.3.1`  | Fixes the current `pnpm audit` `js-yaml` 4.x denial-of-service advisory.                                           | Changesets parsing tools.                              | Remove when Changesets resolves to a safe version without an override.                      |
-| `@sveltejs/kit>cookie`      | `0.7.0`  | Fixes current `pnpm audit` low severity for `cookie <0.7.0`. Scoped to avoid downgrading unrelated `cookie` users. | `apps/web` → `@sveltejs/kit`.                          | Remove when SvelteKit resolves to a safe version without an override.                       |
-| `read-yaml-file>js-yaml`    | `3.15.1` | Fixes the current `pnpm audit` `js-yaml` 3.x denial-of-service advisory.                                           | Changesets → `@manypkg/get-packages`.                  | Remove when Changesets resolves to a safe version without an override.                      |
+| Selector   | Value      | Purpose                                                 |
+| ---------- | ---------- | ------------------------------------------------------- |
+| `vite@*`   | `catalog:` | Resolve Vite through the workspace's aliased Vite+ core |
+| `vitest@*` | `catalog:` | Keep Vitest aligned with the workspace toolchain        |
 
-## Audit/removal checklist
+These are toolchain alignment overrides, not the old set of transitive
+security pins. Earlier versions of this page listed `brace-expansion`,
+`postcss`, `protobufjs`, `ws`, `js-yaml`, and `cookie` overrides;
+those selectors are absent from the current configuration. Their old
+advisory ranges are not a current audit.
 
-For each override, test removal deliberately:
+## Catalogs and release age
 
-1. Remove one override from `pnpm-workspace.yaml`.
-2. Run `pnpm install --lockfile-only`.
-3. Run `pnpm audit --audit-level low`.
-4. Run the project check/test command if the lockfile changed
-   materially.
-5. If clean, commit the override removal. If not, keep the pin and
-   update this document.
+The default catalog holds shared versions, including the Pi packages
+and Vite+ toolchain. The named `typescript6` catalog keeps the
+compiler API needed by Svelte tooling while `@typescript/native`
+supplies its TypeScript 7 checker; see the
+[website README](../apps/web/README.md).
+
+The workspace sets `minimumReleaseAge: 2880` minutes, and
+[Renovate](../renovate.json) uses a two-day minimum. Renovate groups
+related toolchain updates and disables automatic override updates.
+Inspect its actual rules rather than treating every override as the
+same kind of pin.
+
+## Updating resolution
+
+A useful update loop is:
+
+1. Edit the intended catalog entry, package dependency, or override.
+2. Run `pnpm install` to update the lockfile.
+3. Inspect the diff and use `pnpm why <package>` to check the path
+   being changed.
+4. Run `pnpm audit --audit-level low` when evaluating security
+   resolution.
+5. Run the checks appropriate to the affected packages; use
+   [root validation](./development.md#choose-checks-for-the-change)
+   for shared toolchain changes.
+
+If testing whether an override is still needed, remove one selector at
+a time and compare resolution and validation. An audit checks known
+advisories; it does not prove runtime compatibility. Document any new
+pin's actual reason and removal condition rather than keeping stale
+advisory tables.

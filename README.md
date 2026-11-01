@@ -63,6 +63,29 @@ Support libraries (dependencies, not for `pi install`):
 `pi-child-env`, `pi-project-trust`, `pi-settings`, `pi-sqlite-core`,
 `pi-tui-modal`. See [`docs/package-map.md`](./docs/package-map.md).
 
+## Documentation
+
+Start with the [docs index](./docs/README.md), or go directly to:
+
+- [Getting started](./docs/getting-started.md)
+- [Package map](./docs/package-map.md)
+- [Architecture](./docs/architecture.md)
+- [Development](./docs/development.md)
+- [Writing and searching docs with wiki0](./docs/documentation.md)
+
+Browse the rendered docs locally from the repository root:
+
+```bash
+pnpx @wiki0/cli ui .
+```
+
+Or search from the terminal:
+
+```bash
+pnpx @wiki0/cli index
+pnpx @wiki0/cli search "extension settings"
+```
+
 ## Develop
 
 Requires Node.js `>=24.15.0` and pnpm.

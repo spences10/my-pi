@@ -1,0 +1,10 @@
+# Index public documentation entry points, not local session artifacts.
+include = [
+	"README.md",
+	"docs/**/*.md",
+	"packages/*/README.md",
+	"apps/web/README.md",
+]
+
+[index]
+location = "cache"

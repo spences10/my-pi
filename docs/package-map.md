@@ -1,54 +1,80 @@
+---
+title: Package map
+tags: [packages, extensions]
+aliases: [Extension catalog]
+---
+
 # Package map
 
-`my-pi` can be run as a full distribution with `pnpx my-pi@latest`,
-while most `@spences10/pi-*` packages can also be installed into
-vanilla Pi.
+Use [my-pi](../packages/my-pi/README.md) for the complete switchable
+collection, or install individual extension packages into Pi:
 
-## User-installable extension packages
+```bash
+pi install npm:@spences10/pi-lsp
+```
 
-| Package                             | Purpose                                                       |
-| ----------------------------------- | ------------------------------------------------------------- |
-| `@spences10/pi-coding-preferences`  | Configurable coding-workflow guardrails.                      |
-| `@spences10/pi-confirm-destructive` | Destructive action confirmations.                             |
-| `@spences10/pi-footer`              | Configurable footer status line.                              |
-| `@spences10/pi-context`             | SQLite FTS sidecar for oversized tool output.                 |
-| `@spences10/pi-codex-usage`         | OpenAI Codex usage in the footer status area.                 |
-| `@spences10/pi-git-ui`              | Interactive source-control staging UI.                        |
-| `@spences10/pi-kimi-usage`          | Kimi For Coding usage in the footer status area.              |
-| `@spences10/pi-lsp`                 | LSP diagnostics, hover, definitions, references, and symbols. |
-| `@spences10/pi-observability`       | Live local event stream and browser dashboard.                |
-| `@spences10/pi-recall`              | `pirecall` reminder and background sync.                      |
-| `@spences10/pi-redact`              | Output redaction and `/redact-stats`.                         |
-| `@spences10/pi-harness`             | Ephemeral task harness runtime.                               |
-| `@spences10/pi-starfield`           | Input stars and a suggested next prompt (Tab).                |
-| `@spences10/pi-svelte-guardrails`   | Svelte pattern guardrails.                                    |
-| `@spences10/pi-talk`                | Hold-Space Deepgram dictation.                                |
-| `@spences10/pi-team-mode`           | Peer-session coordination, groups, artifacts, and mailboxes.  |
-| `@spences10/pi-telemetry`           | Local SQLite telemetry and `/telemetry`.                      |
-| `@spences10/pi-themes`              | Bundled theme pack for Pi.                                    |
+See [Getting started](./getting-started.md) for the launcher command
+and extension switchboard. Each linked README describes that package's
+prerequisites, commands, options, and local development.
 
-The distribution also bundles these independently installable
-packages:
+## User-installable packages
 
-- `@spences10/pi-turn-timer`: live timing and persisted completion
-  durations.
-- `@spences10/pi-session-name`: model-generated names for unnamed
-  sessions.
-- `@spences10/pi-tool-guidance`: native workflow skills and structured
-  prompt guidance.
+### Coding tools and output
+
+| Package                                                                | Purpose                                              |
+| ---------------------------------------------------------------------- | ---------------------------------------------------- |
+| [pi-lsp](../packages/pi-lsp/README.md)                                 | Language-server diagnostics, navigation, and symbols |
+| [pi-context](../packages/pi-context/README.md)                         | Searchable overflow cache for oversized tool output  |
+| [pi-redact](../packages/pi-redact/README.md)                           | Redaction of likely secrets in tool output           |
+| [pi-confirm-destructive](../packages/pi-confirm-destructive/README.md) | Destructive shell action confirmations               |
+| [pi-coding-preferences](../packages/pi-coding-preferences/README.md)   | Configurable coding-workflow guardrails              |
+| [pi-svelte-guardrails](../packages/pi-svelte-guardrails/README.md)     | Svelte pattern guardrails                            |
+| [pi-tool-guidance](../packages/pi-tool-guidance/README.md)             | Native skills and prompt guidance for external tools |
+
+### Sessions and workflows
+
+| Package                                                  | Purpose                                                |
+| -------------------------------------------------------- | ------------------------------------------------------ |
+| [pi-recall](../packages/pi-recall/README.md)             | Session-history reminders and background pirecall sync |
+| [pi-team-mode](../packages/pi-team-mode/README.md)       | Coordination between independently opened sessions     |
+| [pi-harness](../packages/pi-harness/README.md)           | Optional task contracts and validation scaffolding     |
+| [pi-git-ui](../packages/pi-git-ui/README.md)             | Interactive staging and diff review                    |
+| [pi-session-name](../packages/pi-session-name/README.md) | Model-generated names for unnamed sessions             |
+| [pi-turn-timer](../packages/pi-turn-timer/README.md)     | Live timing and persisted completion durations         |
+
+### Visibility and interface
+
+| Package                                                    | Purpose                                       |
+| ---------------------------------------------------------- | --------------------------------------------- |
+| [pi-observability](../packages/pi-observability/README.md) | Live event stream and local browser dashboard |
+| [pi-telemetry](../packages/pi-telemetry/README.md)         | Opt-in durable local run metrics              |
+| [pi-footer](../packages/pi-footer/README.md)               | Configurable footer status line               |
+| [pi-codex-usage](../packages/pi-codex-usage/README.md)     | OpenAI Codex usage in the footer              |
+| [pi-kimi-usage](../packages/pi-kimi-usage/README.md)       | Kimi For Coding usage in the footer           |
+| [pi-talk](../packages/pi-talk/README.md)                   | Hold-Space Deepgram dictation                 |
+| [pi-starfield](../packages/pi-starfield/README.md)         | Input stars and suggested next prompt         |
+| [pi-themes](../packages/pi-themes/README.md)               | Theme pack                                    |
+
+All names above are published under `@spences10/`. The launcher uses
+switchboard keys that sometimes differ from package names: for
+example, `context-sidecar` selects `pi-context` and `filter-output`
+selects `pi-redact`. The
+[launcher README](../packages/my-pi/README.md) lists the keys.
 
 ## Shared support packages
 
-These are published as dependencies but are not normally installed
-with `pi install` directly:
+These are published dependencies, not normally direct `pi install`
+targets:
 
-- `@spences10/pi-child-env`
-- `@spences10/pi-project-trust`
-- `@spences10/pi-settings`
-- `@spences10/pi-sqlite-core`
-- `@spences10/pi-tui-modal`
+| Package                                                    | Shared capability                         |
+| ---------------------------------------------------------- | ----------------------------------------- |
+| [pi-child-env](../packages/pi-child-env/README.md)         | Child-process environment helpers         |
+| [pi-project-trust](../packages/pi-project-trust/README.md) | Resource-specific project trust decisions |
+| [pi-settings](../packages/pi-settings/README.md)           | Global namespaced my-pi settings          |
+| [pi-sqlite-core](../packages/pi-sqlite-core/README.md)     | SQLite database setup and shared helpers  |
+| [pi-tui-modal](../packages/pi-tui-modal/README.md)         | TUI modal primitives                      |
 
-Check each package README before changing install instructions,
-commands, or public behavior. Maintainers should follow the
-[package README conventions](./package-readmes.md) for generated
-maintenance regions and npm-safe links.
+This grouping explains the current package roles, not immutable
+boundaries. See [Architecture](./architecture.md) for relationships
+and [Package README maintenance](./package-readmes.md) when editing
+the linked docs.

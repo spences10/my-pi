@@ -12,6 +12,7 @@ custom code.
 Start with:
 
 - `README.md` for usage and the package list.
+- `docs/README.md` for the searchable guides and documentation map.
 - `docs/package-map.md` for installable vs support packages.
 - `docs/dependency-overrides.md` before changing pnpm overrides.
 - Package-local `README.md` files before changing package behavior or
@@ -32,6 +33,7 @@ before doing the work:
 | Develop or review the observability dashboard    | `pi-observability-local-dev` |
 | Test published package installability            | `pi-package-sandbox-test`    |
 | Validate repository edits                        | `pi-validation-flow`         |
+| Find, write, or rebuild public project docs      | `wiki0`                      |
 
 Keep skill metadata activation-friendly:
 
@@ -41,12 +43,17 @@ Keep skill metadata activation-friendly:
 - validate with
   `pnpx check-skills validate .agents --recursive --json`
 
-## Source of truth order
+## Behaviour and documentation
 
-1. Package-local `README.md` files for user-facing package behavior.
-2. `.agents/skills/*/SKILL.md` files for agent operating procedure.
-3. Root `README.md` for repository commands.
-4. Source/tests for implementation details when docs are incomplete.
+Implementation, executable checks, and guardrails determine current
+behaviour. Documentation explains that behaviour and its intent; it
+does not create additional work restrictions or freeze architecture,
+package boundaries, or compatibility decisions.
+
+Use package READMEs for user-facing guidance, repository skills for
+agent procedure, and the root README for commands. If prose disagrees
+with the code or current user request, investigate and correct the
+mismatch rather than treating the prose as a new approval gate.
 
 ## Commit and Changeset ownership
 
