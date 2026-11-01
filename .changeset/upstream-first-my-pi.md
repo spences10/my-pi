@@ -6,4 +6,5 @@
 '@spences10/pi-settings': minor
 ---
 
-Run my-pi on upstream Pi with /extensions toggles; drop code upstream now covers.
+Run my-pi on upstream Pi with /extensions toggles; drop code upstream
+now covers.
