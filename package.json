@@ -1,51 +1,17 @@
 {
-	"name": "my-pi",
-	"version": "0.3.6",
-	"description": "Composable pi coding agent with MCP, LSP, prompt presets, and local eval telemetry",
-	"keywords": [
-		"cli",
-		"coding-agent",
-		"evals",
-		"lsp",
-		"mcp",
-		"pi",
-		"sqlite",
-		"telemetry"
-	],
-	"homepage": "https://github.com/spences10/my-pi#readme",
-	"bugs": {
-		"url": "https://github.com/spences10/my-pi/issues"
-	},
+	"name": "my-pi-monorepo",
+	"private": true,
+	"description": "Monorepo for the my-pi launcher and @spences10/pi-* packages",
 	"license": "MIT",
 	"author": "Scott Spence <spences10apps@gmail.com>",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/spences10/my-pi.git"
 	},
-	"bin": {
-		"my-pi": "./dist/index.js"
-	},
-	"files": [
-		"dist",
-		"README.md"
-	],
 	"type": "module",
-	"main": "./dist/api.js",
-	"types": "./dist/api.d.ts",
-	"exports": {
-		".": {
-			"types": "./dist/api.d.ts",
-			"import": "./dist/api.js"
-		},
-		"./cli": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js"
-		}
-	},
 	"scripts": {
-		"build": "pnpm --filter \"./packages/*\" run build:self && vp pack",
-		"dev": "vp pack --watch",
-		"start": "node ./dist/index.js",
+		"build": "pnpm --filter \"./packages/*\" run build:self",
+		"start": "node packages/my-pi/dist/index.js",
 		"docs:sync": "node tools/sync-package-readmes.ts --write",
 		"docs:links": "node tools/check-markdown-links.ts",
 		"docs:check": "node tools/sync-package-readmes.ts && pnpm run docs:links",
@@ -53,29 +19,17 @@
 		"check:boundaries": "node tools/check-boundaries.ts",
 		"check:fix": "vp check --fix",
 		"format": "vp check --fix",
-		"test": "pnpm --filter \"./packages/*\" run build:self && vp pack && sh -c 'if [ \"$#\" -gt 0 ]; then vp test \"$@\"; else vp test && pnpm --workspace-concurrency=1 --filter \"./packages/*\" --if-present run test:self; fi' --",
-		"test:watch": "vp test watch",
+		"test": "pnpm --filter \"./packages/*\" run build:self && pnpm --workspace-concurrency=1 --filter \"./packages/*\" --if-present run test:self",
 		"eval:local": "node scripts/run-eval-case.ts",
 		"eval:suite": "node scripts/run-eval-suite.ts",
-		"preview:generate": "node scripts/generate-startup-preview.ts",
 		"web:share-card": "node scripts/generate-web-share-card.ts",
 		"changeset": "changeset",
-		"version": "changeset version && pnpm run preview:generate",
+		"version": "changeset version",
 		"release": "git diff --quiet && git diff --cached --quiet && pnpm run build && changeset publish",
-		"coverage": "pnpm --filter \"./packages/*\" run build:self && vp pack && sh -c 'vp test --coverage && pnpm --workspace-concurrency=1 --filter \"./packages/*\" --if-present run coverage:self' --",
+		"coverage": "pnpm --filter \"./packages/*\" run build:self && pnpm --workspace-concurrency=1 --filter \"./packages/*\" --if-present run coverage:self",
 		"web:sync": "pnpm --dir apps/web exec svelte-kit sync",
 		"web:check": "pnpm --dir apps/web check",
 		"web:gen": "pnpm --dir apps/web gen"
-	},
-	"dependencies": {
-		"@earendil-works/pi-ai": "catalog:",
-		"@earendil-works/pi-coding-agent": "catalog:",
-		"@earendil-works/pi-tui": "catalog:",
-		"@spences10/pi-project-trust": "workspace:*",
-		"@spences10/pi-settings": "workspace:*",
-		"@spences10/pi-themes": "workspace:*",
-		"@spences10/pi-tui-modal": "workspace:*",
-		"citty": "catalog:"
 	},
 	"devDependencies": {
 		"@changesets/cli": "catalog:",
@@ -86,33 +40,6 @@
 		"vite": "catalog:",
 		"vite-plus": "catalog:",
 		"vitest": "catalog:"
-	},
-	"optionalDependencies": {
-		"@spences10/pi-child-env": "workspace:*",
-		"@spences10/pi-codex-usage": "workspace:*",
-		"@spences10/pi-coding-preferences": "workspace:*",
-		"@spences10/pi-confirm-destructive": "workspace:*",
-		"@spences10/pi-context": "workspace:*",
-		"@spences10/pi-factory": "workspace:*",
-		"@spences10/pi-footer": "workspace:*",
-		"@spences10/pi-git-ui": "workspace:*",
-		"@spences10/pi-harness": "workspace:*",
-		"@spences10/pi-kimi-usage": "workspace:*",
-		"@spences10/pi-lsp": "workspace:*",
-		"@spences10/pi-mcp": "workspace:*",
-		"@spences10/pi-nopeek": "workspace:*",
-		"@spences10/pi-observability": "workspace:*",
-		"@spences10/pi-omnisearch": "workspace:*",
-		"@spences10/pi-recall": "workspace:*",
-		"@spences10/pi-redact": "workspace:*",
-		"@spences10/pi-skill-importer": "workspace:*",
-		"@spences10/pi-skills": "workspace:*",
-		"@spences10/pi-sqlite-tools": "workspace:*",
-		"@spences10/pi-starfield": "workspace:*",
-		"@spences10/pi-svelte-guardrails": "workspace:*",
-		"@spences10/pi-talk": "workspace:*",
-		"@spences10/pi-team-mode": "workspace:*",
-		"@spences10/pi-telemetry": "workspace:*"
 	},
 	"engines": {
 		"node": ">=24.15.0"

@@ -23,7 +23,7 @@ Options:
   --attempt <n>       Attempt number (default: 1)
   --db <path>         Telemetry DB path (default: .tmp/evals.db)
   --agent-dir <path>  Isolated Pi agent dir (default: .tmp/pi-agent)
-  --bin <path>        Built my-pi entrypoint (default: dist/index.js)
+  --bin <path>        Built my-pi entrypoint (default: packages/my-pi/dist/index.js)
   --trusted           Do not pass --untrusted
 `);
 	process.exit(2);
@@ -42,7 +42,7 @@ const options: EvalOptions = {
 	attempt: '1',
 	db: '.tmp/evals.db',
 	agent_dir: '.tmp/pi-agent',
-	bin: 'dist/index.js',
+	bin: 'packages/my-pi/dist/index.js',
 	trusted: false,
 };
 let case_id = '';

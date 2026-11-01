@@ -1,0 +1,58 @@
+{
+	"name": "my-pi",
+	"version": "0.3.6",
+	"description": "Upstream Pi with redaction, destructive-command confirmation, oversized-output context, and LSP tools",
+	"keywords": [
+		"cli",
+		"coding-agent",
+		"lsp",
+		"pi"
+	],
+	"homepage": "https://github.com/spences10/my-pi/tree/main/packages/my-pi#readme",
+	"bugs": {
+		"url": "https://github.com/spences10/my-pi/issues"
+	},
+	"license": "MIT",
+	"author": "Scott Spence <spences10apps@gmail.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/spences10/my-pi.git",
+		"directory": "packages/my-pi"
+	},
+	"bin": {
+		"my-pi": "./dist/index.js"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"type": "module",
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",
+		"build:self": "vp exec tsc -p tsconfig.build.json",
+		"check": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run check:self",
+		"check:self": "vp exec tsc --noEmit -p tsconfig.json",
+		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
+		"test:self": "vp test run",
+		"coverage:self": "vp test run --coverage",
+		"coverage": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run coverage:self"
+	},
+	"dependencies": {
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@spences10/pi-confirm-destructive": "workspace:*",
+		"@spences10/pi-context": "workspace:*",
+		"@spences10/pi-lsp": "workspace:*",
+		"@spences10/pi-redact": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/node": "catalog:",
+		"typescript": "catalog:",
+		"vite-plus": "catalog:"
+	},
+	"engines": {
+		"node": ">=24.15.0"
+	}
+}
