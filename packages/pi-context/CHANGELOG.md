@@ -1,5 +1,12 @@
 # @spences10/pi-context
 
+## 0.2.1
+
+### Patch Changes
+
+- 2dc4d54: Preserve oversized failed tool diagnostics in session
+  history instead of replacing them with expiring receipts.
+
 ## 0.2.0
 
 ### Minor Changes

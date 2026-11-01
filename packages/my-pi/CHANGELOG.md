@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.4.2
+
+### Patch Changes
+
+- Updated dependencies [2dc4d54]
+  - @spences10/pi-context@0.2.1
+
 ## 0.4.1
 
 ### Patch Changes
