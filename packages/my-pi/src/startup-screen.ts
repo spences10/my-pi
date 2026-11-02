@@ -15,7 +15,7 @@ import {
 } from '@earendil-works/pi-tui';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
-import { logo_lines } from './logo.js';
+import { logo_lines } from 'my-pi/logo';
 
 const { version } = JSON.parse(
 	readFileSync(new URL('../package.json', import.meta.url), 'utf8'),

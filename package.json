@@ -41,6 +41,7 @@
 		"@resvg/resvg-js": "catalog:",
 		"@types/node": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
+		"my-pi": "workspace:*",
 		"vite": "catalog:",
 		"vite-plus": "catalog:",
 		"vitest": "catalog:"

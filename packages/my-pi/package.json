@@ -24,9 +24,17 @@
 	},
 	"files": [
 		"dist",
+		"logo.js",
+		"logo.d.ts",
 		"README.md"
 	],
 	"type": "module",
+	"exports": {
+		"./logo": {
+			"types": "./logo.d.ts",
+			"import": "./logo.js"
+		}
+	},
 	"publishConfig": {
 		"access": "public"
 	},

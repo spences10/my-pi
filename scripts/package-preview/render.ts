@@ -3,7 +3,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from '@earendil-works/pi-tui';
-import { logo_lines } from '../../packages/my-pi/src/logo.ts';
+import { logo_lines } from 'my-pi/logo';
 import { load_preview_config, type PreviewConfig } from './config.ts';
 
 type Rgb = [number, number, number];

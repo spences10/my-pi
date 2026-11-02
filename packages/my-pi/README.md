@@ -45,6 +45,10 @@ or `/extensions disable startup-screen` to persist that choice.
 Re-enable it with `/extensions enable startup-screen`. Disabling the
 extension returns control to Pi's normal startup-header settings.
 
+The shared logo lines are available as `logo_lines` from `my-pi/logo`.
+This entrypoint contains only static data and works without building
+the CLI, so preview tooling can use the same logo as the splash.
+
 ## Session conveniences and tool guidance
 
 `turn-timer` restores live timing and saved completion durations.
