@@ -1,5 +1,34 @@
 # my-pi
 
+## 0.6.0
+
+### Minor Changes
+
+- 2c07c8a: Enable syntax-aware naming guardrails by default, rejecting
+  nonconforming declarations before native writes without project
+  configuration.
+
+### Patch Changes
+
+- a21d496: Add a `content` rule target that checks proposed write/edit
+  text without changing existing whole-input rules. Allow corrective
+  Svelte edits while retaining default `$effect` blocking, explain
+  concrete alternatives and explicit policy exceptions, and
+  distinguish opt-in warnings from blocks.
+
+  Add language-aware validation guidance using native Codemode and
+  verify guardrail parity for direct calls and both Codemode modes.
+  Naming regexes remain user-configured; this does not migrate them to
+  language-aware linting or make text matching syntax-aware.
+
+- Updated dependencies [2c07c8a]
+- Updated dependencies [d2d963d]
+- Updated dependencies [a21d496]
+  - @spences10/pi-coding-preferences@0.1.0
+  - @spences10/pi-lsp@0.0.52
+  - @spences10/pi-svelte-guardrails@0.0.18
+  - @spences10/pi-tool-guidance@0.1.1
+
 ## 0.5.1
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @spences10/pi-lsp
 
+## 0.0.52
+
+### Patch Changes
+
+- d2d963d: Move LSP environment filtering locally, preserve existing
+  allowlists, and retire the redundant child environment package.
+
 ## 0.0.51
 
 ### Patch Changes
