@@ -1,3 +1,4 @@
+import { read_settings_section } from '@spences10/pi-settings';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,6 +12,10 @@ import {
 	should_block_coding_preference,
 	type CodingPreferencesConfig,
 } from './index.js';
+
+vi.mock('@spences10/pi-settings', () => ({
+	read_settings_section: vi.fn(),
+}));
 
 vi.mock('@earendil-works/pi-coding-agent', () => ({
 	getAgentDir: () =>
@@ -28,7 +33,7 @@ function event(toolName: string, input: Record<string, unknown>) {
 
 function write_project_config(
 	dir: string,
-	config: CodingPreferencesConfig,
+	config: Partial<CodingPreferencesConfig>,
 ) {
 	const pi_dir = join(dir, '.pi');
 	mkdirSync(pi_dir, { recursive: true });
@@ -40,7 +45,7 @@ function write_project_config(
 
 describe('coding preferences', () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		vi.resetAllMocks();
 	});
 
 	it('blocks defaults from JSON-style rules', () => {
@@ -236,7 +241,7 @@ describe('coding preferences', () => {
 			).toBeUndefined();
 	});
 
-	it('keeps prose and external API names out of built-in language enforcement', () => {
+	it('keeps syntax-aware naming separate from workflow text rules', () => {
 		for (const content of [
 			"throw new Error('--type must be user, assistant, toolResult, or all');",
 			"test('type combines with project and session', () => {});",
@@ -273,6 +278,56 @@ describe('coding preferences', () => {
 				config,
 			),
 		).toBe('Use pnpm.');
+	});
+
+	it('loads global naming preferences without replacing workflow defaults', () => {
+		vi.mocked(read_settings_section).mockReturnValue({
+			naming: { variables: 'camelCase' },
+		});
+		const dir = mkdtempSync(join(tmpdir(), 'pi-coding-preferences-'));
+		expect(load_config(dir)).toEqual({
+			rules: default_config.rules,
+			naming: { variables: 'camelCase' },
+		});
+	});
+
+	it('merges global and project naming preferences independently of rules', () => {
+		vi.mocked(read_settings_section).mockReturnValue({
+			rules: default_config.rules,
+			naming: { variables: 'camelCase', types: false },
+		});
+		const dir = mkdtempSync(join(tmpdir(), 'pi-coding-preferences-'));
+		write_project_config(dir, { naming: { functions: 'camelCase' } });
+		expect(load_config(dir)).toEqual({
+			rules: default_config.rules,
+			naming: {
+				variables: 'camelCase',
+				functions: 'camelCase',
+				types: false,
+			},
+		});
+		write_project_config(dir, { naming: false });
+		expect(load_config(dir).naming).toBe(false);
+	});
+
+	it('preserves a global naming disable unless a project explicitly enables it', () => {
+		vi.mocked(read_settings_section).mockReturnValue({
+			naming: false,
+		});
+		const dir = mkdtempSync(join(tmpdir(), 'pi-coding-preferences-'));
+		write_project_config(dir, { rules: [] });
+		expect(load_config(dir).naming).toBe(false);
+		write_project_config(dir, { naming: { types: 'PascalCase' } });
+		expect(load_config(dir).naming).toEqual({ types: 'PascalCase' });
+	});
+
+	it('rejects invalid naming configuration rather than silently disabling checks', () => {
+		vi.mocked(read_settings_section).mockReturnValue({
+			naming: { variables: 'invalid' },
+		});
+		expect(() => load_config()).toThrow(
+			'Invalid codingPreferences.naming style',
+		);
 	});
 
 	it('loads project config from .pi/coding-preferences.json', () => {

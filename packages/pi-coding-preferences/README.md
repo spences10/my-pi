@@ -11,16 +11,17 @@
 
 <!-- package-readme:header:end -->
 
-Keep agents aligned with your local workflow before bad commands run.
-`pi-coding-preferences` turns workflow preferences—like using `rg`
-instead of `grep`—into lightweight guardrails that nudge the model
-toward the project’s conventions.
+Keep agents aligned with your workflow and naming preferences before
+commands run or files are written. Workflow rules use text patterns;
+automatic naming checks use bundled TypeScript and Svelte parsers. No
+project lint configuration or parser installation is required.
 
 It ships with default workflow preferences. Configure user rules in
 `codingPreferences.rules` in `~/.pi/agent/my-pi-settings.json` and
-project rules in `.pi/coding-preferences.json`. When either supplies
-configuration, configured rules are loaded instead of the built-in
-defaults. The example below is a project configuration.
+project rules in `.pi/coding-preferences.json`. When either supplies a
+`rules` array, configured rules are loaded instead of the built-in
+defaults. Naming-only configuration preserves the default workflow
+rules. The example below is a project configuration.
 
 ```json
 {
@@ -51,11 +52,78 @@ the rule name and nested input field, but not the matched value.
 `content` is still text matching, not syntax-aware validation.
 
 Use these rules for workflow restrictions or explicit text policies.
-For naming conventions, remove custom declaration-matching regexes
-such as `prefer-project-snake-case-identifiers` and use the project's
-language-aware linter instead. Changing that rule to `content` alone
-does not fix prose false positives. User configuration is not
-rewritten automatically.
+For naming conventions, use the syntax-aware policy below and remove
+custom declaration-matching regexes such as
+`prefer-project-snake-case-identifiers`. Those old rules still run
+independently and can match prose; switching their target to `content`
+does not fix that. User configuration is not rewritten automatically.
+
+## Automatic naming policy
+
+Naming checks apply by default whenever this extension is loaded.
+Configure them globally under `codingPreferences.naming` in
+`~/.pi/agent/my-pi-settings.json`:
+
+```json
+{
+	"codingPreferences": {
+		"naming": {
+			"variables": "snake_case",
+			"functions": "snake_case",
+			"types": "PascalCase"
+		}
+	}
+}
+```
+
+These are the defaults. Each category accepts `snake_case`,
+`camelCase`, `PascalCase`, or `false` to disable that category. Set
+`"naming": false` to disable all naming checks. Leading/trailing `_`
+and `$` markers are allowed. Existing `rules` entries are independent
+of naming preferences.
+
+An optional project `.pi/coding-preferences.json` can set `naming`
+using the same shape (without the `codingPreferences` wrapper).
+Project categories override global categories; omitted categories
+inherit. Project `false` disables naming, while an explicit project
+object re-enables it after a global `false`. No project file is needed
+for global preferences to apply, including in a new project.
+
+Coverage:
+
+- JavaScript/TypeScript: `.js`, `.jsx`, `.mjs`, `.cjs`, `.ts`, `.tsx`,
+  `.mts`, `.cts`, including `.svelte.js` and `.svelte.ts` modules.
+- Svelte components: JavaScript/TypeScript in instance and module
+  script blocks. Template bindings and style blocks are not checked.
+- Variables include parameters, catch bindings, and array/destructured
+  local bindings. Function declarations/expressions and bindings
+  initialized with an arrow/function use the `functions` category.
+  Classes, interfaces, type aliases, enums, and class-expression
+  bindings use `types`.
+- Imports, object/class/interface member names, enum members,
+  constructor parameter properties, and shorthand object bindings are
+  left alone to preserve API names. Aliased destructuring checks the
+  local binding. Comments, strings, and identifier references are not
+  declaration checks.
+
+The extension reuses Pi's native `write` and `edit` tools with checked
+file operations. Pi resolves edits and supplies the complete proposed
+file; parsing and naming validation happen before the file write.
+Rejected calls report the file, location, name, expected style, and
+rule. Retry with a corrected change; the rejected file stays
+unchanged.
+
+Unchanged legacy violations are tolerated by comparing counts of each
+name/category against the original file. Fixing or removing violations
+is allowed; introducing another violation is blocked. Invalid proposed
+syntax is rejected because naming cannot be reliably checked. Invalid
+original files can still be repaired. These are syntax/naming checks,
+not type checks or a replacement for project linting and tests.
+
+This covers direct and Codemode-mediated calls to these native tools,
+not arbitrary shell writes or other file-writing tools. Another
+extension replacing `write`/`edit` can conflict with these overrides;
+compose its file operations explicitly rather than assuming coverage.
 
 Direct tool calls and native Codemode's `tools.edit()` /
 `tools.write()` pass through the same guardrail hooks. Codemode

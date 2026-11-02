@@ -7,6 +7,14 @@ import {
 import { read_settings_section } from '@spences10/pi-settings';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { register_guarded_tools } from './guarded-tools.js';
+import {
+	resolve_naming_config,
+	type NamingConfig,
+} from './naming.js';
+
+export { assert_naming, resolve_naming_config } from './naming.js';
+export type { NamingConfig, NamingStyle } from './naming.js';
 
 export type PreferenceRuleConfig = {
 	name: string;
@@ -18,6 +26,7 @@ export type PreferenceRuleConfig = {
 
 export type CodingPreferencesConfig = {
 	rules: PreferenceRuleConfig[];
+	naming?: NamingConfig | false;
 };
 
 export type CodingPreferenceViolation = {
@@ -164,7 +173,7 @@ export function get_project_config_path(cwd = process.cwd()): string {
 
 function read_config_file(
 	path: string,
-): CodingPreferencesConfig | undefined {
+): Partial<CodingPreferencesConfig> | undefined {
 	let parsed: Partial<CodingPreferencesConfig> | undefined;
 	if (path === get_global_config_path()) {
 		parsed = read_settings_section<
@@ -177,7 +186,7 @@ function read_config_file(
 		) as Partial<CodingPreferencesConfig>;
 	}
 	if (!parsed) return undefined;
-	return { rules: parsed.rules ?? [] };
+	return parsed;
 }
 
 export function load_config(
@@ -188,11 +197,24 @@ export function load_config(
 		get_project_config_path(cwd),
 	);
 	if (!global_config && !project_config) return default_config;
+	resolve_naming_config(global_config?.naming);
+	resolve_naming_config(project_config?.naming);
+	const project_naming = project_config?.naming;
 	return {
-		rules: [
-			...(global_config?.rules ?? []),
-			...(project_config?.rules ?? []),
-		],
+		rules:
+			global_config?.rules === undefined &&
+			project_config?.rules === undefined
+				? default_config.rules
+				: [
+						...(global_config?.rules ?? []),
+						...(project_config?.rules ?? []),
+					],
+		naming:
+			project_naming === undefined
+				? global_config?.naming
+				: project_naming === false
+					? false
+					: { ...global_config?.naming, ...project_naming },
 	};
 }
 
@@ -232,13 +254,13 @@ export function format_coding_preference_violation(
 }
 
 export default function coding_preferences(pi: ExtensionAPI) {
-	const config = load_config();
+	register_guarded_tools(pi, (cwd) => load_config(cwd).naming);
 	pi.on(
 		'tool_call',
-		async (event): Promise<ToolCallEventResult | undefined> => {
+		async (event, ctx): Promise<ToolCallEventResult | undefined> => {
 			const violation = find_coding_preference_violation(
 				event,
-				config,
+				load_config(ctx.cwd),
 			);
 			if (!violation) return undefined;
 			return {

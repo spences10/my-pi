@@ -15,6 +15,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import coding_preferences, {
 	default_config,
+	type NamingConfig,
 } from '@spences10/pi-coding-preferences';
 import svelte_guardrails from '@spences10/pi-svelte-guardrails';
 import {
@@ -40,11 +41,144 @@ type Case = {
 	allow?: string[];
 	file?: string;
 	warning?: boolean;
+	naming?: NamingConfig | false;
+	global_naming?: NamingConfig | false;
 };
 
 const effect = '<script>$effect(() => {});</script>';
 const derived = '<script>const value = $derived(count);</script>';
 const cases: Case[] = [
+	{
+		name: 'automatic naming blocks a new project write',
+		tool: 'write',
+		input: { path: 'naming.ts', content: 'const badName = 1;' },
+		blocked: 'naming.variables',
+	},
+	{
+		name: 'retry after a rejected write succeeds',
+		tool: 'write',
+		input: { path: 'naming.ts', content: 'const good_name = 1;' },
+	},
+	{
+		name: 'automatic naming blocks a function declaration',
+		tool: 'write',
+		input: { path: 'function.ts', content: 'function badName() {}' },
+		blocked: 'naming.functions',
+	},
+	{
+		name: 'automatic naming blocks a type declaration',
+		tool: 'write',
+		input: { path: 'type.ts', content: 'interface bad_name {}' },
+		blocked: 'naming.types',
+	},
+	{
+		name: 'identifier-only edit is checked in full file context',
+		tool: 'edit',
+		initial: 'const good_name = 1;',
+		input: {
+			path: 'identifier.ts',
+			edits: [{ oldText: 'good_name', newText: 'badName' }],
+		},
+		blocked: 'naming.variables',
+	},
+	{
+		name: 'bad declaration in a later batched edit leaves file unchanged',
+		tool: 'edit',
+		initial: 'const first_name = 1;\nconst second_name = 2;',
+		input: {
+			path: 'naming-batch.ts',
+			edits: [
+				{ oldText: 'first_name', newText: 'better_name' },
+				{ oldText: 'second_name', newText: 'badName' },
+			],
+		},
+		blocked: 'naming.variables',
+	},
+	{
+		name: 'removing legacy naming violations succeeds',
+		tool: 'edit',
+		initial: 'const badName = 1;',
+		input: {
+			path: 'naming-fix.ts',
+			edits: [{ oldText: 'badName', newText: 'good_name' }],
+		},
+		expected: 'const good_name = 1;',
+	},
+	{
+		name: 'untouched legacy violations do not block another edit',
+		tool: 'edit',
+		initial: 'const legacyName = 1;\nconst good_name = 2;',
+		input: {
+			path: 'naming-legacy.ts',
+			edits: [{ oldText: 'good_name', newText: 'better_name' }],
+		},
+		expected: 'const legacyName = 1;\nconst better_name = 2;',
+	},
+	{
+		name: 'rewrites cannot introduce extra naming violations',
+		tool: 'write',
+		initial: 'const legacyName = 1;',
+		input: {
+			path: 'naming-rewrite.ts',
+			content: 'const legacyName = 1;\nconst anotherName = 2;',
+		},
+		blocked: 'anotherName',
+	},
+	{
+		name: 'invalid proposed syntax is rejected before writing',
+		tool: 'edit',
+		initial: 'const good_name = 1;',
+		input: {
+			path: 'naming-syntax.ts',
+			edits: [{ oldText: '1', newText: '' }],
+		},
+		blocked: 'Cannot validate naming',
+	},
+	{
+		name: 'Svelte script naming is enforced without project linting',
+		tool: 'write',
+		input: {
+			path: 'Naming.svelte',
+			content: '<script lang="ts">let badName = $state(0);</script>',
+		},
+		blocked: 'naming.variables',
+	},
+	{
+		name: 'global naming style applies without project configuration',
+		tool: 'write',
+		global_naming: { variables: 'camelCase' },
+		input: {
+			path: 'naming-global.ts',
+			content: 'const goodName = 1;',
+		},
+	},
+	{
+		name: 'global naming disable applies without project configuration',
+		tool: 'write',
+		global_naming: false,
+		input: {
+			path: 'naming-global-off.ts',
+			content: 'const badName = 1;',
+		},
+	},
+	{
+		name: 'explicit naming disable is honored',
+		tool: 'write',
+		naming: false,
+		input: {
+			path: 'naming-disabled.ts',
+			content: 'const badName = 1;',
+		},
+	},
+	{
+		name: 'project naming style override is honored',
+		tool: 'write',
+		naming: { variables: 'camelCase' },
+		input: {
+			path: 'naming-custom.ts',
+			content: 'const goodName = 1;',
+		},
+	},
 	{
 		name: 'workflow command restriction',
 		tool: 'bash',
@@ -295,6 +429,9 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 					'bash',
 					'codemode',
 				]);
+				const user_settings = JSON.parse(
+					readFileSync(join(dir, 'my-pi-settings.json'), 'utf8'),
+				);
 				for (const [index, test_case] of cases.entries()) {
 					const { name, tool, input, initial, expected, blocked } =
 						test_case;
@@ -303,6 +440,28 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 						JSON.stringify({
 							...(test_case.mode ? { mode: test_case.mode } : {}),
 							allow: test_case.allow ?? [],
+						}),
+					);
+					const project_preferences = join(
+						dir,
+						'.pi',
+						'coding-preferences.json',
+					);
+					if (test_case.naming === undefined)
+						rmSync(project_preferences, { force: true });
+					else
+						writeFileSync(
+							project_preferences,
+							JSON.stringify({ naming: test_case.naming }),
+						);
+					writeFileSync(
+						join(dir, 'my-pi-settings.json'),
+						JSON.stringify({
+							...user_settings,
+							codingPreferences: {
+								...user_settings.codingPreferences,
+								naming: test_case.global_naming,
+							},
 						}),
 					);
 					const target = test_case.file ?? input.path;
