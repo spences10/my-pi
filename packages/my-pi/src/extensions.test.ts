@@ -40,6 +40,7 @@ describe('extensions', () => {
 		temp_dir = mkdtempSync(join(tmpdir(), 'my-pi-fresh-'));
 		process.env.PI_CODING_AGENT_DIR = temp_dir;
 		for (const key of [
+			'startup-screen',
 			'turn-timer',
 			'session-name',
 			'tool-guidance',

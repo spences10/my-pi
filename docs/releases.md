@@ -45,11 +45,21 @@ git diff
 git status --short
 ```
 
-`version` applies pending Changesets. Review package versions,
-changelogs, and dependency changes before committing the intended
-files. Keeping these steps separate avoids accidentally staging other
-work in a shared checkout. See [Development](./development.md) for
-validation; reuse successful checks when their inputs are unchanged.
+`version` applies pending Changesets and regenerates the shared README
+preview from `packages/my-pi/package.json`, keeping lossless PNG
+compression. The preview shares the live splash's logo and uses
+configurable sample labels, a border, and a footer. See
+[Preview image](./package-readmes.md#preview-image) for JSON defaults
+and CLI overrides; these do not change the live session UI. Review
+package versions, changelogs, dependency changes, and both
+`assets/pi-package-preview.png` and its `.png.json` freshness record
+before committing the intended files. If you edit versions or preview
+rendering directly, run `pnpm run preview:generate`. `pnpm run check`
+and `pnpm run build` reject stale previews without re-rendering fonts,
+so checks work across machines. Keeping these steps separate avoids
+accidentally staging other work in a shared checkout. See
+[Development](./development.md) for validation; reuse successful
+checks when their inputs are unchanged.
 
 ## Publish
 

@@ -94,6 +94,7 @@ Requires Node.js `>=24.15.0` and pnpm.
 pnpm install
 pnpm run build
 pnpm start            # node packages/my-pi/dist/index.js
+pnpm run preview:generate # refresh the shared README image
 pnpm run check
 pnpm run test
 ```

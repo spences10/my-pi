@@ -42,6 +42,7 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",
+		"@earendil-works/pi-tui": "catalog:",
 		"@spences10/pi-codex-usage": "workspace:*",
 		"@spences10/pi-coding-preferences": "workspace:*",
 		"@spences10/pi-confirm-destructive": "workspace:*",

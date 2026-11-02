@@ -1,0 +1,31 @@
+{
+	"model": "gpt-6.1-sol",
+	"project": "my-pi",
+	"border": {
+		"enabled": true,
+		"color": "#ff00cc",
+		"gradient": ["#9d4dff", "#ff00cc", "#00eaff"],
+		"width": 1.5,
+		"radius": 12
+	},
+	"footer": {
+		"enabled": true,
+		"separator": true,
+		"editor": true,
+		"color": "#ff00cc",
+		"rows": [
+			{
+				"left": "~/repos/{project} ( main +10 ?11)",
+				"right": ""
+			},
+			{
+				"left": "$0.000 (sub) 0.0%/500k",
+				"right": "{model} · high"
+			},
+			{
+				"left": "codex-usage:cx 2d 10%",
+				"right": ""
+			}
+		]
+	}
+}

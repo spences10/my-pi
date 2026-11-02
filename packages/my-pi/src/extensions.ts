@@ -35,6 +35,12 @@ function with_resources(
 
 export const EXTENSIONS: readonly MyPiExtension[] = [
 	{
+		key: 'startup-screen',
+		label: 'My-Pi splash',
+		description: 'Colourful themed header with the model and project',
+		load: async () => (await import('./startup-screen.js')).default,
+	},
+	{
 		key: 'filter-output',
 		label: 'Secret redaction',
 		description: 'Redacts likely secrets from tool output',

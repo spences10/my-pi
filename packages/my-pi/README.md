@@ -5,6 +5,7 @@ built in.
 
 | Key                   | Package                                                                                                         |
 | --------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `startup-screen`      | Built-in My-Pi splash                                                                                           |
 | `filter-output`       | [`pi-redact`](https://github.com/spences10/my-pi/tree/main/packages/pi-redact#readme)                           |
 | `confirm-destructive` | [`pi-confirm-destructive`](https://github.com/spences10/my-pi/tree/main/packages/pi-confirm-destructive#readme) |
 | `context-sidecar`     | [`pi-context`](https://github.com/spences10/my-pi/tree/main/packages/pi-context#readme)                         |
@@ -30,6 +31,19 @@ built in.
 ```bash
 pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
 ```
+
+## My-Pi splash
+
+The colourful My-Pi logo is back as a header extension, enabled by
+default. It shows this package's version, the selected model, and the
+current project. Its gradient follows the active theme, including
+256-colour terminals; narrow terminals use a compact text header. It
+does not change print, JSON, or RPC output.
+
+Use `/builtin-header` to restore Pi's header for the current session,
+or `/extensions disable startup-screen` to persist that choice.
+Re-enable it with `/extensions enable startup-screen`. Disabling the
+extension returns control to Pi's normal startup-header settings.
 
 ## Session conveniences and tool guidance
 
