@@ -190,7 +190,7 @@ catalogs:
       version: 3.12.4
     '@lucide/svelte':
       specifier: ^1.61.0
-      version: 1.65.0
+      version: 1.66.0
     '@napi-rs/image':
       specifier: ^1.16.0
       version: 1.16.0
@@ -750,7 +750,7 @@ importers:
         version: 5.3.0
       '@lucide/svelte':
         specifier: 'catalog:'
-        version: 1.65.0(svelte@5.57.3)
+        version: 1.66.0(svelte@5.57.3)
       '@sveltejs/vite-plugin-svelte':
         specifier: 'catalog:'
         version: 7.3.1(@voidzero-dev/vite-plus-core@1.4.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(svelte@5.57.3)
@@ -1744,8 +1744,8 @@ packages:
   '@layerstack/utils@2.0.0-next.19':
     resolution: {integrity: sha512-HyXCEz9pge4rFWklrSgFr3YIwdE1gP8WM6GPetmnKPDfYLF1/oetRFKI9FqiE+dw4brnULGPKJsVhjM3vQfD4A==}
 
-  '@lucide/svelte@1.65.0':
-    resolution: {integrity: sha512-VfM4Ej7JFYz33WXm/JdqtOsOqRtfca5H9eFcyfcbFthWvbOnvvCerY/YkEk0ZiAvOvqo5hpK3u+opC0zY7Caxw==}
+  '@lucide/svelte@1.66.0':
+    resolution: {integrity: sha512-G2qFyutQpgk9TY0QYgqXk9rQtUt8p509mFpQzmTpyc894hfRSFhGNcGAVAUgB8znAyVsp5WTF/2vmCwprnNQ/w==}
     peerDependencies:
       svelte: ^5
 
@@ -4846,7 +4846,7 @@ snapshots:
       d3-time: 3.1.0
       d3-time-format: 4.1.0
 
-  '@lucide/svelte@1.65.0(svelte@5.57.3)':
+  '@lucide/svelte@1.66.0(svelte@5.57.3)':
     dependencies:
       svelte: 5.57.3
 
