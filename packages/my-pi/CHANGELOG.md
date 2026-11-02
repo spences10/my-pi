@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.7.0
+
+### Minor Changes
+
+- be863cb: Restore the themed startup screen and generate configurable
+  README previews with rounded borders and footers.
+
 ## 0.6.0
 
 ### Minor Changes
