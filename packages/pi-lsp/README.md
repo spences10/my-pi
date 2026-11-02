@@ -145,10 +145,22 @@ trust prompts follow tool cancellation and time out after 30 seconds,
 returning a tool error instead of leaving the session indefinitely in
 `Working`.
 
-Language servers receive a restricted child-process environment by
-default. Use `MY_PI_LSP_ENV_ALLOWLIST=NAME,OTHER_NAME` or the shared
-`MY_PI_CHILD_ENV_ALLOWLIST` to pass selected ambient variables
-through.
+### Language-server environment
+
+LSP filters its language-server environment directly, passing only
+`PATH`, `PI_CODING_AGENT_DIR`, home/user, locale (`LANG` and `LC_*`),
+terminal/color, shell, temporary-directory, and CI variables by
+default. Provider credentials, Pi session metadata, `NODE_OPTIONS`,
+and other ambient variables are not inherited unless explicitly
+allowlisted.
+
+Use `MY_PI_LSP_ENV_ALLOWLIST=NAME,OTHER_NAME` to pass toolchain
+configuration such as `RUSTUP_HOME`, `CARGO_HOME`, or `JAVA_HOME` when
+needed. `MY_PI_CHILD_ENV_ALLOWLIST` remains supported; entries from
+both lists are combined.
+
+This reduces ambient credential exposure, but is not a sandbox:
+language servers retain the current user's filesystem permissions.
 
 ## Tools
 

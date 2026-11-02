@@ -10,7 +10,6 @@ const violations: Finding[] = [];
 const advisories: Finding[] = [];
 
 const support_packages = new Set([
-	'@spences10/pi-child-env',
 	'@spences10/pi-project-trust',
 	'@spences10/pi-settings',
 	'@spences10/pi-tui-modal',

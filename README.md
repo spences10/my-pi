@@ -60,8 +60,8 @@ Additional bundled extensions:
   portable nopeek, Omnisearch, and SQLite skills and reminders.
 
 Support libraries (dependencies, not for `pi install`):
-`pi-child-env`, `pi-project-trust`, `pi-settings`, `pi-sqlite-core`,
-`pi-tui-modal`. See [`docs/package-map.md`](./docs/package-map.md).
+`pi-project-trust`, `pi-settings`, `pi-sqlite-core`, `pi-tui-modal`.
+See [`docs/package-map.md`](./docs/package-map.md).
 
 ## Documentation
 

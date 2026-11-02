@@ -49,8 +49,10 @@ may fit an existing package instead.
 
 Most packages expose a Pi extension and can be installed without
 my-pi. Support packages share capabilities such as settings, SQLite,
-child-process environments, resource-specific trust, and TUI modals.
-The [package map](./package-map.md) distinguishes these roles.
+resource-specific trust, and TUI modals. LSP owns its
+[child-process environment filtering](../packages/pi-lsp/README.md#language-server-environment)
+locally. The [package map](./package-map.md) distinguishes these
+roles.
 
 The dependency graph uses `workspace:*` links. Package scripts build
 transitive workspace dependencies before local checks; root scripts

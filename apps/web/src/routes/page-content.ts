@@ -188,7 +188,6 @@ export const package_groups = [
 ] as const;
 
 export const support_packages = [
-	'pi-child-env',
 	'pi-project-trust',
 	'pi-settings',
 	'pi-sqlite-core',
