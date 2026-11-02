@@ -1,13 +1,8 @@
 {
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"target": "ES2022",
-		"module": "nodenext",
-		"moduleResolution": "nodenext",
-		"strict": true,
-		"esModuleInterop": true,
-		"allowSyntheticDefaultImports": true,
-		"skipLibCheck": true,
-		"types": ["node", "vitest/globals"]
+		"noEmit": true,
+		"allowImportingTsExtensions": true
 	},
-	"files": []
+	"include": ["vite.config.ts", "tools/**/*.ts", "scripts/**/*.ts"]
 }

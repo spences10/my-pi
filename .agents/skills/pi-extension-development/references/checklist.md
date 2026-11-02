@@ -27,9 +27,13 @@
 Run targeted checks first:
 
 ```bash
-pnpm --filter @spences10/<name> run check:self
-pnpm --filter @spences10/<name> run test:self
+pnpm --filter @spences10/<name> run check
+pnpm --filter @spences10/<name> run test
 ```
+
+These scripts build transitive dependencies first. Use `check:self`
+and `test:self` only when those dependencies are already built and
+their inputs are unchanged.
 
 If root files or registry changed:
 

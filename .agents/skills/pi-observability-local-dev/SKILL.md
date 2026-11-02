@@ -18,11 +18,14 @@ the local dashboard at `http://127.0.0.1:43190`.
 2. Validate focused changes first:
 
    ```bash
-   pnpm --filter @spences10/pi-observability run check:self
-   pnpm --filter @spences10/pi-observability run test:self
+   pnpm --filter @spences10/pi-observability run check
+   pnpm --filter @spences10/pi-observability run test
    ```
 
-3. Rebuild the local dashboard/server output:
+   These build transitive dependencies first. Reuse `check:self` and
+   `test:self` only when dependency builds are already current.
+
+3. Rebuild the local dashboard/server output using those dependencies:
 
    ```bash
    pnpm --filter @spences10/pi-observability run build:self

@@ -26,8 +26,10 @@ not just file names. Rerun only affected or previously missing checks.
 
 ## Command selection
 
-- Single package: `pnpm --filter @spences10/<pkg> run check:self` and
-  `test:self`.
+- Single package: `pnpm --filter @spences10/<pkg> run check` and
+  `test`; these build transitive workspace dependencies first. Use
+  `check:self` and `test:self` only when those dependency builds are
+  available and their inputs are unchanged.
 - Root/shared changes: `pnpm run check`.
 - Boundary-sensitive changes: `pnpm run check:boundaries` unless
   already covered by root validation.

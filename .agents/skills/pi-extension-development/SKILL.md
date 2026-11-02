@@ -22,9 +22,10 @@ repo.
    function and pure helper functions for testable trigger logic.
 4. Put user-facing injected prompt text in one obvious template block;
    gate injection by selected tools/options when possible.
-5. Update package README and Changeset when behavior changes.
-6. Validate with the package script first, then root checks if root
-   files changed.
+5. Update the package README when behavior changes. Create a Changeset
+   only when the user explicitly requests it.
+6. Follow `pi-validation-flow`: use package checks for focused changes
+   or root checks for shared files, reusing unchanged validation.
 
 ## Project conventions
 

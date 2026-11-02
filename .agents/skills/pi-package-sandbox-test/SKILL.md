@@ -25,17 +25,32 @@ Verify published packages work for normal Pi users, independent of
    ```bash
    pnpx @earendil-works/pi-coding-agent
    ```
-5. For each published npm version, verify both commands succeed:
+5. Use a fresh `PI_CODING_AGENT_DIR` for each package. For its
+   published npm version, install it and start an ephemeral RPC
+   session without making a model request:
    ```bash
    pnpx @earendil-works/pi-coding-agent install npm:<package>@<npm-version>
-   pnpx @earendil-works/pi-coding-agent -e npm:<package>@<npm-version> --help
+   printf '%s\n' '{"id":"startup","type":"get_state"}' | pnpx @earendil-works/pi-coding-agent -e npm:<package>@<npm-version> --mode rpc --no-session
    ```
-6. In the same clean sandbox config, install all selected packages
-   together, then run:
+6. Use a separate fresh `PI_CODING_AGENT_DIR` for the combined check.
+   Install all selected packages together, then run:
    ```bash
    pnpx @earendil-works/pi-coding-agent list
-   pnpx @earendil-works/pi-coding-agent --help
+   printf '%s\n' '{"id":"startup","type":"get_state"}' | pnpx @earendil-works/pi-coding-agent --mode rpc --no-session
    ```
+
+For each RPC check, capture stdout and stderr and apply a bounded
+startup timeout. Require exit code zero, a `response` with
+`id: "startup"`, `command: "get_state"`, and `success: true`, and no
+`extension_error` records or load failures in stderr. A successful
+state response alone does not prove extension startup succeeded.
+Closing stdin requests orderly shutdown. Never send a `prompt` for
+this check; credentials and model inference are not required.
+
+`--help` is only a CLI-help smoke test: upstream can exit zero while
+hiding extension-load diagnostics. It is not evidence of successful
+loading or `session_start`. RPC does not exercise TUI-only behavior;
+check declared skills, prompts, and themes separately when applicable.
 
 ## Report Format
 
@@ -45,7 +60,7 @@ Report a compact table with:
 - local version
 - npm version
 - install result
-- ephemeral load result
+- ephemeral RPC startup result
 - notes
 
 Call out local/npm version drift separately. Version drift is not a
@@ -59,8 +74,10 @@ Treat these as failures unless explained by the sandbox environment:
 
 - npm package cannot be resolved
 - `pi install npm:<package>@<version>` exits non-zero
-- `pi -e npm:<package>@<version> --help` exits non-zero
-- startup output includes `Cannot find module`,
-  `ERR_MODULE_NOT_FOUND`, `SyntaxError`, `TypeError`, or
-  `ReferenceError`
+- RPC startup exits non-zero, times out, or lacks the successful
+  `startup` state response
+- RPC emits `extension_error`, even if its exit code is zero
+- startup output includes `Failed to load extension`,
+  `Cannot find module`, `ERR_MODULE_NOT_FOUND`, `SyntaxError`,
+  `TypeError`, or `ReferenceError`
 - packages pass alone but fail when installed together

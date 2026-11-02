@@ -26,15 +26,19 @@ primitive.
    - document or wrap existing primitive
    - compose existing primitives
    - implement new feature
-5. If overlap exists, pause and ask the user to confirm before coding.
+5. If overlap leaves a design decision unresolved or changes the
+   requested scope, explain the upstream-based option and ask before
+   proceeding. Do not re-request approval for work already explicitly
+   authorized by the user.
 
 ## Required local sources
 
-Resolve the installed package from the repository root instead of
-hard-coding pnpm's versioned store path:
+From the repository root, resolve the launcher's installed dependency
+instead of assuming a root-level dependency or hard-coding pnpm's
+versioned store path:
 
 ```bash
-UPSTREAM_PI_ROOT="$(realpath node_modules/@earendil-works/pi-coding-agent)"
+UPSTREAM_PI_ROOT="$(realpath packages/my-pi/node_modules/@earendil-works/pi-coding-agent)"
 ```
 
 Read relevant files under `$UPSTREAM_PI_ROOT` before deciding:
@@ -58,7 +62,7 @@ Primitive check:
 - Existing Pi customisation pieces:
 - Overlap/risk:
 - Recommendation:
-- Confirm before build:
+- Open decisions:
 ```
 
 Keep the recommendation direct. If the answer is “do not build this”,
