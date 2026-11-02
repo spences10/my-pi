@@ -17,6 +17,9 @@ For research and current external facts, prefer the configured Omnisearch MCP se
 const SQLITE_GUIDANCE = `## SQLite databases
 Prefer the configured SQLite MCP tools over ad-hoc shell SQL. Read the bundled my-pi-sqlite skill; inspect schema before querying, keep result limits small, and prefer a backup plus an explicit transaction before authorized writes. Do not bypass safety gates to make destructive operations easier.`;
 
+const VALIDATION_GUIDANCE = `## Language-aware validation
+Use the project's configured linter, type checker, Svelte tooling, and tests for naming and language correctness. Regex guardrails enforce workflow or explicit local policy, not syntax. After edits, run the affected checks. When codemode is available, use it to coordinate independent checks and summarize diagnostics; inspect command exit codes and tool errors before reporting success. Keep edits dependent on earlier results sequential.`;
+
 export function tool_guidance(
 	options: BuildSystemPromptOptions,
 	tools: readonly Tool[],
@@ -53,8 +56,12 @@ export function tool_guidance(
 		reachable.some((tool) =>
 			['bash', 'powershell'].includes(tool.name),
 		);
+	const editing =
+		selected.some((name) => ['edit', 'write'].includes(name)) ||
+		reachable.some((tool) => ['edit', 'write'].includes(tool.name));
 	return [
 		shell ? NOPEEK_GUIDANCE : '',
+		shell && editing ? VALIDATION_GUIDANCE : '',
 		available.includes('omnisearch') ? OMNISEARCH_GUIDANCE : '',
 		available.includes('sqlite') ? SQLITE_GUIDANCE : '',
 	]

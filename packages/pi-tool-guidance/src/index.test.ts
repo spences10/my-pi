@@ -89,6 +89,45 @@ describe('tool guidance', () => {
 		).toContain('Secret-safe');
 	});
 
+	it('guides language validation for editable shell workflows, including codemode-only declarations', () => {
+		for (const options of [
+			{ cwd: '/', selectedTools: ['bash', 'edit', 'write'] },
+			{
+				cwd: '/',
+				selectedTools: ['bash', 'edit', 'codemode'],
+				hiddenTools: ['bash', 'edit'],
+			},
+		]) {
+			const text = tool_guidance(options, []);
+			expect(text).toContain('Language-aware validation');
+			expect(text).toContain('coordinate independent checks');
+			expect(text).toContain('exit codes');
+			expect(text).toContain('not syntax');
+		}
+		const indirect = tool_guidance(
+			{ cwd: '/', selectedTools: ['codemode'] },
+			[
+				{ name: 'bash', exposure: 'codemode' },
+				{ name: 'edit', exposure: 'deferred' },
+			],
+		);
+		expect(indirect).toContain('Language-aware validation');
+		for (const tools of [
+			[],
+			[{ name: 'edit', exposure: 'hidden' as const }],
+		]) {
+			expect(
+				tool_guidance(
+					{ cwd: '/', selectedTools: ['bash', 'codemode'] },
+					tools,
+				),
+			).not.toContain('Language-aware validation');
+		}
+		expect(
+			tool_guidance({ cwd: '/', selectedTools: ['edit'] }, []),
+		).not.toContain('Language-aware validation');
+	});
+
 	it('mutates only its named section, preserves custom prompts, and clears stale guidance', () => {
 		let handler!: Function;
 		guidance({

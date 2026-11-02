@@ -45,7 +45,10 @@ SQLite, with concise structured prompt reminders. No local maintainer
 files, credential setup, or automatic MCP installation are required or
 performed. The reminders coexist with user `SYSTEM.md` and
 `APPEND_SYSTEM.md`; use normal Pi configuration for the CLI and MCP
-servers themselves.
+servers themselves. When editing and shell tools are reachable,
+`tool-guidance` also recommends project language-aware checks,
+coordinated through native Codemode when available. See the
+[validation workflow](https://github.com/spences10/my-pi/tree/main/packages/pi-tool-guidance#language-aware-validation).
 
 All three are enabled by default and individually switchable below.
 

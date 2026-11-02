@@ -1,7 +1,7 @@
 {
 	"name": "@spences10/pi-svelte-guardrails",
 	"version": "0.0.17",
-	"description": "Svelte 5 guardrails for Pi that block discouraged agent-written patterns before they land in code",
+	"description": "Svelte pattern guardrails for Pi with default blocking and explicit policy exceptions",
 	"keywords": [
 		"agent-guardrails",
 		"pi",

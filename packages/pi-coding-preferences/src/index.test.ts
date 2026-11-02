@@ -132,6 +132,129 @@ describe('coding preferences', () => {
 		);
 	});
 
+	it.each([
+		[
+			'write',
+			{ path: 'forbidden.ts', content: 'forbidden' },
+			'input.content',
+		],
+		[
+			'edit',
+			{ path: 'file.ts', oldText: 'safe', newText: 'forbidden' },
+			'input.newText',
+		],
+		[
+			'edit',
+			{
+				path: 'file.ts',
+				edits: [
+					{ oldText: 'one', newText: 'safe' },
+					{ oldText: 'two', newText: 'forbidden' },
+				],
+			},
+			'input.edits[1].newText',
+		],
+	] as const)(
+		'checks proposed content for %s',
+		(tool_name, input, field) => {
+			const config: CodingPreferencesConfig = {
+				rules: [
+					{
+						name: 'restricted-content',
+						target: 'content',
+						pattern: 'forbidden',
+						reason: 'Restricted content.',
+					},
+				],
+			};
+			expect(
+				find_coding_preference_violation(
+					event(tool_name, input),
+					config,
+				)?.field,
+			).toBe(field);
+		},
+	);
+
+	it('allows removing violations without changing whole-input rules', () => {
+		const rule = {
+			name: 'restricted-content',
+			pattern: 'forbidden',
+			reason: 'Restricted content.',
+		};
+		const correction = event('edit', {
+			path: 'forbidden.ts',
+			edits: [{ oldText: 'forbidden', newText: 'safe' }],
+		});
+		expect(
+			should_block_coding_preference(correction, {
+				rules: [{ ...rule, target: 'content' }],
+			}),
+		).toBeUndefined();
+		expect(
+			find_coding_preference_violation(correction, {
+				rules: [{ ...rule, target: 'input' }],
+			})?.field,
+		).toBe('input.path');
+		expect(
+			find_coding_preference_violation(
+				event('edit', {
+					path: 'safe.ts',
+					edits: [{ oldText: 'forbidden', newText: 'safe' }],
+				}),
+				{ rules: [{ ...rule, target: 'input' }] },
+			)?.field,
+		).toBe('input.edits[0].oldText');
+	});
+
+	it('does not apply content rules to commands or unrelated input fields', () => {
+		const config: CodingPreferencesConfig = {
+			rules: [
+				{
+					name: 'restricted-content',
+					target: 'content',
+					pattern: 'forbidden',
+					reason: 'Restricted content.',
+				},
+			],
+		};
+		for (const call of [
+			event('bash', { command: 'forbidden', content: 'forbidden' }),
+			event('write', {
+				path: 'forbidden',
+				content: 'safe',
+				description: 'forbidden',
+			}),
+			event('edit', {
+				path: 'forbidden',
+				oldText: 'forbidden',
+				newText: 'safe',
+			}),
+		])
+			expect(
+				should_block_coding_preference(call, config),
+			).toBeUndefined();
+	});
+
+	it('keeps prose and external API names out of built-in language enforcement', () => {
+		for (const content of [
+			"throw new Error('--type must be user, assistant, toolResult, or all');",
+			"test('type combines with project and session', () => {});",
+			"import { runCommand } from 'citty';",
+			'const badName = 1;',
+		]) {
+			expect(
+				should_block_coding_preference(
+					event('write', {
+						path: 'example.ts',
+						content,
+					}),
+					default_config,
+				),
+			).toBeUndefined();
+		}
+	});
+
 	it('preserves configured reasons for compatibility', () => {
 		const config: CodingPreferencesConfig = {
 			rules: [

@@ -14,8 +14,8 @@
 ## Tool workflow guidance
 
 Distributes native Pi skills and concise system-prompt reminders for
-nopeek, Omnisearch, and SQLite. It does not depend on the maintainer's
-local files.
+nopeek, Omnisearch, SQLite, and language-aware validation. It does not
+depend on the maintainer's local files.
 
 ## What ships
 
@@ -36,6 +36,57 @@ section. Secret guidance is active with shell access; MCP guidance is
 conditional on reachable tools or Pi's configured indirect-server
 listing. Both codemode and tool-search exposure work without requiring
 direct tool declarations.
+
+## Language-aware validation
+
+When editing and shell tools are reachable, the prompt reminds the
+agent to use the project's configured linter, type checker, Svelte
+tooling, and tests for code correctness. Coding-preference regexes
+remain workflow/text policies; Svelte guardrails block `$effect` by
+default, with explicit user-controlled exceptions. No parser,
+classifier gate, new validation tool, or automatic command execution
+is added.
+
+Use native Codemode to coordinate existing tools:
+
+1. Read project instructions and package scripts to select the
+   affected checks; do not assume every project uses the same
+   commands.
+2. Apply edits through `tools.edit()` / `tools.write()` and await them
+   before checking. Native nested calls retain the same guardrail
+   hooks as direct calls; do not scan the outer JavaScript as source
+   code.
+3. Run independent checks together only when they do not share mutable
+   outputs. Keep dependent edits, builds, and checks sequential.
+4. Inspect exit codes and tool errors, then summarize diagnostics. Do
+   not infer success from a fulfilled promise: `bash` resolves even
+   when its command exits nonzero.
+5. Correct the findings and rerun affected checks before reporting
+   completion. Code validation runs after the edit; it is not an
+   atomic pre-write security boundary.
+
+For example, after choosing this repository's `check` script:
+
+```js
+const result = await tools.bash({
+	command: 'pnpm run check',
+	timeout: 120,
+});
+text({
+	exit_code: result.exit_code,
+	truncated: result.truncated,
+	output: result.output.slice(-12000),
+	full_output_path: result.full_output_path,
+});
+if (result.exit_code !== 0) throw new Error('Project checks failed');
+```
+
+Inspect omitted output before diagnosing a failure. For multiple
+independent tool calls, `Promise.allSettled()` preserves successful
+results when another call rejects; inspect each result as well as each
+command's exit code. Codemode is orchestration, not a syntax checker
+or a way around guardrails. No classifier or paid model call is
+needed.
 
 ## User configuration remains yours
 

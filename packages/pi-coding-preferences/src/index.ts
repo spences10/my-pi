@@ -12,7 +12,7 @@ export type PreferenceRuleConfig = {
 	name: string;
 	toolNames?: string[];
 	pattern: string;
-	target?: 'command' | 'path' | 'input';
+	target?: 'command' | 'path' | 'input' | 'content';
 	reason: string;
 };
 
@@ -121,6 +121,35 @@ function target_values(
 	if (target === 'path') {
 		const path = path_value_from(event);
 		return path ? [path] : [];
+	}
+	if (target === 'content') {
+		const input = input_record(event);
+		if (event.toolName === 'write') {
+			return typeof input.content === 'string'
+				? [{ field: 'input.content', value: input.content }]
+				: [];
+		}
+		if (event.toolName !== 'edit') return [];
+		const replacements: TargetValue[] = [];
+		if (typeof input.newText === 'string') {
+			replacements.push({
+				field: 'input.newText',
+				value: input.newText,
+			});
+		}
+		if (Array.isArray(input.edits)) {
+			input.edits.forEach((edit: unknown, index) => {
+				if (!edit || typeof edit !== 'object') return;
+				const value = (edit as Record<string, unknown>).newText;
+				if (typeof value === 'string') {
+					replacements.push({
+						field: `input.edits[${index}].newText`,
+						value,
+					});
+				}
+			});
+		}
+		return replacements;
 	}
 	return input_values(event.input);
 }

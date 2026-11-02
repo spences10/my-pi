@@ -514,6 +514,9 @@ importers:
         specifier: workspace:*
         version: link:../pi-turn-timer
     devDependencies:
+      '@earendil-works/pi-ai':
+        specifier: 'catalog:'
+        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(undici@8.10.2)(ws@8.22.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6

@@ -11,14 +11,30 @@
 
 <!-- package-readme:header:end -->
 
-Catch discouraged Svelte patterns before they land in your codebase.
-`pi-svelte-guardrails` blocks common agent mistakes and points the
-model toward current Svelte 5 practices while edits are still cheap to
-fix.
+Enforce a local policy against agent-written `$effect` by default.
+`pi-svelte-guardrails` blocks matching Svelte `write`/`edit` tool
+calls and recognized bash writes before execution.
 
-By default, blocks `$effect` in `.svelte` `write`/`edit` tool calls
-and bash writes, then tells the agent to prefer `$derived`, event
-handlers, actions, or explicit lifecycle alternatives.
+The [official Svelte guidance](https://svelte.dev/docs/ai/skills) says
+that effects are an escape hatch and should mostly be avoided. Use:
+
+- `$derived` / `$derived.by` for computed state.
+- Event handlers or function bindings for user-triggered changes.
+- `onMount` with cleanup for mount-time setup.
+- Attachments for element integrations, `$inspect` for debugging, and
+  `createSubscriber` for observing external systems.
+
+`onMount` does not rerun when dependencies change, and derived
+expressions must be side-effect-free; neither is a blanket effect
+replacement. The
+[effect reference](https://svelte.dev/docs/svelte/$effect) includes
+legitimate imperative uses, but those require an explicit
+user-controlled policy exception here. External-library imports do not
+grant one automatically.
+
+This extension is a text-pattern policy, not a Svelte parser. Keep
+language correctness in the project's compiler, checker, and linter;
+passing those checks does not override this policy.
 
 <!-- package-readme:install:start -->
 
@@ -42,9 +58,10 @@ Disable options:
 
 ## Configuration
 
-Create `~/.config/my-pi/svelte-guardrails.json` to tune the guardrail
-globally, or `.pi/svelte-guardrails.json` in a project to override it
-locally:
+Set `packages.svelteGuardrails` in `~/.pi/agent/my-pi-settings.json`
+to configure the guardrail globally, or use
+`.pi/svelte-guardrails.json` for project overrides. This project
+example explicitly enables strict blocking:
 
 ```json
 {
@@ -71,13 +88,28 @@ Current default:
 }
 ```
 
-Use `block` for strict enforcement, `warn` to observe violations
-before enforcing them, and `off` for projects that intentionally allow
-the pattern. The current default remains `block`.
+`block` remains the default. Only an explicit user configuration may
+allow exceptions through path globs, `warn`, `off`, or `blockEffect`.
+Agents should not weaken the policy to get a rejected edit through.
+Explicit `warn` mode allows the call with an advisory UI notification;
+notifications require a UI and do not add a model-facing lint result
+in headless sessions. Run language-aware checks in every mode.
 
-When a tool result says a write was blocked, the target file was not
-created or modified. Rewrite the change without `$effect` and run the
-write/edit again before reporting success.
+For writes, only proposed content is checked. For edits, only
+`newText` or each batched `edits[].newText` is checked, so removing an
+existing effect is allowed even in block mode. Recognized bash writes
+are checked as command text; this is not complete shell analysis.
+Comments and strings containing `$effect(` can still match. If this
+blocks necessary content, ask the user for a narrowly scoped exception
+or use their language-aware lint policy instead. This is not a
+complete security boundary against arbitrary file-writing tools.
+
+Direct calls and native Codemode calls receive the same enforcement.
+When a write is blocked, the target file was not created or modified.
+Rewrite the proposed change or ask the user to adjust the policy, then
+retry before reporting success. Advisory warnings explicitly say the
+call is allowed. See the
+[validation workflow](https://github.com/spences10/my-pi/tree/main/packages/pi-tool-guidance#language-aware-validation).
 
 ## Development
 
