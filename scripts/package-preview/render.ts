@@ -3,11 +3,8 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from '@earendil-works/pi-tui';
-import { logo_lines } from '../packages/my-pi/src/logo.ts';
-import {
-	load_preview_config,
-	type PreviewConfig,
-} from './package-preview-config.ts';
+import { logo_lines } from '../../packages/my-pi/src/logo.ts';
+import { load_preview_config, type PreviewConfig } from './config.ts';
 
 type Rgb = [number, number, number];
 type Cell = {

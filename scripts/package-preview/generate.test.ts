@@ -16,7 +16,7 @@ import {
 	check_preview,
 	generate_preview,
 	render_preview_svg,
-} from './generate-package-preview.ts';
+} from './generate.ts';
 
 function pixel_hash(png: Buffer): string {
 	const image = new Transformer(png);
@@ -167,7 +167,10 @@ void test('freshness rejects missing, corrupt, and mismatched artifacts', (t) =>
 
 void test('release and validation scripts retain preview generation and checks', () => {
 	const { scripts } = JSON.parse(
-		readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+		readFileSync(
+			new URL('../../package.json', import.meta.url),
+			'utf8',
+		),
 	);
 	assert.equal(
 		scripts.version,
@@ -181,7 +184,7 @@ void test('release and validation scripts retain preview generation and checks',
 void test('the committed preview matches the launcher version', () => {
 	const { version } = JSON.parse(
 		readFileSync(
-			new URL('../packages/my-pi/package.json', import.meta.url),
+			new URL('../../packages/my-pi/package.json', import.meta.url),
 			'utf8',
 		),
 	);
@@ -189,7 +192,10 @@ void test('the committed preview matches the launcher version', () => {
 		check_preview(
 			version,
 			fileURLToPath(
-				new URL('../assets/pi-package-preview.png', import.meta.url),
+				new URL(
+					'../../assets/pi-package-preview.png',
+					import.meta.url,
+				),
 			),
 		),
 		true,

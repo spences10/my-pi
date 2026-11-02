@@ -15,12 +15,12 @@ import {
 	check_preview,
 	generate_preview,
 	render_preview_svg,
-} from './generate-package-preview.ts';
-import { preview_options } from './package-preview-cli.ts';
+	preview_options,
+} from './generate.ts';
 import {
 	load_preview_config,
 	parse_preview_config,
-} from './package-preview-config.ts';
+} from './config.ts';
 
 const fixture = parse_preview_config({
 	model: 'gpt-6.1-sol',
@@ -35,7 +35,7 @@ const fixture = parse_preview_config({
 });
 
 const generator_path = fileURLToPath(
-	new URL('./generate-package-preview.ts', import.meta.url),
+	new URL('./generate.ts', import.meta.url),
 );
 
 function cli(args: string[]) {
@@ -293,8 +293,9 @@ void test('footer templates are literal data, XML is escaped, and Unicode rows s
 	assert.match(svg, /&lt;script&gt;not code&lt;\/script&gt;/);
 	assert.match(svg, /\$\(not-a-command\)/);
 	assert.doesNotMatch(svg, /<script>/);
+	const width = Number(svg.match(/<svg[^>]* width="(\d+)"/)![1]);
 	for (const [, x] of svg.matchAll(/<text x="([\d.]+)"/g)) {
-		assert.ok(Number(x) >= 18 && Number(x) < 1458);
+		assert.ok(Number(x) >= 18 && Number(x) < width - 18);
 	}
 });
 
@@ -358,7 +359,7 @@ void test('the real CLI creates custom output, checks read-only, and uses the pa
 	const metadata = readFileSync(`${output}.json`, 'utf8');
 	const { version } = JSON.parse(
 		readFileSync(
-			new URL('../packages/my-pi/package.json', import.meta.url),
+			new URL('../../packages/my-pi/package.json', import.meta.url),
 			'utf8',
 		),
 	);

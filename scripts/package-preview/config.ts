@@ -20,7 +20,7 @@ export interface PreviewConfig {
 }
 
 const default_config_path = new URL(
-	'../assets/pi-package-preview.config.json',
+	'../../assets/pi-package-preview.config.json',
 	import.meta.url,
 );
 
