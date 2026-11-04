@@ -13,9 +13,10 @@
 	} from 'phosphor-svelte';
 	import { Head, SchemaOrg } from 'svead';
 	import {
-		faq_lines,
+		get_faq_lines,
 		layer_packages,
 		package_groups,
+		package_managers,
 		page_schema,
 		seo_config,
 		stack_rows,
@@ -25,12 +26,16 @@
 
 	let { data } = $props();
 
+	let package_manager = $state<keyof typeof package_managers>('pnpm');
+	const launch_command = $derived(package_managers[package_manager]);
+	const faq_lines = $derived(get_faq_lines(launch_command));
+
 	const hero_copy = $derived({
 		logo_lines,
 		code: data.hero_code.lines,
 		code_path: data.hero_code.path,
 		stack: stack_tree,
-		prompt: 'pnpx my-pi@latest',
+		prompt: launch_command,
 		comment: '// a curated Pi distribution',
 		headline: 'Run Pi with project tools already connected.',
 		status: 'context, recall, and telemetry stay local',
@@ -65,7 +70,7 @@
 </script>
 
 <Head {seo_config} />
-<SchemaOrg schema={page_schema(data.version)} />
+<SchemaOrg schema={page_schema(data.version, launch_command)} />
 
 <svelte:head>
 	<meta property="og:image:type" content="image/png" />
@@ -98,7 +103,24 @@
 					Turn each one on or off with <code>/extensions</code>.
 				</p>
 
-				<CommandLine command="pnpx my-pi@latest" echo />
+				<div class="launch-command">
+					<fieldset class="package-manager">
+						<legend class="sr-only">Package manager</legend>
+						{#each Object.keys(package_managers) as manager (manager)}
+							<label>
+								<input
+									class="sr-only"
+									type="radio"
+									name="package-manager"
+									value={manager}
+									bind:group={package_manager}
+								/>
+								<span>{manager === 'bun' ? 'Bun' : manager}</span>
+							</label>
+						{/each}
+					</fieldset>
+					<CommandLine command={launch_command} echo />
+				</div>
 
 				<nav class="links" aria-label="Project links">
 					<a href="https://github.com/spences10/my-pi">
@@ -117,8 +139,9 @@
 							<button
 								type="button"
 								aria-pressed={selected_layer === layer}
-								class:dimmed={selected_layer &&
-									selected_layer !== layer}
+								class={{
+									dimmed: selected_layer && selected_layer !== layer,
+								}}
 								onclick={() =>
 									(selected_layer =
 										selected_layer === layer ? undefined : layer)}
@@ -211,10 +234,11 @@
 						Choose this when you want every extension built in. Turn
 						any of them off with <code>/extensions</code>.
 					</p>
-					<CommandLine command="pnpx my-pi@latest" />
+					<CommandLine command={launch_command} />
 					<small>
-						Also works with npx or bunx. Do not use
-						<code>pi install</code>.
+						Runs the latest release without a global install. Do not
+						use
+						<code>pi install</code> for the distribution.
 					</small>
 				</div>
 				<div class="install-option">
@@ -224,9 +248,9 @@
 						extension from this repository.
 					</p>
 					<CommandLine command="pi install npm:@spences10/pi-lsp" />
-					<a href="#packages"
-						>View all {package_count} installable packages</a
-					>
+					<a href="#packages">
+						View all {package_count} installable packages
+					</a>
 				</div>
 			</div>
 		</section>
@@ -256,7 +280,7 @@
 							{#each group.packages as [name, description] (name)}
 								<li
 									id={`pkg-${name}`}
-									class:marked={selected_packages.includes(name)}
+									class={{ marked: selected_packages.includes(name) }}
 									style:--mark={selected_color}
 								>
 									<a
@@ -308,7 +332,7 @@
 				Run the full setup. Or install only what you need.
 			</h2>
 			<div class="closing-line">
-				<CommandLine command="pnpx my-pi@latest" echo />
+				<CommandLine command={launch_command} echo />
 				<a href="https://github.com/spences10/my-pi">
 					<GithubLogoIcon aria-hidden="true" /> Open the GitHub repository
 				</a>
@@ -327,6 +351,45 @@
 </footer>
 
 <style>
+	.launch-command {
+		display: grid;
+		gap: 0.6rem;
+		width: fit-content;
+		max-width: 100%;
+	}
+
+	.package-manager {
+		display: flex;
+		gap: 0.25rem;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		font-size: 0.75rem;
+	}
+
+	.package-manager span {
+		display: block;
+		padding: 0.35rem 0.75rem;
+		border: 1px solid transparent;
+		color: var(--afterglow-text-muted);
+		cursor: pointer;
+	}
+
+	.package-manager input:checked + span {
+		border-color: var(--afterglow-border);
+		background: var(--afterglow-background);
+		color: var(--afterglow-terminal-green);
+	}
+
+	.package-manager label:hover span {
+		color: var(--afterglow-terminal-green);
+	}
+
+	.package-manager input:focus-visible + span {
+		outline: 2px solid var(--afterglow-terminal-cyan);
+		outline-offset: 2px;
+	}
+
 	:global(html) {
 		scroll-behavior: smooth;
 	}

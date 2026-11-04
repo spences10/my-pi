@@ -194,36 +194,47 @@ export const support_packages = [
 	'pi-tui-modal',
 ] as const;
 
-export const faq_lines = [
+export const package_managers = {
+	pnpm: 'pnpx my-pi@latest',
+	npm: 'npx my-pi@latest',
+	bun: 'bunx my-pi@latest',
+} as const;
+
+export const get_faq_lines = (
+	launch_command: string = package_managers.pnpm,
+) =>
 	[
-		'Is my-pi a replacement for Pi?',
-		'No. Pi is the underlying coding-agent CLI and SDK. my-pi runs Pi with a selected set of extensions and defaults already configured.',
-	],
-	[
-		'How do I run the full distribution?',
-		'Run pnpx my-pi@latest (or npx/bunx). It runs upstream Pi with every extension in this repository built in; do not install it with pi install.',
-	],
-	[
-		'How do I turn an extension off?',
-		'Run /extensions inside my-pi. The choice is saved in ~/.pi/agent/my-pi-settings.json and applies on reload.',
-	],
-	[
-		'Where are MCP, skills, and models?',
-		'They are upstream Pi features. Every Pi option and subcommand, including my-pi config and my-pi install, works in my-pi.',
-	],
-	[
-		'Can I use the packages without my-pi?',
-		'Yes. The user-installable @spences10/pi-* extensions can be installed independently. For example: pi install npm:@spences10/pi-lsp.',
-	],
-	[
-		'Are all published packages direct installs?',
-		'No. Packages such as pi-settings, pi-project-trust, pi-sqlite-core, and pi-tui-modal are shared implementation dependencies. The installable package list separates them from direct-install extensions.',
-	],
-	[
-		'Where is the configuration reference?',
-		'Each package README is the source of truth for its commands, configuration, runtime behavior, and local-development instructions.',
-	],
-] as const;
+		[
+			'Is my-pi a replacement for Pi?',
+			'No. Pi is the underlying coding-agent CLI and SDK. my-pi runs Pi with a selected set of extensions and defaults already configured.',
+		],
+		[
+			'How do I run the full distribution?',
+			`Run ${launch_command}. It runs upstream Pi with every extension in this repository built in; do not install it with pi install.`,
+		],
+		[
+			'How do I turn an extension off?',
+			'Run /extensions inside my-pi. The choice is saved in ~/.pi/agent/my-pi-settings.json and applies on reload.',
+		],
+		[
+			'Where are MCP, skills, and models?',
+			'They are upstream Pi features. Every Pi option and subcommand, including my-pi config and my-pi install, works in my-pi.',
+		],
+		[
+			'Can I use the packages without my-pi?',
+			'Yes. The user-installable @spences10/pi-* extensions can be installed independently. For example: pi install npm:@spences10/pi-lsp.',
+		],
+		[
+			'Are all published packages direct installs?',
+			'No. Packages such as pi-settings, pi-project-trust, pi-sqlite-core, and pi-tui-modal are shared implementation dependencies. The installable package list separates them from direct-install extensions.',
+		],
+		[
+			'Where is the configuration reference?',
+			'Each package README is the source of truth for its commands, configuration, runtime behavior, and local-development instructions.',
+		],
+	] as const;
+
+export const faq_lines = get_faq_lines();
 
 const author = {
 	'@type': 'Person',
@@ -234,6 +245,7 @@ const author = {
 // `version` is the published npm version, or null when it is not known.
 export const page_schema = (
 	version: string | null,
+	launch_command: string = package_managers.pnpm,
 ): SchemaOrgProps['schema'] => [
 	{
 		'@type': 'WebSite',
@@ -268,10 +280,12 @@ export const page_schema = (
 	},
 	{
 		'@type': 'FAQPage',
-		mainEntity: faq_lines.map(([question, answer]) => ({
-			'@type': 'Question',
-			name: question,
-			acceptedAnswer: { '@type': 'Answer', text: answer },
-		})),
+		mainEntity: get_faq_lines(launch_command).map(
+			([question, answer]) => ({
+				'@type': 'Question',
+				name: question,
+				acceptedAnswer: { '@type': 'Answer', text: answer },
+			}),
+		),
 	},
 ];
