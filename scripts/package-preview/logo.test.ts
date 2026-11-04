@@ -13,19 +13,19 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-void test('the published logo entrypoint works without a CLI build', (t) => {
+void test('the published logo entrypoint works with only the compiled logo artifacts', (t) => {
 	const dir = mkdtempSync(join(tmpdir(), 'my-pi-logo-'));
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
 	const source = fileURLToPath(
 		new URL('../../packages/my-pi/', import.meta.url),
 	);
 	const target = join(dir, 'node_modules', 'my-pi');
-	mkdirSync(target, { recursive: true });
+	mkdirSync(join(target, 'dist'), { recursive: true });
 	const manifest = JSON.parse(
 		readFileSync(join(source, 'package.json'), 'utf8'),
 	) as { files: string[] };
-	for (const file of ['logo.js', 'logo.d.ts']) {
-		assert.ok(manifest.files.includes(file));
+	assert.ok(manifest.files.includes('dist'));
+	for (const file of ['dist/logo.js', 'dist/logo.d.ts']) {
 		copyFileSync(join(source, file), join(target, file));
 	}
 	copyFileSync(
@@ -38,11 +38,13 @@ void test('the published logo entrypoint works without a CLI build', (t) => {
 			'--input-type=module',
 			'--eval',
 			`import { logo_lines } from 'my-pi/logo';
-			 console.log(JSON.stringify(logo_lines));`,
+			 console.log(JSON.stringify({ lines: logo_lines, frozen: Object.isFrozen(logo_lines) }));`,
 		],
 		{ cwd: dir, encoding: 'utf8' },
 	);
 	assert.equal(result.status, 0, result.stderr);
-	assert.deepEqual(JSON.parse(result.stdout), logo_lines);
-	assert.equal(Object.isFrozen(logo_lines), true);
+	assert.deepEqual(JSON.parse(result.stdout), {
+		lines: logo_lines,
+		frozen: true,
+	});
 });

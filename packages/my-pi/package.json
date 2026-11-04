@@ -24,16 +24,14 @@
 	},
 	"files": [
 		"dist",
-		"logo.js",
-		"logo.d.ts",
 		"README.md",
 		"CHANGELOG.md"
 	],
 	"type": "module",
 	"exports": {
 		"./logo": {
-			"types": "./logo.d.ts",
-			"import": "./logo.js"
+			"types": "./dist/logo.d.ts",
+			"import": "./dist/logo.js"
 		}
 	},
 	"publishConfig": {

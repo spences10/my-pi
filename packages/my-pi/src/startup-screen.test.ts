@@ -9,7 +9,7 @@ import {
 } from '@earendil-works/pi-tui';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { logo_lines } from 'my-pi/logo';
+import { logo_lines } from './logo.js';
 import startup_screen, { render_splash } from './startup-screen.js';
 
 type HeaderFactory = NonNullable<

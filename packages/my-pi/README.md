@@ -46,8 +46,10 @@ Re-enable it with `/extensions enable startup-screen`. Disabling the
 extension returns control to Pi's normal startup-header settings.
 
 The shared logo lines are available as `logo_lines` from `my-pi/logo`.
-This entrypoint contains only static data and works without building
-the CLI, so preview tooling can use the same logo as the splash.
+Its source lives in `src/logo.ts`; the package exports the generated
+JavaScript and declarations from `dist/`. Preview commands run the
+normal launcher build first, so they also work from a fresh checkout
+without a separate logo build configuration.
 
 ## Session conveniences and tool guidance
 

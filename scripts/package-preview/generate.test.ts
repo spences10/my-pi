@@ -179,6 +179,16 @@ void test('release and validation scripts retain preview generation and checks',
 	assert.match(scripts.check, /pnpm run preview:check/);
 	assert.match(scripts.build, /pnpm run preview:check/);
 	assert.match(scripts.test, /pnpm run test:preview/);
+	for (const command of [
+		'preview:generate',
+		'preview:check',
+		'test:preview',
+	]) {
+		assert.match(
+			scripts[command],
+			/^pnpm --filter my-pi run build && node /,
+		);
+	}
 });
 
 void test('the committed preview matches the launcher version', () => {
