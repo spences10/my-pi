@@ -22,6 +22,10 @@ import {
 import { format_coordination_identity } from './coordination-formatting.js';
 import { CoordinationPoller } from './coordination-poller.js';
 import { TeamDatabase } from './db/index.js';
+import {
+	render_peer_message,
+	team_tool_renderers,
+} from './rendering.js';
 import { get_startup_coordination_retention_ms } from './retention.js';
 import { register_session_name_sync } from './session-name-sync.js';
 import {
@@ -115,6 +119,10 @@ export async function send_peer_workflow_feedback(input: {
 export default async function team_mode(pi: ExtensionAPI) {
 	const coordination_db = await TeamDatabase.open(
 		get_coordination_db_path(),
+	);
+	pi.registerMessageRenderer(
+		'team-mode-peer-message',
+		render_peer_message,
 	);
 	let own_session_id: string | undefined;
 	let current_cwd: string | undefined;
@@ -321,6 +329,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 		promptSnippet:
 			'Manage peer sessions, coordination groups, artifacts, and messages',
 		parameters: TeamToolParams,
+		...team_tool_renderers,
 		async execute(
 			_toolCallId,
 			params: TeamToolParamsType,

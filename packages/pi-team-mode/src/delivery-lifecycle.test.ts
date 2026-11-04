@@ -78,6 +78,7 @@ async function setup(reconcile = false) {
 		getActiveTools: () => ['team'],
 		registerCommand: vi.fn(),
 		registerTool: vi.fn(),
+		registerMessageRenderer: vi.fn(),
 		sendMessage: vi.fn(),
 	};
 	const emit = async (name: string, event: unknown = {}) =>
@@ -104,6 +105,16 @@ describe('upstream Team Mode lifecycle integration', () => {
 	it('uses actual idle state rather than agent_end to gate automatic delivery', async () => {
 		const { send, isIdle, pi, handlers } = await setup();
 		expect(handlers.has('agent_end')).toBe(false);
+		expect(pi.registerMessageRenderer).toHaveBeenCalledWith(
+			'team-mode-peer-message',
+			expect.any(Function),
+		);
+		expect(pi.registerTool).toHaveBeenCalledWith(
+			expect.objectContaining({
+				renderCall: expect.any(Function),
+				renderResult: expect.any(Function),
+			}),
+		);
 		isIdle.mockReturnValue(false);
 		send();
 		vi.advanceTimersByTime(1000);

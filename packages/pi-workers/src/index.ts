@@ -9,6 +9,10 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { Type } from 'typebox';
 import { worker_snapshot } from './diagnostics.js';
 import { child_env, WorkerManager } from './manager.js';
+import {
+	render_worker_report,
+	worker_tool_renderers,
+} from './rendering.js';
 import { show_workers } from './tui.js';
 
 export {
@@ -110,6 +114,10 @@ const guidance = `Local RPC workers:
 
 export default function workers(pi: ExtensionAPI) {
 	if (process.env[child_env] === '1') return;
+	pi.registerMessageRenderer(
+		'rpc-worker-report',
+		render_worker_report,
+	);
 	let manager: WorkerManager | undefined;
 	let context: ExtensionContext | undefined;
 	let ui_chain = Promise.resolve();
@@ -236,6 +244,7 @@ export default function workers(pi: ExtensionAPI) {
 		description:
 			'Manage local owned RPC workers. Actions: spawn (name, task, absolute cwd, optional model), list, send (worker, message, optional queue), stop (worker). Spawn is background; completion arrives as a peer report. Only owned workers can be stopped. Use Team Mode for independent sessions.',
 		parameters,
+		...worker_tool_renderers,
 		async execute(_call_id, args, signal, _on_update, ctx) {
 			if (!manager) throw new Error('Workers are not initialized');
 			signal?.throwIfAborted();

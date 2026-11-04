@@ -57,6 +57,14 @@ failure report arrives as a follow-up message. Full output remains in
 the saved worker session. Workers remain idle for follow-ups until
 explicitly stopped or their parent session ends.
 
+In the terminal, worker reports show a single-line name, outcome and
+result/error preview. Worker tool calls and results are also compact.
+Use Pi's expand/collapse shortcut (`Ctrl+O` by default) for full
+report content, worker details and tool arguments/results. This only
+changes presentation; model input, saved reports and completion timing
+stay the same. Reports remain bounded; full output is in the worker's
+saved session.
+
 Human controls:
 
 ```text

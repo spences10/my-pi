@@ -60,6 +60,7 @@ function setup(
 	const select = vi.fn(async () => undefined);
 	const notify = vi.fn();
 	const send_message = vi.fn();
+	const register_message_renderer = vi.fn();
 	const active_tools = ['workers'];
 	const pi = {
 		on: (name: string, handler: Function) =>
@@ -71,6 +72,7 @@ function setup(
 		getActiveTools: () => active_tools,
 		getThinkingLevel: () => 'high',
 		sendMessage: send_message,
+		registerMessageRenderer: register_message_renderer,
 	} as unknown as ExtensionAPI;
 	const ctx = {
 		mode,
@@ -93,12 +95,27 @@ function setup(
 		select,
 		notify,
 		send_message,
+		register_message_renderer,
 		ctx,
 		active_tools,
 	};
 }
 
 describe('worker extension', () => {
+	it('registers compact message and tool renderers', () => {
+		const { register_message_renderer, tools } = setup();
+		expect(register_message_renderer).toHaveBeenCalledWith(
+			'rpc-worker-report',
+			expect.any(Function),
+		);
+		expect(tools.get('workers')).toEqual(
+			expect.objectContaining({
+				renderCall: expect.any(Function),
+				renderResult: expect.any(Function),
+			}),
+		);
+	});
+
 	it('opens the worker manager only for a bare terminal command', async () => {
 		const { commands, ctx, notify } = setup();
 		await commands.get('workers')!.handler('', ctx);

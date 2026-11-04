@@ -71,6 +71,14 @@ authority rules live in the named system-prompt section rather than
 being repeated in every delivery. Automatic delivery requires the
 `team` tool to be active.
 
+In the terminal, peer deliveries use a single-line preview showing the
+sender, message type and body preview. Team tool calls and results are
+also compact. Use Pi's expand/collapse shortcut (`Ctrl+O` by default)
+to show the full delivered content and tool arguments/results. This
+only changes presentation: model input, mailbox bodies, provenance,
+receipts and delivery behavior are unchanged. Expansion does not fetch
+omitted mailbox text; use the retrieval instructions for full bodies.
+
 Automatic deliveries include only a bounded message-body preview. The
 mailbox remains the full-text source: use a focused `message_id` with
 `mode=full` to retrieve the body. Add `include_read: true` only for an
