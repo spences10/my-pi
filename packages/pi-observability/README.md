@@ -100,7 +100,10 @@ token only in the `Authorization` header. The dashboard includes:
     "Failures only" and "Next failure" find them. Selecting a span
     opens a drawer with its full input, error output, exit code,
     tokens, cost, and the raw events, and puts the span in the URL
-    (`&span=<id>`).
+    (`&span=<id>`). Model calls show the requested model and, when the
+    provider reports it, the actual responding model. Routed calls are
+    labeled `requested → responding` in the trace; both IDs stay
+    available in the span drawer.
   - **Turns**, **Tools**, **Events** (searchable, with a JSON payload
     drawer), and **Context** (cwd, session file, model, reasoning
     settings, and initial prompts).
@@ -184,9 +187,13 @@ Some events are reduced before they are sent:
 - `provider_request` stores the request `instructions` (the system
   prompt) as a fingerprint (`length` and a 16-character `sha256`
   prefix). The `agent_start` event keeps the prompt preview.
-- Message summaries keep `role`, `stopReason`, `errorMessage`,
-  `durationMs`, and `thinkingLevel`, so provider latency and errors
-  are available without the message content.
+- Detailed message summaries keep `role`, `stopReason`,
+  `errorMessage`, `durationMs`, and `thinkingLevel`, so provider
+  latency and errors are available without the message content. Both
+  summary modes keep the requested `model` and provider-reported
+  `responseModel` IDs. Older events and providers without
+  `responseModel` continue to show only the requested model; the
+  dashboard does not infer a response ID.
 
 `provider_response` depends on the provider transport. Pi emits
 `after_provider_response` only for HTTP responses. The `openai-codex`

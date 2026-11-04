@@ -21,7 +21,8 @@
 	"files": [
 		"dist",
 		"skills",
-		"README.md"
+		"README.md",
+		"CHANGELOG.md"
 	],
 	"type": "module",
 	"main": "./dist/index.js",

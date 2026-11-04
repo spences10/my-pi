@@ -13,9 +13,72 @@ function restore_home() {
 	else process.env.HOME = original_home;
 }
 
+function cost_model(
+	flags: (boolean | undefined)[],
+	subscription = false,
+) {
+	const entries = flags.map((flag, index) => {
+		const usage = {
+			input: 1,
+			output: 1,
+			cacheRead: 0,
+			cacheWrite: 0,
+			cost: { total: 0.1, totalFromProvider: flag },
+		};
+		return index < 2
+			? {
+					type: 'message',
+					message: {
+						role: index === 0 ? 'assistant' : 'toolResult',
+						usage,
+					},
+				}
+			: {
+					type: index === 2 ? 'compaction' : 'branch_summary',
+					usage,
+				};
+	});
+	return build_footer_model(
+		make_context({
+			sessionManager: {
+				getEntries: () => entries,
+				getSessionName: () => undefined,
+			},
+			modelRegistry: { isUsingOAuth: () => subscription },
+		}),
+		make_footer_data(),
+		test_theme,
+	);
+}
+
 describe('build_footer_model', () => {
 	afterEach(() => {
 		restore_home();
+	});
+
+	it.each([
+		{ flags: [true, true, true, true], text: '$0.400 (reported)' },
+		{ flags: [false, false, false, false], text: '$0.400 (est)' },
+		{
+			flags: [undefined, undefined, undefined, undefined],
+			text: '$0.400 (est)',
+		},
+		{ flags: [true, false, true, true], text: '$0.400 (mixed)' },
+		{ flags: [true, true, undefined, true], text: '$0.400 (mixed)' },
+		{ flags: [true, true, true, false], text: '$0.400 (mixed)' },
+	])('labels aggregate cost as $text', ({ flags, text }) => {
+		expect(cost_model(flags).cost_text).toBe(text);
+	});
+
+	it('keeps subscription status separate from cost provenance', () => {
+		expect(cost_model([true, undefined], true).cost_text).toBe(
+			'$0.200 (mixed) (sub)',
+		);
+	});
+
+	it('does not invent provenance before any usage is recorded', () => {
+		expect(cost_model([]).cost_text).toBeUndefined();
+		expect(cost_model([], true).cost_text).toBe('$0.000 (sub)');
 	});
 
 	it('builds path, stats, model, and status data', () => {
@@ -91,7 +154,7 @@ describe('build_footer_model', () => {
 		expect(model.token_parts).toEqual(
 			expect.arrayContaining(['↑1.5k', '↓3.7k', 'R800', 'W400']),
 		);
-		expect(model.cost_text).toBe('$0.203');
+		expect(model.cost_text).toBe('$0.203 (est)');
 		expect(model.model_text).toContain('claude-sonnet');
 		expect(model.preset_status).toBe('prompt:terse');
 		expect(model.statuses.get('mcp')).toBe('MCP 6/6 connected');

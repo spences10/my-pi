@@ -229,6 +229,7 @@ export function build_timeline(
 					row,
 					turn ?? ensure_run(row),
 				);
+				model.requested_model = row.model ?? undefined;
 				break;
 			}
 			case 'message_end': {
@@ -237,6 +238,19 @@ export function build_timeline(
 					| undefined;
 				if (!is_assistant_message(message) || !model?.open) break;
 				close(model, row);
+				const requested =
+					typeof message?.model === 'string'
+						? message.model
+						: model.requested_model;
+				const response =
+					typeof message?.responseModel === 'string'
+						? message.responseModel
+						: undefined;
+				model.requested_model = requested || model.requested_model;
+				model.response_model = response || undefined;
+				model.name = model.requested_model ?? model.name;
+				if (response && response !== model.requested_model)
+					model.name = `${model.name} → ${response}`;
 				model.detail = row.stop_reason;
 				model.error = row.stop_reason === 'error';
 				model.error_text = row.error_text;

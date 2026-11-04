@@ -20,7 +20,8 @@
 	"files": [
 		"dist",
 		"docs",
-		"README.md"
+		"README.md",
+		"CHANGELOG.md"
 	],
 	"type": "module",
 	"exports": {

@@ -39,7 +39,13 @@ Token and cost widgets follow Pi's canonical session accounting:
 assistant responses, nested LLM usage returned by tools, compaction
 summaries, and branch summaries are each counted once. Context
 percentage remains Pi's active-model context usage and is separate
-from these cumulative billed totals.
+from these cumulative cost totals.
+
+Costs are labeled `(reported)` only when every included usage record
+has Pi's `cost.totalFromProvider: true`. Missing or false flags are
+estimates, labeled `(est)`; combining reported and estimated records
+produces `(mixed)`. The existing `(sub)` marker separately identifies
+an OAuth subscription, not billed dollars or cost provenance.
 
 ## Library API
 

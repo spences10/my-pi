@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { derive_event_columns } from './event-columns.js';
+import { summarize_payload } from './index.js';
 import { build_timeline, type TimelineEventRow } from './timeline.js';
 
 let seq = 0;
@@ -38,6 +39,95 @@ describe('build_timeline', () => {
 			end_ms: 0,
 			runs: [],
 		});
+	});
+
+	it.each(['summary', 'detailed'] as const)(
+		'shows model routing from %s events without replacing the requested ID',
+		(detail_level) => {
+			seq = 0;
+			const payload = summarize_payload(
+				{
+					message: {
+						role: 'assistant',
+						model: 'virtual-model',
+						responseModel: 'concrete-model',
+						stopReason: 'stop',
+					},
+				},
+				detail_level,
+			) as Record<string, unknown>;
+			const timeline = build_timeline([
+				row(0, 'agent_start'),
+				row(0, 'turn_start'),
+				{ ...row(1, 'provider_request'), model: 'virtual-model' },
+				row(2, 'message_end', payload),
+				row(3, 'turn_end'),
+				row(3, 'agent_end'),
+			]);
+			expect(
+				timeline.runs[0]!.children[0]!.children[0],
+			).toMatchObject({
+				name: 'virtual-model → concrete-model',
+				requested_model: 'virtual-model',
+				response_model: 'concrete-model',
+				open: false,
+			});
+		},
+	);
+
+	it.each([undefined, '', 42, 'gpt-test'])(
+		'does not duplicate labels or invent missing responding models (%s)',
+		(response_model) => {
+			const timeline = build_timeline([
+				row(0, 'provider_request'),
+				row(1, 'message_end', {
+					message: {
+						role: 'assistant',
+						model: 'gpt-test',
+						responseModel: response_model,
+						stopReason: 'stop',
+					},
+				}),
+			]);
+			const model = timeline.runs[0]!.children[0]!;
+			expect(model.name).toBe('gpt-test');
+			expect(model.requested_model).toBe('gpt-test');
+			expect(model.response_model).toBe(
+				response_model === 'gpt-test' ? 'gpt-test' : undefined,
+			);
+		},
+	);
+
+	it('keeps responding models on their own calls across model changes', () => {
+		const timeline = build_timeline([
+			row(0, 'provider_request'),
+			row(1, 'message_end', {
+				message: {
+					role: 'assistant',
+					model: 'gpt-test',
+					responseModel: 'actual-first',
+					stopReason: 'stop',
+				},
+			}),
+			{ ...row(2, 'provider_request'), model: 'second' },
+			row(3, 'message_end', {
+				message: {
+					role: 'assistant',
+					model: 'second',
+					stopReason: 'stop',
+				},
+			}),
+		]);
+		const [first, second] = timeline.runs[0]!.children;
+		expect(first).toMatchObject({
+			requested_model: 'gpt-test',
+			response_model: 'actual-first',
+		});
+		expect(second).toMatchObject({
+			requested_model: 'second',
+			name: 'second',
+		});
+		expect(second!.response_model).toBeUndefined();
 	});
 
 	it('nests runs, turns, model calls, and tool calls with failures', () => {

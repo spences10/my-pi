@@ -40,6 +40,8 @@ export function build_footer_model(
 	let total_cache_read = 0;
 	let total_cache_write = 0;
 	let total_cost = 0;
+	let has_reported_cost = false;
+	let has_estimated_cost = false;
 	for (const entry of ctx.sessionManager.getEntries()) {
 		const usage =
 			entry.type === 'message'
@@ -57,6 +59,9 @@ export function build_footer_model(
 		total_cache_read += usage.cacheRead;
 		total_cache_write += usage.cacheWrite;
 		total_cost += usage.cost.total;
+		if (usage.cost.totalFromProvider === true)
+			has_reported_cost = true;
+		else has_estimated_cost = true;
 	}
 
 	const context_usage = ctx.getContextUsage();
@@ -93,9 +98,16 @@ export function build_footer_model(
 	const using_subscription = ctx.model
 		? ctx.modelRegistry.isUsingOAuth(ctx.model)
 		: false;
+	const cost_kind = has_reported_cost
+		? has_estimated_cost
+			? 'mixed'
+			: 'reported'
+		: has_estimated_cost
+			? 'est'
+			: undefined;
 	const cost_text =
 		total_cost || using_subscription
-			? `$${total_cost.toFixed(3)}${using_subscription ? ' (sub)' : ''}`
+			? `$${total_cost.toFixed(3)}${cost_kind ? ` (${cost_kind})` : ''}${using_subscription ? ' (sub)' : ''}`
 			: undefined;
 
 	const context_percent_display =

@@ -4,7 +4,8 @@
 	"description": "Shared my-pi settings store",
 	"files": [
 		"dist",
-		"README.md"
+		"README.md",
+		"CHANGELOG.md"
 	],
 	"type": "module",
 	"main": "./dist/index.js",

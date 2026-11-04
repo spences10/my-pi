@@ -217,6 +217,9 @@ export interface TimelineSpan {
 	name: string;
 	/** Tool: command, path, or query. Model: stop reason. */
 	detail: string | null;
+	/** Model spans preserve the requested ID separately from provider routing. */
+	requested_model?: string;
+	response_model?: string;
 	start_ts: string;
 	start_ms: number;
 	end_ms: number;

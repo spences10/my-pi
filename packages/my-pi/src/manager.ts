@@ -3,7 +3,9 @@ import type {
 	ExtensionCommandContext,
 } from '@earendil-works/pi-coding-agent';
 import { show_settings_modal } from '@spences10/pi-tui-modal';
+import { readFileSync } from 'node:fs';
 import { EXTENSIONS, type MyPiExtension } from './extensions.js';
+import { notify_release_update } from './release-notes.js';
 import { is_enabled, set_enabled } from './settings.js';
 
 const ENABLED = '● enabled';
@@ -54,6 +56,12 @@ async function show_manager(
 }
 
 export default function extensions_manager(pi: ExtensionAPI): void {
+	const { version } = JSON.parse(
+		readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+	) as { version: string };
+	pi.on('session_start', (event, ctx) =>
+		notify_release_update(version, event, ctx),
+	);
 	pi.registerCommand('extensions', {
 		description: 'Turn my-pi extensions on or off',
 		getArgumentCompletions: (prefix) => {

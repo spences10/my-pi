@@ -81,5 +81,20 @@ All three are enabled by default and individually switchable below.
 Changes save to `~/.pi/agent/my-pi-settings.json` and apply on reload.
 Themes apply on the next start.
 
+## Release notes after updates
+
+On the next fresh interactive launch after an upgrade, my-pi shows a
+single update notice linking to its release notes. The first launch
+records the version without notifying. Reloading, continuing a
+conversation, and print/JSON/RPC modes leave the notice pending.
+Launcher notices use Pi's changelog-version storage, not a separate
+state file.
+
+Individually installed extensions ship `CHANGELOG.md`, so Pi shows
+newer entries under **Extension Updates**. Pi's `collapseChangelog`
+setting condenses those native package notices. Bundled extensions
+load as inline factories, which do not carry native package changelog
+metadata; the launcher's linked notice covers the my-pi release.
+
 Everything else (MCP, skills, models, sessions, `my-pi config`,
 `my-pi install`) is upstream Pi: every Pi option and subcommand works.

@@ -1,8 +1,6 @@
 <script lang="ts">
 	import type { DashboardEvent } from '#lib/api.js';
 	import CodeBlock from '#lib/components/code-block.svelte';
-	import { slide_open } from '#lib/motion.js';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import CopyButton from '#lib/components/copy-button.svelte';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import * as Collapsible from '#lib/components/ui/collapsible/index.js';
@@ -15,6 +13,8 @@
 		number_crunch,
 		tool_label,
 	} from '#lib/format.js';
+	import { slide_open } from '#lib/motion.js';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import type { TimelineSpan } from '../../../../../types';
 
 	let {
@@ -75,6 +75,12 @@
 					: duration(span.duration_ms),
 			],
 		];
+		if (span.kind === 'model') {
+			if (span.requested_model)
+				items.push(['Requested model', span.requested_model]);
+			if (span.response_model)
+				items.push(['Responding model', span.response_model]);
+		}
 		if (span.exit_code != null)
 			items.push(['Exit code', String(span.exit_code)]);
 		if (span.update_count != null)
@@ -129,7 +135,7 @@
 					>
 						{#each facts as [label, value] (label)}
 							<dt class="text-muted-foreground">{label}</dt>
-							<dd class="tabular-nums">{value}</dd>
+							<dd class="break-all tabular-nums">{value}</dd>
 						{/each}
 					</dl>
 

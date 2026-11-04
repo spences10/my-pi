@@ -17,7 +17,8 @@
 	},
 	"files": [
 		"themes",
-		"README.md"
+		"README.md",
+		"CHANGELOG.md"
 	],
 	"scripts": {
 		"build": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run build:self",

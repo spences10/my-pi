@@ -322,6 +322,47 @@ describe('payload safety', () => {
 		});
 	});
 
+	it.each(['summary', 'detailed'] as const)(
+		'preserves requested and responding models in %s messages',
+		(detail_level) => {
+			expect(
+				summarize_payload(
+					{
+						message: {
+							role: 'assistant',
+							model: 'virtual-model',
+							responseModel: 'concrete-model',
+							stopReason: 'stop',
+							content: [{ type: 'text', text: 'private content' }],
+						},
+					},
+					detail_level,
+				),
+			).toMatchObject({
+				message: {
+					model: 'virtual-model',
+					responseModel: 'concrete-model',
+				},
+			});
+		},
+	);
+
+	it('bounds responding model metadata without keeping arbitrary nested values', () => {
+		const summary = summarize_payload(
+			{ message: { responseModel: 'x'.repeat(600) } },
+			'summary',
+		);
+		expect(summary).toMatchObject({
+			message: { responseModel: `${'x'.repeat(500)}…` },
+		});
+		expect(
+			summarize_payload(
+				{ message: { responseModel: { secret: 'hidden' } } },
+				'summary',
+			),
+		).not.toHaveProperty('message.responseModel');
+	});
+
 	it('preserves usage and cost metrics inside summarized messages', () => {
 		expect(
 			summarize_payload({

@@ -186,6 +186,7 @@ function detailed_object_summary(
 		} else if (
 			[
 				'model',
+				'responseModel',
 				'provider',
 				'reasoning',
 				'text',
@@ -313,6 +314,14 @@ export function summarize_payload(
 								: {}),
 						}
 					: detailed_object_summary(key, nested);
+			if (key === 'message' && detail_level === 'summary') {
+				const message = summary[key] as Record<string, unknown>;
+				for (const field of ['model', 'responseModel']) {
+					const identifier = nested[field];
+					if (typeof identifier === 'string')
+						message[field] = summarize_text(identifier, 500);
+				}
+			}
 		} else {
 			summary[key] = value;
 		}
