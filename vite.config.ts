@@ -34,8 +34,10 @@ export default defineConfig({
 		],
 	},
 	lint: {
+		jsPlugins: ['./tools/lint-rules.ts'],
 		rules: {
 			'typescript/no-explicit-any': 'error',
+			'my-pi/no-nested-ternary': 'error',
 		},
 		ignorePatterns: [
 			'.svelte-kit/**',

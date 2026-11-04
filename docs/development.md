@@ -60,7 +60,8 @@ The [root scripts](../package.json) provide:
 | --------------------------- | ------------------------------------------------------------------------------------ |
 | `pnpm run docs:check`       | Generated README regions and local Markdown links                                    |
 | `pnpm run check`            | Docs checks, package builds, Vite+ checks, import boundaries, and package typechecks |
-| `pnpm run test`             | Package builds and package test suites                                               |
+| `pnpm run test`             | Lint rule tests, package builds and package test suites                              |
+| `pnpm run test:lint`        | Custom lint rule regression tests                                                    |
 | `pnpm run check:boundaries` | Cross-package import checks                                                          |
 | `pnpm run eval:suite`       | Smoke eval runner                                                                    |
 | `pnpm run coverage`         | Package builds and coverage-enabled tests                                            |
@@ -76,6 +77,21 @@ The [CI workflow](../.github/workflows/ci.yml) runs root checks,
 tests, builds, smoke evals, and launcher help. The website has
 [its own workflow](../.github/workflows/web.yml) and
 [development instructions](../apps/web/README.md).
+
+## Ternary expressions
+
+The `my-pi/no-nested-ternary` rule in
+[tools/lint-rules.ts](../tools/lint-rules.ts) runs through Vite+ lint
+and `pnpm run check`. A ternary cannot contain another ternary in its
+condition or branches, even through objects, arrays, calls or template
+strings. Function boundaries reset nesting, and independent sibling
+ternaries are allowed. Each offending outer expression is reported
+once. Prefer explicit if/return branches or a helper function.
+
+The rule follows the lint scope in
+[vite.config.ts](../vite.config.ts). Svelte script blocks are linted,
+not template expressions; `apps/web/` is currently excluded from root
+linting.
 
 ## Common development loops
 
