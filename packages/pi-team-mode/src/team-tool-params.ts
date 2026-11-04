@@ -1,5 +1,5 @@
-import { StringEnum, type TSchema } from '@earendil-works/pi-ai';
-import { Type } from 'typebox';
+import { StringEnum } from '@earendil-works/pi-ai';
+import { Type, type TSchema } from 'typebox';
 import { MAX_TEAM_LIST_LIMIT } from './pagination.js';
 
 export type TeamUiMode = 'auto' | 'compact' | 'full' | 'off';
