@@ -140,16 +140,17 @@ export function context_settings_from_preset(
 export function load_context_settings_config(): ContextSettingsConfig | null {
 	const path = get_context_settings_config_path();
 	try {
-		const parsed = (
-			process.env.MY_PI_CONTEXT_CONFIG
-				? existsSync(path)
-					? JSON.parse(readFileSync(path, 'utf-8'))
-					: null
-				: read_package_settings<Partial<ContextSettingsConfig> | null>(
-						'context',
-						null,
-					)
-		) as Partial<ContextSettingsConfig> | null;
+		let parsed: Partial<ContextSettingsConfig> | null;
+		if (process.env.MY_PI_CONTEXT_CONFIG)
+			parsed = existsSync(path)
+				? JSON.parse(readFileSync(path, 'utf-8'))
+				: null;
+		else
+			parsed =
+				read_package_settings<Partial<ContextSettingsConfig> | null>(
+					'context',
+					null,
+				);
 		if (!parsed) return null;
 		return normalize_context_settings_config(parsed);
 	} catch {
@@ -198,9 +199,7 @@ export function normalize_context_settings_config(
 ): ContextSettingsConfig {
 	const preset = is_context_settings_preset(value.preset)
 		? value.preset
-		: value.preset === 'custom'
-			? 'custom'
-			: 'custom';
+		: 'custom';
 	const base =
 		preset !== 'custom'
 			? context_settings_from_preset(preset)

@@ -160,11 +160,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 			cwd: ctx.cwd,
 			agent_name: pi.getSessionName?.() || fallback_agent_name,
 			pid: process.pid,
-			role: process.env[TEAM_ROLE_ENV]
-				? own_role === 'lead' || own_role === 'teammate'
+			role:
+				process.env[TEAM_ROLE_ENV] &&
+				(own_role === 'lead' || own_role === 'teammate')
 					? own_role
-					: 'peer'
-				: 'peer',
+					: 'peer',
 			status: 'online',
 			availability: 'available',
 			model_provider: ctx.model?.provider,

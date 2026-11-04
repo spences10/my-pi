@@ -41,11 +41,10 @@ export function detect_standby_registration(
 		return undefined;
 	}
 
-	const intent: StandbyIntent = mentions_handoff
-		? 'handoff-target'
-		: mentions_subordinate || mentions_orchestrator
-			? 'subordinate'
-			: 'standby';
+	let intent: StandbyIntent = 'standby';
+	if (mentions_handoff) intent = 'handoff-target';
+	else if (mentions_subordinate || mentions_orchestrator)
+		intent = 'subordinate';
 
 	return {
 		availability: 'standby',

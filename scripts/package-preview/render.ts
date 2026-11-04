@@ -210,9 +210,9 @@ export function render_preview_svg(
 			return `<g aria-label="${escape_xml(line.text)}">${content}</g>`;
 		})
 		.join('\n');
-	const frame = config.border.enabled
-		? `<rect data-preview-border="true" x="${config.border.width}" y="${config.border.width}" width="${width - config.border.width * 2}" height="${height - config.border.width * 2}" rx="${config.border.radius}" fill="#07020d" stroke="${config.border.gradient ? 'url(#preview-frame)' : config.border.color}" stroke-width="${config.border.width}"/>`
-		: '<rect width="100%" height="100%" fill="#07020d"/>';
+	let frame = '<rect width="100%" height="100%" fill="#07020d"/>';
+	if (config.border.enabled)
+		frame = `<rect data-preview-border="true" x="${config.border.width}" y="${config.border.width}" width="${width - config.border.width * 2}" height="${height - config.border.width * 2}" rx="${config.border.radius}" fill="#07020d" stroke="${config.border.gradient ? 'url(#preview-frame)' : config.border.color}" stroke-width="${config.border.width}"/>`;
 	return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <title>My-Pi v${escape_xml(version)} — package preview</title>
   ${config.border.gradient ? `<defs><linearGradient id="preview-frame" x1="0%" y1="0%" x2="100%" y2="100%">${config.border.gradient.map((color, index, stops) => `<stop offset="${(index / (stops.length - 1)) * 100}%" stop-color="${color}"/>`).join('')}</linearGradient></defs>` : ''}

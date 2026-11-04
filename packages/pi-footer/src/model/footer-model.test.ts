@@ -25,18 +25,18 @@ function cost_model(
 			cacheWrite: 0,
 			cost: { total: 0.1, totalFromProvider: flag },
 		};
-		return index < 2
-			? {
-					type: 'message',
-					message: {
-						role: index === 0 ? 'assistant' : 'toolResult',
-						usage,
-					},
-				}
-			: {
-					type: index === 2 ? 'compaction' : 'branch_summary',
+		if (index < 2)
+			return {
+				type: 'message',
+				message: {
+					role: index === 0 ? 'assistant' : 'toolResult',
 					usage,
-				};
+				},
+			};
+		return {
+			type: index === 2 ? 'compaction' : 'branch_summary',
+			usage,
+		};
 	});
 	return build_footer_model(
 		make_context({

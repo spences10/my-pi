@@ -64,13 +64,12 @@ export async function handle_lsp_command(
 				await restart_all_lsp_servers(ctx, manager);
 				continue;
 			}
+			let title = 'LSP status';
+			if (selected === 'running') title = 'Running LSP servers';
+			else if (selected === 'failed') title = 'Failed LSP servers';
 			await show_lsp_text_modal(
 				ctx,
-				selected === 'running'
-					? 'Running LSP servers'
-					: selected === 'failed'
-						? 'Failed LSP servers'
-						: 'LSP status',
+				title,
 				format_lsp_view(
 					selected,
 					manager.cwd,

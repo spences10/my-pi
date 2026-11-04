@@ -200,6 +200,13 @@ export function load_config(
 	resolve_naming_config(global_config?.naming);
 	resolve_naming_config(project_config?.naming);
 	const project_naming = project_config?.naming;
+	let naming = global_config?.naming;
+	if (project_naming !== undefined) {
+		naming =
+			project_naming === false
+				? false
+				: { ...global_config?.naming, ...project_naming };
+	}
 	return {
 		rules:
 			global_config?.rules === undefined &&
@@ -209,12 +216,7 @@ export function load_config(
 						...(global_config?.rules ?? []),
 						...(project_config?.rules ?? []),
 					],
-		naming:
-			project_naming === undefined
-				? global_config?.naming
-				: project_naming === false
-					? false
-					: { ...global_config?.naming, ...project_naming },
+		naming,
 	};
 }
 

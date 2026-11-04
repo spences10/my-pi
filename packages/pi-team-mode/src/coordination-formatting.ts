@@ -179,9 +179,9 @@ export function format_groups(
 	return groups
 		.map((group) => {
 			const members = members_by_group.get(group.group_id) ?? [];
-			const member_text = members.length
-				? ` · ${members.length} member${members.length === 1 ? '' : 's'}`
-				: '';
+			let member_text = '';
+			if (members.length)
+				member_text = ` · ${members.length} member${members.length === 1 ? '' : 's'}`;
 			return `- ${group.name} (${group.group_id})${member_text}${group.cwd ? ` · ${group.cwd}` : ''}`;
 		})
 		.join('\n');

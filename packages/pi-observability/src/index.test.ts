@@ -178,12 +178,9 @@ describe('resolve_observability_config', () => {
 		const fetch_mock = vi
 			.spyOn(globalThis, 'fetch')
 			.mockImplementation(async (input, init) => {
-				const url =
-					typeof input === 'string'
-						? input
-						: input instanceof URL
-							? input.href
-							: input.url;
+				let url: string;
+				if (typeof input === 'string') url = input;
+				else url = input instanceof URL ? input.href : input.url;
 				requests.push({
 					authorization: new Headers(init?.headers).get(
 						'authorization',

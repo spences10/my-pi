@@ -208,18 +208,17 @@ await scenario('completed_context', ({ db, send }) => {
 		inbox,
 	);
 	const contentBytes = (items: typeof projected) =>
-		items.reduce(
-			(sum, message) =>
+		items.reduce((sum, message) => {
+			if (!('content' in message)) return sum;
+			return (
 				sum +
-				('content' in message
-					? Buffer.byteLength(
-							typeof message.content === 'string'
-								? message.content
-								: JSON.stringify(message.content),
-						)
-					: 0),
-			0,
-		);
+				Buffer.byteLength(
+					typeof message.content === 'string'
+						? message.content
+						: JSON.stringify(message.content),
+				)
+			);
+		}, 0);
 	const before = contentBytes(messages);
 	const after = contentBytes(projected);
 	return {

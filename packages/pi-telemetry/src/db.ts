@@ -258,7 +258,7 @@ export class TelemetryDatabase {
 		this.write(() =>
 			this.stmt_finish_run.run(
 				record.ended_at,
-				record.success === null ? null : record.success ? 1 : 0,
+				record.success === null ? null : Number(record.success),
 				record.error_message,
 				record.id,
 			),

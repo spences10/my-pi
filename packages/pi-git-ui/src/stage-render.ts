@@ -49,13 +49,14 @@ function render_message(
 	state: StageRenderState,
 	width: number,
 ): string[] {
-	const color = state.busy
-		? 'accent'
-		: state.message.includes('disabled') ||
-			  state.message.includes('conflict') ||
-			  state.message.includes('blocked')
-			? 'warning'
-			: 'dim';
+	let color: 'accent' | 'warning' | 'dim' = 'dim';
+	if (state.busy) color = 'accent';
+	else if (
+		state.message.includes('disabled') ||
+		state.message.includes('conflict') ||
+		state.message.includes('blocked')
+	)
+		color = 'warning';
 	return new Text(state.theme.fg(color, state.message), 0, 0).render(
 		width,
 	);
@@ -274,7 +275,9 @@ function format_diff_line(
 	selected_hunk = false,
 	selected_line = false,
 ): string {
-	const marker = selected_line ? '» ' : selected_hunk ? '› ' : '';
+	let marker = '';
+	if (selected_line) marker = '» ';
+	else if (selected_hunk) marker = '› ';
 	const text = truncate_plain(
 		`${marker}${raw.replace(/\t/g, '  ')}`,
 		width,

@@ -66,11 +66,8 @@ export function summarize_completed_peer_messages(
 	);
 	if (Buffer.byteLength(summary.content) >= original_bytes)
 		return messages;
-	return messages.flatMap((message, index) =>
-		index === latest_index
-			? [summary]
-			: completed.has(index)
-				? []
-				: [message],
-	);
+	return messages.flatMap((message, index) => {
+		if (index === latest_index) return [summary];
+		return completed.has(index) ? [] : [message];
+	});
 }

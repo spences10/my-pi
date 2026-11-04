@@ -246,8 +246,8 @@ export function cycle_setting_value(
 ): string | undefined {
 	if (!item?.values || item.values.length === 0) return undefined;
 	const current_index = item.values.indexOf(item.currentValue);
-	const start_index =
-		current_index === -1 ? (direction === 1 ? -1 : 0) : current_index;
+	let start_index = current_index;
+	if (current_index === -1) start_index = direction === 1 ? -1 : 0;
 	const next_index =
 		(start_index + direction + item.values.length) %
 		item.values.length;

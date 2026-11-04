@@ -8,7 +8,10 @@ import {
 	format_purge_details,
 } from '../context-format.js';
 import { scope_from_context } from '../context-scope.js';
-import { get_context_store } from '../store.js';
+import {
+	get_context_store,
+	type ContextPurgeDetails,
+} from '../store.js';
 import {
 	show_context_settings,
 	show_context_stats,
@@ -45,9 +48,11 @@ export async function purge_context(
 ): Promise<void> {
 	const policy = get_context_store().stats();
 	const days = options.older_than_days ?? policy.retention_days ?? 14;
-	const description = options.expired
-		? 'Delete expired context sources now?'
-		: options.source_id
+	let description: string;
+	if (options.expired)
+		description = 'Delete expired context sources now?';
+	else
+		description = options.source_id
 			? `Delete context source ${options.source_id}?`
 			: `Delete context sources older than ${days} day(s)?`;
 	const confirmed = ctx.hasUI
@@ -59,13 +64,15 @@ export async function purge_context(
 		: await ctx.ui.confirm('Purge context sidecar?', description);
 	if (!confirmed) return;
 	const scope = scope_from_context(ctx);
-	const details = options.expired
-		? { deleted: get_context_store(scope).cleanup().deleted }
-		: get_context_store(scope).purge_with_details({
-				...scope,
-				older_than_days: options.source_id ? undefined : days,
-				source_id: options.source_id,
-			});
+	let details: ContextPurgeDetails;
+	if (options.expired)
+		details = { deleted: get_context_store(scope).cleanup().deleted };
+	else
+		details = get_context_store(scope).purge_with_details({
+			...scope,
+			older_than_days: options.source_id ? undefined : days,
+			source_id: options.source_id,
+		});
 	ctx.ui.notify(format_purge_details(details), 'info');
 }
 

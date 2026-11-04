@@ -15,13 +15,12 @@ function span(
 	children: TimelineSpan[] = [],
 	error = false,
 ): TimelineSpan {
+	let kind: TimelineSpan['kind'] = 'tool';
+	if (id.startsWith('run')) kind = 'run';
+	else if (id.startsWith('turn')) kind = 'turn';
 	return {
 		id,
-		kind: id.startsWith('run')
-			? 'run'
-			: id.startsWith('turn')
-				? 'turn'
-				: 'tool',
+		kind,
 		name: id,
 		detail: null,
 		start_ts: '2026-10-31T10:00:00.000Z',

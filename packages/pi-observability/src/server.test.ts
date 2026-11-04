@@ -16,12 +16,9 @@ async function fetch(
 	input: string | URL | Request,
 	init: RequestInit = {},
 ): Promise<Response> {
-	const url =
-		typeof input === 'string'
-			? input
-			: input instanceof URL
-				? input.href
-				: input.url;
+	let url: string;
+	if (typeof input === 'string') url = input;
+	else url = input instanceof URL ? input.href : input.url;
 	const server = servers.find((candidate) =>
 		url.startsWith(candidate.url),
 	);

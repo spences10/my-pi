@@ -515,12 +515,13 @@ export class LspClient extends EventEmitter {
 	}
 
 	#handle_message(message: JsonRpcMessage): void {
-		const numeric_id =
-			typeof message.id === 'number'
-				? message.id
-				: typeof message.id === 'string' && /^-?\d+$/.test(message.id)
-					? Number(message.id)
-					: null;
+		let numeric_id: number | null = null;
+		if (typeof message.id === 'number') numeric_id = message.id;
+		else if (
+			typeof message.id === 'string' &&
+			/^-?\d+$/.test(message.id)
+		)
+			numeric_id = Number(message.id);
 		if (numeric_id != null && this.#pending.has(numeric_id)) {
 			const pending = this.#pending.get(numeric_id)!;
 			this.#pending.delete(numeric_id);

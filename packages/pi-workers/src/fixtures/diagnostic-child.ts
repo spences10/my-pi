@@ -13,15 +13,17 @@ async function crash_diagnostic(mode: string) {
 	// Exactly 4000 trailing characters follow the password= label. Keeping
 	// only that tail would lose the label needed to recognize this value.
 	const padding = '\n' + 'x'.repeat(4000 - password_value.length - 1);
-	const chunks =
-		mode === 'split-stderr'
-			? [
-					'pass',
-					'word=',
-					password_value.slice(0, 12),
-					password_value.slice(12),
-				]
-			: mode === 'split-overflow-stderr'
+	let chunks: string[];
+	if (mode === 'split-stderr')
+		chunks = [
+			'pass',
+			'word=',
+			password_value.slice(0, 12),
+			password_value.slice(12),
+		];
+	else
+		chunks =
+			mode === 'split-overflow-stderr'
 				? ['password=', password_value, padding]
 				: ['password=' + password_value + padding];
 	for (const chunk of chunks) {

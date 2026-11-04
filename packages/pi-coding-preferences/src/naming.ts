@@ -133,14 +133,15 @@ function script_violations(
 	function visit(node: ts.Node) {
 		if (ts.isVariableDeclaration(node)) {
 			const initializer = node.initializer;
-			const category =
+			let category: NamingCategory = 'variables';
+			if (
 				initializer &&
 				(ts.isArrowFunction(initializer) ||
 					ts.isFunctionExpression(initializer))
-					? 'functions'
-					: initializer && ts.isClassExpression(initializer)
-						? 'types'
-						: 'variables';
+			)
+				category = 'functions';
+			else if (initializer && ts.isClassExpression(initializer))
+				category = 'types';
 			binding(node.name, category);
 		} else if (
 			ts.isParameter(node) &&

@@ -1,3 +1,4 @@
+import type { Usage } from '@earendil-works/pi-ai';
 import type {
 	ExtensionContext,
 	ReadonlyFooterDataProvider,
@@ -43,16 +44,18 @@ export function build_footer_model(
 	let has_reported_cost = false;
 	let has_estimated_cost = false;
 	for (const entry of ctx.sessionManager.getEntries()) {
-		const usage =
-			entry.type === 'message'
-				? entry.message.role === 'assistant' ||
-					entry.message.role === 'toolResult'
-					? entry.message.usage
-					: undefined
-				: entry.type === 'compaction' ||
-					  entry.type === 'branch_summary'
-					? entry.usage
-					: undefined;
+		let usage: Usage | undefined;
+		if (entry.type === 'message') {
+			if (
+				entry.message.role === 'assistant' ||
+				entry.message.role === 'toolResult'
+			)
+				usage = entry.message.usage;
+		} else if (
+			entry.type === 'compaction' ||
+			entry.type === 'branch_summary'
+		)
+			usage = entry.usage;
 		if (!usage) continue;
 		total_input += usage.input;
 		total_output += usage.output;
@@ -98,17 +101,13 @@ export function build_footer_model(
 	const using_subscription = ctx.model
 		? ctx.modelRegistry.isUsingOAuth(ctx.model)
 		: false;
-	const cost_kind = has_reported_cost
-		? has_estimated_cost
-			? 'mixed'
-			: 'reported'
-		: has_estimated_cost
-			? 'est'
-			: undefined;
-	const cost_text =
-		total_cost || using_subscription
-			? `$${total_cost.toFixed(3)}${cost_kind ? ` (${cost_kind})` : ''}${using_subscription ? ' (sub)' : ''}`
-			: undefined;
+	let cost_kind: string | undefined;
+	if (has_reported_cost)
+		cost_kind = has_estimated_cost ? 'mixed' : 'reported';
+	else if (has_estimated_cost) cost_kind = 'est';
+	let cost_text: string | undefined;
+	if (total_cost || using_subscription)
+		cost_text = `$${total_cost.toFixed(3)}${cost_kind ? ` (${cost_kind})` : ''}${using_subscription ? ' (sub)' : ''}`;
 
 	const context_percent_display =
 		context_percent === '?'
@@ -123,11 +122,10 @@ export function build_footer_model(
 
 	const model_name = ctx.model?.id || 'no-model';
 	const thinking_level = get_current_thinking_level(ctx);
-	const thinking_text = ctx.model?.reasoning
-		? thinking_level === 'off'
-			? 'thinking off'
-			: thinking_level
-		: undefined;
+	let thinking_text: string | undefined;
+	if (ctx.model?.reasoning)
+		thinking_text =
+			thinking_level === 'off' ? 'thinking off' : thinking_level;
 	let model_text = model_name;
 	if (thinking_text) model_text = `${model_name} • ${thinking_text}`;
 	if (footer_data.getAvailableProviderCount() > 1 && ctx.model) {

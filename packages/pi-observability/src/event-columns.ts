@@ -58,12 +58,10 @@ export function derive_event_columns(
 	const message = record(body.message);
 	const stop_reason =
 		text_or_null(message.stopReason) ?? text_or_null(body.stopReason);
-	const is_error =
-		typeof body.isError === 'boolean'
-			? Number(body.isError)
-			: stop_reason === 'error'
-				? 1
-				: null;
+	let is_error: number | null;
+	if (typeof body.isError === 'boolean')
+		is_error = Number(body.isError);
+	else is_error = stop_reason === 'error' ? 1 : null;
 	// Usage is read from message_end only. turn_end repeats the same
 	// assistant message, so reading both would count it twice.
 	const usage = type === 'message_end' ? record(message.usage) : {};

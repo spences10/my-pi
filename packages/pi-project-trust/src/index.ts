@@ -201,9 +201,14 @@ export function read_project_trust_store(
 ): ProjectTrustStore {
 	try {
 		const settings_key = trust_settings_key(trust_store_path);
-		const parsed = settings_key
-			? read_trust_settings<ProjectTrustStore>(settings_key, {})
-			: existsSync(trust_store_path)
+		let parsed: ProjectTrustStore;
+		if (settings_key)
+			parsed = read_trust_settings<ProjectTrustStore>(
+				settings_key,
+				{},
+			);
+		else
+			parsed = existsSync(trust_store_path)
 				? (JSON.parse(
 						readFileSync(trust_store_path, 'utf-8'),
 					) as ProjectTrustStore)

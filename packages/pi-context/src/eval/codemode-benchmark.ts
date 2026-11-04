@@ -250,18 +250,18 @@ async function run_case(
 		else if (scenario === 'final-overflow')
 			code = `text(${JSON.stringify('overflow-marker\n' + 'diagnostic detail\n'.repeat(800))});`;
 		else {
-			const call =
-				scenario === 'bash-filter'
-					? `await tools.bash({ command: "printf 'metric=%s\\n' {1..400}" })`
-					: scenario === 'read-filter'
-						? 'await tools.read({ path: "metrics.txt" })'
-						: 'await tools.mcp__fixture__metrics({})';
-			const extract =
-				scenario === 'bash-filter'
-					? 'r.output'
-					: scenario === 'read-filter'
-						? 'r'
-						: 'r.content.map(c => c.text).join("\\n")';
+			let call: string;
+			let extract: string;
+			if (scenario === 'bash-filter') {
+				call = `await tools.bash({ command: "printf 'metric=%s\\n' {1..400}" })`;
+				extract = 'r.output';
+			} else if (scenario === 'read-filter') {
+				call = 'await tools.read({ path: "metrics.txt" })';
+				extract = 'r';
+			} else {
+				call = 'await tools.mcp__fixture__metrics({})';
+				extract = 'r.content.map(c => c.text).join("\\n")';
+			}
 			code = `const r = ${call}; if (typeof r === 'string' && r.includes('[context-sidecar]')) { text(r); exit(); } const raw = ${extract}; ${summarize}`;
 		}
 		let output = await run(code);
@@ -277,18 +277,19 @@ async function run_case(
 				);
 			}
 		}
-		const correct =
-			scenario === 'final-overflow'
-				? output.includes(
-						receipt_source ? '"found":true' : 'overflow-marker',
-					)
-				: scenario === 'small-output'
-					? output.includes('"count":1,"sum":1')
-					: output.includes(
-							scenario === 'mcp-filter'
-								? '"count":1000,"sum":500500'
-								: '"count":400,"sum":80200',
-						);
+		let correct: boolean;
+		if (scenario === 'final-overflow')
+			correct = output.includes(
+				receipt_source ? '"found":true' : 'overflow-marker',
+			);
+		else if (scenario === 'small-output')
+			correct = output.includes('"count":1,"sum":1');
+		else
+			correct = output.includes(
+				scenario === 'mcp-filter'
+					? '"count":1000,"sum":500500'
+					: '"count":400,"sum":80200',
+			);
 		const stats =
 			variant === 'native-only'
 				? undefined

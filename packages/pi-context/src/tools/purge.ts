@@ -2,7 +2,10 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { format_purge_details } from '../context-format.js';
 import { scope_from_context } from '../context-scope.js';
-import { get_context_store } from '../store.js';
+import {
+	get_context_store,
+	type ContextPurgeDetails,
+} from '../store.js';
 import {
 	context_purge_output_schema,
 	context_tool_namespace,
@@ -60,28 +63,25 @@ export function register_context_purge_tool(pi: ExtensionAPI): void {
 			const has_explicit_scope =
 				params.project_path !== undefined ||
 				params.session_id !== undefined;
-			const project_path = params.global
+			const use_explicit_scope = params.global || has_explicit_scope;
+			const project_path = use_explicit_scope
 				? params.project_path
-				: has_explicit_scope
-					? params.project_path
-					: scope.project_path;
-			const session_id = params.global
+				: scope.project_path;
+			const session_id = use_explicit_scope
 				? params.session_id
-				: has_explicit_scope
-					? params.session_id
-					: scope.session_id;
-			const details = params.expired
-				? { deleted: store.cleanup().deleted }
-				: store.purge_with_details({
-						project_path,
-						session_id,
-						older_than_days: params.source_id
-							? undefined
-							: (params.older_than_days ??
-								stats.retention_days ??
-								14),
-						source_id: params.source_id,
-					});
+				: scope.session_id;
+			let details: ContextPurgeDetails;
+			if (params.expired)
+				details = { deleted: store.cleanup().deleted };
+			else
+				details = store.purge_with_details({
+					project_path,
+					session_id,
+					older_than_days: params.source_id
+						? undefined
+						: (params.older_than_days ?? stats.retention_days ?? 14),
+					source_id: params.source_id,
+				});
 			return {
 				content: [
 					{

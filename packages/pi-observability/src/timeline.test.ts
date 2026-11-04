@@ -109,16 +109,18 @@ describe('build_timeline', () => {
 					{ type: 'thinking', thinking: 'Hidden' },
 				],
 			};
-			const payload =
-				mode === 'raw'
-					? { message }
-					: mode === 'historical'
-						? { message: { role: 'assistant', stopReason: 'stop' } }
-						: (summarize_payload(
-								{ message },
-								mode === 'summary' ? 'summary' : 'detailed',
-								'message_end',
-							) as Record<string, unknown>);
+			let payload: Record<string, unknown>;
+			if (mode === 'raw') payload = { message };
+			else if (mode === 'historical')
+				payload = {
+					message: { role: 'assistant', stopReason: 'stop' },
+				};
+			else
+				payload = summarize_payload(
+					{ message },
+					mode === 'summary' ? 'summary' : 'detailed',
+					'message_end',
+				) as Record<string, unknown>;
 			const timeline = build_timeline([
 				row(0, 'provider_request'),
 				row(1, 'message_end', payload),

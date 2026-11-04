@@ -12,12 +12,11 @@ export function payload_value(
 
 export function text_preview(value: unknown, limit = 220): string {
 	if (value == null) return '';
-	const text =
-		typeof value === 'string'
-			? value
-			: typeof value === 'number' || typeof value === 'boolean'
-				? String(value)
-				: JSON.stringify(value);
+	let text: string;
+	if (typeof value === 'string') text = value;
+	else if (typeof value === 'number' || typeof value === 'boolean')
+		text = String(value);
+	else text = JSON.stringify(value);
 	return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
 

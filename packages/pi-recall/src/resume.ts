@@ -148,9 +148,9 @@ async function show_recall_resume_picker(
 						Math.max(0, sessions.length - 1),
 					);
 					has_more = result.sessions.length === PAGE_SIZE;
-					status = sessions.length
-						? `${sessions.length}${has_more ? '+' : ''} live sessions`
-						: 'No matching live sessions';
+					if (sessions.length)
+						status = `${sessions.length}${has_more ? '+' : ''} live sessions`;
+					else status = 'No matching live sessions';
 				} catch (error) {
 					if (sequence !== request_sequence) return;
 					finish({

@@ -185,16 +185,15 @@ export default function talk(pi: ExtensionAPI): void {
 			}
 			if (action === 'status') {
 				const source = key_source();
-				const state = !source
-					? 'not configured'
-					: enabled
-						? 'ready'
-						: 'off';
-				const next = !source
-					? 'Run /talk setup.'
-					: enabled
-						? 'Hold Space to dictate.'
-						: 'Run /talk on.';
+				let state: string;
+				let next: string;
+				if (!source) {
+					state = 'not configured';
+					next = 'Run /talk setup.';
+				} else {
+					state = enabled ? 'ready' : 'off';
+					next = enabled ? 'Hold Space to dictate.' : 'Run /talk on.';
+				}
 				ctx.ui.notify(
 					`Talk\nState: ${state}\nKey: ${source ?? 'none'}\nNext: ${next}`,
 					'info',

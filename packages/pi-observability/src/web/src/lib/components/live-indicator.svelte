@@ -5,9 +5,10 @@
 	import PauseIcon from '@lucide/svelte/icons/pause';
 	import PlayIcon from '@lucide/svelte/icons/play';
 
-	const label = $derived(
-		!live.connected ? 'Offline' : live.paused ? 'Paused' : 'Live',
-	);
+	const label = $derived.by(() => {
+		if (!live.connected) return 'Offline';
+		return live.paused ? 'Paused' : 'Live';
+	});
 </script>
 
 <div class="flex items-center gap-1">

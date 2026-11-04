@@ -297,23 +297,20 @@ export function summarize_payload(
 		if (key in summary) continue;
 		if (key === 'contextUsage') {
 			const usage = record_of(value);
-			summary[key] =
-				value === null
-					? null
-					: {
-							tokens:
-								typeof usage.tokens === 'number'
-									? usage.tokens
-									: null,
-							contextWindow:
-								typeof usage.contextWindow === 'number'
-									? usage.contextWindow
-									: null,
-							percent:
-								typeof usage.percent === 'number'
-									? usage.percent
-									: null,
-						};
+			if (value === null) {
+				summary[key] = null;
+				continue;
+			}
+			summary[key] = {
+				tokens:
+					typeof usage.tokens === 'number' ? usage.tokens : null,
+				contextWindow:
+					typeof usage.contextWindow === 'number'
+						? usage.contextWindow
+						: null,
+				percent:
+					typeof usage.percent === 'number' ? usage.percent : null,
+			};
 		} else if (key === 'usage' || key === 'cost') {
 			summary[key] = summarize_metric_value(value);
 		} else if (typeof value === 'string') {
@@ -325,19 +322,18 @@ export function summarize_payload(
 			summary[key] = { type: 'array', length: value.length };
 		} else if (value && typeof value === 'object') {
 			const nested = value as Record<string, unknown>;
-			summary[key] =
-				detail_level === 'summary'
-					? {
-							type: 'object',
-							keys: Object.keys(nested).slice(0, 20),
-							...('usage' in nested
-								? { usage: summarize_metric_value(nested.usage) }
-								: {}),
-							...('cost' in nested
-								? { cost: summarize_metric_value(nested.cost) }
-								: {}),
-						}
-					: detailed_object_summary(key, nested);
+			if (detail_level === 'summary')
+				summary[key] = {
+					type: 'object',
+					keys: Object.keys(nested).slice(0, 20),
+					...('usage' in nested
+						? { usage: summarize_metric_value(nested.usage) }
+						: {}),
+					...('cost' in nested
+						? { cost: summarize_metric_value(nested.cost) }
+						: {}),
+				};
+			else summary[key] = detailed_object_summary(key, nested);
 			if (key === 'message' && detail_level === 'summary') {
 				const message = summary[key] as Record<string, unknown>;
 				for (const field of ['model', 'responseModel']) {
@@ -483,12 +479,9 @@ async function ensure_local_server(
 }
 
 export function open_dashboard(url: string): void {
-	const command =
-		process.platform === 'darwin'
-			? 'open'
-			: process.platform === 'win32'
-				? 'cmd'
-				: 'xdg-open';
+	let command = 'xdg-open';
+	if (process.platform === 'darwin') command = 'open';
+	else if (process.platform === 'win32') command = 'cmd';
 	const args =
 		process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
 	const child = spawn(command, args, {

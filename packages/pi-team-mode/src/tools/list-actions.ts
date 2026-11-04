@@ -68,14 +68,21 @@ export function execute_artifact_list_action(
 	context: ListActionContext,
 ) {
 	const { ctx, coordination_db } = context;
-	const visible_artifacts = params.query
-		? coordination_db.search_artifacts(params.query, {
+	let visible_artifacts: ReturnType<
+		typeof coordination_db.list_artifacts
+	>;
+	if (params.query)
+		visible_artifacts = coordination_db.search_artifacts(
+			params.query,
+			{
 				cwd: params.global ? undefined : ctx.cwd,
-			})
-		: coordination_db.list_artifacts({
-				cwd: params.global ? undefined : ctx.cwd,
-				kind: params.kind,
-			});
+			},
+		);
+	else
+		visible_artifacts = coordination_db.list_artifacts({
+			cwd: params.global ? undefined : ctx.cwd,
+			kind: params.kind,
+		});
 	const { items: artifacts, pagination } = paginate_team_items(
 		visible_artifacts,
 		params,

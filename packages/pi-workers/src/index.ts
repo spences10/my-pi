@@ -30,15 +30,18 @@ export function worker_launch(
 	const generic_runtime = /^(node|bun)(\.exe)?$/.test(
 		basename(executable),
 	);
-	const command =
+	let command: { command: string; args: string[] };
+	if (
 		script &&
 		!script.startsWith('/$bunfs/root/') &&
 		existsSync(script)
-			? { command: executable, args: [script] }
-			: {
-					command: generic_runtime ? 'pi' : executable,
-					args: [] as string[],
-				};
+	)
+		command = { command: executable, args: [script] };
+	else
+		command = {
+			command: generic_runtime ? 'pi' : executable,
+			args: [],
+		};
 	// Preserve explicitly loaded extensions (including custom providers), but
 	// never replay the parent's prompt, session path, or blanket trust flag.
 	for (let index = 2; index < argv.length; index++) {
@@ -202,20 +205,19 @@ export default function workers(pi: ExtensionAPI) {
 								),
 							});
 						else {
-							const value =
-								request.method === 'select'
-									? await context.ui.select(
-											title,
-											request.options,
-											options,
-										)
-									: request.method === 'input'
-										? await context.ui.input(
-												title,
-												request.placeholder,
-												options,
-											)
-										: undefined;
+							let value: string | undefined;
+							if (request.method === 'select')
+								value = await context.ui.select(
+									title,
+									request.options,
+									options,
+								);
+							else if (request.method === 'input')
+								value = await context.ui.input(
+									title,
+									request.placeholder,
+									options,
+								);
 							respond(
 								value === undefined ? { cancelled: true } : { value },
 							);

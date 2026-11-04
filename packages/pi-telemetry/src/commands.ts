@@ -21,12 +21,11 @@ export function format_telemetry_status(options: {
 	override?: boolean;
 	db_path: string;
 }): string {
-	const override_label =
-		options.override === undefined
-			? 'none'
-			: options.override
-				? '--telemetry'
-				: '--no-telemetry';
+	let override_label = 'none';
+	if (options.override !== undefined)
+		override_label = options.override
+			? '--telemetry'
+			: '--no-telemetry';
 
 	return [
 		`telemetry ${options.effective_enabled ? 'enabled' : 'disabled'} now`,

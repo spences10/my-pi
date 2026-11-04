@@ -228,12 +228,9 @@ try {
 		const result = run_case(test_case);
 		results.push(result);
 		if (!json_output) {
-			const marker =
-				result.status === 'pass'
-					? '✓'
-					: result.status === 'skip'
-						? '-'
-						: '✗';
+			let marker = '✗';
+			if (result.status === 'pass') marker = '✓';
+			else if (result.status === 'skip') marker = '-';
 			console.log(
 				`${marker} ${test_case.id} ${result.status} (${result.duration_ms}ms)`,
 			);
