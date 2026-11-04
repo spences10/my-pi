@@ -5,6 +5,11 @@ import type {
 import { randomUUID } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
+import {
+	diagnostic_error,
+	diagnostic_text,
+	worker_snapshot,
+} from './diagnostics.js';
 import { WorkerProcess, type RpcRecord } from './rpc.js';
 
 export const child_env = 'MY_PI_WORKER_CHILD';
@@ -64,18 +69,19 @@ export class WorkerManager {
 	constructor(private options: ManagerOptions) {}
 
 	list(): WorkerInfo[] {
-		return [...this.workers.values()].map((worker) => ({
-			...worker.info,
-		}));
+		return [...this.workers.values()].map((worker) =>
+			worker_snapshot(worker.info),
+		);
 	}
 
 	private find(id: string): Worker {
+		const entries = [...this.workers.values()];
+		// Explicit identities keep targeting historical workers. A reused name
+		// targets its newest owner, never an older stopped or failed process.
 		const worker =
 			this.workers.get(id) ??
-			[...this.workers.values()].find(
-				(entry) =>
-					entry.info.name === id || entry.info.session_id === id,
-			);
+			entries.find((entry) => entry.info.session_id === id) ??
+			entries.reverse().find((entry) => entry.info.name === id);
 		if (!worker)
 			throw new Error(
 				'Not an owned worker. Use Team Mode for independently opened sessions.',
@@ -84,6 +90,17 @@ export class WorkerManager {
 	}
 
 	async spawn(
+		options: WorkerOptions,
+		signal?: AbortSignal,
+	): Promise<WorkerInfo> {
+		try {
+			return await this.spawn_worker(options, signal);
+		} catch (error) {
+			throw diagnostic_error(error);
+		}
+	}
+
+	private async spawn_worker(
 		options: WorkerOptions,
 		signal?: AbortSignal,
 	): Promise<WorkerInfo> {
@@ -144,10 +161,11 @@ export class WorkerManager {
 					if (info.status === 'stopped' || info.status === 'failed')
 						return;
 					info.status = 'failed';
-					info.error = error.message;
+					info.error = diagnostic_error(error).message;
 					worker.active = false;
 					void worker.process.stop();
-					if (!this.disposed) this.options.on_complete({ ...info });
+					if (!this.disposed)
+						this.options.on_complete(worker_snapshot(info));
 				},
 			}),
 		};
@@ -178,12 +196,11 @@ export class WorkerManager {
 			info.status = 'idle';
 			await this.send(id, options.task);
 			signal?.throwIfAborted();
-			return { ...info };
+			return worker_snapshot(info);
 		} catch (error) {
 			if (info.status !== 'stopped') {
 				info.status = 'failed';
-				info.error =
-					error instanceof Error ? error.message : String(error);
+				info.error = diagnostic_error(error).message;
 			}
 			await worker.process.stop();
 			throw error;
@@ -218,13 +235,12 @@ export class WorkerManager {
 		} catch (error) {
 			if (!['stopped', 'failed'].includes(worker.info.status)) {
 				worker.info.status = 'failed';
-				worker.info.error =
-					error instanceof Error ? error.message : String(error);
+				worker.info.error = diagnostic_error(error).message;
 			}
 			await worker.process.stop();
-			throw error;
+			throw diagnostic_error(error);
 		}
-		return { ...worker.info };
+		return worker_snapshot(worker.info);
 	}
 
 	async stop(id: string): Promise<WorkerInfo> {
@@ -233,7 +249,7 @@ export class WorkerManager {
 		worker.active = false;
 		this.options.on_dialogs_end(worker.info.id);
 		await worker.process.stop();
-		return { ...worker.info };
+		return worker_snapshot(worker.info);
 	}
 
 	async dispose(): Promise<void> {
@@ -282,9 +298,13 @@ export class WorkerManager {
 			};
 			if (message.role !== 'assistant') return;
 			const text = message.content
-				?.filter((block) => block.type === 'text')
-				.map((block) => block.text ?? '')
-				.join('\n');
+				? diagnostic_text(
+						message.content
+							.filter((block) => block.type === 'text')
+							.map((block) => block.text ?? '')
+							.join('\n'),
+					)
+				: undefined;
 			info.result =
 				text && text.length > max_result_chars
 					? text.slice(0, max_result_chars) +
@@ -293,7 +313,9 @@ export class WorkerManager {
 			worker.last_error =
 				message.stopReason === 'error' ||
 				message.stopReason === 'aborted'
-					? message.errorMessage || message.stopReason
+					? diagnostic_text(
+							message.errorMessage || message.stopReason,
+						)
 					: undefined;
 		} else if (event.type === 'turn_end') {
 			this.options.on_dialogs_end(info.id);
@@ -305,7 +327,7 @@ export class WorkerManager {
 			info.error = event.aborted
 				? 'Run aborted'
 				: worker.last_error?.slice(0, max_result_chars);
-			this.options.on_complete({ ...info });
+			this.options.on_complete(worker_snapshot(info));
 		}
 	}
 }

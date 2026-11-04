@@ -93,6 +93,51 @@ describe('owned worker lifecycle', () => {
 		expect(completed[1].result).toBe('follow-up');
 	});
 
+	it('sends by a reused name to its current worker, preserving historical identities', async () => {
+		const { manager, options } = setup();
+		const old = await manager.spawn({ ...options, task: 'handled' });
+		await manager.stop(old.id);
+		const current = await manager.spawn({
+			...options,
+			task: 'handled',
+		});
+
+		const sent = await manager.send(options.name, 'fast');
+		expect(sent).toMatchObject({
+			id: current.id,
+			pid: current.pid,
+			result: 'fast result',
+		});
+		await expect(manager.send(old.id, 'fast')).rejects.toThrow(
+			'not running',
+		);
+		await expect(
+			manager.send(old.session_id!, 'fast'),
+		).rejects.toThrow('not running');
+	});
+
+	it('stops the current worker by a reused name without retargeting historical ids or sessions', async () => {
+		const { manager, options } = setup();
+		const old = await manager.spawn({ ...options, task: 'handled' });
+		await manager.stop(old.id);
+		const current = await manager.spawn({
+			...options,
+			task: 'handled',
+		});
+
+		expect((await manager.stop(old.id)).id).toBe(old.id);
+		expect((await manager.stop(old.session_id!)).id).toBe(old.id);
+		expect(
+			manager.list().find((info) => info.id === current.id),
+		).toMatchObject({ status: 'idle' });
+		const stopped = await manager.stop(options.name);
+		expect(stopped).toMatchObject({
+			id: current.id,
+			status: 'stopped',
+		});
+		expect(() => process.kill(current.pid!, 0)).toThrow();
+	});
+
 	it('forwards extension UI responses without bypassing approval', async () => {
 		const { manager, completed, options } = setup();
 		await manager.spawn({ ...options, task: 'approval' });

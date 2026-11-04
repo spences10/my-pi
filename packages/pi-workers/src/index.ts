@@ -7,6 +7,7 @@ import {
 import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { Type } from 'typebox';
+import { worker_snapshot } from './diagnostics.js';
 import { child_env, WorkerManager } from './manager.js';
 
 export {
@@ -135,7 +136,8 @@ export default function workers(pi: ExtensionAPI) {
 						'workers',
 						ctx.sessionManager.getSessionId(),
 					),
-			on_complete: (info) =>
+			on_complete: (raw_info) => {
+				const info = worker_snapshot(raw_info);
 				pi.sendMessage(
 					{
 						customType: 'rpc-worker-report',
@@ -149,7 +151,8 @@ export default function workers(pi: ExtensionAPI) {
 						},
 					},
 					{ triggerTurn: true, deliverAs: 'followUp' },
-				),
+				);
+			},
 			on_dialogs_end: end_dialogs,
 			on_ui: (id, request, respond) => {
 				if (

@@ -26,9 +26,10 @@ pi install npm:@spences10/pi-workers
 
 <!-- package-readme:install:end -->
 
-Built into `my-pi` as the `workers` extension. Start a fresh local
-launcher with `pnpm start` after building, or use `/reload` when the
-running launcher already includes this extension.
+Built into `my-pi` as the `workers` extension. After changing local
+code, build and restart with `pnpm start`, then resume your
+conversation. Bundled modules use Node's import cache; `/reload`
+applies extension settings but does not guarantee refreshed code.
 
 ## Delegate work
 
@@ -47,13 +48,14 @@ The `workers` tool supports:
 | `send`  | `worker`, `message`, optional `queue`            | Steer a running worker, or start another turn on an idle one; `queue: true` waits until existing work finishes |
 | `stop`  | `worker`                                         | Stop an owned worker and clean up its process group                                                            |
 
-Target workers by their id, session id or unique name. At most four
-workers may be live, including idle workers; stop one to free a slot.
-Spawn returns after Pi accepts the initial prompt, **not** after the
-task succeeds. A bounded completion or failure report arrives as a
-follow-up message. Full output remains in the saved worker session.
-Workers remain idle for follow-ups until explicitly stopped or their
-parent session ends.
+Target workers by their id, session id or unique name. Reused names
+select the current live worker; ids keep historical workers separately
+addressable. At most four workers may be live, including idle workers;
+stop one to free a slot. Spawn returns after Pi accepts the initial
+prompt, **not** after the task succeeds. A bounded completion or
+failure report arrives as a follow-up message. Full output remains in
+the saved worker session. Workers remain idle for follow-ups until
+explicitly stopped or their parent session ends.
 
 Human controls:
 
@@ -98,12 +100,23 @@ to join a new runtime.
   sandboxes; workers run as your user and inherit the environment. For
   parallel editing, prepare separate checkouts or worktrees. The
   runner does not create, delete, merge or commit worktrees.
+- Worker diagnostics are redacted before reaching reports, list
+  results or surfaced errors, using the shared redaction
+  implementation. Oversized stderr is omitted rather than retaining a
+  suffix that could lose the context needed for redaction.
 - Worker reports are peer-authored output, not new user authorization.
   A worker cannot use this extension to spawn more workers.
 - Graceful quit, reload, new/resumed sessions and forks stop owned
   workers. Stopping escalates from RPC abort and stdin closure to
-  process-group termination when necessary. Parent crashes, OS kills
-  and power loss do not provide durable execution recovery.
+  process-group termination when necessary. On Linux, PID/start-time
+  identity snapshots cover redirected background children during stop.
+  If the owner was already gone before stop began, `/proc` is
+  unavailable, or another platform cannot verify group ownership,
+  cleanup stays conservative and descendants may survive. Children
+  created during shutdown can also survive if every previously
+  captured group member exits before escalation. Processes that leave
+  the group are not covered. Parent crashes, OS kills and power loss
+  do not provide durable execution recovery.
 - Session transcripts are retained under the parent's session path in
   a `workers/` subdirectory. Unsaved parents use the agent directory's
   `workers/<parent-session-id>/` instead. The runner does not

@@ -2,7 +2,14 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
-import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from 'vite-plus/test';
 import workers, { worker_launch } from './index.js';
 import type { ManagerOptions } from './manager.js';
 
@@ -28,6 +35,10 @@ vi.mock('./manager.js', () => ({
 		stop = state.stop;
 	},
 }));
+
+beforeEach(() => {
+	vi.stubEnv('MY_PI_WORKER_CHILD', '');
+});
 
 afterEach(() => {
 	vi.unstubAllEnvs();
@@ -267,6 +278,31 @@ describe('worker extension', () => {
 			{ triggerTurn: true, deliverAs: 'followUp' },
 		);
 	});
+
+	it.each(['result', 'error'] as const)(
+		'redacts completion %s content and all custom-message details without tool-result hooks',
+		(field) => {
+			const { send_message } = setup();
+			const secret = 'sk-synthetic-worker-report-1234567890';
+			state.options!.on_complete({
+				id: 'owned',
+				name: `reviewer-${secret}`,
+				cwd: `/tmp/${secret}`,
+				session_file: `/tmp/${secret}/session.jsonl`,
+				status: 'idle',
+				[field]: `Worker diagnostic: ${secret}`,
+			});
+			const [report] = send_message.mock.calls[0];
+			expect(report.content).not.toContain(secret);
+			expect(report.content).toContain('[REDACTED:');
+			expect(JSON.stringify(report.details)).not.toContain(secret);
+			expect(report.details[field]).toContain('[REDACTED:');
+			expect(report.details).toMatchObject({
+				authority: 'peer-only',
+				direct_user_authority: false,
+			});
+		},
+	);
 
 	it('preserves explicit extensions but not parent prompts, session paths or trust overrides', () => {
 		const launch = worker_launch(

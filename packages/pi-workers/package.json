@@ -38,6 +38,9 @@
 		"test": "pnpm --filter \"$npm_package_name^...\" run build:self && pnpm run test:self",
 		"test:self": "vp test run"
 	},
+	"dependencies": {
+		"@spences10/pi-redact": "workspace:*"
+	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",

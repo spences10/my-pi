@@ -7,9 +7,65 @@ import {
 	spawn,
 	type ChildProcessWithoutNullStreams,
 } from 'node:child_process';
+import { readFileSync, readdirSync } from 'node:fs';
 import { StringDecoder } from 'node:string_decoder';
 
 export type RpcRecord = Record<string, unknown>;
+
+interface ProcessIdentity {
+	pid: number;
+	group: number;
+	started: string;
+	state: string;
+}
+
+/** @internal Linux comm fields can contain spaces and closing parentheses. */
+export function parse_process_stat(stat: string): ProcessIdentity {
+	const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+	return {
+		pid: Number(stat.slice(0, stat.indexOf(' '))),
+		group: Number(fields[2]),
+		started: fields[19],
+		state: fields[0],
+	};
+}
+
+function process_identity(pid: number): ProcessIdentity | undefined {
+	try {
+		return parse_process_stat(
+			readFileSync(`/proc/${pid}/stat`, 'utf8'),
+		);
+	} catch {
+		return undefined;
+	}
+}
+
+/** @internal Compare identities, not just PIDs, before signalling a group. */
+export function same_live_process(
+	identity: ProcessIdentity,
+	current: ProcessIdentity | undefined,
+): boolean {
+	return (
+		!!current &&
+		current.pid === identity.pid &&
+		current.group === identity.group &&
+		current.started === identity.started &&
+		current.state !== 'Z' &&
+		current.state !== 'X'
+	);
+}
+
+function group_members(group: number): ProcessIdentity[] {
+	try {
+		return readdirSync('/proc').flatMap((entry) => {
+			if (!/^\d+$/.test(entry)) return [];
+			const identity = process_identity(Number(entry));
+			return identity?.group === group ? [identity] : [];
+		});
+	} catch {
+		return [];
+	}
+}
 
 export interface ProcessOptions {
 	command: string;
@@ -32,6 +88,7 @@ export class WorkerProcess {
 	>();
 	private next_id = 0;
 	private stderr = '';
+	private stderr_omitted = false;
 	private exit_error?: Error;
 	private stopped?: Promise<void>;
 	private closed = false;
@@ -91,7 +148,14 @@ export class WorkerProcess {
 			}
 		});
 		this.child.stderr.on('data', (chunk: Buffer) => {
-			this.stderr = (this.stderr + chunk.toString()).slice(-4000);
+			if (this.stderr_omitted) return;
+			const complete = this.stderr + chunk.toString();
+			// A raw suffix can lose the label needed to recognize a secret.
+			// Keep the complete diagnostic or omit it, never a partial tail.
+			if (complete.length > 4000) {
+				this.stderr = '[stderr omitted: exceeded 4000 characters]';
+				this.stderr_omitted = true;
+			} else this.stderr = complete;
 		});
 		this.child.stdin.on('error', (error) => this.finish(error));
 		this.child.once('error', (error) => this.finish(error));
@@ -152,6 +216,41 @@ export class WorkerProcess {
 	private async stop_process(): Promise<void> {
 		const child = this.child;
 		if (!child || this.closed) return;
+		// Snapshot before requesting EOF, while the leader still proves ownership.
+		// Keep descendant identities: closing Pi's pipes does not retire its group.
+		let members: ProcessIdentity[] | undefined;
+		if (process.platform === 'linux' && child.pid) {
+			const leader = process_identity(child.pid);
+			if (leader?.group === child.pid) {
+				const snapshot = group_members(child.pid);
+				if (same_live_process(leader, process_identity(leader.pid)))
+					members = snapshot;
+			}
+		}
+		const owns_group = () =>
+			members!.some((member) =>
+				same_live_process(member, process_identity(member.pid)),
+			);
+		const signal_group = (signal: NodeJS.Signals) => {
+			if (members) {
+				if (!owns_group()) return;
+				const snapshot = group_members(child.pid!);
+				// Revalidate after scanning, including before SIGKILL escalation.
+				if (!owns_group()) return;
+				members = snapshot;
+				if (!owns_group()) return;
+			} else if (
+				this.closed ||
+				child.exitCode !== null ||
+				child.signalCode !== null
+			) {
+				// Without identity tracking, never signal a reaped/reused group.
+				return;
+			}
+			try {
+				process.kill(-child.pid!, signal);
+			} catch {}
+		};
 		if (this.alive) {
 			try {
 				this.write({ type: 'abort' });
@@ -159,6 +258,17 @@ export class WorkerProcess {
 			child.stdin.end();
 		}
 		const wait = async (ms: number) => {
+			if (members) {
+				const deadline = Date.now() + ms;
+				while (!this.closed || owns_group()) {
+					const remaining = deadline - Date.now();
+					if (remaining <= 0) break;
+					await new Promise((resolve) =>
+						setTimeout(resolve, Math.min(25, remaining)),
+					);
+				}
+				return;
+			}
 			let timer: NodeJS.Timeout | undefined;
 			await Promise.race([
 				this.exited,
@@ -169,18 +279,16 @@ export class WorkerProcess {
 			clearTimeout(timer);
 		};
 		await wait(1000);
-		// Never signal a reaped process group: its id could have been reused.
-		if (this.closed) return;
-		// A descendant holding stdout can outlive Pi; terminate the owned group.
+		if (!members && this.closed) return;
 		if (child.pid && process.platform !== 'win32') {
-			try {
-				process.kill(-child.pid, 'SIGTERM');
-			} catch {}
+			signal_group('SIGTERM');
 			await wait(250);
-			try {
-				process.kill(-child.pid, 'SIGKILL');
-			} catch {}
-		} else if (child.pid && child.exitCode === null) {
+			signal_group('SIGKILL');
+		} else if (
+			child.pid &&
+			child.exitCode === null &&
+			child.signalCode === null
+		) {
 			await new Promise<void>((resolve) => {
 				execFile(
 					'taskkill',
