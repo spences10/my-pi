@@ -152,7 +152,14 @@ export default function harness(pi: ExtensionAPI) {
 			const [command = 'status', ...words] = args.trim().split(/\s+/);
 			const rest = words.join(' ');
 			if (command === 'clear') {
+				const had_active_harness = Boolean(active_harness_dir);
 				set_active(undefined, ctx);
+				ctx.ui.notify(
+					had_active_harness
+						? 'Harness cleared.'
+						: 'No active harness to clear.',
+					'info',
+				);
 				return;
 			}
 			if (command === 'create') {
@@ -182,7 +189,9 @@ export default function harness(pi: ExtensionAPI) {
 				if (!existsSync(harness_paths(dir).contract))
 					throw new Error('Harness contract does not exist');
 				set_active(dir, ctx);
-				if (command !== 'use')
+				if (command === 'use')
+					ctx.ui.notify(`Active harness: ${dir}`, 'info');
+				else
 					pi.sendUserMessage(
 						`Use the ${command === 'review' ? 'review' : 'execute'}-harness skill for ${dir}. Work directly unless the user has authorized peer collaboration; Team Mode only coordinates existing sessions.`,
 					);

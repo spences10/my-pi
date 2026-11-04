@@ -125,6 +125,10 @@ queue. Normal user authorization still applies.
 /assess clear
 ```
 
+`/harness use <dir>` confirms the selected harness directory.
+`/harness clear` confirms when the active harness is cleared, or
+reports that there is no active harness to clear.
+
 Tools: `harness_create`, `harness_amend`, `harness_update`,
 `harness_read`, `harness_assess`, `harness_assessment_submit`.
 

@@ -202,6 +202,70 @@ describe('harness extension', () => {
 		);
 		expect(f.setActiveTools).not.toHaveBeenCalled();
 	});
+	it('confirms clearing an active harness and removes its status', async () => {
+		const f = fixture();
+		harness(f.api);
+		await create(f);
+		await f.commands.get('harness')!.handler('clear', f.ctx);
+		expect(f.ctx.ui.notify).toHaveBeenLastCalledWith(
+			'Harness cleared.',
+			'info',
+		);
+		expect(f.appendEntry).toHaveBeenLastCalledWith(
+			HARNESS_CUSTOM_TYPE,
+			{ active_harness_dir: undefined },
+		);
+		expect(f.ctx.ui.setStatus).toHaveBeenCalledWith(
+			'harness',
+			undefined,
+		);
+		expect(f.sendUserMessage).not.toHaveBeenCalled();
+	});
+	it('reports when there is no active harness to clear, including repeated clears', async () => {
+		const f = fixture();
+		harness(f.api);
+		for (let attempt = 0; attempt < 2; attempt++) {
+			await f.commands.get('harness')!.handler('clear', f.ctx);
+			expect(f.ctx.ui.notify).toHaveBeenLastCalledWith(
+				'No active harness to clear.',
+				'info',
+			);
+		}
+		expect(f.ctx.ui.notify).toHaveBeenCalledTimes(2);
+	});
+	it('confirms the selected harness without starting an agent turn', async () => {
+		const f = fixture();
+		harness(f.api);
+		const dir = await create(f);
+		await f.commands.get('harness')!.handler('clear', f.ctx);
+		f.ctx.ui.setStatus.mockClear();
+		await f.commands.get('harness')!.handler(`use ${dir}`, f.ctx);
+		expect(f.ctx.ui.notify).toHaveBeenLastCalledWith(
+			`Active harness: ${dir}`,
+			'info',
+		);
+		expect(f.appendEntry).toHaveBeenLastCalledWith(
+			HARNESS_CUSTOM_TYPE,
+			{ active_harness_dir: dir },
+		);
+		expect(f.ctx.ui.setStatus).toHaveBeenCalledWith(
+			'harness',
+			expect.any(String),
+		);
+		expect(f.sendUserMessage).not.toHaveBeenCalled();
+	});
+	it('does not confirm or select a missing harness', async () => {
+		const f = fixture();
+		harness(f.api);
+		await expect(
+			f.commands
+				.get('harness')!
+				.handler(`use ${join(f.ctx.cwd, 'missing')}`, f.ctx),
+		).rejects.toThrow('Harness contract does not exist');
+		expect(f.ctx.ui.notify).not.toHaveBeenCalled();
+		expect(f.appendEntry).not.toHaveBeenCalled();
+		expect(f.sendUserMessage).not.toHaveBeenCalled();
+	});
 	it('runs completion through nested bash hooks and stores actual checks', async () => {
 		const f = fixture();
 		harness(f.api);
