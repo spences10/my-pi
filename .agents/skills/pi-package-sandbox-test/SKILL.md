@@ -1,11 +1,10 @@
 ---
 name: pi-package-sandbox-test
 # prettier-ignore
-description: Use when verifying that published Pi packages install and load for normal users, including pi.dev package compatibility checks, release validation, Daytona sandbox tests, and package installability audits.
+description: Use when verifying that published Pi packages install and load for normal users, including pi.dev package compatibility checks, release validation, isolated startup tests, and package installability audits.
 compatibility:
-  Requires Node.js, pnpx, network access, ralph-town Daytona sandbox
-  access, npm registry access, and vanilla Pi via
-  @earendil-works/pi-coding-agent.
+  Requires Node.js, pnpx, npm registry access, a disposable test
+  environment, and vanilla Pi via @earendil-works/pi-coding-agent.
 ---
 
 # Pi Package Sandbox Test
@@ -16,27 +15,34 @@ Verify published packages work for normal Pi users, independent of
 ## Procedure
 
 1. From the repository root, enumerate `packages/*/package.json`.
-2. Select only packages with a `pi` manifest; helper/internal packages
-   without `pi` are not user-installable Pi packages.
+2. Select packages exposing Pi resources through a `pi` manifest or
+   conventional `extensions/`, `skills/`, `prompts/`, or `themes/`
+   directories. Current repository packages use explicit manifests;
+   exclude the launcher and support libraries without Pi resources.
 3. For each selected package, compare local `package.json` version
    with `npm view <pkg> version`.
-4. In a disposable Daytona sandbox via `pnpx ralph-town run`, use
-   vanilla Pi only:
+4. Choose an exact upstream Pi version for the compatibility target
+   and set `PI_VERSION` to it in the test shell. Use the same pin for
+   every invocation and record it in the report. Run vanilla Pi in a
+   disposable container, VM, or sandbox; Daytona via
+   `pnpx ralph-town run` is one option, not a requirement. Work
+   outside the checkout and personal resource directories:
    ```bash
-   pnpx @earendil-works/pi-coding-agent
+   pnpx "@earendil-works/pi-coding-agent@$PI_VERSION" --version
    ```
-5. Use a fresh `PI_CODING_AGENT_DIR` for each package. For its
+5. Export a fresh `PI_CODING_AGENT_DIR` for each package. For its
    published npm version, install it and start an ephemeral RPC
    session without making a model request:
    ```bash
-   pnpx @earendil-works/pi-coding-agent install npm:<package>@<npm-version>
-   printf '%s\n' '{"id":"startup","type":"get_state"}' | pnpx @earendil-works/pi-coding-agent -e npm:<package>@<npm-version> --mode rpc --no-session
+   pnpx "@earendil-works/pi-coding-agent@$PI_VERSION" install npm:<package>@<npm-version>
+   printf '%s\n' '{"id":"startup","type":"get_state"}' | pnpx "@earendil-works/pi-coding-agent@$PI_VERSION" -e npm:<package>@<npm-version> --mode rpc --no-session
    ```
-6. Use a separate fresh `PI_CODING_AGENT_DIR` for the combined check.
-   Install all selected packages together, then run:
+6. Export a separate fresh `PI_CODING_AGENT_DIR` for the combined
+   check. Install all selected packages together with the pinned Pi,
+   then run:
    ```bash
-   pnpx @earendil-works/pi-coding-agent list
-   printf '%s\n' '{"id":"startup","type":"get_state"}' | pnpx @earendil-works/pi-coding-agent --mode rpc --no-session
+   pnpx "@earendil-works/pi-coding-agent@$PI_VERSION" list
+   printf '%s\n' '{"id":"startup","type":"get_state"}' | pnpx "@earendil-works/pi-coding-agent@$PI_VERSION" --mode rpc --no-session
    ```
 
 For each RPC check, capture stdout and stderr and apply a bounded
@@ -54,7 +60,8 @@ check declared skills, prompts, and themes separately when applicable.
 
 ## Report Format
 
-Report a compact table with:
+Record the exact upstream Pi version and isolation environment, then
+report a compact table with:
 
 - package name
 - local version

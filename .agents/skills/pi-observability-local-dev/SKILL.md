@@ -52,5 +52,5 @@ the local dashboard at `http://127.0.0.1:43190`.
   the port owner.
 - Keep the server PID in the final response when restarting it for the
   user.
-- For Svelte edits, run LSP diagnostics and the Svelte autofixer
-  before reporting completion.
+- For Svelte edits, run the Svelte autofixer and package checks before
+  reporting completion; also use LSP diagnostics when available.

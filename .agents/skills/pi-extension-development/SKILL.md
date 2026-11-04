@@ -3,7 +3,7 @@ name: pi-extension-development
 # prettier-ignore
 description: Use when creating or modifying Pi extensions, built-in extension wiring, prompt shims, package scaffolds, package READMEs, or packages/pi-* implementation in this monorepo.
 compatibility:
-  Requires the Pi coding-agent monorepo and extension API.
+  Requires the my-pi monorepo and upstream Pi extension API.
 ---
 
 # Pi Extension Development

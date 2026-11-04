@@ -5,7 +5,15 @@
 - `packages/<name>/package.json`
   - package name is `@spences10/<name>`
   - has `type: module`
-  - exposes `dist/index.js`
+  - exposes and publishes `dist/index.js`
+  - declares `pi.extensions: ["./dist/index.js"]` so standalone Pi
+    discovers the compiled entrypoint
+  - declares imported host packages (`@earendil-works/pi-ai`,
+    `@earendil-works/pi-agent-core`,
+    `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and
+    `typebox`) in `peerDependencies` with `"*"` ranges, not in
+    `dependencies` or bundled output; use catalog entries in
+    `devDependencies` for local builds
   - includes `check:self`, `test:self`, and `build:self` where
     appropriate
 - `packages/<name>/src/index.ts`
@@ -41,5 +49,5 @@ If root files or registry changed:
 pnpm run check
 ```
 
-Use LSP diagnostics on changed TypeScript files before reporting
-completion.
+Use LSP diagnostics on changed TypeScript files when available;
+package checks remain required when the LSP extension is disabled.
