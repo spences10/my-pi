@@ -1,5 +1,20 @@
 # @spences10/pi-lsp
 
+## 0.0.53
+
+### Patch Changes
+
+- 75b417e: Refactor nested ternaries into explicit branches across
+  packages, preserving existing behavior and improving code
+  readability.
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+- Updated dependencies [75b417e]
+- Updated dependencies [d15e4b8]
+  - @spences10/pi-project-trust@0.1.1
+  - @spences10/pi-tui-modal@0.0.25
+
 ## 0.0.52
 
 ### Patch Changes

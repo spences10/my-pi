@@ -1,5 +1,13 @@
 # @spences10/pi-themes
 
+## 0.0.11
+
+### Patch Changes
+
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+
 ## 0.0.10
 
 ### Patch Changes

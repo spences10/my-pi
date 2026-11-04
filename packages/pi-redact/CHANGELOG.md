@@ -1,5 +1,13 @@
 # @spences10/pi-redact
 
+## 0.0.16
+
+### Patch Changes
+
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+
 ## 0.0.15
 
 ### Patch Changes

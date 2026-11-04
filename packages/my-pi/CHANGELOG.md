@@ -1,5 +1,58 @@
 # my-pi
 
+## 0.8.0
+
+### Minor Changes
+
+- a87c68d: Add compact team messages and worker reports with
+  expandable details while preserving existing coordination behavior.
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+- 24f88d6: Add local RPC workers with approval forwarding, lifecycle
+  controls, Team Mode messaging, and observability integration.
+- 905e95a: Add shared modal worker management with inspectable
+  results, stable targeting, messaging, refresh, and confirmed
+  stopping.
+
+### Patch Changes
+
+- 5f29993: Fix worker name reuse, redact diagnostics safely, and
+  strengthen process cleanup with focused regression coverage.
+- 5cdb63f: Move shared logo source into TypeScript and build launcher
+  assets before running package preview commands.
+- Updated dependencies [725454e]
+- Updated dependencies [a87c68d]
+- Updated dependencies [75b417e]
+- Updated dependencies [d15e4b8]
+- Updated dependencies [f26e17f]
+- Updated dependencies [24f88d6]
+- Updated dependencies [5f29993]
+- Updated dependencies [905e95a]
+- Updated dependencies [666e28e]
+  - @spences10/pi-harness@0.2.1
+  - @spences10/pi-team-mode@0.2.0
+  - @spences10/pi-workers@0.2.0
+  - @spences10/pi-coding-preferences@0.1.1
+  - @spences10/pi-context@0.3.1
+  - @spences10/pi-footer@0.1.0
+  - @spences10/pi-git-ui@0.0.17
+  - @spences10/pi-lsp@0.0.53
+  - @spences10/pi-observability@0.1.0
+  - @spences10/pi-recall@0.0.18
+  - @spences10/pi-talk@0.1.2
+  - @spences10/pi-telemetry@0.0.35
+  - @spences10/pi-tui-modal@0.0.25
+  - @spences10/pi-confirm-destructive@0.0.22
+  - @spences10/pi-redact@0.0.16
+  - @spences10/pi-session-name@0.1.1
+  - @spences10/pi-settings@0.1.1
+  - @spences10/pi-starfield@0.0.4
+  - @spences10/pi-svelte-guardrails@0.0.19
+  - @spences10/pi-themes@0.0.11
+  - @spences10/pi-tool-guidance@0.1.2
+  - @spences10/pi-turn-timer@0.1.1
+
 ## 0.7.0
 
 ### Minor Changes

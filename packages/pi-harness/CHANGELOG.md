@@ -1,5 +1,15 @@
 # @spences10/pi-harness
 
+## 0.2.1
+
+### Patch Changes
+
+- 725454e: Confirm harness selection and clearing with explicit
+  notifications, including repeated clears, and add regression tests.
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+
 ## 0.2.0
 
 ### Minor Changes

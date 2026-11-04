@@ -1,5 +1,13 @@
 # @spences10/pi-tool-guidance
 
+## 0.1.2
+
+### Patch Changes
+
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+
 ## 0.1.1
 
 ### Patch Changes

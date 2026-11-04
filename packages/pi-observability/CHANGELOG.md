@@ -1,5 +1,25 @@
 # @spences10/pi-observability
 
+## 0.1.0
+
+### Minor Changes
+
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+- f26e17f: Fix turn accounting, animate newest traces, support bulk
+  collapsing, capture responses, and display context usage.
+
+### Patch Changes
+
+- 75b417e: Refactor nested ternaries into explicit branches across
+  packages, preserving existing behavior and improving code
+  readability.
+- Updated dependencies [75b417e]
+- Updated dependencies [d15e4b8]
+  - @spences10/pi-tui-modal@0.0.25
+  - @spences10/pi-sqlite-core@0.0.3
+
 ## 0.0.24
 
 ### Patch Changes

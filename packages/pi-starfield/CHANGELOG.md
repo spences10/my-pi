@@ -1,5 +1,15 @@
 # @spences10/pi-starfield
 
+## 0.0.4
+
+### Patch Changes
+
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+- Updated dependencies [d15e4b8]
+  - @spences10/pi-settings@0.1.1
+
 ## 0.0.3
 
 ### Patch Changes

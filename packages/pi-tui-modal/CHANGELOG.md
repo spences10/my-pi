@@ -1,5 +1,16 @@
 # @spences10/pi-tui-modal
 
+## 0.0.25
+
+### Patch Changes
+
+- 75b417e: Refactor nested ternaries into explicit branches across
+  packages, preserving existing behavior and improving code
+  readability.
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+
 ## 0.0.24
 
 ### Patch Changes

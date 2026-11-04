@@ -1,5 +1,13 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.22
+
+### Patch Changes
+
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+
 ## 0.0.21
 
 ### Patch Changes

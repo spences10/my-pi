@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-svelte-guardrails",
-	"version": "0.0.18",
+	"version": "0.0.19",
 	"description": "Svelte pattern guardrails for Pi with default blocking and explicit policy exceptions",
 	"keywords": [
 		"agent-guardrails",

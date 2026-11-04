@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-settings",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Shared my-pi settings store",
 	"files": [
 		"dist",

@@ -1,5 +1,25 @@
 # @spences10/pi-team-mode
 
+## 0.2.0
+
+### Minor Changes
+
+- a87c68d: Add compact team messages and worker reports with
+  expandable details while preserving existing coordination behavior.
+
+### Patch Changes
+
+- 75b417e: Refactor nested ternaries into explicit branches across
+  packages, preserving existing behavior and improving code
+  readability.
+- d15e4b8: Ship extension changelogs, announce launcher updates,
+  distinguish cost estimates, and display responding models alongside
+  requests.
+- 666e28e: Fix team mode schema imports to preserve compatibility with
+  upstream Pi version 1.5.0 during builds.
+- Updated dependencies [d15e4b8]
+  - @spences10/pi-sqlite-core@0.0.3
+
 ## 0.1.0
 
 ### Minor Changes
