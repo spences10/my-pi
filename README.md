@@ -47,6 +47,7 @@ configuration are upstream Pi features. See the
 | [`@spences10/pi-svelte-guardrails`](./packages/pi-svelte-guardrails/README.md)     | Svelte pattern guardrails                                  |
 | [`@spences10/pi-talk`](./packages/pi-talk/README.md)                               | Hold-Space Deepgram dictation                              |
 | [`@spences10/pi-team-mode`](./packages/pi-team-mode/README.md)                     | Peer-session coordination and durable mailboxes            |
+| [`@spences10/pi-workers`](./packages/pi-workers/README.md)                         | Spawn and control local RPC workers alongside Team Mode    |
 | [`@spences10/pi-telemetry`](./packages/pi-telemetry/README.md)                     | Local SQLite telemetry and `/telemetry`                    |
 | [`@spences10/pi-themes`](./packages/pi-themes/README.md)                           | Bundled theme pack for Pi                                  |
 

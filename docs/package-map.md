@@ -37,6 +37,7 @@ prerequisites, commands, options, and local development.
 | -------------------------------------------------------- | ------------------------------------------------------ |
 | [pi-recall](../packages/pi-recall/README.md)             | Session-history reminders and background pirecall sync |
 | [pi-team-mode](../packages/pi-team-mode/README.md)       | Coordination between independently opened sessions     |
+| [pi-workers](../packages/pi-workers/README.md)           | Spawn and control owned local RPC workers              |
 | [pi-harness](../packages/pi-harness/README.md)           | Optional task contracts and validation scaffolding     |
 | [pi-git-ui](../packages/pi-git-ui/README.md)             | Interactive staging and diff review                    |
 | [pi-session-name](../packages/pi-session-name/README.md) | Model-generated names for unnamed sessions             |

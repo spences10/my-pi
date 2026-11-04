@@ -14,6 +14,7 @@ built in.
 | `telemetry`           | [`pi-telemetry`](https://github.com/spences10/my-pi/tree/main/packages/pi-telemetry#readme)                     |
 | `observability`       | [`pi-observability`](https://github.com/spences10/my-pi/tree/main/packages/pi-observability#readme)             |
 | `team-mode`           | [`pi-team-mode`](https://github.com/spences10/my-pi/tree/main/packages/pi-team-mode#readme)                     |
+| `workers`             | [`pi-workers`](https://github.com/spences10/my-pi/tree/main/packages/pi-workers#readme)                         |
 | `harness`             | [`pi-harness`](https://github.com/spences10/my-pi/tree/main/packages/pi-harness#readme)                         |
 | `git-ui`              | [`pi-git-ui`](https://github.com/spences10/my-pi/tree/main/packages/pi-git-ui#readme)                           |
 | `turn-timer`          | [`pi-turn-timer`](https://github.com/spences10/my-pi/tree/main/packages/pi-turn-timer#readme)                   |

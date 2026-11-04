@@ -522,6 +522,9 @@ importers:
       '@spences10/pi-turn-timer':
         specifier: workspace:*
         version: link:../pi-turn-timer
+      '@spences10/pi-workers':
+        specifier: workspace:*
+        version: link:../pi-workers
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -1074,6 +1077,33 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.4.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.1)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
+
+  packages/pi-workers:
+    devDependencies:
+      '@earendil-works/pi-ai':
+        specifier: 'catalog:'
+        version: 1.5.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(undici@8.12.3)(ws@8.22.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 1.5.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+      '@spences10/pi-observability':
+        specifier: workspace:*
+        version: link:../pi-observability
+      '@spences10/pi-team-mode':
+        specifier: workspace:*
+        version: link:../pi-team-mode
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      typebox:
+        specifier: 'catalog:'
+        version: 1.4.3
       typescript:
         specifier: 'catalog:'
         version: 7.0.2

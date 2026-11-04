@@ -44,6 +44,7 @@ describe('extensions', () => {
 			'turn-timer',
 			'session-name',
 			'tool-guidance',
+			'workers',
 		]) {
 			expect(
 				EXTENSIONS.some((extension) => extension.key === key),

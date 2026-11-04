@@ -82,11 +82,18 @@ Telemetry and dashboard rollups follow Pi's canonical session usage
 accounting rather than defining a competing token total. Their READMEs
 explain their different persistence and event views.
 
-### Team Mode and task harnesses
+### Team Mode, RPC workers and task harnesses
 
 [Team Mode](../packages/pi-team-mode/README.md) coordinates
 independently opened sessions through a local bus, mailboxes, groups,
 and artifacts. It does not spawn or supervise workers.
+
+[pi-workers](../packages/pi-workers/README.md) separately owns local
+RPC child processes. Enabled Team Mode and observability extensions
+run inside those workers, so workers can communicate with independent
+sessions and appear in the existing dashboard. The runner forwards
+approval dialogs and stops owned workers when the parent session ends;
+it does not provide durable execution recovery or live TUI attachment.
 
 [pi-harness](../packages/pi-harness/README.md) offers optional task
 contracts and validation scaffolding. Installing it does not make a

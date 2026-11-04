@@ -107,6 +107,15 @@ export const EXTENSIONS: readonly MyPiExtension[] = [
 				.default,
 	},
 	{
+		key: 'workers',
+		label: 'RPC workers',
+		description:
+			'Spawn and control local workers alongside Team Mode',
+		load: async () =>
+			((await import('@spences10/pi-workers')) as ExtensionModule)
+				.default,
+	},
+	{
 		key: 'harness',
 		label: 'Harness',
 		description: 'Ephemeral task harness runtime and skills',
