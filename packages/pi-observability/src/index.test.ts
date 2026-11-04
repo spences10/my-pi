@@ -25,6 +25,15 @@ function observability_harness(options?: {
 		(event: unknown, ctx: unknown) => Promise<void>
 	>();
 	const session_name = options?.session_name;
+	const context_usage = vi.fn(
+		():
+			| {
+					tokens: number | null;
+					contextWindow: number;
+					percent: number | null;
+			  }
+			| undefined => undefined,
+	);
 	const sent: ObservabilityEvent[] = [];
 	const fetch_mock = vi
 		.spyOn(globalThis, 'fetch')
@@ -56,6 +65,7 @@ function observability_harness(options?: {
 	const ctx = {
 		cwd: '/repo',
 		model: undefined,
+		getContextUsage: context_usage,
 		sessionManager: {
 			getSessionId: () => 'session-1',
 			getSessionFile: () => '/sessions/session-1.jsonl',
@@ -65,6 +75,7 @@ function observability_harness(options?: {
 	return {
 		fetch_mock,
 		sent,
+		context_usage,
 		trigger: async (name: string, event: unknown = {}) =>
 			handlers.get(name)?.(event, ctx),
 	};
@@ -490,6 +501,85 @@ describe('session names', () => {
 		});
 		harness.fetch_mock.mockRestore();
 	});
+});
+
+describe('context usage snapshots', () => {
+	it('captures native context after persistence checkpoints, including unknown after compaction', async () => {
+		const harness = observability_harness();
+		try {
+			harness.context_usage.mockReturnValue({
+				tokens: 80_000,
+				contextWindow: 200_000,
+				percent: 40,
+			});
+			await harness.trigger('session_start');
+			expect(harness.context_usage).toHaveBeenCalledTimes(1);
+			await harness.trigger('message_end', {
+				message: { role: 'assistant' },
+			});
+			expect(harness.context_usage).toHaveBeenCalledTimes(1);
+			harness.context_usage.mockReturnValue({
+				tokens: 84_000,
+				contextWindow: 200_000,
+				percent: 42,
+			});
+			for (const name of [
+				'turn_end',
+				'agent_end',
+				'before_agent_start',
+				'session_tree',
+				'model_select',
+			])
+				await harness.trigger(name);
+			harness.context_usage.mockReturnValue({
+				tokens: null,
+				contextWindow: 200_000,
+				percent: null,
+			});
+			await harness.trigger('session_compact');
+			harness.context_usage.mockReturnValue(undefined);
+			await harness.trigger('session_shutdown');
+			const snapshots = harness.sent.map(
+				(event) =>
+					(event.payload as Record<string, unknown>).contextUsage,
+			);
+			expect(snapshots[0]).toEqual({
+				tokens: 80_000,
+				contextWindow: 200_000,
+				percent: 40,
+			});
+			expect(snapshots[1]).toBeUndefined();
+			expect(snapshots.slice(2, 7)).toEqual(
+				Array.from({ length: 5 }, () => ({
+					tokens: 84_000,
+					contextWindow: 200_000,
+					percent: 42,
+				})),
+			);
+			expect(snapshots.at(-2)).toEqual({
+				tokens: null,
+				contextWindow: 200_000,
+				percent: null,
+			});
+			expect(snapshots.at(-1)).toBeNull();
+		} finally {
+			harness.fetch_mock.mockRestore();
+		}
+	});
+
+	it.each(['summary', 'detailed'] as const)(
+		'keeps numeric context snapshots in %s mode',
+		(detail) => {
+			const context_usage = {
+				tokens: 0,
+				contextWindow: 200_000,
+				percent: 0,
+			};
+			expect(
+				summarize_payload({ contextUsage: context_usage }, detail),
+			).toMatchObject({ contextUsage: context_usage });
+		},
+	);
 });
 
 describe('tool execution updates', () => {

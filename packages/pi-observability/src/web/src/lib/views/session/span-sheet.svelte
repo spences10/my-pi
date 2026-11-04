@@ -75,6 +75,11 @@
 					: duration(span.duration_ms),
 			],
 		];
+		if (span.interrupted)
+			items.push([
+				'Status',
+				'Interrupted · last observed activity; unobserved gap excluded',
+			]);
 		if (span.kind === 'model') {
 			if (span.requested_model)
 				items.push(['Requested model', span.requested_model]);
@@ -110,6 +115,8 @@
 					</span>
 					{#if span.error}
 						<Badge variant="destructive">Failed</Badge>
+					{:else if span.interrupted}
+						<Badge variant="secondary">Interrupted</Badge>
 					{:else if span.open}
 						<Badge variant="outline">No end event</Badge>
 					{/if}
@@ -128,6 +135,34 @@
 							language={span.name === 'bash' ? 'bash' : 'text'}
 							label="Input"
 						/>
+					{/if}
+
+					{#if span.kind === 'model'}
+						<section class="grid min-w-0 gap-2">
+							<h3 class="text-sm font-medium">Response</h3>
+							{#if span.response_text}
+								<CodeBlock
+									code={span.response_text}
+									language="markdown"
+									label="Assistant response"
+								/>
+								{#if span.response_text_truncated}
+									<p class="text-xs text-muted-foreground">
+										Response truncated to 16,000 characters.
+									</p>
+								{/if}
+							{:else}
+								<p class="text-sm text-muted-foreground">
+									{span.response_text === ''
+										? 'This response contains no visible text (for example, a tool-only call).'
+										: span.interrupted
+											? 'No completed response was captured before the interruption.'
+											: span.open
+												? 'Response text is available after the model finishes.'
+												: 'Response text was not captured. Older events and summary mode omit message content.'}
+								</p>
+							{/if}
+						</section>
 					{/if}
 
 					<dl

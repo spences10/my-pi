@@ -221,6 +221,7 @@ export function create_stats_queries(db: DatabaseSync) {
 			turn_index: nullable_number(row.turn_index),
 			start_ts: String(row.start_ts),
 			end_ts: String(row.end_ts),
+			interrupted: row.interrupted === 1,
 			duration_ms: count(row.duration_ms),
 			stop_reason: nullable_text(row.stop_reason),
 			provider_ms: nullable_number(row.provider_ms),

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type {
+	ContextUsageSnapshot,
 	DashboardSession,
 	ObservabilityEvent,
 	ToolMetricsSummary,
@@ -197,6 +198,45 @@ function event_usage(events: ObservabilityEvent[]): UsageMetrics {
 	return totals;
 }
 
+/** Latest native snapshot wins, including an explicit unavailable value. */
+function latest_context_usage(
+	events: ObservabilityEvent[],
+): ContextUsageSnapshot | null {
+	for (let index = events.length - 1; index >= 0; index -= 1) {
+		const event = events[index]!;
+		const payload = (event.payload ?? {}) as Record<string, unknown>;
+		if (!Object.hasOwn(payload, 'contextUsage')) continue;
+		const usage = record_value(payload, 'contextUsage');
+		const context_window = usage.contextWindow;
+		if (
+			typeof context_window !== 'number' ||
+			!Number.isFinite(context_window) ||
+			context_window <= 0
+		)
+			return null;
+		const tokens =
+			typeof usage.tokens === 'number' &&
+			Number.isFinite(usage.tokens) &&
+			usage.tokens >= 0
+				? usage.tokens
+				: null;
+		return {
+			tokens,
+			context_window,
+			percent:
+				tokens !== null &&
+				typeof usage.percent === 'number' &&
+				Number.isFinite(usage.percent) &&
+				usage.percent >= 0
+					? usage.percent
+					: null,
+			ts: event.ts,
+			model: event.model ?? null,
+		};
+	}
+	return null;
+}
+
 export function trace_summary(
 	session: DashboardSession | null,
 	events: ObservabilityEvent[],
@@ -296,6 +336,7 @@ export function trace_summary(
 	).length;
 	return {
 		session,
+		context_usage: latest_context_usage(ascending),
 		spans: spans.slice(0, 80),
 		tools,
 		metrics: {

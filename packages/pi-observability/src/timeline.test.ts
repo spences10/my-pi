@@ -98,6 +98,41 @@ describe('build_timeline', () => {
 		},
 	);
 
+	it.each(['detailed', 'raw', 'summary', 'historical'])(
+		'exposes response text from %s events without inventing missing content',
+		(mode) => {
+			const message = {
+				role: 'assistant',
+				stopReason: 'stop',
+				content: [
+					{ type: 'text', text: 'Visible answer' },
+					{ type: 'thinking', thinking: 'Hidden' },
+				],
+			};
+			const payload =
+				mode === 'raw'
+					? { message }
+					: mode === 'historical'
+						? { message: { role: 'assistant', stopReason: 'stop' } }
+						: (summarize_payload(
+								{ message },
+								mode === 'summary' ? 'summary' : 'detailed',
+								'message_end',
+							) as Record<string, unknown>);
+			const timeline = build_timeline([
+				row(0, 'provider_request'),
+				row(1, 'message_end', payload),
+			]);
+			const model = timeline.runs[0]!.children[0]!;
+			expect(model.response_text).toBe(
+				mode === 'raw' || mode === 'detailed'
+					? 'Visible answer'
+					: undefined,
+			);
+			expect(JSON.stringify(model)).not.toContain('Hidden');
+		},
+	);
+
 	it('keeps responding models on their own calls across model changes', () => {
 		const timeline = build_timeline([
 			row(0, 'provider_request'),
@@ -274,6 +309,59 @@ describe('build_timeline', () => {
 			end_ms: 3_000,
 		});
 	});
+
+	it.each([
+		'session_start',
+		'session_shutdown',
+		'agent_start',
+		'agent_end',
+		'turn_start',
+		'branch_nav',
+	])(
+		'marks missing ends interrupted at %s without including the gap or later usage',
+		(boundary) => {
+			seq = 0;
+			const timeline = build_timeline([
+				row(0, 'agent_start', { prompt: 'Interrupted' }),
+				row(0, 'turn_start', { turnIndex: 54 }),
+				row(1, 'provider_request'),
+				row(600, boundary),
+				row(610, 'agent_start', { prompt: 'Resumed' }),
+				row(610, 'turn_start', { turnIndex: 0 }),
+				row(610, 'provider_request'),
+				row(612, 'message_end', {
+					message: {
+						role: 'assistant',
+						durationMs: 2000,
+						usage: { input: 100, output: 20, cost: { total: 0.01 } },
+					},
+				}),
+				row(613, 'turn_end'),
+				row(613, 'agent_end'),
+			]);
+			const old_turn = timeline.runs[0]!.children[0]!;
+			expect(old_turn).toMatchObject({
+				open: false,
+				interrupted: true,
+				end_ms: 1000,
+				duration_ms: 1000,
+				input_tokens: null,
+			});
+			expect(old_turn.children[0]).toMatchObject({
+				open: false,
+				interrupted: true,
+				end_ms: 1000,
+				input_tokens: null,
+				cost_usd: null,
+			});
+			const resumed = timeline.runs.at(-1)!.children[0]!.children[0]!;
+			expect(resumed).toMatchObject({
+				open: false,
+				input_tokens: 100,
+				cost_usd: 0.01,
+			});
+		},
+	);
 
 	it('ends spans without an end event where their parent ends', () => {
 		seq = 0;

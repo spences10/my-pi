@@ -92,11 +92,21 @@ export interface TraceMetricsSummary {
 	blocking_ms: number;
 }
 
+export interface ContextUsageSnapshot {
+	/** Pi's estimate for the active context, not cumulative billed tokens. */
+	tokens: number | null;
+	context_window: number;
+	percent: number | null;
+	ts: string;
+	model: string | null;
+}
+
 export interface TraceSummary {
 	session: DashboardSession | null;
 	spans: TraceSpanSummary[];
 	tools: ToolMetricsSummary[];
 	metrics: TraceMetricsSummary;
+	context_usage: ContextUsageSnapshot | null;
 }
 
 export interface ObservabilityConfig {
@@ -176,6 +186,8 @@ export interface TurnSpanRow {
 	turn_index: number | null;
 	start_ts: string;
 	end_ts: string;
+	/** Interrupted turns stop at their last observed event, excluding unobserved gaps. */
+	interrupted: boolean;
 	duration_ms: number;
 	stop_reason: string | null;
 	provider_ms: number | null;
@@ -220,6 +232,9 @@ export interface TimelineSpan {
 	/** Model spans preserve the requested ID separately from provider routing. */
 	requested_model?: string;
 	response_model?: string;
+	/** Redacted visible assistant text, absent for historical/summary events. */
+	response_text?: string;
+	response_text_truncated?: boolean;
 	start_ts: string;
 	start_ms: number;
 	end_ms: number;
@@ -227,6 +242,8 @@ export interface TimelineSpan {
 	duration_ms: number;
 	/** No end event yet: still running, or the session stopped. */
 	open: boolean;
+	/** A lifecycle boundary arrived without this span's end event. */
+	interrupted?: boolean;
 	error: boolean;
 	error_text: string | null;
 	exit_code: number | null;

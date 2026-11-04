@@ -340,6 +340,46 @@ describe('create_stats_queries', () => {
 		}
 	});
 
+	it('exposes interrupted turns without duplicating the resumed turn in the API', () => {
+		const { db, stats } = setup();
+		try {
+			db.exec(`
+				INSERT INTO events (event_id, session_id, seq, ts, type, payload_json, input_tokens, duration_ms) VALUES
+				('lost-start', 's1', 100, '${DAY_A}:10.000Z', 'turn_start', '{}', NULL, NULL),
+				('last-observed', 's1', 101, '${DAY_A}:11.000Z', 'provider_request', '{}', NULL, NULL),
+				('resume', 's1', 102, '${DAY_A}:50.000Z', 'session_start', '{}', NULL, NULL),
+				('new-start', 's1', 103, '${DAY_A}:51.000Z', 'turn_start', '{}', NULL, NULL),
+				('new-response', 's1', 104, '${DAY_A}:52.000Z', 'message_end', '{}', 100, 1000),
+				('new-end', 's1', 105, '${DAY_A}:53.000Z', 'turn_end', '{}', NULL, NULL);
+			`);
+			const turns = stats.session_spans('s1').turns;
+			expect(turns).toHaveLength(3);
+			expect(turns[1]).toMatchObject({
+				start_seq: 100,
+				interrupted: true,
+				duration_ms: 1000,
+				input_tokens: null,
+				provider_ms: null,
+				end_ts: `${DAY_A}:11.000Z`,
+			});
+			expect(turns[2]).toMatchObject({
+				start_seq: 103,
+				interrupted: false,
+				duration_ms: 2000,
+				input_tokens: 100,
+				provider_ms: 1000,
+			});
+			expect(
+				turns.reduce(
+					(sum, turn) => sum + (turn.input_tokens ?? 0),
+					0,
+				),
+			).toBe(110);
+		} finally {
+			db.close();
+		}
+	});
+
 	it('combines everything in the overview', () => {
 		const { db, stats } = setup();
 		try {

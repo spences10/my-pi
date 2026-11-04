@@ -52,6 +52,7 @@
 
 	const session = $derived(detail.data?.trace.session ?? null);
 	const metrics = $derived(detail.data?.trace.metrics);
+	const context_usage = $derived(detail.data?.trace.context_usage);
 	const turns = $derived(detail.data?.spans.turns ?? []);
 	const tools = $derived(detail.data?.spans.tools ?? []);
 	const events = $derived(detail.data?.events ?? []);
@@ -138,6 +139,34 @@
 				<p class="truncate font-mono text-xs text-muted-foreground">
 					{session?.cwd}
 				</p>
+				<p
+					class="mt-2 text-sm text-muted-foreground"
+					aria-label="Context usage"
+				>
+					Context:
+					{#if context_usage}
+						<strong class="font-medium text-foreground">
+							{context_usage.tokens === null
+								? 'Unknown'
+								: number_crunch(context_usage.tokens)}
+							/ {number_crunch(context_usage.context_window)}
+							{#if context_usage.percent !== null}
+								({context_usage.percent.toFixed(1)}%)
+							{/if}
+						</strong>
+						<span class="text-xs">
+							· estimated · as of <time datetime={context_usage.ts}>
+								{date_time(context_usage.ts)}
+							</time>
+							{#if context_usage.model}· {context_usage.model}{/if}
+							{#if context_usage.tokens === null}
+								· awaiting a response after compaction
+							{/if}
+						</span>
+					{:else}
+						Unavailable (not reported by Pi or not yet recorded)
+					{/if}
+				</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
 				{#if active}
@@ -203,8 +232,9 @@
 				<Card.Header>
 					<Card.Title>Where each turn's time went</Card.Title>
 					<Card.Description>
-						Model response, tool execution, and everything else, per
-						turn
+						Model response, tool execution, and unattributed elapsed
+						time. Interrupted turns stop at their last observed
+						activity; unobserved gaps are excluded.
 					</Card.Description>
 				</Card.Header>
 				<Card.Content>

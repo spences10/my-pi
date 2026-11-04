@@ -68,7 +68,14 @@
 					>{money(turn.cost_usd)}</Table.Cell
 				>
 				<Table.Cell>
-					{#if turn.stop_reason === 'error'}
+					{#if turn.interrupted}
+						<Badge
+							variant="secondary"
+							title="Missing end event. Duration ends at the last observed activity, excluding the unobserved gap."
+						>
+							Interrupted
+						</Badge>
+					{:else if turn.stop_reason === 'error'}
 						<Badge variant="destructive">error</Badge>
 					{:else if turn.stop_reason}
 						<Badge variant="outline">{turn.stop_reason}</Badge>
@@ -83,7 +90,7 @@
 					colspan={8}
 					class="py-8 text-center text-muted-foreground"
 				>
-					No completed turns yet.
+					No completed or interrupted turns yet.
 				</Table.Cell>
 			</Table.Row>
 		{/each}

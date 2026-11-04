@@ -5,7 +5,7 @@
 	import * as Collapsible from '#lib/components/ui/collapsible/index.js';
 	import { Toggle } from '#lib/components/ui/toggle/index.js';
 	import { clock, duration, tool_label } from '#lib/format.js';
-	import { slide_open } from '#lib/motion.js';
+	import { slide_open, trace_enter } from '#lib/motion.js';
 	import {
 		bar_position,
 		contains_failure,
@@ -21,6 +21,8 @@
 	import RepeatIcon from '@lucide/svelte/icons/repeat';
 	import WrenchIcon from '@lucide/svelte/icons/wrench';
 	import { tick, untrack } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type {
 		SessionTimeline,
@@ -42,13 +44,15 @@
 	} = $props();
 
 	let failures_only = $state(false);
+	// A bulk choice also applies to prompts arriving after the click.
+	let all_open = $state<boolean | null>(null);
 	// Runs the reader opened or closed; others use default_open.
 	const run_overrides = new SvelteMap<string, boolean>();
 	// The span the page opened on, e.g. from the failures list. Its row
 	// scrolls into view once, when it first renders.
 	const arrival_id = untrack(() => selected_id);
 
-	const runs = $derived(timeline.runs);
+	const runs = $derived(timeline.runs.toReversed());
 	const failures = $derived(failed_spans(runs));
 	const selected = $derived(
 		selected_id ? find_span(runs, selected_id) : null,
@@ -62,14 +66,23 @@
 
 	// Open the runs worth reading first: all when there are few, else
 	// the latest run, runs with failures, and the selected span's run.
-	function is_open(run: TimelineSpan, index: number): boolean {
+	function is_open(run: TimelineSpan): boolean {
 		return (
 			run_overrides.get(run.id) ??
+			all_open ??
 			(runs.length <= 3 ||
-				index === runs.length - 1 ||
+				run.id === runs[0]?.id ||
 				run.id === selected_run_id ||
 				contains_failure(run))
 		);
+	}
+
+	const any_open = $derived(runs.some(is_open));
+
+	function toggle_all(): void {
+		const next = !any_open;
+		run_overrides.clear();
+		all_open = next;
 	}
 
 	function scroll_to(span_id: string): void {
@@ -153,6 +166,14 @@
 					/>Failed</span
 				>
 			</span>
+			<Button
+				variant="outline"
+				size="sm"
+				disabled={runs.length === 0}
+				onclick={toggle_all}
+			>
+				{any_open ? 'Collapse all' : 'Expand all'}
+			</Button>
 			<Toggle
 				size="sm"
 				bind:pressed={failures_only}
@@ -172,180 +193,198 @@
 	</div>
 
 	{#each visible_runs as run (run.id)}
-		{@const open = is_open(run, runs.indexOf(run))}
+		{@const open = is_open(run)}
 		{@const run_failures = failure_count(run)}
-		<Collapsible.Root
-			class="rounded-xl border"
-			{open}
-			onOpenChange={(value) => run_overrides.set(run.id, value)}
+		<div
+			animate:flip={{
+				duration: prefersReducedMotion.current ? 0 : 220,
+			}}
+			in:trace_enter
 		>
-			<Collapsible.Trigger
-				class="group flex w-full items-center gap-2 px-3 py-2.5 text-left"
+			<Collapsible.Root
+				class="rounded-xl border"
+				{open}
+				onOpenChange={(value) => run_overrides.set(run.id, value)}
 			>
-				<ChevronRightIcon
-					class="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-90"
-				/>
-				<span class="min-w-0 flex-1 truncate text-sm font-medium"
-					>{run.name}</span
+				<Collapsible.Trigger
+					class="group flex w-full items-center gap-2 px-3 py-2.5 text-left"
 				>
-				{#if run_failures > 0}
-					<Badge variant="destructive">{run_failures} failed</Badge>
-				{/if}
-				{#if run.open}
-					<Badge variant="outline">no end event</Badge>
-				{/if}
-				<span
-					class="shrink-0 text-xs text-muted-foreground tabular-nums"
-				>
-					{clock(run.start_ts)} · {duration(run.duration_ms)}
-				</span>
-			</Collapsible.Trigger>
+					<ChevronRightIcon
+						class="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-90"
+					/>
+					<span class="min-w-0 flex-1 truncate text-sm font-medium"
+						>{run.name}</span
+					>
+					{#if run_failures > 0}
+						<Badge variant="destructive">{run_failures} failed</Badge>
+					{/if}
+					{#if run.interrupted}
+						<Badge variant="secondary">Interrupted</Badge>
+					{:else if run.open}
+						<Badge variant="outline">no end event</Badge>
+					{/if}
+					<span
+						class="shrink-0 text-xs text-muted-foreground tabular-nums"
+					>
+						{clock(run.start_ts)} · {duration(run.duration_ms)}
+					</span>
+				</Collapsible.Trigger>
 
-			<Collapsible.Content forceMount>
-				{#snippet child({ props, open: content_open })}
-					{#if content_open}
-						<div {...props} class="border-t" transition:slide_open>
-							<div
-								class="grid grid-cols-[minmax(10rem,18rem)_minmax(0,1fr)] border-b text-[11px] text-muted-foreground"
-								aria-hidden="true"
-							>
-								<span></span>
-								<div class="relative h-6">
-									{#each ticks as tick_value (tick_value)}
-										<span
-											class={[
-												'absolute top-1 tabular-nums',
-												tick_value === 0
-													? ''
-													: tick_value === 100
-														? '-translate-x-full'
-														: '-translate-x-1/2',
-											]}
-											style:left="{tick_value}%"
-										>
-											{tick_value === 0
-												? '0'
-												: duration(
-														((run.end_ms - run.start_ms) *
-															tick_value) /
-															100,
-													)}
-										</span>
-									{/each}
-								</div>
-							</div>
-							<ul>
-								{#each trace_rows(run, failures_only) as { span, depth } (span.id)}
-									{@const position = bar_position(span, run)}
-									<li
-										id={row_dom_id(span.id)}
-										{@attach scroll_if_arrival(span.id)}
-										transition:slide_open
-									>
-										<button
-											type="button"
-											class={[
-												'grid w-full grid-cols-[minmax(10rem,18rem)_minmax(0,1fr)] items-center text-left hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none',
-												selected_id === span.id && 'bg-muted',
-											]}
-											aria-label="{span.kind} {label(
-												span,
-											)}, {duration(span.duration_ms)}{span.error
-												? ', failed'
-												: ''}"
-											onclick={() => on_select(span.id)}
-										>
+				<Collapsible.Content forceMount>
+					{#snippet child({ props, open: content_open })}
+						{#if content_open}
+							<div {...props} class="border-t" transition:slide_open>
+								<div
+									class="grid grid-cols-[minmax(10rem,18rem)_minmax(0,1fr)] border-b text-[11px] text-muted-foreground"
+									aria-hidden="true"
+								>
+									<span></span>
+									<div class="relative h-6">
+										{#each ticks as tick_value (tick_value)}
 											<span
-												class="flex min-w-0 items-center gap-1.5 py-1 pr-2 text-xs"
-												style:padding-left="{0.75 + depth * 0.9}rem"
+												class={[
+													'absolute top-1 tabular-nums',
+													tick_value === 0
+														? ''
+														: tick_value === 100
+															? '-translate-x-full'
+															: '-translate-x-1/2',
+												]}
+												style:left="{tick_value}%"
 											>
-												{#if span.error}
-													<CircleAlertIcon
-														class="size-3.5 shrink-0 text-destructive"
-													/>
-												{:else if span.kind === 'model'}
-													<BotIcon
-														class="size-3.5 shrink-0 text-muted-foreground"
-													/>
-												{:else if span.kind === 'tool'}
-													<WrenchIcon
-														class="size-3.5 shrink-0 text-muted-foreground"
-													/>
-												{:else}
-													<RepeatIcon
-														class="size-3.5 shrink-0 text-muted-foreground"
-													/>
-												{/if}
-												<span
-													class={[
-														span.detail && span.kind === 'tool'
-															? 'max-w-[60%] shrink-0 truncate'
-															: 'truncate',
-														span.kind === 'turn' && 'font-medium',
-														span.kind === 'tool' && 'font-mono',
-														span.error && 'text-destructive',
-													]}
-												>
-													{label(span)}
-												</span>
-												{#if span.detail && span.kind === 'tool'}
-													<span
-														class="truncate font-mono text-muted-foreground"
-														>{span.detail}</span
-													>
-												{/if}
+												{tick_value === 0
+													? '0'
+													: duration(
+															((run.end_ms - run.start_ms) *
+																tick_value) /
+																100,
+														)}
 											</span>
-											<span class="relative h-7 border-l">
+										{/each}
+									</div>
+								</div>
+								<ul>
+									{#each trace_rows(run, failures_only) as { span, depth } (span.id)}
+										{@const position = bar_position(span, run)}
+										<li
+											id={row_dom_id(span.id)}
+											{@attach scroll_if_arrival(span.id)}
+											transition:slide_open
+										>
+											<button
+												type="button"
+												class={[
+													'grid w-full grid-cols-[minmax(10rem,18rem)_minmax(0,1fr)] items-center text-left hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none',
+													selected_id === span.id && 'bg-muted',
+												]}
+												aria-label="{span.kind} {label(
+													span,
+												)}, {duration(span.duration_ms)}{span.error
+													? ', failed'
+													: ''}"
+												onclick={() => on_select(span.id)}
+											>
 												<span
-													class={[
-														'absolute top-1.5 h-4 min-w-0.5 rounded-sm',
-														bar_classes[span.kind],
-														span.error &&
-															'ring-2 ring-destructive ring-offset-1 ring-offset-background',
-														span.open && 'opacity-60',
-													]}
-													style:left="{position.left}%"
-													style:width="{position.width}%"
-												></span>
-												<!-- Duration sits after the bar; before it when the bar
+													class="flex min-w-0 items-center gap-1.5 py-1 pr-2 text-xs"
+													style:padding-left="{0.75 + depth * 0.9}rem"
+												>
+													{#if span.error}
+														<CircleAlertIcon
+															class="size-3.5 shrink-0 text-destructive"
+														/>
+													{:else if span.kind === 'model'}
+														<BotIcon
+															class="size-3.5 shrink-0 text-muted-foreground"
+														/>
+													{:else if span.kind === 'tool'}
+														<WrenchIcon
+															class="size-3.5 shrink-0 text-muted-foreground"
+														/>
+													{:else}
+														<RepeatIcon
+															class="size-3.5 shrink-0 text-muted-foreground"
+														/>
+													{/if}
+													<span
+														class={[
+															span.detail && span.kind === 'tool'
+																? 'max-w-[60%] shrink-0 truncate'
+																: 'truncate',
+															span.kind === 'turn' && 'font-medium',
+															span.kind === 'tool' && 'font-mono',
+															span.error && 'text-destructive',
+														]}
+													>
+														{label(span)}
+													</span>
+													{#if span.interrupted}
+														<Badge
+															variant="secondary"
+															class="text-[10px]"
+														>
+															Interrupted
+														</Badge>
+													{/if}
+													{#if span.detail && span.kind === 'tool'}
+														<span
+															class="truncate font-mono text-muted-foreground"
+														>
+															{span.detail}
+														</span>
+													{/if}
+												</span>
+												<span class="relative h-7 border-l">
+													<span
+														class={[
+															'absolute top-1.5 h-4 min-w-0.5 rounded-sm',
+															bar_classes[span.kind],
+															span.error &&
+																'ring-2 ring-destructive ring-offset-1 ring-offset-background',
+															span.open && 'opacity-60',
+														]}
+														style:left="{position.left}%"
+														style:width="{position.width}%"
+													></span>
+													<!-- Duration sits after the bar; before it when the bar
 											ends near the right edge; inside it when the bar fills the
 											row. -->
-												{#if position.left + position.width > 88 && position.left <= 12}
-													<span
-														class="absolute top-1.5 rounded-sm bg-background/80 px-1 text-[11px] leading-4 text-foreground tabular-nums"
-														style:right="calc({100 -
-															position.left -
-															position.width}% + 0.25rem)"
-													>
-														{duration(span.duration_ms)}
-													</span>
-												{:else if position.left + position.width > 88}
-													<span
-														class="absolute top-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums"
-														style:right="calc({100 - position.left}% +
-														0.375rem)"
-													>
-														{duration(span.duration_ms)}
-													</span>
-												{:else}
-													<span
-														class="absolute top-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums"
-														style:left="calc({position.left +
-															position.width}% + 0.375rem)"
-													>
-														{duration(span.duration_ms)}
-													</span>
-												{/if}
-											</span>
-										</button>
-									</li>
-								{/each}
-							</ul>
-						</div>
-					{/if}
-				{/snippet}
-			</Collapsible.Content>
-		</Collapsible.Root>
+													{#if position.left + position.width > 88 && position.left <= 12}
+														<span
+															class="absolute top-1.5 rounded-sm bg-background/80 px-1 text-[11px] leading-4 text-foreground tabular-nums"
+															style:right="calc({100 -
+																position.left -
+																position.width}% + 0.25rem)"
+														>
+															{duration(span.duration_ms)}
+														</span>
+													{:else if position.left + position.width > 88}
+														<span
+															class="absolute top-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums"
+															style:right="calc({100 - position.left}%
+															+ 0.375rem)"
+														>
+															{duration(span.duration_ms)}
+														</span>
+													{:else}
+														<span
+															class="absolute top-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums"
+															style:left="calc({position.left +
+																position.width}% + 0.375rem)"
+														>
+															{duration(span.duration_ms)}
+														</span>
+													{/if}
+												</span>
+											</button>
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+					{/snippet}
+				</Collapsible.Content>
+			</Collapsible.Root>
+		</div>
 	{:else}
 		<p class="py-8 text-center text-sm text-muted-foreground">
 			{failures_only

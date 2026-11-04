@@ -5,8 +5,8 @@
 
 	let { turns }: { turns: TurnSpanRow[] } = $props();
 
-	// Each turn splits into model time, tool time, and the rest
-	// (queueing, hooks, extension work).
+	// The residual is unattributed elapsed time, not measured overhead.
+	// Interrupted turns contain only activity observed before the boundary.
 	const rows = $derived(
 		turns.map((turn, index) => {
 			const provider = turn.provider_ms ?? 0;
@@ -31,7 +31,7 @@
 			{ key: 'tool', label: 'Tools', color: 'var(--chart-2)' },
 			{
 				key: 'other',
-				label: 'Other',
+				label: 'Unattributed',
 				color:
 					'color-mix(in oklch, var(--muted-foreground) 45%, transparent)',
 			},
@@ -46,7 +46,10 @@
 			bars: { radius: 2, strokeWidth: 0 },
 			yAxis: { format: duration, ticks: 4 },
 			tooltip: {
-				header: { format: (value: string) => `Turn ${value}` },
+				header: {
+					format: (value: string) =>
+						`Turn ${value}${turns[Number(value) - 1]?.interrupted ? ' · interrupted' : ''}`,
+				},
 				item: { format: duration },
 				hideTotal: true,
 			},

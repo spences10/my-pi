@@ -85,10 +85,23 @@ WHERE s.type = 'tool_execution_start';
 -- One row per agent turn, with usage from the message_end events and
 -- tool time from the tool_execution_end events inside the turn.
 -- provider_ms is the sum of assistant message durationMs values.
--- Pi restarts turnIndex for each prompt, so a turn_start is paired
--- with the next turn_end by seq; start_seq identifies the turn.
+-- Pi restarts turnIndex for each prompt. Stop at the first lifecycle
+-- boundary, never borrowing an end or usage from a later turn/resume.
+-- Interrupted turns end at their last observed event, not the later
+-- resume timestamp: the unobserved gap is not measured execution.
 DROP VIEW IF EXISTS turn_spans;
 CREATE VIEW turn_spans AS
+WITH starts AS (
+	SELECT s.*, (
+		SELECT MIN(x.seq) FROM events x
+		WHERE x.session_id = s.session_id AND x.seq > s.seq
+			AND x.type IN (
+				'turn_end', 'turn_start', 'agent_start', 'agent_end',
+				'session_start', 'session_shutdown', 'branch_nav'
+			)
+	) AS boundary_seq
+	FROM events s WHERE s.type = 'turn_start'
+)
 SELECT
 	s.session_id,
 	s.seq AS start_seq,
@@ -96,7 +109,8 @@ SELECT
 	s.ts AS start_ts,
 	e.ts AS end_ts,
 	(unixepoch(e.ts, 'subsec') - unixepoch(s.ts, 'subsec')) * 1000.0 AS duration_ms,
-	e.stop_reason,
+	CASE WHEN b.type = 'turn_end' THEN e.stop_reason END AS stop_reason,
+	b.type != 'turn_end' AS interrupted,
 	SUM(CASE WHEN m.type = 'message_end' THEN m.duration_ms END) AS provider_ms,
 	SUM(CASE WHEN m.type = 'tool_execution_end' THEN m.duration_ms END) AS tool_ms,
 	SUM(m.type = 'tool_execution_end') AS tool_calls,
@@ -106,19 +120,17 @@ SELECT
 	SUM(m.cache_read_tokens) AS cache_read_tokens,
 	SUM(m.cache_write_tokens) AS cache_write_tokens,
 	SUM(m.cost_usd) AS cost_usd
-FROM events s
+FROM starts s
+JOIN events b ON b.session_id = s.session_id AND b.seq = s.boundary_seq
 JOIN events e
 	ON e.session_id = s.session_id
-	AND e.seq = (
-		SELECT MIN(x.seq) FROM events x
-		WHERE x.session_id = s.session_id
-			AND x.seq > s.seq
-			AND x.type = 'turn_end'
-	)
+	AND e.seq = CASE WHEN b.type = 'turn_end' THEN b.seq ELSE (
+		SELECT MAX(x.seq) FROM events x
+		WHERE x.session_id = s.session_id AND x.seq >= s.seq AND x.seq < b.seq
+	) END
 LEFT JOIN events m
 	ON m.session_id = s.session_id
 	AND m.seq > s.seq
-	AND m.seq < e.seq
+	AND m.seq < b.seq
 	AND m.type IN ('message_end', 'tool_execution_end')
-WHERE s.type = 'turn_start'
 GROUP BY s.event_id;

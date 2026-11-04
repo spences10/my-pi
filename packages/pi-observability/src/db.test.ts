@@ -265,6 +265,112 @@ describe('prepare_db', () => {
 		}
 	});
 
+	it.each([
+		'session_start',
+		'session_shutdown',
+		'agent_start',
+		'agent_end',
+		'turn_start',
+		'branch_nav',
+	])('does not pair an unfinished turn across %s', (boundary) => {
+		const { db, statements } = prepare_db(tmp_db());
+		try {
+			const fixtures: Array<
+				[number, string, Record<string, unknown>]
+			> = [
+				[0, 'turn_start', { turnIndex: 54 }],
+				[1, 'provider_request', {}],
+				[600, boundary, { reason: 'resume' }],
+				[610, 'turn_start', { turnIndex: 0 }],
+				[
+					612,
+					'message_end',
+					{
+						message: {
+							role: 'assistant',
+							durationMs: 2000,
+							usage: {
+								input: 100,
+								output: 20,
+								cost: { total: 0.01 },
+							},
+						},
+					},
+				],
+				[613, 'turn_end', { turnIndex: 0 }],
+			];
+			fixtures.forEach(([second, type, payload], seq) =>
+				statements.insert_event.run(
+					`interrupted-${seq}`,
+					's1',
+					seq,
+					new Date(
+						Date.UTC(2026, 9, 31, 10, 0, second),
+					).toISOString(),
+					type,
+					'default',
+					'[]',
+					JSON.stringify(payload),
+					null,
+					null,
+					...event_column_values(derive_event_columns(type, payload)),
+				),
+			);
+			const turns = db
+				.prepare(
+					'SELECT start_seq, interrupted, duration_ms, provider_ms, input_tokens, cost_usd FROM turn_spans ORDER BY start_seq',
+				)
+				.all();
+			expect(turns[0]).toMatchObject({
+				start_seq: 0,
+				interrupted: 1,
+				duration_ms: 1000,
+				provider_ms: null,
+				input_tokens: null,
+				cost_usd: null,
+			});
+			expect(turns.at(-1)).toMatchObject({
+				start_seq: 3,
+				interrupted: 0,
+				duration_ms: 3000,
+				provider_ms: 2000,
+				input_tokens: 100,
+				cost_usd: 0.01,
+			});
+			expect(
+				turns.reduce(
+					(sum, turn) => sum + Number(turn.input_tokens ?? 0),
+					0,
+				),
+			).toBe(100);
+			expect(
+				turns.reduce(
+					(sum, turn) => sum + Number(turn.cost_usd ?? 0),
+					0,
+				),
+			).toBe(0.01);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('does not close a running turn using another session or an unmatched end', () => {
+		const { db } = prepare_db(tmp_db());
+		try {
+			db.exec(`
+				INSERT INTO events (event_id, session_id, seq, ts, type, payload_json) VALUES
+				('orphan', 's1', 0, '2026-10-31T10:00:00Z', 'turn_end', '{}'),
+				('active', 's1', 1, '2026-10-31T10:00:01Z', 'turn_start', '{}'),
+				('foreign', 's2', 2, '2026-10-31T10:00:02Z', 'turn_end', '{}');
+			`);
+			expect(db.prepare('SELECT * FROM turn_spans').all()).toEqual(
+				[],
+			);
+		} finally {
+			db.close();
+		}
+	});
+
 	it('refuses databases from a newer schema version', () => {
 		const db_path = tmp_db();
 		mkdirSync(dirname(db_path), { recursive: true });

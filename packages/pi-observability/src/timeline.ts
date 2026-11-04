@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { assistant_text } from './message-text.js';
 import type {
 	SessionTimeline,
 	TimelineSpan,
@@ -177,11 +178,44 @@ export function build_timeline(
 		return run;
 	}
 
+	// End incomplete spans at the last event we actually observed, not
+	// at a later resume or prompt. Never attach later usage to them.
+	function interrupt(
+		span: TimelineSpan | null,
+		boundary: TimelineEventRow,
+	): void {
+		if (!span) return;
+		if (open_spans.has(span)) {
+			span.end_ms = Math.max(
+				span.start_ms,
+				offset(previous_row?.ts ?? span.start_ts),
+			);
+			span.duration_ms = span.end_ms - span.start_ms;
+			span.open = false;
+			span.interrupted = true;
+			span.event_seqs.push(boundary.seq);
+			open_spans.delete(span);
+		}
+		for (const child of span.children) interrupt(child, boundary);
+	}
+
+	let previous_row: TimelineEventRow | undefined;
 	for (const row of rows) {
 		const payload = parse_payload(row.payload_json);
 		switch (row.type) {
+			case 'session_start':
+			case 'session_shutdown':
+			case 'branch_nav': {
+				interrupt(run, row);
+				run = null;
+				turn = null;
+				model = null;
+				tools.clear();
+				break;
+			}
 			case 'agent_start': {
-				if (run?.open) close(run, row);
+				interrupt(run, row);
+				tools.clear();
 				run = open(
 					'run',
 					`run:${row.seq}`,
@@ -195,6 +229,8 @@ export function build_timeline(
 				break;
 			}
 			case 'agent_end': {
+				interrupt(turn, row);
+				interrupt(model, row);
 				if (run?.open) close(run, row);
 				run = null;
 				turn = null;
@@ -202,6 +238,9 @@ export function build_timeline(
 				break;
 			}
 			case 'turn_start': {
+				interrupt(turn, row);
+				interrupt(model, row);
+				model = null;
 				const parent = ensure_run(row);
 				turns_in_run += 1;
 				turn = open(
@@ -251,6 +290,23 @@ export function build_timeline(
 				model.name = model.requested_model ?? model.name;
 				if (response && response !== model.requested_model)
 					model.name = `${model.name} → ${response}`;
+				const visible_response =
+					typeof payload.responseText === 'string'
+						? {
+								text: payload.responseText,
+								truncated: payload.responseTextTruncated === true,
+							}
+						: assistant_text(message);
+				// Summarized historical messages have no content field. Do not
+				// mistake omitted content for a genuine tool-only response.
+				if (
+					visible_response &&
+					(typeof payload.responseText === 'string' ||
+						message?.content !== undefined)
+				) {
+					model.response_text = visible_response.text;
+					model.response_text_truncated = visible_response.truncated;
+				}
 				model.detail = row.stop_reason;
 				model.error = row.stop_reason === 'error';
 				model.error_text = row.error_text;
@@ -304,6 +360,7 @@ export function build_timeline(
 				break;
 			}
 		}
+		previous_row = row;
 	}
 
 	for (const span of open_spans) {

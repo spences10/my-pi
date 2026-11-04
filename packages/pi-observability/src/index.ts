@@ -1,10 +1,14 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from '@earendil-works/pi-coding-agent';
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import { homedir } from 'node:os';
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { health_proof_matches } from './health-auth.js';
+import { assistant_text } from './message-text.js';
 import { resolve_observability_token } from './options.js';
 import {
 	redact_value,
@@ -270,6 +274,7 @@ export function failure_details(event: Record<string, unknown>): {
 export function summarize_payload(
 	event: unknown,
 	detail_level: ObservabilityConfig['detail_level'] = 'detailed',
+	event_type?: ObservabilityEventType,
 ): unknown {
 	if (!event || typeof event !== 'object') return event;
 	const object = event as Record<string, unknown>;
@@ -290,7 +295,26 @@ export function summarize_payload(
 	}
 	for (const [key, value] of Object.entries(object)) {
 		if (key in summary) continue;
-		if (key === 'usage' || key === 'cost') {
+		if (key === 'contextUsage') {
+			const usage = record_of(value);
+			summary[key] =
+				value === null
+					? null
+					: {
+							tokens:
+								typeof usage.tokens === 'number'
+									? usage.tokens
+									: null,
+							contextWindow:
+								typeof usage.contextWindow === 'number'
+									? usage.contextWindow
+									: null,
+							percent:
+								typeof usage.percent === 'number'
+									? usage.percent
+									: null,
+						};
+		} else if (key === 'usage' || key === 'cost') {
 			summary[key] = summarize_metric_value(value);
 		} else if (typeof value === 'string') {
 			summary[key] = summarize_text(
@@ -326,6 +350,18 @@ export function summarize_payload(
 			summary[key] = value;
 		}
 	}
+	// Store visible response text once, on message_end, rather than
+	// duplicating it in turn_end / agent_end payloads. Thinking is excluded.
+	if (
+		detail_level === 'detailed' &&
+		(event_type ?? object.type) === 'message_end'
+	) {
+		const response = assistant_text(object.message);
+		if (response) {
+			summary.responseText = response.text;
+			summary.responseTextTruncated = response.truncated;
+		}
+	}
 	// Failures keep the full output; it is what explains the error.
 	if (detail_level === 'detailed' && object.isError === true) {
 		const failure = failure_details(object);
@@ -349,7 +385,7 @@ export function create_event_envelope(
 ): ObservabilityEvent {
 	const safe_payload = config.raw_payloads
 		? payload
-		: summarize_payload(payload, config.detail_level);
+		: summarize_payload(payload, config.detail_level, type);
 	return {
 		event_id: randomUUID(),
 		ts: new Date().toISOString(),
@@ -710,13 +746,24 @@ export default function observability(pi: ExtensionAPI) {
 	function observe(
 		pi_event: string,
 		obs_type: ObservabilityEventType,
+		capture_context = false,
 	): void {
 		(
 			pi.on as (
 				name: string,
-				handler: (event: unknown) => void,
+				handler: (event: unknown, ctx: ExtensionContext) => void,
 			) => void
-		)(pi_event, (event) => emit(obs_type, event));
+		)(pi_event, (event, ctx) =>
+			emit(
+				obs_type,
+				capture_context
+					? {
+							...record_of(event),
+							contextUsage: ctx.getContextUsage() ?? null,
+						}
+					: event,
+			),
+		);
 	}
 
 	pi.on('session_start', async (event, ctx) => {
@@ -739,13 +786,18 @@ export default function observability(pi: ExtensionAPI) {
 			model: ctx.model?.id,
 		};
 		queue = new EventQueue(config.server_url, config.token);
-		emit('session_start', event);
+		emit('session_start', {
+			...event,
+			contextUsage: ctx.getContextUsage() ?? null,
+		});
 	});
 
-	observe('before_agent_start', 'agent_start');
-	observe('agent_end', 'agent_end');
+	observe('before_agent_start', 'agent_start', true);
+	observe('agent_end', 'agent_end', true);
 	observe('turn_start', 'turn_start');
-	observe('turn_end', 'turn_end');
+	// message_end is dispatched before persistence. turn_end sees the
+	// assistant and tool messages in Pi's authoritative session projection.
+	observe('turn_end', 'turn_end', true);
 	observe('message_start', 'message_start');
 	observe('message_end', 'message_end');
 	observe('tool_call', 'tool_call');
@@ -768,8 +820,8 @@ export default function observability(pi: ExtensionAPI) {
 	});
 	observe('before_provider_request', 'provider_request');
 	observe('after_provider_response', 'provider_response');
-	observe('session_compact', 'compaction');
-	observe('session_tree', 'branch_nav');
+	observe('session_compact', 'compaction', true);
+	observe('session_tree', 'branch_nav', true);
 
 	pi.on('before_provider_headers', (event, ctx) => {
 		if (!config?.forward_session_id) return;
@@ -787,11 +839,17 @@ export default function observability(pi: ExtensionAPI) {
 			session.provider = ctx.model?.provider ?? session.provider;
 			session.model = ctx.model?.id ?? session.model;
 		}
-		emit('model_select', event);
+		emit('model_select', {
+			...event,
+			contextUsage: ctx.getContextUsage() ?? null,
+		});
 	});
 
-	pi.on('session_shutdown', async (event) => {
-		emit('session_shutdown', event);
+	pi.on('session_shutdown', async (event, ctx) => {
+		emit('session_shutdown', {
+			...event,
+			contextUsage: ctx.getContextUsage() ?? null,
+		});
 		await queue?.stop();
 		queue = null;
 		session = null;

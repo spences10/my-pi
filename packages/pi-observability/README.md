@@ -92,18 +92,23 @@ token only in the `Authorization` header. The dashboard includes:
   tool.
 - **Tools** also lists recent failures across sessions with their
   error output; each links to the failing span in its session trace.
-- **Session detail** — totals, a per-turn chart of model, tool, and
-  other time, and tabs:
+- **Session detail** — totals, estimated context tokens/capacity and
+  percentage with a snapshot timestamp, a per-turn chart of model,
+  tool, and unattributed time, and tabs:
   - **Trace** (default) — each prompt as a timeline of turns, model
     calls, and tool calls on a shared time axis, with nested tool
-    calls under their parent. Failed spans are outlined and marked;
-    "Failures only" and "Next failure" find them. Selecting a span
-    opens a drawer with its full input, error output, exit code,
-    tokens, cost, and the raw events, and puts the span in the URL
-    (`&span=<id>`). Model calls show the requested model and, when the
-    provider reports it, the actual responding model. Routed calls are
-    labeled `requested → responding` in the trace; both IDs stay
-    available in the span drawer.
+    calls under their parent. Prompt groups are newest first, with
+    reduced-motion-aware arrival animations; activity inside each
+    prompt stays chronological. **Collapse all / Expand all** also
+    controls newly arriving prompts. Failed spans are outlined and
+    marked; "Failures only" and "Next failure" find them. Selecting a
+    span opens a drawer with its full input, error output, exit code,
+    tokens, cost, captured assistant response text for model calls,
+    and the raw events, and puts the span in the URL (`&span=<id>`).
+    Model calls show the requested model and, when the provider
+    reports it, the actual responding model. Routed calls are labeled
+    `requested → responding` in the trace; both IDs stay available in
+    the span drawer.
   - **Turns**, **Tools**, **Events** (searchable, with a JSON payload
     drawer), and **Context** (cwd, session file, model, reasoning
     settings, and initial prompts).
@@ -126,7 +131,21 @@ compaction summaries, and branch summaries exactly once. The session
 file is authoritative; message lifecycle events are used only when
 persisted usage is unavailable. These cumulative totals complement the
 timing and event data rather than representing the active context
-window.
+window. The separate context display uses Pi's native
+`ctx.getContextUsage()` estimate, including the active model's context
+capacity. Unknown usage after compaction stays unknown until a new
+response; older events without snapshots show unavailable, not zero.
+
+Interrupted turns are marked in the trace and Turns tab. Their
+duration ends at the last observed activity before a resume, shutdown,
+new prompt/turn, or branch navigation; unobserved gaps are excluded. A
+later turn's end and usage are never attributed to the interrupted
+turn. **Unattributed** time is the remaining elapsed time after
+recorded model and tool time, not a measured breakdown of extension
+overhead. See the
+[turn pairing implementation](https://github.com/spences10/my-pi/blob/main/packages/pi-observability/src/schema.sql)
+and
+[regression tests](https://github.com/spences10/my-pi/blob/main/packages/pi-observability/src/db.test.ts).
 
 ## Advanced configuration
 
@@ -189,11 +208,25 @@ Some events are reduced before they are sent:
   prefix). The `agent_start` event keeps the prompt preview.
 - Detailed message summaries keep `role`, `stopReason`,
   `errorMessage`, `durationMs`, and `thinkingLevel`, so provider
-  latency and errors are available without the message content. Both
-  summary modes keep the requested `model` and provider-reported
-  `responseModel` IDs. Older events and providers without
-  `responseModel` continue to show only the requested model; the
-  dashboard does not infer a response ID.
+  latency and errors are available independently of response text. In
+  detailed mode, assistant `message_end` events also keep visible text
+  as `responseText`, capped at 16,000 characters with an explicit
+  `responseTextTruncated` flag and normal secret redaction. Thinking,
+  images, and tool arguments are excluded from this text capture.
+  Summary mode and older events omit it; the drawer explains when text
+  was not captured or the response was tool-only. Both summary modes
+  keep the requested `model` and provider-reported `responseModel`
+  IDs. Older events and providers without `responseModel` continue to
+  show only the requested model; the dashboard does not infer a
+  response ID.
+
+Context snapshots are recorded at session start/shutdown, before a
+prompt, after a turn/run, and after compaction, branch navigation, and
+model selection. Turn-end capture happens after message persistence,
+so context reflects Pi's session projection rather than cumulative
+billing counters. Snapshots retain unknown/unavailable values rather
+than falling back to an older estimate. See the
+[event capture implementation](https://github.com/spences10/my-pi/blob/main/packages/pi-observability/src/index.ts).
 
 `provider_response` depends on the provider transport. Pi emits
 `after_provider_response` only for HTTP responses. The `openai-codex`
@@ -221,8 +254,11 @@ Two views join the events into spans:
 
 - `tool_spans` — one row per tool execution, with duration, error
   flag, and update count.
-- `turn_spans` — one row per agent turn, with duration, provider and
-  tool time, tool calls and errors, tokens, and cost.
+- `turn_spans` — one row per completed or interrupted agent turn, with
+  duration, an interruption flag, provider and tool time, tool calls
+  and errors, tokens, and cost. Active turns without an end or
+  interruption boundary remain visible in the trace rather than this
+  completed/interrupted breakdown.
 
 Upgrading an older database adds the columns, fills them from the
 stored payloads, and runs one `VACUUM` to enable

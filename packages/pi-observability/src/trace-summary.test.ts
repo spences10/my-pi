@@ -92,6 +92,83 @@ describe('trace_summary', () => {
 		]);
 	});
 
+	it('uses the latest native context snapshot, separate from cumulative tokens', () => {
+		const first = event('turn_end', 1, {
+			contextUsage: {
+				tokens: 100_000,
+				contextWindow: 200_000,
+				percent: 50,
+			},
+		});
+		const latest = event('turn_end', 3, {
+			contextUsage: {
+				tokens: 84_000,
+				contextWindow: 200_000,
+				percent: 42,
+			},
+		});
+		latest.model = 'active-model';
+		const summary = trace_summary(null, [
+			latest,
+			first,
+			event('message_end', 2, {
+				message: { usage: { input: 500_000, output: 10_000 } },
+			}),
+		]);
+		expect(summary.context_usage).toEqual({
+			tokens: 84_000,
+			context_window: 200_000,
+			percent: 42,
+			ts: latest.ts,
+			model: 'active-model',
+		});
+		expect(summary.metrics.total_tokens).toBe(510_000);
+	});
+
+	it('does not reuse pre-compaction or unavailable context, or infer it from billing totals', () => {
+		const first = event('turn_end', 0, {
+			contextUsage: {
+				tokens: 100_000,
+				contextWindow: 200_000,
+				percent: 50,
+			},
+		});
+		expect(
+			trace_summary(null, [
+				first,
+				event('compaction', 1, {
+					contextUsage: {
+						tokens: null,
+						contextWindow: 200_000,
+						percent: null,
+					},
+				}),
+			]).context_usage,
+		).toMatchObject({ tokens: null, percent: null });
+		expect(
+			trace_summary(null, [
+				first,
+				event('model_select', 1, { contextUsage: null }),
+			]).context_usage,
+		).toBeNull();
+		expect(
+			trace_summary(null, [
+				event('message_end', 0, { usage: { input: 100_000 } }),
+			]).context_usage,
+		).toBeNull();
+		expect(
+			trace_summary(null, [
+				event('turn_end', 0, {
+					contextUsage: {
+						tokens: 0,
+						contextWindow: 200_000,
+						percent: 0,
+					},
+				}),
+			]).context_usage,
+		).toMatchObject({ tokens: 0, percent: 0 });
+	});
+
 	it('never treats error-like text as a structured failure', () => {
 		const summary = trace_summary(null, [
 			event('tool_call', 0, {
