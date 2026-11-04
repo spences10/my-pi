@@ -19,7 +19,9 @@ const state = vi.hoisted(() => ({
 	spawn: vi.fn(async () => ({ id: 'owned' })),
 	send: vi.fn(),
 	stop: vi.fn(),
+	show_workers: vi.fn(),
 }));
+vi.mock('./tui.js', () => ({ show_workers: state.show_workers }));
 vi.mock('./manager.js', () => ({
 	child_env: 'MY_PI_WORKER_CHILD',
 	WorkerManager: class {
@@ -46,13 +48,17 @@ afterEach(() => {
 	state.options = undefined;
 });
 
-function setup(has_ui = true) {
+function setup(
+	has_ui = true,
+	mode: ExtensionContext['mode'] = 'tui',
+) {
 	const events = new Map<string, Function>();
 	const tools = new Map<string, { execute: Function }>();
 	const commands = new Map<string, { handler: Function }>();
 	const confirm = vi.fn(async () => false);
 	const input = vi.fn(async () => undefined);
 	const select = vi.fn(async () => undefined);
+	const notify = vi.fn();
 	const send_message = vi.fn();
 	const active_tools = ['workers'];
 	const pi = {
@@ -67,13 +73,14 @@ function setup(has_ui = true) {
 		sendMessage: send_message,
 	} as unknown as ExtensionAPI;
 	const ctx = {
+		mode,
 		hasUI: has_ui,
 		model: { provider: 'test', id: 'model' },
 		sessionManager: {
 			getSessionFile: () => '/tmp/parent.jsonl',
 			getSessionId: () => 'parent',
 		},
-		ui: { confirm, input, select, notify: vi.fn() },
+		ui: { confirm, input, select, notify },
 	} as unknown as ExtensionContext;
 	workers(pi);
 	events.get('session_start')?.({}, ctx);
@@ -84,6 +91,7 @@ function setup(has_ui = true) {
 		confirm,
 		input,
 		select,
+		notify,
 		send_message,
 		ctx,
 		active_tools,
@@ -91,6 +99,43 @@ function setup(has_ui = true) {
 }
 
 describe('worker extension', () => {
+	it('opens the worker manager only for a bare terminal command', async () => {
+		const { commands, ctx, notify } = setup();
+		await commands.get('workers')!.handler('', ctx);
+		expect(state.show_workers).toHaveBeenCalledWith(
+			ctx,
+			expect.objectContaining({ list: expect.any(Function) }),
+		);
+		expect(notify).not.toHaveBeenCalled();
+	});
+
+	it.each(['rpc', 'json', 'print'] as const)(
+		'keeps the JSON fallback in %s mode even when hasUI is true',
+		async (mode) => {
+			const { commands, ctx, notify } = setup(true, mode);
+			await commands.get('workers')!.handler('', ctx);
+			expect(state.show_workers).not.toHaveBeenCalled();
+			expect(notify).toHaveBeenCalledWith(
+				JSON.stringify([{ id: 'owned', name: 'reviewer' }], null, 2),
+				'info',
+			);
+		},
+	);
+
+	it('preserves explicit send/stop commands without opening the picker', async () => {
+		const { commands, ctx } = setup();
+		await commands
+			.get('workers')!
+			.handler('send reviewer Check error paths', ctx);
+		await commands.get('workers')!.handler('stop owned', ctx);
+		expect(state.send).toHaveBeenCalledWith(
+			'reviewer',
+			'Check error paths',
+		);
+		expect(state.stop).toHaveBeenCalledWith('owned');
+		expect(state.show_workers).not.toHaveBeenCalled();
+	});
+
 	it('does not register spawning tools or orchestration guidance in a child', () => {
 		vi.stubEnv('MY_PI_WORKER_CHILD', '1');
 		const harness = setup();

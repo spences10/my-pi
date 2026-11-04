@@ -1089,6 +1089,9 @@ importers:
       '@spences10/pi-redact':
         specifier: workspace:*
         version: link:../pi-redact
+      '@spences10/pi-tui-modal':
+        specifier: workspace:*
+        version: link:../pi-tui-modal
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -1096,6 +1099,9 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 1.5.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+      '@earendil-works/pi-tui':
+        specifier: 'catalog:'
+        version: 1.5.0
       '@spences10/pi-observability':
         specifier: workspace:*
         version: link:../pi-observability

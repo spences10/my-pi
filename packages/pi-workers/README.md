@@ -65,6 +65,25 @@ Human controls:
 /workers stop reviewer
 ```
 
+In terminal mode, `/workers` opens a shared `pi-tui-modal` overlay
+showing owned worker names, statuses and working directories. Use the
+arrow keys and Enter to open worker details, including the latest
+result, error, process id, session id and saved session path. Details
+are snapshots, not a streaming transcript; press `r` to refresh either
+screen.
+
+In details, use arrow keys or PageUp/PageDown to scroll, `s` to send
+or steer a running/idle worker, and `x` to stop it after confirmation.
+Escape returns to the list or closes the picker. Controls target the
+selected worker's stable id, even when names are reused. Stopped and
+failed workers remain available for inspection; failed workers can
+still be explicitly stopped for cleanup.
+
+Explicit `send` and `stop` commands keep working without the picker.
+Outside terminal mode, bare `/workers` retains its JSON notification
+fallback. The picker only manages this parent's owned workers, not
+independently opened Team Mode sessions.
+
 ## Team Mode and observability
 
 Workers use the same launcher, saved extension settings and explicitly

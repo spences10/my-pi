@@ -9,6 +9,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { Type } from 'typebox';
 import { worker_snapshot } from './diagnostics.js';
 import { child_env, WorkerManager } from './manager.js';
+import { show_workers } from './tui.js';
 
 export {
 	WorkerManager,
@@ -282,10 +283,14 @@ export default function workers(pi: ExtensionAPI) {
 
 	pi.registerCommand('workers', {
 		description:
-			'List workers, /workers send <id-or-name> <message>, or /workers stop <id-or-name>',
+			'Manage workers, /workers send <id-or-name> <message>, or /workers stop <id-or-name>',
 		handler: async (args, ctx) => {
 			if (!manager) return;
 			const [action, id, ...message] = args.trim().split(/\s+/);
+			if (!action && ctx.mode === 'tui') {
+				await show_workers(ctx, manager);
+				return;
+			}
 			if (action === 'stop' && id) await manager.stop(id);
 			else if (action === 'send' && id && message.length)
 				await manager.send(id, message.join(' '));
