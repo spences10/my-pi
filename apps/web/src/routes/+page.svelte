@@ -85,75 +85,105 @@
 	<meta name="theme-color" content={site_config.theme_color} />
 </svelte:head>
 
-<main>
-	<section class="hero-section">
+<main class="overflow-hidden">
+	<section class="grid min-h-svh place-items-center px-5 py-10">
 		<MyPiHero copy={hero_copy} />
 	</section>
 
-	<div class="site">
-		<section class="intro" aria-labelledby="intro-heading">
-			<div class="intro-copy">
-				<h1 id="intro-heading">
+	<div
+		class="site mx-auto w-[calc(100%-2.5rem)] max-w-6xl font-mono narrow:w-[calc(100%-2rem)]"
+	>
+		<section
+			class="intro grid grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.9fr)] items-center gap-[clamp(2.5rem,7vw,6rem)] pt-[clamp(1rem,4vw,3rem)] pb-[clamp(4rem,9vw,7.5rem)] compact:grid-cols-1"
+			aria-labelledby="intro-heading"
+		>
+			<div>
+				<h1
+					id="intro-heading"
+					class="max-w-[14ch] text-[clamp(2.3rem,5.2vw,4.6rem)] leading-[1.02] font-[760] tracking-[-0.055em] text-balance"
+				>
 					Run Pi with project tools already connected.
 				</h1>
-				<p class="lede">
+				<p
+					class="mt-7 mb-9 max-w-[54ch] font-sans text-[clamp(1rem,1.7vw,1.15rem)] leading-[1.7] text-pretty text-copy"
+				>
 					my-pi runs upstream Pi with every extension in this
 					repository built in: LSP, a context sidecar, recall,
 					redaction, guardrails, observability, and peer coordination.
 					Turn each one on or off with <code>/extensions</code>.
 				</p>
 
-				<div class="launch-command">
-					<fieldset class="package-manager">
+				<div class="grid w-fit max-w-full gap-[0.6rem]">
+					<fieldset class="flex gap-1 text-xs/normal">
 						<legend class="sr-only">Package manager</legend>
 						{#each Object.keys(package_managers) as manager (manager)}
-							<label>
+							<label class="group">
 								<input
-									class="sr-only"
+									class="peer sr-only"
 									type="radio"
 									name="package-manager"
 									value={manager}
 									bind:group={package_manager}
 								/>
-								<span>{manager === 'bun' ? 'Bun' : manager}</span>
+								<span
+									class="block cursor-pointer border border-transparent px-3 py-[0.35rem] text-muted group-hover:text-green peer-checked:border-border peer-checked:bg-background peer-checked:text-green peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-cyan"
+								>
+									{manager === 'bun' ? 'Bun' : manager}
+								</span>
 							</label>
 						{/each}
 					</fieldset>
 					<CommandLine command={launch_command} echo />
 				</div>
 
-				<nav class="links" aria-label="Project links">
-					<a href="https://github.com/spences10/my-pi">
-						<GithubLogoIcon aria-hidden="true" /> View source on GitHub
+				<nav
+					class="mt-9 flex flex-wrap gap-x-6 gap-y-3"
+					aria-label="Project links"
+				>
+					<a
+						class="inline-flex items-center gap-[0.45rem] text-[0.8rem] font-bold text-cyan hover:text-magenta"
+						href="https://github.com/spences10/my-pi"
+					>
+						<GithubLogoIcon class="w-4" aria-hidden="true" /> View source
+						on GitHub
 					</a>
-					<a href="https://www.npmjs.com/package/my-pi">
-						<PackageIcon aria-hidden="true" /> View my-pi on npm
+					<a
+						class="inline-flex items-center gap-[0.45rem] text-[0.8rem] font-bold text-cyan hover:text-magenta"
+						href="https://www.npmjs.com/package/my-pi"
+					>
+						<PackageIcon class="w-4" aria-hidden="true" /> View my-pi on
+						npm
 					</a>
 				</nav>
 			</div>
 
 			<aside class="plates" aria-label="Distribution contents">
-				<ol>
+				<ol class="flex flex-col-reverse gap-[0.4rem]">
 					{#each stack_tree as [layer, contents], index (layer)}
 						<li style:--band={band_colors[index]}>
 							<button
 								type="button"
 								aria-pressed={selected_layer === layer}
-								class={{
-									dimmed: selected_layer && selected_layer !== layer,
-								}}
+								class={[
+									'grid w-full cursor-pointer grid-cols-[8.5rem_1fr] items-baseline gap-4 border-l-12 border-l-(--band) bg-(--band)/13 px-4 py-[0.85rem] text-left text-[0.8rem] transition-[background-color,opacity,translate] duration-150 ease-[ease] hover:bg-(--band)/30 aria-pressed:translate-x-2 aria-pressed:bg-(--band)/30 narrow:grid-cols-1 narrow:gap-1',
+									selected_layer &&
+										selected_layer !== layer &&
+										'opacity-55',
+								]}
 								onclick={() =>
 									(selected_layer =
 										selected_layer === layer ? undefined : layer)}
 							>
-								<strong>{layer}</strong>
-								<span>{contents}</span>
+								<strong class="font-[720] text-(--band)">
+									{layer}
+								</strong>
+								<span class="text-copy">{contents}</span>
 							</button>
 						</li>
 					{/each}
 				</ol>
 				<p
-					class="layer-detail"
+					class="mt-[0.9rem] flex min-h-[2.6rem] flex-wrap gap-x-4 gap-y-[0.4rem] text-[0.78rem] text-pretty text-muted"
 					style:--band={selected_color}
 					aria-live="polite"
 				>
@@ -161,17 +191,24 @@
 						Select a layer to see its packages.
 					{:else if selected_packages.length}
 						{#each selected_packages as name (name)}
-							<a href={`#pkg-${name}`}>@spences10/{name}</a>
+							<a
+								class="font-bold text-(--band) hover:underline"
+								href={`#pkg-${name}`}
+							>
+								@spences10/{name}
+							</a>
 						{/each}
 					{:else}
 						This layer is Pi itself. my-pi adds no package here.
 					{/if}
 				</p>
-				<p class="local">
-					<i aria-hidden="true"></i> context, recall, and telemetry stay
-					local
+				<p class="mt-5 text-[0.72rem] text-pretty text-muted">
+					<i
+						class="mr-[0.4rem] inline-block size-2 bg-green"
+						aria-hidden="true"
+					></i> context, recall, and telemetry stay local
 				</p>
-				<p class="facts">
+				<p class="mt-[0.4rem] text-[0.72rem] text-pretty text-muted">
 					{#if data.version}my-pi {data.version} /{/if}
 					node &gt;=24.15.0 / tui, print, json, rpc / built on Pi
 				</p>
@@ -180,10 +217,20 @@
 
 		<PixelRule />
 
-		<section class="session" aria-labelledby="session-heading">
-			<header class="section-head">
-				<h2 id="session-heading">Recall, edit, validate</h2>
-				<p>
+		<section
+			class="py-[clamp(4rem,9vw,7.5rem)]"
+			aria-labelledby="session-heading"
+		>
+			<header
+				class="mb-[clamp(2rem,4vw,3.25rem)] grid grid-cols-[minmax(0,1fr)_minmax(18rem,0.6fr)] items-end gap-[clamp(1.5rem,6vw,6rem)] compact:grid-cols-1 compact:gap-5"
+			>
+				<h2
+					id="session-heading"
+					class="max-w-[22ch] text-[clamp(1.7rem,3.6vw,3rem)] leading-[1.08] font-[740] tracking-tighter text-balance"
+				>
+					Recall, edit, validate
+				</h2>
+				<p class="font-sans leading-[1.7] text-pretty text-copy">
 					Recall restores the earlier decision. Terminal tools make
 					the change. LSP diagnostics and tests verify the result.
 				</p>
@@ -199,23 +246,45 @@
 
 		<PixelRule />
 
-		<section class="workflows" aria-labelledby="workflows-heading">
-			<header class="section-head">
-				<h2 id="workflows-heading">
+		<section
+			class="py-[clamp(4rem,9vw,7.5rem)]"
+			aria-labelledby="workflows-heading"
+		>
+			<header
+				class="mb-[clamp(2rem,4vw,3.25rem)] grid grid-cols-[minmax(0,1fr)_minmax(18rem,0.6fr)] items-end gap-[clamp(1.5rem,6vw,6rem)] compact:grid-cols-1 compact:gap-5"
+			>
+				<h2
+					id="workflows-heading"
+					class="max-w-[22ch] text-[clamp(1.7rem,3.6vw,3rem)] leading-[1.08] font-[740] tracking-tighter text-balance"
+				>
 					How my-pi supports recurring development work
 				</h2>
-				<p>
+				<p class="font-sans leading-[1.7] text-pretty text-copy">
 					These workflows recur across real project sessions and show
 					when each part of my-pi is useful.
 				</p>
 			</header>
 
-			<ul class="workflow-list">
+			<ul
+				class="grid grid-cols-2 gap-x-[clamp(2rem,5vw,4.5rem)] compact:grid-cols-1"
+			>
 				{#each stack_rows as row (row.label)}
-					<li>
-						<h3>{row.label}</h3>
-						<p>{row.body}</p>
-						<code>{row.packages}</code>
+					<li
+						class="grid content-start gap-[0.7rem] border-t border-rule py-[1.6rem]"
+					>
+						<h3
+							class="text-[1.05rem] font-[720] tracking-[-0.02em] text-balance"
+						>
+							{row.label}
+						</h3>
+						<p
+							class="font-sans text-[0.94rem] leading-[1.7] text-pretty text-copy"
+						>
+							{row.body}
+						</p>
+						<code class="text-[0.72rem] text-cyan">
+							{row.packages}
+						</code>
 					</li>
 				{/each}
 			</ul>
@@ -223,32 +292,63 @@
 
 		<PixelRule />
 
-		<section class="install" aria-labelledby="install-heading">
-			<header class="section-head">
-				<h2 id="install-heading">Choose how to use my-pi</h2>
+		<section
+			class="install py-[clamp(4rem,9vw,7.5rem)]"
+			aria-labelledby="install-heading"
+		>
+			<header
+				class="mb-[clamp(2rem,4vw,3.25rem)] grid grid-cols-[minmax(0,1fr)_minmax(18rem,0.6fr)] items-end gap-[clamp(1.5rem,6vw,6rem)] compact:grid-cols-1 compact:gap-5"
+			>
+				<h2
+					id="install-heading"
+					class="max-w-[22ch] text-[clamp(1.7rem,3.6vw,3rem)] leading-[1.08] font-[740] tracking-tighter text-balance"
+				>
+					Choose how to use my-pi
+				</h2>
 			</header>
-			<div class="install-grid">
-				<div class="install-option echo">
-					<h3>Run the distribution</h3>
-					<p>
+			<div
+				class="grid grid-cols-[1fr_1fr] gap-[clamp(1.75rem,4vw,3rem)] compact:grid-cols-[1fr]"
+			>
+				<div
+					class="echo grid content-start gap-[1.1rem] border border-rule bg-surface p-[clamp(1.5rem,4vw,2.75rem)]"
+				>
+					<h3
+						class="text-[clamp(1.3rem,2.4vw,1.8rem)] font-[720] tracking-[-0.04em] text-balance"
+					>
+						Run the distribution
+					</h3>
+					<p
+						class="font-sans text-[0.94rem] leading-[1.7] text-pretty text-copy"
+					>
 						Choose this when you want every extension built in. Turn
 						any of them off with <code>/extensions</code>.
 					</p>
 					<CommandLine command={launch_command} />
-					<small>
+					<small class="text-[0.72rem] leading-[1.55] text-muted">
 						Runs the latest release without a global install. Do not
 						use
 						<code>pi install</code> for the distribution.
 					</small>
 				</div>
-				<div class="install-option">
-					<h3>Add one package</h3>
-					<p>
+				<div
+					class="grid content-start gap-[1.1rem] border border-rule bg-surface p-[clamp(1.5rem,4vw,2.75rem)]"
+				>
+					<h3
+						class="text-[clamp(1.3rem,2.4vw,1.8rem)] font-[720] tracking-[-0.04em] text-balance"
+					>
+						Add one package
+					</h3>
+					<p
+						class="font-sans text-[0.94rem] leading-[1.7] text-pretty text-copy"
+					>
 						Choose this when you already use Pi and only want one
 						extension from this repository.
 					</p>
 					<CommandLine command="pi install npm:@spences10/pi-lsp" />
-					<a href="#packages">
+					<a
+						class="inline-flex items-center gap-[0.45rem] text-[0.8rem] font-bold text-cyan hover:text-magenta"
+						href="#packages"
+					>
 						View all {package_count} installable packages
 					</a>
 				</div>
@@ -259,36 +359,69 @@
 
 		<section
 			id="packages"
-			class="packages"
+			class="py-[clamp(4rem,9vw,7.5rem)]"
 			aria-labelledby="packages-heading"
 		>
-			<header class="section-head">
-				<h2 id="packages-heading">
+			<header
+				class="mb-[clamp(2rem,4vw,3.25rem)] grid grid-cols-[minmax(0,1fr)_minmax(18rem,0.6fr)] items-end gap-[clamp(1.5rem,6vw,6rem)] compact:grid-cols-1 compact:gap-5"
+			>
+				<h2
+					id="packages-heading"
+					class="max-w-[22ch] text-[clamp(1.7rem,3.6vw,3rem)] leading-[1.08] font-[740] tracking-tighter text-balance"
+				>
 					Install selected extensions into your Pi setup.
 				</h2>
-				<p>
+				<p class="font-sans leading-[1.7] text-pretty text-copy">
 					Every row opens its package README, the source of truth for
 					commands, configuration, and runtime behavior.
 				</p>
 			</header>
 
-			<div class="package-groups">
+			<div>
 				{#each package_groups as group, group_index (group.label)}
-					<section style:--band={group_colors[group_index]}>
-						<h3>{group.label}</h3>
+					<section
+						class="grid grid-cols-[minmax(10rem,0.3fr)_1fr] gap-4 border-t border-rule py-[clamp(1.5rem,3vw,2.5rem)] compact:grid-cols-1"
+						style:--band={group_colors[group_index]}
+					>
+						<h3
+							class="flex items-center gap-[0.6rem] self-start text-[0.85rem] font-[720] tracking-[-0.02em] text-balance text-(--band) before:size-[0.7rem] before:bg-(--band) before:content-['']"
+						>
+							{group.label}
+						</h3>
 						<ul>
 							{#each group.packages as [name, description] (name)}
 								<li
 									id={`pkg-${name}`}
-									class={{ marked: selected_packages.includes(name) }}
+									class={[
+										'scroll-mt-24 transition-[background-color] duration-200 ease-[ease] not-first:border-t not-first:border-rule/60',
+										selected_packages.includes(name) &&
+											'bg-(--mark)/14 shadow-[inset_0.4rem_0_0_var(--mark)]',
+									]}
 									style:--mark={selected_color}
 								>
 									<a
+										class={[
+											'group grid grid-cols-[minmax(14rem,0.78fr)_1.22fr_auto] items-center gap-4 py-[0.85rem] narrow:grid-cols-[1fr_auto] narrow:gap-[0.4rem]',
+											selected_packages.includes(name) && 'pl-4',
+										]}
 										href={`https://github.com/spences10/my-pi/tree/main/packages/${name}`}
 									>
-										<code><span>@spences10/</span>{name}</code>
-										<small>{description}</small>
-										<ArrowSquareOutIcon aria-hidden="true" />
+										<code
+											class="text-[0.78rem] font-bold group-hover:text-(--band) group-focus-visible:text-(--band) narrow:wrap-anywhere"
+										>
+											<span class="font-normal text-muted">
+												@spences10/
+											</span>{name}
+										</code>
+										<small
+											class="font-sans text-[0.84rem] leading-[1.45] text-copy narrow:col-span-full narrow:row-start-2"
+										>
+											{description}
+										</small>
+										<ArrowSquareOutIcon
+											class="w-[0.9rem] text-comment group-hover:text-(--band) group-focus-visible:text-(--band)"
+											aria-hidden="true"
+										/>
 									</a>
 								</li>
 							{/each}
@@ -298,13 +431,13 @@
 			</div>
 
 			<aside
-				class="support-packages"
+				class="grid grid-cols-[minmax(10rem,0.3fr)_1fr] gap-4 border-t border-rule pt-6 text-[0.7rem] leading-[1.55] text-muted compact:grid-cols-1"
 				aria-label="Published support packages"
 			>
-				<p>
+				<p class="text-pretty">
 					Support dependencies: published, but not installed directly.
 				</p>
-				<div>
+				<div class="flex flex-wrap gap-x-4 gap-y-2">
 					{#each support_packages as name (name)}
 						<code>@spences10/{name}</code>
 					{/each}
@@ -314,11 +447,17 @@
 
 		<PixelRule />
 
-		<section class="help" aria-labelledby="help-heading">
-			<h2 id="help-heading">
+		<section
+			class="help grid grid-cols-[minmax(13rem,0.5fr)_1fr] gap-[clamp(2.5rem,7vw,6rem)] py-[clamp(4rem,9vw,7.5rem)] compact:grid-cols-1"
+			aria-labelledby="help-heading"
+		>
+			<h2
+				id="help-heading"
+				class="max-w-[22ch] text-[clamp(1.5rem,2.8vw,2.3rem)] leading-[1.08] font-[740] tracking-tighter text-balance"
+			>
 				Installation and compatibility questions
 			</h2>
-			<div class="help-list">
+			<div class="border-t border-rule">
 				{#each faq_lines as [question, answer] (question)}
 					<FaqItem {question} {answer} />
 				{/each}
@@ -327,573 +466,55 @@
 
 		<PixelRule />
 
-		<section class="closing" aria-labelledby="closing-heading">
-			<h2 id="closing-heading">
+		<section
+			class="closing py-[clamp(4rem,9vw,7.5rem)]"
+			aria-labelledby="closing-heading"
+		>
+			<h2
+				id="closing-heading"
+				class="max-w-[18ch] text-[clamp(2rem,4.4vw,3.8rem)] leading-[1.08] font-[740] tracking-tighter text-balance"
+			>
 				Run the full setup. Or install only what you need.
 			</h2>
-			<div class="closing-line">
+			<div class="mt-10 flex flex-wrap items-center gap-x-10 gap-y-8">
 				<CommandLine command={launch_command} echo />
-				<a href="https://github.com/spences10/my-pi">
-					<GithubLogoIcon aria-hidden="true" /> Open the GitHub repository
+				<a
+					class="inline-flex items-center gap-[0.45rem] text-[0.8rem] font-bold text-cyan hover:text-magenta"
+					href="https://github.com/spences10/my-pi"
+				>
+					<GithubLogoIcon class="w-4" aria-hidden="true" /> Open the GitHub
+					repository
 				</a>
 			</div>
 		</section>
 	</div>
 </main>
 
-<footer class="page-footer">
-	<p><span>my-pi</span> / curated Pi coding-agent distribution</p>
-	<nav aria-label="Footer">
-		<a href="https://github.com/spences10/my-pi">GitHub repository</a>
-		<a href="https://www.npmjs.com/package/my-pi">my-pi on npm</a>
-		<a href="#packages">Installable packages</a>
+<footer
+	class="page-footer mx-auto flex w-[calc(100%-2.5rem)] max-w-6xl items-center justify-between gap-8 border-t border-rule pt-6 pb-10 font-mono text-[0.7rem] text-comment narrow:w-[calc(100%-2rem)] narrow:flex-col narrow:items-start"
+>
+	<p class="text-pretty">
+		<span class="text-foreground">my-pi</span> / curated Pi coding-agent
+		distribution
+	</p>
+	<nav
+		class="flex flex-wrap gap-x-[1.4rem] gap-y-2"
+		aria-label="Footer"
+	>
+		<a
+			class="hover:text-magenta"
+			href="https://github.com/spences10/my-pi"
+		>
+			GitHub repository
+		</a>
+		<a
+			class="hover:text-magenta"
+			href="https://www.npmjs.com/package/my-pi"
+		>
+			my-pi on npm
+		</a>
+		<a class="hover:text-magenta" href="#packages">
+			Installable packages
+		</a>
 	</nav>
 </footer>
-
-<style>
-	.launch-command {
-		display: grid;
-		gap: 0.6rem;
-		width: fit-content;
-		max-width: 100%;
-	}
-
-	.package-manager {
-		display: flex;
-		gap: 0.25rem;
-		margin: 0;
-		padding: 0;
-		border: 0;
-		font-size: 0.75rem;
-	}
-
-	.package-manager span {
-		display: block;
-		padding: 0.35rem 0.75rem;
-		border: 1px solid transparent;
-		color: var(--afterglow-text-muted);
-		cursor: pointer;
-	}
-
-	.package-manager input:checked + span {
-		border-color: var(--afterglow-border);
-		background: var(--afterglow-background);
-		color: var(--afterglow-terminal-green);
-	}
-
-	.package-manager label:hover span {
-		color: var(--afterglow-terminal-green);
-	}
-
-	.package-manager input:focus-visible + span {
-		outline: 2px solid var(--afterglow-terminal-cyan);
-		outline-offset: 2px;
-	}
-
-	:global(html) {
-		scroll-behavior: smooth;
-	}
-
-	main {
-		overflow: hidden;
-	}
-
-	.hero-section {
-		display: grid;
-		place-items: center;
-		min-height: 100svh;
-		padding: 2.5rem 1.25rem;
-	}
-
-	.site,
-	.page-footer {
-		--line: color-mix(
-			in srgb,
-			var(--afterglow-border-variant) 76%,
-			transparent
-		);
-		--copy: color-mix(
-			in srgb,
-			var(--afterglow-text) 78%,
-			transparent
-		);
-
-		width: min(72rem, calc(100% - 2.5rem));
-		margin-inline: auto;
-		font-family: var(--font-mono);
-	}
-
-	.site > section {
-		padding-block: clamp(4rem, 9vw, 7.5rem);
-	}
-
-	.site > section.intro {
-		padding-top: clamp(1rem, 4vw, 3rem);
-	}
-
-	h1,
-	h2,
-	h3 {
-		margin: 0;
-		font-family: var(--font-mono);
-		text-wrap: balance;
-	}
-
-	p {
-		text-wrap: pretty;
-	}
-
-	h1 {
-		max-width: 14ch;
-		font-size: clamp(2.3rem, 5.2vw, 4.6rem);
-		font-weight: 760;
-		line-height: 1.02;
-		letter-spacing: -0.055em;
-	}
-
-	h2 {
-		max-width: 22ch;
-		font-size: clamp(1.7rem, 3.6vw, 3rem);
-		font-weight: 740;
-		line-height: 1.08;
-		letter-spacing: -0.05em;
-	}
-
-	h3 {
-		font-size: 1.05rem;
-		font-weight: 720;
-		letter-spacing: -0.02em;
-	}
-
-	.section-head {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.6fr);
-		gap: clamp(1.5rem, 6vw, 6rem);
-		align-items: end;
-		margin-bottom: clamp(2rem, 4vw, 3.25rem);
-	}
-
-	.section-head p,
-	.lede,
-	.workflow-list p,
-	.install-option p {
-		margin: 0;
-		color: var(--copy);
-		font-family: var(--font-sans);
-		line-height: 1.7;
-	}
-
-	/* Intro */
-	.intro {
-		display: grid;
-		grid-template-columns: minmax(0, 1.1fr) minmax(19rem, 0.9fr);
-		gap: clamp(2.5rem, 7vw, 6rem);
-		align-items: center;
-	}
-
-	.lede {
-		max-width: 54ch;
-		margin: 1.75rem 0 2.25rem;
-		font-size: clamp(1rem, 1.7vw, 1.15rem);
-	}
-
-	.links {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem 1.5rem;
-		margin-top: 2.25rem;
-	}
-
-	.links a,
-	.install-option a,
-	.closing a {
-		display: inline-flex;
-		gap: 0.45rem;
-		align-items: center;
-		color: var(--afterglow-terminal-cyan);
-		font-size: 0.8rem;
-		font-weight: 700;
-		text-decoration: none;
-	}
-
-	.links :global(svg),
-	.closing :global(svg) {
-		width: 1rem;
-	}
-
-	/* The stack, drawn as the five plates of the hero. */
-	.plates ol {
-		display: flex;
-		flex-direction: column-reverse;
-		gap: 0.4rem;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	.plates button {
-		display: grid;
-		grid-template-columns: 8.5rem 1fr;
-		gap: 1rem;
-		align-items: baseline;
-		width: 100%;
-		padding: 0.85rem 1rem;
-		border: 0;
-		border-left: 0.75rem solid var(--band);
-		background: color-mix(in srgb, var(--band) 13%, transparent);
-		color: inherit;
-		font: inherit;
-		font-size: 0.8rem;
-		text-align: left;
-		cursor: pointer;
-		transition:
-			background-color 150ms ease,
-			opacity 150ms ease,
-			translate 150ms ease;
-	}
-
-	.plates button:hover,
-	.plates button[aria-pressed='true'] {
-		background: color-mix(in srgb, var(--band) 30%, transparent);
-	}
-
-	.plates button[aria-pressed='true'] {
-		translate: 0.5rem 0;
-	}
-
-	.plates button.dimmed {
-		opacity: 0.55;
-	}
-
-	.plates strong {
-		color: var(--band);
-		font-weight: 720;
-	}
-
-	.plates button span {
-		color: var(--copy);
-	}
-
-	.layer-detail {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem 1rem;
-		min-height: 2.6rem;
-		margin: 0.9rem 0 0;
-		color: var(--afterglow-text-muted);
-		font-size: 0.78rem;
-	}
-
-	.layer-detail a {
-		color: var(--band);
-		font-weight: 700;
-		text-decoration: none;
-	}
-
-	.layer-detail a:hover {
-		text-decoration: underline;
-	}
-
-	.local,
-	.facts {
-		margin: 1.25rem 0 0;
-		color: var(--afterglow-text-muted);
-		font-size: 0.72rem;
-	}
-
-	.facts {
-		margin-top: 0.4rem;
-	}
-
-	.local i {
-		display: inline-block;
-		width: 0.5rem;
-		height: 0.5rem;
-		margin-right: 0.4rem;
-		background: var(--afterglow-terminal-green);
-	}
-
-	/* Workflows */
-	.workflow-list {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0 clamp(2rem, 5vw, 4.5rem);
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	.workflow-list li {
-		display: grid;
-		gap: 0.7rem;
-		align-content: start;
-		padding-block: 1.6rem;
-		border-top: 1px solid var(--line);
-	}
-
-	.workflow-list p {
-		font-size: 0.94rem;
-	}
-
-	.workflow-list code {
-		color: var(--afterglow-terminal-cyan);
-		font-size: 0.72rem;
-	}
-
-	/* Install */
-	.install-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: clamp(1.75rem, 4vw, 3rem);
-	}
-
-	.install-option {
-		display: grid;
-		gap: 1.1rem;
-		align-content: start;
-		padding: clamp(1.5rem, 4vw, 2.75rem);
-		border: 1px solid var(--line);
-		background: var(--afterglow-elevated-surface-background);
-	}
-
-	.install-option h3 {
-		font-size: clamp(1.3rem, 2.4vw, 1.8rem);
-		letter-spacing: -0.04em;
-	}
-
-	.install-option p {
-		font-size: 0.94rem;
-	}
-
-	.install-option small {
-		color: var(--afterglow-text-muted);
-		font-size: 0.72rem;
-		line-height: 1.55;
-	}
-
-	/* Packages */
-	.package-groups > section {
-		display: grid;
-		grid-template-columns: minmax(10rem, 0.3fr) 1fr;
-		gap: 1rem;
-		padding-block: clamp(1.5rem, 3vw, 2.5rem);
-		border-top: 1px solid var(--line);
-	}
-
-	.package-groups h3 {
-		display: flex;
-		gap: 0.6rem;
-		align-items: center;
-		align-self: start;
-		color: var(--band);
-		font-size: 0.85rem;
-	}
-
-	.package-groups h3::before {
-		width: 0.7rem;
-		height: 0.7rem;
-		background: var(--band);
-		content: '';
-	}
-
-	.package-groups ul {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	.package-groups li {
-		scroll-margin-top: 6rem;
-		transition: background-color 200ms ease;
-	}
-
-	.package-groups li.marked {
-		background: color-mix(in srgb, var(--mark) 14%, transparent);
-		box-shadow: inset 0.4rem 0 0 var(--mark);
-	}
-
-	.package-groups li.marked a {
-		padding-left: 1rem;
-	}
-
-	.package-groups li + li {
-		border-top: 1px solid
-			color-mix(in srgb, var(--line) 60%, transparent);
-	}
-
-	.package-groups a {
-		display: grid;
-		grid-template-columns: minmax(14rem, 0.78fr) 1.22fr auto;
-		gap: 1rem;
-		align-items: center;
-		padding: 0.85rem 0;
-		color: inherit;
-		text-decoration: none;
-	}
-
-	.package-groups a > code {
-		font-size: 0.78rem;
-		font-weight: 700;
-	}
-
-	.package-groups a > code span {
-		color: var(--afterglow-text-muted);
-		font-weight: 400;
-	}
-
-	.package-groups a > small {
-		color: var(--copy);
-		font-family: var(--font-sans);
-		font-size: 0.84rem;
-		line-height: 1.45;
-	}
-
-	.package-groups a :global(svg) {
-		width: 0.9rem;
-		color: var(--afterglow-comment);
-	}
-
-	.package-groups a:hover > code,
-	.package-groups a:focus-visible > code,
-	.package-groups a:hover :global(svg),
-	.package-groups a:focus-visible :global(svg) {
-		color: var(--band);
-	}
-
-	.support-packages {
-		display: grid;
-		grid-template-columns: minmax(10rem, 0.3fr) 1fr;
-		gap: 1rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid var(--line);
-		color: var(--afterglow-text-muted);
-		font-size: 0.7rem;
-		line-height: 1.55;
-	}
-
-	.support-packages p {
-		margin: 0;
-	}
-
-	.support-packages div {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem 1rem;
-	}
-
-	/* Help */
-	.help {
-		display: grid;
-		grid-template-columns: minmax(13rem, 0.5fr) 1fr;
-		gap: clamp(2.5rem, 7vw, 6rem);
-	}
-
-	.help h2 {
-		font-size: clamp(1.5rem, 2.8vw, 2.3rem);
-	}
-
-	.help-list {
-		border-top: 1px solid var(--line);
-	}
-
-	/* Closing */
-	.closing h2 {
-		max-width: 18ch;
-		font-size: clamp(2rem, 4.4vw, 3.8rem);
-	}
-
-	.closing-line {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 2rem 2.5rem;
-		align-items: center;
-		margin-top: 2.5rem;
-	}
-
-	.page-footer {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 2rem;
-		padding-block: 1.5rem 2.5rem;
-		border-top: 1px solid var(--line);
-		color: var(--afterglow-comment);
-		font-size: 0.7rem;
-	}
-
-	.page-footer p {
-		margin: 0;
-	}
-
-	.page-footer p span {
-		color: var(--afterglow-text);
-	}
-
-	.page-footer nav {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem 1.4rem;
-	}
-
-	.page-footer a {
-		color: inherit;
-		text-decoration: none;
-	}
-
-	.links a:hover,
-	.install-option a:hover,
-	.closing a:hover,
-	.page-footer a:hover {
-		color: var(--afterglow-terminal-magenta);
-	}
-
-	@media (max-width: 860px) {
-		.intro,
-		.section-head,
-		.workflow-list,
-		.install-grid,
-		.help {
-			grid-template-columns: 1fr;
-		}
-
-		.section-head {
-			gap: 1.25rem;
-		}
-
-		.package-groups > section,
-		.support-packages {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	@media (max-width: 580px) {
-		.site,
-		.page-footer {
-			width: calc(100% - 2rem);
-		}
-
-		.plates button {
-			grid-template-columns: 1fr;
-			gap: 0.25rem;
-		}
-
-		.package-groups a {
-			grid-template-columns: 1fr auto;
-			gap: 0.4rem;
-		}
-
-		.package-groups a > code {
-			overflow-wrap: anywhere;
-		}
-
-		.package-groups a > small {
-			grid-column: 1 / -1;
-			grid-row: 2;
-		}
-
-		.page-footer {
-			align-items: flex-start;
-			flex-direction: column;
-		}
-	}
-</style>

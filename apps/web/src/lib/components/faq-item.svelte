@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	let { question, answer }: { question: string; answer: string } =
@@ -10,7 +11,7 @@
 	let open = $state(false);
 	let expanded = $state(false);
 
-	$effect(() => {
+	onMount(() => {
 		hydrated = true;
 	});
 
@@ -25,12 +26,19 @@
 	}
 </script>
 
-<details {open}>
-	<summary onclick={toggle}>
-		{question}<i class:expanded aria-hidden="true">+</i>
+<details {open} class="group border-b border-rule">
+	<summary
+		class="flex cursor-pointer list-none items-center justify-between gap-4 py-[1.2rem] text-[0.9rem] font-bold [&::-webkit-details-marker]:hidden"
+		onclick={toggle}
+	>
+		{question}<i
+			class="text-[1.1rem] text-magenta not-italic transition-[rotate] duration-180 ease-[ease] group-open:rotate-45"
+			aria-hidden="true">+</i
+		>
 	</summary>
 	{#if !hydrated || expanded}
 		<p
+			class="max-w-[66ch] pb-6 font-sans text-[0.92rem] leading-[1.7] text-pretty text-copy"
 			transition:slide={{ duration: 220 }}
 			onoutroend={() => (open = false)}
 		>
@@ -38,48 +46,3 @@
 		</p>
 	{/if}
 </details>
-
-<style>
-	details {
-		border-bottom: 1px solid var(--line);
-	}
-
-	summary {
-		display: flex;
-		gap: 1rem;
-		align-items: center;
-		justify-content: space-between;
-		padding: 1.2rem 0;
-		font-size: 0.9rem;
-		font-weight: 700;
-		cursor: pointer;
-		list-style: none;
-	}
-
-	summary::-webkit-details-marker {
-		display: none;
-	}
-
-	i {
-		color: var(--afterglow-terminal-magenta);
-		font-size: 1.1rem;
-		font-style: normal;
-		transition: rotate 180ms ease;
-	}
-
-	i.expanded,
-	details[open]:not(:has(i.expanded)) i {
-		rotate: 45deg;
-	}
-
-	p {
-		max-width: 66ch;
-		margin: 0;
-		padding-bottom: 1.5rem;
-		color: var(--copy);
-		font-family: var(--font-sans);
-		font-size: 0.92rem;
-		line-height: 1.7;
-		text-wrap: pretty;
-	}
-</style>

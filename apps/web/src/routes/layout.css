@@ -73,9 +73,26 @@
 	--color-magenta: var(--afterglow-terminal-magenta);
 	--color-cyan: var(--afterglow-terminal-cyan);
 	--color-comment: var(--afterglow-comment);
+	--color-rule: color-mix(
+		in srgb,
+		var(--afterglow-border-variant) 76%,
+		transparent
+	);
+	--color-copy: color-mix(
+		in srgb,
+		var(--afterglow-text) 78%,
+		transparent
+	);
 }
 
+@custom-variant compact (@media (max-width: 860px));
+@custom-variant narrow (@media (max-width: 580px));
+
 @layer base {
+	html {
+		scroll-behavior: smooth;
+	}
+
 	:focus-visible {
 		outline: 2px solid var(--afterglow-terminal-cyan);
 		outline-offset: 4px;
