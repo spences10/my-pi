@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.8.2
+
+### Patch Changes
+
+- Align README badges, preview, and installation layout with other
+  packages.
+
 ## 0.8.1
 
 ### Patch Changes

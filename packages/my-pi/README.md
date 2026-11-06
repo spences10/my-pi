@@ -1,7 +1,26 @@
 # my-pi
 
+<!-- package-readme:header:start -->
+
+[![built with Vite+](https://img.shields.io/badge/built%20with-Vite+-646CFF?logo=vite&logoColor=white)](https://viteplus.dev)
+[![tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)](https://vitest.dev)
+[![npm version](https://img.shields.io/npm/v/my-pi?color=CB3837&logo=npm&logoColor=white)](https://www.npmjs.com/package/my-pi)
+[![license](https://img.shields.io/npm/l/my-pi)](https://www.npmjs.com/package/my-pi)
+
+![my-pi package preview](https://raw.githubusercontent.com/spences10/my-pi/main/assets/pi-package-preview.png)
+
+<!-- package-readme:header:end -->
+
 Scott Spence's Pi: upstream [Pi](https://pi.dev) with these extensions
 built in.
+
+## Installation
+
+```bash
+pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
+```
+
+## Bundled extensions
 
 | Key                   | Package                                                                                                         |
 | --------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -28,10 +47,6 @@ built in.
 | `talk`                | [`pi-talk`](https://github.com/spences10/my-pi/tree/main/packages/pi-talk#readme)                               |
 | `starfield`           | [`pi-starfield`](https://github.com/spences10/my-pi/tree/main/packages/pi-starfield#readme)                     |
 | `themes`              | [`pi-themes`](https://github.com/spences10/my-pi/tree/main/packages/pi-themes#readme)                           |
-
-```bash
-pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
-```
 
 ## My-Pi splash
 
