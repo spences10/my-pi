@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.8.6
+
+### Patch Changes
+
+- Updated dependencies [6014870]
+  - @spences10/pi-harness@0.3.0
+
 ## 0.8.5
 
 ### Patch Changes

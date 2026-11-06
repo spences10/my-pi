@@ -1,5 +1,12 @@
 # @spences10/pi-harness
 
+## 0.3.0
+
+### Minor Changes
+
+- 6014870: Expose harness tools through native codemode, streamline
+  prompt guidance, and verify nested execution lifecycle behavior.
+
 ## 0.2.1
 
 ### Patch Changes
