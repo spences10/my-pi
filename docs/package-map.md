@@ -67,12 +67,11 @@ selects `pi-redact`. The
 These are published dependencies, not normally direct `pi install`
 targets:
 
-| Package                                                    | Shared capability                         |
-| ---------------------------------------------------------- | ----------------------------------------- |
-| [pi-project-trust](../packages/pi-project-trust/README.md) | Resource-specific project trust decisions |
-| [pi-settings](../packages/pi-settings/README.md)           | Global namespaced my-pi settings          |
-| [pi-sqlite-core](../packages/pi-sqlite-core/README.md)     | SQLite database setup and shared helpers  |
-| [pi-tui-modal](../packages/pi-tui-modal/README.md)         | TUI modal primitives                      |
+| Package                                                | Shared capability                        |
+| ------------------------------------------------------ | ---------------------------------------- |
+| [pi-settings](../packages/pi-settings/README.md)       | Global namespaced my-pi settings         |
+| [pi-sqlite-core](../packages/pi-sqlite-core/README.md) | SQLite database setup and shared helpers |
+| [pi-tui-modal](../packages/pi-tui-modal/README.md)     | TUI modal primitives                     |
 
 `@spences10/pi-child-env` has been retired from this workspace. LSP
 child-process environment filtering now lives directly in

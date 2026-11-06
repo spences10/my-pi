@@ -120,30 +120,19 @@ Windows, use native executables such as the `.exe` launchers from pip;
 `.cmd` and `.bat` wrappers are not supported by the shell-free client.
 `/lsp status` shows the selected backend and resolved command.
 
-If project-binary trust is skipped, Python discovery excludes those
-binaries even when an active virtual environment puts them on `PATH`.
-Without a separate global server, the tool reports an error instead of
-starting the skipped binary.
-
 Server discovery does not select the Python interpreter used for
 analysis. Configure the server's interpreter or virtual environment
 settings separately when needed.
 
-### Project-local binary trust
+### Project-local language servers
 
 Project-local binaries in `node_modules/.bin` and Python `.venv`
-folders are untrusted by default because they can execute
-repo-controlled code. Interactive sessions prompt before starting a
-project-local binary; headless sessions fall back to the global `PATH`
-binary unless `MY_PI_LSP_PROJECT_BINARY=allow` or
-`MY_PI_LSP_PROJECT_BINARY=trust` is set. `/lsp status` shows the
-resolved binary path for running and idle servers.
+folders are selected automatically by the discovery rules above, in
+both interactive and headless sessions. There is no separate
+per-binary approval prompt or LSP trust store.
 
-An allow-once decision remains valid for the lifetime of the Pi
-session, including after an idle language-server restart. Interactive
-trust prompts follow tool cancellation and time out after 30 seconds,
-returning a tool error instead of leaving the session indefinitely in
-`Working`.
+`MY_PI_LSP_PROJECT_BINARY` is no longer used. `/lsp status` shows the
+selected backend and resolved command for running and idle servers.
 
 ### Language-server environment
 

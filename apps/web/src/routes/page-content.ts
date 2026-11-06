@@ -188,7 +188,6 @@ export const package_groups = [
 ] as const;
 
 export const support_packages = [
-	'pi-project-trust',
 	'pi-settings',
 	'pi-sqlite-core',
 	'pi-tui-modal',
@@ -226,7 +225,7 @@ export const get_faq_lines = (
 		],
 		[
 			'Are all published packages direct installs?',
-			'No. Packages such as pi-settings, pi-project-trust, pi-sqlite-core, and pi-tui-modal are shared implementation dependencies. The installable package list separates them from direct-install extensions.',
+			'No. Packages such as pi-settings, pi-sqlite-core, and pi-tui-modal are shared implementation dependencies. The installable package list separates them from direct-install extensions.',
 		],
 		[
 			'Where is the configuration reference?',

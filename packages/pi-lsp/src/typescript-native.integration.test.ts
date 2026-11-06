@@ -23,8 +23,6 @@ afterEach(() => {
 
 describe('TypeScript 7 native LSP integration', () => {
 	it('provides diagnostics and core navigation through the project-local native server', async () => {
-		const previous_trust = process.env.MY_PI_LSP_PROJECT_BINARY;
-		process.env.MY_PI_LSP_PROJECT_BINARY = 'allow';
 		const workspace = mkdtempSync(
 			join(process.cwd(), '.tmp-typescript-native-lsp-'),
 		);
@@ -89,11 +87,6 @@ describe('TypeScript 7 native LSP integration', () => {
 			await manager.release_file_state(resolved.result);
 		} finally {
 			await manager.clear_language_state();
-			if (previous_trust === undefined) {
-				delete process.env.MY_PI_LSP_PROJECT_BINARY;
-			} else {
-				process.env.MY_PI_LSP_PROJECT_BINARY = previous_trust;
-			}
 		}
 	}, 20_000);
 });

@@ -60,9 +60,9 @@ Additional bundled extensions:
 - [`@spences10/pi-tool-guidance`](./packages/pi-tool-guidance/README.md):
   portable nopeek, Omnisearch, and SQLite skills and reminders.
 
-Support libraries (dependencies, not for `pi install`):
-`pi-project-trust`, `pi-settings`, `pi-sqlite-core`, `pi-tui-modal`.
-See [`docs/package-map.md`](./docs/package-map.md).
+Support libraries (dependencies, not for `pi install`): `pi-settings`,
+`pi-sqlite-core`, `pi-tui-modal`. See
+[`docs/package-map.md`](./docs/package-map.md).
 
 ## Documentation
 

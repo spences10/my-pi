@@ -9,10 +9,7 @@ import {
 	dirs,
 	register_test_lsp_extension,
 } from '../test/support.js';
-import {
-	DEFAULT_LSP_IDLE_TIMEOUT_MS,
-	DEFAULT_LSP_TRUST_PROMPT_TIMEOUT_MS,
-} from './server-manager.js';
+import { DEFAULT_LSP_IDLE_TIMEOUT_MS } from './server-manager.js';
 
 afterEach(() => {
 	vi.unstubAllEnvs();
@@ -48,7 +45,6 @@ function create_python_project() {
 	writeFileSync(global_server, '#!/bin/sh\n', { mode: 0o755 });
 	vi.stubEnv('PATH', global_bin);
 	vi.stubEnv('MY_PI_LSP_PYTHON_SERVER', 'pyright');
-	vi.stubEnv('MY_PI_LSP_PROJECT_BINARY', '');
 	return { root, file, project_server, global_server };
 }
 
@@ -229,7 +225,7 @@ describe('lsp server manager', () => {
 		}
 	});
 
-	it('reuses an allow-once project binary after an idle restart', async () => {
+	it('reuses a project binary after an idle restart without approval', async () => {
 		vi.useFakeTimers();
 		try {
 			const { root, file, project_tsc } =
@@ -237,51 +233,34 @@ describe('lsp server manager', () => {
 			const first_stop = vi.fn().mockResolvedValue(undefined);
 			const create_client = vi
 				.fn()
-				.mockReturnValueOnce(
-					create_mock_client({
-						stop: first_stop,
-						hover: vi.fn().mockResolvedValue({ contents: 'first' }),
-					}),
-				)
-				.mockReturnValueOnce(
-					create_mock_client({
-						hover: vi.fn().mockResolvedValue({ contents: 'second' }),
-					}),
-				);
+				.mockReturnValueOnce(create_mock_client({ stop: first_stop }))
+				.mockReturnValueOnce(create_mock_client());
 			const { pi, tools } = create_test_pi();
-			const { ctx, selections, select } = create_command_context();
-			selections.push('Allow once for this session');
-
+			const { ctx, select } = create_command_context();
 			await register_test_lsp_extension(pi, {
 				create_client,
-				read_file: async () => 'export const value = 1;\n',
 				cwd: () => root,
 				idle_timeout_ms: 10,
 			});
 
-			await tools
-				.get('lsp_hover')
-				.execute(
-					'1',
-					{ file, line: 0, character: 0 },
-					undefined,
-					undefined,
-					ctx,
-				);
-			await vi.advanceTimersByTimeAsync(11);
-			expect(first_stop).toHaveBeenCalledTimes(1);
+			for (const id of ['1', '2']) {
+				const result = await tools
+					.get('lsp_hover')
+					.execute(
+						id,
+						{ file, line: 0, character: 0 },
+						undefined,
+						undefined,
+						ctx,
+					);
+				expect(result.details.ok).toBe(true);
+				if (id === '1') {
+					await vi.advanceTimersByTimeAsync(11);
+					expect(first_stop).toHaveBeenCalledTimes(1);
+				}
+			}
 
-			await tools
-				.get('lsp_hover')
-				.execute(
-					'2',
-					{ file, line: 0, character: 0 },
-					undefined,
-					undefined,
-					ctx,
-				);
-
-			expect(select).toHaveBeenCalledTimes(1);
+			expect(select).not.toHaveBeenCalled();
 			expect(create_client).toHaveBeenCalledTimes(2);
 			expect(create_client).toHaveBeenLastCalledWith(
 				expect.objectContaining({ command: project_tsc }),
@@ -291,30 +270,59 @@ describe('lsp server manager', () => {
 		}
 	});
 
-	it('cancels a pending project-binary trust prompt with the tool signal', async () => {
+	it.each([true, false])(
+		'starts a project-local TypeScript server without approval (hasUI=%s)',
+		async (has_ui) => {
+			const { root, file, project_tsc } =
+				create_typescript_7_project();
+			vi.stubEnv('MY_PI_LSP_PROJECT_BINARY', 'skip');
+			const create_client = vi.fn(() => create_mock_client());
+			const { pi, tools } = create_test_pi();
+			const { ctx, select } = create_command_context();
+			await register_test_lsp_extension(pi, {
+				create_client,
+				cwd: () => root,
+			});
+
+			const results = await Promise.all(
+				['1', '2', '3'].map((id) =>
+					tools
+						.get('lsp_hover')
+						.execute(
+							id,
+							{ file, line: 0, character: 0 },
+							undefined,
+							undefined,
+							{ ...ctx, hasUI: has_ui },
+						),
+				),
+			);
+
+			expect(results.every((result) => result.details.ok)).toBe(true);
+			expect(select).not.toHaveBeenCalled();
+			expect(create_client).toHaveBeenCalledTimes(1);
+			expect(create_client).toHaveBeenCalledWith(
+				expect.objectContaining({
+					command: project_tsc,
+					args: ['--lsp', '--stdio'],
+				}),
+			);
+		},
+	);
+
+	it('does not start a server for an already-cancelled tool call', async () => {
 		const { root, file } = create_typescript_7_project();
 		const create_client = vi.fn(() => create_mock_client());
 		const { pi, tools } = create_test_pi();
-		const { ctx, select } = create_command_context();
-		select.mockImplementation(
-			async (_title, _options, opts) =>
-				new Promise<string | undefined>((resolve) => {
-					opts?.signal?.addEventListener(
-						'abort',
-						() => resolve(undefined),
-						{ once: true },
-					);
-				}),
-		);
+		const { ctx } = create_command_context();
 		const controller = new AbortController();
-
+		controller.abort();
 		await register_test_lsp_extension(pi, {
 			create_client,
-			read_file: async () => 'export const value = 1;\n',
 			cwd: () => root,
 		});
 
-		const pending = tools
+		const result = await tools
 			.get('lsp_hover')
 			.execute(
 				'1',
@@ -323,230 +331,67 @@ describe('lsp server manager', () => {
 				undefined,
 				ctx,
 			);
-		await vi.waitFor(() => expect(select).toHaveBeenCalledTimes(1));
-		const prompt_signal = select.mock.calls[0]?.[2]?.signal;
-		expect(prompt_signal).toBeInstanceOf(AbortSignal);
-		expect(prompt_signal).not.toBe(controller.signal);
-
-		controller.abort();
-		const result = await pending;
 
 		expect(result.details.ok).toBe(false);
 		expect(create_client).not.toHaveBeenCalled();
 	});
 
-	it('bounds project-binary trust prompts with a timeout', async () => {
-		vi.useFakeTimers();
-		try {
-			const { root, file } = create_typescript_7_project();
+	it.each([true, false])(
+		'starts a Python virtual-environment server without approval (hasUI=%s)',
+		async (has_ui) => {
+			const { root, file, project_server } = create_python_project();
+			vi.stubEnv('MY_PI_LSP_PROJECT_BINARY', 'skip');
 			const create_client = vi.fn(() => create_mock_client());
-			const { pi, tools } = create_test_pi();
-			const { ctx, select } = create_command_context();
-			select.mockImplementation(
-				async (_title, _options, opts) =>
-					new Promise<string | undefined>((resolve) => {
-						opts?.signal?.addEventListener(
-							'abort',
-							() => resolve(undefined),
-							{ once: true },
-						);
-					}),
-			);
-
+			const { pi, tools, commands } = create_test_pi();
+			const { ctx, select, notifications } = create_command_context();
 			await register_test_lsp_extension(pi, {
 				create_client,
-				read_file: async () => 'export const value = 1;\n',
 				cwd: () => root,
 			});
-
-			const pending = tools
-				.get('lsp_hover')
-				.execute(
-					'1',
-					{ file, line: 0, character: 0 },
-					undefined,
-					undefined,
-					ctx,
-				);
-			await vi.waitFor(() => expect(select).toHaveBeenCalledTimes(1));
-			await vi.advanceTimersByTimeAsync(
-				DEFAULT_LSP_TRUST_PROMPT_TIMEOUT_MS,
-			);
-			const result = await pending;
-
-			expect(result.details.ok).toBe(false);
-			expect(result.content[0].text).toContain(
-				'LSP binary trust prompt timed out',
-			);
-			expect(create_client).not.toHaveBeenCalled();
-		} finally {
-			vi.useRealTimers();
-		}
-	});
-
-	it('falls back to the global TypeScript backend when a project binary is skipped', async () => {
-		const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
-		const file = join(root, 'src', 'main.ts');
-		dirs.push(root);
-		mkdirSync(join(root, 'src'), { recursive: true });
-		mkdirSync(join(root, 'node_modules', '.bin'), {
-			recursive: true,
-		});
-		writeFileSync(join(root, 'package.json'), '{}\n');
-		writeFileSync(file, 'export const value = 1;\n');
-		mkdirSync(join(root, 'node_modules', 'typescript', 'lib'), {
-			recursive: true,
-		});
-		writeFileSync(
-			join(root, 'node_modules', 'typescript', 'package.json'),
-			JSON.stringify({ version: '7.0.2' }),
-		);
-		writeFileSync(
-			join(root, 'node_modules', '.bin', 'tsc'),
-			'#!/bin/sh\n',
-			{ mode: 0o755 },
-		);
-		const create_client = vi.fn(() => create_mock_client());
-		const { pi, tools } = create_test_pi();
-		const { ctx, selections, select } = create_command_context();
-		selections.push('Use global PATH binary instead');
-
-		await register_test_lsp_extension(pi, {
-			create_client,
-			read_file: async () => 'export const value = 1;\n',
-			cwd: () => root,
-		});
-
-		await Promise.all(
-			['1', '2', '3'].map((id) =>
-				tools
+			for (const id of ['1', '2']) {
+				const result = await tools
 					.get('lsp_hover')
 					.execute(
 						id,
 						{ file, line: 0, character: 0 },
 						undefined,
 						undefined,
-						ctx,
-					),
-			),
-		);
-
-		expect(select).toHaveBeenCalledTimes(1);
-		expect(create_client).toHaveBeenCalledTimes(1);
-		expect(create_client).toHaveBeenCalledWith(
-			expect.objectContaining({
-				command: 'tsc',
-				args: ['--lsp', '--stdio'],
-			}),
-		);
-	});
-
-	it('prompts before starting a Python virtual-environment server', async () => {
-		const { root, file, project_server } = create_python_project();
-		const create_client = vi.fn(() => create_mock_client());
-		const { pi, tools, commands } = create_test_pi();
-		const { ctx, selections, select, notifications } =
-			create_command_context();
-		selections.push('Allow once for this session');
-		await register_test_lsp_extension(pi, {
-			create_client,
-			read_file: async () => 'value: int = 1\n',
-			cwd: () => root,
-		});
-		for (const id of ['1', '2']) {
-			await tools
-				.get('lsp_hover')
-				.execute(
-					id,
-					{ file, line: 0, character: 0 },
-					undefined,
-					undefined,
-					ctx,
-				);
-		}
-		expect(select).toHaveBeenCalledTimes(1);
-		expect(select.mock.calls[0]?.[0]).toContain(project_server);
-		expect(create_client).toHaveBeenCalledTimes(1);
-		expect(create_client).toHaveBeenCalledWith(
-			expect.objectContaining({
-				command: project_server,
-				args: ['--stdio'],
-			}),
-		);
-		await commands.get('lsp').handler('status', ctx);
-		expect(notifications.at(-1)?.message).toContain('via pyright');
-		expect(notifications.at(-1)?.message).toContain(project_server);
-	});
-
-	it.each([true, false])(
-		'uses only the global Python server after skipping local trust (hasUI=%s)',
-		async (hasUI) => {
-			const { root, file, global_server } = create_python_project();
-			const create_client = vi.fn(() => create_mock_client());
-			const { pi, tools } = create_test_pi();
-			const { ctx, selections, select } = create_command_context();
-			selections.push('Use global PATH binary instead');
-			const warn = vi
-				.spyOn(console, 'warn')
-				.mockImplementation(() => {});
-			try {
-				await register_test_lsp_extension(pi, {
-					create_client,
-					read_file: async () => 'value: int = 1\n',
-					cwd: () => root,
-				});
-				await tools
-					.get('lsp_hover')
-					.execute(
-						'1',
-						{ file, line: 0, character: 0 },
-						undefined,
-						undefined,
-						{ ...ctx, hasUI },
+						{ ...ctx, hasUI: has_ui },
 					);
-				expect(select).toHaveBeenCalledTimes(hasUI ? 1 : 0);
-				expect(create_client).toHaveBeenCalledTimes(1);
-				expect(create_client).toHaveBeenCalledWith(
-					expect.objectContaining({ command: global_server }),
-				);
-			} finally {
-				warn.mockRestore();
+				expect(result.details.ok).toBe(true);
 			}
+
+			expect(select).not.toHaveBeenCalled();
+			expect(create_client).toHaveBeenCalledTimes(1);
+			expect(create_client).toHaveBeenCalledWith(
+				expect.objectContaining({
+					command: project_server,
+					args: ['--stdio'],
+				}),
+			);
+			await commands.get('lsp').handler('status', ctx);
+			expect(notifications.at(-1)?.message).toContain('via pyright');
+			expect(notifications.at(-1)?.message).toContain(project_server);
 		},
 	);
 
-	it('does not launch a skipped Python virtual-environment server through PATH in headless mode', async () => {
+	it('starts a virtual-environment server on PATH in headless mode', async () => {
 		const { root, file, project_server } = create_python_project();
 		vi.stubEnv('PATH', dirname(project_server));
 		const create_client = vi.fn(() => create_mock_client());
 		const { pi, tools } = create_test_pi();
-		const { ctx } = create_command_context();
-		const warn = vi
-			.spyOn(console, 'warn')
-			.mockImplementation(() => {});
-		try {
-			await register_test_lsp_extension(pi, {
-				create_client,
-				read_file: async () => 'value: int = 1\n',
-				cwd: () => root,
-			});
-			const result = await tools
-				.get('lsp_hover')
-				.execute(
-					'1',
-					{ file, line: 0, character: 0 },
-					undefined,
-					undefined,
-					{ ...ctx, hasUI: false },
-				);
-			expect(result.details.ok).toBe(false);
-			expect(result.content[0].text).toContain(
-				'No pyright server on PATH outside the project',
-			);
-			expect(create_client).not.toHaveBeenCalled();
-		} finally {
-			warn.mockRestore();
-		}
+		await register_test_lsp_extension(pi, {
+			create_client,
+			cwd: () => root,
+		});
+		const result = await tools
+			.get('lsp_hover')
+			.execute('1', { file, line: 0, character: 0 });
+
+		expect(result.details.ok).toBe(true);
+		expect(create_client).toHaveBeenCalledWith(
+			expect.objectContaining({ command: project_server }),
+		);
 	});
 
 	it('reports the selected Python backend setup hint without changing backends on failure', async () => {
@@ -614,8 +459,7 @@ describe('lsp server manager', () => {
 
 		const create_client = vi.fn(() => create_mock_client());
 		const { pi, tools } = create_test_pi();
-		const { ctx, selections } = create_command_context();
-		selections.push('Allow once for this session');
+		const { ctx } = create_command_context();
 
 		await register_test_lsp_extension(pi, {
 			create_client,

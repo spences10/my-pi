@@ -49,7 +49,7 @@ may fit an existing package instead.
 
 Most packages expose a Pi extension and can be installed without
 my-pi. Support packages share capabilities such as settings, SQLite,
-resource-specific trust, and TUI modals. LSP owns its
+and TUI modals. LSP owns its
 [child-process environment filtering](../packages/pi-lsp/README.md#language-server-environment)
 locally. The [package map](./package-map.md) distinguishes these
 roles.
@@ -103,9 +103,9 @@ harness a prerequisite for ordinary project work.
 
 [pi-settings](../packages/pi-settings/README.md) keeps global my-pi
 extension state separate from upstream Pi's resource configuration.
-[pi-project-trust](../packages/pi-project-trust/README.md) supplies
-resource-specific decisions for things such as project-local
-executables; upstream Pi owns its standard whole-project trust.
+Upstream Pi owns its standard whole-project trust. LSP starts
+discovered language servers without a separate per-binary approval
+prompt.
 
 ## Finding code
 
