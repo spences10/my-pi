@@ -53,7 +53,22 @@ export function should_inject_harness_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
 ): boolean {
 	const selected = event.systemPromptOptions?.selectedTools;
-	return !selected || selected.includes('bash');
+	return (
+		!selected ||
+		selected.some(
+			(name) =>
+				name === 'codemode' ||
+				name === 'tool_search' ||
+				[
+					'harness_assess',
+					'harness_assessment_submit',
+					'harness_create',
+					'harness_amend',
+					'harness_update',
+					'harness_read',
+				].includes(name),
+		)
+	);
 }
 
 export default function harness(pi: ExtensionAPI) {
@@ -206,6 +221,7 @@ export default function harness(pi: ExtensionAPI) {
 	});
 	pi.registerTool({
 		name: 'harness_assess',
+		exposure: 'codemode',
 		label: 'Assess Task',
 		description:
 			'Optional advisory investigation. Does not restrict tools or require another approval.',
@@ -219,6 +235,7 @@ export default function harness(pi: ExtensionAPI) {
 	});
 	pi.registerTool({
 		name: 'harness_assessment_submit',
+		exposure: 'codemode',
 		label: 'Record Assessment',
 		description:
 			'Record an optional recommendation; does not create or approve a harness.',
@@ -236,6 +253,7 @@ export default function harness(pi: ExtensionAPI) {
 	});
 	pi.registerTool({
 		name: 'harness_create',
+		exposure: 'codemode',
 		label: 'Create Harness',
 		description:
 			'Create a task contract with accepted validation commands and optional scope. Assessment is not required.',
@@ -259,6 +277,7 @@ export default function harness(pi: ExtensionAPI) {
 	});
 	pi.registerTool({
 		name: 'harness_amend',
+		exposure: 'codemode',
 		label: 'Amend Strategy',
 		description:
 			'Adjust the execution plan without removing accepted checks or expanding the accepted maximum scope.',
@@ -273,6 +292,7 @@ export default function harness(pi: ExtensionAPI) {
 	});
 	pi.registerTool({
 		name: 'harness_update',
+		exposure: 'codemode',
 		label: 'Update Harness',
 		description:
 			'Record progress. Requesting completed runs accepted checks and the drift guard through normal tool hooks before recording success.',
@@ -306,6 +326,7 @@ export default function harness(pi: ExtensionAPI) {
 	});
 	pi.registerTool({
 		name: 'harness_read',
+		exposure: 'codemode',
 		label: 'Read Harness',
 		description:
 			'Read the current task contract and outcome locations.',
@@ -330,9 +351,6 @@ export default function harness(pi: ExtensionAPI) {
 	});
 	pi.on('before_agent_start', async (event) => {
 		const contexts = [
-			should_inject_harness_prompt(event)
-				? HARNESS_SYSTEM_PROMPT
-				: '',
 			assessment_active(assessment) && assessment
 				? assessment_context(assessment)
 				: '',
@@ -341,6 +359,8 @@ export default function harness(pi: ExtensionAPI) {
 				? active_harness_context(active_harness_dir)
 				: '',
 		].filter(Boolean);
+		if (!contexts.length && should_inject_harness_prompt(event))
+			contexts.push(HARNESS_SYSTEM_PROMPT);
 		if (contexts.length) {
 			event.systemPromptOptions.sections.harness =
 				contexts.join('\n\n');

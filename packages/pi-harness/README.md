@@ -13,7 +13,10 @@
 
 Prompt guidance uses Pi's named system-prompt sections. It coexists
 with user `SYSTEM.md` and `APPEND_SYSTEM.md` files and other
-extensions without replacing the complete prompt.
+extensions without replacing the complete prompt. Idle sessions get a
+brief discovery hint when harness tools, codemode, or tool search are
+selected. An active harness or assessment replaces that hint with its
+current task guidance.
 
 Optional task scaffolding for Pi: a contract, working-state baseline,
 validation scripts, progress log, and reviewable outcome. Pi still
@@ -131,6 +134,16 @@ reports that there is no active harness to clear.
 
 Tools: `harness_create`, `harness_amend`, `harness_update`,
 `harness_read`, `harness_assess`, `harness_assessment_submit`.
+
+All six use Pi's native `codemode` exposure: callable through scripts
+without adding six direct tool definitions to the model's loadout. Use
+`tools.harness_create(...)`, `tools.harness_update(...)`, and the
+other tool names inside codemode. Pi's `tool_search` can discover and
+activate them, or select them explicitly for direct calls. Without
+codemode, activate the required tools directly. Mutating harness tools
+remain sequential, and nested calls retain normal permission hooks and
+cancellation, including Bash checks run during completion. Validation
+runs on completion, not automatically after edits or turns.
 
 Execution is direct by default. Team Mode can coordinate independently
 opened peers only when the user authorizes collaboration. This package

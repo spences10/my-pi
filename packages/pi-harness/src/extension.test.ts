@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { HARNESS_ASSESSMENT_CUSTOM_TYPE } from './assessment.js';
 import harness from './extension.js';
+import { HARNESS_SYSTEM_PROMPT } from './prompt.js';
 import { HARNESS_CUSTOM_TYPE } from './schema.js';
 
 const cleanup: string[] = [];
@@ -18,7 +19,10 @@ function fixture() {
 	cleanup.push(cwd);
 	execFileSync('git', ['-C', cwd, 'init'], { stdio: 'ignore' });
 	const commands = new Map<string, { handler: Function }>();
-	const tools = new Map<string, { execute: Function }>();
+	const tools = new Map<
+		string,
+		{ execute: Function; exposure?: string; executionMode?: string }
+	>();
 	const handlers = new Map<string, Function>();
 	const appendEntry = vi.fn();
 	const setActiveTools = vi.fn();
@@ -38,8 +42,12 @@ function fixture() {
 			name: string,
 			definition: { handler: Function },
 		) => commands.set(name, definition),
-		registerTool: (definition: { name: string; execute: Function }) =>
-			tools.set(definition.name, definition),
+		registerTool: (definition: {
+			name: string;
+			execute: Function;
+			exposure?: string;
+			executionMode?: string;
+		}) => tools.set(definition.name, definition),
 		on: (name: string, handler: Function) =>
 			handlers.set(name, handler),
 		sendUserMessage,
@@ -96,7 +104,7 @@ it('adds harness context without freezing other prompt sections', async () => {
 	const event = {
 		systemPrompt: 'custom system and append',
 		systemPromptOptions: {
-			selectedTools: ['bash'],
+			selectedTools: ['codemode'],
 			sections: { unrelated: 'keep' } as Record<string, string>,
 		},
 	};
@@ -139,6 +147,75 @@ async function create(
 }
 
 describe('harness extension', () => {
+	it('exposes all six tools through codemode and keeps mutations sequential', () => {
+		const f = fixture();
+		harness(f.api);
+		expect(f.tools.size).toBe(6);
+		for (const [name, tool] of f.tools) {
+			expect(tool.exposure, name).toBe('codemode');
+			if (name !== 'harness_read')
+				expect(tool.executionMode, name).toBe('sequential');
+		}
+	});
+	it('replaces idle guidance with active context even without discovery tools', async () => {
+		const f = fixture();
+		harness(f.api);
+		const event = {
+			systemPromptOptions: {
+				selectedTools: ['codemode'],
+				sections: {} as Record<string, string>,
+			},
+		};
+		await f.handlers.get('before_agent_start')!(event);
+		expect(event.systemPromptOptions.sections.harness).toBe(
+			HARNESS_SYSTEM_PROMPT,
+		);
+		await f.tools
+			.get('harness_assess')!
+			.execute(
+				'assess',
+				{ task: 'Investigate' },
+				undefined,
+				undefined,
+				f.ctx,
+			);
+		event.systemPromptOptions.selectedTools = ['read'];
+		await f.handlers.get('before_agent_start')!(event);
+		expect(event.systemPromptOptions.sections.harness).toContain(
+			'Optional harness assessment',
+		);
+		expect(event.systemPromptOptions.sections.harness).not.toContain(
+			HARNESS_SYSTEM_PROMPT,
+		);
+		const dir = await create(f);
+		await f.handlers.get('before_agent_start')!(event);
+		expect(event.systemPromptOptions.sections.harness).toContain(
+			'Active task harness',
+		);
+		expect(event.systemPromptOptions.sections.harness).toContain(dir);
+		expect(event.systemPromptOptions.sections.harness).toContain(
+			'harness_update',
+		);
+		expect(event.systemPromptOptions.sections.harness).toContain(
+			'validation retries are allowed',
+		);
+		expect(event.systemPromptOptions.sections.harness).not.toContain(
+			HARNESS_SYSTEM_PROMPT,
+		);
+		expect(event.systemPromptOptions.sections.harness).not.toContain(
+			'Optional harness assessment',
+		);
+		await f.commands.get('harness')!.handler('clear', f.ctx);
+		await f.handlers.get('before_agent_start')!(event);
+		expect(
+			event.systemPromptOptions.sections.harness,
+		).toBeUndefined();
+		event.systemPromptOptions.selectedTools = ['codemode'];
+		await f.handlers.get('before_agent_start')!(event);
+		expect(event.systemPromptOptions.sections.harness).toBe(
+			HARNESS_SYSTEM_PROMPT,
+		);
+	});
 	it('creates directly without assessment or another approval roundtrip', async () => {
 		const f = fixture();
 		harness(f.api);

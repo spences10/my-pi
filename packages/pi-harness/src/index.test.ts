@@ -429,28 +429,35 @@ describe('harness enforcement helpers', () => {
 });
 
 describe('harness guidance', () => {
-	it('keeps assessment optional, normal tests and retries available, and peer coordination honest', () => {
-		expect(HARNESS_SYSTEM_PROMPT).toContain(
-			'does not restrict tools',
-		);
-		expect(HARNESS_SYSTEM_PROMPT).toContain(
-			'Normal coding and test development are allowed',
-		);
-		expect(HARNESS_SYSTEM_PROMPT).toContain(
-			'without an arbitrary one-attempt limit',
-		);
-		expect(HARNESS_SYSTEM_PROMPT).not.toContain('Factory');
+	it('keeps idle guidance brief and points to native codemode tools', () => {
+		expect(HARNESS_SYSTEM_PROMPT).toContain('tools.harness_create()');
+		expect(HARNESS_SYSTEM_PROMPT).toContain('optional advice');
+		expect(HARNESS_SYSTEM_PROMPT).toContain('direct work');
+		expect(HARNESS_SYSTEM_PROMPT).not.toContain('harness_update');
 	});
-	it('injects only for normal coding loadouts', () => {
-		expect(
-			should_inject_harness_prompt({
-				systemPromptOptions: { selectedTools: ['bash'] },
-			} as Parameters<typeof should_inject_harness_prompt>[0]),
-		).toBe(true);
-		expect(
-			should_inject_harness_prompt({
-				systemPromptOptions: { selectedTools: ['read'] },
-			} as Parameters<typeof should_inject_harness_prompt>[0]),
-		).toBe(false);
-	});
+	it.each<[string[] | undefined, boolean]>([
+		[undefined, true],
+		[[], false],
+		[['bash'], false],
+		[['read'], false],
+		[['codemode'], true],
+		[['tool_search'], true],
+		...[
+			'harness_assess',
+			'harness_assessment_submit',
+			'harness_create',
+			'harness_amend',
+			'harness_update',
+			'harness_read',
+		].map((name): [string[], boolean] => [[name], true]),
+	])(
+		'gates guidance for selected tools %j',
+		(selected_tools, expected) => {
+			expect(
+				should_inject_harness_prompt({
+					systemPromptOptions: { selectedTools: selected_tools },
+				} as Parameters<typeof should_inject_harness_prompt>[0]),
+			).toBe(expected);
+		},
+	);
 });
