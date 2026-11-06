@@ -1,5 +1,12 @@
 # @spences10/pi-starfield
 
+## 0.0.5
+
+### Patch Changes
+
+- 5868379: Keep next prompt suggestions available when stars are
+  disabled, preserving normal editor appearance and behavior.
+
 ## 0.0.4
 
 ### Patch Changes

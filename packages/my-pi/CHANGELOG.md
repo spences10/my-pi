@@ -1,5 +1,12 @@
 # my-pi
 
+## 0.8.3
+
+### Patch Changes
+
+- Updated dependencies [5868379]
+  - @spences10/pi-starfield@0.0.5
+
 ## 0.8.2
 
 ### Patch Changes
