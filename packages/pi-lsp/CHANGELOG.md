@@ -1,5 +1,13 @@
 # @spences10/pi-lsp
 
+## 0.0.54
+
+### Patch Changes
+
+- e254928: Remove unnecessary LSP server approval prompts while
+  preserving discovery, environment filtering, and headless server
+  support.
+
 ## 0.0.53
 
 ### Patch Changes
