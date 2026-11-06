@@ -1,5 +1,13 @@
 # my-pi
 
+## 0.8.1
+
+### Patch Changes
+
+- Updated dependencies [0294e26]
+  - @spences10/pi-team-mode@0.3.0
+  - @spences10/pi-workers@0.3.0
+
 ## 0.8.0
 
 ### Minor Changes

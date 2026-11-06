@@ -1,5 +1,13 @@
 # @spences10/pi-team-mode
 
+## 0.3.0
+
+### Minor Changes
+
+- 0294e26: Require explicit collaboration, persist notification
+  controls, route workers correctly; breaking change: unsolicited
+  messages stay quiet.
+
 ## 0.2.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
-	"version": "0.8.0",
+	"version": "0.8.1",
 	"config_sha256": "bf25158e6b8c5c04910760c06c1b594f65a1ef0336405b5fe41a47fcab719efc",
-	"source_sha256": "33c52b4600d3d89eb98da8c91e95fde35c594b954744f2e759fcff748b46ad40",
-	"image_sha256": "eb506109d80dd06a958c6d53eccc1b89e8fb13cd26c39beea28e8567463a6563"
+	"source_sha256": "f08071e663f3bcab1b4eaf49c2839d1f5e4484a4938ae99d5f58fb3acd153ea9",
+	"image_sha256": "1f47d6f5ce8af839dc86dde1b81182a2e8aa3618235d840b81b867e7d2b8588e"
 }
