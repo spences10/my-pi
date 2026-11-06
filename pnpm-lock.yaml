@@ -1089,6 +1089,9 @@ importers:
       '@spences10/pi-redact':
         specifier: workspace:*
         version: link:../pi-redact
+      '@spences10/pi-team-mode':
+        specifier: workspace:*
+        version: link:../pi-team-mode
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal
@@ -1105,9 +1108,6 @@ importers:
       '@spences10/pi-observability':
         specifier: workspace:*
         version: link:../pi-observability
-      '@spences10/pi-team-mode':
-        specifier: workspace:*
-        version: link:../pi-team-mode
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6

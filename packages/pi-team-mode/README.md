@@ -51,17 +51,23 @@ pi -e ./packages/pi-team-mode
 3. Use `session_list` to discover open sessions in the current
    project; pass `global: true` only when cross-project discovery is
    intentional.
-4. Send a message with `session_send` or a group action.
-5. When the receiving session is idle, its extension injects each
-   delivery as a visible Pi custom message carrying structured peer
-   provenance. It is never injected as a direct user turn.
+4. Establish collaboration: the owner creates a group and invites
+   independent sessions; recipients accept with `group_join`. Owned
+   RPC workers are enrolled by their launcher automatically.
+5. Send a message with `session_send` or a group action. Messages are
+   stored even when the recipient has not joined, but only active
+   collaboration mail with recipient permission can automatically
+   start a model turn. Shared directories never establish membership.
+6. Eligible deliveries appear as visible Pi custom messages carrying
+   structured peer provenance, never as direct user turns.
 
-Actionable messages sent while a peer is offline remain durable and
-are surfaced after the peer opens again. Messages arriving during a
-run wait for Pi's pre-settlement boundary, after retries and queued
-work. Team Mode does not steer an active remote run. Aborting or
-failing a run pauses automatic wake-ups until the next direct user
-prompt.
+Eligible actionable messages sent while a peer is offline remain
+durable and are surfaced after the peer opens again. Unrelated or
+suppressed messages remain available for explicit inbox retrieval.
+Messages arriving during a run wait for Pi's pre-settlement boundary,
+after retries and queued work. Team Mode does not steer an active
+remote run. Aborting or failing a run pauses automatic wake-ups until
+the next direct user prompt.
 
 Automatic batches contain at most eight visible messages and 4 KiB of
 UTF-8 content, including provenance and retrieval instructions. Each
@@ -114,13 +120,20 @@ notification, with SQLite polling as the durable fallback.
 /team session ack [message-id...]
 /team group list
 /team group create <name>
+/team group invite <group-id-or-name> <session-id-or-name>
 /team group join <group-id-or-name> [alias]
 /team group send <group-id-or-name> <message>
+/team pause [<sender> | --group <group>]
+/team resume [<sender> | --group <group>]
+/team leave <group>
+/team close <group>
 ```
 
 ## Tool actions
 
 - `session_list`
+- `session_pause`
+- `session_resume`
 - `session_send`
 - `session_inbox`
 - `session_read`
@@ -129,6 +142,8 @@ notification, with SQLite polling as the durable fallback.
 - `group_create`
 - `group_list`
 - `group_join`
+- `group_leave`
+- `group_close`
 - `group_add_session`
 - `group_send`
 - `artifact_create`
@@ -143,6 +158,39 @@ notification, with SQLite polling as the durable fallback.
 `message_*` actions are compatibility aliases for the corresponding
 peer mailbox operations. Use artifacts for larger handoffs and send
 artifact ids in messages instead of copying large bodies.
+
+## Recipient controls
+
+`/team pause` (tool: `session_pause`) persistently disables automatic
+coordination delivery to this session, including RPC completion
+reports. It does not stop any worker. Optional `to` targets one
+sender; optional `team_id` targets one group. The slash equivalents
+are `/team pause <sender>` and `/team pause --group <group>`. These
+controls apply only to the caller's own notifications and compose:
+resuming a sender does not override a session-wide pause.
+
+`session_resume` uses the same fields. Resume permits future mail;
+previously suppressed messages remain available through
+`session_inbox`, without a backlog burst. Neither pause nor
+suppression marks mail delivered, read or acknowledged. Normal prompts
+and reloads do not clear explicit pauses. Messages already injected
+into Pi and model turns already started cannot be retracted by
+pausing. Pending mail is checked again at the delivery boundary.
+
+`group_leave` detaches the caller; `group_close` is owner-only and
+permanently closes that collaboration. Both suppress pending delivery;
+late results stay inspectable. Neither operation stops processes. Use
+the Workers `stop` action to terminate owned work. A new collaboration
+does not revive an old one's pending mail.
+
+Owned workers can use `to: "parent"` for the parent registered by the
+launcher. This resolves before session names or aliases and never
+infers ownership from cwd. Session details expose `parent_session_id`
+and worker metadata. Default direct worker mail stays bound to its
+original collaboration; use an explicit group send for another task.
+The
+[recipient-policy regressions](https://github.com/spences10/my-pi/blob/main/packages/pi-team-mode/src/coordination-policy.test.ts)
+exercise isolation, persistent pause and late-message handling.
 
 ## Retry-safe sends and quiet status
 
@@ -328,14 +376,21 @@ spawn, supervise, or attach to them.
 
 ## Groups and standby sessions
 
-Groups organize independently running sessions without changing who
-may talk to whom. Group targets resolve by exact group id first. A
-name resolves only when it identifies one group in the caller's
-current working directory; ambiguous names fail instead of selecting
-the most recent group. A session can advertise an intent such as
-standby/reviewer through its prompt, allowing another session to
-discover and coordinate with it. Opening, closing, naming, and
-isolating those Pi processes remains the user's responsibility.
+Groups establish which sessions may automatically interrupt one
+another. Anyone can store a direct mailbox message, but discovery is
+not enrollment. The group owner invites with `group_add_session` or
+`/team group invite`; independent recipients accept with `group_join`.
+An invitation alone cannot wake its recipient. Joining requires an
+invitation; group sends require active membership. Existing active
+memberships are preserved on upgrade.
+
+Group targets resolve by exact group id first. A name resolves only
+when it identifies one group in the caller's current working
+directory; ambiguous names fail instead of selecting the most recent
+group. A session can advertise an intent such as standby/reviewer
+through its prompt, allowing another session to discover and
+coordinate with it. Opening, closing, naming, and isolating those Pi
+processes remains the user's responsibility.
 
 ## Retention and cleanup
 
@@ -374,11 +429,13 @@ starting Team Mode never applies that manual default.
 
 ## Database compatibility
 
-Released numbered migrations are immutable. Schema version 5 adds
-message type, status key, and sender-scoped retry-key storage without
-rewriting existing messages. Existing messages default to actionable.
-Upgrade/reload peer sessions together; older package versions reject a
-database with a newer schema version.
+Released numbered migrations are immutable. Schema version 6 adds
+recipient delivery controls, collaboration closure and per-receipt
+automatic-delivery eligibility. Old messages and receipts are retained
+but old pending mail is mailbox-only, avoiding surprise wake-ups after
+upgrade. Schema version 5 added message types and sender-scoped retry
+keys. Upgrade/reload peer sessions together; older package versions
+reject a database with a newer schema version.
 
 Schema version 4 contains dormant persistent-runtime tables from an
 earlier experiment so databases upgraded by version `0.0.48` continue

@@ -34,7 +34,7 @@ function setup(messages = [message('m1')]) {
 	const delivered = new Set<string>();
 	const db = {
 		heartbeat_session: vi.fn(),
-		list_inbox: vi.fn(() =>
+		list_auto_inbox: vi.fn(() =>
 			messages.filter((item) => !delivered.has(item.message_id)),
 		),
 		mark_messages_delivered: vi.fn(

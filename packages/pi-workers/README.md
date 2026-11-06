@@ -41,29 +41,32 @@ Authorize delegation in your prompt, for example:
 
 The `workers` tool supports:
 
-| Action  | Fields                                           | Behaviour                                                                                                      |
-| ------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `spawn` | `name`, `task`, absolute `cwd`, optional `model` | Start a background worker; inherit current model and thinking unless a model is specified                      |
-| `list`  | none                                             | List workers owned by this parent, including status, session identity and latest result                        |
-| `send`  | `worker`, `message`, optional `queue`            | Steer a running worker, or start another turn on an idle one; `queue: true` waits until existing work finishes |
-| `stop`  | `worker`                                         | Stop an owned worker and clean up its process group                                                            |
+| Action             | Fields                                           | Behaviour                                                                                                      |
+| ------------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `spawn`            | `name`, `task`, absolute `cwd`, optional `model` | Start a background worker; inherit current model and thinking unless a model is specified                      |
+| `list`             | none                                             | List workers owned by this parent, including status, session identity and latest result                        |
+| `send`             | `worker`, `message`, optional `queue`            | Steer a running worker, or start another turn on an idle one; `queue: true` waits until existing work finishes |
+| `stop`             | `worker`                                         | Stop an owned worker and clean up its process group                                                            |
+| `pause` / `resume` | none                                             | Persistently pause or resume automatic coordination delivery to this parent, without stopping workers          |
 
 Target workers by their id, session id or unique name. Reused names
 select the current live worker; ids keep historical workers separately
 addressable. At most four workers may be live, including idle workers;
 stop one to free a slot. Spawn returns after Pi accepts the initial
-prompt, **not** after the task succeeds. A bounded completion or
-failure report arrives as a follow-up message. Full output remains in
-the saved worker session. Workers remain idle for follow-ups until
-explicitly stopped or their parent session ends.
+prompt, **not** after the task succeeds. Completion and failure
+reports are saved in the coordination mailbox and automatically
+delivered only while the collaboration and recipient policy permit it.
+Full output remains in the saved worker session. Workers remain idle
+for follow-ups until explicitly stopped or their parent session ends.
 
-In the terminal, worker reports show a single-line name, outcome and
-result/error preview. Worker tool calls and results are also compact.
-Use Pi's expand/collapse shortcut (`Ctrl+O` by default) for full
-report content, worker details and tool arguments/results. This only
-changes presentation; model input, saved reports and completion timing
-stay the same. Reports remain bounded; full output is in the worker's
-saved session.
+In the terminal, completion reports use Team Mode's compact peer
+message renderer with the worker name and a bounded result/error
+preview. Worker tool calls and results are also compact. Use Pi's
+expand/collapse shortcut (`Ctrl+O` by default) for full report
+content, worker details and tool arguments/results. This only changes
+presentation; model input, saved reports and completion timing stay
+the same. Reports remain bounded; full output is in the worker's saved
+session.
 
 Human controls:
 
@@ -71,6 +74,8 @@ Human controls:
 /workers
 /workers send reviewer Also check the error paths
 /workers stop reviewer
+/workers pause
+/workers resume
 ```
 
 In terminal mode, `/workers` opens a shared `pi-tui-modal` overlay
@@ -97,8 +102,32 @@ independently opened Team Mode sessions.
 Workers use the same launcher, saved extension settings and explicitly
 loaded `-e` extensions as their parent. With Team Mode enabled, the
 returned `session_id` appears in `team.session_list` and can exchange
-normal mailbox messages with your other open Pi sessions. Use either
+normal mailbox messages with other sessions. Each worker receives its
+actual parent session ID, worker ID and collaboration ID before its
+first task. Team Mode's `to: "parent"` resolves that registered
+relationship, not a name or directory guess. Workers of one parent are
+automatically enrolled in its owned collaboration.
+
+Independent sessions require an owner invitation and recipient
+`group_join` before messages can automatically wake them. Merely
+sharing a directory does not enroll a session. Use either
 `workers.send` or Team Mode for a given instruction, not both.
+
+Completion reports use the same mailbox and recipient controls as Team
+Mode messages. When the `team` tool is inactive or unavailable,
+Workers delivers its own completion mail through the same policy; when
+`team` is active, only Team Mode delivers it. `/workers pause` and
+`/workers resume` control automatic delivery even without the Team
+Mode extension loaded. Sender/group controls and explicit mailbox
+retrieval are available through Team Mode. Pauses survive reload and
+normal prompts. Resume affects future mail, not the suppressed
+backlog.
+
+Leaving or closing a collaboration suppresses late notifications, not
+worker execution. A new spawn after closure gets a new collaboration;
+old workers remain associated with the closed one. Use `stop` to
+terminate work. Already-injected messages and started turns cannot be
+retracted by pausing.
 
 With observability enabled, workers appear as separate sessions in the
 existing dashboard. This provides traces, tool activity, failures and

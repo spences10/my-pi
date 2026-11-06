@@ -158,6 +158,17 @@ export default async function team_mode(pi: ExtensionAPI) {
 			session_id: own_session_id,
 			session_file: ctx.sessionManager.getSessionFile(),
 			cwd: ctx.cwd,
+			parent_session_id:
+				process.env.MY_PI_WORKER_CHILD === '1'
+					? process.env.MY_PI_TEAM_PARENT_SESSION_ID
+					: undefined,
+			metadata:
+				process.env.MY_PI_WORKER_CHILD === '1'
+					? {
+							worker_id: process.env.MY_PI_WORKER_ID,
+							worker_group_id: process.env.MY_PI_TEAM_GROUP_ID,
+						}
+					: undefined,
 			agent_name: pi.getSessionName?.() || fallback_agent_name,
 			pid: process.pid,
 			role:
@@ -239,10 +250,17 @@ export default async function team_mode(pi: ExtensionAPI) {
 					{ thinking_level: own_session?.thinking_level },
 				)
 			: undefined;
+		const worker_id =
+			typeof own_session?.metadata.worker_id === 'string'
+				? own_session.metadata.worker_id
+				: 'unknown';
 		event.systemPromptOptions.sections.team_mode =
 			append_team_system_prompt('', {
 				coordination_identity,
-			}).trim();
+			}).trim() +
+			(own_session?.parent_session_id
+				? `\nYour registered worker parent is ${own_session.parent_session_id}. Use to: "parent" for parent reports; never infer ownership from session names or directories. Worker id: ${worker_id}.`
+				: '');
 		const message = coordination_poller.take_delivery(true);
 		return message ? { message } : undefined;
 	});
@@ -300,7 +318,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'session ack',
 				'group list',
 				'group create',
+				'group invite',
 				'group join',
+				'pause',
+				'resume',
+				'leave',
+				'close',
 				'group send',
 			];
 			return subs
@@ -325,7 +348,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 		name: 'team',
 		label: 'Team',
 		description:
-			'Manage peer session coordination, groups, artifacts, and durable mailboxes.',
+			'Manage peer coordination, explicit collaboration, recipient pause/resume, groups, artifacts, and durable mailboxes.',
 		promptSnippet:
 			'Manage peer sessions, coordination groups, artifacts, and messages',
 		parameters: TeamToolParams,

@@ -129,7 +129,11 @@ describe('retry-safe messages', () => {
 			...context,
 			require_session_id: () => 'sender',
 		};
-		const group = db.create_group({ name: 'workers', cwd: '/repo' });
+		const group = db.create_group({
+			name: 'workers',
+			cwd: '/repo',
+			created_by_session_id: 'sender',
+		});
 		db.add_group_member({
 			group_id: group.group_id,
 			session_id: 'receiver',

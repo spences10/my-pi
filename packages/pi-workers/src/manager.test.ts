@@ -26,11 +26,15 @@ function setup() {
 	const directory = mkdtempSync(join(tmpdir(), 'pi-workers-'));
 	directories.push(directory);
 	const completed: WorkerInfo[] = [];
+	const started: WorkerInfo[] = [];
 	const manager = new WorkerManager({
 		command: process.execPath,
 		args: [fixture],
 		env: {},
 		session_dir: directory,
+		parent_session_id: 'actual-parent',
+		group_id: 'actual-collaboration',
+		on_started: (info) => started.push(info),
 		on_complete: (info) => completed.push(info),
 		on_dialogs_end: () => {},
 		on_ui: (_id, _request, respond) => respond({ confirmed: true }),
@@ -39,11 +43,30 @@ function setup() {
 	return {
 		manager,
 		completed,
+		started,
 		options: { name: 'test', task: 'hello', cwd: directory },
 	};
 }
 
 describe('owned worker lifecycle', () => {
+	it('registers ownership before the first prompt and gives the child exact parent, collaboration and worker identities', async () => {
+		const { manager, completed, started, options } = setup();
+		const worker = await manager.spawn({
+			...options,
+			task: 'identity',
+		});
+		expect(started).toHaveLength(1);
+		expect(started[0]).toMatchObject({
+			parent_session_id: 'actual-parent',
+			group_id: 'actual-collaboration',
+			status: 'idle',
+		});
+		expect(JSON.parse(completed[0].result!)).toEqual({
+			parent: 'actual-parent',
+			group: 'actual-collaboration',
+			worker: worker.id,
+		});
+	});
 	it('returns session identity, waits for settled rather than agent_end, and reports once', async () => {
 		const { manager, completed, options } = setup();
 		const worker = await manager.spawn(options);

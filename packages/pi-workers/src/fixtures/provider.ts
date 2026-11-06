@@ -36,6 +36,28 @@ export default function provider(pi: ExtensionAPI) {
 									.filter((block) => block.type === 'text')
 									.map((block) => block.text)
 									.join('\n');
+					if (prompt.startsWith('spawn-owned:')) {
+						return fauxAssistantMessage(
+							fauxToolCall('workers', {
+								action: 'spawn',
+								name: 'owned-child',
+								task: 'hello',
+								cwd: prompt.slice('spawn-owned:'.length),
+								model: 'worker-test/test',
+							}),
+							{ stopReason: 'toolUse' },
+						);
+					}
+					if (prompt.startsWith('send-owned:')) {
+						return fauxAssistantMessage(
+							fauxToolCall('workers', {
+								action: 'send',
+								worker: prompt.slice('send-owned:'.length),
+								message: 'fresh task',
+							}),
+							{ stopReason: 'toolUse' },
+						);
+					}
 					if (prompt.startsWith('send-peer:')) {
 						return fauxAssistantMessage(
 							fauxToolCall('team', {

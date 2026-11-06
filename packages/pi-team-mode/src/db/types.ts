@@ -107,6 +107,7 @@ export interface CoordinationArtifactInput {
 }
 
 export interface CoordinationGroup {
+	closed_at?: string;
 	group_id: string;
 	name: string;
 	cwd?: string;
@@ -229,6 +230,7 @@ export interface ArtifactRow {
 }
 
 export interface GroupRow {
+	closed_at: string | null;
 	group_id: string;
 	name: string;
 	cwd: string | null;

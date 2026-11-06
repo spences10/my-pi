@@ -2,6 +2,7 @@ import {
 	start_observability_server,
 	type RunningObservabilityServer,
 } from '@spences10/pi-observability/server';
+import { TeamDatabase } from '@spences10/pi-team-mode/coordination';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -133,6 +134,111 @@ async function observed_sessions(server: RunningObservabilityServer) {
 }
 
 describe('real upstream Pi RPC workers', () => {
+	it.each([true, false])(
+		'applies persistent completion policy with Team Mode loaded=%s',
+		async (with_team) => {
+			const { args, env, directory, options } = await setup();
+			const parent_args = args.filter(
+				(arg, index) =>
+					with_team ||
+					(arg !== team_extension &&
+						!(arg === '-e' && args[index + 1] === team_extension)),
+			);
+			let settled = 0;
+			const parent = new WorkerProcess({
+				command: process.execPath,
+				args: [
+					...parent_args,
+					'--mode',
+					'rpc',
+					'--model',
+					options.model,
+					'--session-dir',
+					join(directory, 'parent'),
+				],
+				cwd: directory,
+				env: { ...env, MY_PI_WORKER_CHILD: '' },
+				on_record: (record) => {
+					if (record.type === 'agent_settled') settled++;
+				},
+				on_exit: () => {},
+			});
+			cleanup.push(() => parent.stop());
+			parent.start();
+			const state = await parent.request({ type: 'get_state' });
+			const parent_id = state.sessionId as string;
+			await parent.request({
+				type: 'prompt',
+				message: '/workers pause',
+			});
+			await parent.request({
+				type: 'prompt',
+				message: `spawn-owned:${directory}`,
+			});
+			const db = await TeamDatabase.open(env.MY_PI_COORDINATION_DB);
+			try {
+				await expect
+					.poll(() => db.list_inbox(parent_id).length, {
+						timeout: 15_000,
+					})
+					.toBe(1);
+				const child = db
+					.list_sessions({ include_offline: true })
+					.find(
+						(session) => session.parent_session_id === parent_id,
+					)!;
+				expect(child).toBeDefined();
+				expect(child.metadata.worker_id).toBeTruthy();
+				expect(db.list_inbox(parent_id)[0]).toMatchObject({
+					delivered_at: undefined,
+					read_at: undefined,
+					acknowledged_at: undefined,
+				});
+				expect(() => process.kill(child.pid!, 0)).not.toThrow();
+				await expect
+					.poll(() => settled, { timeout: 15_000 })
+					.toBeGreaterThanOrEqual(1);
+				await parent.request({
+					type: 'prompt',
+					message: '/workers resume',
+				});
+				expect(db.delivery.controls(parent_id)).toContainEqual({
+					scope: 'session',
+					target: '',
+					paused: 0,
+				});
+				expect(db.list_auto_inbox(parent_id)).toEqual([]);
+				await parent.request({
+					type: 'prompt',
+					message: `send-owned:${child.session_id}`,
+				});
+				await expect
+					.poll(() => db.list_inbox(parent_id).length, {
+						timeout: 15_000,
+					})
+					.toBe(2);
+				await expect
+					.poll(
+						() =>
+							db
+								.list_inbox(parent_id)
+								.filter((message) => !!message.delivered_at).length,
+						{ timeout: 15_000 },
+					)
+					.toBe(1);
+				expect(db.list_inbox(parent_id)).toHaveLength(2);
+				const history = JSON.stringify(
+					await parent.request({ type: 'get_messages' }),
+				);
+				expect(history).toContain('team-mode-peer-message');
+				expect(history).toContain('fresh task');
+			} finally {
+				db.close();
+			}
+		},
+		40_000,
+	);
+
 	it('runs a provider turn, persists its transcript, and appears in observability', async () => {
 		const { manager, completed, options, server } = await setup();
 		const worker = await manager.spawn(options);
@@ -205,6 +311,24 @@ describe('real upstream Pi RPC workers', () => {
 		await expect
 			.poll(() => completed[0]?.result, { timeout: 15_000 })
 			.toContain('Sent coordination message');
+		// Mere discovery in the same cwd does not enroll a peer.
+		expect(
+			JSON.stringify(await peer.request({ type: 'get_messages' })),
+		).not.toContain('hello from rpc-worker');
+		const db = await TeamDatabase.open(env.MY_PI_COORDINATION_DB);
+		try {
+			const group = db.create_group({
+				name: 'explicit-collaboration',
+				created_by_session_id: peer_id,
+			});
+			db.add_group_member({
+				group_id: group.group_id,
+				session_id: worker.session_id!,
+			});
+		} finally {
+			db.close();
+		}
+		await manager.send(worker.id, `send-peer:${peer_id}`);
 		await expect
 			.poll(
 				async () =>

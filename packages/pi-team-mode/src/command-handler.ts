@@ -1,5 +1,6 @@
 import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 import {
+	handle_delivery_control,
 	handle_group_command,
 	handle_session_command,
 	handle_sessions,
@@ -48,6 +49,14 @@ export async function handle_team_command(
 
 	try {
 		switch (sub) {
+			case 'pause':
+			case 'resume':
+				handle_delivery_control(deps, sub === 'pause', rest);
+				break;
+			case 'leave':
+			case 'close':
+				await handle_group_command(deps, [sub, ...rest]);
+				break;
 			case 'sessions':
 				await handle_sessions(deps);
 				break;

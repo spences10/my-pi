@@ -37,6 +37,14 @@ async function setup(reconcile = false) {
 	const db = await TeamDatabase.open(path);
 	for (const id of ['sender', 'receiver'])
 		db.register_session({ session_id: id, cwd: '/repo' });
+	const group = db.create_group({
+		name: 'test',
+		created_by_session_id: 'sender',
+	});
+	db.add_group_member({
+		group_id: group.group_id,
+		session_id: 'receiver',
+	});
 	const send = (status = false) =>
 		db.send_message({
 			from_session_id: 'sender',

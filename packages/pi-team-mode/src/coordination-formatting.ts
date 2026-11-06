@@ -182,7 +182,7 @@ export function format_groups(
 			let member_text = '';
 			if (members.length)
 				member_text = ` · ${members.length} member${members.length === 1 ? '' : 's'}`;
-			return `- ${group.name} (${group.group_id})${member_text}${group.cwd ? ` · ${group.cwd}` : ''}`;
+			return `- ${group.name} (${group.group_id})${group.closed_at ? ' · closed' : ''}${member_text}${group.cwd ? ` · ${group.cwd}` : ''}`;
 		})
 		.join('\n');
 }

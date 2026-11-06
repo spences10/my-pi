@@ -40,6 +40,7 @@
 	},
 	"dependencies": {
 		"@spences10/pi-redact": "workspace:*",
+		"@spences10/pi-team-mode": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*"
 	},
 	"devDependencies": {
@@ -47,7 +48,6 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
 		"@spences10/pi-observability": "workspace:*",
-		"@spences10/pi-team-mode": "workspace:*",
 		"@types/node": "catalog:",
 		"typebox": "catalog:",
 		"typescript": "catalog:",

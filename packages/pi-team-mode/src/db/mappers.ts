@@ -56,6 +56,7 @@ export function map_artifact(row: ArtifactRow): CoordinationArtifact {
 
 export function map_group(row: GroupRow): CoordinationGroup {
 	return {
+		closed_at: optional(row.closed_at),
 		group_id: row.group_id,
 		name: row.name,
 		cwd: optional(row.cwd),

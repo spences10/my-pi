@@ -142,6 +142,77 @@ export async function execute_coordination_action(
 		require_session_id,
 	} = context;
 	switch (params.action) {
+		case 'session_pause':
+		case 'session_resume': {
+			if (params.to && params.team_id)
+				throw new Error('Choose a sender or a group, not both');
+			const session_id = require_session_id();
+			const sender = params.to
+				? coordination_db.resolve_session_targets(
+						params.to,
+						session_id,
+					)[0]
+				: undefined;
+			const group = params.team_id
+				? coordination_db.get_group(params.team_id, { cwd: ctx.cwd })
+				: undefined;
+			if ((params.to && !sender) || (params.team_id && !group))
+				throw new Error('Unknown delivery control target');
+			const paused = params.action === 'session_pause';
+			let scope: 'session' | 'sender' | 'group' = 'session';
+			let label = ' here';
+			if (sender) {
+				scope = 'sender';
+				label = ` from ${sender.session_id}`;
+			} else if (group) {
+				scope = 'group';
+				label = ` for ${group.group_id}`;
+			}
+			coordination_db.delivery.set_paused(
+				session_id,
+				paused,
+				scope,
+				sender?.session_id ?? group?.group_id,
+			);
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: `Automatic coordination delivery ${paused ? 'paused' : 'resumed'}${label}. Workers are not stopped. Earlier suppressed mail remains available through session_inbox.`,
+					},
+				],
+				details: {
+					controls: coordination_db.delivery.controls(session_id),
+				},
+			};
+		}
+		case 'group_leave':
+		case 'group_close': {
+			const group = coordination_db.get_group(
+				require_arg(params.team_id ?? params.name, 'group'),
+				{ cwd: ctx.cwd },
+			);
+			if (!group) throw new Error('Unknown coordination group');
+			if (params.action === 'group_close')
+				coordination_db.delivery.close_group(
+					group.group_id,
+					require_session_id(),
+				);
+			else
+				coordination_db.delivery.leave_group(
+					group.group_id,
+					require_session_id(),
+				);
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text: `${params.action === 'group_close' ? 'Closed' : 'Left'} collaboration ${group.group_id}. Worker execution is unchanged.`,
+					},
+				],
+				details: { group_id: group.group_id },
+			};
+		}
 		case 'session_list':
 			return execute_session_list_action(params, {
 				ctx,
@@ -157,8 +228,10 @@ export async function execute_coordination_action(
 				params.from,
 			);
 			const target = require_arg(params.to, 'to');
-			const target_sessions =
-				coordination_db.resolve_session_targets(target);
+			const target_sessions = coordination_db.resolve_session_targets(
+				target,
+				from_session_id,
+			);
 			const recipients = target_sessions.map(
 				(session) => session.session_id,
 			);
@@ -183,7 +256,7 @@ export async function execute_coordination_action(
 				content: [
 					{
 						type: 'text' as const,
-						text: `Sent coordination message ${message.message_id} to ${target}.`,
+						text: `Sent coordination message ${message.message_id} to ${target}. Stored in mailbox; automatic delivery requires active collaboration and recipient permission.`,
 					},
 				],
 				details: { message },
@@ -439,12 +512,12 @@ export async function execute_coordination_action(
 				{ cwd: ctx.cwd },
 			);
 			if (!group) throw new Error('Unknown coordination group');
-			const member = coordination_db.add_group_member({
-				group_id: group.group_id,
-				session_id: require_session_id(),
-				alias: params.member,
-				role: params.role ?? 'peer',
-			});
+			const member = coordination_db.join_group(
+				group.group_id,
+				require_session_id(),
+				params.member,
+				params.role,
+			);
 			return {
 				content: [
 					{
@@ -463,8 +536,11 @@ export async function execute_coordination_action(
 			);
 			if (!group) throw new Error('Unknown coordination group');
 			const from_session_id = require_session_id();
+			if (group.created_by_session_id !== from_session_id)
+				throw new Error('Only the group owner can invite sessions');
 			const targets = coordination_db.resolve_session_targets(
 				require_arg(params.to, 'to'),
+				from_session_id,
 			);
 			const role = params.role ?? 'peer';
 			const members = targets.map((session) =>
@@ -473,6 +549,12 @@ export async function execute_coordination_action(
 					session_id: session.session_id,
 					alias: params.member,
 					role,
+					status:
+						coordination_db
+							.list_group_members(group.group_id)
+							.find(
+								(member) => member.session_id === session.session_id,
+							)?.status ?? 'inactive',
 				}),
 			);
 			const recipients = members
@@ -484,7 +566,7 @@ export async function execute_coordination_action(
 					to_session_ids: recipients,
 					scope: 'group',
 					target: group.group_id,
-					body: `You have been added to coordination group ${group.name} (${group.group_id}) as ${role}${params.member ? ` with alias ${params.member}` : ''}. Treat this as your current coordination identity for related requests.`,
+					body: `Invitation to collaboration ${group.name} (${group.group_id}) as ${role}${params.member ? ` with alias ${params.member}` : ''}. Join explicitly with group_join to enable automatic delivery.`,
 					requires_ack: true,
 				});
 				await notify_coordination_messages(
@@ -496,7 +578,7 @@ export async function execute_coordination_action(
 				content: [
 					{
 						type: 'text' as const,
-						text: `Added ${members.length} session${members.length === 1 ? '' : 's'} to ${group.name}`,
+						text: `Invited ${members.length} session${members.length === 1 ? '' : 's'} to ${group.name}; new participants must join before automatic delivery.`,
 					},
 				],
 				details: { group, members },

@@ -2,6 +2,10 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
+import { TeamDatabase } from '@spences10/pi-team-mode/coordination';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
 	afterEach,
 	beforeEach,
@@ -38,17 +42,26 @@ vi.mock('./manager.js', () => ({
 	},
 }));
 
+let directory: string;
+const shutdowns: Function[] = [];
 beforeEach(() => {
+	directory = mkdtempSync(join(tmpdir(), 'workers-extension-'));
+	vi.stubEnv(
+		'MY_PI_COORDINATION_DB',
+		join(directory, 'coordination.db'),
+	);
 	vi.stubEnv('MY_PI_WORKER_CHILD', '');
 });
 
-afterEach(() => {
+afterEach(async () => {
+	for (const shutdown of shutdowns.splice(0)) await shutdown();
+	rmSync(directory, { recursive: true, force: true });
 	vi.unstubAllEnvs();
 	vi.clearAllMocks();
 	state.options = undefined;
 });
 
-function setup(
+async function setup(
 	has_ui = true,
 	mode: ExtensionContext['mode'] = 'tui',
 ) {
@@ -75,6 +88,8 @@ function setup(
 		registerMessageRenderer: register_message_renderer,
 	} as unknown as ExtensionAPI;
 	const ctx = {
+		cwd: directory,
+		isIdle: () => true,
 		mode,
 		hasUI: has_ui,
 		model: { provider: 'test', id: 'model' },
@@ -85,7 +100,16 @@ function setup(
 		ui: { confirm, input, select, notify },
 	} as unknown as ExtensionContext;
 	workers(pi);
-	events.get('session_start')?.({}, ctx);
+	await events.get('session_start')?.({}, ctx);
+	state.options?.on_started?.({
+		id: 'owned',
+		session_id: 'worker',
+		name: 'reviewer',
+		cwd: directory,
+		status: 'idle',
+	});
+	if (events.has('session_shutdown'))
+		shutdowns.push(events.get('session_shutdown')!);
 	return {
 		events,
 		tools,
@@ -102,8 +126,8 @@ function setup(
 }
 
 describe('worker extension', () => {
-	it('registers compact message and tool renderers', () => {
-		const { register_message_renderer, tools } = setup();
+	it('registers compact message and tool renderers', async () => {
+		const { register_message_renderer, tools } = await setup();
 		expect(register_message_renderer).toHaveBeenCalledWith(
 			'rpc-worker-report',
 			expect.any(Function),
@@ -117,7 +141,7 @@ describe('worker extension', () => {
 	});
 
 	it('opens the worker manager only for a bare terminal command', async () => {
-		const { commands, ctx, notify } = setup();
+		const { commands, ctx, notify } = await setup();
 		await commands.get('workers')!.handler('', ctx);
 		expect(state.show_workers).toHaveBeenCalledWith(
 			ctx,
@@ -129,7 +153,7 @@ describe('worker extension', () => {
 	it.each(['rpc', 'json', 'print'] as const)(
 		'keeps the JSON fallback in %s mode even when hasUI is true',
 		async (mode) => {
-			const { commands, ctx, notify } = setup(true, mode);
+			const { commands, ctx, notify } = await setup(true, mode);
 			await commands.get('workers')!.handler('', ctx);
 			expect(state.show_workers).not.toHaveBeenCalled();
 			expect(notify).toHaveBeenCalledWith(
@@ -140,7 +164,7 @@ describe('worker extension', () => {
 	);
 
 	it('preserves explicit send/stop commands without opening the picker', async () => {
-		const { commands, ctx } = setup();
+		const { commands, ctx } = await setup();
 		await commands
 			.get('workers')!
 			.handler('send reviewer Check error paths', ctx);
@@ -153,15 +177,15 @@ describe('worker extension', () => {
 		expect(state.show_workers).not.toHaveBeenCalled();
 	});
 
-	it('does not register spawning tools or orchestration guidance in a child', () => {
+	it('does not register spawning tools or orchestration guidance in a child', async () => {
 		vi.stubEnv('MY_PI_WORKER_CHILD', '1');
-		const harness = setup();
+		const harness = await setup();
 		expect(harness.tools.size).toBe(0);
 		expect(harness.events.size).toBe(0);
 	});
 
 	it('inherits model and thinking, and stops owned workers at session shutdown', async () => {
-		const { tools, events, ctx } = setup();
+		const { tools, events, ctx } = await setup();
 		const controller = new AbortController();
 		await tools.get('workers')!.execute(
 			'call',
@@ -200,8 +224,8 @@ describe('worker extension', () => {
 		).rejects.toThrow('not initialized');
 	});
 
-	it('only adds worker guidance when the tool is active', () => {
-		const { events, active_tools } = setup();
+	it('only adds worker guidance when the tool is active', async () => {
+		const { events, active_tools } = await setup();
 		const event = { systemPromptOptions: { sections: {} } };
 		events.get('before_agent_start')!(event);
 		expect(event.systemPromptOptions.sections).toHaveProperty(
@@ -216,7 +240,7 @@ describe('worker extension', () => {
 	});
 
 	it('labels worker approvals and returns the human answer', async () => {
-		const { confirm } = setup();
+		const { confirm } = await setup();
 		const respond = vi.fn();
 		state.options!.on_ui(
 			'owned',
@@ -239,7 +263,7 @@ describe('worker extension', () => {
 	});
 
 	it('serializes dialogs and explicitly cancels dismissed inputs', async () => {
-		const { input } = setup();
+		const { input } = await setup();
 		const respond = vi.fn();
 		for (const id of ['first', 'second'])
 			state.options!.on_ui(
@@ -258,7 +282,7 @@ describe('worker extension', () => {
 	});
 
 	it('dismisses a stale dialog when its worker turn ends', async () => {
-		const { confirm } = setup();
+		const { confirm } = await setup();
 		confirm.mockImplementation(
 			(
 				_title?: unknown,
@@ -291,8 +315,8 @@ describe('worker extension', () => {
 		expect(respond).toHaveBeenCalledWith({ confirmed: false });
 	});
 
-	it('fails closed without a UI and declines uncancellable editor dialogs', () => {
-		const { confirm } = setup(false);
+	it('fails closed without a UI and declines uncancellable editor dialogs', async () => {
+		const { confirm } = await setup(false);
 		const respond = vi.fn();
 		state.options!.on_ui(
 			'owned',
@@ -320,10 +344,11 @@ describe('worker extension', () => {
 		expect(respond).toHaveBeenCalledWith({ cancelled: true });
 	});
 
-	it('delivers bounded peer reports as follow-ups, not user-authority messages', () => {
-		const { send_message } = setup();
+	it('delivers persisted peer reports through the recipient policy, not user-authority messages', async () => {
+		const { send_message } = await setup();
 		state.options!.on_complete({
 			id: 'owned',
+			session_id: 'worker',
 			name: 'reviewer',
 			cwd: '/tmp',
 			status: 'idle',
@@ -331,7 +356,7 @@ describe('worker extension', () => {
 		});
 		expect(send_message).toHaveBeenCalledWith(
 			expect.objectContaining({
-				customType: 'rpc-worker-report',
+				customType: 'team-mode-peer-message',
 				details: expect.objectContaining({
 					authority: 'peer-only',
 					direct_user_authority: false,
@@ -343,11 +368,12 @@ describe('worker extension', () => {
 
 	it.each(['result', 'error'] as const)(
 		'redacts completion %s content and all custom-message details without tool-result hooks',
-		(field) => {
-			const { send_message } = setup();
+		async (field) => {
+			const { send_message } = await setup();
 			const secret = 'sk-synthetic-worker-report-1234567890';
 			state.options!.on_complete({
 				id: 'owned',
+				session_id: 'worker',
 				name: `reviewer-${secret}`,
 				cwd: `/tmp/${secret}`,
 				session_file: `/tmp/${secret}/session.jsonl`,
@@ -358,13 +384,115 @@ describe('worker extension', () => {
 			expect(report.content).not.toContain(secret);
 			expect(report.content).toContain('[REDACTED:');
 			expect(JSON.stringify(report.details)).not.toContain(secret);
-			expect(report.details[field]).toContain('[REDACTED:');
+			const db = await TeamDatabase.open(
+				process.env.MY_PI_COORDINATION_DB!,
+			);
+			try {
+				const stored = db.list_inbox('parent')[0];
+				expect(stored.body).not.toContain(secret);
+				expect(stored.body).toContain('[REDACTED:');
+			} finally {
+				db.close();
+			}
 			expect(report.details).toMatchObject({
 				authority: 'peer-only',
 				direct_user_authority: false,
 			});
 		},
 	);
+
+	it('pauses completion notifications without stopping workers or losing results, and resumes without a backlog', async () => {
+		const { commands, ctx, events, send_message, tools } =
+			await setup();
+		await commands.get('workers')!.handler('pause', ctx);
+		const complete = () =>
+			state.options!.on_complete({
+				id: 'owned',
+				session_id: 'worker',
+				name: 'reviewer',
+				cwd: directory,
+				status: 'idle',
+				result: 'saved result',
+			});
+		complete();
+		expect(send_message).not.toHaveBeenCalled();
+		expect(state.stop).not.toHaveBeenCalled();
+		events.get('before_agent_start')!({
+			messageType: 'user',
+			systemPromptOptions: { sections: {} },
+		});
+		expect(send_message).not.toHaveBeenCalled();
+		await tools
+			.get('workers')!
+			.execute(
+				'resume',
+				{ action: 'resume' },
+				undefined,
+				undefined,
+				ctx,
+			);
+		expect(
+			events.get('agent_before_settle')!({ outcome: 'completed' }),
+		).toBeUndefined();
+		complete();
+		expect(send_message).toHaveBeenCalledTimes(1);
+		const db = await TeamDatabase.open(
+			process.env.MY_PI_COORDINATION_DB!,
+		);
+		try {
+			expect(db.list_inbox('parent')).toHaveLength(2);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('uses only the Team Mode notification path when that tool is active', async () => {
+		const { active_tools, send_message } = await setup();
+		active_tools.push('team');
+		state.options!.on_complete({
+			id: 'owned',
+			session_id: 'worker',
+			name: 'reviewer',
+			cwd: directory,
+			status: 'idle',
+			result: 'done',
+		});
+		expect(send_message).not.toHaveBeenCalled();
+		const db = await TeamDatabase.open(
+			process.env.MY_PI_COORDINATION_DB!,
+		);
+		try {
+			expect(db.list_auto_inbox('parent')).toHaveLength(1);
+		} finally {
+			db.close();
+		}
+	});
+
+	it('retains late completion after collaboration closure without waking the parent', async () => {
+		const { send_message } = await setup();
+		const db = await TeamDatabase.open(
+			process.env.MY_PI_COORDINATION_DB!,
+		);
+		try {
+			db.delivery.close_group(state.options!.group_id!, 'parent');
+			const next_group = state.options!.get_group_id!();
+			expect(next_group).not.toBe(state.options!.group_id);
+			expect(
+				db.get_group(state.options!.group_id!)?.closed_at,
+			).toBeTruthy();
+		} finally {
+			db.close();
+		}
+		state.options!.on_complete({
+			id: 'owned',
+			session_id: 'worker',
+			name: 'reviewer',
+			cwd: directory,
+			status: 'idle',
+			result: 'late result',
+		});
+		expect(send_message).not.toHaveBeenCalled();
+	});
 
 	it('preserves explicit extensions but not parent prompts, session paths or trust overrides', () => {
 		const launch = worker_launch(

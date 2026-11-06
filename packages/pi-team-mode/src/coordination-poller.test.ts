@@ -7,7 +7,7 @@ describe('CoordinationPoller', () => {
 		try {
 			const db = {
 				heartbeat_session: vi.fn(),
-				list_inbox: vi.fn(() => []),
+				list_auto_inbox: vi.fn(() => []),
 				mark_messages_delivered: vi.fn(),
 				mark_messages_read: vi.fn(),
 			};
@@ -26,7 +26,7 @@ describe('CoordinationPoller', () => {
 			poller.poll(pi);
 
 			expect(db.heartbeat_session).toHaveBeenCalledTimes(2);
-			expect(db.list_inbox).toHaveBeenCalledTimes(4);
+			expect(db.list_auto_inbox).toHaveBeenCalledTimes(4);
 		} finally {
 			vi.useRealTimers();
 		}
@@ -48,7 +48,7 @@ describe('CoordinationPoller', () => {
 		};
 		const db = {
 			heartbeat_session: vi.fn(),
-			list_inbox: vi.fn(() => [message]),
+			list_auto_inbox: vi.fn(() => [message]),
 			mark_messages_delivered: vi.fn(),
 			mark_messages_read: vi.fn(),
 		};
@@ -62,7 +62,7 @@ describe('CoordinationPoller', () => {
 
 		poller.poll(pi);
 
-		expect(db.list_inbox).not.toHaveBeenCalled();
+		expect(db.list_auto_inbox).not.toHaveBeenCalled();
 		expect(pi.sendMessage).not.toHaveBeenCalled();
 		expect(db.mark_messages_delivered).not.toHaveBeenCalled();
 		expect(db.mark_messages_read).not.toHaveBeenCalled();
@@ -77,7 +77,7 @@ describe('CoordinationPoller', () => {
 			heartbeat_session: vi.fn(() => {
 				throw error;
 			}),
-			list_inbox: vi.fn(() => []),
+			list_auto_inbox: vi.fn(() => []),
 			mark_messages_delivered: vi.fn(),
 			mark_messages_read: vi.fn(),
 		};
@@ -97,7 +97,7 @@ describe('CoordinationPoller', () => {
 			heartbeat_session: vi.fn(() => {
 				throw new Error('boom');
 			}),
-			list_inbox: vi.fn(() => []),
+			list_auto_inbox: vi.fn(() => []),
 			mark_messages_delivered: vi.fn(),
 			mark_messages_read: vi.fn(),
 		};
@@ -127,7 +127,7 @@ describe('CoordinationPoller', () => {
 		};
 		const db = {
 			heartbeat_session: vi.fn(),
-			list_inbox: vi.fn(() => [message]),
+			list_auto_inbox: vi.fn(() => [message]),
 			mark_messages_delivered: vi.fn(),
 			mark_messages_read: vi.fn(),
 			create_artifact: vi.fn(),
@@ -173,7 +173,7 @@ describe('CoordinationPoller', () => {
 		};
 		const db = {
 			heartbeat_session: vi.fn(),
-			list_inbox: vi.fn(() => [message]),
+			list_auto_inbox: vi.fn(() => [message]),
 			mark_messages_delivered: vi.fn(),
 			mark_messages_read: vi.fn(),
 		};

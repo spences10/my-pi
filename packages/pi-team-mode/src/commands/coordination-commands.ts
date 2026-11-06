@@ -3,6 +3,7 @@ import {
 	format_inbox,
 	format_sessions,
 } from '../coordination-formatting.js';
+import { execute_coordination_action } from '../tools/coordination-actions.js';
 import type { TeamCommandDeps } from './types.js';
 
 function require_session_id(deps: TeamCommandDeps): string {
@@ -10,6 +11,47 @@ function require_session_id(deps: TeamCommandDeps): string {
 	if (!session_id)
 		throw new Error('Current session is not registered yet.');
 	return session_id;
+}
+
+export function handle_delivery_control(
+	deps: TeamCommandDeps,
+	paused: boolean,
+	args: string[],
+): void {
+	const session_id = require_session_id(deps);
+	const [target, group_target, ...extra] = args;
+	if (extra.length || (target !== '--group' && group_target))
+		throw new Error(
+			'Usage: /team pause|resume [<sender> | --group <group>]',
+		);
+	const group =
+		target === '--group'
+			? deps.coordination_db.get_group(group_target ?? '', {
+					cwd: deps.ctx.cwd,
+				})
+			: undefined;
+	const sender =
+		target && target !== '--group'
+			? deps.coordination_db.resolve_session_targets(
+					target,
+					session_id,
+				)[0]
+			: undefined;
+	if (target && !group && !sender)
+		throw new Error('Unknown delivery control target');
+	let scope: 'session' | 'group' | 'sender' = 'session';
+	if (group) scope = 'group';
+	else if (sender) scope = 'sender';
+	deps.coordination_db.delivery.set_paused(
+		session_id,
+		paused,
+		scope,
+		group?.group_id ?? sender?.session_id,
+	);
+	deps.ctx.ui.notify(
+		`Automatic coordination delivery ${paused ? 'paused' : 'resumed'}. Workers are not stopped. Suppressed mail remains in the inbox.`,
+		'info',
+	);
 }
 
 export async function handle_sessions(
@@ -47,7 +89,7 @@ export async function handle_session_command(
 				'Usage: /team session send <session-id-or-name> <message>',
 			);
 		const recipients = deps.coordination_db
-			.resolve_session_targets(target)
+			.resolve_session_targets(target, require_session_id(deps))
 			.map((session) => session.session_id);
 		const message = deps.coordination_db.send_to_session_target({
 			from_session_id: require_session_id(deps),
@@ -139,6 +181,27 @@ export async function handle_group_command(
 		);
 		return;
 	}
+	if (sub === 'invite') {
+		const [group_target, target, ...extra] = tail;
+		if (!group_target || !target || extra.length)
+			throw new Error('Usage: /team group invite <group> <session>');
+		const result = await execute_coordination_action(
+			{
+				action: 'group_add_session',
+				team_id: group_target,
+				to: target,
+			},
+			{
+				ctx: deps.ctx,
+				coordination_db: deps.coordination_db,
+				notify_coordination_messages:
+					deps.notify_coordination_messages,
+				require_session_id: () => require_session_id(deps),
+			},
+		);
+		deps.ctx.ui.notify(result.content[0].text, 'info');
+		return;
+	}
 	if (sub === 'join') {
 		const [group_target, alias] = tail;
 		if (!group_target)
@@ -147,12 +210,33 @@ export async function handle_group_command(
 			cwd: deps.ctx.cwd,
 		});
 		if (!group) throw new Error(`Unknown group: ${group_target}`);
-		deps.coordination_db.add_group_member({
-			group_id: group.group_id,
-			session_id: require_session_id(deps),
+		deps.coordination_db.join_group(
+			group.group_id,
+			require_session_id(deps),
 			alias,
-		});
+		);
 		deps.ctx.ui.notify(`Joined ${group.name}`, 'info');
+		return;
+	}
+	if (sub === 'leave' || sub === 'close') {
+		const group = deps.coordination_db.get_group(tail[0] ?? '', {
+			cwd: deps.ctx.cwd,
+		});
+		if (!group) throw new Error(`Usage: /team group ${sub} <group>`);
+		if (sub === 'close')
+			deps.coordination_db.delivery.close_group(
+				group.group_id,
+				require_session_id(deps),
+			);
+		else
+			deps.coordination_db.delivery.leave_group(
+				group.group_id,
+				require_session_id(deps),
+			);
+		deps.ctx.ui.notify(
+			`${sub === 'close' ? 'Closed' : 'Left'} ${group.name}. Worker execution is unchanged.`,
+			'info',
+		);
 		return;
 	}
 	if (sub === 'send') {
@@ -182,5 +266,7 @@ export async function handle_group_command(
 		);
 		return;
 	}
-	throw new Error('Usage: /team group list|create|join|send');
+	throw new Error(
+		'Usage: /team group list|create|join|leave|close|send',
+	);
 }

@@ -12,7 +12,7 @@ const DELIVERY_LEASE_MS = 30_000;
 
 type PollerDatabase = Pick<
 	TeamDatabase,
-	'heartbeat_session' | 'list_inbox' | 'mark_messages_delivered'
+	'heartbeat_session' | 'list_auto_inbox' | 'mark_messages_delivered'
 >;
 
 export class CoordinationPoller {
@@ -28,6 +28,9 @@ export class CoordinationPoller {
 			get_session_id: () => string | undefined;
 			should_auto_inject_messages: () => boolean;
 			is_agent_active?: () => boolean;
+			message_filter?: (
+				message: import('./db/types.js').CoordinationInboxMessage,
+			) => boolean;
 		},
 	) {}
 
@@ -77,11 +80,13 @@ export class CoordinationPoller {
 			if (now - queued_at >= DELIVERY_LEASE_MS)
 				this.in_flight.delete(id);
 		if (this.in_flight.size) return;
-		const messages = this.options.db.list_inbox(session_id, {
-			undelivered_only: true,
-			include_read: true,
-			include_acknowledged: false,
-		});
+		const messages = this.options.db
+			.list_auto_inbox(session_id)
+			.filter(
+				(message) =>
+					!this.options.message_filter ||
+					this.options.message_filter(message),
+			);
 		if (
 			!allow_status_only &&
 			!messages.some((message) => message.message_type !== 'status')

@@ -48,6 +48,14 @@ async function scenario(
 			session_id: 'receiver',
 			cwd: '/benchmark',
 		});
+		const group = db.create_group({
+			name: 'benchmark',
+			created_by_session_id: 'sender',
+		});
+		db.add_group_member({
+			group_id: group.group_id,
+			session_id: 'receiver',
+		});
 		const deliveries: {
 			message: TeamModePeerMessageDelivery;
 			wakeup: boolean;

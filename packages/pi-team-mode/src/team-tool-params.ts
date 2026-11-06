@@ -6,6 +6,8 @@ export type TeamUiMode = 'auto' | 'compact' | 'full' | 'off';
 
 export const TEAM_ACTIONS = [
 	'session_list',
+	'session_pause',
+	'session_resume',
 	'session_send',
 	'session_inbox',
 	'session_read',
@@ -14,6 +16,8 @@ export const TEAM_ACTIONS = [
 	'group_create',
 	'group_list',
 	'group_join',
+	'group_leave',
+	'group_close',
 	'group_add_session',
 	'group_send',
 	'artifact_create',
@@ -149,6 +153,10 @@ export type TeamToolParams = {
 };
 
 const ACTION_ALLOWED_FIELDS = {
+	session_pause: ['action', 'to', 'team_id'],
+	session_resume: ['action', 'to', 'team_id'],
+	group_leave: ['action', 'team_id', 'name'],
+	group_close: ['action', 'team_id', 'name'],
 	session_list: [
 		'action',
 		'include_read',

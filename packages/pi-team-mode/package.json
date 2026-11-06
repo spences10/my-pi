@@ -28,6 +28,10 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"default": "./dist/index.js"
+		},
+		"./coordination": {
+			"types": "./dist/coordination.d.ts",
+			"default": "./dist/coordination.js"
 		}
 	},
 	"scripts": {

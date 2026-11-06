@@ -17,6 +17,8 @@ export const max_workers = 4;
 const max_result_chars = 16_000;
 
 export interface WorkerInfo {
+	parent_session_id?: string;
+	group_id?: string;
 	id: string;
 	name: string;
 	cwd: string;
@@ -53,6 +55,10 @@ export interface ManagerOptions {
 	args: string[];
 	env: NodeJS.ProcessEnv;
 	session_dir: string;
+	parent_session_id?: string;
+	group_id?: string;
+	get_group_id?(): string;
+	on_started?(info: WorkerInfo): void;
 	on_complete(info: WorkerInfo): void;
 	on_ui(
 		id: string,
@@ -124,6 +130,9 @@ export class WorkerManager {
 			throw new Error('Worker name is already in use');
 		const id = randomUUID();
 		const info: WorkerInfo = {
+			parent_session_id: this.options.parent_session_id,
+			group_id:
+				this.options.get_group_id?.() ?? this.options.group_id,
 			id,
 			name: options.name,
 			cwd,
@@ -145,6 +154,9 @@ export class WorkerManager {
 			[child_env]: '1',
 			MY_PI_TEAM_MEMBER: options.name,
 			MY_PI_TEAM_ROLE: 'teammate',
+			MY_PI_TEAM_PARENT_SESSION_ID: this.options.parent_session_id,
+			MY_PI_TEAM_GROUP_ID: info.group_id,
+			MY_PI_WORKER_ID: id,
 		};
 		delete env.MY_PI_OBSERVABILITY_NAME;
 		const worker: Worker = {
@@ -194,6 +206,7 @@ export class WorkerManager {
 			info.session_id = state.sessionId;
 			info.session_file = state.sessionFile;
 			info.status = 'idle';
+			this.options.on_started?.(worker_snapshot(info));
 			await this.send(id, options.task);
 			signal?.throwIfAborted();
 			return worker_snapshot(info);

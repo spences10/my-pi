@@ -102,7 +102,7 @@ export function prepare_statements(
 				SELECT group_members.*, groups.name AS group_name, groups.cwd AS group_cwd
 				FROM group_members
 				JOIN groups ON groups.group_id = group_members.group_id
-				WHERE group_members.session_id = ? AND group_members.status = 'active'
+				WHERE group_members.session_id = ? AND group_members.status = 'active' AND groups.closed_at IS NULL
 				ORDER BY groups.updated_at DESC
 			`),
 		insert_message: db.prepare(`

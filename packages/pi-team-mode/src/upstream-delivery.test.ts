@@ -29,9 +29,11 @@ vi.mock('./coordination-broker.js', () => ({
 afterEach(() => vi.unstubAllEnvs());
 
 describe('real upstream runtime delivery', () => {
-	it.each(['action', 'status'] as const)(
+	it.each(['action', 'status', 'paused'] as const)(
 		'persists %s messages through the real runtime without an extra external wake-up',
-		async (message_type) => {
+		async (scenario) => {
+			const message_type =
+				scenario === 'status' ? 'status' : 'action';
 			const dir = mkdtempSync(join(tmpdir(), 'team-upstream-'));
 			const path = join(dir, 'coordination.db');
 			vi.stubEnv('MY_PI_COORDINATION_DB', path);
@@ -67,6 +69,8 @@ describe('real upstream runtime delivery', () => {
 						body: 'Review the completed build',
 						message_type,
 					});
+					if (scenario === 'paused')
+						db.delivery.set_paused(receiver, true);
 					return fauxAssistantMessage('Initial work finished.');
 				},
 				(context) => {
@@ -122,8 +126,32 @@ describe('real upstream runtime delivery', () => {
 					onError: (error) => errors.push(error),
 				});
 				session.setActiveToolsByName(['team']);
+				const group = db.create_group({
+					name: 'test',
+					created_by_session_id: 'sender',
+				});
+				db.add_group_member({
+					group_id: group.group_id,
+					session_id: receiver,
+				});
 				await session.prompt('Perform the authorized task.');
 				await session.waitForIdle();
+				if (scenario === 'paused') {
+					expect(faux.state.callCount).toBe(1);
+					expect(
+						db.list_inbox(receiver)[0]?.delivered_at,
+					).toBeUndefined();
+					await session.prompt(
+						'Continue unrelated work without resuming notifications.',
+					);
+					expect(faux.state.callCount).toBe(2);
+					expect(JSON.stringify(contexts[1])).not.toContain(
+						'Review the completed build',
+					);
+					expect(db.list_auto_inbox(receiver)).toEqual([]);
+					expect(errors).toEqual([]);
+					return;
+				}
 				if (message_type === 'status') {
 					expect(faux.state.callCount).toBe(1);
 					expect(

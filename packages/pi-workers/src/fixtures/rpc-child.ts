@@ -60,6 +60,17 @@ process.stdin.on('data', (data) => {
 			if (command.message === 'crash') {
 				process.exit(7);
 			}
+			if (command.message === 'identity') {
+				complete(
+					JSON.stringify({
+						parent: process.env.MY_PI_TEAM_PARENT_SESSION_ID,
+						group: process.env.MY_PI_TEAM_GROUP_ID,
+						worker: process.env.MY_PI_WORKER_ID,
+					}),
+				);
+				response(command, { disposition: 'started' });
+				continue;
+			}
 			if (command.message === 'fast') {
 				complete('fast result');
 				response(command, { disposition: 'started' });

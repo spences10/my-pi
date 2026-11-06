@@ -13,6 +13,7 @@ import {
 	find_stale_sessions,
 	type ProcessAliveCheck,
 } from '../session-liveness.js';
+import { DeliveryPolicy } from './delivery-policy.js';
 import {
 	map_artifact,
 	map_group,
@@ -80,6 +81,7 @@ export type {
 
 export class TeamDatabase {
 	readonly statements: TeamDatabaseStatements;
+	readonly delivery: DeliveryPolicy;
 	private db: DatabaseSync;
 
 	static async open(db_path: string): Promise<TeamDatabase> {
@@ -101,6 +103,7 @@ export class TeamDatabase {
 		this.db.exec(CONNECTION_PRAGMAS);
 		apply_migrations(this.db);
 		this.statements = prepare_statements(this.db);
+		this.delivery = new DeliveryPolicy(this.db);
 	}
 
 	register_session(
@@ -168,7 +171,27 @@ export class TeamDatabase {
 		return stale.map((session) => session.session_id);
 	}
 
-	resolve_session_targets(target: string): CoordinationSession[] {
+	resolve_session_targets(
+		target: string,
+		sender_session_id?: string,
+	): CoordinationSession[] {
+		if (
+			target === 'parent' &&
+			sender_session_id &&
+			this.get_session(sender_session_id)?.parent_session_id
+		) {
+			const parent_id =
+				sender_session_id &&
+				this.get_session(sender_session_id)?.parent_session_id;
+			const parent = parent_id
+				? this.get_session(parent_id)
+				: undefined;
+			if (!parent)
+				throw new Error(
+					'This session has no registered worker parent',
+				);
+			return [parent];
+		}
 		const targetable_sessions = (
 			this.statements.list_sessions.all() as unknown as SessionRow[]
 		).map((row) => map_session(row));
@@ -384,7 +407,11 @@ export class TeamDatabase {
 		session_id: string;
 		alias?: string;
 		role?: CoordinationGroupRole;
+		status?: 'active' | 'inactive';
 	}): CoordinationGroupMember {
+		const group = this.get_group(input.group_id);
+		if (!group || group.closed_at)
+			throw new Error('Collaboration is closed or unknown');
 		const timestamp = now();
 		this.write(() =>
 			this.statements.upsert_group_member.run(
@@ -392,7 +419,7 @@ export class TeamDatabase {
 				input.session_id,
 				input.alias ?? null,
 				input.role ?? 'peer',
-				'active',
+				input.status ?? 'active',
 				timestamp,
 				timestamp,
 			),
@@ -400,6 +427,27 @@ export class TeamDatabase {
 		return this.list_group_members(input.group_id).find(
 			(member) => member.session_id === input.session_id,
 		)!;
+	}
+
+	join_group(
+		group_id: string,
+		session_id: string,
+		alias?: string,
+		role?: CoordinationGroupRole,
+	): CoordinationGroupMember {
+		const invited = this.list_group_members(group_id).find(
+			(member) => member.session_id === session_id,
+		);
+		if (!invited)
+			throw new Error(
+				'Ask the group owner for an invitation before joining',
+			);
+		return this.add_group_member({
+			group_id,
+			session_id,
+			alias: alias ?? invited.alias,
+			role: role ?? invited.role,
+		});
 	}
 
 	list_group_members(
@@ -521,6 +569,24 @@ export class TeamDatabase {
 					session_id,
 					timestamp,
 				);
+				const sender = this.get_session(input.from_session_id);
+				const recipient = this.get_session(session_id);
+				let owned_group: unknown;
+				if (sender?.parent_session_id)
+					owned_group = sender.metadata.worker_group_id;
+				else if (
+					recipient?.parent_session_id === input.from_session_id
+				)
+					owned_group = recipient.metadata.worker_group_id;
+				let delivery_group =
+					typeof owned_group === 'string' ? owned_group : undefined;
+				if (input.scope === 'group') delivery_group = input.target;
+				this.delivery.enroll_receipt(
+					message_id,
+					input.from_session_id,
+					session_id,
+					delivery_group,
+				);
 			}
 			this.insert_event({
 				type: 'message_sent',
@@ -539,7 +605,10 @@ export class TeamDatabase {
 	send_to_session_target(
 		input: Omit<CoordinationMessageInput, 'to_session_ids' | 'scope'>,
 	): CoordinationMessage {
-		const targets = this.resolve_session_targets(input.target);
+		const targets = this.resolve_session_targets(
+			input.target,
+			input.from_session_id,
+		);
 		if (targets.length === 0) {
 			const suggestions = this.list_sessions({
 				include_offline: true,
@@ -568,6 +637,17 @@ export class TeamDatabase {
 	): CoordinationMessage {
 		const group = this.get_group(input.target, options);
 		if (!group) throw new Error(`Unknown group: ${input.target}`);
+		if (group.closed_at) throw new Error('Collaboration is closed');
+		if (
+			!this.list_group_members(group.group_id).some(
+				(member) =>
+					member.session_id === input.from_session_id &&
+					member.status === 'active',
+			)
+		)
+			throw new Error(
+				'Join this collaboration before sending to the group',
+			);
 		const members = this.list_group_members(group.group_id).filter(
 			(member) => member.status === 'active',
 		);
@@ -606,6 +686,15 @@ export class TeamDatabase {
 					return false;
 				return true;
 			});
+	}
+
+	list_auto_inbox(session_id: string): CoordinationInboxMessage[] {
+		return this.list_inbox(session_id, {
+			undelivered_only: true,
+			include_read: true,
+		}).filter((message) =>
+			this.delivery.can_deliver(message.message_id, session_id),
+		);
 	}
 
 	mark_messages_delivered(

@@ -132,6 +132,11 @@ describe('coordination actions', () => {
 				{ action: 'group_join', name: 'review' },
 				context,
 			);
+			db.add_group_member({
+				group_id: group_b.group_id,
+				session_id: 'lead-a',
+				status: 'inactive',
+			});
 			const exact = await execute_coordination_action(
 				{ action: 'group_join', team_id: group_b.group_id },
 				context,
