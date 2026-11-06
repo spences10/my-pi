@@ -20,10 +20,10 @@ exposes language-server diagnostics, hovers, definitions, references,
 and symbols as Pi tools so models can validate edits and navigate
 typed codebases accurately.
 
-The hover, definition, and document-symbol tools prefer Pi's strict
-JSON Schema sampling with closed, fully required schemas. LSP tools
-with optional arguments use normal tool calling for provider
-portability.
+When directly activated, the hover, definition, and document-symbol
+tools prefer Pi's strict JSON Schema sampling with closed, fully
+required schemas. LSP tools with optional arguments use normal tool
+calling for provider portability.
 
 ## Installation
 
@@ -90,6 +90,13 @@ not pin TypeScript, a TypeScript 7 `tsc` on `PATH` provides the native
 LSP. `/lsp status` reports the selected backend and full command. A
 TypeScript 7 native server that cannot start reports a specific setup
 hint.
+
+The classic `typescript-language-server` backend starts with
+`initializationOptions.tsserver.useSyntaxServer: "never"`. This keeps
+navigation requests on the full semantic server instead of accepting
+partial answers from the lightweight syntax server while the project
+loads. The first request can take longer. This setting is not sent to
+TypeScript 7's native server or other language servers.
 
 ### Python server selection
 
@@ -161,8 +168,19 @@ The extension registers LSP-backed Pi tools for:
 - references
 - document symbols
 
-These tools let the model inspect types, find usages, and catch
-diagnostics without guessing from text search alone.
+LSP tools use Pi's `codemode` exposure: they are callable from scripts
+without being declared individually to the model. Enable codemode with
+`pi --tools +codemode` or upstream Pi's `defaultTools` setting. No
+global tool-exposure settings are changed by this extension.
+
+```js
+text(await tools.lsp_diagnostics_many({ files: ['src/index.ts'] }));
+```
+
+Use `searchTools('lsp')` inside codemode to discover the tools. They
+can also be activated directly with Pi's tool selection, for example
+`pi --tools +lsp_hover`. Automatic diagnostics do not require codemode
+or direct LSP tool activation.
 
 A diagnostics result is clean only when the language server supplied
 an empty list for the current document. If the server sends nothing
@@ -172,14 +190,36 @@ and `lsp_diagnostics_many` counts the file as `incomplete` and not as
 `wait_ms` or use another check. Diagnostics for a closed document or
 an earlier document version are ignored.
 
+## Automatic diagnostics
+
+Successful `edit` and `write` calls queue supported files for one
+batch at turn end, including calls made inside codemode. Repeated
+edits to a file are checked once against its final contents. The
+extension reuses the diagnostics tool's collection and formatting,
+checking up to eight files concurrently.
+
+Edits themselves do not wait for LSP. The turn boundary waits for
+server startup and up to 1500 ms of diagnostics per file before the
+next model response. A session message records the results, including
+clean files, errors, warnings, and incomplete checks. The final edit
+is checked even when it was the last tool call. Cancelled turns and
+session changes discard pending feedback.
+
+Bash commands, external editors, failed edits, and unsupported files
+are not tracked. Use explicit diagnostics after Bash or external
+changes, or when automatic feedback is incomplete. Silence is not
+proof that a file is clean.
+
 ## Model reminder
 
-When LSP tools are active, the extension reminds the model to use LSP
-for code questions and validate changed files after the final relevant
-edit, preferring `lsp_diagnostics_many` for batches. Passed
-diagnostics can be reused for review, commit, and push if their inputs
-are unchanged. Only affected or previously missing diagnostics need to
-run; a commit or push request alone does not require another run.
+When LSP tools, codemode, or tool search are active, the extension
+reminds the model to use LSP for code questions and reuse current
+automatic feedback rather than repeating checks. Explicit diagnostics
+remain available for missing or incomplete feedback, preferring
+`lsp_diagnostics_many` for batches. Passed diagnostics can be reused
+for review, commit, and push if their inputs are unchanged. Only
+affected or previously missing diagnostics need to run; a commit or
+push request alone does not require another run.
 
 ## Commands
 

@@ -20,7 +20,11 @@ You have access to Language Server Protocol tools for diagnostics, hover/type in
 - Finding references more precisely than text search
 - Validating focused code changes before reporting completion
 
-After the final relevant edit, check changed language-server-supported files with LSP diagnostics before reporting completion. Prefer lsp_diagnostics_many for batches.
+LSP tools are available through codemode as tools.lsp_hover(), tools.lsp_definition(), tools.lsp_references(), tools.lsp_document_symbols(), tools.lsp_find_symbol(), tools.lsp_diagnostics(), and tools.lsp_diagnostics_many(). They can also be called directly when explicitly activated.
+
+Successful edit/write calls, including those inside codemode, trigger a batched diagnostics report at turn end. Use that report instead of repeating the same validation. Bash edits are not tracked automatically.
+
+After the final relevant edit, check changed language-server-supported files with LSP diagnostics before reporting completion. Prefer lsp_diagnostics_many for batches when automatic feedback is missing, incomplete, or no longer current. An incomplete result is not a pass.
 
 Reuse passed diagnostics for review, commit, and push if file contents, dependencies, configuration, and relevant environment are unchanged. Rerun only affected or previously missing diagnostics, not because of a commit or push request alone.
 
@@ -35,7 +39,12 @@ export function should_inject_lsp_prompt(event: {
 	const selected_tools = event.systemPromptOptions?.selectedTools;
 	return (
 		!selected_tools ||
-		selected_tools.some((tool) => LSP_TOOL_NAMES.has(tool))
+		selected_tools.some(
+			(tool) =>
+				LSP_TOOL_NAMES.has(tool) ||
+				tool === 'codemode' ||
+				tool === 'tool_search',
+		)
 	);
 }
 

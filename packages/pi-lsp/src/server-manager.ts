@@ -288,6 +288,13 @@ export class LspServerManager {
 				command: server_config.command,
 				args: server_config.args,
 				root_uri,
+				...(server_config.backend === 'typescript-language-server'
+					? {
+							initialization_options: {
+								tsserver: { useSyntaxServer: 'never' },
+							},
+						}
+					: {}),
 				language_id_for_uri: (uri) => language_id_for_file(uri),
 			});
 

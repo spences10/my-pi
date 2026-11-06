@@ -7,10 +7,10 @@ import { Type } from 'typebox';
 import {
 	find_symbol_matches,
 	format_diagnostics,
-	format_missing_diagnostics,
 	format_document_symbols,
 	format_hover,
 	format_locations,
+	format_missing_diagnostics,
 	format_symbol_matches,
 	format_tool_error,
 	SYMBOL_KIND_NAMES,
@@ -108,6 +108,104 @@ async function with_file_state(
 	}
 }
 
+export async function run_diagnostics_many(
+	manager: LspServerManager,
+	files: string[],
+	wait_ms = 1500,
+	ctx?: ExtensionContext,
+	signal?: AbortSignal,
+) {
+	const lines_with_stats = await map_with_concurrency(
+		files,
+		DIAGNOSTICS_MANY_CONCURRENCY,
+		async (file) => {
+			const resolved = await manager.resolve_file_state(
+				file,
+				ctx,
+				signal,
+			);
+			if (!resolved.ok) {
+				return {
+					line: format_tool_error(resolved.error),
+					diagnostics: 0,
+					status: 'error' as const,
+				};
+			}
+			try {
+				const diagnostics =
+					await resolved.result.state.client.wait_for_diagnostics(
+						resolved.result.uri,
+						wait_ms,
+					);
+				if (!diagnostics) {
+					return {
+						line: format_missing_diagnostics(
+							resolved.result.abs,
+							wait_ms,
+						),
+						diagnostics: 0,
+						status: 'incomplete' as const,
+					};
+				}
+				return {
+					line: format_diagnostics(resolved.result.abs, diagnostics),
+					diagnostics: diagnostics.length,
+					status: 'checked' as const,
+				};
+			} catch (error) {
+				return {
+					line: format_tool_error(
+						to_lsp_tool_error(
+							resolved.result.abs,
+							resolved.result.state.language,
+							resolved.result.state.workspace_root,
+							resolved.result.state.command,
+							resolved.result.state.install_hint,
+							error,
+						),
+					),
+					diagnostics: 0,
+					status: 'error' as const,
+				};
+			} finally {
+				await manager.release_file_state(resolved.result);
+			}
+		},
+	);
+
+	let diagnostic_count = 0;
+	let clean_count = 0;
+	let error_count = 0;
+	let incomplete_count = 0;
+	const lines: string[] = [];
+	for (const entry of lines_with_stats) {
+		lines.push(entry.line);
+		if (entry.status === 'error') {
+			error_count += 1;
+		} else if (entry.status === 'incomplete') {
+			incomplete_count += 1;
+		} else {
+			diagnostic_count += entry.diagnostics;
+			if (entry.diagnostics === 0) clean_count += 1;
+		}
+	}
+
+	return make_tool_result(
+		[
+			`Checked ${files.length} file(s): ${diagnostic_count} diagnostic(s), ${clean_count} clean, ${error_count} error(s)${incomplete_count ? `, ${incomplete_count} incomplete (not validated)` : ''}`,
+			...lines,
+		].join('\n\n'),
+		{
+			ok: error_count === 0 && incomplete_count === 0,
+			checked: files.length,
+			diagnostic_count,
+			clean_count,
+			error_count,
+			incomplete_count,
+		},
+	);
+}
+
 export function register_lsp_tools(
 	pi: ExtensionAPI,
 	manager: LspServerManager,
@@ -115,6 +213,7 @@ export function register_lsp_tools(
 	pi.registerTool(
 		defineTool({
 			name: 'lsp_diagnostics',
+			exposure: 'codemode',
 			label: 'LSP: diagnostics',
 			description:
 				'Get language server diagnostics (errors, warnings, hints) for a file. Uses the project language server and reports "no diagnostics" if the file is clean. A "validation incomplete" result means the server sent nothing in time; it is not a clean result.',
@@ -158,6 +257,7 @@ export function register_lsp_tools(
 	pi.registerTool(
 		defineTool({
 			name: 'lsp_diagnostics_many',
+			exposure: 'codemode',
 			label: 'LSP: diagnostics many',
 			description:
 				'Get language server diagnostics for multiple files in one call. Useful for changed-file sweeps, package-level checks, and summarization. Files counted as incomplete got no diagnostics in time and are not validated.',
@@ -175,107 +275,21 @@ export function register_lsp_tools(
 					}),
 				),
 			}),
-			execute: async (_id, params, signal, _on_update, ctx) => {
-				const wait_ms = params.wait_ms ?? 1500;
-				const lines_with_stats = await map_with_concurrency(
+			execute: async (_id, params, signal, _on_update, ctx) =>
+				run_diagnostics_many(
+					manager,
 					params.files,
-					DIAGNOSTICS_MANY_CONCURRENCY,
-					async (file) => {
-						const resolved = await manager.resolve_file_state(
-							file,
-							ctx,
-							signal,
-						);
-						if (!resolved.ok) {
-							return {
-								line: format_tool_error(resolved.error),
-								diagnostics: 0,
-								status: 'error' as const,
-							};
-						}
-						try {
-							const diagnostics =
-								await resolved.result.state.client.wait_for_diagnostics(
-									resolved.result.uri,
-									wait_ms,
-								);
-							if (!diagnostics) {
-								return {
-									line: format_missing_diagnostics(
-										resolved.result.abs,
-										wait_ms,
-									),
-									diagnostics: 0,
-									status: 'incomplete' as const,
-								};
-							}
-							return {
-								line: format_diagnostics(
-									resolved.result.abs,
-									diagnostics,
-								),
-								diagnostics: diagnostics.length,
-								status: 'checked' as const,
-							};
-						} catch (error) {
-							return {
-								line: format_tool_error(
-									to_lsp_tool_error(
-										resolved.result.abs,
-										resolved.result.state.language,
-										resolved.result.state.workspace_root,
-										resolved.result.state.command,
-										resolved.result.state.install_hint,
-										error,
-									),
-								),
-								diagnostics: 0,
-								status: 'error' as const,
-							};
-						} finally {
-							await manager.release_file_state(resolved.result);
-						}
-					},
-				);
-
-				let diagnostic_count = 0;
-				let clean_count = 0;
-				let error_count = 0;
-				let incomplete_count = 0;
-				const lines: string[] = [];
-				for (const entry of lines_with_stats) {
-					lines.push(entry.line);
-					if (entry.status === 'error') {
-						error_count += 1;
-					} else if (entry.status === 'incomplete') {
-						incomplete_count += 1;
-					} else {
-						diagnostic_count += entry.diagnostics;
-						if (entry.diagnostics === 0) clean_count += 1;
-					}
-				}
-
-				return make_tool_result(
-					[
-						`Checked ${params.files.length} file(s): ${diagnostic_count} diagnostic(s), ${clean_count} clean, ${error_count} error(s)${incomplete_count ? `, ${incomplete_count} incomplete (not validated)` : ''}`,
-						...lines,
-					].join('\n\n'),
-					{
-						ok: error_count === 0 && incomplete_count === 0,
-						checked: params.files.length,
-						diagnostic_count,
-						clean_count,
-						error_count,
-						incomplete_count,
-					},
-				);
-			},
+					params.wait_ms,
+					ctx,
+					signal,
+				),
 		}),
 	);
 
 	pi.registerTool(
 		defineTool({
 			name: 'lsp_find_symbol',
+			exposure: 'codemode',
 			label: 'LSP: find symbol',
 			description:
 				'Find symbols in a file by name or detail text using document symbols. Supports exact matching, kind filters, and top-level-only mode.',
@@ -338,6 +352,7 @@ export function register_lsp_tools(
 	pi.registerTool(
 		defineTool({
 			name: 'lsp_hover',
+			exposure: 'codemode',
 			label: 'LSP: hover',
 			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
@@ -373,6 +388,7 @@ export function register_lsp_tools(
 	pi.registerTool(
 		defineTool({
 			name: 'lsp_definition',
+			exposure: 'codemode',
 			label: 'LSP: go to definition',
 			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:
@@ -411,6 +427,7 @@ export function register_lsp_tools(
 	pi.registerTool(
 		defineTool({
 			name: 'lsp_references',
+			exposure: 'codemode',
 			label: 'LSP: find references',
 			description:
 				'Find references to the symbol at a position. Positions are zero-based.',
@@ -447,6 +464,7 @@ export function register_lsp_tools(
 	pi.registerTool(
 		defineTool({
 			name: 'lsp_document_symbols',
+			exposure: 'codemode',
 			label: 'LSP: document symbols',
 			constrainedSampling: { type: 'json_schema', strict: 'prefer' },
 			description:

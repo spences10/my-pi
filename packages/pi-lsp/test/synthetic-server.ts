@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Synthetic LSP server for diagnostics tests. Each line of the document
 // text is a directive that tells the server what to publish:
 //   publish-clean             publish an empty list for the current version
@@ -7,7 +9,13 @@
 //   publish-clean-on-close    publish an empty list when the document closes
 // With no directive the server stays silent. `--pull` advertises pull
 // diagnostics and answers a request with the same directives.
+import { Buffer } from 'node:buffer';
+import process from 'node:process';
+
 const pull = process.argv.includes('--pull');
+const expected_initialization_options = process.argv
+	.find((arg) => arg.startsWith('--expect-initialization-options='))
+	?.slice('--expect-initialization-options='.length);
 const docs = new Map<string, string>();
 let buffer = Buffer.alloc(0);
 
@@ -68,6 +76,7 @@ interface ClientMessage {
 	id?: number;
 	method?: string;
 	params: {
+		initializationOptions?: Record<string, unknown>;
 		textDocument: { uri: string; version: number; text: string };
 		contentChanges: Array<{ text: string }>;
 	};
@@ -76,6 +85,21 @@ interface ClientMessage {
 function handle(message: ClientMessage): void {
 	const { id, method, params } = message;
 	if (method === 'initialize') {
+		if (
+			expected_initialization_options !== undefined &&
+			(JSON.stringify(params.initializationOptions) ??
+				'undefined') !== expected_initialization_options
+		) {
+			send({
+				jsonrpc: '2.0',
+				id,
+				error: {
+					code: -32602,
+					message: 'Unexpected initialization options',
+				},
+			});
+			return;
+		}
 		send({
 			jsonrpc: '2.0',
 			id,

@@ -23,6 +23,9 @@ describe('lsp extension wiring', () => {
 			'lsp_hover',
 			'lsp_references',
 		]);
+		for (const tool of tools.values()) {
+			expect(tool).toMatchObject({ exposure: 'codemode' });
+		}
 		const constrained_tools = Array.from(tools.values()).filter(
 			(tool) => tool.constrainedSampling !== undefined,
 		);
@@ -49,5 +52,7 @@ describe('lsp extension wiring', () => {
 		expect(commands.has('lsp')).toBe(true);
 		expect(events.has('before_agent_start')).toBe(true);
 		expect(events.has('session_shutdown')).toBe(true);
+		expect(events.has('tool_result')).toBe(true);
+		expect(events.has('turn_end')).toBe(true);
 	});
 });

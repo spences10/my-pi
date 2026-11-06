@@ -307,8 +307,39 @@ describe('lsp server manager', () => {
 					args: ['--lsp', '--stdio'],
 				}),
 			);
+			expect(create_client).not.toHaveBeenCalledWith(
+				expect.objectContaining({
+					initialization_options: expect.anything(),
+				}),
+			);
 		},
 	);
+
+	it('disables the syntax server for the classic TypeScript backend', async () => {
+		const { root, file } = create_typescript_7_project();
+		writeFileSync(
+			join(root, 'node_modules', 'typescript', 'lib', 'tsserver.js'),
+			'',
+		);
+		const create_client = vi.fn(() => create_mock_client());
+		const { pi, tools } = create_test_pi();
+		await register_test_lsp_extension(pi, {
+			create_client,
+			cwd: () => root,
+		});
+
+		await tools
+			.get('lsp_hover')
+			.execute('1', { file, line: 0, character: 0 });
+
+		expect(create_client).toHaveBeenCalledWith(
+			expect.objectContaining({
+				initialization_options: {
+					tsserver: { useSyntaxServer: 'never' },
+				},
+			}),
+		);
+	});
 
 	it('does not start a server for an already-cancelled tool call', async () => {
 		const { root, file } = create_typescript_7_project();
@@ -367,6 +398,11 @@ describe('lsp server manager', () => {
 				expect.objectContaining({
 					command: project_server,
 					args: ['--stdio'],
+				}),
+			);
+			expect(create_client).not.toHaveBeenCalledWith(
+				expect.objectContaining({
+					initialization_options: expect.anything(),
 				}),
 			);
 			await commands.get('lsp').handler('status', ctx);

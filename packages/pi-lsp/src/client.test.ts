@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vite-plus/test';
 import {
 	LspClient,
@@ -7,6 +8,31 @@ import {
 } from './client.js';
 
 describe('LspClient.start', () => {
+	it.each([undefined, { tsserver: { useSyntaxServer: 'never' } }])(
+		'sends initialization options only when configured (%j)',
+		async (initialization_options) => {
+			const server = fileURLToPath(
+				new URL('../test/synthetic-server.ts', import.meta.url),
+			);
+			const expected =
+				JSON.stringify(initialization_options) ?? 'undefined';
+			const client = new LspClient({
+				command: process.execPath,
+				args: [server, `--expect-initialization-options=${expected}`],
+				root_uri: 'file:///repo',
+				language_id_for_uri: () => 'typescript',
+				initialization_options,
+				request_timeout_ms: 2_000,
+			});
+			try {
+				await client.start();
+				expect(client.is_ready()).toBe(true);
+			} finally {
+				await client.stop();
+			}
+		},
+	);
+
 	it('rejects quickly with a typed error when the server binary is missing', async () => {
 		const client = new LspClient({
 			command: '__my_pi_missing_lsp_binary__',

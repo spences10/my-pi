@@ -1,4 +1,5 @@
 import { type ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { create_automatic_diagnostics } from './automatic-diagnostics.js';
 import { register_lsp_command } from './commands.js';
 import {
 	LSP_SYSTEM_PROMPT,
@@ -22,6 +23,11 @@ export function create_lsp_extension(
 		const manager = new LspServerManager(options);
 
 		register_lsp_tools(pi, manager);
+		const automatic_diagnostics =
+			create_automatic_diagnostics(manager);
+		pi.on('tool_result', automatic_diagnostics.record_edit);
+		pi.on('turn_end', automatic_diagnostics.flush);
+		pi.on('session_start', automatic_diagnostics.reset);
 
 		pi.on('before_agent_start', async (event) => {
 			if (should_inject_lsp_prompt(event)) {
@@ -35,6 +41,7 @@ export function create_lsp_extension(
 		register_lsp_command(pi, manager);
 
 		pi.on('session_shutdown', async () => {
+			automatic_diagnostics.reset();
 			await manager.clear_language_state();
 		});
 	};
