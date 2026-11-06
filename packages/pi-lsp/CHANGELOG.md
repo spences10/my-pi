@@ -1,5 +1,13 @@
 # @spences10/pi-lsp
 
+## 0.1.0
+
+### Minor Changes
+
+- 547c850: Improve TypeScript startup correctness, automatically
+  report diagnostics after edits, and expose LSP tools through
+  codemode.
+
 ## 0.0.54
 
 ### Patch Changes
