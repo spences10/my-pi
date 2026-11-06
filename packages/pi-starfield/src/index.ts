@@ -55,7 +55,11 @@ export default function starfield(pi: ExtensionAPI): void {
 	}
 
 	function apply(ctx: ExtensionContext): boolean {
-		if (mode === 'off') {
+		if (
+			(mode === 'off' && !suggest) ||
+			process.env.TERM === 'dumb' ||
+			process.env.NO_COLOR !== undefined
+		) {
 			uninstall(ctx);
 			return true;
 		}
@@ -113,7 +117,8 @@ export default function starfield(pi: ExtensionAPI): void {
 		if (
 			ctx.mode !== 'tui' ||
 			!suggest ||
-			mode === 'off' ||
+			!factory ||
+			ctx.ui.getEditorComponent() !== factory ||
 			!ctx.model
 		)
 			return;
@@ -157,7 +162,12 @@ export default function starfield(pi: ExtensionAPI): void {
 					);
 					return;
 				}
+				const previous = suggest;
 				suggest = second === 'on';
+				if (!apply(ctx)) {
+					suggest = previous;
+					return;
+				}
 				if (!suggest) clear_suggestion();
 				editor?.refresh();
 				if (save(ctx))

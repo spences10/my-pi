@@ -130,9 +130,10 @@ describe('starfield extension', () => {
 		vi.mocked(read_package_settings).mockReturnValue({ mode: 'off' });
 		const app = setup();
 		app.emit('session_start');
-		expect(app.get_factory()).toBeUndefined();
-		await app.command('on');
 		const factory = app.get_factory();
+		expect(factory).toEqual(expect.any(Function));
+		await app.command('on');
+		expect(app.get_factory()).toBe(factory);
 		await app.command('static');
 		expect(app.get_factory()).toBe(factory);
 		expect(write_package_settings).toHaveBeenLastCalledWith(
@@ -140,11 +141,32 @@ describe('starfield extension', () => {
 			{ mode: 'static', suggest: true },
 		);
 		await app.command('off');
-		expect(app.get_factory()).toBeUndefined();
+		expect(app.get_factory()).toBe(factory);
 		expect(write_package_settings).toHaveBeenLastCalledWith(
 			'pi-starfield',
 			{ mode: 'off', suggest: true },
 		);
+	});
+
+	it('restores the default editor only when stars and suggestions are both off', async () => {
+		vi.mocked(read_package_settings).mockReturnValue({
+			mode: 'off',
+			suggest: false,
+		});
+		const app = setup();
+		app.emit('session_start');
+		expect(app.get_factory()).toBeUndefined();
+		await app.command('suggest on');
+		expect(app.get_factory()).toEqual(expect.any(Function));
+		await app.command('suggest off');
+		expect(app.get_factory()).toBeUndefined();
+		await app.command('on');
+		const factory = app.get_factory();
+		await app.command('suggest on');
+		await app.command('suggest off');
+		expect(app.get_factory()).toBe(factory);
+		await app.command('off');
+		expect(app.get_factory()).toBeUndefined();
 	});
 
 	it.each([null, { mode: 'invalid' }])(
@@ -179,30 +201,34 @@ describe('starfield extension', () => {
 		expect(app.get_factory()).toEqual(expect.any(Function));
 	});
 
-	it('asks the session model for a short next prompt after each turn', async () => {
-		const app = setup();
-		app.emit('session_start');
-		const turn = {
-			messages: [
-				{ role: 'user', content: 'fix the bug' },
-				{
-					role: 'assistant',
-					content: [{ type: 'text', text: 'Fixed.' }],
-				},
-			],
-		};
-		app.emit('agent_end', turn);
-		expect(app.stream_simple).toHaveBeenCalledWith(
-			{ id: 'test-model' },
-			expect.objectContaining({ systemPrompt: expect.any(String) }),
-			expect.objectContaining({ maxTokens: 60 }),
-		);
-		await app.command('suggest off');
-		expect(write_package_settings).toHaveBeenLastCalledWith(
-			'pi-starfield',
-			{ mode: 'on', suggest: false },
-		);
-		app.emit('agent_end', turn);
-		expect(app.stream_simple).toHaveBeenCalledTimes(1);
-	});
+	it.each(['on', 'static', 'off'])(
+		'asks the session model for a short next prompt with stars %s',
+		async (mode) => {
+			const app = setup();
+			app.emit('session_start');
+			await app.command(mode);
+			const turn = {
+				messages: [
+					{ role: 'user', content: 'fix the bug' },
+					{
+						role: 'assistant',
+						content: [{ type: 'text', text: 'Fixed.' }],
+					},
+				],
+			};
+			app.emit('agent_end', turn);
+			expect(app.stream_simple).toHaveBeenCalledWith(
+				{ id: 'test-model' },
+				expect.objectContaining({ systemPrompt: expect.any(String) }),
+				expect.objectContaining({ maxTokens: 60 }),
+			);
+			await app.command('suggest off');
+			expect(write_package_settings).toHaveBeenLastCalledWith(
+				'pi-starfield',
+				{ mode, suggest: false },
+			);
+			app.emit('agent_end', turn);
+			expect(app.stream_simple).toHaveBeenCalledTimes(1);
+		},
+	);
 });

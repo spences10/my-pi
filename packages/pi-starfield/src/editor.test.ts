@@ -199,26 +199,34 @@ describe('StarfieldEditor', () => {
 		expect(plain(editor.render(80))[1]).not.toMatch(/[a-z]/i);
 	});
 
-	it('accepts the suggestion with Tab only while the input is empty', () => {
-		const { editor, set_suggestion, on_accept } = setup();
-		set_suggestion('commit and push');
-		editor.handleInput('x');
-		editor.handleInput('\t');
-		expect(editor.getText()).not.toBe('commit and push');
-		expect(on_accept).not.toHaveBeenCalled();
-		editor.setText('');
-		editor.handleInput('\t');
-		expect(editor.getText()).toBe('commit and push');
-		expect(on_accept).toHaveBeenCalledTimes(1);
-		expect(plain(editor.render(80))[1]).not.toContain('⇥');
-	});
+	it.each(['on', 'off'] as const)(
+		'accepts the suggestion with Tab only while the input is empty with stars %s',
+		(mode) => {
+			const { editor, set_mode, set_suggestion, on_accept } = setup();
+			set_mode(mode);
+			set_suggestion('commit and push');
+			editor.handleInput('x');
+			editor.handleInput('\t');
+			expect(editor.getText()).not.toBe('commit and push');
+			expect(on_accept).not.toHaveBeenCalled();
+			editor.setText('');
+			editor.handleInput('\t');
+			expect(editor.getText()).toBe('commit and push');
+			expect(on_accept).toHaveBeenCalledTimes(1);
+			expect(plain(editor.render(80))[1]).not.toContain('⇥');
+		},
+	);
 
-	it('hides the suggestion while typing', () => {
-		const { editor, set_suggestion } = setup();
-		set_suggestion('commit and push');
-		editor.handleInput('c');
-		expect(plain(editor.render(80)).join('')).not.toContain('⇥');
-	});
+	it.each(['on', 'off'] as const)(
+		'hides the suggestion while typing with stars %s',
+		(mode) => {
+			const { editor, set_mode, set_suggestion } = setup();
+			set_mode(mode);
+			set_suggestion('commit and push');
+			editor.handleInput('c');
+			expect(plain(editor.render(80)).join('')).not.toContain('⇥');
+		},
+	);
 
 	it('keeps the background through typing, cursor resets, and multiline input', () => {
 		const { editor } = setup();
@@ -245,22 +253,26 @@ describe('StarfieldEditor', () => {
 		expect(plain(editor.render(60))[0]).toContain('more');
 	});
 
-	it('keeps slash autocomplete intact', async () => {
-		const { editor } = setup();
-		editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider(
-				[{ name: 'starfield', description: 'Stars' }],
-				process.cwd(),
-			),
-		);
-		editor.handleInput('/sta');
-		await vi.advanceTimersByTimeAsync(300);
-		expect(editor.isShowingAutocomplete()).toBe(true);
-		expect(plain(editor.render(80)).join('\n')).toContain(
-			'starfield',
-		);
-		expect(plain(editor.render(80)).join('\n')).not.toContain('⇥');
-	});
+	it.each(['on', 'off'] as const)(
+		'keeps slash autocomplete intact with stars %s',
+		async (mode) => {
+			const { editor, set_mode } = setup();
+			set_mode(mode);
+			editor.setAutocompleteProvider(
+				new CombinedAutocompleteProvider(
+					[{ name: 'starfield', description: 'Stars' }],
+					process.cwd(),
+				),
+			);
+			editor.handleInput('/sta');
+			await vi.advanceTimersByTimeAsync(300);
+			expect(editor.isShowingAutocomplete()).toBe(true);
+			expect(plain(editor.render(80)).join('\n')).toContain(
+				'starfield',
+			);
+			expect(plain(editor.render(80)).join('\n')).not.toContain('⇥');
+		},
+	);
 
 	it('keeps the same stars and animation phase when typing and clearing text', () => {
 		const { editor } = setup();
@@ -315,6 +327,41 @@ describe('StarfieldEditor', () => {
 		editor.dispose();
 		expect(vi.getTimerCount()).toBe(0);
 	});
+
+	it.each([1, 2, 3, 4, 10, 80])(
+		'keeps normal borders and background with suggestions and stars off at width %i',
+		(width) => {
+			const { editor, base, set_mode, set_suggestion } = setup();
+			base.focused = true;
+			editor.setPaddingX(1);
+			base.setPaddingX(1);
+			editor.render(width);
+			set_mode('off');
+			set_suggestion('run the tests');
+			const lines = editor.render(width);
+			const normal = base.render(width);
+			expect(lines[0]).toBe(normal[0]);
+			expect(lines.at(-1)).toBe(normal.at(-1));
+			expect(
+				lines.every((line) => visibleWidth(line) === width),
+			).toBe(true);
+			expect(lines.join('')).not.toContain('\x1b[48;2;32;32;32m');
+			expect(lines.join('')).not.toMatch(/[\u2800-\u28ff]/);
+			if (width === 80) {
+				expect(plain(lines)[1]).toContain('run the tests  ⇥');
+				expect(lines.join('').split(CURSOR_MARKER)).toHaveLength(2);
+			}
+			expect(editor.getText()).toBe('');
+			expect(vi.getTimerCount()).toBe(0);
+			set_suggestion(undefined);
+			expect(editor.render(width)).toEqual(normal);
+			for (const text of ['hello', 'first line\nsecond line']) {
+				editor.setText(text);
+				base.setText(text);
+				expect(editor.render(width)).toEqual(base.render(width));
+			}
+		},
+	);
 
 	it('supports static/off modes and live theme changes', () => {
 		const { editor, set_mode, set_theme } = setup();

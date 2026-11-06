@@ -47,7 +47,9 @@ pi -e ./packages/pi-starfield
   thinking, at most 60 output tokens) predicts your next prompt from
   your last prompt and the agent's final reply. It shows as dim text
   in the empty input with `⇥`. Tab puts it in the input; typing hides
-  it. It is never sent on its own. A new turn clears it.
+  it. It is never sent on its own. A new turn clears it. Suggestions
+  keep working with `/starfield off`, using Pi's normal borders and
+  background without stars, shading, or an animation timer.
 - Pasted text, history, shortcuts, and autocomplete keep Pi's input
   and layout behavior. Scroll indicators remain visible for long
   input.
@@ -67,9 +69,13 @@ pi -e ./packages/pi-starfield
 ```text
 /starfield on      Animate stars (default)
 /starfield static  Keep a still star field, with no animation timer
-/starfield off     Restore Pi's normal editor
+/starfield off     Normal input appearance; keep suggestions
 /starfield suggest on|off   Suggested next prompts (default on)
 ```
+
+Stars and suggestions are independent. Use `/starfield suggest off` to
+disable predictions. Turning both off restores Pi's default editor
+entirely; otherwise the extension's editor provides the suggestions.
 
 The choice is saved globally in `~/.pi/agent/my-pi-settings.json` (or
 in the configured Pi agent directory), under:

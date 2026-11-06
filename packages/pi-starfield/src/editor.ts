@@ -120,16 +120,22 @@ export class StarfieldEditor extends CustomEditor {
 
 	render(width: number): string[] {
 		this.stop();
-		if (!this.enabled()) return super.render(width);
+		if (this.disposed || !this.options.active())
+			return super.render(width);
+		const stars_enabled = this.enabled();
 		const animated =
-			this.options.mode() === 'on' && this.focused && width >= 4;
+			stars_enabled &&
+			this.options.mode() === 'on' &&
+			this.focused &&
+			width >= 4;
 		const elapsed = animated ? performance.now() - this.started : 0;
 		const has_text = this.getText() !== '';
 		if (!has_text) this.text_elapsed = undefined;
 		else this.text_elapsed ??= elapsed;
-		this.stars = width >= 4 ? star_frame(width, elapsed) : [];
+		this.stars =
+			stars_enabled && width >= 4 ? star_frame(width, elapsed) : [];
 		this.top_stars =
-			width >= 4 && this.text_elapsed !== undefined
+			stars_enabled && width >= 4 && this.text_elapsed !== undefined
 				? star_frame(width, this.text_elapsed)
 				: this.stars;
 		// Let Pi lay out text and autocomplete. Only its padding rows get stars.
@@ -137,14 +143,21 @@ export class StarfieldEditor extends CustomEditor {
 		const theme = this.options.theme();
 		const background = theme.getBgAnsi('userMessageBg');
 		const empty = this.getText() === '';
+		const suggestion = this.options.suggestion?.();
 
-		if (empty && !this.isShowingAutocomplete() && width >= 4) {
-			const cells = this.star_cells(width, 1);
+		if (
+			empty &&
+			!this.isShowingAutocomplete() &&
+			width >= 4 &&
+			(stars_enabled || suggestion)
+		) {
+			const cells = stars_enabled
+				? this.star_cells(width, 1)
+				: Array<string>(width).fill(' ');
 			const padding = Math.min(
 				this.getPaddingX(),
 				Math.floor((width - 1) / 2),
 			);
-			const suggestion = this.options.suggestion?.();
 			const text = suggestion
 				? `${suggestion}  ⇥`.slice(0, width - padding - 1)
 				: '';
@@ -171,6 +184,7 @@ export class StarfieldEditor extends CustomEditor {
 			}, FRAME_MS);
 			this.timer.unref();
 		}
+		if (!stars_enabled) return lines;
 		return lines.map((line) => {
 			const shaded = line
 				.replaceAll(RESET, RESET + background)
