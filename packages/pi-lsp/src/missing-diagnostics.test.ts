@@ -79,6 +79,51 @@ describe('LspClient.wait_for_diagnostics with a synthetic server', () => {
 		expect(await client.wait_for_diagnostics(URI, 50)).toBeNull();
 	});
 
+	it('does not let new push diagnostics validate an earlier snapshot', async () => {
+		const client = await start_client();
+		await client.ensure_document_open(URI, 'publish-delayed:25');
+		const pending = client.wait_for_diagnostics(URI, 2_000);
+		await client.ensure_document_open(URI, 'publish-error');
+
+		expect(await pending).toBeNull();
+		expect(
+			await client.wait_for_diagnostics(URI, 2_000),
+		).toMatchObject([{ message: 'Boom' }]);
+	});
+
+	it('ignores delayed diagnostics from a previous opening of the document', async () => {
+		const client = await start_client();
+		await client.ensure_document_open(URI, 'publish-delayed:25');
+		await client.close_document(URI);
+		await client.ensure_document_open(URI, 'silent');
+
+		expect(await client.wait_for_diagnostics(URI, 100)).toBeNull();
+		expect(client.get_diagnostics(URI)).toBeNull();
+	});
+
+	it.each(['change', 'close', 'reopen'])(
+		'rejects an outstanding pull result after document %s',
+		async (action) => {
+			const client = await start_client('--pull');
+			await client.ensure_document_open(
+				URI,
+				'publish-clean\npull-delayed:50',
+			);
+			const pending = client.wait_for_diagnostics(URI, 2_000);
+			if (action !== 'change') await client.close_document(URI);
+			if (action !== 'close')
+				await client.ensure_document_open(URI, 'publish-error');
+
+			expect(await pending).toBeNull();
+			expect(client.get_diagnostics(URI)).toBeNull();
+			if (action !== 'close') {
+				expect(
+					await client.wait_for_diagnostics(URI, 2_000),
+				).toMatchObject([{ message: 'Boom' }]);
+			}
+		},
+	);
+
 	it('rejects outstanding waits on shutdown', async () => {
 		const client = await start_client();
 		await client.ensure_document_open(URI, 'silent');
@@ -150,6 +195,28 @@ describe('lsp diagnostics tools with a synthetic server', () => {
 			incomplete: true,
 		});
 	});
+
+	it.each(['lsp_diagnostics', 'lsp_diagnostics_many'])(
+		'keeps documents open so %s cannot mistake close cleanup for fresh diagnostics',
+		async (tool_name) => {
+			const file = '/repo/src/a.ts';
+			const texts = {
+				[file]: 'publish-clean\npublish-delayed-clean-on-close:25',
+			};
+			const { tools } = await create_tools(texts);
+			const params =
+				tool_name === 'lsp_diagnostics'
+					? { file, wait_ms: 1000 }
+					: { files: [file], wait_ms: 1000 };
+			const first = await tools.get(tool_name).execute('1', params);
+			expect(first.content[0].text).toContain('no diagnostics');
+
+			texts[file] = 'publish-delayed-error:75';
+			const second = await tools.get(tool_name).execute('2', params);
+			expect(second.content[0].text).toContain('Boom');
+			expect(second.content[0].text).not.toContain('no diagnostics');
+		},
+	);
 
 	it('counts incomplete files separately in a batch', async () => {
 		const { tools } = await create_tools({

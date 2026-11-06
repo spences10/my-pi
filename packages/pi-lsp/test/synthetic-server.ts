@@ -69,6 +69,12 @@ function run_directives(
 		if (directive === 'publish-delayed') {
 			setTimeout(() => publish(uri, version, []), Number(argument));
 		}
+		if (directive === 'publish-delayed-error') {
+			setTimeout(
+				() => publish(uri, version, [error_diagnostic]),
+				Number(argument),
+			);
+		}
 	}
 }
 
@@ -121,24 +127,34 @@ function handle(message: ClientMessage): void {
 		if (docs.get(uri)?.includes('publish-clean-on-close')) {
 			publish(uri, undefined, []);
 		}
+		const delay = docs
+			.get(uri)
+			?.match(/publish-delayed-clean-on-close:(\d+)/);
+		if (delay)
+			setTimeout(() => publish(uri, undefined, []), Number(delay[1]));
 		docs.delete(uri);
 	} else if (method === 'textDocument/diagnostic') {
 		const text = docs.get(params.textDocument.uri) ?? '';
-		if (text.includes('publish-error')) {
-			send({
-				jsonrpc: '2.0',
-				id,
-				result: { kind: 'full', items: [error_diagnostic] },
-			});
-		} else if (text.includes('publish-clean')) {
-			send({
-				jsonrpc: '2.0',
-				id,
-				result: { kind: 'full', items: [] },
-			});
-		} else if (text.includes('no-items')) {
-			send({ jsonrpc: '2.0', id, result: null });
-		}
+		const reply = () => {
+			if (text.includes('publish-error')) {
+				send({
+					jsonrpc: '2.0',
+					id,
+					result: { kind: 'full', items: [error_diagnostic] },
+				});
+			} else if (text.includes('publish-clean')) {
+				send({
+					jsonrpc: '2.0',
+					id,
+					result: { kind: 'full', items: [] },
+				});
+			} else if (text.includes('no-items')) {
+				send({ jsonrpc: '2.0', id, result: null });
+			}
+		};
+		const delay = text.match(/pull-delayed:(\d+)/);
+		if (delay) setTimeout(reply, Number(delay[1]));
+		else reply();
 	} else if (method === 'shutdown') {
 		send({ jsonrpc: '2.0', id, result: null });
 	} else if (method === 'exit') {

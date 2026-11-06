@@ -115,6 +115,7 @@ export class LspClient extends EventEmitter {
 	#buffer = Buffer.alloc(0);
 	#initialized = false;
 	#supports_pull_diagnostics = false;
+	#document_version = 0;
 	#open_docs = new Map<string, { version: number; text: string }>();
 	#diagnostics_by_uri = new Map<string, LspDiagnostic[]>();
 	#diagnostic_waiters = new Set<(error: Error) => void>();
@@ -254,28 +255,26 @@ export class LspClient extends EventEmitter {
 		text: string,
 	): Promise<void> {
 		const existing = this.#open_docs.get(uri);
+		if (existing?.text === text) return;
+		// Never reuse a version, including after a document closes and reopens.
+		const version = ++this.#document_version;
+		this.#open_docs.set(uri, { version, text });
+		this.#diagnostics_by_uri.delete(uri);
 		if (existing) {
-			if (existing.text === text) return;
-			const next_version = existing.version + 1;
-			this.#open_docs.set(uri, { version: next_version, text });
 			this.#notify('textDocument/didChange', {
-				textDocument: { uri, version: next_version },
+				textDocument: { uri, version },
 				contentChanges: [{ text }],
 			});
-			// Invalidate cached diagnostics so wait_for_diagnostics waits for fresh ones.
-			this.#diagnostics_by_uri.delete(uri);
 			return;
 		}
 
 		const language_id =
 			this.#options.language_id_for_uri(uri) ?? 'plaintext';
-		this.#open_docs.set(uri, { version: 1, text });
-		this.#diagnostics_by_uri.delete(uri);
 		this.#notify('textDocument/didOpen', {
 			textDocument: {
 				uri,
 				languageId: language_id,
-				version: 1,
+				version,
 				text,
 			},
 		});
@@ -367,6 +366,8 @@ export class LspClient extends EventEmitter {
 		uri: string,
 		timeout_ms = 1500,
 	): Promise<LspDiagnostic[] | null> {
+		const document = this.#open_docs.get(uri);
+		if (!document) return null;
 		const cached = this.get_diagnostics(uri);
 		if (cached) return cached;
 		if (this.#supports_pull_diagnostics) {
@@ -375,10 +376,12 @@ export class LspClient extends EventEmitter {
 				{ textDocument: { uri } },
 				timeout_ms,
 			)) as { items?: LspDiagnostic[] } | null;
-			if (!Array.isArray(response?.items)) return null;
-			if (this.#open_docs.has(uri)) {
-				this.#diagnostics_by_uri.set(uri, response.items);
-			}
+			if (
+				this.#open_docs.get(uri) !== document ||
+				!Array.isArray(response?.items)
+			)
+				return null;
+			this.#diagnostics_by_uri.set(uri, response.items);
 			return response.items;
 		}
 		return new Promise((resolve, reject) => {
@@ -392,7 +395,13 @@ export class LspClient extends EventEmitter {
 				return true;
 			};
 			const settle = () => {
-				if (cleanup()) resolve(this.get_diagnostics(uri));
+				if (cleanup()) {
+					resolve(
+						this.#open_docs.get(uri) === document
+							? this.get_diagnostics(uri)
+							: null,
+					);
+				}
 			};
 			const release = (error: Error) => {
 				if (cleanup()) reject(error);

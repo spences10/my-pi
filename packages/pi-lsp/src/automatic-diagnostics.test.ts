@@ -115,7 +115,7 @@ describe('automatic LSP diagnostics', () => {
 			expect.any(String),
 			'export const final_value = 2;',
 		);
-		expect(close_document).toHaveBeenCalledTimes(2);
+		expect(close_document).not.toHaveBeenCalled();
 		expect(
 			await events.get('turn_end')(boundary(), ctx),
 		).toBeUndefined();
@@ -177,7 +177,7 @@ describe('automatic LSP diagnostics', () => {
 		expect(text).toContain('Warning');
 		expect(text).toContain('validation incomplete');
 		expect(text).toContain('server unavailable');
-		expect(close_document).toHaveBeenCalledTimes(3);
+		expect(close_document).not.toHaveBeenCalled();
 	});
 
 	it('waits at the turn boundary for diagnostics before allowing the next response', async () => {
@@ -265,7 +265,7 @@ describe('automatic LSP diagnostics', () => {
 			else await events.get('session_shutdown')({}, ctx);
 			deferred.resolve([]);
 			expect(await pending).toBeUndefined();
-			expect(close_document).toHaveBeenCalledTimes(1);
+			expect(close_document).not.toHaveBeenCalled();
 		},
 	);
 });

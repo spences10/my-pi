@@ -187,8 +187,17 @@ an empty list for the current document. If the server sends nothing
 before `wait_ms` expires, the tool reports `validation incomplete`,
 and `lsp_diagnostics_many` counts the file as `incomplete` and not as
 `clean`. An incomplete result is not a pass: retry with a larger
-`wait_ms` or use another check. Diagnostics for a closed document or
-an earlier document version are ignored.
+`wait_ms` or use another check. Versioned diagnostics for a closed
+document or an earlier document version are ignored. Versions are
+never reused across reopenings, and a pending push wait or pull
+request cannot validate a snapshot that changed while it was waiting.
+
+Documents stay open between requests, with later checks rereading the
+file and sending changes when its contents differ. This avoids
+versionless empty cleanup diagnostics from a close racing with the
+next check. Versionless push results still rely on the server's
+ordering. Open documents and their cached text are released when the
+server stops, restarts, or the Pi session exits.
 
 ## Automatic diagnostics
 

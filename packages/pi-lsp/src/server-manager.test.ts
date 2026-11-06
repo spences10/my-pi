@@ -69,7 +69,7 @@ function create_typescript_7_project() {
 }
 
 describe('lsp server manager', () => {
-	it('closes documents after one-shot tool use', async () => {
+	it('keeps documents open between tool calls until session shutdown', async () => {
 		const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
 		const file = join(root, 'src', 'main.ts');
 		dirs.push(root);
@@ -78,12 +78,14 @@ describe('lsp server manager', () => {
 		writeFileSync(file, 'export const value = 1;\n');
 		const ensure_document_open = vi.fn().mockResolvedValue(undefined);
 		const close_document = vi.fn().mockResolvedValue(undefined);
+		const stop = vi.fn().mockResolvedValue(undefined);
 		const client = create_mock_client({
 			ensure_document_open,
 			close_document,
+			stop,
 			hover: vi.fn().mockResolvedValue({ contents: 'hover docs' }),
 		});
-		const { pi, tools } = create_test_pi();
+		const { pi, tools, events } = create_test_pi();
 		const { ctx } = create_command_context();
 
 		await register_test_lsp_extension(pi, {
@@ -103,12 +105,17 @@ describe('lsp server manager', () => {
 			);
 
 		expect(ensure_document_open).toHaveBeenCalledTimes(1);
-		expect(close_document).toHaveBeenCalledWith(
-			expect.stringContaining('/src/main.ts'),
-		);
+		await tools
+			.get('lsp_hover')
+			.execute('2', { file, line: 0, character: 0 });
+		expect(ensure_document_open).toHaveBeenCalledTimes(2);
+		expect(close_document).not.toHaveBeenCalled();
+		expect(stop).not.toHaveBeenCalled();
+		await events.get('session_shutdown')();
+		expect(stop).toHaveBeenCalledTimes(1);
 	});
 
-	it('does not close a shared document until concurrent calls finish', async () => {
+	it('keeps shared documents open after concurrent calls finish', async () => {
 		const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
 		const file = join(root, 'src', 'main.ts');
 		dirs.push(root);
@@ -163,7 +170,7 @@ describe('lsp server manager', () => {
 		expect(close_document).not.toHaveBeenCalled();
 		release_first();
 		await first;
-		expect(close_document).toHaveBeenCalledTimes(1);
+		expect(close_document).not.toHaveBeenCalled();
 	});
 
 	it('stops idle servers by default and restarts them on later use', async () => {

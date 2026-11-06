@@ -62,7 +62,6 @@ export interface ServerState {
 	install_hint?: string;
 	active_request_count: number;
 	last_used_at?: number;
-	open_documents: Map<string, number>;
 	idle_timer?: NodeJS.Timeout;
 }
 
@@ -212,14 +211,9 @@ export class LspServerManager {
 	}
 
 	async release_file_state(file_state: FileState): Promise<void> {
-		const { state, uri } = file_state;
-		const count = state.open_documents.get(uri) ?? 0;
-		if (count <= 1) {
-			state.open_documents.delete(uri);
-			await state.client.close_document(uri);
-		} else {
-			state.open_documents.set(uri, count - 1);
-		}
+		const { state } = file_state;
+		// Closing here can publish versionless cleanup diagnostics that race
+		// with the next request. Keep documents open until the server stops.
 		state.active_request_count = Math.max(
 			0,
 			state.active_request_count - 1,
@@ -239,10 +233,6 @@ export class LspServerManager {
 		state.active_request_count += 1;
 		try {
 			const uri = await this.#open_file(state, abs);
-			state.open_documents.set(
-				uri,
-				(state.open_documents.get(uri) ?? 0) + 1,
-			);
 			return { abs, uri, state };
 		} catch (error) {
 			state.active_request_count = Math.max(
@@ -336,7 +326,6 @@ export class LspServerManager {
 				install_hint: server_config.install_hint,
 				active_request_count: 0,
 				last_used_at: Date.now(),
-				open_documents: new Map(),
 			};
 			this.clients_by_server.set(key, state);
 			this.failed_servers.delete(key);
