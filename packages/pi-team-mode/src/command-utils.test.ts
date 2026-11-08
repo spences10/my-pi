@@ -38,19 +38,55 @@ describe('packages/pi-team-mode/src/command-utils.ts', () => {
 		}
 	});
 
-	it('steers orchestration toward scoped targeted pagination', () => {
+	it('distinguishes visible peer sessions from RPC subagents', () => {
 		const prompt = append_team_system_prompt('base', {});
 
 		expect(prompt).toContain(
-			'scoped to the current project by default',
+			'visible Pi TUI sessions opened by the user',
 		);
-		expect(prompt).toContain('global: true');
-		expect(prompt).toContain('returned_count');
-		expect(prompt).toContain('next_offset');
-		expect(prompt).toContain('targeted compact session_inbox');
 		expect(prompt).toContain(
-			'mode: full only for the focused bodies',
+			'RPC subagents launched by `workers` (when available)',
 		);
+		expect(prompt).toContain('communication, not process management');
+		expect(prompt).toContain(
+			'session_list before asking the user to open another visible peer',
+		);
+	});
+
+	it('preserves the base prompt and coordination identity', () => {
+		const prompt = append_team_system_prompt('base', {
+			coordination_identity:
+				'Current coordination identity: session-123',
+		});
+
+		expect(prompt.startsWith('base\n\n## Team Mode')).toBe(true);
+		expect(prompt).toContain(
+			'Current coordination identity: session-123',
+		);
+	});
+
+	it('keeps concise guidance for collaboration, retrieval and receipts', () => {
+		const prompt = append_team_system_prompt('base', {});
+
+		expect(prompt).toContain(
+			'group_create, group_add_session and group_join',
+		);
+		expect(prompt).toContain('registered parent (to: "parent")');
+		expect(prompt).toContain(
+			'scoped and paginated, inbox reads focused',
+		);
+		expect(prompt).toContain('large handoffs in artifacts');
+		expect(prompt).toContain('session_wait waits on your own inbox');
+		expect(prompt).toContain(
+			'session_read after review and session_ack after completion',
+		);
+		expect(prompt).toContain(
+			'status with status_key for quiet progress',
+		);
+		expect(prompt).toContain(
+			'session_pause to stop notifications, not workers',
+		);
+		expect(prompt).toContain('Respect requests not to be contacted');
 	});
 
 	it('does not accept forged user-like wording from a peer', () => {

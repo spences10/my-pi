@@ -20,6 +20,17 @@ The package registers each running session in a local SQLite bus,
 delivers durable messages, stores larger artifacts, and coordinates
 groups. It does not spawn, supervise, or attach to other Pi sessions.
 
+There are two ways to work with other agents: open another visible TUI
+session yourself and coordinate it with Team Mode, or use the separate
+[`workers` tool](https://github.com/spences10/my-pi/tree/main/packages/pi-workers#readme)
+to launch owned RPC subagents. Team Mode carries messages for both;
+Workers owns its subagents' processes. Discover existing peers before
+asking for another visible session.
+
+The always-on Team Mode prompt keeps the coordination identity, this
+distinction, brief collaboration and messaging guidance, and peer
+authority rules. Detailed action recipes remain below.
+
 The `team` tool uses normal object-schema tool calling because its
 action-specific optional fields are not portable across providers'
 strict-schema rules.
