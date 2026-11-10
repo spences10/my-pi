@@ -149,6 +149,22 @@ Execution is direct by default. Team Mode can coordinate independently
 opened peers only when the user authorizes collaboration. This package
 does not spawn or supervise workers.
 
+## Skills
+
+The package ships five skills under [`skills/`](./skills):
+
+- `create-harness`, `execute-harness` and `review-harness` cover the
+  harness workflow above.
+- `create-repeatable-task` saves a task you want to run again as a
+  project skill in `.agents/skills/<name>/`, with its validation
+  commands. Running that skill creates a harness, executes it, then
+  reviews the session trace.
+- `review-session-trace` is a read-only retrospective. It reads a
+  saved Pi session file, plus harness artifacts when present, for
+  failed tool calls the agent worked around, wasted effort and checks
+  that did not cover the task. It reports proposed improvements and
+  does not apply them. It does not need an active harness.
+
 ## Safety and compatibility
 
 This is workflow scaffolding, **not an OS sandbox**. Direct edit/write

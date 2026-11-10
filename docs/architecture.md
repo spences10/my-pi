@@ -97,7 +97,10 @@ it does not provide durable execution recovery or live TUI attachment.
 
 [pi-harness](../packages/pi-harness/README.md) offers optional task
 contracts and validation scaffolding. Installing it does not make a
-harness a prerequisite for ordinary project work.
+harness a prerequisite for ordinary project work. It also ships a
+read-only
+[`review-session-trace`](../packages/pi-harness/skills/review-session-trace/SKILL.md)
+skill for retrospectives over saved session files.
 
 ## Settings and trust
 
