@@ -160,6 +160,9 @@ function format_filter_summary(
 	filters: TelemetryQueryFilters,
 ): string {
 	const parts: string[] = [];
+	if (filters.cwd !== undefined) {
+		parts.push(`cwd=${filters.cwd}`);
+	}
 	if (filters.eval_run_id !== undefined) {
 		parts.push(`eval_run_id=${filters.eval_run_id}`);
 	}

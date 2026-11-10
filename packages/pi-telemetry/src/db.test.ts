@@ -194,6 +194,51 @@ describe('TelemetryDatabase', () => {
 		]);
 	});
 
+	it('isolates comparable tasks by project, suite and case', () => {
+		const matching = {
+			id: 'matching-task',
+			session_file: '/sessions/task.jsonl',
+			cwd: '/project',
+			started_at: 100,
+			model_provider: null,
+			model_id: null,
+			eval_run_id: null,
+			eval_case_id: 'check-links',
+			eval_attempt: null,
+			eval_suite: 'repeatable',
+		};
+		db!.insert_run(matching);
+		db!.insert_run({
+			...matching,
+			id: 'other-project',
+			cwd: '/other',
+		});
+		db!.insert_run({
+			...matching,
+			id: 'other-task',
+			eval_case_id: 'release',
+		});
+		db!.insert_run({
+			...matching,
+			id: 'other-suite',
+			eval_suite: 'smoke',
+		});
+		db!.insert_run({
+			...matching,
+			id: 'unlabelled',
+			eval_case_id: null,
+		});
+		expect(
+			db!
+				.query_runs({
+					cwd: '/project',
+					eval_suite: 'repeatable',
+					eval_case_id: 'check-links',
+				})
+				.map((run) => run.id),
+		).toEqual(['matching-task']);
+	});
+
 	it('queries runs with eval filters and aggregates', () => {
 		db?.insert_run({
 			id: 'run-query-1',

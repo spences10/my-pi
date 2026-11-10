@@ -165,6 +165,21 @@ The package ships five skills under [`skills/`](./skills):
   that did not cover the task. It reports proposed improvements and
   does not apply them. It does not need an active harness.
 
+Both skills use the `telemetry` tool from
+[pi-telemetry](https://github.com/spences10/my-pi/tree/main/packages/pi-telemetry#agent-tool)
+when it is installed. Tasks label recordings using the skill name,
+then request a stop after execution and validation. Pi finishes the
+recording at `turn_end`; review follows in the next turn and compares
+closed recordings for the same project, suite and task. Existing
+user-enabled recording stays on, and unfinished metrics are treated as
+provisional. Neither skill needs telemetry.
+
+Trace review follows the task's session entry IDs and `parentId`
+branch links, rather than treating the whole JSONL file as one linear
+conversation. Relevant abandoned attempts are reviewed separately.
+Task success, passing validation and closed telemetry are distinct
+outcomes.
+
 ## Safety and compatibility
 
 This is workflow scaffolding, **not an OS sandbox**. Direct edit/write

@@ -54,8 +54,9 @@ pi -e ./packages/pi-telemetry
 
 When enabled, the extension writes local telemetry to SQLite:
 
-- `runs` — one record per Pi session/run
-- `turns` — user/assistant turn timing and summaries
+- `runs` — one record per low-level Pi agent run, or a tool-controlled
+  recording window within that run
+- `turns` — model response and tool execution timing and summaries
 - `tool_calls` — tool name, timing, success/error, and result summary
 - `provider_requests` — provider request/response timing and status
 
@@ -127,6 +128,49 @@ Lists recent run summaries. Supported filters:
 
 Exports matching run summaries as JSON. If no path is provided, the
 extension creates a timestamped file in the current working directory.
+
+## Agent tool
+
+The extension registers a `telemetry` tool so the model can record and
+read telemetry without the user typing a slash command.
+
+| Action   | Behaviour                                                            |
+| -------- | -------------------------------------------------------------------- |
+| `status` | Shows the saved default, the current state and the database path.    |
+| `on`     | Starts a session-only recording window, optionally labelled by task. |
+| `off`    | Requests a stop at Pi's `turn_end`, only for tool-enabled recording. |
+| `query`  | Returns recent run summaries as JSON.                                |
+
+`on` and `off` never change the saved default; only `/telemetry on`
+and `/telemetry off` do. The tool cannot turn off telemetry the user
+enabled, and it does not override `--telemetry` or `--no-telemetry`.
+
+`on` accepts `eval_suite` and `eval_case_id` to label a new recording
+using the existing eval fields. For repeatable skills, use
+`eval_suite: "repeatable-task"` and the skill name as `eval_case_id`.
+It returns the run ID and session path. If recording is already on, it
+does not start a new window or relabel existing work.
+
+`off` leaves recording open until the native `turn_end` event, after
+all tool results in that turn are recorded. Query in a subsequent
+turn, not the same tool batch or codemode script. A normal window stop
+has a closed duration and no error, but `success` remains unknown:
+stopping recording does not prove task success. Aborted settlement
+also restores tool-enabled recording to off.
+
+Ordinary runs still finish on `agent_end`, which is not Pi's final
+idle boundary: retries or queued messages can create further runs.
+Task labels remain in effect until tool recording stops. Recording
+starts at opt-in; it does not reconstruct earlier requests or tools.
+
+`query` accepts `cwd`, `eval_suite`, `eval_case_id`, `success` and
+`limit` (default 20). Each run includes its session file, working
+directory, duration, and turn, tool-call and tool-error counts. The
+response also identifies this session's `active_run_id` and whether a
+stop is pending. Records with null `ended_at` and duration are
+unfinished, not completed baselines. Compare matching tasks and
+recording boundaries, not all activity in the same project; use
+harness validation and session evidence to assess task success.
 
 ## Eval metadata
 

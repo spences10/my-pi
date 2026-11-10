@@ -110,6 +110,7 @@ export interface TelemetryStats {
 }
 
 export interface TelemetryQueryFilters {
+	cwd?: string;
 	eval_run_id?: string;
 	eval_case_id?: string;
 	eval_suite?: string;
@@ -401,6 +402,10 @@ export class TelemetryDatabase {
 		const conditions: string[] = [];
 		const params: Array<string | number> = [];
 
+		if (filters.cwd !== undefined) {
+			conditions.push('r.cwd = ?');
+			params.push(filters.cwd);
+		}
 		if (filters.eval_run_id !== undefined) {
 			conditions.push('r.eval_run_id = ?');
 			params.push(filters.eval_run_id);
