@@ -1,5 +1,12 @@
 # @spences10/pi-workers
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [ca94e4d]
+  - @spences10/pi-team-mode@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes

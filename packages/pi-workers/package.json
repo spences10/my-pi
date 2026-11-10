@@ -1,6 +1,6 @@
 {
 	"name": "@spences10/pi-workers",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "Local RPC workers that participate in Team Mode and observability",
 	"keywords": [
 		"pi",

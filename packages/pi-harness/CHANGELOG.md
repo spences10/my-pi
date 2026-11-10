@@ -1,5 +1,16 @@
 # @spences10/pi-harness
 
+## 0.3.1
+
+### Patch Changes
+
+- 12487d9: Add create-repeatable-task and review-session-trace skills
+  for saving repeatable tasks and running read-only session trace
+  retrospectives.
+- 3114d53: Add session-scoped telemetry controls, reliable recording
+  boundaries, task correlation, and branch-aware reviews for
+  repeatable workflows.
+
 ## 0.3.0
 
 ### Minor Changes

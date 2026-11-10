@@ -1,5 +1,17 @@
 # my-pi
 
+## 0.8.7
+
+### Patch Changes
+
+- Updated dependencies [12487d9]
+- Updated dependencies [ca94e4d]
+- Updated dependencies [3114d53]
+  - @spences10/pi-harness@0.3.1
+  - @spences10/pi-team-mode@0.3.1
+  - @spences10/pi-telemetry@0.1.0
+  - @spences10/pi-workers@0.3.1
+
 ## 0.8.6
 
 ### Patch Changes

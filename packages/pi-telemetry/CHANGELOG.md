@@ -1,5 +1,13 @@
 # @spences10/pi-telemetry
 
+## 0.1.0
+
+### Minor Changes
+
+- 3114d53: Add session-scoped telemetry controls, reliable recording
+  boundaries, task correlation, and branch-aware reviews for
+  repeatable workflows.
+
 ## 0.0.35
 
 ### Patch Changes

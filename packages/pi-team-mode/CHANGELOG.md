@@ -1,5 +1,12 @@
 # @spences10/pi-team-mode
 
+## 0.3.1
+
+### Patch Changes
+
+- ca94e4d: Shorten Team Mode prompts and clarify visible peer sessions
+  versus RPC workers while preserving authority.
+
 ## 0.3.0
 
 ### Minor Changes
