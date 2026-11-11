@@ -20,6 +20,7 @@ async function register_extension() {
 	});
 
 	const register_command = vi.fn();
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	await recall({
 		on,
 		registerCommand: register_command,

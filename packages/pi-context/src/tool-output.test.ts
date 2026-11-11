@@ -4,6 +4,7 @@ import { select_context_output } from './tool-output.js';
 
 function select(event: Record<string, unknown>, preview = 'preview') {
 	return select_context_output(
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Malformed tool-result fixture intentionally exercises SDK boundary guards.
 		event as unknown as ToolResultEvent,
 		preview,
 	);

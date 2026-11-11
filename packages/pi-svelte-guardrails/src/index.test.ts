@@ -197,6 +197,7 @@ EOF`;
 		write_package_settings('svelteGuardrails', { mode: 'warn' });
 
 		const events = new Map<string, Function>();
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 		svelte_guardrails({
 			on: (name: string, handler: Function) =>
 				events.set(name, handler),
@@ -214,6 +215,7 @@ EOF`;
 					content: '<script>$effect(() => {})</script>',
 				},
 			} satisfies Parameters<typeof should_block_svelte_effect>[0],
+			// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 			{
 				ui: {
 					notify: (message: string) => notifications.push(message),

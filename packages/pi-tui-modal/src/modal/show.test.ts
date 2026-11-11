@@ -41,11 +41,12 @@ function create_ctx(
 			let resolved = result;
 
 			const component = await factory(
+				// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial terminal fixture; only the supplied callbacks are exercised.
 				{
 					terminal: { rows: terminal_rows },
 					requestRender: vi.fn(),
 				} as unknown as TUI,
-				theme as unknown as CustomFactoryArgs[1],
+				theme as CustomFactoryArgs[1],
 				{} as CustomFactoryArgs[2],
 				(value: unknown) => {
 					resolved = value;
@@ -65,8 +66,7 @@ function create_ctx(
 	return {
 		ctx: {
 			ui: {
-				custom:
-					custom as unknown as ExtensionCommandContext['ui']['custom'],
+				custom: custom as ExtensionCommandContext['ui']['custom'],
 				notify,
 			},
 		},

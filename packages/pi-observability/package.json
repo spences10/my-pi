@@ -57,7 +57,8 @@
 	},
 	"dependencies": {
 		"@spences10/pi-sqlite-core": "workspace:*",
-		"@spences10/pi-tui-modal": "workspace:*"
+		"@spences10/pi-tui-modal": "workspace:*",
+		"valibot": "catalog:"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",

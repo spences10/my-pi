@@ -24,7 +24,7 @@ afterEach(async () => {
 		rmSync(directory, { recursive: true, force: true });
 });
 
-function setup() {
+function setup(args: string[] = [fixture]) {
 	const directory = mkdtempSync(join(tmpdir(), 'pi-workers-'));
 	directories.push(directory);
 	const completed: WorkerInfo[] = [];
@@ -32,7 +32,7 @@ function setup() {
 
 	const manager = new WorkerManager({
 		command: process.execPath,
-		args: [fixture],
+		args,
 		env: {},
 		session_dir: directory,
 		parent_session_id: 'actual-parent',
@@ -54,6 +54,19 @@ function setup() {
 }
 
 describe('owned worker lifecycle', () => {
+	it('rejects malformed startup identity before notifying ownership listeners', async () => {
+		const { manager, started, options } = setup([
+			fixture,
+			'--invalid-state',
+		]);
+
+		await expect(manager.spawn(options)).rejects.toThrow(
+			'Invalid type',
+		);
+		expect(started).toEqual([]);
+		expect(manager.list()[0].status).toBe('failed');
+	});
+
 	it('registers ownership before the first prompt and gives the child exact parent, collaboration and worker identities', async () => {
 		const { manager, completed, started, options } = setup();
 

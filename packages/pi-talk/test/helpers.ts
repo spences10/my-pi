@@ -13,6 +13,7 @@ import { vi } from 'vite-plus/test';
 import { Dictation } from '../src/dictation.js';
 
 export function create_editor() {
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial terminal fixture; only the supplied callbacks are exercised.
 	return new Editor({ requestRender: vi.fn() } as unknown as TUI, {
 		borderColor: (text) => text,
 		selectList: {} as EditorTheme['selectList'],
@@ -64,6 +65,7 @@ export function setup_dictation() {
 	});
 
 	vi.mocked(spawn).mockReturnValue(
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Synthetic recorder process implements only the exercised event and stream API.
 		recorder as unknown as ReturnType<typeof spawn>,
 	);
 	const editor = create_editor();
@@ -78,6 +80,7 @@ export function setup_dictation() {
 		),
 	};
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const ctx = { mode: 'tui', ui } as unknown as ExtensionContext;
 
 	return {

@@ -1,10 +1,8 @@
-import type {
-	RpcExtensionUIRequest,
-	RpcSessionState,
-} from '@earendil-works/pi-coding-agent';
+import type { RpcExtensionUIRequest } from '@earendil-works/pi-coding-agent';
 import { randomUUID } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
+import * as v from 'valibot';
 import {
 	diagnostic_error,
 	diagnostic_text,
@@ -15,6 +13,14 @@ import { WorkerProcess, type RpcRecord } from './rpc.js';
 export const child_env = 'MY_PI_WORKER_CHILD';
 export const max_workers = 4;
 const max_result_chars = 16_000;
+
+const worker_state_schema = v.object({
+	sessionId: v.string(),
+	sessionFile: v.optional(v.string()),
+	model: v.nullish(
+		v.object({ provider: v.string(), id: v.string() }),
+	),
+});
 
 export interface WorkerInfo {
 	parent_session_id?: string;
@@ -212,9 +218,10 @@ export class WorkerManager {
 			worker.process.start();
 			info.pid = worker.process.pid;
 
-			const state = (await worker.process.request({
-				type: 'get_state',
-			})) as unknown as RpcSessionState;
+			const state = v.parse(
+				worker_state_schema,
+				await worker.process.request({ type: 'get_state' }),
+			);
 
 			signal?.throwIfAborted();
 
@@ -320,7 +327,7 @@ export class WorkerManager {
 		if (event.type === 'extension_ui_request') {
 			this.options.on_ui(
 				info.id,
-				event as unknown as RpcExtensionUIRequest,
+				event as RpcExtensionUIRequest,
 				(response) => {
 					try {
 						worker.process.write({

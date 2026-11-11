@@ -35,6 +35,7 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 
 	let command: Parameters<ExtensionAPI['registerCommand']>[1];
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const api = {
 		on: (
 			name: string,
@@ -58,6 +59,7 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 		}),
 	}));
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const ctx = {
 		mode,
 		hasUI: mode === 'tui' || mode === 'rpc',

@@ -1,4 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
+import { context_chunk_schema } from './row-schemas.js';
 import type {
 	ChunkSummaryRow,
 	ContextChunk,
@@ -188,5 +190,5 @@ export function context_store_get(
 		ORDER BY context_chunks.ordinal
 	`);
 
-	return stmt.all(...params) as unknown as ContextChunk[];
+	return v.parse(v.array(context_chunk_schema), stmt.all(...params));
 }

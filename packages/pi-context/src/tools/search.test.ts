@@ -36,7 +36,7 @@ function register_tool(): RegisteredTool {
 		registerTool(value: RegisteredTool) {
 			tool = value;
 		},
-	} as unknown as ExtensionAPI);
+	} as ExtensionAPI);
 
 	return tool!;
 }

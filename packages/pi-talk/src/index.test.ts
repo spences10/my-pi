@@ -39,6 +39,7 @@ function setup_extension(enabled = true) {
 	const on = vi.fn();
 	const registerCommand = vi.fn();
 	const registerShortcut = vi.fn();
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	talk({
 		on,
 		registerCommand,

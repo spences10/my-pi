@@ -43,7 +43,7 @@ function fake_store(): TelemetryStore {
 		get_stats: vi.fn(),
 		query_runs: vi.fn(() => []),
 		close: vi.fn(),
-	} as unknown as TelemetryStore;
+	} as TelemetryStore;
 }
 
 describe('telemetry tool', () => {
@@ -87,6 +87,7 @@ describe('telemetry tool', () => {
 		const handlers = new Map<string, Handler>();
 		let tool: Tool | undefined;
 
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 		const pi = {
 			on: (name: string, handler: Handler) =>
 				handlers.set(name, handler),

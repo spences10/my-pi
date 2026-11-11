@@ -13,7 +13,7 @@ vi.mock('node:child_process', () => ({
 	execFileSync: vi.fn(),
 }));
 
-const mocked_exec = vi.mocked(execFileSync) as unknown as Mock<
+const mocked_exec = vi.mocked(execFileSync) as Mock<
 	(...args: Parameters<typeof execFileSync>) => string
 >;
 

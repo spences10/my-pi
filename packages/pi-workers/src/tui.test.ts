@@ -83,6 +83,7 @@ function setup(steps: Step[], workers = [worker()]) {
 				let result: unknown;
 
 				const component = await factory(
+					// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 					{
 						terminal,
 						requestRender: vi.fn(),
@@ -90,7 +91,7 @@ function setup(steps: Step[], workers = [worker()]) {
 					{
 						fg: (_color: string, text: string) => text,
 						bold: (text: string) => text,
-					} as unknown as Parameters<CustomFactory>[1],
+					} as Parameters<CustomFactory>[1],
 					getKeybindings() as Parameters<CustomFactory>[2],
 					(value) => {
 						finished = true;
@@ -113,6 +114,7 @@ function setup(steps: Step[], workers = [worker()]) {
 		),
 	};
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const ctx = { mode: 'tui', ui } as unknown as ExtensionContext;
 
 	return {

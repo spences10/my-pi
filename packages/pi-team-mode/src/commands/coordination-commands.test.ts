@@ -35,6 +35,7 @@ describe('coordination commands', () => {
 			});
 			const notifications: string[] = [];
 
+			// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Command fixture supplies only dependencies exercised by this test.
 			const deps = {
 				ctx: {
 					ui: {

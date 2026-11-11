@@ -16,7 +16,7 @@ describe('register_context_tools', () => {
 			}) {
 				tools.push(tool);
 			},
-		} as unknown as ExtensionAPI);
+		} as ExtensionAPI);
 
 		expect(tools.map((tool) => tool.name)).toEqual([
 			'context_search',

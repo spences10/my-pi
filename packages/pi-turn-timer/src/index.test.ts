@@ -9,6 +9,7 @@ function fixture(mode = 'tui') {
 	const events = new Map<string, Function>();
 	const appendEntry = vi.fn();
 	const registerEntryRenderer = vi.fn();
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	turn_timer({
 		on: (name: string, handler: Function) =>
 			events.set(name, handler),

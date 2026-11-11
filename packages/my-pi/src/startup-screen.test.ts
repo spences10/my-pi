@@ -63,6 +63,7 @@ function harness(mode: ExtensionContext['mode'] = 'tui') {
 	const set_header = vi.fn<ExtensionContext['ui']['setHeader']>();
 	const request_render = vi.fn();
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const ctx = {
 		mode,
 		cwd: '/work/my-project',
@@ -70,6 +71,7 @@ function harness(mode: ExtensionContext['mode'] = 'tui') {
 		ui: { setHeader: set_header },
 	} as unknown as ExtensionContext;
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	startup_screen({
 		on: (name: string, handler: Handler) =>
 			handlers.set(name, handler),
@@ -82,6 +84,7 @@ function harness(mode: ExtensionContext['mode'] = 'tui') {
 		expect(factory).toBeTypeOf('function');
 
 		return factory!(
+			// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 			{
 				requestRender: request_render,
 			} as unknown as Parameters<HeaderFactory>[0],

@@ -1,6 +1,7 @@
 import { existsSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
 import {
 	afterEach,
 	beforeEach,
@@ -73,11 +74,19 @@ describe('TelemetryDatabase', () => {
 			throw busy_error;
 		});
 
-		(
-			db as unknown as { stmt_insert_run: { run: typeof run } }
-		).stmt_insert_run = {
-			run,
-		};
+		class BusyDatabase extends DatabaseSync {
+			override prepare(sql: string) {
+				const statement = super.prepare(sql);
+
+				if (sql.includes('INSERT INTO runs'))
+					vi.spyOn(statement, 'run').mockImplementation(run);
+
+				return statement;
+			}
+		}
+
+		db?.close();
+		db = new TelemetryDatabase(BusyDatabase, TEST_DB_PATH);
 
 		expect(() =>
 			db?.insert_run({

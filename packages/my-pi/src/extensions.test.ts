@@ -62,6 +62,7 @@ describe('extensions', () => {
 
 		const factory = await extension.load();
 		const events = new Map<string, Function>();
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 		await factory({
 			on: (name: string, handler: Function) =>
 				events.set(name, handler),

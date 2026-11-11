@@ -74,6 +74,7 @@ async function setup(reconcile = false) {
 	const handlers = new Map<string, (...args: never[]) => unknown>();
 	const isIdle = vi.fn(() => true);
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const ctx = {
 		cwd: '/repo',
 		isIdle,
@@ -102,6 +103,7 @@ async function setup(reconcile = false) {
 	const emit = async (name: string, event: unknown = {}) =>
 		handlers.get(name)?.(event as never, ctx as never);
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	await team_mode(pi as unknown as ExtensionAPI);
 	cleanup.push(async () => {
 		await emit('session_shutdown');

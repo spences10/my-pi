@@ -41,11 +41,7 @@ function deps() {
 
 describe('execute_team_tool peer mailbox actions', () => {
 	it('returns retry guidance when the coordination database is busy', async () => {
-		const busy_db = db as unknown as {
-			send_to_session_target: () => never;
-		};
-
-		busy_db.send_to_session_target = () => {
+		db.send_to_session_target = () => {
 			throw new SqliteBusyError(
 				'Update team coordination database',
 				null,

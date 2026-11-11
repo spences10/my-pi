@@ -69,7 +69,7 @@ export function create_test_pi() {
 		on(name: string, handler: Function) {
 			events.set(name, handler);
 		},
-	} as unknown as ExtensionAPI;
+	} as ExtensionAPI;
 
 	return { pi, tools, commands, events };
 }
@@ -115,6 +115,7 @@ export function create_command_context(
 	);
 
 	return {
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 		ctx: {
 			mode: 'tui',
 			hasUI: true,

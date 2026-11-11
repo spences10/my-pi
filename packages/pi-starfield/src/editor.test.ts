@@ -39,6 +39,7 @@ const editor_theme: EditorTheme = {
 	},
 };
 
+// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial terminal fixture; only the supplied callbacks are exercised.
 const keybindings = {
 	matches: () => false,
 } as unknown as KeybindingsManager;
@@ -65,6 +66,7 @@ function make_theme(
 function setup() {
 	const request_render = vi.fn();
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial terminal fixture; only the supplied callbacks are exercised.
 	const tui = {
 		terminal: { rows: 40 },
 		requestRender: request_render,

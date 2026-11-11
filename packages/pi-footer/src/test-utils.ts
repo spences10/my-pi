@@ -5,6 +5,7 @@ import type {
 import { vi } from 'vite-plus/test';
 import type { FooterTheme } from './theme/tokens.js';
 
+// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial theme fixture; only color and emphasis callbacks are exercised.
 export const test_theme = {
 	fg: vi.fn(
 		(color: string, text: string) => `<${color}>${text}</${color}>`,
@@ -21,12 +22,13 @@ export function make_footer_data(
 		getExtensionStatuses: vi.fn(() => new Map()),
 		onBranchChange: vi.fn(() => vi.fn()),
 		...overrides,
-	} as unknown as ReadonlyFooterDataProvider;
+	} as ReadonlyFooterDataProvider;
 }
 
 export function make_context(
 	overrides: Record<string, unknown> = {},
 ): ExtensionContext {
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	return {
 		hasUI: true,
 		cwd: '/home/scott/repos/my-pi',

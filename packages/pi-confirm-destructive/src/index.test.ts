@@ -25,7 +25,7 @@ function create_test_pi() {
 		on(name: string, handler: Function) {
 			events.set(name, handler);
 		},
-	} as unknown as ExtensionAPI;
+	} as ExtensionAPI;
 
 	return { pi, events };
 }

@@ -38,6 +38,7 @@ function fixture() {
 		name = value;
 	});
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	session_name({
 		on: (key: string, handler: Function) => events.set(key, handler),
 		registerCommand: (key: string, command: { handler: Function }) =>
@@ -47,6 +48,7 @@ function fixture() {
 	} as unknown as ExtensionAPI);
 	const notify = vi.fn();
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const ctx = {
 		mode: 'tui',
 		model: {

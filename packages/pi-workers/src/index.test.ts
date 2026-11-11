@@ -79,6 +79,7 @@ async function setup(
 	const register_message_renderer = vi.fn();
 	const active_tools = ['workers'];
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const pi = {
 		on: (name: string, handler: Function) =>
 			events.set(name, handler),
@@ -92,6 +93,7 @@ async function setup(
 		registerMessageRenderer: register_message_renderer,
 	} as unknown as ExtensionAPI;
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const ctx = {
 		cwd: directory,
 		isIdle: () => true,

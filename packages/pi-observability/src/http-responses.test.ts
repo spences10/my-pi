@@ -76,7 +76,7 @@ describe('http response helpers', () => {
 		const req = Readable.from([
 			Buffer.from('hello '),
 			'world',
-		]) as unknown as IncomingMessage;
+		]) as IncomingMessage;
 
 		await expect(read_body(req)).resolves.toBe('hello world');
 	});

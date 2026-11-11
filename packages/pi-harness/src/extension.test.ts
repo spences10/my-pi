@@ -33,6 +33,7 @@ function fixture() {
 	const sendUserMessage = vi.fn();
 	let branch: unknown[] = [];
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const api = {
 		appendEntry,
 		setActiveTools,

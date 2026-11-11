@@ -91,6 +91,7 @@ function create_ctx(
 	);
 
 	return {
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 		ctx: {
 			cwd: '/tmp/project',
 			hasUI: options.has_ui ?? true,

@@ -85,6 +85,7 @@ function create_fake_pi(): {
 	const tools = new Map<string, RegisteredTool>();
 	const commands = new Map<string, RegisteredCommand>();
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const pi = {
 		on(name: string, handler: HookHandler) {
 			hooks.set(name, [...(hooks.get(name) ?? []), handler]);

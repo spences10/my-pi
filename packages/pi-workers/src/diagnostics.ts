@@ -21,5 +21,5 @@ export function worker_snapshot(info: WorkerInfo): WorkerInfo {
 			key,
 			typeof value === 'string' ? diagnostic_text(value) : value,
 		]),
-	) as unknown as WorkerInfo;
+	) as WorkerInfo;
 }

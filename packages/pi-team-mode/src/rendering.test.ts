@@ -18,6 +18,7 @@ const key_hint: MessageRenderOptions['keyHint'] = (
 	description,
 ) => `alt+o ${description}`;
 
+// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial theme fixture; only color and emphasis callbacks are exercised.
 const theme = {
 	fg,
 	bold: (text: string) => text,

@@ -7,6 +7,15 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
+import * as v from 'valibot';
+import {
+	artifact_row_schema,
+	group_member_row_schema,
+	group_membership_row_schema,
+	group_row_schema,
+	inbox_row_schema,
+	session_row_schema,
+} from './row-schemas.js';
 
 import { DEFAULT_MANUAL_COORDINATION_RETENTION_MS } from '../retention.js';
 import {
@@ -42,8 +51,6 @@ import type {
 	CoordinationSessionInput,
 	CoordinationSessionStatus,
 	DatabaseSyncConstructor,
-	GroupMemberRow,
-	GroupMembershipRow,
 	GroupRow,
 	InboxRow,
 	SessionRow,
@@ -159,9 +166,12 @@ export class TeamDatabase {
 	list_sessions(
 		options: { include_offline?: boolean } = {},
 	): CoordinationSession[] {
-		const rows = (options.include_offline
-			? this.statements.list_sessions.all()
-			: this.statements.list_online_sessions.all()) as unknown as SessionRow[];
+		const rows = v.parse(
+			v.array(session_row_schema),
+			options.include_offline
+				? this.statements.list_sessions.all()
+				: this.statements.list_online_sessions.all(),
+		);
 
 		return rows.map((row) => map_session(row));
 	}
@@ -169,9 +179,12 @@ export class TeamDatabase {
 	mark_stale_sessions_offline(
 		is_alive?: ProcessAliveCheck,
 	): string[] {
-		const sessions = (
-			this.statements.list_online_sessions.all() as unknown as SessionRow[]
-		).map((row) => map_session(row));
+		const sessions = v
+			.parse(
+				v.array(session_row_schema),
+				this.statements.list_online_sessions.all(),
+			)
+			.map((row) => map_session(row));
 
 		const stale = find_stale_sessions(sessions, is_alive);
 
@@ -206,9 +219,12 @@ export class TeamDatabase {
 			return [parent];
 		}
 
-		const targetable_sessions = (
-			this.statements.list_sessions.all() as unknown as SessionRow[]
-		).map((row) => map_session(row));
+		const targetable_sessions = v
+			.parse(
+				v.array(session_row_schema),
+				this.statements.list_sessions.all(),
+			)
+			.map((row) => map_session(row));
 
 		const exact_session_id = targetable_sessions.filter(
 			(session) => session.session_id === target,
@@ -334,12 +350,10 @@ export class TeamDatabase {
 		const cwd = options.cwd ?? null;
 		const kind = options.kind ?? null;
 
-		const rows = this.statements.list_artifacts.all(
-			cwd,
-			cwd,
-			kind,
-			kind,
-		) as unknown as ArtifactRow[];
+		const rows = v.parse(
+			v.array(artifact_row_schema),
+			this.statements.list_artifacts.all(cwd, cwd, kind, kind),
+		);
 
 		return rows.map((row) => map_artifact(row));
 	}
@@ -351,13 +365,16 @@ export class TeamDatabase {
 		const pattern = `%${query.trim()}%`;
 		const cwd = options.cwd ?? null;
 
-		const rows = this.statements.search_artifacts.all(
-			cwd,
-			cwd,
-			pattern,
-			pattern,
-			pattern,
-		) as unknown as ArtifactRow[];
+		const rows = v.parse(
+			v.array(artifact_row_schema),
+			this.statements.search_artifacts.all(
+				cwd,
+				cwd,
+				pattern,
+				pattern,
+				pattern,
+			),
+		);
 
 		return rows.map((row) => map_artifact(row));
 	}
@@ -412,14 +429,15 @@ export class TeamDatabase {
 
 		if (exact) return map_group(exact);
 
-		const rows = (options.cwd
-			? this.statements.find_groups_by_name_cwd.all(
-					group_id_or_name,
-					options.cwd,
-				)
-			: this.statements.find_groups_by_name.all(
-					group_id_or_name,
-				)) as unknown as GroupRow[];
+		const rows = v.parse(
+			v.array(group_row_schema),
+			options.cwd
+				? this.statements.find_groups_by_name_cwd.all(
+						group_id_or_name,
+						options.cwd,
+					)
+				: this.statements.find_groups_by_name.all(group_id_or_name),
+		);
 
 		if (rows.length === 0) return undefined;
 
@@ -432,9 +450,12 @@ export class TeamDatabase {
 	}
 
 	list_groups(): CoordinationGroup[] {
-		return (
-			this.statements.list_groups.all() as unknown as GroupRow[]
-		).map((row) => map_group(row));
+		return v
+			.parse(
+				v.array(group_row_schema),
+				this.statements.list_groups.all(),
+			)
+			.map((row) => map_group(row));
 	}
 
 	add_group_member(input: {
@@ -497,25 +518,27 @@ export class TeamDatabase {
 
 		if (!group) return [];
 
-		return (
-			this.statements.list_group_members.all(
-				group.group_id,
-			) as unknown as GroupMemberRow[]
-		).map((row) => map_group_member(row));
+		return v
+			.parse(
+				v.array(group_member_row_schema),
+				this.statements.list_group_members.all(group.group_id),
+			)
+			.map((row) => map_group_member(row));
 	}
 
 	list_group_memberships(
 		session_id: string,
 	): CoordinationGroupMembership[] {
-		return (
-			this.statements.list_group_memberships.all(
-				session_id,
-			) as unknown as GroupMembershipRow[]
-		).map((row) => ({
-			...map_group_member(row),
-			group_name: row.group_name,
-			group_cwd: optional(row.group_cwd),
-		}));
+		return v
+			.parse(
+				v.array(group_membership_row_schema),
+				this.statements.list_group_memberships.all(session_id),
+			)
+			.map((row) => ({
+				...map_group_member(row),
+				group_name: row.group_name,
+				group_cwd: optional(row.group_cwd),
+			}));
 	}
 
 	send_message(input: CoordinationMessageInput): CoordinationMessage {
@@ -735,9 +758,10 @@ export class TeamDatabase {
 			undelivered_only?: boolean;
 		} = {},
 	): CoordinationInboxMessage[] {
-		const rows = this.statements.list_inbox.all(
-			session_id,
-		) as unknown as InboxRow[];
+		const rows = v.parse(
+			v.array(inbox_row_schema),
+			this.statements.list_inbox.all(session_id),
+		);
 
 		const timestamp = Date.now();
 

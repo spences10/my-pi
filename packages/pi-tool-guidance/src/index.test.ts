@@ -138,6 +138,7 @@ describe('tool guidance', () => {
 
 	it('mutates only its named section, preserves custom prompts, and clears stale guidance', () => {
 		let handler!: Function;
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 		guidance({
 			on: (_name: string, fn: Function) => {
 				handler = fn;

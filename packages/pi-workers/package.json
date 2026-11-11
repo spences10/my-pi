@@ -41,7 +41,8 @@
 	"dependencies": {
 		"@spences10/pi-redact": "workspace:*",
 		"@spences10/pi-team-mode": "workspace:*",
-		"@spences10/pi-tui-modal": "workspace:*"
+		"@spences10/pi-tui-modal": "workspace:*",
+		"valibot": "catalog:"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "catalog:",

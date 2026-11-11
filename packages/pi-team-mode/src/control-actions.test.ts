@@ -23,6 +23,7 @@ async function setup() {
 	let actor = 'owner';
 	const notify = vi.fn();
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const ctx = {
 		cwd: '/repo',
 		ui: { notify },

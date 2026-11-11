@@ -7,6 +7,7 @@ describe('packages/pi-team-mode/src/commands/types.ts', () => {
 	});
 
 	it('describes peer command dependencies', () => {
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Command fixture supplies only dependencies exercised by this test.
 		const deps = {
 			args: '',
 			ctx: { ui: { notify: () => undefined } },

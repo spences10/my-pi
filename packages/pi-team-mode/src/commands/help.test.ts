@@ -9,6 +9,7 @@ describe('packages/pi-team-mode/src/commands/help.ts', () => {
 
 	it('renders the command summary as a warning notification', () => {
 		const notifications: Array<[string, string | undefined]> = [];
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Command fixture supplies only dependencies exercised by this test.
 		show_team_help({
 			ctx: {
 				ui: {

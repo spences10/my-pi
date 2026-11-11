@@ -90,8 +90,7 @@ describe('ContextStore', () => {
 			throw busy_error;
 		});
 
-		(store as unknown as { db: { exec: typeof exec } }).db.exec =
-			exec;
+		store.db.exec = exec;
 
 		expect(() =>
 			store.store({

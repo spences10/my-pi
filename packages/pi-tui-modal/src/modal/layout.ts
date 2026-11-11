@@ -7,6 +7,7 @@ import {
 	type SettingItem,
 	type SettingsListTheme,
 } from '@earendil-works/pi-tui';
+import * as v from 'valibot';
 import type {
 	ModalBorderStyle,
 	ModalColor,
@@ -101,8 +102,8 @@ export function get_vertical_margin(
 export function get_terminal_rows(tui: {
 	terminal?: { rows?: number };
 }): number {
-	const rows = (tui as unknown as { terminal?: { rows?: number } })
-		.terminal?.rows;
+	const rows = (tui as { terminal?: { rows?: number } }).terminal
+		?.rows;
 
 	return rows ?? process.stdout.rows ?? 24;
 }
@@ -241,10 +242,39 @@ export type SettingsListInternals = {
 	searchInput?: { getValue(): string };
 };
 
+// Validate the SDK's current layout without cloning mutable setting items.
+const settings_list_internals_schema =
+	v.custom<SettingsListInternals>((value) =>
+		v.is(
+			v.object({
+				items: v.array(
+					v.object({
+						id: v.string(),
+						label: v.string(),
+						currentValue: v.string(),
+						values: v.optional(v.array(v.string())),
+					}),
+				),
+				filteredItems: v.array(
+					v.object({
+						id: v.string(),
+						label: v.string(),
+						currentValue: v.string(),
+						values: v.optional(v.array(v.string())),
+					}),
+				),
+				selectedIndex: v.number(),
+				searchEnabled: v.boolean(),
+				searchInput: v.optional(v.object({ getValue: v.function() })),
+			}),
+			value,
+		),
+	);
+
 export function get_selected_setting(
 	list: SettingsList,
 ): SettingItem | undefined {
-	const internals = list as unknown as SettingsListInternals;
+	const internals = v.parse(settings_list_internals_schema, list);
 
 	const items = internals.searchEnabled
 		? internals.filteredItems
@@ -256,7 +286,7 @@ export function get_selected_setting(
 export function has_active_settings_search(
 	list: SettingsList,
 ): boolean {
-	const internals = list as unknown as SettingsListInternals;
+	const internals = v.parse(settings_list_internals_schema, list);
 
 	return Boolean(internals.searchInput?.getValue());
 }

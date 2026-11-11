@@ -20,6 +20,7 @@ describe('context structured outputs', () => {
 		const previous = process.env.MY_PI_CONTEXT_DB;
 		process.env.MY_PI_CONTEXT_DB = join(dir, 'context.db');
 		const tools: ToolDefinition[] = [];
+		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 		register_context_tools({
 			registerTool: (tool: ToolDefinition) => tools.push(tool),
 		} as unknown as ExtensionAPI);

@@ -23,6 +23,7 @@ function setup(last_version?: string) {
 
 	const notify = vi.fn();
 
+	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
 	const ctx = {
 		mode: 'tui',
 		cwd: '/tmp',

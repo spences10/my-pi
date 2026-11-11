@@ -4,6 +4,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
+import {
+	list_row_schema,
+	search_row_schema,
+} from './store/row-schemas.js';
 import { get_context_capture_limits } from './config.js';
 import { parse_context_retention_policy } from './policy.js';
 import { apply_schema } from './schema.js';
@@ -44,9 +49,7 @@ import type {
 	ContextSearchResult,
 	ContextStats,
 	ContextStoreOptions,
-	ListRow,
 	ScopedFilter,
-	SearchRow,
 	StoreContextInput,
 	StoredContextOutput,
 } from './types.js';
@@ -439,8 +442,9 @@ export class ContextStore {
 			LIMIT ? OFFSET ?
 		`);
 
-		return (stmt.all(...params) as unknown as ListRow[]).map(
-			(row) => ({
+		return v
+			.parse(v.array(list_row_schema), stmt.all(...params))
+			.map((row) => ({
 				source_id: row.source_id,
 				created_at: row.created_at,
 				project_path: row.project_path,
@@ -452,8 +456,7 @@ export class ContextStore {
 				chunk_count: row.chunk_count,
 				first_chunk_title: row.first_chunk_title,
 				preview: row.preview,
-			}),
-		);
+			}));
 	}
 
 	search(
@@ -542,8 +545,9 @@ export class ContextStore {
 			LIMIT ?
 		`);
 
-		return (stmt.all(...params) as unknown as SearchRow[]).map(
-			(row) => ({
+		return v
+			.parse(v.array(search_row_schema), stmt.all(...params))
+			.map((row) => ({
 				source_id: row.id,
 				chunk_id: row.chunk_id,
 				ordinal: row.ordinal,
@@ -555,8 +559,7 @@ export class ContextStore {
 				lines: row.line_count,
 				rank: row.rank,
 				snippet: !options.full_content,
-			}),
-		);
+			}));
 	}
 
 	chunk_summary(

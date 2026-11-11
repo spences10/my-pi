@@ -36,13 +36,12 @@ describe('TeamDatabase coordination store', () => {
 				.mockImplementationOnce(() => {
 					throw busy_error;
 				})
-				.mockReturnValue({ changes: 1 });
+				.mockReturnValue({ changes: 1, lastInsertRowid: 0 });
 
-			(
-				db as unknown as {
-					statements: { mark_session_status: { run: typeof run } };
-				}
-			).statements.mark_session_status = { run };
+			vi.spyOn(
+				db.statements.mark_session_status,
+				'run',
+			).mockImplementation(run);
 
 			expect(() =>
 				db.mark_session_status('session-1', 'online'),

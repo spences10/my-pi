@@ -430,7 +430,7 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 						notify: (message: string) => {
 							warnings.push(message);
 						},
-					} as unknown as ExtensionUIContext,
+					} as ExtensionUIContext,
 				});
 				session.setActiveToolsByName([
 					'write',

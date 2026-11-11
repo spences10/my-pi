@@ -37,7 +37,7 @@ function fake_pi() {
 		registerCommand(name: string, command: RegisteredCommand) {
 			commands.set(name, command);
 		},
-	} as unknown as ExtensionAPI;
+	} as ExtensionAPI;
 
 	return { pi, commands };
 }

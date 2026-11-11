@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
 import { assistant_text } from './message-text.js';
 import type {
 	SessionTimeline,
@@ -26,6 +27,26 @@ export interface TimelineEventRow {
 	exit_code: number | null;
 	parent_tool_call_id: string | null;
 }
+
+const timeline_event_row_schema = v.object({
+	seq: v.number(),
+	ts: v.string(),
+	type: v.string(),
+	payload_json: v.string(),
+	model: v.nullable(v.string()),
+	tool_call_id: v.nullable(v.string()),
+	tool_name: v.nullable(v.string()),
+	is_error: v.nullable(v.number()),
+	duration_ms: v.nullable(v.number()),
+	stop_reason: v.nullable(v.string()),
+	input_tokens: v.nullable(v.number()),
+	output_tokens: v.nullable(v.number()),
+	cache_read_tokens: v.nullable(v.number()),
+	cost_usd: v.nullable(v.number()),
+	error_text: v.nullable(v.string()),
+	exit_code: v.nullable(v.number()),
+	parent_tool_call_id: v.nullable(v.string()),
+}) satisfies v.GenericSchema<TimelineEventRow>;
 
 const PREVIEW_CHARS = 160;
 
@@ -451,6 +472,9 @@ export function create_timeline_query(db: DatabaseSync) {
 
 	return (session_id: string): SessionTimeline =>
 		build_timeline(
-			statement.all({ session_id }) as unknown as TimelineEventRow[],
+			v.parse(
+				v.array(timeline_event_row_schema),
+				statement.all({ session_id }),
+			),
 		);
 }

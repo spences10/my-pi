@@ -45,7 +45,9 @@ process.stdin.on('data', (data) => {
 		buffer = buffer.slice(index + 1);
 
 		if (command.type === 'get_state') {
-			if (!process.argv.includes('--hang'))
+			if (process.argv.includes('--invalid-state'))
+				response(command, { sessionId: 123 });
+			else if (!process.argv.includes('--hang'))
 				response(command, {
 					sessionId: 'session-' + process.pid,
 					sessionFile: '/tmp/session-' + process.pid + '.jsonl',

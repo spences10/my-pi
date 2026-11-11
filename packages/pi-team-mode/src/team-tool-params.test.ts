@@ -13,7 +13,7 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 		expect(TEAM_ACTIONS).not.toContain('member_spawn' as never);
 		expect(
 			(
-				TeamToolParams as unknown as {
+				TeamToolParams as {
 					additionalProperties?: boolean;
 				}
 			).additionalProperties,
