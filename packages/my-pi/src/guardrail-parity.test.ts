@@ -47,6 +47,7 @@ type Case = {
 
 const effect = '<script>$effect(() => {});</script>';
 const derived = '<script>const value = $derived(count);</script>';
+
 const cases: Case[] = [
 	{
 		name: 'automatic naming blocks a new project write',
@@ -363,22 +364,27 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 					},
 				}),
 			);
+
 			const settings = SettingsManager.inMemory({
 				compaction: { enabled: false },
 				retry: { enabled: false },
 			});
+
 			const faux = fauxProvider({
 				provider: 'guardrail-parity',
 				tokensPerSecond: 1_000_000,
 			});
+
 			const runtime = await ModelRuntime.create({
 				authPath: join(dir, 'auth.json'),
 				modelsPath: null,
 				modelsStorePath: join(dir, 'models-cache.json'),
 				refreshOnCreate: false,
 			});
+
 			runtime.registerNativeProvider(faux.provider);
 			const calls: ToolCallEvent[] = [];
+
 			const loader = new DefaultResourceLoader({
 				cwd: dir,
 				agentDir: dir,
@@ -400,7 +406,9 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 					svelte_guardrails,
 				],
 			});
+
 			await loader.reload();
+
 			const { session } = await createAgentSession({
 				cwd: dir,
 				agentDir: dir,
@@ -412,6 +420,7 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 				tools: ['write', 'edit', 'bash', 'codemode'],
 				thinkingLevel: 'off',
 			});
+
 			try {
 				const errors: unknown[] = [];
 				const warnings: string[] = [];
@@ -429,12 +438,15 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 					'bash',
 					'codemode',
 				]);
+
 				const user_settings = JSON.parse(
 					readFileSync(join(dir, 'my-pi-settings.json'), 'utf8'),
 				);
+
 				for (const [index, test_case] of cases.entries()) {
 					const { name, tool, input, initial, expected, blocked } =
 						test_case;
+
 					writeFileSync(
 						join(dir, '.pi', 'svelte-guardrails.json'),
 						JSON.stringify({
@@ -442,11 +454,13 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 							allow: test_case.allow ?? [],
 						}),
 					);
+
 					const project_preferences = join(
 						dir,
 						'.pi',
 						'coding-preferences.json',
 					);
+
 					if (test_case.naming === undefined)
 						rmSync(project_preferences, { force: true });
 					else
@@ -465,10 +479,12 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 						}),
 					);
 					const target = test_case.file ?? input.path;
+
 					const path =
 						typeof target === 'string'
 							? join(dir, target)
 							: undefined;
+
 					if (path && initial !== undefined)
 						writeFileSync(path, initial);
 					const id = `call-${index}`;
@@ -486,25 +502,32 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 					calls.length = 0;
 					warnings.length = 0;
 					await session.prompt(name);
+
 					const result = session.messages
 						.filter((message) => message.role === 'toolResult')
 						.at(-1);
+
 					expect(result, name).toBeDefined();
+
 					if (result?.role !== 'toolResult')
 						throw new Error(`Missing tool result: ${name}`);
 					expect(result.isError, name).toBe(Boolean(blocked));
+
 					if (blocked)
 						expect(JSON.stringify(result.content), name).toContain(
 							blocked,
 						);
+
 					const mutations = calls.filter(
 						(call) => call.toolName === tool,
 					);
+
 					expect(mutations, name).toHaveLength(1);
 					expect(mutations[0]?.input, name).toEqual(input);
 					expect(mutations[0]?.parentToolCallId, name).toBe(
 						route === 'direct' ? undefined : id,
 					);
+
 					if (path) {
 						if (blocked && initial === undefined)
 							expect(existsSync(path), name).toBe(false);
@@ -513,9 +536,11 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 								blocked ? initial : (expected ?? input.content),
 							);
 					}
+
 					expect(warnings, name).toHaveLength(
 						test_case.warning ? 1 : 0,
 					);
+
 					if (test_case.warning) {
 						expect(warnings[0], name).toContain(
 							'This tool call is allowed',
@@ -524,6 +549,7 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 							'was not created or modified',
 						);
 					}
+
 					expect(errors, name).toEqual([]);
 				}
 			} finally {

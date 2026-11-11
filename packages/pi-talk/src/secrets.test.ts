@@ -19,6 +19,7 @@ describe('Talk secrets', () => {
 			mkdtempSync(join(tmpdir(), 'pi-talk-')),
 			'secrets.json',
 		);
+
 		expect(read_talk_secrets(path)).toEqual({
 			enabled: false,
 			apiKey: undefined,
@@ -30,6 +31,7 @@ describe('Talk secrets', () => {
 			mkdtempSync(join(tmpdir(), 'pi-talk-')),
 			'secrets.json',
 		);
+
 		write_talk_secrets({ enabled: true, apiKey: 'secret' }, path);
 		expect(read_talk_secrets(path)).toEqual({
 			enabled: true,
@@ -45,10 +47,13 @@ describe('Talk secrets', () => {
 			mkdtempSync(join(tmpdir(), 'pi-talk-')),
 			'secrets.json',
 		);
+
 		write_talk_secrets({ enabled: true, apiKey: 'secret' }, path);
+
 		const saved = JSON.parse(readFileSync(path, 'utf8')) as {
 			packages: Record<string, unknown>;
 		};
+
 		saved.packages.other = { token: 'keep' };
 		writeFileSync(path, JSON.stringify(saved));
 		write_talk_secrets({ enabled: false, apiKey: 'secret' }, path);

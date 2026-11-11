@@ -5,6 +5,7 @@ import { create_peer_message_delivery } from './coordination-formatting.js';
 import type { CoordinationInboxMessage } from './db/index.js';
 
 type Messages = ContextEvent['messages'];
+
 function receipt(
 	id: string,
 	complete = true,
@@ -24,6 +25,7 @@ function receipt(
 		acknowledged_at: complete ? '2026-01-02' : undefined,
 	};
 }
+
 function custom(inbox: CoordinationInboxMessage[]): Messages[number] {
 	return {
 		role: 'custom',
@@ -37,17 +39,21 @@ describe('completed coordination context projection', () => {
 		const inbox = Array.from({ length: 10 }, (_, i) =>
 			receipt(`m${i}`),
 		);
+
 		const messages: Messages = [
 			{ role: 'user', content: 'Start review', timestamp: 0 },
 			...inbox.map((message) => custom([message])),
 			{ role: 'user', content: 'Continue', timestamp: 1 },
 		];
+
 		const before = JSON.stringify(messages);
+
 		const projected = summarize_completed_peer_messages(
 			messages,
 			'receiver',
 			inbox,
 		);
+
 		expect(projected).toHaveLength(3);
 		expect(JSON.stringify(projected).length).toBeLessThan(
 			before.length / 2,
@@ -74,6 +80,7 @@ describe('completed coordination context projection', () => {
 		const pending = receipt('pending', false);
 		const mixed = custom([done, pending]);
 		const missing = custom([receipt('missing')]);
+
 		const foreign = {
 			...custom([done]),
 			details: {
@@ -81,12 +88,14 @@ describe('completed coordination context projection', () => {
 				recipient_session_id: 'other',
 			},
 		};
+
 		const messages: Messages = [
 			mixed,
 			missing,
 			foreign,
 			{ role: 'user', content: 'Approved', timestamp: 0 },
 		];
+
 		expect(
 			summarize_completed_peer_messages(messages, 'receiver', [
 				done,
@@ -98,6 +107,7 @@ describe('completed coordination context projection', () => {
 	it('does not alter tool result pairing or pending peer messages between completed messages', () => {
 		const done = receipt('done');
 		const pending = receipt('pending', false);
+
 		const tool: Messages[number] = {
 			role: 'toolResult',
 			toolCallId: 'call-1',
@@ -106,18 +116,22 @@ describe('completed coordination context projection', () => {
 			isError: false,
 			timestamp: 0,
 		};
+
 		const unresolved = custom([pending]);
+
 		const messages: Messages = [
 			custom([done]),
 			tool,
 			unresolved,
 			custom([done]),
 		];
+
 		const projected = summarize_completed_peer_messages(
 			messages,
 			'receiver',
 			[done, pending],
 		);
+
 		expect(projected).toHaveLength(3);
 		expect(projected[0]).toBe(tool);
 		expect(projected[1]).toBe(unresolved);

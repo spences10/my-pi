@@ -32,15 +32,19 @@ export function state_icon(state: FileState): string {
 
 export function status_code(file: GitFile): string {
 	const index = file.index_status === ' ' ? '·' : file.index_status;
+
 	const worktree =
 		file.worktree_status === ' ' ? '·' : file.worktree_status;
+
 	return `${index}${worktree}`;
 }
 
 export function state_counts(files: GitFile[]): string {
 	const counts = new Map<FileState, number>();
+
 	for (const file of files)
 		counts.set(file.state, (counts.get(file.state) ?? 0) + 1);
+
 	return (
 		['conflicted', 'changed', 'untracked', 'mixed', 'staged'] as const
 	)
@@ -60,16 +64,20 @@ export function key_is_down(data: string): boolean {
 export function strip_ansi(text: string): string {
 	const escape = String.fromCharCode(27);
 	let output = '';
+
 	for (let i = 0; i < text.length; i++) {
 		if (text[i] !== escape) {
 			output += text[i];
 			continue;
 		}
+
 		if (text[i + 1] !== '[') continue;
 		i += 2;
+
 		while (i < text.length && !is_ansi_final_byte(text.charCodeAt(i)))
 			i++;
 	}
+
 	return output;
 }
 
@@ -79,7 +87,9 @@ function is_ansi_final_byte(code: number): boolean {
 
 export function truncate_plain(text: string, width: number): string {
 	if (width <= 0) return '';
+
 	if (text.length <= width) return text;
+
 	return `${text.slice(0, Math.max(0, width - 1))}…`;
 }
 

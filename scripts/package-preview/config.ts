@@ -32,17 +32,20 @@ function object(
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		throw new Error(`${path} must be an object.`);
 	}
+
 	for (const key of Object.keys(value)) {
 		if (!keys.includes(key)) {
 			throw new Error(`Unknown property in ${path}: ${key}.`);
 		}
 	}
+
 	return value as Record<string, unknown>;
 }
 
 function single_line(value: string): boolean {
 	for (const char of value) {
 		const code = char.charCodeAt(0);
+
 		if (
 			code < 0x20 ||
 			(code >= 0x7f && code <= 0x9f) ||
@@ -51,6 +54,7 @@ function single_line(value: string): boolean {
 		)
 			return false;
 	}
+
 	return true;
 }
 
@@ -64,6 +68,7 @@ function text(value: unknown, path: string): string {
 			`${path} must be a single-line string of at most 240 characters.`,
 		);
 	}
+
 	return value;
 }
 
@@ -74,16 +79,19 @@ function color(value: unknown, path: string): string {
 	) {
 		throw new Error(`${path} must be a #RGB or #RRGGBB colour.`);
 	}
+
 	return value;
 }
 
 function gradient(value: unknown): string[] | null {
 	if (value === null) return null;
+
 	if (!Array.isArray(value) || value.length < 2 || value.length > 8) {
 		throw new Error(
 			'border.gradient must be null or an array of 2–8 colours.',
 		);
 	}
+
 	return value.map((stop: unknown, index) =>
 		color(stop, `border.gradient[${index}]`),
 	);
@@ -92,6 +100,7 @@ function gradient(value: unknown): string[] | null {
 function boolean(value: unknown, path: string): boolean {
 	if (typeof value !== 'boolean')
 		throw new Error(`${path} must be a boolean.`);
+
 	return value;
 }
 
@@ -111,6 +120,7 @@ function number(
 			`${path} must be a number between ${min} and ${max}.`,
 		);
 	}
+
 	return value;
 }
 
@@ -120,9 +130,11 @@ function rows(value: unknown): PreviewConfig['footer']['rows'] {
 			'footer.rows must be an array of at most 6 rows.',
 		);
 	}
+
 	return value.map((row: unknown, index) => {
 		const path = `footer.rows[${index}]`;
 		const parsed = object(row, path, ['left', 'right']);
+
 		return {
 			left: text(
 				parsed.left === undefined ? '' : parsed.left,
@@ -150,6 +162,7 @@ export function parse_preview_config(
 		'border',
 		'footer',
 	]);
+
 	const border = object(fallback(root.border, {}), 'border', [
 		'enabled',
 		'color',
@@ -157,6 +170,7 @@ export function parse_preview_config(
 		'radius',
 		'gradient',
 	]);
+
 	const footer = object(fallback(root.footer, {}), 'footer', [
 		'enabled',
 		'separator',
@@ -164,6 +178,7 @@ export function parse_preview_config(
 		'color',
 		'rows',
 	]);
+
 	return {
 		model: text(fallback(root.model, base?.model), 'model'),
 		project: text(fallback(root.project, base?.project), 'project'),
@@ -221,11 +236,13 @@ export function parse_preview_config(
 
 function read_config(path: string | URL): unknown {
 	let content: string;
+
 	try {
 		content = readFileSync(path, 'utf8');
 	} catch {
 		throw new Error(`Cannot read preview config: ${path.toString()}`);
 	}
+
 	try {
 		return JSON.parse(content) as unknown;
 	} catch {
@@ -239,6 +256,7 @@ export function load_preview_config(path?: string): PreviewConfig {
 	const defaults = parse_preview_config(
 		read_config(default_config_path),
 	);
+
 	return path === undefined
 		? defaults
 		: parse_preview_config(read_config(path), defaults);

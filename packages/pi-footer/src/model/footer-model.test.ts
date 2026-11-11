@@ -25,6 +25,7 @@ function cost_model(
 			cacheWrite: 0,
 			cost: { total: 0.1, totalFromProvider: flag },
 		};
+
 		if (index < 2)
 			return {
 				type: 'message',
@@ -33,11 +34,13 @@ function cost_model(
 					usage,
 				},
 			};
+
 		return {
 			type: index === 2 ? 'compaction' : 'branch_summary',
 			usage,
 		};
 	});
+
 	return build_footer_model(
 		make_context({
 			sessionManager: {
@@ -83,6 +86,7 @@ describe('build_footer_model', () => {
 
 	it('builds path, stats, model, and status data', () => {
 		process.env.HOME = '/home/scott';
+
 		const ctx = make_context({
 			sessionManager: {
 				getEntries: vi.fn(() => [
@@ -136,6 +140,7 @@ describe('build_footer_model', () => {
 				getSessionName: vi.fn(() => 'named'),
 			},
 		});
+
 		const footer_data = make_footer_data({
 			getExtensionStatuses: vi.fn(
 				() =>

@@ -19,12 +19,14 @@ export type DashboardEvent = ObservabilityEvent<
 function read_fragment_token(): string {
 	const fragment = new URLSearchParams(location.hash.slice(1));
 	const token = fragment.get('token') ?? '';
+
 	if (token)
 		history.replaceState(
 			null,
 			'',
 			`${location.pathname}${location.search}`,
 		);
+
 	return token;
 }
 
@@ -49,9 +51,12 @@ export async function api_fetch(
 	init: RequestInit = {},
 ): Promise<Response> {
 	const headers = new Headers(init.headers);
+
 	if (token) headers.set('authorization', `Bearer ${token}`);
 	const response = await fetch(path, { ...init, headers });
+
 	if (!response.ok) throw new ApiError(response.status);
+
 	return response;
 }
 
@@ -63,10 +68,12 @@ function query(
 	params: Record<string, string | number | null>,
 ): string {
 	const search = new URLSearchParams();
+
 	for (const [key, value] of Object.entries(params))
 		if (value !== null && value !== '')
 			search.set(key, String(value));
 	const text = search.toString();
+
 	return text ? `?${text}` : '';
 }
 

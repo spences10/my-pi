@@ -25,12 +25,16 @@ afterEach(() => {
 describe('package changelog delivery', () => {
 	it('ships the changelog in every published package with release notes', () => {
 		const packages_dir = join(package_root, '..');
+
 		for (const dir of readdirSync(packages_dir)) {
 			const root = join(packages_dir, dir);
+
 			if (!existsSync(join(root, 'CHANGELOG.md'))) continue;
+
 			const manifest = JSON.parse(
 				readFileSync(join(root, 'package.json'), 'utf8'),
 			);
+
 			if (manifest.private) continue;
 			expect(manifest.files, manifest.name).toContain('CHANGELOG.md');
 		}
@@ -39,15 +43,18 @@ describe('package changelog delivery', () => {
 	it('discovers installed extension changelogs through the upstream package loader', async () => {
 		const agent_dir = mkdtempSync(join(tmpdir(), 'my-pi-changelog-'));
 		agent_dirs.push(agent_dir);
+
 		const root = fileURLToPath(
 			new URL('../../pi-team-mode/', import.meta.url),
 		);
+
 		const loader = new DefaultResourceLoader({
 			cwd: agent_dir,
 			agentDir: agent_dir,
 			noContextFiles: true,
 			settingsManager: SettingsManager.inMemory({ packages: [root] }),
 		});
+
 		await loader.reload();
 		const loaded = loader.getExtensions();
 		expect(loaded.errors).toEqual([]);

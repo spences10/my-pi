@@ -48,6 +48,7 @@ import { trace_summary } from './trace-summary.js';
 import type { ObservabilityEvent } from './types.js';
 
 export { resolve_observability_server_options } from './options.js';
+
 export type {
 	ObservabilityServerOptions,
 	RunningObservabilityServer,
@@ -73,7 +74,9 @@ function bounded_limit(
 	maximum: number,
 ): number {
 	const parsed = Number(value ?? fallback);
+
 	if (!Number.isInteger(parsed) || parsed < 1) return fallback;
+
 	return Math.min(parsed, maximum);
 }
 
@@ -103,14 +106,18 @@ export function start_observability_server(
 		for (const sub of subscribers.values()) {
 			sub.res.end();
 		}
+
 		subscribers.clear();
 	}
 
 	function broadcast(event: ObservabilityEvent): void {
 		const frame = `event: event\ndata: ${JSON.stringify(event)}\n\n`;
+
 		for (const sub of subscribers.values()) {
 			if (sub.pool && sub.pool !== event.pool) continue;
+
 			if (sub.tag && !event.tags.includes(sub.tag)) continue;
+
 			if (sub.session_id && sub.session_id !== event.session_id)
 				continue;
 			write_subscriber(sub, frame);
@@ -128,7 +135,9 @@ export function start_observability_server(
 					options.max_events ?? 100_000,
 				).changes,
 			);
+
 		statements.delete_orphan_sessions.run();
+
 		// Return pages freed by retention to the OS so the file does not
 		// keep its peak size.
 		if (deleted > 0) db.exec('PRAGMA incremental_vacuum');
@@ -139,13 +148,16 @@ export function start_observability_server(
 	): ObservabilityEvent | null {
 		if (!valid_event(event)) return null;
 		const tags_json = JSON.stringify(event.tags ?? []);
+
 		const next_seq_row = statements.next_event_seq.get(
 			event.session_id,
 		) as { seq?: number } | undefined;
+
 		const server_event = {
 			...event,
 			seq: next_seq_row?.seq ?? 0,
 		};
+
 		const result = statements.insert_event.run(
 			server_event.event_id,
 			server_event.session_id,
@@ -161,6 +173,7 @@ export function start_observability_server(
 				derive_event_columns(server_event.type, server_event.payload),
 			),
 		);
+
 		if (result.changes === 0) return null;
 		statements.upsert_session.run(
 			server_event.session_id,
@@ -175,35 +188,43 @@ export function start_observability_server(
 			server_event.ts,
 			tags_json,
 		);
+
 		if (
 			server_event.type === 'session_info_changed' &&
 			server_event.session_name === undefined
 		) {
 			statements.clear_session_name.run(server_event.session_id);
 		}
+
 		return server_event;
 	}
 
 	const server = createServer(async (req, res) => {
 		try {
 			if (!req.url) return json(res, 400, { error: 'missing url' });
+
 			const req_url = new URL(
 				req.url,
 				`http://${options.host}:${options.port}`,
 			);
+
 			if (req.method === 'OPTIONS') return json(res, 200, {});
+
 			if (req_url.pathname === '/health') {
 				const challenge = req_url.searchParams.get('challenge');
+
 				if (!valid_health_challenge(challenge)) {
 					return json(res, 400, {
 						error: 'valid health challenge required',
 					});
 				}
+
 				return json(res, 200, {
 					ok: true,
 					proof: create_health_proof(token, challenge),
 				});
 			}
+
 			if (req_url.pathname === '/') {
 				return text(
 					res,
@@ -212,7 +233,9 @@ export function start_observability_server(
 					render_dashboard(options.db_path),
 				);
 			}
+
 			const asset = read_dashboard_asset(req_url.pathname);
+
 			if (asset) {
 				return binary(
 					res,
@@ -221,11 +244,14 @@ export function start_observability_server(
 					asset,
 				);
 			}
+
 			if (!is_authorized(token, req.headers.authorization)) {
 				return json(res, 401, { error: 'unauthorized' });
 			}
+
 			if (req_url.pathname === '/events' && req.method === 'POST') {
 				let parsed: unknown;
+
 				try {
 					parsed = JSON.parse(
 						await read_body(
@@ -240,18 +266,25 @@ export function start_observability_server(
 							max_bytes: error.max_bytes,
 						});
 					}
+
 					return json(res, 400, { error: 'invalid json' });
 				}
+
 				const events = Array.isArray(parsed) ? parsed : [parsed];
+
 				const ingested_events = with_sqlite_transaction(
 					db,
 					() => {
 						const attempt_events: ObservabilityEvent[] = [];
+
 						for (const event of events) {
 							const server_event = ingest(event);
+
 							if (server_event) attempt_events.push(server_event);
 						}
+
 						if (attempt_events.length > 0) prune_events();
+
 						return attempt_events;
 					},
 					{
@@ -259,31 +292,41 @@ export function start_observability_server(
 						operation: 'Ingest observability events',
 					},
 				);
+
 				for (const event of ingested_events) broadcast(event);
+
 				return json(res, 200, {
 					ingested: ingested_events.length,
 					rejected: events.length - ingested_events.length,
 				});
 			}
+
 			if (req_url.pathname === '/sessions') {
 				const limit = bounded_limit(
 					req_url.searchParams.get('limit'),
 					100,
 					500,
 				);
+
 				const pool = req_url.searchParams.get('pool') ?? '';
+
 				const rows = statements.list_sessions.all(
 					pool,
 					pool,
 					limit,
 				) as Record<string, unknown>[];
+
 				const tag = req_url.searchParams.get('tag');
+
 				const sessions = rows.map(to_session_row).filter((row) => {
 					if (!tag) return true;
+
 					return row.tags?.includes(tag);
 				});
+
 				return json(res, 200, { sessions });
 			}
+
 			if (req_url.pathname === '/stats/overview') {
 				return json(
 					res,
@@ -294,6 +337,7 @@ export function start_observability_server(
 					),
 				);
 			}
+
 			if (req_url.pathname === '/stats/tools') {
 				return json(res, 200, {
 					tools: stats.tool_stats(
@@ -301,6 +345,7 @@ export function start_observability_server(
 					),
 				});
 			}
+
 			if (req_url.pathname === '/stats/sessions') {
 				return json(res, 200, {
 					sessions: stats.session_stats(
@@ -313,6 +358,7 @@ export function start_observability_server(
 					),
 				});
 			}
+
 			if (req_url.pathname === '/stats/failures') {
 				return json(res, 200, {
 					failures: stats.failures(
@@ -321,9 +367,11 @@ export function start_observability_server(
 					),
 				});
 			}
+
 			const session_route = req_url.pathname.match(
 				/^\/sessions\/([^/]+)\/(events|trace|spans|timeline)$/,
 			);
+
 			if (session_route?.[2] === 'timeline') {
 				return json(
 					res,
@@ -331,6 +379,7 @@ export function start_observability_server(
 					timeline(decodeURIComponent(session_route[1])),
 				);
 			}
+
 			if (session_route?.[2] === 'spans') {
 				return json(
 					res,
@@ -338,38 +387,50 @@ export function start_observability_server(
 					stats.session_spans(decodeURIComponent(session_route[1])),
 				);
 			}
+
 			if (session_route) {
 				const session_id = decodeURIComponent(session_route[1]);
 				const is_trace = session_route[2] === 'trace';
+
 				const limit = bounded_limit(
 					req_url.searchParams.get('limit'),
 					is_trace ? MAX_TRACE_EVENTS : 500,
 					is_trace ? MAX_TRACE_EVENTS : 1000,
 				);
+
 				const rows = statements.list_events.all(
 					session_id,
 					limit,
 				) as Record<string, unknown>[];
+
 				const events = rows.map(to_row_event);
+
 				if (!is_trace) return json(res, 200, { events });
+
 				const session_row = statements.get_session.get(session_id) as
 					| Record<string, unknown>
 					| undefined;
+
 				const session = session_row
 					? to_session_row(session_row)
 					: null;
+
 				return json(res, 200, trace_summary(session, events));
 			}
+
 			if (req_url.pathname === '/events/search') {
 				const query = req_url.searchParams.get('q') ?? '';
 				const type = req_url.searchParams.get('type') ?? '';
+
 				const session_id =
 					req_url.searchParams.get('session_id') ?? '';
+
 				const limit = bounded_limit(
 					req_url.searchParams.get('limit'),
 					200,
 					1000,
 				);
+
 				const rows = statements.search_events.all(
 					session_id,
 					session_id,
@@ -379,8 +440,10 @@ export function start_observability_server(
 					query ? `%${query}%` : '',
 					limit,
 				) as Record<string, unknown>[];
+
 				return json(res, 200, { events: rows.map(to_row_event) });
 			}
+
 			if (req_url.pathname === '/events/stream') {
 				res.writeHead(200, {
 					'content-type': 'text/event-stream',
@@ -402,8 +465,10 @@ export function start_observability_server(
 					'retry: 2000\nevent: hello\ndata: {}\n\n',
 				);
 				req.on('close', () => subscribers.delete(id));
+
 				return;
 			}
+
 			return json(res, 404, { error: 'not found' });
 		} catch (error) {
 			return json(res, error instanceof SqliteBusyError ? 503 : 500, {
@@ -427,14 +492,17 @@ export function start_observability_server(
 			console.error(
 				`My-Pi observability port ${options.port} is already in use.`,
 			);
+
 			if (owner) console.error(`Port owner:\n${owner}`);
 			console.error(
 				'Stop the owner or set MY_PI_OBSERVABILITY_PORT to a free port.',
 			);
 		}
+
 		clearInterval(heartbeat);
 		close_subscribers();
 		db.close();
+
 		if (options.throw_on_listen_error !== false) throw error;
 	});
 

@@ -156,6 +156,7 @@ export function resolve_server_command_info(
 
 	for (const dir of ancestor_directories(cwd)) {
 		const local_bin = resolve_local_binary(dir, command);
+
 		if (local_bin) {
 			return { command: local_bin, is_project_local: true };
 		}
@@ -181,8 +182,10 @@ export function get_server_config(
 	} = {},
 ): LspServerConfig | undefined {
 	const base = LANGUAGE_SERVERS[language];
+
 	if (!base) return undefined;
 	const allow_project_local = options.allow_project_local ?? true;
+
 	if (language === 'python') {
 		return resolve_python_server(
 			cwd,
@@ -190,15 +193,19 @@ export function get_server_config(
 			allow_project_local,
 		);
 	}
+
 	if (language === 'typescript') {
 		const native = allow_project_local
 			? resolve_native_typescript_server(cwd)
 			: undefined;
+
 		if (native) return native;
+
 		if (!allow_project_local || !has_project_typescript(cwd)) {
 			const global_major =
 				options.global_typescript_major?.() ??
 				resolve_global_typescript_major();
+
 			if (global_major !== undefined && global_major >= 7) {
 				return {
 					language: 'typescript',
@@ -212,9 +219,11 @@ export function get_server_config(
 			}
 		}
 	}
+
 	const resolved = allow_project_local
 		? resolve_server_command_info(base.command, cwd)
 		: { command: base.command, is_project_local: false };
+
 	return {
 		...base,
 		command: resolved.command,
@@ -233,16 +242,19 @@ export function find_workspace_root(
 	fallback: string = process.cwd(),
 ): string {
 	const start = resolve(dirname(file_path));
+
 	const project_root = find_nearest_marker_directory(
 		start,
 		WORKSPACE_MARKERS,
 	);
+
 	if (project_root) return project_root;
 
 	const repo_root = find_nearest_marker_directory(
 		start,
 		REPOSITORY_MARKERS,
 	);
+
 	if (repo_root) return repo_root;
 
 	return resolve(fallback);
@@ -257,18 +269,22 @@ function find_nearest_marker_directory(
 			return dir;
 		}
 	}
+
 	return undefined;
 }
 
 function ancestor_directories(start: string): string[] {
 	const dirs: string[] = [];
 	let current = resolve(start);
+
 	while (true) {
 		dirs.push(current);
 		const parent = dirname(current);
+
 		if (parent === current) break;
 		current = parent;
 	}
+
 	return dirs;
 }
 
@@ -278,8 +294,10 @@ function resolve_global_typescript_major(): number | undefined {
 		timeout: 2_000,
 		windowsHide: true,
 	});
+
 	if (result.status !== 0) return undefined;
 	const match = /Version\s+(\d+)/.exec(result.stdout);
+
 	return match ? Number.parseInt(match[1], 10) : undefined;
 }
 
@@ -298,17 +316,21 @@ function resolve_native_typescript_server(
 		const package_dir = join(dir, 'node_modules', 'typescript');
 		const package_json = join(package_dir, 'package.json');
 		const command = resolve_local_binary(dir, 'tsc');
+
 		if (!command || !existsSync(package_json)) continue;
+
 		try {
 			const manifest = JSON.parse(
 				readFileSync(package_json, 'utf8'),
 			) as {
 				version?: string;
 			};
+
 			const major = Number.parseInt(
 				manifest.version?.split('.')[0] ?? '',
 				10,
 			);
+
 			if (
 				major >= 7 &&
 				!existsSync(join(package_dir, 'lib', 'tsserver.js'))
@@ -327,6 +349,7 @@ function resolve_native_typescript_server(
 			continue;
 		}
 	}
+
 	return undefined;
 }
 
@@ -338,6 +361,7 @@ function resolve_local_binary(
 		join(directory, 'node_modules', '.bin', command),
 		join(directory, 'node_modules', '.bin', `${command}.cmd`),
 	];
+
 	return candidates.find((candidate) => existsSync(candidate));
 }
 
@@ -367,6 +391,7 @@ const PYTHON_SERVERS = {
 >;
 
 type PythonServer = keyof typeof PYTHON_SERVERS;
+
 const TYPE_CHECKING_SERVERS: PythonServer[] = [
 	'basedpyright',
 	'pyright',
@@ -378,22 +403,28 @@ function resolve_python_server(
 	allow_project_local = true,
 ): LspServerConfig {
 	const selection = env[PYTHON_SERVER_ENV]?.trim() || 'auto';
+
 	if (selection !== 'auto') {
 		if (!Object.hasOwn(PYTHON_SERVERS, selection)) {
 			throw new Error(
 				`${PYTHON_SERVER_ENV} must be auto, pylsp, basedpyright, or pyright (received ${JSON.stringify(selection)}).`,
 			);
 		}
+
 		const backend = selection as PythonServer;
+
 		const config =
 			(allow_project_local && find_local_server(cwd, [backend])) ||
 			find_path_server(cwd, env, [backend], allow_project_local);
+
 		if (config) return config;
+
 		if (!allow_project_local) {
 			throw new Error(
 				`No ${backend} server on PATH outside the project. ${PYTHON_SERVERS[backend].install_hint}`,
 			);
 		}
+
 		return server_config(backend);
 	}
 
@@ -409,12 +440,15 @@ function resolve_python_server(
 			TYPE_CHECKING_SERVERS,
 			allow_project_local,
 		);
+
 	if (config) return config;
+
 	if (!allow_project_local) {
 		throw new Error(
 			`No Python language server on PATH outside the project. ${PYTHON_SERVERS.pylsp.install_hint}`,
 		);
 	}
+
 	return server_config('pylsp');
 }
 
@@ -444,10 +478,12 @@ function find_local_server(
 					bin_directory,
 					PYTHON_SERVERS[backend].command,
 				);
+
 				if (command) return server_config(backend, command, true);
 			}
 		}
 	}
+
 	return undefined;
 }
 
@@ -465,7 +501,9 @@ function find_path_server(
 				directory,
 				PYTHON_SERVERS[backend].command,
 			);
+
 			if (!command) continue;
+
 			const is_project_local = ancestor_directories(cwd).some(
 				(directory) =>
 					python_bin_directories(directory).some((bin_directory) => {
@@ -473,16 +511,20 @@ function find_path_server(
 							bin_directory,
 							PYTHON_SERVERS[backend].command,
 						);
+
 						return (
 							local !== undefined &&
 							realpathSync(local) === realpathSync(command)
 						);
 					}),
 			);
+
 			if (is_project_local && !allow_project_local) continue;
+
 			return server_config(backend, command, is_project_local);
 		}
 	}
+
 	return undefined;
 }
 
@@ -504,15 +546,19 @@ function find_executable(
 	// Windows shell wrappers cannot be launched by the client's shell-free spawn.
 	const extensions =
 		process.platform === 'win32' ? ['.exe', ''] : [''];
+
 	for (const extension of extensions) {
 		const path = resolve(directory, command + extension);
+
 		try {
 			if (!statSync(path).isFile()) continue;
 			accessSync(path, constants.X_OK);
+
 			return path;
 		} catch {
 			// Missing, broken, or non-executable candidates must not block discovery.
 		}
 	}
+
 	return undefined;
 }

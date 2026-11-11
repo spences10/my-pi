@@ -27,13 +27,17 @@ describe('native Pi telemetry lifecycle', () => {
 			const cwd = mkdtempSync(
 				join(tmpdir(), 'pi-telemetry-lifecycle-'),
 			);
+
 			vi.stubEnv('PI_CODING_AGENT_DIR', cwd);
 			vi.stubEnv('PI_OFFLINE', '1');
 			const db_path = join(cwd, 'telemetry.db');
+
 			let session:
 				| Awaited<ReturnType<typeof createAgentSession>>['session']
 				| undefined;
+
 			let database: TelemetryDatabase | undefined;
+
 			try {
 				const core = createFauxCore({
 					provider: 'telemetry-test',
@@ -41,10 +45,12 @@ describe('native Pi telemetry lifecycle', () => {
 					models: [{ id: 'test' }],
 					tokensPerSecond: 1000000,
 				});
+
 				const task = {
 					eval_suite: 'repeatable',
 					eval_case_id: 'check-links',
 				};
+
 				const call = (action: string) =>
 					fauxAssistantMessage(
 						mode === 'direct'
@@ -54,6 +60,7 @@ describe('native Pi telemetry lifecycle', () => {
 								}),
 						{ stopReason: 'toolUse' },
 					);
+
 				core.setResponses([
 					call('on'),
 					call('query'),
@@ -61,21 +68,25 @@ describe('native Pi telemetry lifecycle', () => {
 					call('query'),
 					fauxAssistantMessage('Reviewed the completed recording.'),
 				]);
+
 				const settings = SettingsManager.inMemory({
 					compaction: { enabled: false },
 					retry: { enabled: false },
 				});
+
 				const runtime = await ModelRuntime.create({
 					authPath: join(cwd, 'auth.json'),
 					modelsPath: null,
 					modelsStorePath: join(cwd, 'models-cache.json'),
 					refreshOnCreate: false,
 				});
+
 				const snapshots: Array<{
 					active_run_id: string | null;
 					stop_pending: boolean;
 					runs: TelemetryRunSummary[];
 				}> = [];
+
 				const loader = new DefaultResourceLoader({
 					cwd,
 					agentDir: cwd,
@@ -109,14 +120,17 @@ describe('native Pi telemetry lifecycle', () => {
 							});
 							pi.on('tool_execution_end', (event) => {
 								if (!query_ids.has(event.toolCallId)) return;
+
 								const result = event.result as {
 									content: Array<{ text: string }>;
 								};
+
 								snapshots.push(JSON.parse(result.content[0]!.text));
 							});
 						},
 					],
 				});
+
 				await loader.reload();
 				({ session } = await createAgentSession({
 					cwd,
@@ -163,6 +177,7 @@ describe('native Pi telemetry lifecycle', () => {
 					tool_call_count: mode === 'direct' ? 2 : 4,
 				});
 				database = await TelemetryDatabase.open(db_path);
+
 				for (const table of ['turns', 'tool_calls']) {
 					expect(
 						database.read_rows(
@@ -170,6 +185,7 @@ describe('native Pi telemetry lifecycle', () => {
 						),
 					).toEqual([]);
 				}
+
 				expect(database.query_runs()).toHaveLength(1);
 				expect(load_telemetry_config().enabled).toBe(false);
 			} finally {

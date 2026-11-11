@@ -32,11 +32,13 @@ type RegisteredCommand = {
 
 function fake_pi() {
 	const commands = new Map<string, RegisteredCommand>();
+
 	const pi = {
 		registerCommand(name: string, command: RegisteredCommand) {
 			commands.set(name, command);
 		},
 	} as unknown as ExtensionAPI;
+
 	return { pi, commands };
 }
 

@@ -4,6 +4,7 @@ import { CoordinationPoller } from './coordination-poller.js';
 describe('CoordinationPoller', () => {
 	it('throttles heartbeat writes while still checking inbox', () => {
 		vi.useFakeTimers();
+
 		try {
 			const db = {
 				heartbeat_session: vi.fn(),
@@ -11,11 +12,13 @@ describe('CoordinationPoller', () => {
 				mark_messages_delivered: vi.fn(),
 				mark_messages_read: vi.fn(),
 			};
+
 			const poller = new CoordinationPoller({
 				db: db,
 				get_session_id: () => 'session-1',
 				should_auto_inject_messages: () => true,
 			});
+
 			const pi = { sendMessage: vi.fn() };
 
 			poller.poll(pi);
@@ -46,18 +49,21 @@ describe('CoordinationPoller', () => {
 			metadata: {},
 			receipt_created_at: '2026-07-21T00:00:00.000Z',
 		};
+
 		const db = {
 			heartbeat_session: vi.fn(),
 			list_auto_inbox: vi.fn(() => [message]),
 			mark_messages_delivered: vi.fn(),
 			mark_messages_read: vi.fn(),
 		};
+
 		const poller = new CoordinationPoller({
 			db: db,
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 			is_agent_active: () => true,
 		});
+
 		const pi = { sendMessage: vi.fn() };
 
 		poller.poll(pi);
@@ -73,6 +79,7 @@ describe('CoordinationPoller', () => {
 			code: 'ERR_SQLITE_ERROR',
 			errcode: 5,
 		});
+
 		const db = {
 			heartbeat_session: vi.fn(() => {
 				throw error;
@@ -81,11 +88,13 @@ describe('CoordinationPoller', () => {
 			mark_messages_delivered: vi.fn(),
 			mark_messages_read: vi.fn(),
 		};
+
 		const poller = new CoordinationPoller({
 			db: db,
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
+
 		const pi = { sendMessage: vi.fn() };
 
 		expect(() => poller.poll(pi)).not.toThrow();
@@ -101,11 +110,13 @@ describe('CoordinationPoller', () => {
 			mark_messages_delivered: vi.fn(),
 			mark_messages_read: vi.fn(),
 		};
+
 		const poller = new CoordinationPoller({
 			db: db,
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
+
 		const pi = { sendMessage: vi.fn() };
 
 		expect(() => poller.poll(pi)).toThrow('boom');
@@ -125,6 +136,7 @@ describe('CoordinationPoller', () => {
 			metadata: {},
 			receipt_created_at: '2026-07-21T00:00:00.000Z',
 		};
+
 		const db = {
 			heartbeat_session: vi.fn(),
 			list_auto_inbox: vi.fn(() => [message]),
@@ -132,11 +144,13 @@ describe('CoordinationPoller', () => {
 			mark_messages_read: vi.fn(),
 			create_artifact: vi.fn(),
 		};
+
 		const poller = new CoordinationPoller({
 			db,
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
+
 		const pi = { sendMessage: vi.fn() };
 
 		poller.poll(pi);
@@ -171,17 +185,20 @@ describe('CoordinationPoller', () => {
 			metadata: {},
 			receipt_created_at: '2026-07-21T00:00:00.000Z',
 		};
+
 		const db = {
 			heartbeat_session: vi.fn(),
 			list_auto_inbox: vi.fn(() => [message]),
 			mark_messages_delivered: vi.fn(),
 			mark_messages_read: vi.fn(),
 		};
+
 		const poller = new CoordinationPoller({
 			db: db,
 			get_session_id: () => 'session-1',
 			should_auto_inject_messages: () => true,
 		});
+
 		const pi = { sendMessage: vi.fn() };
 
 		poller.poll(pi);

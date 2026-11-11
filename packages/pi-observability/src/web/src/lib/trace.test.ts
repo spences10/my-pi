@@ -16,8 +16,10 @@ function span(
 	error = false,
 ): TimelineSpan {
 	let kind: TimelineSpan['kind'] = 'tool';
+
 	if (id.startsWith('run')) kind = 'run';
 	else if (id.startsWith('turn')) kind = 'turn';
+
 	return {
 		id,
 		kind,
@@ -43,10 +45,12 @@ function span(
 }
 
 const failing_tool = span('tool:b', 300, 400, [], true);
+
 const run = span('run:1', 0, 1_000, [
 	span('turn:1', 0, 500, [span('tool:a', 100, 200), failing_tool]),
 	span('turn:2', 500, 1_000, [span('tool:c', 600, 700)]),
 ]);
+
 const runs = [
 	run,
 	span('run:2', 2_000, 3_000, [span('turn:3', 2_000, 2_500)]),

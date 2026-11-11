@@ -38,6 +38,7 @@ describe('derive_event_columns', () => {
 				},
 			},
 		};
+
 		expect(
 			derive_event_columns('message_end', payload),
 		).toMatchObject({
@@ -70,6 +71,7 @@ describe('derive_event_columns', () => {
 			truncated: true,
 			preview: '{"toolName":"bash"',
 		});
+
 		expect(event_column_values(columns)).toEqual(
 			EVENT_COLUMN_NAMES.map(() => null),
 		);

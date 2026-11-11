@@ -25,7 +25,9 @@ const CONTROL_OPERATORS = new Set([
 	'{',
 	'}',
 ]);
+
 const REDIRECT_OPERATORS = new Set(['>', '>|', '1>', '2>', '&>']);
+
 const LEADING_SHELL_KEYWORDS = new Set([
 	'!',
 	'do',
@@ -37,6 +39,7 @@ const LEADING_SHELL_KEYWORDS = new Set([
 	'until',
 	'while',
 ]);
+
 const SIMPLE_WRAPPERS = new Set(['command', 'exec', 'nohup']);
 const SHELL_COMMANDS = new Set(['bash', 'dash', 'ksh', 'sh', 'zsh']);
 const RUNNERS = new Set(['bunx', 'npx', 'pnpx']);
@@ -53,24 +56,30 @@ function heredoc_delimiters(line: string): HeredocDelimiter[] {
 
 	for (let index = 0; index < line.length; index += 1) {
 		const character = line[index];
+
 		if (character === '\\') {
 			index += 1;
 			continue;
 		}
+
 		if (character === "'" && !double_quoted) {
 			single_quoted = !single_quoted;
 			continue;
 		}
+
 		if (character === '"' && !single_quoted) {
 			double_quoted = !double_quoted;
 			continue;
 		}
+
 		if (single_quoted || double_quoted) continue;
+
 		if (
 			character === '#' &&
 			(index === 0 || /\s/.test(line[index - 1]))
 		)
 			break;
+
 		if (
 			character !== '<' ||
 			line[index + 1] !== '<' ||
@@ -81,13 +90,17 @@ function heredoc_delimiters(line: string): HeredocDelimiter[] {
 
 		index += 2;
 		const strip_tabs = line[index] === '-';
+
 		if (strip_tabs) index += 1;
+
 		while (/\s/.test(line[index] ?? '')) index += 1;
 
 		let value = '';
 		let quoted: "'" | '"' | undefined;
+
 		for (; index < line.length; index += 1) {
 			const delimiter_character = line[index];
+
 			if (quoted) {
 				if (delimiter_character === quoted) {
 					quoted = undefined;
@@ -96,8 +109,10 @@ function heredoc_delimiters(line: string): HeredocDelimiter[] {
 				} else {
 					value += delimiter_character;
 				}
+
 				continue;
 			}
+
 			if (
 				delimiter_character === "'" ||
 				delimiter_character === '"'
@@ -105,10 +120,12 @@ function heredoc_delimiters(line: string): HeredocDelimiter[] {
 				quoted = delimiter_character;
 				continue;
 			}
+
 			if (delimiter_character === '\\') {
 				if (index + 1 < line.length) value += line[++index];
 				continue;
 			}
+
 			if (
 				/\s/.test(delimiter_character) ||
 				';&|()<>'.includes(delimiter_character)
@@ -116,6 +133,7 @@ function heredoc_delimiters(line: string): HeredocDelimiter[] {
 				break;
 			value += delimiter_character;
 		}
+
 		if (value) delimiters.push({ value, strip_tabs });
 	}
 
@@ -124,18 +142,24 @@ function heredoc_delimiters(line: string): HeredocDelimiter[] {
 
 function strip_heredoc_bodies(command: string): string {
 	const pending: HeredocDelimiter[] = [];
+
 	return command
 		.split(/\r?\n/)
 		.map((line) => {
 			const active = pending[0];
+
 			if (active) {
 				const candidate = active.strip_tabs
 					? line.replace(/^\t+/, '')
 					: line;
+
 				if (candidate === active.value) pending.shift();
+
 				return '';
 			}
+
 			pending.push(...heredoc_delimiters(line));
+
 			return line;
 		})
 		.join('\n');
@@ -156,9 +180,12 @@ function tokenize_shell(command: string): ShellToken[] {
 
 		if (character === "'" || character === '"') {
 			const quote = character;
+
 			for (index += 1; index < command.length; index += 1) {
 				const quoted = command[index];
+
 				if (quoted === quote) break;
+
 				if (
 					quote === '"' &&
 					quoted === '\\' &&
@@ -168,8 +195,10 @@ function tokenize_shell(command: string): ShellToken[] {
 					index += 1;
 					continue;
 				}
+
 				word += quoted;
 			}
+
 			continue;
 		}
 
@@ -181,9 +210,11 @@ function tokenize_shell(command: string): ShellToken[] {
 
 		if (character === '\n' || character === '\r') {
 			flush_word();
+
 			if (tokens.at(-1)?.value !== '\n') {
 				tokens.push({ kind: 'operator', value: '\n' });
 			}
+
 			if (character === '\r' && command[index + 1] === '\n')
 				index += 1;
 			continue;
@@ -198,6 +229,7 @@ function tokenize_shell(command: string): ShellToken[] {
 			flush_word();
 			let operator = character;
 			const next = command[index + 1];
+
 			if (
 				(character === '&' && (next === '&' || next === '>')) ||
 				(character === '|' && (next === '|' || next === '>')) ||
@@ -207,7 +239,9 @@ function tokenize_shell(command: string): ShellToken[] {
 				operator += next;
 				index += 1;
 			}
+
 			const previous = tokens.at(-1);
+
 			if (
 				operator === '>' &&
 				previous?.kind === 'word' &&
@@ -216,6 +250,7 @@ function tokenize_shell(command: string): ShellToken[] {
 				operator = `${previous.value}>`;
 				tokens.pop();
 			}
+
 			tokens.push({ kind: 'operator', value: operator });
 			continue;
 		}
@@ -224,6 +259,7 @@ function tokenize_shell(command: string): ShellToken[] {
 	}
 
 	flush_word();
+
 	return tokens;
 }
 
@@ -241,13 +277,18 @@ function skip_options(
 	options_with_values: ReadonlySet<string> = new Set(),
 ): number {
 	let index = start;
+
 	while (index < words.length) {
 		const word = words[index];
+
 		if (word === '--') return index + 1;
+
 		if (!word.startsWith('-') || word === '-') return index;
+
 		if (options_with_values.has(word)) index += 1;
 		index += 1;
 	}
+
 	return index;
 }
 
@@ -255,6 +296,7 @@ function unwrap_command(
 	words: string[],
 ): ShellInvocation | undefined {
 	let index = 0;
+
 	while (
 		index < words.length &&
 		(LEADING_SHELL_KEYWORDS.has(words[index].toLowerCase()) ||
@@ -267,6 +309,7 @@ function unwrap_command(
 		while (index < words.length && is_assignment(words[index]))
 			index += 1;
 		const current = command_name(words[index] ?? '');
+
 		if (!current) return undefined;
 
 		if (current === 'sudo') {
@@ -295,6 +338,7 @@ function unwrap_command(
 			);
 			continue;
 		}
+
 		if (current === 'env') {
 			index = skip_options(
 				words,
@@ -308,22 +352,27 @@ function unwrap_command(
 					'--unset',
 				]),
 			);
+
 			while (index < words.length && is_assignment(words[index]))
 				index += 1;
 			continue;
 		}
+
 		if (SIMPLE_WRAPPERS.has(current)) {
 			index = skip_options(words, index + 1);
 			continue;
 		}
+
 		if (current === 'time') {
 			index = skip_options(words, index + 1, new Set(['-f', '-o']));
 			continue;
 		}
+
 		if (RUNNERS.has(current)) {
 			index = skip_options(words, index + 1);
 			continue;
 		}
+
 		if (current === 'nice') {
 			index = skip_options(
 				words,
@@ -332,6 +381,7 @@ function unwrap_command(
 			);
 			continue;
 		}
+
 		if (current === 'ionice') {
 			index = skip_options(
 				words,
@@ -351,6 +401,7 @@ function unwrap_command(
 			);
 			continue;
 		}
+
 		if (current === 'stdbuf') {
 			index = skip_options(
 				words,
@@ -359,16 +410,20 @@ function unwrap_command(
 			);
 			continue;
 		}
+
 		if (current === 'setsid' || current === 'busybox') {
 			index = skip_options(words, index + 1);
 			continue;
 		}
+
 		if (current === 'pnpm' && words[index + 1] === 'exec') {
 			index = skip_options(words, index + 2);
 			continue;
 		}
+
 		if (current === 'git') {
 			const args = words.slice(index + 1);
+
 			const command_index = skip_options(
 				args,
 				0,
@@ -382,6 +437,7 @@ function unwrap_command(
 					'--work-tree',
 				]),
 			);
+
 			return { command: current, args: args.slice(command_index) };
 		}
 
@@ -395,25 +451,33 @@ function xargs_command(args: string[]): ShellInvocation | undefined {
 		0,
 		new Set(['-a', '-d', '-E', '-I', '-L', '-n', '-P', '-s']),
 	);
+
 	while (index < args.length && is_assignment(args[index]))
 		index += 1;
+
 	return unwrap_command(args.slice(index));
 }
 
 function nested_find_commands(args: string[]): ShellInvocation[] {
 	const nested: ShellInvocation[] = [];
+
 	for (let index = 0; index < args.length; index += 1) {
 		if (args[index] !== '-exec' && args[index] !== '-execdir')
 			continue;
+
 		const end = args.findIndex(
 			(word, candidate) =>
 				candidate > index && (word === ';' || word === '+'),
 		);
+
 		const words = args.slice(index + 1, end === -1 ? undefined : end);
 		const invocation = unwrap_command(words);
+
 		if (invocation) nested.push(...expand_invocation(invocation));
+
 		if (end !== -1) index = end;
 	}
+
 	return nested;
 }
 
@@ -421,27 +485,35 @@ function expand_invocation(
 	invocation: ShellInvocation,
 ): ShellInvocation[] {
 	const invocations = [invocation];
+
 	if (SHELL_COMMANDS.has(invocation.command)) {
 		const command_index = invocation.args.findIndex(
 			(arg) => arg === '--command' || /^-[^-]*c/.test(arg),
 		);
+
 		const payload = invocation.args[command_index + 1];
+
 		if (command_index !== -1 && payload) {
 			invocations.push(...extract_shell_invocations(payload));
 		}
 	}
+
 	if (invocation.command === 'eval' && invocation.args.length > 0) {
 		invocations.push(
 			...extract_shell_invocations(invocation.args.join(' ')),
 		);
 	}
+
 	if (invocation.command === 'xargs') {
 		const nested = xargs_command(invocation.args);
+
 		if (nested) invocations.push(...expand_invocation(nested));
 	}
+
 	if (invocation.command === 'find') {
 		invocations.push(...nested_find_commands(invocation.args));
 	}
+
 	return invocations;
 }
 
@@ -451,7 +523,9 @@ function invocations_from_segment(
 	const words = segment
 		.filter((token) => token.kind === 'word')
 		.map((token) => token.value);
+
 	const invocation = unwrap_command(words);
+
 	return invocation ? expand_invocation(invocation) : [];
 }
 
@@ -462,34 +536,42 @@ function embedded_command_texts(command: string): string[] {
 
 	for (let index = 0; index < command.length; index += 1) {
 		const character = command[index];
+
 		if (character === '\\') {
 			index += 1;
 			continue;
 		}
+
 		if (character === "'" && !double_quoted) {
 			single_quoted = !single_quoted;
 			continue;
 		}
+
 		if (character === '"' && !single_quoted) {
 			double_quoted = !double_quoted;
 			continue;
 		}
+
 		if (single_quoted) continue;
 
 		if (character === '`') {
 			let end = index + 1;
+
 			while (end < command.length) {
 				if (command[end] === '\\') {
 					end += 2;
 					continue;
 				}
+
 				if (command[end] === '`') break;
 				end += 1;
 			}
+
 			if (end < command.length) {
 				embedded.push(command.slice(index + 1, end));
 				index = end;
 			}
+
 			continue;
 		}
 
@@ -498,30 +580,40 @@ function embedded_command_texts(command: string): string[] {
 		let end = index + 2;
 		let nested_single = false;
 		let nested_double = false;
+
 		for (; end < command.length; end += 1) {
 			const nested = command[end];
+
 			if (nested === '\\') {
 				end += 1;
 				continue;
 			}
+
 			if (nested === "'" && !nested_double) {
 				nested_single = !nested_single;
 				continue;
 			}
+
 			if (nested === '"' && !nested_single) {
 				nested_double = !nested_double;
 				continue;
 			}
+
 			if (nested_single) continue;
+
 			if (nested === '(') depth += 1;
+
 			if (nested === ')') depth -= 1;
+
 			if (depth === 0) break;
 		}
+
 		if (depth === 0) {
 			embedded.push(command.slice(index + 2, end));
 			index = end;
 		}
 	}
+
 	return embedded;
 }
 
@@ -548,12 +640,16 @@ export function extract_shell_invocations(
 			flush_segment();
 			continue;
 		}
+
 		segment.push(token);
 	}
+
 	flush_segment();
+
 	for (const embedded of embedded_command_texts(prepared_command)) {
 		invocations.push(...extract_shell_invocations(embedded));
 	}
+
 	return invocations;
 }
 
@@ -564,6 +660,7 @@ function paths_from_invocation(
 		invocation.command === 'git' && invocation.args[0] === 'rm'
 			? 1
 			: 0;
+
 	return invocation.args
 		.slice(offset)
 		.filter(
@@ -588,24 +685,31 @@ export function extract_command_paths(
 					)
 				: invocation.command === 'git' && invocation.args[0] === 'rm',
 	);
+
 	if (invocations.length === 0) return undefined;
+
 	return invocations.flatMap(paths_from_invocation);
 }
 
 export function extract_overwrite_paths(command: string): string[] {
 	const tokens = tokenize_shell(command);
 	const paths: string[] = [];
+
 	for (let index = 0; index < tokens.length; index += 1) {
 		const token = tokens[index];
+
 		if (
 			token.kind !== 'operator' ||
 			!REDIRECT_OPERATORS.has(token.value)
 		) {
 			continue;
 		}
+
 		const target = tokens[index + 1];
+
 		if (target?.kind === 'word') paths.push(target.value);
 	}
+
 	return paths;
 }
 
@@ -617,6 +721,7 @@ function option_takes_value(
 		mkdir: ['-m', '--mode', '-Z', '--context'],
 		touch: ['-r', '--reference', '-d', '--date', '-t'],
 	};
+
 	return (
 		value_options[command_name_to_check]?.includes(option) ?? false
 	);
@@ -628,20 +733,27 @@ function extract_simple_create_paths(
 ): string[] {
 	const invocations = extract_shell_invocations(command);
 	const paths: string[] = [];
+
 	for (const invocation of invocations) {
 		if (!['mkdir', 'touch'].includes(invocation.command)) continue;
+
 		for (let index = 0; index < invocation.args.length; index += 1) {
 			const word = invocation.args[index];
+
 			if (!word || word === '--') continue;
+
 			if (word.startsWith('-')) {
 				if (option_takes_value(invocation.command, word)) index += 1;
 				continue;
 			}
+
 			const absolute = resolve(cwd, word);
+
 			if (is_temp_path(absolute) && !existsSync(absolute))
 				paths.push(absolute);
 		}
 	}
+
 	return paths;
 }
 
@@ -677,6 +789,7 @@ function text_content(event: ToolResultEvent): string {
 		.map((part) => {
 			if ('text' in part && typeof part.text === 'string')
 				return part.text;
+
 			return '';
 		})
 		.join('');

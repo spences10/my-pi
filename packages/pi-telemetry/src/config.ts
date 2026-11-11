@@ -28,6 +28,7 @@ export function resolve_telemetry_db_path(
 	override_path?: string,
 ): string {
 	if (!override_path) return get_default_telemetry_db_path();
+
 	return resolve(cwd, override_path);
 }
 
@@ -40,6 +41,7 @@ export function load_telemetry_config(): TelemetryConfig {
 			version?: unknown;
 			enabled?: unknown;
 		};
+
 		return {
 			version:
 				typeof parsed.version === 'number'

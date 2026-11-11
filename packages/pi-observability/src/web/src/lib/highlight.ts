@@ -50,8 +50,10 @@ export function highlight(
 ): string {
 	if (language === 'text' || code.length > MAX_HIGHLIGHT_CHARS)
 		return plain(code);
+
 	try {
 		const html = renderers[language](code);
+
 		return language === 'json' ? mark_json_keys(html) : html;
 	} catch {
 		return plain(code);

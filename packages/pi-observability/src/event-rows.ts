@@ -50,6 +50,7 @@ export function valid_event(
 ): value is ObservabilityEvent {
 	if (!value || typeof value !== 'object') return false;
 	const event = value as Partial<ObservabilityEvent>;
+
 	return (
 		typeof event.event_id === 'string' &&
 		typeof event.session_id === 'string' &&

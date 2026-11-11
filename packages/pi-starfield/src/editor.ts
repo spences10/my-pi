@@ -11,6 +11,7 @@ import {
 import { star_color, star_frame, type Star } from './stars.js';
 
 export type StarfieldMode = 'on' | 'static' | 'off';
+
 // Stars pulse over 9–14 s, so a slower frame looks the same.
 export const FRAME_MS = 500;
 const RESET = '\x1b[0m';
@@ -56,16 +57,20 @@ export class StarfieldEditor extends CustomEditor {
 	): string[] {
 		const cells = Array<string>(width).fill(' ');
 		const theme = this.options.theme();
+
 		for (const star of stars) {
 			if (star.y !== row) continue;
+
 			const color =
 				star_color(
 					theme.getFgAnsi('muted'),
 					theme.getBgAnsi('userMessageBg'),
 					star.brightness,
 				) ?? theme.getFgAnsi('dim');
+
 			cells[star.x] = `${color}${star.glyph}\x1b[39m`;
 		}
+
 		return cells;
 	}
 
@@ -99,6 +104,7 @@ export class StarfieldEditor extends CustomEditor {
 
 	override handleInput(data: string): void {
 		const suggestion = this.options.suggestion?.();
+
 		if (
 			data === '\t' &&
 			suggestion &&
@@ -108,8 +114,10 @@ export class StarfieldEditor extends CustomEditor {
 			this.setText(suggestion);
 			this.options.on_accept_suggestion?.();
 			this.tui.requestRender();
+
 			return;
 		}
+
 		super.handleInput(data);
 	}
 
@@ -120,16 +128,20 @@ export class StarfieldEditor extends CustomEditor {
 
 	render(width: number): string[] {
 		this.stop();
+
 		if (this.disposed || !this.options.active())
 			return super.render(width);
 		const stars_enabled = this.enabled();
+
 		const animated =
 			stars_enabled &&
 			this.options.mode() === 'on' &&
 			this.focused &&
 			width >= 4;
+
 		const elapsed = animated ? performance.now() - this.started : 0;
 		const has_text = this.getText() !== '';
+
 		if (!has_text) this.text_elapsed = undefined;
 		else this.text_elapsed ??= elapsed;
 		this.stars =
@@ -154,27 +166,33 @@ export class StarfieldEditor extends CustomEditor {
 			const cells = stars_enabled
 				? this.star_cells(width, 1)
 				: Array<string>(width).fill(' ');
+
 			const padding = Math.min(
 				this.getPaddingX(),
 				Math.floor((width - 1) / 2),
 			);
+
 			const text = suggestion
 				? `${suggestion}  ⇥`.slice(0, width - padding - 1)
 				: '';
+
 			// Replace all suggestion cells, including spaces, to protect them from stars.
 			for (let index = 0; index < text.length; index++) {
 				cells[padding + index] = theme.fg('dim', text[index]!);
 			}
+
 			if (this.focused) {
 				cells[padding] =
 					`${CURSOR_MARKER}\x1b[7m${cells[padding]}\x1b[27m`;
 			}
+
 			lines[1] = cells.join('');
 		}
 
 		if (animated) {
 			this.timer = setTimeout(() => {
 				this.timer = undefined;
+
 				if (
 					this.enabled() &&
 					this.focused &&
@@ -184,12 +202,15 @@ export class StarfieldEditor extends CustomEditor {
 			}, FRAME_MS);
 			this.timer.unref();
 		}
+
 		if (!stars_enabled) return lines;
+
 		return lines.map((line) => {
 			const shaded = line
 				.replaceAll(RESET, RESET + background)
 				.replaceAll('\x1b[49m', '\x1b[49m' + background)
 				.replaceAll('\x1b[m', '\x1b[m' + background);
+
 			return `${background}${shaded}${RESET}`;
 		});
 	}

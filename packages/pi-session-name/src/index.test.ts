@@ -11,6 +11,7 @@ function fixture() {
 	let name: string | undefined;
 	let session = 'one';
 	let leaf = 'leaf-one';
+
 	const messages = [
 		{ role: 'user', content: 'Fix session naming' },
 		{
@@ -19,10 +20,12 @@ function fixture() {
 			stopReason: 'stop',
 		},
 	];
+
 	const result = {
 		content: [{ type: 'text', text: 'Fix Session Naming' }],
 		stopReason: 'stop',
 	};
+
 	const streamSimple = vi.fn(
 		(
 			_model: unknown,
@@ -30,9 +33,11 @@ function fixture() {
 			_options: { signal: AbortSignal },
 		) => ({ result: async () => result }),
 	);
+
 	const setSessionName = vi.fn((value: string) => {
 		name = value;
 	});
+
 	session_name({
 		on: (key: string, handler: Function) => events.set(key, handler),
 		registerCommand: (key: string, command: { handler: Function }) =>
@@ -41,6 +46,7 @@ function fixture() {
 		setSessionName,
 	} as unknown as ExtensionAPI);
 	const notify = vi.fn();
+
 	const ctx = {
 		mode: 'tui',
 		model: {
@@ -60,6 +66,7 @@ function fixture() {
 		},
 		ui: { notify },
 	} as unknown as ExtensionContext;
+
 	return {
 		ctx,
 		events,
@@ -88,6 +95,7 @@ const flush = async () => {
 	await Promise.resolve();
 	await Promise.resolve();
 };
+
 afterEach(() => {
 	vi.clearAllTimers();
 	vi.useRealTimers();
@@ -98,6 +106,7 @@ describe('session naming', () => {
 		expect(clean_name('"Fíx AUTH!!"\nExplanation')).toBe('fix-auth');
 		expect(clean_name('x'.repeat(100))).toHaveLength(50);
 		expect(clean_name('---')).toBe('');
+
 		const context = naming_context([
 			{ role: 'user', content: 'request'.repeat(1000) },
 			{ role: 'toolResult', content: 'SECRET_TOOL_OUTPUT' },
@@ -110,6 +119,7 @@ describe('session naming', () => {
 				],
 			},
 		]);
+
 		expect(JSON.stringify(context)).not.toMatch(
 			/SECRET_TOOL_OUTPUT|PRIVATE_THINKING/,
 		);
@@ -169,6 +179,7 @@ describe('session naming', () => {
 				}),
 		});
 		f.emit('agent_settled');
+
 		if (change === 'manual') f.setName('manual');
 		else if (change === 'session') f.setSession('two');
 		else if (change === 'branch') f.setLeaf('other-leaf');
@@ -176,6 +187,7 @@ describe('session naming', () => {
 		resolve(f.result);
 		await flush();
 		expect(f.setSessionName).not.toHaveBeenCalled();
+
 		if (change.startsWith('session_'))
 			expect(f.streamSimple.mock.calls[0]![2].signal.aborted).toBe(
 				true,
@@ -241,6 +253,7 @@ describe('session naming', () => {
 		'ignores unusable model response: %s',
 		async (kind) => {
 			const f = fixture();
+
 			if (kind === 'empty') f.result.content = [];
 			else f.result.stopReason = kind;
 			await f.command();

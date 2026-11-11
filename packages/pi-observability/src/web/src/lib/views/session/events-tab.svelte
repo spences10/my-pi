@@ -25,6 +25,7 @@
 	const types = $derived(
 		[...new Set(events.map((event) => event.type))].sort(),
 	);
+
 	const visible = $derived(
 		events.filter(
 			(event) =>
@@ -32,6 +33,7 @@
 				query_matches(event, query),
 		),
 	);
+
 	// Look the event up by id so live reloads keep the open drawer current.
 	const selected = $derived(
 		events.find((event) => event.event_id === selected_id) ?? null,

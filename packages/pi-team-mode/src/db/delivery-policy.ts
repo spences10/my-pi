@@ -23,6 +23,7 @@ export class DeliveryPolicy {
 			.get(sender, recipient, group_id ?? null, group_id ?? null) as
 			| { group_id: string }
 			| undefined;
+
 		return row?.group_id;
 	}
 
@@ -64,6 +65,7 @@ export class DeliveryPolicy {
 			.get(message_id, recipient) as
 			| { from_session_id: string; collaboration_id: string | null }
 			| undefined;
+
 		return (
 			!!row?.collaboration_id &&
 			!!this.collaboration(
@@ -101,6 +103,7 @@ export class DeliveryPolicy {
 						paused ? 1 : 0,
 						new Date().toISOString(),
 					);
+
 				if (paused)
 					this.db
 						.prepare(`UPDATE message_receipts SET auto_delivery = 0 WHERE to_session_id = ?
@@ -154,6 +157,7 @@ export class DeliveryPolicy {
 					.get(group_id) as
 					| { created_by_session_id: string | null }
 					| undefined;
+
 				if (
 					!group ||
 					group.created_by_session_id !== owner_session_id

@@ -53,6 +53,7 @@ export function register_context_search_tool(pi: ExtensionAPI): void {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const scope = scope_from_context(ctx);
+
 			const results = get_context_store(scope).search(params.query, {
 				...(params.global ? {} : scope),
 				global: params.global,
@@ -61,6 +62,7 @@ export function register_context_search_tool(pi: ExtensionAPI): void {
 				limit: params.limit,
 				full_content: params.full_content,
 			});
+
 			return {
 				content: [
 					{

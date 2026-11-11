@@ -17,6 +17,7 @@
 	// trace view shows all of it.
 	function first_lines(text: string | null): string {
 		if (!text) return 'No error output recorded.';
+
 		return text.trim().split('\n').slice(0, 3).join('\n');
 	}
 </script>

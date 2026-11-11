@@ -7,15 +7,18 @@ import { TeamDatabase } from './db/index.js';
 import { execute_coordination_action } from './tools/coordination-actions.js';
 
 const cleanup: (() => void)[] = [];
+
 afterEach(() => {
 	for (const close of cleanup.splice(0).reverse()) close();
 });
+
 async function setup() {
 	const dir = mkdtempSync(join(tmpdir(), 'team-policy-'));
 	cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
 	const path = join(dir, 'bus.db');
 	const db = await TeamDatabase.open(path);
 	cleanup.push(() => db.close());
+
 	for (const id of [
 		'parent',
 		'pricing',
@@ -28,10 +31,12 @@ async function setup() {
 			cwd: '/same-repo',
 			agent_name: 'duplicate-name',
 		});
+
 	const group = db.create_group({
 		name: 'durable-task',
 		created_by_session_id: 'parent',
 	});
+
 	for (const id of ['writer', 'validator']) {
 		db.register_session({
 			session_id: id,
@@ -41,6 +46,7 @@ async function setup() {
 		});
 		db.add_group_member({ group_id: group.group_id, session_id: id });
 	}
+
 	const send = (
 		sender = 'writer',
 		recipient = 'parent',
@@ -52,18 +58,21 @@ async function setup() {
 			body: 'Progress or completion',
 			message_type: status ? 'status' : 'action',
 		});
+
 	const poller = (recipient: string) =>
 		new CoordinationPoller({
 			db,
 			get_session_id: () => recipient,
 			should_auto_inject_messages: () => true,
 		});
+
 	return { db, path, group, send, poller };
 }
 
 describe('recipient-owned coordination', () => {
 	it('recreates the pricing incident: two workers find only their actual parent, not an unrelated same-repo session', async () => {
 		const { db, send, poller } = await setup();
+
 		for (const worker of ['writer', 'validator']) {
 			expect(
 				db.resolve_session_targets('parent', worker)[0].session_id,
@@ -71,12 +80,15 @@ describe('recipient-owned coordination', () => {
 			send(worker, 'parent');
 			send(worker, 'pricing');
 		}
+
 		db.update_session_agent_name('parent', 'renamed');
 		expect(
 			db.resolve_session_targets('parent', 'writer')[0].session_id,
 		).toBe('parent');
+
 		const pricing = { sendMessage: vi.fn() },
 			parent = { sendMessage: vi.fn() };
+
 		poller('pricing').poll(pricing);
 		poller('parent').poll(parent);
 		expect(pricing.sendMessage).not.toHaveBeenCalled();
@@ -147,15 +159,18 @@ describe('recipient-owned coordination', () => {
 		'persists %s pause across reopen without replaying the suppressed backlog',
 		async (scope) => {
 			const { db, path, group, send } = await setup();
+
 			const target = {
 				sender: 'writer',
 				group: group.group_id,
 				session: '',
 			}[scope];
+
 			send();
 			db.delivery.set_paused('parent', true, scope, target);
 			send();
 			const reopened = await TeamDatabase.open(path);
+
 			try {
 				expect(reopened.list_auto_inbox('parent')).toEqual([]);
 				expect(reopened.delivery.controls('parent')).toContainEqual({
@@ -227,10 +242,12 @@ describe('recipient-owned coordination', () => {
 			db.delivery.close_group(group.group_id, 'writer'),
 		).toThrow('owner');
 		db.delivery.close_group(group.group_id, 'parent');
+
 		const other = db.create_group({
 			name: 'other-task',
 			created_by_session_id: 'parent',
 		});
+
 		db.add_group_member({
 			group_id: other.group_id,
 			session_id: 'writer',
@@ -256,12 +273,14 @@ describe('recipient-owned coordination', () => {
 
 	it('invitations cannot turn an unrelated conversation into an automatic recipient', async () => {
 		const { db, group, send } = await setup();
+
 		const context = {
 			coordination_db: db,
 			require_session_id: () => 'parent',
 			ctx: { cwd: '/same-repo' },
 			notify_coordination_messages: vi.fn(async () => {}),
 		};
+
 		await expect(
 			execute_coordination_action(
 				{ action: 'group_join', team_id: group.group_id },

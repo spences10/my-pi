@@ -11,7 +11,9 @@ async function tmp_db(): Promise<TeamDatabase> {
 	const dir = mkdtempSync(
 		join(tmpdir(), 'pi-team-coordination-actions-'),
 	);
+
 	dirs.push(dir);
+
 	return TeamDatabase.open(join(dir, 'coordination.db'));
 }
 
@@ -24,6 +26,7 @@ afterEach(() => {
 describe('coordination actions', () => {
 	it('queues and notifies peer messages without writing another session file', async () => {
 		const db = await tmp_db();
+
 		try {
 			const target_file = join(dirs[0]!, 'peer.jsonl');
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
@@ -68,6 +71,7 @@ describe('coordination actions', () => {
 
 	it('lists directly copyable targets that remain unambiguous after compact-prefix collisions', async () => {
 		const db = await tmp_db();
+
 		try {
 			const first_id = '019f0f71-967e-7aed-853c-94ac29fbe7b6';
 			const second_id = '019f0f71-967f-7aed-853c-94ac29fbe7b6';
@@ -89,6 +93,7 @@ describe('coordination actions', () => {
 					require_session_id: () => first_id,
 				},
 			);
+
 			const targets = result.content[0]!.text.split('\n')
 				.filter((line) => line.startsWith('- '))
 				.map((line) => line.slice(2).split(' ')[0]!);
@@ -99,6 +104,7 @@ describe('coordination actions', () => {
 				first_id.slice(0, 14),
 			);
 			expect(result.content[0]!.text).not.toContain('…');
+
 			for (const target of targets)
 				expect(db.resolve_session_targets(target)).toHaveLength(1);
 		} finally {
@@ -108,19 +114,23 @@ describe('coordination actions', () => {
 
 	it('scopes group names to the caller cwd while exact ids remain global', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead-a', cwd: '/repo-a' });
 			db.register_session({ session_id: 'lead-b', cwd: '/repo-b' });
+
 			const group_a = db.create_group({
 				name: 'review',
 				cwd: '/repo-a',
 				created_by_session_id: 'lead-a',
 			});
+
 			const group_b = db.create_group({
 				name: 'review',
 				cwd: '/repo-b',
 				created_by_session_id: 'lead-b',
 			});
+
 			const context = {
 				ctx: { cwd: '/repo-a' },
 				coordination_db: db,
@@ -132,11 +142,13 @@ describe('coordination actions', () => {
 				{ action: 'group_join', name: 'review' },
 				context,
 			);
+
 			db.add_group_member({
 				group_id: group_b.group_id,
 				session_id: 'lead-a',
 				status: 'inactive',
 			});
+
 			const exact = await execute_coordination_action(
 				{ action: 'group_join', team_id: group_b.group_id },
 				context,
@@ -161,10 +173,12 @@ describe('coordination actions', () => {
 
 	it('rejects unregistered and foreign send-side identities', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({ session_id: 'victim', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
+
 			const context = {
 				ctx: { cwd: '/repo' },
 				coordination_db: db,
@@ -202,6 +216,7 @@ describe('coordination actions', () => {
 
 	it('resolves sender aliases for session sends', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({
 				session_id: 'lead-session',
@@ -235,6 +250,7 @@ describe('coordination actions', () => {
 
 	it('waits on the current inbox even when a foreign to is supplied', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'parent', cwd: '/repo' });
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
@@ -269,6 +285,7 @@ describe('coordination actions', () => {
 
 	it('resolves session_wait from aliases before filtering senders', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'parent', cwd: '/repo' });
 			db.register_session({
@@ -300,6 +317,7 @@ describe('coordination actions', () => {
 
 	it('does not let message_wait select another inbox', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'parent', cwd: '/repo' });
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
@@ -331,6 +349,7 @@ describe('coordination actions', () => {
 
 	it('marks waited messages surfaced so auto-injection does not repeat them', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
@@ -364,14 +383,17 @@ describe('coordination actions', () => {
 
 	it('limits read and ack output to requested message ids', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
+
 			const first = db.send_to_session_target({
 				from_session_id: 'worker',
 				target: 'lead',
 				body: 'first',
 			});
+
 			db.send_to_session_target({
 				from_session_id: 'worker',
 				target: 'lead',
@@ -403,9 +425,11 @@ describe('coordination actions', () => {
 
 	it('does not echo message bodies in read confirmations', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
+
 			const message = db.send_to_session_target({
 				from_session_id: 'worker',
 				target: 'lead',
@@ -436,17 +460,21 @@ describe('coordination actions', () => {
 
 	it('does not show acknowledged messages in default or include_read inbox output', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
+
 			const message = db.send_to_session_target({
 				from_session_id: 'worker',
 				target: 'lead',
 				body: 'Acknowledged — teammate session is ready.',
 			});
+
 			db.mark_messages_delivered('lead', [message.message_id]);
 			db.mark_messages_read('lead', [message.message_id]);
 			db.mark_messages_acknowledged('lead', [message.message_id]);
+
 			const context = {
 				ctx: { cwd: '/repo' },
 				coordination_db: db,
@@ -458,6 +486,7 @@ describe('coordination actions', () => {
 				{ action: 'session_inbox', include_read: true },
 				context,
 			);
+
 			const full = await execute_coordination_action(
 				{
 					action: 'session_inbox',
@@ -481,6 +510,7 @@ describe('coordination actions', () => {
 
 	it('uses compact session inbox output unless mode is full', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
@@ -496,10 +526,12 @@ describe('coordination actions', () => {
 				notify_coordination_messages: async () => undefined,
 				require_session_id: () => 'worker',
 			};
+
 			const compact = await execute_coordination_action(
 				{ action: 'session_inbox' },
 				context,
 			);
+
 			const full = await execute_coordination_action(
 				{ action: 'session_inbox', mode: 'full' },
 				context,
@@ -520,16 +552,20 @@ describe('coordination actions', () => {
 
 	it('retrieves full text for automatically delivered read messages with mode full', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
+
 			const message = db.send_to_session_target({
 				from_session_id: 'lead',
 				target: 'worker',
 				body: `automatic preview ${'mailbox context '.repeat(40)}final detail`,
 			});
+
 			db.mark_messages_delivered('worker', [message.message_id]);
 			db.mark_messages_read('worker', [message.message_id]);
+
 			const context = {
 				ctx: { cwd: '/repo' },
 				coordination_db: db,
@@ -541,6 +577,7 @@ describe('coordination actions', () => {
 				{ action: 'session_inbox' },
 				context,
 			);
+
 			const full = await execute_coordination_action(
 				{
 					action: 'session_inbox',
@@ -561,14 +598,17 @@ describe('coordination actions', () => {
 
 	it('retrieves focused session message chunks with bounds', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
+
 			const message = db.send_to_session_target({
 				from_session_id: 'lead',
 				target: 'worker',
 				body: `${'first '.repeat(260)}${'second '.repeat(260)}${'third '.repeat(260)}`,
 			});
+
 			const context = {
 				ctx: { cwd: '/repo' },
 				coordination_db: db,
@@ -584,6 +624,7 @@ describe('coordination actions', () => {
 				},
 				context,
 			);
+
 			const range = await execute_coordination_action(
 				{
 					action: 'session_inbox',
@@ -607,8 +648,10 @@ describe('coordination actions', () => {
 
 	it('lists artifact chunk metadata and retrieves chunks or full body', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
+
 			const artifact = db.create_artifact({
 				kind: 'handoff',
 				owner_session_id: 'lead',
@@ -617,6 +660,7 @@ describe('coordination actions', () => {
 				summary: 'summary',
 				body: `${'a'.repeat(1200)}${'b'.repeat(1200)}final detail`,
 			});
+
 			const context = {
 				ctx: { cwd: '/repo' },
 				coordination_db: db,
@@ -628,6 +672,7 @@ describe('coordination actions', () => {
 				{ action: 'artifact_list' },
 				context,
 			);
+
 			const chunk = await execute_coordination_action(
 				{
 					action: 'artifact_get',
@@ -636,6 +681,7 @@ describe('coordination actions', () => {
 				},
 				context,
 			);
+
 			const full = await execute_coordination_action(
 				{
 					action: 'artifact_get',
@@ -657,12 +703,14 @@ describe('coordination actions', () => {
 
 	it('scopes session history by project and paginates explicit global history', async () => {
 		const db = await tmp_db();
+
 		try {
 			for (let index = 0; index < 35; index += 1)
 				db.register_session({
 					session_id: `local-${index}`,
 					cwd: '/repo',
 				});
+
 			for (let index = 0; index < 5; index += 1)
 				db.register_session({
 					session_id: `foreign-${index}`,
@@ -673,6 +721,7 @@ describe('coordination actions', () => {
 				cwd: '/repo',
 				status: 'offline',
 			});
+
 			const context = {
 				ctx: { cwd: '/repo' },
 				coordination_db: db,
@@ -684,6 +733,7 @@ describe('coordination actions', () => {
 				{ action: 'session_list' },
 				context,
 			);
+
 			const local_page = await execute_coordination_action(
 				{
 					action: 'session_list',
@@ -693,6 +743,7 @@ describe('coordination actions', () => {
 				},
 				context,
 			);
+
 			const global_history = await execute_coordination_action(
 				{
 					action: 'session_list',
@@ -732,6 +783,7 @@ describe('coordination actions', () => {
 
 	it('filters inbox history by sender and receipt state without mode broadening scope', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({
@@ -744,30 +796,36 @@ describe('coordination actions', () => {
 				cwd: '/repo',
 				agent_name: 'beta',
 			});
+
 			const unread_a = db.send_to_session_target({
 				from_session_id: 'worker-a',
 				target: 'lead',
 				body: 'unread alpha',
 			});
+
 			const read_a = db.send_to_session_target({
 				from_session_id: 'worker-a',
 				target: 'lead',
 				body: 'read alpha',
 			});
+
 			const acknowledged_b = db.send_to_session_target({
 				from_session_id: 'worker-b',
 				target: 'lead',
 				body: 'acknowledged beta',
 			});
+
 			const unread_b = db.send_to_session_target({
 				from_session_id: 'worker-b',
 				target: 'lead',
 				body: 'unread beta',
 			});
+
 			db.mark_messages_read('lead', [read_a.message_id]);
 			db.mark_messages_acknowledged('lead', [
 				acknowledged_b.message_id,
 			]);
+
 			const context = {
 				ctx: { cwd: '/repo' },
 				coordination_db: db,
@@ -779,6 +837,7 @@ describe('coordination actions', () => {
 				{ action: 'session_inbox', mode: 'full' },
 				context,
 			);
+
 			const beta = await execute_coordination_action(
 				{
 					action: 'session_inbox',
@@ -787,6 +846,7 @@ describe('coordination actions', () => {
 				},
 				context,
 			);
+
 			const unacknowledged = await execute_coordination_action(
 				{
 					action: 'message_list',
@@ -795,6 +855,7 @@ describe('coordination actions', () => {
 				},
 				context,
 			);
+
 			const broad = await execute_coordination_action(
 				{
 					action: 'session_inbox',
@@ -842,20 +903,24 @@ describe('coordination actions', () => {
 
 	it('bounds byte-heavy output with hundreds of sessions and messages', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
+
 			for (let index = 0; index < 240; index += 1)
 				db.register_session({
 					session_id: `peer-${index.toString().padStart(3, '0')}`,
 					cwd: '/repo',
 					agent_name: `worker-${index}`,
 				});
+
 			for (let index = 0; index < 240; index += 1)
 				db.send_to_session_target({
 					from_session_id: 'peer-000',
 					target: 'lead',
 					body: `payload-${index}-${'x'.repeat(800)}`,
 				});
+
 			const context = {
 				ctx: { cwd: '/repo' },
 				coordination_db: db,
@@ -867,10 +932,12 @@ describe('coordination actions', () => {
 				{ action: 'session_list', mode: 'full' },
 				context,
 			);
+
 			const inbox = await execute_coordination_action(
 				{ action: 'session_inbox' },
 				context,
 			);
+
 			const next_messages = await execute_coordination_action(
 				{
 					action: 'message_list',
@@ -911,8 +978,10 @@ describe('coordination actions', () => {
 
 	it('paginates project-scoped group and artifact lists with global opt-in', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
+
 			for (let index = 0; index < 25; index += 1) {
 				db.create_group({
 					name: `local-group-${index}`,
@@ -928,6 +997,7 @@ describe('coordination actions', () => {
 					body: 'body',
 				});
 			}
+
 			for (let index = 0; index < 3; index += 1) {
 				db.create_group({
 					name: `foreign-group-${index}`,
@@ -942,6 +1012,7 @@ describe('coordination actions', () => {
 					body: 'body',
 				});
 			}
+
 			const context = {
 				ctx: { cwd: '/repo' },
 				coordination_db: db,
@@ -953,14 +1024,17 @@ describe('coordination actions', () => {
 				{ action: 'group_list', limit: 5, offset: 5 },
 				context,
 			);
+
 			const global_groups = await execute_coordination_action(
 				{ action: 'group_list', global: true, limit: 100 },
 				context,
 			);
+
 			const artifacts = await execute_coordination_action(
 				{ action: 'artifact_list', limit: 5, offset: 5 },
 				context,
 			);
+
 			const global_artifacts = await execute_coordination_action(
 				{ action: 'artifact_list', global: true, limit: 100 },
 				context,

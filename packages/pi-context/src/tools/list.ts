@@ -61,15 +61,19 @@ export function register_context_list_tool(pi: ExtensionAPI): void {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const scope = scope_from_context(ctx);
+
 			const has_explicit_scope =
 				params.project_path !== undefined ||
 				params.session_id !== undefined;
+
 			const project_path = has_explicit_scope
 				? params.project_path
 				: scope.project_path;
+
 			const session_id = has_explicit_scope
 				? params.session_id
 				: scope.session_id;
+
 			const results = get_context_store(scope).list({
 				project_path,
 				session_id,
@@ -81,6 +85,7 @@ export function register_context_list_tool(pi: ExtensionAPI): void {
 				limit: params.limit,
 				offset: params.offset,
 			});
+
 			return {
 				content: [
 					{

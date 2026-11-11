@@ -26,6 +26,7 @@ type RegisteredTool = {
 function temp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-search-'));
 	dirs.push(dir);
+
 	return join(dir, 'context.db');
 }
 
@@ -36,14 +37,17 @@ function register_tool(): RegisteredTool {
 			tool = value;
 		},
 	} as unknown as ExtensionAPI);
+
 	return tool!;
 }
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+
 	if (original_context_db === undefined)
 		delete process.env.MY_PI_CONTEXT_DB;
 	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs.length = 0;

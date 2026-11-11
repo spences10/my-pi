@@ -13,6 +13,7 @@ export const COMMANDS = [
 	'off',
 	'path',
 ];
+
 export const DEFAULT_QUERY_LIMIT = 20;
 
 export function format_telemetry_status(options: {
@@ -22,6 +23,7 @@ export function format_telemetry_status(options: {
 	db_path: string;
 }): string {
 	let override_label = 'none';
+
 	if (options.override !== undefined)
 		override_label = options.override
 			? '--telemetry'
@@ -37,9 +39,11 @@ export function format_telemetry_status(options: {
 
 function format_bytes(bytes: number): string {
 	if (bytes < 1024) return `${bytes} B`;
+
 	if (bytes < 1024 * 1024) {
 		return `${(bytes / 1024).toFixed(1)} KiB`;
 	}
+
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
@@ -49,22 +53,28 @@ function format_timestamp(timestamp: number): string {
 
 function format_duration(duration_ms: number | null): string {
 	if (duration_ms === null) return 'open';
+
 	if (duration_ms < 1000) return `${duration_ms}ms`;
+
 	if (duration_ms < 60_000) {
 		return `${(duration_ms / 1000).toFixed(1)}s`;
 	}
+
 	return `${(duration_ms / 60_000).toFixed(1)}m`;
 }
 
 function format_success(value: boolean | null): string {
 	if (value === true) return 'success';
+
 	if (value === false) return 'failure';
+
 	return 'unknown';
 }
 
 function tokenize_command_args(input: string): string[] {
 	const matches =
 		input.match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+/g) ?? [];
+
 	return matches.map((token) => {
 		if (
 			(token.startsWith('"') && token.endsWith('"')) ||
@@ -72,6 +82,7 @@ function tokenize_command_args(input: string): string[] {
 		) {
 			return token.slice(1, -1);
 		}
+
 		return token;
 	});
 }
@@ -94,17 +105,20 @@ export function parse_telemetry_command(
 
 	for (const token of tokens.slice(1)) {
 		const equals_index = token.indexOf('=');
+
 		if (equals_index === -1) {
 			if (subcommand === 'export' && export_path === null) {
 				export_path = token;
 			} else {
 				errors.push(`Unexpected argument: ${token}`);
 			}
+
 			continue;
 		}
 
 		const key = token.slice(0, equals_index);
 		const value = token.slice(equals_index + 1);
+
 		switch (key) {
 			case 'eval_run_id':
 			case 'run':
@@ -127,9 +141,11 @@ export function parse_telemetry_command(
 						`Invalid success value: ${value}. Use true, false, or null`,
 					);
 				}
+
 				break;
 			case 'limit': {
 				const parsed = Number.parseInt(value, 10);
+
 				if (!Number.isFinite(parsed) || parsed <= 0) {
 					errors.push(
 						`Invalid limit value: ${value}. Use a positive integer`,
@@ -137,8 +153,10 @@ export function parse_telemetry_command(
 				} else {
 					filters.limit = parsed;
 				}
+
 				break;
 			}
+
 			default:
 				errors.push(`Unknown filter: ${key}`);
 		}
@@ -160,24 +178,31 @@ function format_filter_summary(
 	filters: TelemetryQueryFilters,
 ): string {
 	const parts: string[] = [];
+
 	if (filters.cwd !== undefined) {
 		parts.push(`cwd=${filters.cwd}`);
 	}
+
 	if (filters.eval_run_id !== undefined) {
 		parts.push(`eval_run_id=${filters.eval_run_id}`);
 	}
+
 	if (filters.eval_case_id !== undefined) {
 		parts.push(`eval_case_id=${filters.eval_case_id}`);
 	}
+
 	if (filters.eval_suite !== undefined) {
 		parts.push(`eval_suite=${filters.eval_suite}`);
 	}
+
 	if (filters.success !== undefined) {
 		parts.push(`success=${String(filters.success)}`);
 	}
+
 	if (filters.limit !== undefined) {
 		parts.push(`limit=${filters.limit}`);
 	}
+
 	return parts.length > 0 ? parts.join(' ') : 'none';
 }
 

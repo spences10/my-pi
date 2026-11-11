@@ -32,6 +32,7 @@ const block_config = {
 
 const original_config_path =
 	process.env.MY_PI_SVELTE_GUARDRAILS_CONFIG;
+
 const original_agent_dir = process.env.PI_CODING_AGENT_DIR;
 
 afterEach(() => {
@@ -40,6 +41,7 @@ afterEach(() => {
 	} else {
 		process.env.MY_PI_SVELTE_GUARDRAILS_CONFIG = original_config_path;
 	}
+
 	if (original_agent_dir === undefined) {
 		delete process.env.PI_CODING_AGENT_DIR;
 	} else {
@@ -201,6 +203,7 @@ EOF`;
 		} as unknown as ExtensionAPI);
 
 		const notifications: string[] = [];
+
 		const result = await events.get('tool_call')?.(
 			{
 				type: 'tool_call',
@@ -233,11 +236,14 @@ EOF`;
 				content: '<script>$effect(() => {})</script>',
 			},
 		};
+
 		expect(DEFAULT_SVELTE_GUARDRAILS_CONFIG.mode).toBe('block');
+
 		const reason = should_block_svelte_effect(
 			call,
 			DEFAULT_SVELTE_GUARDRAILS_CONFIG,
 		);
+
 		expect(reason).toContain('was not created or modified');
 		expect(reason).toContain('$derived/$derived.by');
 		expect(reason).toContain('onMount with cleanup');
@@ -285,6 +291,7 @@ EOF`;
 				{ oldText: 'placeholder', newText: '$effect.pre(() => {});' },
 			],
 		};
+
 		expect(
 			should_block_svelte_effect(
 				{
@@ -333,11 +340,13 @@ EOF`;
 	it('loads global config with project-local overrides', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'svelte-guardrails-'));
 		const project = join(dir, 'project');
+
 		const project_config = join(
 			project,
 			'.pi',
 			'svelte-guardrails.json',
 		);
+
 		mkdirSync(join(project, '.pi'), { recursive: true });
 		process.env.PI_CODING_AGENT_DIR = dir;
 		write_package_settings('svelteGuardrails', {

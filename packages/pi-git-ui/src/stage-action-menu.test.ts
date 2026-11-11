@@ -30,6 +30,7 @@ const modified: GitFile = {
 	worktree_status: 'M',
 	state: 'changed',
 };
+
 const conflicted: GitFile = {
 	path: 'src/conflict.ts',
 	index_status: 'U',
@@ -53,6 +54,7 @@ describe('stage action menu helpers', () => {
 			() => {},
 			() => {},
 		);
+
 		expect(actions.map((action) => action.action_label)).toEqual([
 			'confirm discard',
 			'cancel',

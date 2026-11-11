@@ -98,6 +98,7 @@ class LspStartupCancelledError extends Error {
 
 function throw_if_aborted(signal?: AbortSignal): void {
 	if (!signal?.aborted) return;
+
 	if (signal.reason instanceof Error) throw signal.reason;
 	throw new Error('LSP startup cancelled');
 }
@@ -124,11 +125,13 @@ export class LspServerManager {
 			options.read_file ??
 			((path: string) => readFile(path, 'utf-8'));
 		const env_idle_timeout = process.env.MY_PI_LSP_IDLE_TIMEOUT_MS;
+
 		const idle_timeout_ms =
 			options.idle_timeout_ms ??
 			(env_idle_timeout === undefined
 				? DEFAULT_LSP_IDLE_TIMEOUT_MS
 				: Number(env_idle_timeout));
+
 		this.#idle_timeout_ms =
 			Number.isFinite(idle_timeout_ms) && idle_timeout_ms > 0
 				? idle_timeout_ms
@@ -145,29 +148,36 @@ export class LspServerManager {
 					([, state]) => state.language === language,
 				)
 			: Array.from(this.clients_by_server.entries());
+
 		const starting = language
 			? Array.from(this.#starting_servers.entries()).filter(([key]) =>
 					key.startsWith(`${language}\u0000`),
 				)
 			: Array.from(this.#starting_servers.entries());
+
 		for (const [key, startup] of starting) {
 			startup.cancelled = true;
 			this.#starting_servers.delete(key);
 		}
+
 		await Promise.allSettled(
 			states.map(([, state]) => {
 				this.#clear_idle_timer(state);
+
 				return state.client.stop();
 			}),
 		);
+
 		for (const [key] of states) {
 			this.clients_by_server.delete(key);
 		}
 
 		if (!language) {
 			this.failed_servers.clear();
+
 			return;
 		}
+
 		for (const [key, failure] of this.failed_servers.entries()) {
 			if (failure.language === language) {
 				this.failed_servers.delete(key);
@@ -181,8 +191,10 @@ export class LspServerManager {
 		signal?: AbortSignal,
 	): Promise<ResolveFileStateResult> {
 		const abs = this.resolve_abs(file);
+
 		try {
 			const result = await this.#get_file_state(abs, signal);
+
 			if (!result) {
 				return {
 					ok: false,
@@ -193,11 +205,13 @@ export class LspServerManager {
 					},
 				};
 			}
+
 			return { ok: true, result };
 		} catch (error) {
 			if (error instanceof LspToolError) {
 				return { ok: false, error: error.details };
 			}
+
 			return {
 				ok: false,
 				error: {
@@ -228,11 +242,14 @@ export class LspServerManager {
 	): Promise<FileState | undefined> {
 		const abs = this.resolve_abs(file);
 		const state = await this.#get_or_start_client(abs, signal);
+
 		if (!state) return undefined;
 		this.#clear_idle_timer(state);
 		state.active_request_count += 1;
+
 		try {
 			const uri = await this.#open_file(state, abs);
+
 			return { abs, uri, state };
 		} catch (error) {
 			state.active_request_count = Math.max(
@@ -250,30 +267,39 @@ export class LspServerManager {
 	): Promise<ServerState | undefined> {
 		throw_if_aborted(signal);
 		const language = detect_language(file_path);
+
 		if (!language) return undefined;
 		const workspace_root = find_workspace_root(file_path, this.cwd);
 		const key = `${language}\u0000${workspace_root}`;
 		const existing = this.clients_by_server.get(key);
+
 		if (existing) return existing;
 		const failed = this.failed_servers.get(key);
+
 		if (failed) {
 			throw new LspToolError(failed);
 		}
+
 		const in_flight = this.#starting_servers.get(key);
+
 		if (in_flight) return in_flight.promise;
 
 		const startup: StartingServerState = {
 			cancelled: false,
 			promise: Promise.resolve<ServerState | undefined>(undefined),
 		};
+
 		this.#starting_servers.set(key, startup);
+
 		const start_promise = (async () => {
 			const server_config = get_server_config(
 				language,
 				workspace_root,
 			);
+
 			if (!server_config) return undefined;
 			const root_uri = file_path_to_uri(workspace_root);
+
 			const client = this.#create_client({
 				command: server_config.command,
 				args: server_config.args,
@@ -297,6 +323,7 @@ export class LspServerManager {
 						workspace_root,
 					);
 				}
+
 				const failure = to_lsp_tool_error(
 					file_path,
 					language,
@@ -305,6 +332,7 @@ export class LspServerManager {
 					server_config.install_hint,
 					error,
 				);
+
 				this.failed_servers.set(key, failure);
 				throw new LspToolError(failure);
 			}
@@ -327,12 +355,15 @@ export class LspServerManager {
 				active_request_count: 0,
 				last_used_at: Date.now(),
 			};
+
 			this.clients_by_server.set(key, state);
 			this.failed_servers.delete(key);
+
 			return state;
 		})();
 
 		startup.promise = start_promise;
+
 		try {
 			return await start_promise;
 		} finally {
@@ -349,6 +380,7 @@ export class LspServerManager {
 		const text = await this.#read_file(abs_path);
 		const uri = file_path_to_uri(abs_path);
 		await state.client.ensure_document_open(uri, text);
+
 		return uri;
 	}
 
@@ -360,6 +392,7 @@ export class LspServerManager {
 
 	#schedule_idle_stop(state: ServerState): void {
 		this.#clear_idle_timer(state);
+
 		if (!this.#idle_timeout_ms) return;
 		state.idle_timer = setTimeout(() => {
 			if (
@@ -368,8 +401,10 @@ export class LspServerManager {
 					this.#idle_timeout_ms!
 			) {
 				this.#schedule_idle_stop(state);
+
 				return;
 			}
+
 			void (async () => {
 				this.#clear_idle_timer(state);
 				await state.client.stop();

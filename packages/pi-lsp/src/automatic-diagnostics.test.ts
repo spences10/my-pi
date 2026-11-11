@@ -25,19 +25,24 @@ async function setup(overrides: Partial<LspClientLike> = {}) {
 	);
 	const close_document = vi.fn().mockResolvedValue(undefined);
 	const ensure_document_open = vi.fn().mockResolvedValue(undefined);
+
 	const client = create_mock_client({
 		close_document,
 		ensure_document_open,
 		...overrides,
 	});
+
 	const create_client = vi.fn(() => client);
 	const read_file = vi.fn(async () => 'export const value = 1;');
+
 	const test_pi = await create_test_lsp_extension({
 		create_client,
 		read_file,
 		cwd: () => root,
 	});
+
 	const { ctx } = create_command_context();
+
 	return {
 		...test_pi,
 		root,
@@ -64,6 +69,7 @@ describe('automatic LSP diagnostics', () => {
 			read_file,
 			ctx,
 		} = await setup();
+
 		const record = events.get('tool_result');
 		record({
 			toolName: 'edit',
@@ -86,6 +92,7 @@ describe('automatic LSP diagnostics', () => {
 		expect(read_file).not.toHaveBeenCalled();
 
 		const previous = { type: 'custom', customType: 'keep', data: {} };
+
 		const result = await events.get('turn_end')(
 			{
 				...boundary(),
@@ -123,6 +130,7 @@ describe('automatic LSP diagnostics', () => {
 
 	it('ignores failed edits, unsupported files, reads, and Bash changes', async () => {
 		const { events, create_client, ctx } = await setup();
+
 		for (const [tool_name, path, is_error] of [
 			['edit', 'src/a.ts', true],
 			['write', 'src/a.ts', true],
@@ -136,6 +144,7 @@ describe('automatic LSP diagnostics', () => {
 				isError: is_error,
 			});
 		}
+
 		expect(
 			await events.get('turn_end')(boundary(), ctx),
 		).toBeUndefined();
@@ -153,14 +162,17 @@ describe('automatic LSP diagnostics', () => {
 				},
 			}),
 		);
+
 		const wait_for_diagnostics = vi
 			.fn()
 			.mockResolvedValueOnce(diagnostics)
 			.mockResolvedValueOnce(null)
 			.mockRejectedValueOnce(new Error('server unavailable'));
+
 		const { events, close_document, ctx } = await setup({
 			wait_for_diagnostics,
 		});
+
 		for (const path of ['a.ts', 'b.ts', 'c.ts']) {
 			events.get('tool_result')({
 				toolName: 'edit',
@@ -168,6 +180,7 @@ describe('automatic LSP diagnostics', () => {
 				isError: false,
 			});
 		}
+
 		const result = await events.get('turn_end')(boundary(), ctx);
 		const text = result.entries[0].content;
 		expect(text).toContain(
@@ -190,12 +203,15 @@ describe('automatic LSP diagnostics', () => {
 			isError: false,
 		});
 		let finished = false;
+
 		const pending = events
 			.get('turn_end')(boundary(), ctx)
 			.then((result: unknown) => {
 				finished = true;
+
 				return result;
 			});
+
 		await vi.waitFor(() =>
 			expect(wait_for_diagnostics).toHaveBeenCalledTimes(1),
 		);
@@ -245,22 +261,27 @@ describe('automatic LSP diagnostics', () => {
 		async (reason) => {
 			const deferred = create_deferred<LspDiagnostic[] | null>();
 			const wait_for_diagnostics = vi.fn(() => deferred.promise);
+
 			const { events, close_document, ctx } = await setup({
 				wait_for_diagnostics,
 			});
+
 			const controller = new AbortController();
 			events.get('tool_result')({
 				toolName: 'write',
 				input: { path: 'a.ts' },
 				isError: false,
 			});
+
 			const pending = events.get('turn_end')(boundary(), {
 				...ctx,
 				signal: controller.signal,
 			});
+
 			await vi.waitFor(() =>
 				expect(wait_for_diagnostics).toHaveBeenCalledTimes(1),
 			);
+
 			if (reason === 'abort') controller.abort();
 			else await events.get('session_shutdown')({}, ctx);
 			deferred.resolve([]);

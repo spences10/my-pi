@@ -15,9 +15,11 @@ export const no_nested_ternary = defineRule({
 	},
 	create(context) {
 		const reported = new Set<ESTree.ConditionalExpression>();
+
 		return {
 			ConditionalExpression(node) {
 				let outer = node;
+
 				for (
 					let parent: ESTree.Node | null = node.parent;
 					parent;
@@ -29,8 +31,10 @@ export const no_nested_ternary = defineRule({
 						parent.type === 'FunctionDeclaration'
 					)
 						break;
+
 					if (parent.type === 'ConditionalExpression') outer = parent;
 				}
+
 				if (outer !== node && !reported.has(outer)) {
 					context.report({ node: outer, messageId: 'nested' });
 					reported.add(outer);

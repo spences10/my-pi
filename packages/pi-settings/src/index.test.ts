@@ -27,12 +27,14 @@ let agent_dir: string | undefined;
 function use_temp_agent_dir(): string {
 	agent_dir = mkdtempSync(join(tmpdir(), 'pi-settings-'));
 	process.env.PI_CODING_AGENT_DIR = agent_dir;
+
 	return agent_dir;
 }
 
 afterEach(() => {
 	if (agent_dir) rmSync(agent_dir, { recursive: true, force: true });
 	agent_dir = undefined;
+
 	if (original_agent_dir === undefined)
 		delete process.env.PI_CODING_AGENT_DIR;
 	else process.env.PI_CODING_AGENT_DIR = original_agent_dir;

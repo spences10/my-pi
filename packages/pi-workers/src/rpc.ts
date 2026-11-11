@@ -22,6 +22,7 @@ interface ProcessIdentity {
 /** @internal Linux comm fields can contain spaces and closing parentheses. */
 export function parse_process_stat(stat: string): ProcessIdentity {
 	const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+
 	return {
 		pid: Number(stat.slice(0, stat.indexOf(' '))),
 		group: Number(fields[2]),
@@ -60,6 +61,7 @@ function group_members(group: number): ProcessIdentity[] {
 		return readdirSync('/proc').flatMap((entry) => {
 			if (!/^\d+$/.test(entry)) return [];
 			const identity = process_identity(Number(entry));
+
 			return identity?.group === group ? [identity] : [];
 		});
 	} catch {
@@ -118,20 +120,26 @@ export class WorkerProcess {
 		this.child.stdout.on('data', (chunk: Buffer) => {
 			buffer += decoder.write(chunk);
 			let index: number;
+
 			// JSONL splits only on LF, not Unicode paragraph/line separators.
 			while ((index = buffer.indexOf('\n')) >= 0) {
 				const line = buffer.slice(0, index).replace(/\r$/, '');
 				buffer = buffer.slice(index + 1);
+
 				if (!line) continue;
+
 				try {
 					const record: RpcRecord = JSON.parse(line);
+
 					const pending =
 						typeof record.id === 'string'
 							? this.pending.get(record.id)
 							: undefined;
+
 					if (record.type === 'response' && pending) {
 						clearTimeout(pending.timer);
 						this.pending.delete(record.id as string);
+
 						if (record.success === false)
 							pending.reject(new Error(String(record.error)));
 						else pending.resolve((record.data ?? {}) as RpcRecord);
@@ -143,6 +151,7 @@ export class WorkerProcess {
 						error instanceof Error ? error : new Error(String(error)),
 					);
 					void this.stop();
+
 					return;
 				}
 			}
@@ -150,6 +159,7 @@ export class WorkerProcess {
 		this.child.stderr.on('data', (chunk: Buffer) => {
 			if (this.stderr_omitted) return;
 			const complete = this.stderr + chunk.toString();
+
 			// A raw suffix can lose the label needed to recognize a secret.
 			// Keep the complete diagnostic or omit it, never a partial tail.
 			if (complete.length > 4000) {
@@ -173,10 +183,12 @@ export class WorkerProcess {
 	private finish(error: Error): void {
 		if (this.exit_error) return;
 		this.exit_error = error;
+
 		for (const pending of this.pending.values()) {
 			clearTimeout(pending.timer);
 			pending.reject(error);
 		}
+
 		this.pending.clear();
 		this.options.on_exit(error);
 	}
@@ -192,12 +204,15 @@ export class WorkerProcess {
 		timeout_ms = 30_000,
 	): Promise<RpcRecord> {
 		const id = `worker-${++this.next_id}`;
+
 		return new Promise((resolve, reject) => {
 			const timer = setTimeout(() => {
 				this.pending.delete(id);
 				reject(new Error(`RPC ${command.type} timed out`));
 			}, timeout_ms);
+
 			this.pending.set(id, { resolve, reject, timer });
+
 			try {
 				this.write({ ...command, id });
 			} catch (error) {
@@ -210,34 +225,43 @@ export class WorkerProcess {
 
 	stop(): Promise<void> {
 		this.stopped ??= this.stop_process();
+
 		return this.stopped;
 	}
 
 	private async stop_process(): Promise<void> {
 		const child = this.child;
+
 		if (!child || this.closed) return;
 		// Snapshot before requesting EOF, while the leader still proves ownership.
 		// Keep descendant identities: closing Pi's pipes does not retire its group.
 		let members: ProcessIdentity[] | undefined;
+
 		if (process.platform === 'linux' && child.pid) {
 			const leader = process_identity(child.pid);
+
 			if (leader?.group === child.pid) {
 				const snapshot = group_members(child.pid);
+
 				if (same_live_process(leader, process_identity(leader.pid)))
 					members = snapshot;
 			}
 		}
+
 		const owns_group = () =>
 			members!.some((member) =>
 				same_live_process(member, process_identity(member.pid)),
 			);
+
 		const signal_group = (signal: NodeJS.Signals) => {
 			if (members) {
 				if (!owns_group()) return;
 				const snapshot = group_members(child.pid!);
+
 				// Revalidate after scanning, including before SIGKILL escalation.
 				if (!owns_group()) return;
 				members = snapshot;
+
 				if (!owns_group()) return;
 			} else if (
 				this.closed ||
@@ -247,28 +271,36 @@ export class WorkerProcess {
 				// Without identity tracking, never signal a reaped/reused group.
 				return;
 			}
+
 			try {
 				process.kill(-child.pid!, signal);
 			} catch {}
 		};
+
 		if (this.alive) {
 			try {
 				this.write({ type: 'abort' });
 			} catch {}
+
 			child.stdin.end();
 		}
+
 		const wait = async (ms: number) => {
 			if (members) {
 				const deadline = Date.now() + ms;
+
 				while (!this.closed || owns_group()) {
 					const remaining = deadline - Date.now();
+
 					if (remaining <= 0) break;
 					await new Promise((resolve) =>
 						setTimeout(resolve, Math.min(25, remaining)),
 					);
 				}
+
 				return;
 			}
+
 			let timer: NodeJS.Timeout | undefined;
 			await Promise.race([
 				this.exited,
@@ -278,8 +310,11 @@ export class WorkerProcess {
 			]);
 			clearTimeout(timer);
 		};
+
 		await wait(1000);
+
 		if (!members && this.closed) return;
+
 		if (child.pid && process.platform !== 'win32') {
 			signal_group('SIGTERM');
 			await wait(250);
@@ -298,6 +333,7 @@ export class WorkerProcess {
 				);
 			});
 		}
+
 		await wait(1000);
 	}
 }

@@ -60,17 +60,23 @@ export function register_context_purge_tool(pi: ExtensionAPI): void {
 			const scope = scope_from_context(ctx);
 			const store = get_context_store(scope);
 			const stats = store.stats();
+
 			const has_explicit_scope =
 				params.project_path !== undefined ||
 				params.session_id !== undefined;
+
 			const use_explicit_scope = params.global || has_explicit_scope;
+
 			const project_path = use_explicit_scope
 				? params.project_path
 				: scope.project_path;
+
 			const session_id = use_explicit_scope
 				? params.session_id
 				: scope.session_id;
+
 			let details: ContextPurgeDetails;
+
 			if (params.expired)
 				details = { deleted: store.cleanup().deleted };
 			else
@@ -82,6 +88,7 @@ export function register_context_purge_tool(pi: ExtensionAPI): void {
 						: (params.older_than_days ?? stats.retention_days ?? 14),
 					source_id: params.source_id,
 				});
+
 			return {
 				content: [
 					{

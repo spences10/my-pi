@@ -44,6 +44,7 @@ const TeamUiModeParam = StringEnum([
 	'full',
 	'off',
 ] as const);
+
 const ArtifactKindParam = StringEnum([
 	'summary',
 	'handoff',
@@ -313,6 +314,7 @@ function require_tool_field(
 	field: keyof TeamToolParams,
 ): void {
 	const value = params[field];
+
 	if (typeof value === 'string' && value.trim()) return;
 	throw new Error(
 		`Invalid team tool action ${params.action}: missing required field ${field}`,
@@ -327,11 +329,13 @@ function require_tool_any_field(
 	if (
 		fields.some((field) => {
 			const value = params[field];
+
 			return typeof value === 'string' && value.trim();
 		})
 	) {
 		return;
 	}
+
 	throw new Error(
 		`Invalid team tool action ${params.action}: missing required field ${label}`,
 	);
@@ -339,14 +343,17 @@ function require_tool_any_field(
 
 function reject_inapplicable_fields(params: TeamToolParams): void {
 	const allowed = ACTION_ALLOWED_FIELDS[params.action];
+
 	if (!allowed)
 		throw new Error(
 			`Unsupported team action: ${String(params.action)}`,
 		);
 	const allowed_fields = new Set<string>(allowed);
+
 	const invalid = Object.keys(params).filter(
 		(field) => !allowed_fields.has(field),
 	);
+
 	if (invalid.length > 0) {
 		throw new Error(
 			`Invalid team tool action ${params.action}: field ${invalid[0]} is not allowed`,
@@ -358,6 +365,7 @@ export function validate_team_tool_params(
 	params: TeamToolParams,
 ): void {
 	reject_inapplicable_fields(params);
+
 	if (
 		params.message_type === 'status' &&
 		(params.urgent || params.requires_ack)
@@ -365,6 +373,7 @@ export function validate_team_tool_params(
 		throw new Error(
 			'Status messages cannot be urgent or require acknowledgement',
 		);
+
 	if (
 		params.status_key !== undefined &&
 		(params.message_type !== 'status' || !params.status_key.trim())
@@ -372,11 +381,13 @@ export function validate_team_tool_params(
 		throw new Error(
 			'status_key requires a status message and a non-empty key',
 		);
+
 	if (
 		params.idempotency_key !== undefined &&
 		!params.idempotency_key.trim()
 	)
 		throw new Error('idempotency_key must not be empty');
+
 	if (
 		params.limit !== undefined &&
 		(!Number.isInteger(params.limit) ||
@@ -386,6 +397,7 @@ export function validate_team_tool_params(
 		throw new Error(
 			`Invalid team tool action ${params.action}: limit must be an integer between 1 and ${MAX_TEAM_LIST_LIMIT}`,
 		);
+
 	if (
 		params.offset !== undefined &&
 		(!Number.isInteger(params.offset) || params.offset < 0)
@@ -393,14 +405,17 @@ export function validate_team_tool_params(
 		throw new Error(
 			`Invalid team tool action ${params.action}: offset must be a non-negative integer`,
 		);
+
 	if (params.include_read && params.unread_only)
 		throw new Error(
 			`Invalid team tool action ${params.action}: include_read and unread_only cannot be combined`,
 		);
+
 	if (params.include_acknowledged && params.unacknowledged_only)
 		throw new Error(
 			`Invalid team tool action ${params.action}: include_acknowledged and unacknowledged_only cannot be combined`,
 		);
+
 	switch (params.action) {
 		case 'session_list':
 		case 'session_inbox':
@@ -418,16 +433,20 @@ export function validate_team_tool_params(
 		case 'message_send':
 			require_tool_field(params, 'to');
 			require_tool_field(params, 'message');
+
 			return;
 		case 'group_create':
 			require_tool_field(params, 'name');
+
 			return;
 		case 'group_join':
 			require_tool_any_field(params, ['team_id', 'name'], 'group');
+
 			return;
 		case 'group_add_session':
 			require_tool_any_field(params, ['team_id', 'name'], 'group');
 			require_tool_field(params, 'to');
+
 			return;
 		case 'group_send':
 			require_tool_any_field(
@@ -436,14 +455,17 @@ export function validate_team_tool_params(
 				'group',
 			);
 			require_tool_field(params, 'message');
+
 			return;
 		case 'artifact_create':
 			require_tool_field(params, 'kind');
 			require_tool_field(params, 'title');
 			require_tool_field(params, 'body');
+
 			return;
 		case 'artifact_get':
 			require_tool_field(params, 'artifact_id');
+
 			return;
 	}
 }

@@ -57,7 +57,9 @@ const SCHEMA = readFileSync(
 	new URL('./schema.sql', import.meta.url),
 	'utf8',
 );
+
 const PERSISTENT_PRAGMAS = SQLITE_PERSISTENT_PRAGMAS;
+
 const CONNECTION_PRAGMAS = sqlite_pragmas({
 	foreign_keys: false,
 }).connection;
@@ -74,11 +76,14 @@ export function prepare_db(db_path: string): {
 	db.exec(PERSISTENT_PRAGMAS);
 	db.exec(CONNECTION_PRAGMAS);
 	migrate_db(db);
+
 	for (const path of [db_path, `${db_path}-wal`, `${db_path}-shm`]) {
 		if (existsSync(path)) chmodSync(path, 0o600);
 	}
+
 	const derived_columns = EVENT_COLUMN_NAMES.join(', ');
 	const derived_params = EVENT_COLUMN_NAMES.map(() => '?').join(', ');
+
 	return {
 		db,
 		statements: {
@@ -156,11 +161,13 @@ function table_columns(db: DatabaseSync, table: string): Set<string> {
 	const rows = db
 		.prepare(`PRAGMA table_info(${table})`)
 		.all() as Array<{ name: string }>;
+
 	return new Set(rows.map((row) => row.name));
 }
 
 function scalar(db: DatabaseSync, sql: string): number {
 	const row = db.prepare(sql).get() as Record<string, unknown>;
+
 	return Number(Object.values(row)[0] ?? 0);
 }
 
@@ -176,6 +183,7 @@ function scalar(db: DatabaseSync, sql: string): number {
  */
 export function migrate_db(db: DatabaseSync): void {
 	const version = scalar(db, 'PRAGMA user_version');
+
 	if (version > OBSERVABILITY_SCHEMA_VERSION)
 		throw new Error(
 			`Observability database schema version ${version} is newer than supported version ${OBSERVABILITY_SCHEMA_VERSION}`,
@@ -183,6 +191,7 @@ export function migrate_db(db: DatabaseSync): void {
 
 	const event_columns = table_columns(db, 'events');
 	const existing_events = event_columns.size > 0;
+
 	if (existing_events) {
 		for (const name of EVENT_COLUMN_NAMES) {
 			if (!event_columns.has(name))
@@ -191,7 +200,9 @@ export function migrate_db(db: DatabaseSync): void {
 				);
 		}
 	}
+
 	const session_columns = table_columns(db, 'sessions');
+
 	if (
 		session_columns.size > 0 &&
 		!session_columns.has('session_name')
@@ -203,8 +214,10 @@ export function migrate_db(db: DatabaseSync): void {
 	// Every version so far adds derived columns, so re-derive them all.
 	if (version < OBSERVABILITY_SCHEMA_VERSION && existing_events)
 		backfill_event_columns(db);
+
 	if (version < OBSERVABILITY_SCHEMA_VERSION)
 		db.exec(`PRAGMA user_version = ${OBSERVABILITY_SCHEMA_VERSION}`);
+
 	if (scalar(db, 'PRAGMA auto_vacuum') !== 2) {
 		db.exec('PRAGMA auto_vacuum = INCREMENTAL;');
 		db.exec('VACUUM');
@@ -215,9 +228,11 @@ function backfill_event_columns(db: DatabaseSync): void {
 	const assignments = EVENT_COLUMN_NAMES.map(
 		(name) => `${name} = ?`,
 	).join(', ');
+
 	const update = db.prepare(
 		`UPDATE events SET ${assignments} WHERE event_id = ?`,
 	);
+
 	const rows = db
 		.prepare('SELECT event_id, type, payload_json FROM events')
 		.all() as Array<{
@@ -225,16 +240,19 @@ function backfill_event_columns(db: DatabaseSync): void {
 		type: string;
 		payload_json: string;
 	}>;
+
 	with_sqlite_transaction(
 		db,
 		() => {
 			for (const row of rows) {
 				let payload: unknown;
+
 				try {
 					payload = JSON.parse(row.payload_json);
 				} catch {
 					continue;
 				}
+
 				update.run(
 					...event_column_values(
 						derive_event_columns(row.type, payload),

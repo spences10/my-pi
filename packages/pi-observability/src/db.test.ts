@@ -20,6 +20,7 @@ const dirs: string[] = [];
 function tmp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-observability-db-'));
 	dirs.push(dir);
+
 	return join(dir, 'nested', 'events.db');
 }
 
@@ -33,8 +34,10 @@ describe('prepare_db', () => {
 	it('creates parent directories, applies schema, and returns prepared statements', () => {
 		const db_path = tmp_db();
 		const { db, statements } = prepare_db(db_path);
+
 		try {
 			expect(existsSync(db_path)).toBe(true);
+
 			if (process.platform !== 'win32') {
 				for (const path of [
 					db_path,
@@ -44,6 +47,7 @@ describe('prepare_db', () => {
 					expect(statSync(path).mode & 0o777).toBe(0o600);
 				}
 			}
+
 			expect(Object.keys(statements).sort()).toEqual([
 				'clear_session_name',
 				'delete_old_events',
@@ -91,12 +95,14 @@ describe('prepare_db', () => {
 		legacy.close();
 
 		const { db } = prepare_db(db_path);
+
 		try {
 			const columns = db
 				.prepare('PRAGMA table_info(sessions)')
 				.all() as Array<{
 				name: string;
 			}>;
+
 			expect(columns.map((column) => column.name)).toContain(
 				'session_name',
 			);
@@ -123,9 +129,11 @@ describe('prepare_db', () => {
 				model TEXT
 			)
 		`);
+
 		const insert = legacy.prepare(
 			'INSERT INTO events (event_id, session_id, seq, ts, type, payload_json) VALUES (?, ?, ?, ?, ?, ?)',
 		);
+
 		const rows: Array<[string, string, unknown]> = [
 			['2026-10-31T10:00:00.000Z', 'turn_start', { turnIndex: 0 }],
 			[
@@ -167,6 +175,7 @@ describe('prepare_db', () => {
 				{ turnIndex: 0, message: { usage: { input: 100 } } },
 			],
 		];
+
 		rows.forEach(([ts, type, payload], seq) =>
 			insert.run(
 				`e${seq}`,
@@ -180,6 +189,7 @@ describe('prepare_db', () => {
 		legacy.close();
 
 		const { db } = prepare_db(db_path);
+
 		try {
 			expect(db.prepare('PRAGMA user_version').get()).toMatchObject({
 				user_version: 2,
@@ -226,6 +236,7 @@ describe('prepare_db', () => {
 
 	it('pairs repeated turn indexes with the next turn_end', () => {
 		const { db, statements } = prepare_db(tmp_db());
+
 		try {
 			const types = [
 				'turn_start',
@@ -233,6 +244,7 @@ describe('prepare_db', () => {
 				'turn_start',
 				'turn_end',
 			];
+
 			types.forEach((type, seq) =>
 				statements.insert_event.run(
 					`e${seq}`,
@@ -274,6 +286,7 @@ describe('prepare_db', () => {
 		'branch_nav',
 	])('does not pair an unfinished turn across %s', (boundary) => {
 		const { db, statements } = prepare_db(tmp_db());
+
 		try {
 			const fixtures: Array<
 				[number, string, Record<string, unknown>]
@@ -299,6 +312,7 @@ describe('prepare_db', () => {
 				],
 				[613, 'turn_end', { turnIndex: 0 }],
 			];
+
 			fixtures.forEach(([second, type, payload], seq) =>
 				statements.insert_event.run(
 					`interrupted-${seq}`,
@@ -316,11 +330,13 @@ describe('prepare_db', () => {
 					...event_column_values(derive_event_columns(type, payload)),
 				),
 			);
+
 			const turns = db
 				.prepare(
 					'SELECT start_seq, interrupted, duration_ms, provider_ms, input_tokens, cost_usd FROM turn_spans ORDER BY start_seq',
 				)
 				.all();
+
 			expect(turns[0]).toMatchObject({
 				start_seq: 0,
 				interrupted: 1,
@@ -356,6 +372,7 @@ describe('prepare_db', () => {
 
 	it('does not close a running turn using another session or an unmatched end', () => {
 		const { db } = prepare_db(tmp_db());
+
 		try {
 			db.exec(`
 				INSERT INTO events (event_id, session_id, seq, ts, type, payload_json) VALUES
@@ -384,6 +401,7 @@ describe('prepare_db', () => {
 
 	it('creates new databases with incremental vacuum and no rebuild', () => {
 		const { db } = prepare_db(tmp_db());
+
 		try {
 			expect(db.prepare('PRAGMA auto_vacuum').get()).toMatchObject({
 				auto_vacuum: 2,
@@ -421,6 +439,7 @@ describe('prepare_db', () => {
 		first.db.close();
 
 		const { db } = prepare_db(db_path);
+
 		try {
 			expect(db.prepare('PRAGMA user_version').get()).toMatchObject({
 				user_version: 2,
@@ -436,11 +455,13 @@ describe('prepare_db', () => {
 				exit_code: 3,
 				parent_tool_call_id: 'p1',
 			});
+
 			const columns = (
 				db.prepare('PRAGMA table_info(tool_spans)').all() as Array<{
 					name: string;
 				}>
 			).map((column) => column.name);
+
 			expect(columns).toEqual(
 				expect.arrayContaining(['error_text', 'exit_code']),
 			);

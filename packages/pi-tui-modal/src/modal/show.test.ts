@@ -15,6 +15,7 @@ import type { ModalTheme } from './types.js';
 type CustomFactory = Parameters<
 	ExtensionCommandContext['ui']['custom']
 >[0];
+
 type CustomFactoryArgs = Parameters<CustomFactory>;
 
 const theme: ModalTheme = {
@@ -29,6 +30,7 @@ function create_ctx(
 ) {
 	const notify = vi.fn();
 	const rendered_lines: string[] = [];
+
 	const custom = vi.fn(
 		async (
 			factory: Parameters<ExtensionCommandContext['ui']['custom']>[0],
@@ -37,6 +39,7 @@ function create_ctx(
 			>[1],
 		) => {
 			let resolved = result;
+
 			const component = await factory(
 				{
 					terminal: { rows: terminal_rows },
@@ -48,13 +51,17 @@ function create_ctx(
 					resolved = value;
 				},
 			);
+
 			(component as Component & { focused: boolean }).focused = true;
 			rendered_lines.push(...component.render(100));
+
 			if (send_input) component.handleInput?.(send_input);
 			component.dispose?.();
+
 			return resolved;
 		},
 	);
+
 	return {
 		ctx: {
 			ui: {

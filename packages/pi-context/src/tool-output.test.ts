@@ -31,6 +31,7 @@ describe('select_context_output', () => {
 				full_output_path: '/tmp/full.txt',
 			},
 		});
+
 		expect(text).toContain('Partial native output');
 		expect(text).toContain('/tmp/full.txt');
 		expect(text).toContain('head ... tail');

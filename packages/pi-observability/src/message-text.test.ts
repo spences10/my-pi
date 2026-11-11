@@ -54,6 +54,7 @@ describe('assistant response text', () => {
 			responseText: 'First paragraph\nSecond paragraph',
 			responseTextTruncated: false,
 		});
+
 		for (const type of [
 			'message_start',
 			'turn_end',
@@ -89,6 +90,7 @@ describe('assistant response text', () => {
 				max_payload_bytes: 0,
 			},
 		);
+
 		expect(event.payload).toMatchObject({
 			responseTextTruncated: true,
 		});

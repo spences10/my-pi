@@ -28,6 +28,7 @@
 					: String(Number(row.day.slice(8))),
 		})),
 	);
+
 	const full_labels = $derived(
 		new Map(data.map((row) => [row.label, day_label(row.day)])),
 	);

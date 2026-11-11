@@ -79,6 +79,7 @@ export function build_stage_actions(
 			run: () => callbacks.refresh(file.path),
 		},
 	];
+
 	if (file.state === 'conflicted') {
 		actions.unshift({
 			action_label: 'conflict help',
@@ -86,6 +87,7 @@ export function build_stage_actions(
 			run: () => callbacks.conflict_help(file),
 		});
 	}
+
 	return actions;
 }
 
@@ -115,6 +117,8 @@ export function next_action_index(
 	input: string,
 ): number {
 	if (key_is_up(input)) return Math.max(0, current - 1);
+
 	if (key_is_down(input)) return Math.min(length - 1, current + 1);
+
 	return current;
 }

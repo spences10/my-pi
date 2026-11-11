@@ -28,6 +28,7 @@ export function create_automatic_diagnostics(
 		)
 			return;
 		const path = event.input.path;
+
 		if (typeof path !== 'string' || !detect_language(path)) return;
 		pending_files.add(manager.resolve_abs(path));
 	}
@@ -38,12 +39,16 @@ export function create_automatic_diagnostics(
 	): Promise<TurnEndEventResult | undefined> {
 		if (event.outcome !== 'completed' || ctx.signal?.aborted) {
 			reset();
+
 			return;
 		}
+
 		const files = Array.from(pending_files);
 		pending_files.clear();
+
 		if (files.length === 0) return;
 		const current_generation = generation;
+
 		const result = await run_diagnostics_many(
 			manager,
 			files,
@@ -51,8 +56,10 @@ export function create_automatic_diagnostics(
 			ctx,
 			ctx.signal,
 		);
+
 		if (current_generation !== generation || ctx.signal?.aborted)
 			return;
+
 		return {
 			entries: [
 				...event.entries,

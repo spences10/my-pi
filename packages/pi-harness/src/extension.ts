@@ -53,6 +53,7 @@ export function should_inject_harness_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
 ): boolean {
 	const selected = event.systemPromptOptions?.selectedTools;
+
 	return (
 		!selected ||
 		selected.some(
@@ -88,6 +89,7 @@ export default function harness(pi: ExtensionAPI) {
 			assessment_active(assessment) ? '🔎 assess' : undefined,
 		);
 	}
+
 	function set_active(
 		dir: string | undefined,
 		ctx: ExtensionContext,
@@ -96,12 +98,15 @@ export default function harness(pi: ExtensionAPI) {
 		pi.appendEntry(HARNESS_CUSTOM_TYPE, { active_harness_dir: dir });
 		update_ui(ctx);
 	}
+
 	function start_assessment(task: string, ctx: ExtensionContext) {
 		assessment = create_assessment_state(task, 'user');
 		pi.appendEntry(HARNESS_ASSESSMENT_CUSTOM_TYPE, assessment);
 		update_ui(ctx);
+
 		return assessment;
 	}
+
 	function require_active(dir: string) {
 		if (
 			!active_harness_dir ||
@@ -111,18 +116,23 @@ export default function harness(pi: ExtensionAPI) {
 				'Use /harness use <dir> to select this harness first',
 			);
 	}
+
 	function restore(ctx: ExtensionContext) {
 		active_harness_dir = undefined;
 		assessment = undefined;
+
 		for (const entry of ctx.sessionManager.getBranch()) {
 			if (entry.type !== 'custom') continue;
+
 			if (entry.customType === HARNESS_CUSTOM_TYPE)
 				active_harness_dir = (
 					entry.data as { active_harness_dir?: string } | undefined
 				)?.active_harness_dir;
+
 			if (entry.customType === HARNESS_ASSESSMENT_CUSTOM_TYPE)
 				assessment = entry.data as HarnessAssessmentState | undefined;
 		}
+
 		if (
 			active_harness_dir &&
 			existsSync(harness_paths(active_harness_dir).status) &&
@@ -137,6 +147,7 @@ export default function harness(pi: ExtensionAPI) {
 			'Optional investigation and recommendation; does not lock tools or create an approval gate',
 		handler: async (args, ctx) => {
 			const task = args.trim();
+
 			if (!task || task === 'status') {
 				ctx.ui.notify(
 					assessment
@@ -166,6 +177,7 @@ export default function harness(pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			const [command = 'status', ...words] = args.trim().split(/\s+/);
 			const rest = words.join(' ');
+
 			if (command === 'clear') {
 				const had_active_harness = Boolean(active_harness_dir);
 				set_active(undefined, ctx);
@@ -175,27 +187,36 @@ export default function harness(pi: ExtensionAPI) {
 						: 'No active harness to clear.',
 					'info',
 				);
+
 				return;
 			}
+
 			if (command === 'create') {
 				if (!rest) {
 					ctx.ui.notify('Usage: /harness create <task>', 'warning');
+
 					return;
 				}
+
 				set_active(undefined, ctx);
 				pi.sendUserMessage(
 					`Create a task harness with harness_create for: ${rest}. Use the project's normal acceptance checks and a suitable scope. No assessment or extra approval roundtrip is required. Do not expand the user-authorized task.`,
 				);
+
 				return;
 			}
+
 			const dir = rest || active_harness_dir;
+
 			if (!dir) {
 				ctx.ui.notify(
 					'No active harness. Use /harness create <task>.',
 					'info',
 				);
+
 				return;
 			}
+
 			if (
 				command === 'use' ||
 				command === 'run' ||
@@ -204,6 +225,7 @@ export default function harness(pi: ExtensionAPI) {
 				if (!existsSync(harness_paths(dir).contract))
 					throw new Error('Harness contract does not exist');
 				set_active(dir, ctx);
+
 				if (command === 'use')
 					ctx.ui.notify(`Active harness: ${dir}`, 'info');
 				else
@@ -248,6 +270,7 @@ export default function harness(pi: ExtensionAPI) {
 			);
 			pi.appendEntry(HARNESS_ASSESSMENT_CUSTOM_TYPE, assessment);
 			update_ui(ctx);
+
 			return tool_text(format_assessment_record(assessment));
 		},
 	});
@@ -264,14 +287,18 @@ export default function harness(pi: ExtensionAPI) {
 				throw new Error(
 					'A harness is already active; the user can /harness clear or /harness create a new task',
 				);
+
 			if (params.cwd && resolve(params.cwd) !== resolve(ctx.cwd))
 				throw new Error('Harness cwd must match the current project');
 			const { harness_dir } = create_harness_runtime(params, ctx.cwd);
+
 			if (assessment_active(assessment)) {
 				assessment = undefined;
 				pi.appendEntry(HARNESS_ASSESSMENT_CUSTOM_TYPE, undefined);
 			}
+
 			set_active(harness_dir, ctx);
+
 			return tool_text(format_harness_summary(harness_dir));
 		},
 	});
@@ -287,6 +314,7 @@ export default function harness(pi: ExtensionAPI) {
 			require_active(params.harness_dir);
 			amend_harness_runtime({ ...params, requested_by: 'planner' });
 			update_ui(ctx);
+
 			return tool_text(format_harness_summary(params.harness_dir));
 		},
 	});
@@ -300,6 +328,7 @@ export default function harness(pi: ExtensionAPI) {
 		executionMode: 'sequential',
 		async execute(_id, params, signal, _update, ctx) {
 			require_active(params.harness_dir);
+
 			try {
 				const status = await update_harness_runtime(params, {
 					cwd: ctx.cwd,
@@ -310,12 +339,14 @@ export default function harness(pi: ExtensionAPI) {
 							{ command: `cd -- ${shell_quote(cwd)} && ${command}` },
 							{ signal: run_signal },
 						);
+
 						return {
 							passed: outcome.isError === false,
 							output: JSON.stringify(outcome.result),
 						};
 					},
 				});
+
 				return tool_text(
 					`Harness ${status.status}. Evidence: ${harness_paths(params.harness_dir).outcome_markdown}`,
 				);
@@ -359,8 +390,10 @@ export default function harness(pi: ExtensionAPI) {
 				? active_harness_context(active_harness_dir)
 				: '',
 		].filter(Boolean);
+
 		if (!contexts.length && should_inject_harness_prompt(event))
 			contexts.push(HARNESS_SYSTEM_PROMPT);
+
 		if (contexts.length) {
 			event.systemPromptOptions.sections.harness =
 				contexts.join('\n\n');
@@ -375,31 +408,38 @@ export default function harness(pi: ExtensionAPI) {
 		)
 			return;
 		const contract = read_contract(active_harness_dir);
+
 		if (event.toolName === 'bash') {
 			const result = check_command_allowed(
 				contract,
 				String((event.input as { command?: string }).command ?? ''),
 			);
+
 			if (!result.ok) return { block: true, reason: result.reason };
 		}
+
 		if (event.toolName === 'write' || event.toolName === 'edit') {
 			const input = event.input as Record<string, unknown>;
 			const path = input.path ?? input.file_path ?? input.filePath;
+
 			if (typeof path !== 'string')
 				return {
 					block: true,
 					reason: 'Harness mutation requires a known file path',
 				};
 			let cwd: string;
+
 			try {
 				cwd = resolve_harness_cwd(contract, ctx.cwd);
 			} catch (error) {
 				return { block: true, reason: String(error) };
 			}
+
 			const result = check_path_allowed(
 				{ ...contract, policy: { ...contract.policy, cwd } },
 				path,
 			);
+
 			if (!result.ok) return { block: true, reason: result.reason };
 		}
 	});

@@ -38,9 +38,11 @@ function theme_palette(theme: Theme): Color[] {
 	const colors = new Map(
 		gradient_tokens.map((token) => {
 			const color = theme.colors[token];
+
 			return [colorToHex(color), color];
 		}),
 	);
+
 	return colors.size >= 2
 		? [...colors.values()]
 		: [
@@ -54,6 +56,7 @@ function center_line(text: string, width: number): string {
 	const clipped = stripTerminalSequences(
 		truncateToWidth(stripTerminalSequences(text), width, ''),
 	);
+
 	return (
 		' '.repeat(
 			Math.max(0, Math.floor((width - visibleWidth(clipped)) / 2)),
@@ -68,19 +71,25 @@ export function render_splash(
 ): string[] {
 	if (width < 1) return [];
 	const palette = theme_palette(theme);
+
 	function paint(text: string, phase: number, bold = false): string {
 		const centered = center_line(text, width);
+
 		const chars = Array.from(
 			segmenter.segment(centered),
 			({ segment }) => segment,
 		);
+
 		return chars
 			.map((char, index) => {
 				if (char === ' ') return char;
+
 				const position =
 					((index / Math.max(chars.length - 1, 1) + phase) % 1) *
 					palette.length;
+
 				const from = Math.floor(position);
+
 				return theme.style(char, {
 					fg: mixColors(
 						palette[from],
@@ -93,14 +102,19 @@ export function render_splash(
 			})
 			.join('');
 	}
+
 	const title = paint(`My-Pi v${info.version}`, 0.12, true);
+
 	const subtitle = paint(
 		`${info.model_id} · ${info.project}`,
 		0.18,
 		true,
 	);
+
 	const logo_width = Math.max(...logo_lines.map(visibleWidth));
+
 	if (width < logo_width) return [title, subtitle];
+
 	return [
 		'',
 		title,
@@ -125,6 +139,7 @@ export default function startup_screen(pi: ExtensionAPI): void {
 		installed = true;
 		ctx.ui.setHeader((tui, theme) => {
 			request_render = () => tui.requestRender();
+
 			return {
 				render: (width) =>
 					render_splash(theme, width, {

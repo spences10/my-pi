@@ -17,18 +17,23 @@ async function fetch(
 	init: RequestInit = {},
 ): Promise<Response> {
 	let url: string;
+
 	if (typeof input === 'string') url = input;
 	else url = input instanceof URL ? input.href : input.url;
+
 	const server = servers.find((candidate) =>
 		url.startsWith(candidate.url),
 	);
+
 	const headers = new Headers(init.headers);
+
 	if (
 		server &&
 		!new URL(url).searchParams.has('unauthorized') &&
 		!new URL(url).searchParams.has('token')
 	)
 		headers.set('authorization', `Bearer ${server.token}`);
+
 	return globalThis.fetch(input, { ...init, headers });
 }
 
@@ -52,12 +57,15 @@ async function wait_for_health(url: string): Promise<void> {
 			const response = await fetch(
 				`${url}/health?challenge=test-health-challenge`,
 			);
+
 			if (response.ok) return;
 		} catch {
 			// wait and retry
 		}
+
 		await new Promise((resolve_wait) => setTimeout(resolve_wait, 20));
 	}
+
 	throw new Error('server did not start');
 }
 
@@ -116,13 +124,16 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
 		const challenge = 'health-proof-challenge';
+
 		const response = await fetch(
 			`${server.url}/health?challenge=${challenge}`,
 		);
+
 		expect(await response.json()).toEqual({
 			ok: true,
 			proof: create_health_proof(server.token, challenge),
@@ -138,6 +149,7 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
@@ -146,15 +158,18 @@ describe('start_observability_server', () => {
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify([event(0), event(1)]),
 		});
+
 		expect(await ingest_response.json()).toMatchObject({
 			ingested: 2,
 			rejected: 0,
 		});
 
 		const sessions_response = await fetch(`${server.url}/sessions`);
+
 		const sessions_body = (await sessions_response.json()) as {
 			sessions: Array<{ session_id: string; event_count: number }>;
 		};
+
 		expect(sessions_body.sessions[0]).toMatchObject({
 			session_id: 'session-1',
 			event_count: 2,
@@ -163,9 +178,11 @@ describe('start_observability_server', () => {
 		const events_response = await fetch(
 			`${server.url}/sessions/session-1/events`,
 		);
+
 		const events_body = (await events_response.json()) as {
 			events: ObservabilityEvent[];
 		};
+
 		expect(events_body.events.map((item) => item.seq)).toEqual([
 			1, 0,
 		]);
@@ -173,9 +190,11 @@ describe('start_observability_server', () => {
 		const trace_response = await fetch(
 			`${server.url}/sessions/session-1/trace`,
 		);
+
 		const trace_body = (await trace_response.json()) as {
 			metrics: { events: number };
 		};
+
 		expect(trace_body.metrics.events).toBe(2);
 	});
 
@@ -184,6 +203,7 @@ describe('start_observability_server', () => {
 			mkdtempSync(join(tmpdir(), 'pi-obs-session-')),
 			'session.jsonl',
 		);
+
 		writeFileSync(
 			session_file,
 			`${JSON.stringify({
@@ -199,6 +219,7 @@ describe('start_observability_server', () => {
 				},
 			})}\n`,
 		);
+
 		const server = start_observability_server({
 			host: '127.0.0.1',
 			port: test_port(),
@@ -206,6 +227,7 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
@@ -223,6 +245,7 @@ describe('start_observability_server', () => {
 		const trace_response = await fetch(
 			`${server.url}/sessions/session-1/trace`,
 		);
+
 		const trace_body = (await trace_response.json()) as {
 			metrics: {
 				input_tokens: number;
@@ -231,6 +254,7 @@ describe('start_observability_server', () => {
 				cost_usd: number;
 			};
 		};
+
 		expect(trace_body.metrics).toMatchObject({
 			input_tokens: 2000,
 			output_tokens: 50,
@@ -247,6 +271,7 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
@@ -272,6 +297,7 @@ describe('start_observability_server', () => {
 		const trace_response = await fetch(
 			`${server.url}/sessions/session-1/trace`,
 		);
+
 		const trace_body = (await trace_response.json()) as {
 			metrics: {
 				input_tokens: number;
@@ -280,6 +306,7 @@ describe('start_observability_server', () => {
 				cost_usd: number;
 			};
 		};
+
 		expect(trace_body.metrics).toMatchObject({
 			input_tokens: 1000,
 			output_tokens: 25,
@@ -296,6 +323,7 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 		await fetch(`${server.url}/events`, {
@@ -310,9 +338,11 @@ describe('start_observability_server', () => {
 		});
 
 		const response = await fetch(`${server.url}/sessions`);
+
 		const body = (await response.json()) as {
 			sessions: Array<{ agent_name?: string; session_name?: string }>;
 		};
+
 		expect(body.sessions[0]).toMatchObject({
 			agent_name: 'worker-a',
 			session_name: 'derek',
@@ -328,9 +358,11 @@ describe('start_observability_server', () => {
 			}),
 		});
 		const cleared_response = await fetch(`${server.url}/sessions`);
+
 		const cleared_body = (await cleared_response.json()) as {
 			sessions: Array<{ agent_name?: string; session_name?: string }>;
 		};
+
 		expect(cleared_body.sessions[0]?.agent_name).toBe('worker-a');
 		expect(cleared_body.sessions[0]?.session_name).toBeUndefined();
 	});
@@ -343,6 +375,7 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
@@ -360,6 +393,7 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
@@ -393,6 +427,7 @@ describe('start_observability_server', () => {
 			log: false,
 			max_body_bytes: 16,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
@@ -417,6 +452,7 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
@@ -433,9 +469,11 @@ describe('start_observability_server', () => {
 		const events_response = await fetch(
 			`${server.url}/sessions/session-1/events`,
 		);
+
 		const events_body = (await events_response.json()) as {
 			events: ObservabilityEvent[];
 		};
+
 		expect(events_body.events.map((item) => item.seq)).toEqual([
 			2, 1, 0,
 		]);
@@ -451,12 +489,14 @@ describe('start_observability_server', () => {
 			max_events: 10,
 			retention_days: 14,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
 		const events = Array.from({ length: 101 }, (_, seq) =>
 			event(seq),
 		);
+
 		await fetch(`${server.url}/events`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -466,9 +506,11 @@ describe('start_observability_server', () => {
 		const events_response = await fetch(
 			`${server.url}/sessions/session-1/events?limit=200`,
 		);
+
 		const events_body = (await events_response.json()) as {
 			events: ObservabilityEvent[];
 		};
+
 		expect(events_body.events).toHaveLength(10);
 		expect(events_body.events[0]?.seq).toBe(100);
 	});
@@ -481,6 +523,7 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
@@ -501,12 +544,15 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
 		const base = Date.now();
+
 		const ts = (offset: number) =>
 			new Date(base + offset).toISOString();
+
 		const events: ObservabilityEvent[] = [
 			{
 				...event(0),
@@ -550,16 +596,19 @@ describe('start_observability_server', () => {
 				payload: { turnIndex: 0 },
 			},
 		];
+
 		const ingest = await fetch(`${server.url}/events`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(events),
 		});
+
 		expect(await ingest.json()).toMatchObject({ ingested: 5 });
 
 		const overview = (await (
 			await fetch(`${server.url}/stats/overview?since=not-a-date`)
 		).json()) as Record<string, unknown>;
+
 		expect(overview).toMatchObject({
 			since: null,
 			totals: {
@@ -577,6 +626,7 @@ describe('start_observability_server', () => {
 		const spans = (await (
 			await fetch(`${server.url}/sessions/session-1/spans`)
 		).json()) as Record<string, unknown>;
+
 		expect(spans).toMatchObject({
 			turns: [{ turn_index: 0, provider_ms: 600, tool_ms: 240 }],
 			tools: [{ tool_call_id: 'c1', is_error: 1, duration_ms: 240 }],
@@ -585,12 +635,14 @@ describe('start_observability_server', () => {
 		const timeline = (await (
 			await fetch(`${server.url}/sessions/session-1/timeline`)
 		).json()) as { runs: Array<{ children: unknown[] }> };
+
 		expect(timeline.runs.length).toBeGreaterThan(0);
 		expect(JSON.stringify(timeline)).toContain('"kind":"tool"');
 
 		const failures = (await (
 			await fetch(`${server.url}/stats/failures`)
 		).json()) as { failures: unknown[] };
+
 		expect(failures.failures).toEqual([
 			expect.objectContaining({
 				kind: 'tool',
@@ -603,10 +655,13 @@ describe('start_observability_server', () => {
 		const tools = (await (
 			await fetch(`${server.url}/stats/tools`)
 		).json()) as { tools: unknown[] };
+
 		expect(tools.tools).toHaveLength(1);
+
 		const sessions = (await (
 			await fetch(`${server.url}/stats/sessions?limit=1`)
 		).json()) as { sessions: unknown[] };
+
 		expect(sessions.sessions).toHaveLength(1);
 
 		for (const path of [
@@ -631,17 +686,21 @@ describe('start_observability_server', () => {
 			db_path: tmp_db_path(),
 			log: false,
 		});
+
 		servers.push(server);
 		await wait_for_health(server.url);
 
 		const controller = new AbortController();
+
 		const stream_response = await fetch(
 			`${server.url}/events/stream`,
 			{
 				signal: controller.signal,
 			},
 		);
+
 		const reader = stream_response.body?.getReader();
+
 		if (!reader) throw new Error('missing stream reader');
 		const decoder = new TextDecoder();
 		let text = '';
@@ -655,8 +714,10 @@ describe('start_observability_server', () => {
 
 		for (let attempt = 0; attempt < 20; attempt++) {
 			text += decoder.decode((await reader.read()).value);
+
 			if (text.includes('event: event')) break;
 		}
+
 		controller.abort();
 		expect(text).toContain('event: hello');
 		expect(text).toContain('event: event');

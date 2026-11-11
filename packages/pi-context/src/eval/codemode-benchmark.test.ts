@@ -10,9 +10,11 @@ describe('native codemode benchmark', () => {
 		expect(report.results.every((result) => result.correct)).toBe(
 			true,
 		);
+
 		const current = report.results.filter(
 			(result) => result.variant === 'codemode-first',
 		);
+
 		for (const result of current.filter((result) =>
 			result.scenario.endsWith('-filter'),
 		)) {
@@ -22,17 +24,21 @@ describe('native codemode benchmark', () => {
 			expect(result.retrieval_calls).toBe(0);
 			expect(result.model_facing_bytes).toBeLessThan(100);
 		}
+
 		const overflow = current.find(
 			(result) => result.scenario === 'final-overflow',
 		)!;
+
 		expect(overflow.stored_sources).toBe(1);
 		expect(overflow.retrieval_calls).toBe(1);
 		expect(overflow.model_facing_bytes).toBeLessThan(1400);
+
 		const native_overflow = report.results.find(
 			(result) =>
 				result.variant === 'native-only' &&
 				result.scenario === 'final-overflow',
 		)!;
+
 		expect(native_overflow.model_facing_bytes).toBeGreaterThan(
 			overflow.model_facing_bytes,
 		);

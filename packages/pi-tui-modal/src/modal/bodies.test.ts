@@ -6,6 +6,7 @@ const modal_theme: ModalTheme = {
 	fg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
 };
+
 const settings_theme = {
 	cursor: '→ ',
 	label: (text: string) => text,
@@ -17,6 +18,7 @@ const settings_theme = {
 describe('modal bodies', () => {
 	it('renders scrollable text and invokes cancel', () => {
 		const cancel = vi.fn();
+
 		const body = new TextModalBody(
 			'one\ntwo\nthree',
 			2,
@@ -49,6 +51,7 @@ describe('modal bodies', () => {
 	it('renders settings, cycles values, filters, and cancels', () => {
 		const on_change = vi.fn();
 		const on_cancel = vi.fn();
+
 		const body = new DetailedSettingsList(
 			[
 				{

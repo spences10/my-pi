@@ -25,15 +25,19 @@ import { get_context_store } from '../store.js';
 
 function parse_optional_setting_number(value: string): number | null {
 	const normalized = value.trim().toLowerCase();
+
 	if (
 		['0', 'off', 'false', 'none', 'disabled'].includes(normalized)
 	) {
 		return null;
 	}
+
 	const parsed = Number(normalized);
+
 	if (!Number.isFinite(parsed) || parsed <= 0) {
 		throw new Error('Expected a positive number or off.');
 	}
+
 	return parsed;
 }
 
@@ -43,16 +47,20 @@ function parse_optional_setting_boolean(
 ): boolean {
 	if (!value) return fallback;
 	const normalized = value.trim().toLowerCase();
+
 	if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+
 	if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
 	throw new Error('Expected purge-on-shutdown to be true or false.');
 }
 
 function parse_positive_setting_number(value: string): number {
 	const parsed = Number(value.trim());
+
 	if (!Number.isFinite(parsed) || parsed <= 0) {
 		throw new Error('Expected a positive number.');
 	}
+
 	return parsed;
 }
 
@@ -174,6 +182,7 @@ export async function show_context_stats(
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
 	const scope = scope_from_context(ctx);
+
 	const text = format_stats(
 		get_context_store(scope).stats({ global: true }),
 		{
@@ -181,6 +190,7 @@ export async function show_context_stats(
 			title: false,
 		},
 	);
+
 	if (ctx.hasUI) {
 		await show_context_text_modal(
 			ctx,
@@ -212,6 +222,7 @@ function save_context_settings_patch(
 	const base =
 		load_context_settings_config() ??
 		context_settings_from_preset('default');
+
 	save_context_settings(ctx, {
 		...base,
 		...patch,
@@ -224,6 +235,7 @@ async function show_context_preset_settings(
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
 	const saved = load_context_settings_config();
+
 	const selected = await show_picker_modal(ctx, {
 		title: 'Context preset',
 		subtitle:
@@ -237,6 +249,7 @@ async function show_context_preset_settings(
 		),
 		footer: 'enter applies preset • esc back',
 	});
+
 	if (!selected) return;
 	save_context_settings(
 		ctx,
@@ -248,6 +261,7 @@ async function show_context_retention_settings(
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
 	const current = load_context_settings_config();
+
 	const selected = await show_picker_modal(ctx, {
 		title: 'Context retention days',
 		subtitle: `Current: ${format_days(current?.retention_days ?? 7)}`,
@@ -258,9 +272,11 @@ async function show_context_retention_settings(
 		})),
 		footer: 'enter saves • esc back',
 	});
+
 	const option = RETENTION_SETTING_OPTIONS.find(
 		(item) => item.value === selected,
 	);
+
 	if (!option) return;
 	save_context_settings_patch(ctx, { retention_days: option.days });
 }
@@ -269,6 +285,7 @@ async function show_context_storage_cap_settings(
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
 	const current = load_context_settings_config();
+
 	const selected = await show_picker_modal(ctx, {
 		title: 'Context storage cap',
 		subtitle: `Current: ${format_max_mb(current?.max_mb ?? null)}`,
@@ -279,9 +296,11 @@ async function show_context_storage_cap_settings(
 		})),
 		footer: 'enter saves • esc back',
 	});
+
 	const option = STORAGE_CAP_SETTING_OPTIONS.find(
 		(item) => item.value === selected,
 	);
+
 	if (!option) return;
 	save_context_settings_patch(ctx, { max_mb: option.max_mb });
 }
@@ -291,6 +310,7 @@ async function show_context_capture_size_settings(
 ): Promise<void> {
 	const current = load_context_settings_config();
 	const capture_limits = get_context_capture_limits();
+
 	const selected = await show_picker_modal(ctx, {
 		title: 'Context capture size',
 		subtitle: `Current: ${format_output_limit(capture_limits.max_bytes, capture_limits.max_lines)}`,
@@ -301,9 +321,11 @@ async function show_context_capture_size_settings(
 		})),
 		footer: 'enter saves • esc back',
 	});
+
 	const option = CAPTURE_SIZE_SETTING_OPTIONS.find(
 		(item) => item.value === selected,
 	);
+
 	if (!option) return;
 	save_context_settings_patch(ctx, {
 		capture_max_bytes: option.capture_max_bytes,
@@ -323,6 +345,7 @@ export async function show_context_settings(
 			),
 			'info',
 		);
+
 		return;
 	}
 
@@ -330,6 +353,7 @@ export async function show_context_settings(
 		const scope = scope_from_context(ctx);
 		const stats = get_context_store(scope).stats(scope);
 		const capture_limits = get_context_capture_limits();
+
 		const selected = await show_picker_modal(ctx, {
 			title: 'Context sidecar settings',
 			subtitle: `Current: ${format_days(stats.retention_days)}, ${format_max_mb(stats.max_mb)} cap, capture ${format_output_limit(capture_limits.max_bytes, capture_limits.max_lines)}`,
@@ -364,6 +388,7 @@ export async function show_context_settings(
 		});
 
 		if (!selected) return;
+
 		if (selected === 'capture-size') {
 			await show_context_capture_size_settings(ctx);
 		} else if (selected === 'retention-days') {
@@ -397,19 +422,24 @@ export async function handle_context_settings(
 		capture_lines_text,
 		purge_text,
 	] = args;
+
 	if (!kind) {
 		await show_context_settings(ctx);
+
 		return;
 	}
+
 	if (kind === 'show' || kind === 'current') {
 		const scope = scope_from_context(ctx);
 		const stats = get_context_store(scope).stats(scope);
+
 		const text = format_context_settings_status(
 			stats,
 			ctx.hasUI
 				? { audience: 'tui', title: false }
 				: { audience: 'tool' },
 		);
+
 		if (ctx.hasUI) {
 			await show_context_text_modal(
 				ctx,
@@ -419,24 +449,31 @@ export async function handle_context_settings(
 		} else {
 			ctx.ui.notify(text, 'info');
 		}
+
 		return;
 	}
+
 	if (is_context_settings_preset(kind)) {
 		save_context_settings(ctx, context_settings_from_preset(kind));
+
 		return;
 	}
+
 	if (kind === 'custom') {
 		if (!days_text || !max_mb_text) {
 			ctx.ui.notify(
 				'Usage: /context settings custom <days|off> <max-mb|off> [capture-kb] [capture-lines] [purge-on-shutdown]',
 				'warning',
 			);
+
 			return;
 		}
+
 		try {
 			const base =
 				load_context_settings_config() ??
 				context_settings_from_preset('default');
+
 			save_context_settings(ctx, {
 				version: 1,
 				preset: 'custom',
@@ -459,6 +496,7 @@ export async function handle_context_settings(
 				'warning',
 			);
 		}
+
 		return;
 	}
 

@@ -5,10 +5,12 @@ const storage_key = 'pi-observability-theme';
 function read_mode(): ThemeMode {
 	try {
 		const stored = localStorage.getItem(storage_key);
+
 		if (stored === 'light' || stored === 'dark') return stored;
 	} catch {
 		// Storage can be unavailable; fall back to the system setting.
 	}
+
 	return 'system';
 }
 
@@ -32,6 +34,7 @@ class Theme {
 	set(mode: ThemeMode): void {
 		this.mode = mode;
 		this.apply();
+
 		try {
 			if (mode === 'system') localStorage.removeItem(storage_key);
 			else localStorage.setItem(storage_key, mode);

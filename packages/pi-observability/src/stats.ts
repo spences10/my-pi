@@ -22,17 +22,20 @@ export function parse_since(
 ): string | null {
 	if (!value) return null;
 	const time = new Date(value);
+
 	return Number.isNaN(time.valueOf()) ? null : time.toISOString();
 }
 
 function count(value: unknown): number {
 	const number = Number(value ?? 0);
+
 	return Number.isFinite(number) ? number : 0;
 }
 
 function nullable_number(value: unknown): number | null {
 	if (value === null || value === undefined) return null;
 	const number = Number(value);
+
 	return Number.isFinite(number) ? number : null;
 }
 
@@ -44,6 +47,7 @@ function nullable_text(value: unknown): string | null {
 export function percentile(sorted: number[], p: number): number {
 	if (sorted.length === 0) return 0;
 	const rank = Math.ceil((p / 100) * sorted.length);
+
 	return sorted[Math.min(sorted.length, Math.max(1, rank)) - 1];
 }
 
@@ -63,22 +67,26 @@ export function create_stats_queries(db: DatabaseSync) {
 		SELECT COUNT(DISTINCT session_id) AS sessions, ${AGGREGATE_COLUMNS}
 		FROM events WHERE ${SINCE_FILTER}
 	`);
+
 	const provider_durations_statement = db.prepare(`
 		SELECT duration_ms FROM events
 		WHERE type = 'message_end' AND duration_ms IS NOT NULL AND ${SINCE_FILTER}
 		ORDER BY duration_ms
 	`);
+
 	const daily_statement = db.prepare(`
 		SELECT date(ts, 'localtime') AS day,
 			COUNT(DISTINCT session_id) AS sessions, ${AGGREGATE_COLUMNS}
 		FROM events WHERE ${SINCE_FILTER}
 		GROUP BY day ORDER BY day
 	`);
+
 	const tool_spans_statement = db.prepare(`
 		SELECT tool_name, duration_ms, is_error, update_count
 		FROM tool_spans
 		WHERE ($since IS NULL OR start_ts >= $since)
 	`);
+
 	const session_stats_statement = db.prepare(`
 		SELECT s.*, agg.turns, agg.tool_calls, agg.tool_errors,
 			agg.input_tokens, agg.output_tokens, agg.cache_read_tokens,
@@ -92,10 +100,12 @@ export function create_stats_queries(db: DatabaseSync) {
 		ORDER BY s.last_ts DESC
 		LIMIT $limit
 	`);
+
 	const turn_spans_statement = db.prepare(`
 		SELECT * FROM turn_spans WHERE session_id = $session_id
 		ORDER BY start_seq
 	`);
+
 	const tool_span_rows_statement = db.prepare(`
 		SELECT * FROM tool_spans WHERE session_id = $session_id
 		ORDER BY start_ts
@@ -103,9 +113,11 @@ export function create_stats_queries(db: DatabaseSync) {
 
 	function totals(since: string | null): StatsTotals {
 		const row = (totals_statement.get({ since }) ?? {}) as Row;
+
 		const durations = (
 			provider_durations_statement.all({ since }) as Row[]
 		).map((item) => count(item.duration_ms));
+
 		return {
 			sessions: count(row.sessions),
 			turns: count(row.turns),
@@ -150,24 +162,30 @@ export function create_stats_queries(db: DatabaseSync) {
 				updates: number;
 			}
 		>();
+
 		for (const row of tool_spans_statement.all({ since }) as Row[]) {
 			const name = nullable_text(row.tool_name) ?? 'unknown tool';
+
 			const group = groups.get(name) ?? {
 				durations: [],
 				calls: 0,
 				errors: 0,
 				updates: 0,
 			};
+
 			group.calls += 1;
 			group.errors += Number(count(row.is_error) === 1);
 			group.updates += count(row.update_count);
 			const duration = nullable_number(row.duration_ms);
+
 			if (duration !== null) group.durations.push(duration);
 			groups.set(name, group);
 		}
+
 		return [...groups.entries()]
 			.map(([name, group]) => {
 				const sorted = group.durations.sort((a, b) => a - b);
+
 				return {
 					name,
 					calls: group.calls,
@@ -234,6 +252,7 @@ export function create_stats_queries(db: DatabaseSync) {
 			cache_write_tokens: nullable_number(row.cache_write_tokens),
 			cost_usd: nullable_number(row.cost_usd),
 		}));
+
 		const tools: ToolSpanRow[] = (
 			tool_span_rows_statement.all({ session_id }) as Row[]
 		).map((row) => ({
@@ -248,6 +267,7 @@ export function create_stats_queries(db: DatabaseSync) {
 			exit_code: nullable_number(row.exit_code),
 			parent_tool_call_id: nullable_text(row.parent_tool_call_id),
 		}));
+
 		return { turns, tools };
 	}
 
@@ -276,6 +296,7 @@ export function create_stats_queries(db: DatabaseSync) {
 		return (failures_statement.all({ since, limit }) as Row[]).map(
 			(row) => {
 				const tool = row.type === 'tool_execution_end';
+
 				return {
 					kind: tool ? 'tool' : 'model',
 					session_id: String(row.session_id),

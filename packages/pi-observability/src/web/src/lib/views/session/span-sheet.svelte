@@ -48,9 +48,11 @@
 		const call = span_events.find(
 			(event) => event.type === 'tool_call',
 		);
+
 		const input = call?.payload.input as
 			| Record<string, unknown>
 			| undefined;
+
 		const value = [
 			'command',
 			'path',
@@ -61,11 +63,13 @@
 		]
 			.map((key) => input?.[key])
 			.find((item): item is string => typeof item === 'string');
+
 		return value ?? span?.detail ?? null;
 	});
 
 	const facts = $derived.by(() => {
 		if (!span) return [];
+
 		const items: [string, string][] = [
 			['Started', clock(span.start_ts)],
 			[
@@ -75,28 +79,36 @@
 					: duration(span.duration_ms),
 			],
 		];
+
 		if (span.interrupted)
 			items.push([
 				'Status',
 				'Interrupted · last observed activity; unobserved gap excluded',
 			]);
+
 		if (span.kind === 'model') {
 			if (span.requested_model)
 				items.push(['Requested model', span.requested_model]);
+
 			if (span.response_model)
 				items.push(['Responding model', span.response_model]);
 		}
+
 		if (span.exit_code != null)
 			items.push(['Exit code', String(span.exit_code)]);
+
 		if (span.update_count != null)
 			items.push(['Progress updates', String(span.update_count)]);
+
 		if (span.input_tokens != null)
 			items.push([
 				'Tokens',
 				`${number_crunch(span.input_tokens)} in · ${number_crunch(span.output_tokens ?? 0)} out · ${number_crunch(span.cache_read_tokens ?? 0)} cached`,
 			]);
+
 		if (span.cost_usd != null)
 			items.push(['Cost', money(span.cost_usd)]);
+
 		return items;
 	});
 </script>

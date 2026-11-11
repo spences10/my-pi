@@ -25,6 +25,7 @@ describe('redact_text', () => {
 	it('redacts uppercase AWS secret env vars', () => {
 		const input =
 			'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY01';
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:AWS Secret Key]');
@@ -36,6 +37,7 @@ describe('redact_text', () => {
 	it('redacts bearer tokens', () => {
 		const input =
 			'Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456';
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:Bearer Token]');
@@ -57,6 +59,7 @@ describe('redact_text', () => {
 	it('redacts connection strings with passwords', () => {
 		const input =
 			'postgres://user:super-secret-password@localhost:5432/app';
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain(
@@ -83,13 +86,16 @@ describe('redact_text', () => {
 				.join('')
 				.repeat(5),
 		};
+
 		const input = JSON.stringify(values);
 		const { redacted, count } = redact_text(input);
 
 		expect(count).toBe(5);
+
 		for (const value of Object.values(values)) {
 			expect(redacted).not.toContain(value);
 		}
+
 		expect(redacted).toContain('[REDACTED:Generic Password Field]');
 	});
 
@@ -100,16 +106,20 @@ describe('redact_text', () => {
 			service: ['fake', '-service-password-', 'value'].join(''),
 			uppercase: ['fake', '-uppercase-token-', 'value'].join(''),
 		};
+
 		const input = `auth_token = "${values.auth}"
 cursor_secret = "${values.cursor}"
 service_password = '${values.service}' # primary
 AUTH_TOKEN = "${values.uppercase}"`;
+
 		const { redacted, count } = redact_text(input);
 
 		expect(count).toBe(4);
+
 		for (const value of Object.values(values)) {
 			expect(redacted).not.toContain(value);
 		}
+
 		expect(redacted).toContain(
 			`service_password = '[REDACTED:Generic Password Field]' # primary`,
 		);
@@ -153,6 +163,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 			'-----BEGIN PRIVATE KEY-----',
 			'Q0FOQVJZX1BSSVZBVEVfS0VZX0ZJUlNUX0NIVU5L',
 		].join('\n');
+
 		const { redacted, count } = redact_text(private_key_chunk);
 
 		expect(count).toBe(1);
@@ -166,6 +177,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 		const input = Buffer.from(
 			'ordinary build artifact content without credentials',
 		).toString('base64');
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
@@ -175,6 +187,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 		let tool_result_handler:
 			| ((event: Record<string, unknown>) => unknown)
 			| undefined;
+
 		const pi = {
 			on(
 				name: string,
@@ -184,12 +197,15 @@ AUTH_TOKEN = "${values.uppercase}"`;
 			},
 			registerCommand() {},
 		};
+
 		await filter_output(pi as never);
 		const path = '/tmp/chunked-private-key.pem';
+
 		const first_chunk = [
 			'-----BEGIN PRIVATE KEY-----',
 			'Q0FOQVJZX0ZJUlNUX0NIVU5LX1BSSVZBVEVfS0VZ',
 		].join('\n');
+
 		const second_chunk = [
 			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==',
 			'-----END PRIVATE KEY-----',
@@ -200,6 +216,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 			input: { path },
 			content: [{ type: 'text', text: first_chunk }],
 		});
+
 		const result = (await tool_result_handler?.({
 			toolName: 'read',
 			input: { path, offset: 2 },
@@ -218,6 +235,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 		let tool_result_handler:
 			| ((event: Record<string, unknown>) => unknown)
 			| undefined;
+
 		const pi = {
 			on(
 				name: string,
@@ -227,8 +245,10 @@ AUTH_TOKEN = "${values.uppercase}"`;
 			},
 			registerCommand() {},
 		};
+
 		await filter_output(pi as never);
 		const continuation = 'Q0FOQVJZX1BSSVZBVEVfQk9EWV9DT05URU5U';
+
 		const result = (await tool_result_handler?.({
 			toolName: 'read',
 			input: { path: '/tmp/split-content-key.pem' },
@@ -248,6 +268,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 		let tool_result_handler:
 			| ((event: Record<string, unknown>) => unknown)
 			| undefined;
+
 		const pi = {
 			on(
 				name: string,
@@ -257,9 +278,12 @@ AUTH_TOKEN = "${values.uppercase}"`;
 			},
 			registerCommand() {},
 		};
+
 		await filter_output(pi as never);
+
 		const continuation =
 			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==';
+
 		await tool_result_handler?.({
 			toolName: 'read',
 			input: { path: '/tmp/equivalent-key.pem' },
@@ -267,6 +291,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 				{ type: 'text', text: `-----${'BEGIN PRIVATE KEY-----'}\n` },
 			],
 		});
+
 		const result = (await tool_result_handler?.({
 			toolName: 'read',
 			input: { path: '/tmp/./equivalent-key.pem', offset: 2 },
@@ -325,9 +350,11 @@ AUTH_TOKEN = "${values.uppercase}"`;
 
 	it('keeps Host * and Match all unchanged', () => {
 		const input = `Host *\n  ServerAliveInterval 30\nMatch all\n  ForwardAgent no\n`;
+
 		const { redacted, count } = redact_text(input, {
 			force_ssh_config: true,
 		});
+
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
 	});
@@ -335,6 +362,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 	it('does not treat ordinary prose as SSH config', () => {
 		const input =
 			'User deploy should run HostName setup in docs first.';
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
@@ -342,9 +370,11 @@ AUTH_TOKEN = "${values.uppercase}"`;
 
 	it('can force SSH redaction for config fragments', () => {
 		const input = 'HostName 10.42.0.7';
+
 		const { redacted, count } = redact_text(input, {
 			force_ssh_config: true,
 		});
+
 		expect(count).toBe(1);
 		expect(redacted).toBe('HostName [REDACTED:SSH HostName]');
 	});
@@ -372,6 +402,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 			null,
 			2,
 		);
+
 		const markdown = `${input}\n[repo](https://github.com/spences10/my-pi)\n[npm](https://www.npmjs.com/package/@spences10/pi-redact)`;
 		const { redacted, count } = redact_text(markdown);
 		expect(count).toBe(0);
@@ -381,6 +412,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 	it('does not redact ordinary source variables that contain token', () => {
 		const input =
 			"const first_token = command.trim().split(/\\s+/)[0] ?? 'hook';";
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
@@ -389,6 +421,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 	it('does not broaden prefixed config matching into source declarations', () => {
 		const input = `const service_password = "configuration-placeholder-value";
 let cursor_secret = "another-placeholder-value";`;
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
@@ -409,6 +442,7 @@ let cursor_secret = "another-placeholder-value";`;
 - Prefer nopeek for secret-safe loading.
 
 See https://github.com/spences10/nopeek for details.`;
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
@@ -428,12 +462,14 @@ describe('filter_output', () => {
 		let context_handler:
 			| ((event: Record<string, unknown>) => unknown)
 			| undefined;
+
 		let stats_handler:
 			| ((
 					args: string,
 					ctx: { ui: { notify(message: string): void } },
 			  ) => unknown)
 			| undefined;
+
 		const pi = {
 			on(
 				name: string,
@@ -453,8 +489,10 @@ describe('filter_output', () => {
 				if (name === 'redact-stats') stats_handler = options.handler;
 			},
 		};
+
 		await filter_output(pi as never);
 		const secret = ['fake', '-shell-secret-', 'value'].join('');
+
 		const shell_message = {
 			role: 'bashExecution',
 			command: 'cat /tmp/pi-redact-test.toml',
@@ -463,19 +501,23 @@ describe('filter_output', () => {
 			cancelled: false,
 			timestamp: 1_234,
 		};
+
 		const user_message = {
 			role: 'user',
 			content: [{ type: 'text', text: `password = "${secret}"` }],
 			timestamp: 1_235,
 		};
+
 		const event = { messages: [shell_message, user_message] };
 
 		const first = (await context_handler?.(event)) as {
 			messages?: Array<Record<string, unknown>>;
 		};
+
 		const second = (await context_handler?.(event)) as {
 			messages?: Array<Record<string, unknown>>;
 		};
+
 		const notifications: string[] = [];
 		await stats_handler?.('', {
 			ui: { notify: (message) => notifications.push(message) },

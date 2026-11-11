@@ -33,10 +33,13 @@ const busy_error = Object.assign(new Error('database is locked'), {
 
 const original_retention_days =
 	process.env.MY_PI_CONTEXT_RETENTION_DAYS;
+
 const original_purge_on_shutdown =
 	process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
+
 const original_max_mb = process.env.MY_PI_CONTEXT_MAX_MB;
 const original_context_config = process.env.MY_PI_CONTEXT_CONFIG;
+
 function create_store(
 	options: ConstructorParameters<typeof ContextStore>[0] = {},
 ): ContextStore {
@@ -57,19 +60,23 @@ beforeEach(() => {
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+
 	if (original_retention_days === undefined)
 		delete process.env.MY_PI_CONTEXT_RETENTION_DAYS;
 	else
 		process.env.MY_PI_CONTEXT_RETENTION_DAYS =
 			original_retention_days;
+
 	if (original_purge_on_shutdown === undefined)
 		delete process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
 	else
 		process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN =
 			original_purge_on_shutdown;
+
 	if (original_max_mb === undefined)
 		delete process.env.MY_PI_CONTEXT_MAX_MB;
 	else process.env.MY_PI_CONTEXT_MAX_MB = original_max_mb;
+
 	if (original_context_config === undefined)
 		delete process.env.MY_PI_CONTEXT_CONFIG;
 	else process.env.MY_PI_CONTEXT_CONFIG = original_context_config;
@@ -78,9 +85,11 @@ afterEach(() => {
 describe('ContextStore', () => {
 	it('returns retryable busy errors for guaranteed writes', () => {
 		const store = create_store({ max_bytes: 10 });
+
 		const exec = vi.fn(() => {
 			throw busy_error;
 		});
+
 		(store as unknown as { db: { exec: typeof exec } }).db.exec =
 			exec;
 
@@ -95,11 +104,13 @@ describe('ContextStore', () => {
 
 	it('stores oversized output, searches it, and retrieves all and exact chunks', () => {
 		const store = create_store({ max_bytes: 10 });
+
 		const text = [
 			`alpha intro\n${'noise '.repeat(700)}`,
 			`middle haystack\n${'beta '.repeat(900)}`,
 			`tail needle-at-end\n${'omega '.repeat(900)}`,
 		].join('\n\n');
+
 		const stored = store.store({ text, tool_name: 'bash' });
 
 		expect(stored?.source_id).toMatch(/^ctx_/);
@@ -131,6 +142,7 @@ describe('ContextStore', () => {
 		const results = store.search('needle', {
 			source_id: stored!.source_id,
 		});
+
 		expect(results.length).toBeGreaterThan(0);
 		expect(results[0]).toMatchObject({
 			source_id: stored!.source_id,
@@ -143,6 +155,7 @@ describe('ContextStore', () => {
 			source_id: stored!.source_id,
 			full_content: true,
 		});
+
 		expect(full_results[0].snippet).toBe(false);
 		expect(full_results[0].content.length).toBeGreaterThanOrEqual(
 			results[0].content.length,
@@ -182,6 +195,7 @@ describe('ContextStore', () => {
 			results[0].chunk_id,
 			{ before: 1, after: 1 },
 		);
+
 		expect(surrounding.length).toBeGreaterThanOrEqual(2);
 		expect(surrounding.map((chunk) => chunk.id)).toContain(
 			results[0].chunk_id,
@@ -207,11 +221,13 @@ describe('ContextStore', () => {
 
 	it('exports full source content losslessly across chunk boundaries', () => {
 		const store = create_store({ max_bytes: 10 });
+
 		const text = JSON.stringify({
 			kind: 'context-export-smoke',
 			payload: 'x'.repeat(12_000),
 			markers: ['alpha', 'beta', 'omega'],
 		});
+
 		const stored = store.store({
 			text,
 			tool_name: 'mcp',
@@ -230,10 +246,12 @@ describe('ContextStore', () => {
 		expect(
 			store.export_content(stored!.source_id, '1').verified,
 		).toBeNull();
+
 		const ranged = store.export_content(stored!.source_id, '2', {
 			before: 1,
 			after: 1,
 		});
+
 		expect(ranged.chunks.map((chunk) => chunk.ordinal)).toEqual([
 			1, 2, 3,
 		]);
@@ -242,8 +260,10 @@ describe('ContextStore', () => {
 
 	it('splits long line-oriented output into searchable bounded chunks', () => {
 		const store = create_store({ max_bytes: 10 });
+
 		const text = Array.from({ length: 1400 }, (_value, index) => {
 			const line = index + 1;
+
 			return line === 1173
 				? `${line}: TARGET_VALUE=chunk-test-value`
 				: `${line}: noise ${'x'.repeat(90)}`;
@@ -260,6 +280,7 @@ describe('ContextStore', () => {
 		const results = store.search('TARGET_VALUE', {
 			source_id: stored!.source_id,
 		});
+
 		expect(results).toHaveLength(1);
 		expect(results[0].content).toContain(
 			'1173: TARGET_VALUE=chunk-test-value',
@@ -273,6 +294,7 @@ describe('ContextStore', () => {
 			results[0].chunk_id,
 			{ before: 99, after: 99 },
 		);
+
 		expect(clamped_range).toHaveLength(7);
 		expect(clamped_range.map((chunk) => chunk.id)).toContain(
 			results[0].chunk_id,
@@ -286,11 +308,13 @@ describe('ContextStore', () => {
 		).toBeNull();
 
 		const secret = 'SERVICE_PASSWORD=CanaryPassword-Redaction-001!';
+
 		const forced = store.store({
 			text: `small ${secret}`,
 			tool_name: 'read',
 			force: true,
 		});
+
 		expect(forced).not.toBeNull();
 		expect(forced!.receipt).toContain('[REDACTED:');
 		expect(forced!.receipt).not.toContain(secret);
@@ -302,12 +326,14 @@ describe('ContextStore', () => {
 		const db = new DatabaseSync(store.db_path, {
 			enableForeignKeyConstraints: true,
 		});
+
 		try {
 			const row = db
 				.prepare(
 					'SELECT content FROM context_chunks WHERE source_id = ?',
 				)
 				.get(forced!.source_id) as { content: string };
+
 			expect(row.content).toContain('[REDACTED:');
 			expect(row.content).not.toContain(secret);
 		} finally {
@@ -321,9 +347,11 @@ describe('ContextStore', () => {
 			project_path: '/repo',
 			session_id: 'session-a',
 		});
+
 		const text = `dedupe-token\n${'same '.repeat(100)}`;
 		const first = store.store({ text, tool_name: 'bash' });
 		const duplicate = store.store({ text, tool_name: 'bash' });
+
 		const other_session = store.store({
 			text,
 			tool_name: 'bash',
@@ -343,9 +371,11 @@ describe('ContextStore', () => {
 				session_id: 'session-b',
 			}),
 		).toHaveLength(other_session!.chunk_count);
+
 		const db = new DatabaseSync(store.db_path, {
 			enableForeignKeyConstraints: true,
 		});
+
 		try {
 			expect(
 				db
@@ -363,11 +393,13 @@ describe('ContextStore', () => {
 			project_path: '/repo',
 			session_id: 'session-a',
 		});
+
 		const first = store.store({
 			text: `list-token first-source\n${'a '.repeat(100)}`,
 			tool_name: 'bash',
 			input_summary: 'first command',
 		});
+
 		store.store({
 			text: `list-token second-source\n${'b '.repeat(100)}`,
 			tool_name: 'read',
@@ -379,9 +411,11 @@ describe('ContextStore', () => {
 			project_path: '/repo',
 			session_id: 'session-b',
 		});
+
 		const db = new DatabaseSync(store.db_path, {
 			enableForeignKeyConstraints: true,
 		});
+
 		try {
 			db.prepare(
 				'UPDATE context_sources SET created_at = ? WHERE id = ?',
@@ -418,10 +452,12 @@ describe('ContextStore', () => {
 			project_path: '/repo',
 			session_id: 'session-a',
 		});
+
 		const current = store.store({
 			text: `shared-token current-session\n${'a '.repeat(100)}`,
 			tool_name: 'bash',
 		});
+
 		const other = store.store({
 			text: `shared-token other-session\n${'b '.repeat(100)}`,
 			tool_name: 'bash',
@@ -444,10 +480,12 @@ describe('ContextStore', () => {
 		expect(
 			store.search('shared-token', { global: true }),
 		).toHaveLength(2);
+
 		const scoped_stats = store.stats({
 			project_path: '/repo',
 			session_id: 'session-b',
 		});
+
 		expect(scoped_stats).toMatchObject({
 			sources: 1,
 			global_sources: 2,
@@ -463,6 +501,7 @@ describe('ContextStore', () => {
 			project_path: '/repo-a',
 			session_id: null,
 		});
+
 		store.store({
 			text: `overlap-token project-a\n${'a '.repeat(100)}`,
 			tool_name: 'bash',
@@ -484,10 +523,12 @@ describe('ContextStore', () => {
 
 	it('filters search by source id and tool name and clamps large limits', () => {
 		const store = create_store({ max_bytes: 10 });
+
 		const bash = store.store({
 			text: `needle bash-only\n${'a '.repeat(100)}`,
 			tool_name: 'bash',
 		});
+
 		const read = store.store({
 			text: `needle read-only\n${'b '.repeat(100)}`,
 			tool_name: 'read',
@@ -513,6 +554,7 @@ describe('ContextStore', () => {
 				tool_name: 'bulk',
 			});
 		}
+
 		expect(store.search('needle', { limit: 100 })).toHaveLength(25);
 	});
 
@@ -534,6 +576,7 @@ describe('ContextStore', () => {
 			'',
 			'./-:+',
 		];
+
 		for (const query of queries)
 			expect(() => store.search(query)).not.toThrow();
 		expect(escape_fts5_query('src/routes/+page.server.ts')).toContain(
@@ -544,6 +587,7 @@ describe('ContextStore', () => {
 
 	it('purges by source id and cascades chunks plus FTS rows', () => {
 		const store = create_store({ max_bytes: 10 });
+
 		const stored = store.store({
 			text: `purge-token\n${'x '.repeat(100)}`,
 			tool_name: 'bash',
@@ -557,18 +601,21 @@ describe('ContextStore', () => {
 
 	it('purges by project and session filters with details', () => {
 		const store = create_store({ max_bytes: 10 });
+
 		const project_a_session_a = store.store({
 			text: `project-session-token a-a\n${'a '.repeat(100)}`,
 			tool_name: 'bash',
 			project_path: '/repo-a',
 			session_id: 'session-a',
 		});
+
 		const project_a_session_b = store.store({
 			text: `project-session-token a-b\n${'b '.repeat(100)}`,
 			tool_name: 'bash',
 			project_path: '/repo-a',
 			session_id: 'session-b',
 		});
+
 		const project_b_session_a = store.store({
 			text: `project-session-token b-a\n${'c '.repeat(100)}`,
 			tool_name: 'bash',
@@ -580,6 +627,7 @@ describe('ContextStore', () => {
 			project_path: '/repo-a',
 			session_id: 'session-a',
 		});
+
 		expect(session_purge).toMatchObject({
 			deleted: 1,
 			project_path: '/repo-a',
@@ -599,6 +647,7 @@ describe('ContextStore', () => {
 		const project_purge = store.purge_with_details({
 			project_path: '/repo-b',
 		});
+
 		expect(project_purge).toMatchObject({
 			deleted: 1,
 			project_path: '/repo-b',
@@ -615,10 +664,12 @@ describe('ContextStore', () => {
 
 	it('purges old sources by age without deleting fresh sources', () => {
 		const store = create_store({ max_bytes: 10 });
+
 		const old_source = store.store({
 			text: `ancient-token\n${'a '.repeat(100)}`,
 			tool_name: 'bash',
 		});
+
 		const fresh_source = store.store({
 			text: `fresh-token\n${'b '.repeat(100)}`,
 			tool_name: 'bash',
@@ -627,6 +678,7 @@ describe('ContextStore', () => {
 		const db = new DatabaseSync(store.db_path, {
 			enableForeignKeyConstraints: true,
 		});
+
 		try {
 			db.prepare(
 				'UPDATE context_sources SET created_at = ? WHERE id = ?',
@@ -651,17 +703,21 @@ describe('ContextStore', () => {
 		process.env.MY_PI_CONTEXT_RETENTION_DAYS = '7';
 		process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN = 'true';
 		const store = create_store({ max_bytes: 10 });
+
 		const old_source = store.store({
 			text: `expired-token\n${'a '.repeat(100)}`,
 			tool_name: 'bash',
 		});
+
 		const fresh_source = store.store({
 			text: `retained-token\n${'b '.repeat(100)}`,
 			tool_name: 'bash',
 		});
+
 		const db = new DatabaseSync(store.db_path, {
 			enableForeignKeyConstraints: true,
 		});
+
 		try {
 			db.prepare(
 				'UPDATE context_sources SET created_at = ? WHERE id = ?',
@@ -699,17 +755,21 @@ describe('ContextStore', () => {
 		process.env.MY_PI_CONTEXT_RETENTION_DAYS = '0';
 		process.env.MY_PI_CONTEXT_MAX_MB = '0.001';
 		const store = create_store({ max_bytes: 10 });
+
 		const old_source = store.store({
 			text: `old-size-token\n${'a '.repeat(900)}`,
 			tool_name: 'bash',
 		});
+
 		store.store({
 			text: `new-size-token\n${'b '.repeat(900)}`,
 			tool_name: 'bash',
 		});
+
 		const db = new DatabaseSync(store.db_path, {
 			enableForeignKeyConstraints: true,
 		});
+
 		try {
 			db.prepare(
 				'UPDATE context_sources SET created_at = ? WHERE id = ?',
@@ -757,15 +817,18 @@ describe('ContextStore', () => {
 
 	it('initializes expected schema objects and includes schema in package builds', () => {
 		const store = create_store();
+
 		const db = new DatabaseSync(store.db_path, {
 			enableForeignKeyConstraints: true,
 		});
+
 		try {
 			const objects = db
 				.prepare(
 					`SELECT type, name FROM sqlite_master ORDER BY type, name`,
 				)
 				.all() as Array<{ type: string; name: string }>;
+
 			const names = objects.map((object) => object.name);
 			expect(names).toContain('context_sources');
 			expect(names).toContain('context_chunks');
@@ -791,6 +854,7 @@ describe('ContextStore', () => {
 			'../dist/schema.sql',
 			import.meta.url,
 		);
+
 		expect(existsSync(built_schema)).toBe(true);
 		expect(readFileSync(built_schema, 'utf8')).toContain(
 			'CREATE TABLE IF NOT EXISTS context_sources',
@@ -809,10 +873,12 @@ describe('global context store helpers', () => {
 		).toBeNull();
 
 		set_context_sidecar_enabled(true, { db_path, max_bytes: 10 });
+
 		const stored = maybe_store_context_output({
 			text: `global-token\n${'x '.repeat(100)}`,
 			tool_name: 'bash',
 		});
+
 		expect(stored?.source_id).toMatch(/^ctx_/);
 		expect(get_context_store().db_path).toBe(db_path);
 		expect(get_context_store().search('global-token')).toHaveLength(
@@ -858,6 +924,7 @@ describe('global context store helpers', () => {
 	it('builds the default db path from env overrides', () => {
 		const original_db = process.env.MY_PI_CONTEXT_DB;
 		const original_agent_dir = process.env.PI_CODING_AGENT_DIR;
+
 		try {
 			process.env.MY_PI_CONTEXT_DB = '/tmp/custom-context.db';
 			expect(default_context_db_path()).toBe(
@@ -873,6 +940,7 @@ describe('global context store helpers', () => {
 			if (original_db === undefined)
 				delete process.env.MY_PI_CONTEXT_DB;
 			else process.env.MY_PI_CONTEXT_DB = original_db;
+
 			if (original_agent_dir === undefined)
 				delete process.env.PI_CODING_AGENT_DIR;
 			else process.env.PI_CODING_AGENT_DIR = original_agent_dir;

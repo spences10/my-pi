@@ -14,6 +14,7 @@ const SUBCOMMANDS = ['list', 'enable', 'disable'];
 
 function find_extension(query: string): MyPiExtension | undefined {
 	const q = query.trim().toLowerCase();
+
 	return EXTENSIONS.find(
 		(extension) =>
 			extension.key === q || extension.label.toLowerCase() === q,
@@ -33,6 +34,7 @@ async function show_manager(
 	const before = EXTENSIONS.map((extension) =>
 		is_enabled(extension.key),
 	).join();
+
 	await show_settings_modal(ctx, {
 		title: 'my-pi extensions',
 		items: EXTENSIONS.map((extension) => ({
@@ -46,9 +48,11 @@ async function show_manager(
 		footer: 'esc close • changes save immediately',
 		on_change: (id, value) => set_enabled(id, value === ENABLED),
 	});
+
 	const after = EXTENSIONS.map((extension) =>
 		is_enabled(extension.key),
 	).join();
+
 	if (before !== after) {
 		ctx.ui.notify('Reloading to apply extension changes...', 'info');
 		await ctx.reload();
@@ -59,6 +63,7 @@ export default function extensions_manager(pi: ExtensionAPI): void {
 	const { version } = JSON.parse(
 		readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
 	) as { version: string };
+
 	pi.on('session_start', (event, ctx) =>
 		notify_release_update(version, event, ctx),
 	);
@@ -66,11 +71,13 @@ export default function extensions_manager(pi: ExtensionAPI): void {
 		description: 'Turn my-pi extensions on or off',
 		getArgumentCompletions: (prefix) => {
 			const [sub = '', query = ''] = prefix.trimStart().split(/\s+/);
+
 			if (!['enable', 'disable'].includes(sub)) {
 				return SUBCOMMANDS.filter((name) => name.startsWith(sub)).map(
 					(name) => ({ value: name, label: name }),
 				);
 			}
+
 			return EXTENSIONS.filter((extension) =>
 				extension.key.startsWith(query),
 			).map((extension) => ({
@@ -80,26 +87,35 @@ export default function extensions_manager(pi: ExtensionAPI): void {
 		},
 		handler: async (args, ctx) => {
 			const [sub, ...rest] = args.trim().split(/\s+/);
+
 			if (!sub && ctx.hasUI) return show_manager(ctx);
+
 			if (!sub || sub === 'list') {
 				ctx.ui.notify(format_list());
+
 				return;
 			}
+
 			if (sub !== 'enable' && sub !== 'disable') {
 				ctx.ui.notify(
 					`Usage: /extensions [${SUBCOMMANDS.join('|')}] [key]`,
 					'warning',
 				);
+
 				return;
 			}
+
 			const extension = find_extension(rest.join(' '));
+
 			if (!extension) {
 				ctx.ui.notify(
 					`Unknown extension. Keys: ${EXTENSIONS.map((item) => item.key).join(', ')}`,
 					'warning',
 				);
+
 				return;
 			}
+
 			set_enabled(extension.key, sub === 'enable');
 			ctx.ui.notify(`${extension.key} ${sub}d. Reloading...`, 'info');
 			await ctx.reload();

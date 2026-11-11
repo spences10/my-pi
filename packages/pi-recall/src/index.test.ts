@@ -9,18 +9,22 @@ type PromptEvent = {
 		sections: Record<string, string>;
 	};
 };
+
 type PromptHandler = (event: PromptEvent) => void;
 
 async function register_extension() {
 	const handlers = new Map<string, Function>();
+
 	const on = vi.fn((name: string, handler: Function) => {
 		handlers.set(name, handler);
 	});
+
 	const register_command = vi.fn();
 	await recall({
 		on,
 		registerCommand: register_command,
 	} as unknown as ExtensionAPI);
+
 	return { handlers, on, register_command };
 }
 
@@ -34,6 +38,7 @@ describe('recall extension', () => {
 	it('registers recall commands and lifecycle hooks', async () => {
 		const { handlers, on, register_command } =
 			await register_extension();
+
 		expect(register_command).toHaveBeenCalledWith(
 			'resume-recall',
 			expect.objectContaining({
@@ -66,9 +71,11 @@ describe('recall extension', () => {
 		'adds a named section with shell tools %j',
 		async (selectedTools) => {
 			const { handlers } = await register_extension();
+
 			const handler = handlers.get(
 				'before_agent_start',
 			) as PromptHandler;
+
 			const event: PromptEvent = {
 				systemPrompt: 'base',
 				systemPromptOptions: {
@@ -76,6 +83,7 @@ describe('recall extension', () => {
 					sections: { unrelated: 'keep' },
 				},
 			};
+
 			expect(handler(event)).toBeUndefined();
 			expect(event.systemPrompt).toBe('base');
 			expect(
@@ -89,9 +97,11 @@ describe('recall extension', () => {
 
 	it('clears its section when bash becomes unavailable', async () => {
 		const { handlers } = await register_extension();
+
 		const handler = handlers.get(
 			'before_agent_start',
 		) as PromptHandler;
+
 		const event: PromptEvent = {
 			systemPrompt: 'base',
 			systemPromptOptions: {
@@ -99,6 +109,7 @@ describe('recall extension', () => {
 				sections: { session_recall: 'stale', unrelated: 'keep' },
 			},
 		};
+
 		expect(handler(event)).toBeUndefined();
 		expect(event.systemPromptOptions.sections).toEqual({
 			unrelated: 'keep',

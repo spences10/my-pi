@@ -17,6 +17,7 @@ export function render_border_line(
 	color: (text: string) => string,
 ): string {
 	if (width <= 1) return color(chars.top_left);
+
 	return color(
 		chars.top_left +
 			chars.top.repeat(Math.max(0, width - 2)) +
@@ -33,6 +34,7 @@ export function render_bottom_border_line(
 	color: (text: string) => string,
 ): string {
 	if (width <= 1) return color(chars.bottom_left);
+
 	return color(
 		chars.bottom_left +
 			chars.bottom.repeat(Math.max(0, width - 2)) +
@@ -47,6 +49,7 @@ export function render_framed_modal(
 	theme: ModalTheme,
 ): string[] {
 	const resolved_style = { ...default_modal_style, ...style };
+
 	const color = (text: string) =>
 		theme.fg(resolved_style.border_color, text);
 
@@ -56,16 +59,19 @@ export function render_framed_modal(
 
 	if (resolved_style.border === 'line') {
 		const line = color('─'.repeat(Math.max(1, width)));
+
 		return [line, ...content.render(width), line];
 	}
 
 	const chars = border_characters[resolved_style.border];
 	const inner_width = Math.max(1, width - 2);
+
 	const body_lines = content.render(inner_width).map((line) => {
 		const padded = pad_to_width(
 			truncateToWidth(line, inner_width, '', true),
 			inner_width,
 		);
+
 		return `${color(chars.left)}${padded}${color(chars.right)}`;
 	});
 

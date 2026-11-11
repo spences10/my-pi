@@ -10,6 +10,7 @@ async function show_git_ui(
 ): Promise<void> {
 	if (!ctx.hasUI || typeof ctx.ui.custom !== 'function') {
 		ctx.ui.notify('Git UI requires interactive mode.', 'warning');
+
 		return;
 	}
 
@@ -34,7 +35,9 @@ async function show_git_ui(
 				() => tui.requestRender(),
 				done,
 			);
+
 			void body.load();
+
 			return body;
 		},
 	);

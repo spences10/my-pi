@@ -34,6 +34,7 @@ describe('real upstream runtime delivery', () => {
 		async (scenario) => {
 			const message_type =
 				scenario === 'status' ? 'status' : 'action';
+
 			const dir = mkdtempSync(join(tmpdir(), 'team-upstream-'));
 			const path = join(dir, 'coordination.db');
 			vi.stubEnv('MY_PI_COORDINATION_DB', path);
@@ -42,20 +43,24 @@ describe('real upstream runtime delivery', () => {
 			const sessionManager = SessionManager.inMemory(dir);
 			const receiver = sessionManager.getSessionId();
 			db.register_session({ session_id: 'sender', cwd: dir });
+
 			const settingsManager = SettingsManager.inMemory({
 				compaction: { enabled: false },
 				retry: { enabled: false },
 			});
+
 			const faux = fauxProvider({
 				provider: 'team-test',
 				tokensPerSecond: 1_000_000,
 			});
+
 			const modelRuntime = await ModelRuntime.create({
 				authPath: join(dir, 'auth.json'),
 				modelsPath: null,
 				modelsStorePath: join(dir, 'models-cache.json'),
 				refreshOnCreate: false,
 			});
+
 			modelRuntime.registerNativeProvider(faux.provider);
 			const contexts: TranscriptContext[] = [];
 			faux.setResponses([
@@ -69,16 +74,20 @@ describe('real upstream runtime delivery', () => {
 						body: 'Review the completed build',
 						message_type,
 					});
+
 					if (scenario === 'paused')
 						db.delivery.set_paused(receiver, true);
+
 					return fauxAssistantMessage('Initial work finished.');
 				},
 				(context) => {
 					contexts.push(context);
+
 					return fauxAssistantMessage('Peer review processed.');
 				},
 			]);
 			const boundaries: unknown[] = [];
+
 			const resourceLoader = new DefaultResourceLoader({
 				cwd: dir,
 				agentDir: dir,
@@ -108,8 +117,10 @@ describe('real upstream runtime delivery', () => {
 					},
 				],
 			});
+
 			await resourceLoader.reload();
 			const errors: unknown[] = [];
+
 			const { session } = await createAgentSession({
 				cwd: dir,
 				agentDir: dir,
@@ -121,21 +132,25 @@ describe('real upstream runtime delivery', () => {
 				tools: ['team'],
 				thinkingLevel: 'off',
 			});
+
 			try {
 				await session.bindExtensions({
 					onError: (error) => errors.push(error),
 				});
 				session.setActiveToolsByName(['team']);
+
 				const group = db.create_group({
 					name: 'test',
 					created_by_session_id: 'sender',
 				});
+
 				db.add_group_member({
 					group_id: group.group_id,
 					session_id: receiver,
 				});
 				await session.prompt('Perform the authorized task.');
 				await session.waitForIdle();
+
 				if (scenario === 'paused') {
 					expect(faux.state.callCount).toBe(1);
 					expect(
@@ -150,8 +165,10 @@ describe('real upstream runtime delivery', () => {
 					);
 					expect(db.list_auto_inbox(receiver)).toEqual([]);
 					expect(errors).toEqual([]);
+
 					return;
 				}
+
 				if (message_type === 'status') {
 					expect(faux.state.callCount).toBe(1);
 					expect(
@@ -161,6 +178,7 @@ describe('real upstream runtime delivery', () => {
 						'Continue with the next authorized task.',
 					);
 				}
+
 				expect(errors).toEqual([]);
 				expect(faux.state.callCount).toBe(2);
 				expect(boundaries).toContainEqual({
@@ -177,9 +195,11 @@ describe('real upstream runtime delivery', () => {
 						.getBranch()
 						.filter((entry) => entry.type === 'custom_message'),
 				).toHaveLength(1);
+
 				const receipt = db.list_inbox(receiver, {
 					include_read: true,
 				})[0]!;
+
 				expect(receipt.delivered_at).toBeDefined();
 				expect(receipt.read_at).toBeUndefined();
 			} finally {

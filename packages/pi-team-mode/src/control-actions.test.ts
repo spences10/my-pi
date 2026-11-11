@@ -10,24 +10,30 @@ import { execute_team_tool } from './tool-executor.js';
 async function setup() {
 	const dir = mkdtempSync(join(tmpdir(), 'team-controls-'));
 	const db = await TeamDatabase.open(join(dir, 'bus.db'));
+
 	for (const session_id of ['owner', 'peer'])
 		db.register_session({ session_id, cwd: '/repo' });
+
 	const group = db.create_group({
 		name: 'task',
 		cwd: '/repo',
 		created_by_session_id: 'owner',
 	});
+
 	let actor = 'owner';
 	const notify = vi.fn();
+
 	const ctx = {
 		cwd: '/repo',
 		ui: { notify },
 	} as unknown as ExtensionCommandContext;
+
 	const deps = {
 		coordination_db: db,
 		get_session_id: () => actor,
 		notify_coordination_messages: vi.fn(async () => {}),
 	};
+
 	return {
 		db,
 		group,
@@ -55,6 +61,7 @@ async function setup() {
 describe('coordination control commands and tools', () => {
 	it('invites and accepts explicitly, pauses via either interface, then leaves without dropping mail', async () => {
 		const s = await setup();
+
 		try {
 			await s.command(`group invite ${s.group.group_id} peer`);
 			expect(
@@ -64,12 +71,14 @@ describe('coordination control commands and tools', () => {
 			).toBe('inactive');
 			s.actor('peer');
 			await s.command(`group join ${s.group.group_id}`);
+
 			const send = () =>
 				s.db.send_to_session_target({
 					from_session_id: 'owner',
 					target: 'peer',
 					body: 'result',
 				});
+
 			send();
 			await s.command('pause owner');
 			expect(s.db.list_auto_inbox('peer')).toEqual([]);
@@ -101,6 +110,7 @@ describe('coordination control commands and tools', () => {
 
 	it('binds controls to the caller and rejects ambiguous targets, missing invitations and nonowner closure', async () => {
 		const s = await setup();
+
 		try {
 			await expect(
 				s.tool({

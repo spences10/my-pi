@@ -40,20 +40,26 @@ function workspace_state(
 				: []),
 		]),
 	].sort();
+
 	const files = paths.map((path) => {
 		const state = file_state(cwd, path);
+
 		if (state === undefined)
 			throw new Error(
 				`Cannot verify an unsupported working-state path: ${path}`,
 			);
+
 		return [path, state];
 	});
+
 	let head: string;
+
 	try {
 		head = git(cwd, 'rev-parse', '--verify', 'HEAD');
 	} catch {
 		head = git(cwd, 'symbolic-ref', 'HEAD');
 	}
+
 	return createHash('sha256')
 		.update(
 			JSON.stringify({
@@ -69,6 +75,7 @@ export function resolve_harness_cwd(
 	candidate = contract.policy.cwd,
 ): string {
 	const cwd = resolve(candidate);
+
 	if (
 		cwd !== resolve(contract.policy.cwd) &&
 		git(
@@ -88,6 +95,7 @@ export function resolve_harness_cwd(
 			'Validation cwd must be the accepted repository or one of its linked worktrees',
 		);
 	}
+
 	return cwd;
 }
 
@@ -103,11 +111,13 @@ export async function verify_harness(
 	const checks: HarnessValidationCheck[] = [];
 	const attempt = randomUUID();
 	let cwd: string | undefined;
+
 	try {
 		if (!options.run)
 			throw new Error(
 				'Completion requires a validation execution backend; notes are not proof',
 			);
+
 		if (
 			!contract.policy.validation_commands?.length ||
 			!contract.policy.allowed_paths
@@ -116,16 +126,20 @@ export async function verify_harness(
 				'Recreate this harness with accepted validation commands and scope before execution',
 			);
 		}
+
 		cwd = resolve_harness_cwd(contract, options.cwd);
 		const before = workspace_state(cwd, contract);
+
 		const contract_before = readFileSync(
 			join(harness_dir, 'harness.json'),
 			'utf8',
 		);
+
 		writeFileSync(
 			join(harness_dir, 'guard.mjs'),
 			build_guard_script(),
 		);
+
 		const commands = [
 			...new Set([
 				...contract.policy.validation_commands,
@@ -133,24 +147,32 @@ export async function verify_harness(
 			]),
 			`HARNESS_CWD=${shell_quote(cwd)} node ${shell_quote(join(harness_dir, 'guard.mjs'))}`,
 		];
+
 		for (const command of commands) {
 			options.signal?.throwIfAborted();
 			const result = await options.run(command, cwd, options.signal);
+
 			const output_file = join(
 				harness_dir,
 				'logs',
 				`validation-${attempt}-${checks.length}.log`,
 			);
+
 			writeFileSync(output_file, result.output.slice(0, 1024 * 1024));
+
 			const passed =
 				result.passed === true && !options.signal?.aborted;
+
 			checks.push({ command, passed, output_file });
+
 			if (!passed)
 				throw new Error(
 					`Validation failed or was interrupted: ${command}`,
 				);
 		}
+
 		options.signal?.throwIfAborted();
+
 		if (
 			readFileSync(join(harness_dir, 'harness.json'), 'utf8') !==
 				contract_before ||
@@ -160,6 +182,7 @@ export async function verify_harness(
 				'Contract or workspace changed during validation; rerun against the final artifact',
 			);
 		}
+
 		return { checks, cwd };
 	} catch (error) {
 		return {

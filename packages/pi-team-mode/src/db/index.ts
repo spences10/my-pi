@@ -57,7 +57,9 @@ import {
 	optional,
 	parse_json,
 } from './util.js';
+
 export { LATEST_TEAM_SCHEMA_VERSION } from './schema.js';
+
 export type {
 	CoordinationArtifact,
 	CoordinationArtifactInput,
@@ -86,6 +88,7 @@ export class TeamDatabase {
 
 	static async open(db_path: string): Promise<TeamDatabase> {
 		const sqlite = await import('node:sqlite');
+
 		return new TeamDatabase(sqlite.DatabaseSync, db_path);
 	}
 
@@ -94,6 +97,7 @@ export class TeamDatabase {
 		db_path: string,
 	) {
 		const dir = dirname(db_path);
+
 		if (!existsSync(dir))
 			mkdirSync(dir, { recursive: true, mode: 0o700 });
 		this.db = new DatabaseSyncCtor(db_path, {
@@ -140,6 +144,7 @@ export class TeamDatabase {
 				timestamp,
 			),
 		);
+
 		return this.get_session(input.session_id)!;
 	}
 
@@ -147,6 +152,7 @@ export class TeamDatabase {
 		const row = this.statements.get_session.get(session_id) as
 			| SessionRow
 			| undefined;
+
 		return row ? map_session(row) : undefined;
 	}
 
@@ -156,6 +162,7 @@ export class TeamDatabase {
 		const rows = (options.include_offline
 			? this.statements.list_sessions.all()
 			: this.statements.list_online_sessions.all()) as unknown as SessionRow[];
+
 		return rows.map((row) => map_session(row));
 	}
 
@@ -165,9 +172,12 @@ export class TeamDatabase {
 		const sessions = (
 			this.statements.list_online_sessions.all() as unknown as SessionRow[]
 		).map((row) => map_session(row));
+
 		const stale = find_stale_sessions(sessions, is_alive);
+
 		for (const session of stale)
 			this.mark_session_status(session.session_id, 'offline');
+
 		return stale.map((session) => session.session_id);
 	}
 
@@ -183,21 +193,27 @@ export class TeamDatabase {
 			const parent_id =
 				sender_session_id &&
 				this.get_session(sender_session_id)?.parent_session_id;
+
 			const parent = parent_id
 				? this.get_session(parent_id)
 				: undefined;
+
 			if (!parent)
 				throw new Error(
 					'This session has no registered worker parent',
 				);
+
 			return [parent];
 		}
+
 		const targetable_sessions = (
 			this.statements.list_sessions.all() as unknown as SessionRow[]
 		).map((row) => map_session(row));
+
 		const exact_session_id = targetable_sessions.filter(
 			(session) => session.session_id === target,
 		);
+
 		if (exact_session_id.length > 0) return exact_session_id;
 
 		const exact_named = targetable_sessions.filter(
@@ -205,11 +221,14 @@ export class TeamDatabase {
 				session.agent_name === target ||
 				session.session_alias === target,
 		);
+
 		if (exact_named.length === 1) return exact_named;
+
 		if (exact_named.length > 1) {
 			const active_named = exact_named.filter(
 				(session) => session.status !== 'offline',
 			);
+
 			if (active_named.length === 1) return active_named;
 			throw new Error(
 				`Ambiguous session target: ${target}. Matching sessions: ${exact_named
@@ -221,6 +240,7 @@ export class TeamDatabase {
 		const prefix_matches = targetable_sessions.filter((session) =>
 			session.session_id.startsWith(target),
 		);
+
 		if (prefix_matches.length <= 1) return prefix_matches;
 
 		throw new Error(
@@ -271,8 +291,10 @@ export class TeamDatabase {
 	): CoordinationArtifact {
 		if (!input.title.trim())
 			throw new Error('Artifact title is required');
+
 		if (!input.summary.trim())
 			throw new Error('Artifact summary is required');
+
 		if (!input.body.trim())
 			throw new Error('Artifact body is required');
 		const timestamp = now();
@@ -292,6 +314,7 @@ export class TeamDatabase {
 				json(input.metadata ?? {}),
 			),
 		);
+
 		return this.get_artifact(artifact_id)!;
 	}
 
@@ -301,6 +324,7 @@ export class TeamDatabase {
 		const row = this.statements.get_artifact.get(artifact_id) as
 			| ArtifactRow
 			| undefined;
+
 		return row ? map_artifact(row) : undefined;
 	}
 
@@ -309,12 +333,14 @@ export class TeamDatabase {
 	): CoordinationArtifact[] {
 		const cwd = options.cwd ?? null;
 		const kind = options.kind ?? null;
+
 		const rows = this.statements.list_artifacts.all(
 			cwd,
 			cwd,
 			kind,
 			kind,
 		) as unknown as ArtifactRow[];
+
 		return rows.map((row) => map_artifact(row));
 	}
 
@@ -324,6 +350,7 @@ export class TeamDatabase {
 	): CoordinationArtifact[] {
 		const pattern = `%${query.trim()}%`;
 		const cwd = options.cwd ?? null;
+
 		const rows = this.statements.search_artifacts.all(
 			cwd,
 			cwd,
@@ -331,6 +358,7 @@ export class TeamDatabase {
 			pattern,
 			pattern,
 		) as unknown as ArtifactRow[];
+
 		return rows.map((row) => map_artifact(row));
 	}
 
@@ -341,6 +369,7 @@ export class TeamDatabase {
 		metadata?: Record<string, unknown>;
 	}): CoordinationGroup {
 		const timestamp = now();
+
 		const group_id = `${input.name
 			.trim()
 			.toLowerCase()
@@ -348,6 +377,7 @@ export class TeamDatabase {
 				/[^a-z0-9_.-]+/g,
 				'-',
 			)}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+
 		this.write(() =>
 			this.statements.insert_group.run(
 				group_id,
@@ -359,6 +389,7 @@ export class TeamDatabase {
 				json(input.metadata ?? {}),
 			),
 		);
+
 		if (input.created_by_session_id) {
 			this.add_group_member({
 				group_id,
@@ -367,6 +398,7 @@ export class TeamDatabase {
 				role: 'lead',
 			});
 		}
+
 		return this.get_group(group_id)!;
 	}
 
@@ -377,6 +409,7 @@ export class TeamDatabase {
 		const exact = this.statements.get_group.get(group_id_or_name) as
 			| GroupRow
 			| undefined;
+
 		if (exact) return map_group(exact);
 
 		const rows = (options.cwd
@@ -387,7 +420,9 @@ export class TeamDatabase {
 			: this.statements.find_groups_by_name.all(
 					group_id_or_name,
 				)) as unknown as GroupRow[];
+
 		if (rows.length === 0) return undefined;
+
 		if (rows.length === 1) return map_group(rows[0]!);
 		throw new Error(
 			`Ambiguous group target: ${group_id_or_name}. Matching groups: ${rows
@@ -410,6 +445,7 @@ export class TeamDatabase {
 		status?: 'active' | 'inactive';
 	}): CoordinationGroupMember {
 		const group = this.get_group(input.group_id);
+
 		if (!group || group.closed_at)
 			throw new Error('Collaboration is closed or unknown');
 		const timestamp = now();
@@ -424,6 +460,7 @@ export class TeamDatabase {
 				timestamp,
 			),
 		);
+
 		return this.list_group_members(input.group_id).find(
 			(member) => member.session_id === input.session_id,
 		)!;
@@ -438,10 +475,12 @@ export class TeamDatabase {
 		const invited = this.list_group_members(group_id).find(
 			(member) => member.session_id === session_id,
 		);
+
 		if (!invited)
 			throw new Error(
 				'Ask the group owner for an invitation before joining',
 			);
+
 		return this.add_group_member({
 			group_id,
 			session_id,
@@ -455,7 +494,9 @@ export class TeamDatabase {
 		options: { cwd?: string } = {},
 	): CoordinationGroupMember[] {
 		const group = this.get_group(group_id_or_name, options);
+
 		if (!group) return [];
+
 		return (
 			this.statements.list_group_members.all(
 				group.group_id,
@@ -480,14 +521,18 @@ export class TeamDatabase {
 	send_message(input: CoordinationMessageInput): CoordinationMessage {
 		if (!input.body.trim())
 			throw new Error('Message body is required');
+
 		const recipients = [...new Set(input.to_session_ids)].filter(
 			(session_id) => session_id !== input.from_session_id,
 		);
+
 		if (recipients.length === 0)
 			throw new Error('No message recipients');
 		const message_type = input.message_type ?? 'action';
+
 		if (!['action', 'status'].includes(message_type))
 			throw new Error('Invalid message_type');
+
 		if (
 			message_type === 'status' &&
 			(input.urgent || input.requires_ack)
@@ -495,6 +540,7 @@ export class TeamDatabase {
 			throw new Error(
 				'Status messages cannot be urgent or require acknowledgement',
 			);
+
 		if (
 			input.status_key !== undefined &&
 			(!input.status_key.trim() || message_type !== 'status')
@@ -502,11 +548,13 @@ export class TeamDatabase {
 			throw new Error(
 				'status_key requires a status message and a non-empty key',
 			);
+
 		if (
 			input.idempotency_key !== undefined &&
 			!input.idempotency_key.trim()
 		)
 			throw new Error('idempotency_key must not be empty');
+
 		const request_hash = createHash('sha256')
 			.update(
 				JSON.stringify([
@@ -524,11 +572,14 @@ export class TeamDatabase {
 				]),
 			)
 			.digest('hex');
+
 		const timestamp = now();
 		const message_id = `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+
 		const expires_at = input.ttl_ms
 			? new Date(Date.now() + input.ttl_ms).toISOString()
 			: null;
+
 		return this.transaction(() => {
 			if (input.idempotency_key !== undefined) {
 				const existing = this.db
@@ -538,14 +589,17 @@ export class TeamDatabase {
 					.get(input.from_session_id, input.idempotency_key) as
 					| { message_id: string; request_hash: string }
 					| undefined;
+
 				if (existing) {
 					if (existing.request_hash !== request_hash)
 						throw new Error(
 							'idempotency_key was already used with a different message',
 						);
+
 					return this.list_message_by_id(existing.message_id)!;
 				}
 			}
+
 			this.statements.insert_message.run(
 				message_id,
 				input.from_session_id,
@@ -563,6 +617,7 @@ export class TeamDatabase {
 				input.idempotency_key ?? null,
 				request_hash,
 			);
+
 			for (const session_id of recipients) {
 				this.statements.insert_message_receipt.run(
 					message_id,
@@ -572,14 +627,17 @@ export class TeamDatabase {
 				const sender = this.get_session(input.from_session_id);
 				const recipient = this.get_session(session_id);
 				let owned_group: unknown;
+
 				if (sender?.parent_session_id)
 					owned_group = sender.metadata.worker_group_id;
 				else if (
 					recipient?.parent_session_id === input.from_session_id
 				)
 					owned_group = recipient.metadata.worker_group_id;
+
 				let delivery_group =
 					typeof owned_group === 'string' ? owned_group : undefined;
+
 				if (input.scope === 'group') delivery_group = input.target;
 				this.delivery.enroll_receipt(
 					message_id,
@@ -588,6 +646,7 @@ export class TeamDatabase {
 					delivery_group,
 				);
 			}
+
 			this.insert_event({
 				type: 'message_sent',
 				session_id: input.from_session_id,
@@ -598,6 +657,7 @@ export class TeamDatabase {
 					recipients,
 				},
 			});
+
 			return this.list_message_by_id(message_id)!;
 		});
 	}
@@ -609,6 +669,7 @@ export class TeamDatabase {
 			input.target,
 			input.from_session_id,
 		);
+
 		if (targets.length === 0) {
 			const suggestions = this.list_sessions({
 				include_offline: true,
@@ -620,10 +681,12 @@ export class TeamDatabase {
 						session.session_alias?.includes(input.target),
 				)
 				.map((session) => session.session_id);
+
 			throw new Error(
 				`Unknown session target: ${input.target}${suggestions.length ? `. Matching sessions: ${suggestions.join(', ')}` : ''}`,
 			);
 		}
+
 		return this.send_message({
 			...input,
 			scope: 'session',
@@ -636,8 +699,11 @@ export class TeamDatabase {
 		options: { cwd?: string } = {},
 	): CoordinationMessage {
 		const group = this.get_group(input.target, options);
+
 		if (!group) throw new Error(`Unknown group: ${input.target}`);
+
 		if (group.closed_at) throw new Error('Collaboration is closed');
+
 		if (
 			!this.list_group_members(group.group_id).some(
 				(member) =>
@@ -648,9 +714,11 @@ export class TeamDatabase {
 			throw new Error(
 				'Join this collaboration before sending to the group',
 			);
+
 		const members = this.list_group_members(group.group_id).filter(
 			(member) => member.status === 'active',
 		);
+
 		return this.send_message({
 			...input,
 			target: group.group_id,
@@ -670,7 +738,9 @@ export class TeamDatabase {
 		const rows = this.statements.list_inbox.all(
 			session_id,
 		) as unknown as InboxRow[];
+
 		const timestamp = Date.now();
+
 		return rows
 			.map((row) => map_inbox(row))
 			.filter((message) => {
@@ -679,11 +749,15 @@ export class TeamDatabase {
 					Date.parse(message.expires_at) <= timestamp
 				)
 					return false;
+
 				if (options.undelivered_only && message.delivered_at)
 					return false;
+
 				if (!options.include_read && message.read_at) return false;
+
 				if (!options.include_acknowledged && message.acknowledged_at)
 					return false;
+
 				return true;
 			});
 	}
@@ -736,40 +810,51 @@ export class TeamDatabase {
 		const retention_ms =
 			options.retention_ms ??
 			DEFAULT_MANUAL_COORDINATION_RETENTION_MS;
+
 		if (!Number.isFinite(retention_ms) || retention_ms < 0)
 			throw new Error('Coordination retention must be non-negative');
 		const reference_time = options.reference_time ?? new Date();
+
 		if (Number.isNaN(reference_time.getTime()))
 			throw new Error(
 				'Coordination cleanup reference time is invalid',
 			);
 		const reference = reference_time.toISOString();
+
 		const cutoff = new Date(
 			reference_time.getTime() - retention_ms,
 		).toISOString();
+
 		const changes = (result: { changes: number | bigint }): number =>
 			Number(result.changes);
+
 		let cleanup_result: CoordinationCleanupResult | undefined;
 		this.transaction(() => {
 			const receipt_row = this.statements.count_prunable_receipts.get(
 				reference,
 				cutoff,
 			) as { count: number | bigint };
+
 			const events = changes(
 				this.statements.prune_events.run(cutoff),
 			);
+
 			const messages = changes(
 				this.statements.prune_messages.run(reference, cutoff),
 			);
+
 			const artifacts = changes(
 				this.statements.prune_artifacts.run(cutoff),
 			);
+
 			const groups = changes(
 				this.statements.prune_groups.run(cutoff, cutoff),
 			);
+
 			const sessions = changes(
 				this.statements.prune_sessions.run(cutoff),
 			);
+
 			cleanup_result = {
 				cutoff,
 				artifacts,
@@ -780,6 +865,7 @@ export class TeamDatabase {
 				sessions,
 			};
 		});
+
 		return cleanup_result!;
 	}
 
@@ -858,7 +944,9 @@ export class TeamDatabase {
 					| 'from_cwd'
 			  >
 			| undefined;
+
 		if (!row) return undefined;
+
 		return {
 			message_id: row.message_id,
 			from_session_id: row.from_session_id,

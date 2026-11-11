@@ -12,20 +12,24 @@ import {
 } from './rendering.js';
 
 const fg = vi.fn((_color: string, text: string) => text);
+
 const key_hint: MessageRenderOptions['keyHint'] = (
 	_key,
 	description,
 ) => `alt+o ${description}`;
+
 const theme = {
 	fg,
 	bold: (text: string) => text,
 } as unknown as Theme;
+
 const options: MessageRenderOptions = {
 	expanded: false,
 	outputPad: 1,
 	keyHint: key_hint,
 	keyText: () => 'alt+o',
 };
+
 const inbox: CoordinationInboxMessage = {
 	message_id: 'message-1',
 	from_session_id: 'review-session',
@@ -41,11 +45,13 @@ const inbox: CoordinationInboxMessage = {
 	metadata: {},
 	receipt_created_at: '2026-01-01',
 };
+
 const message = {
 	...create_peer_message_delivery('receiver', [inbox]),
 	role: 'custom' as const,
 	timestamp: 0,
 };
+
 const context = {
 	expanded: false,
 	isError: false,
@@ -55,11 +61,13 @@ const context = {
 describe('Team Mode rendering', () => {
 	it('shows sender, type and body without the delivery wrapper', () => {
 		const before = JSON.stringify(message);
+
 		const lines = render_peer_message(
 			message,
 			options,
 			theme,
 		)!.render(160);
+
 		expect(lines).toHaveLength(1);
 		expect(lines[0]).toContain(
 			'Team · reviewer · action: Review finished.',
@@ -78,6 +86,7 @@ describe('Team Mode rendering', () => {
 		)!
 			.render(240)
 			.join('\n');
+
 		expect(text).toContain('message-1');
 		expect(text).toContain('review-session');
 		expect(text).toContain('Two findings.');
@@ -98,9 +107,11 @@ describe('Team Mode rendering', () => {
 				{ ...inbox, message_id: 'message-2' },
 			]),
 		};
+
 		const text = render_peer_message(batch, options, theme)!.render(
 			240,
 		)[0];
+
 		expect(text).toContain('review-sessi · status');
 		expect(text).toContain('(+1 more)');
 	});
@@ -118,9 +129,11 @@ describe('Team Mode rendering', () => {
 					},
 				]),
 			};
+
 			const lines = render_peer_message(wide, options, theme)!.render(
 				width,
 			);
+
 			expect(lines).toHaveLength(1);
 			expect(visibleWidth(lines[0]!)).toBeLessThanOrEqual(width);
 		},
@@ -132,16 +145,20 @@ describe('Team Mode rendering', () => {
 			to: 'reviewer',
 			message: 'Long task\nwith details',
 		};
+
 		const compact = team_tool_renderers
 			.renderCall(args, theme, context)
 			.render(80);
+
 		expect(compact).toHaveLength(1);
 		expect(compact[0]).toContain('Team · session_send · reviewer');
 		expect(compact[0]).not.toContain('Long task');
+
 		const expanded = team_tool_renderers
 			.renderCall(args, theme, { ...context, expanded: true })
 			.render(200)
 			.join('\n');
+
 		for (const line of JSON.stringify(args, null, 2).split('\n'))
 			expect(expanded).toContain(line);
 	});
@@ -156,6 +173,7 @@ describe('Team Mode rendering', () => {
 			],
 			details: { message_ids: ['message-1'] },
 		};
+
 		const compact = team_tool_renderers
 			.renderResult(
 				result,
@@ -164,9 +182,11 @@ describe('Team Mode rendering', () => {
 				context,
 			)
 			.render(100);
+
 		expect(compact).toHaveLength(1);
 		expect(compact[0]).toContain('Acknowledged 1 message');
 		expect(compact[0]).not.toContain('Full receipt');
+
 		const expanded = team_tool_renderers
 			.renderResult(
 				result,
@@ -176,6 +196,7 @@ describe('Team Mode rendering', () => {
 			)
 			.render(200)
 			.join('\n');
+
 		for (const line of result.content[0]!.text.split('\n'))
 			expect(expanded).toContain(line);
 	});
@@ -190,6 +211,7 @@ describe('Team Mode rendering', () => {
 			],
 			details: {},
 		};
+
 		const lines = team_tool_renderers
 			.renderResult(
 				error,
@@ -198,8 +220,10 @@ describe('Team Mode rendering', () => {
 				{ ...context, isError: true },
 			)
 			.render(100);
+
 		expect(lines[0]).toContain('Database unavailable');
 		expect(fg).toHaveBeenCalledWith('error', 'Database unavailable');
+
 		const partial = team_tool_renderers
 			.renderResult(
 				{ content: [], details: {} },
@@ -208,6 +232,7 @@ describe('Team Mode rendering', () => {
 				context,
 			)
 			.render(100);
+
 		expect(partial[0]).toContain('Working…');
 	});
 });

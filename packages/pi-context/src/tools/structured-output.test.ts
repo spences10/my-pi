@@ -23,23 +23,28 @@ describe('context structured outputs', () => {
 		register_context_tools({
 			registerTool: (tool: ToolDefinition) => tools.push(tool),
 		} as unknown as ExtensionAPI);
+
 		const ctx = {
 			cwd: dir,
 			sessionManager: { getSessionId: () => 'test' },
 		};
+
 		const store = get_context_store({
 			project_path: dir,
 			session_id: 'test',
 		});
+
 		const stored = store.store({
 			text: 'schema-marker\n'.repeat(400),
 			tool_name: 'bash',
 		})!;
+
 		const execute = async (
 			name: string,
 			args: Record<string, unknown>,
 		) => {
 			const tool = tools.find((item) => item.name === name)!;
+
 			const result = await tool.execute(
 				'test',
 				args,
@@ -47,16 +52,20 @@ describe('context structured outputs', () => {
 				undefined,
 				ctx as never,
 			);
+
 			expect(
 				Value.Check(tool.outputSchema!, result.structuredContent),
 			).toBe(true);
+
 			return result.structuredContent as Record<string, unknown>;
 		};
+
 		try {
 			expect(
 				tools.find((tool) => tool.name === 'context_export')
 					?.annotations?.destructiveHint,
 			).toBe(true);
+
 			for (const tool of tools) {
 				expect(tool.namespace?.name).toBe('context');
 				expect(tool.outputSchema).toBeDefined();
@@ -66,6 +75,7 @@ describe('context structured outputs', () => {
 						: undefined,
 				);
 			}
+
 			expect(
 				(await execute('context_search', { query: 'schema-marker' }))
 					.results,
@@ -112,6 +122,7 @@ describe('context structured outputs', () => {
 		} finally {
 			set_context_sidecar_enabled(false);
 			store.close();
+
 			if (previous === undefined) delete process.env.MY_PI_CONTEXT_DB;
 			else process.env.MY_PI_CONTEXT_DB = previous;
 			rmSync(dir, { recursive: true, force: true });

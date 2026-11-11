@@ -26,6 +26,7 @@ type RegisteredTool = {
 function temp_dir(prefix: string): string {
 	const dir = mkdtempSync(join(tmpdir(), prefix));
 	dirs.push(dir);
+
 	return dir;
 }
 
@@ -36,14 +37,17 @@ function register_tool(): RegisteredTool {
 			tool = value;
 		},
 	} as unknown as ExtensionAPI);
+
 	return tool!;
 }
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+
 	if (original_context_db === undefined)
 		delete process.env.MY_PI_CONTEXT_DB;
 	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs.length = 0;
@@ -56,15 +60,18 @@ describe('context_export tool', () => {
 		set_context_sidecar_enabled(true, {
 			db_path: process.env.MY_PI_CONTEXT_DB,
 		});
+
 		const stored = get_context_store().store({
 			text: `export-token\n${'x '.repeat(400)}`,
 			tool_name: 'bash',
 			force: true,
 		});
+
 		const output = join(
 			temp_dir('pi-context-export-out-'),
 			'export.txt',
 		);
+
 		const tool = register_tool();
 
 		expect(tool.description).toContain('broad/full JSON/log/script');

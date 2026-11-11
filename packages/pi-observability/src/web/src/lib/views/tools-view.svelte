@@ -14,23 +14,30 @@
 
 	const tools = resource(() => {
 		void live.revision;
+
 		return api.tools(range.since());
 	});
+
 	const failures = resource(() => {
 		void live.revision;
+
 		return api.failures(range.since(), 30);
 	});
 
 	const rows = $derived(tools.data?.tools ?? []);
+
 	const calls = $derived(
 		rows.reduce((sum, tool) => sum + tool.calls, 0),
 	);
+
 	const errors = $derived(
 		rows.reduce((sum, tool) => sum + tool.errors, 0),
 	);
+
 	const total_ms = $derived(
 		rows.reduce((sum, tool) => sum + tool.total_ms, 0),
 	);
+
 	const most_errors = $derived(
 		rows.toSorted((a, b) => b.errors - a.errors)[0],
 	);

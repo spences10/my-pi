@@ -14,6 +14,7 @@ import {
 } from './naming.js';
 
 export { assert_naming, resolve_naming_config } from './naming.js';
+
 export type { NamingConfig, NamingStyle } from './naming.js';
 
 export type PreferenceRuleConfig = {
@@ -85,12 +86,15 @@ function path_value_from(
 	event: ToolCallEvent,
 ): TargetValue | undefined {
 	const input = input_record(event);
+
 	for (const key of ['path', 'file_path', 'filePath']) {
 		const value = input[key];
+
 		if (typeof value === 'string') {
 			return { field: `input.${key}`, value };
 		}
 	}
+
 	return undefined;
 }
 
@@ -98,6 +102,7 @@ function command_value_from(
 	event: ToolCallEvent,
 ): TargetValue | undefined {
 	const command = input_record(event).command;
+
 	return typeof command === 'string'
 		? { field: 'input.command', value: command }
 		: undefined;
@@ -108,12 +113,15 @@ function input_values(
 	field = 'input',
 ): TargetValue[] {
 	if (typeof value === 'string') return [{ field, value }];
+
 	if (Array.isArray(value)) {
 		return value.flatMap((item, index) =>
 			input_values(item, `${field}[${index}]`),
 		);
 	}
+
 	if (!value || typeof value !== 'object') return [];
+
 	return Object.entries(value as Record<string, unknown>).flatMap(
 		([key, item]) => input_values(item, `${field}.${key}`),
 	);
@@ -125,31 +133,40 @@ function target_values(
 ): TargetValue[] {
 	if (target === 'command') {
 		const command = command_value_from(event);
+
 		return command ? [command] : [];
 	}
+
 	if (target === 'path') {
 		const path = path_value_from(event);
+
 		return path ? [path] : [];
 	}
+
 	if (target === 'content') {
 		const input = input_record(event);
+
 		if (event.toolName === 'write') {
 			return typeof input.content === 'string'
 				? [{ field: 'input.content', value: input.content }]
 				: [];
 		}
+
 		if (event.toolName !== 'edit') return [];
 		const replacements: TargetValue[] = [];
+
 		if (typeof input.newText === 'string') {
 			replacements.push({
 				field: 'input.newText',
 				value: input.newText,
 			});
 		}
+
 		if (Array.isArray(input.edits)) {
 			input.edits.forEach((edit: unknown, index) => {
 				if (!edit || typeof edit !== 'object') return;
 				const value = (edit as Record<string, unknown>).newText;
+
 				if (typeof value === 'string') {
 					replacements.push({
 						field: `input.edits[${index}].newText`,
@@ -158,8 +175,10 @@ function target_values(
 				}
 			});
 		}
+
 		return replacements;
 	}
+
 	return input_values(event.input);
 }
 
@@ -175,6 +194,7 @@ function read_config_file(
 	path: string,
 ): Partial<CodingPreferencesConfig> | undefined {
 	let parsed: Partial<CodingPreferencesConfig> | undefined;
+
 	if (path === get_global_config_path()) {
 		parsed = read_settings_section<
 			Partial<CodingPreferencesConfig> | undefined
@@ -185,7 +205,9 @@ function read_config_file(
 			readFileSync(path, 'utf8'),
 		) as Partial<CodingPreferencesConfig>;
 	}
+
 	if (!parsed) return undefined;
+
 	return parsed;
 }
 
@@ -193,20 +215,24 @@ export function load_config(
 	cwd = process.cwd(),
 ): CodingPreferencesConfig {
 	const global_config = read_config_file(get_global_config_path());
+
 	const project_config = read_config_file(
 		get_project_config_path(cwd),
 	);
+
 	if (!global_config && !project_config) return default_config;
 	resolve_naming_config(global_config?.naming);
 	resolve_naming_config(project_config?.naming);
 	const project_naming = project_config?.naming;
 	let naming = global_config?.naming;
+
 	if (project_naming !== undefined) {
 		naming =
 			project_naming === false
 				? false
 				: { ...global_config?.naming, ...project_naming };
 	}
+
 	return {
 		rules:
 			global_config?.rules === undefined &&
@@ -228,8 +254,10 @@ export function find_coding_preference_violation(
 		if (rule.toolNames && !rule.toolNames.includes(event.toolName))
 			continue;
 		const pattern = new RegExp(rule.pattern);
+
 		for (const target of target_values(event, rule.target)) {
 			pattern.lastIndex = 0;
+
 			if (pattern.test(target.value)) {
 				return {
 					field: target.field,
@@ -239,6 +267,7 @@ export function find_coding_preference_violation(
 			}
 		}
 	}
+
 	return undefined;
 }
 
@@ -264,7 +293,9 @@ export default function coding_preferences(pi: ExtensionAPI) {
 				event,
 				load_config(ctx.cwd),
 			);
+
 			if (!violation) return undefined;
+
 			return {
 				block: true,
 				reason: format_coding_preference_violation(violation),

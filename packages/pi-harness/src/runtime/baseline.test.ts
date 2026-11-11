@@ -24,6 +24,7 @@ const cleanup_paths: string[] = [];
 function temp_dir(): string {
 	const path = mkdtempSync(join(tmpdir(), 'pi-harness-baseline-'));
 	cleanup_paths.push(path);
+
 	return path;
 }
 
@@ -60,6 +61,7 @@ function project(): string {
 		'-m',
 		'baseline',
 	);
+
 	return cwd;
 }
 
@@ -72,7 +74,9 @@ function harness(cwd: string, allowed_paths = ['src/**']) {
 		},
 		cwd,
 	);
+
 	cleanup_paths.push(runtime.harness_dir);
+
 	return runtime;
 }
 
@@ -87,13 +91,16 @@ function review(
 		encoding: 'utf8',
 		env: { ...process.env, HARNESS_CWD: cwd },
 	});
+
 	expect(result.error).toBeUndefined();
 	expect(result.status, result.stdout + result.stderr).toBe(
 		succeeds ? 0 : 1,
 	);
+
 	const generated = JSON.parse(
 		readFileSync(join(harness_dir, 'outcome.json'), 'utf8'),
 	);
+
 	expect(generated.changed_files).toEqual([...changed_files].sort());
 	expect(
 		collect_harness_outcome(harness_dir, cwd).changed_files,
@@ -229,6 +236,7 @@ describe('post-baseline changes', () => {
 		const cwd = project();
 		writeFileSync(join(cwd, 'README.md'), '# user edits\n');
 		const { harness_dir } = harness(cwd);
+
 		const blob = execFileSync(
 			'git',
 			['-C', cwd, 'hash-object', '-w', '--stdin'],
@@ -237,6 +245,7 @@ describe('post-baseline changes', () => {
 				encoding: 'utf8',
 			},
 		).trim();
+
 		git(
 			cwd,
 			'update-index',
@@ -317,11 +326,13 @@ describe('post-baseline changes', () => {
 		const cwd = project();
 		const { harness_dir } = harness(cwd);
 		renameSync(join(cwd, '.git'), join(temp_dir(), 'saved-git'));
+
 		const result = spawnSync(
 			'bash',
 			[join(harness_dir, 'review.sh')],
 			{ cwd, stdio: 'ignore' },
 		);
+
 		expect(result.status).not.toBe(0);
 		expect(() => collect_harness_outcome(harness_dir, cwd)).toThrow();
 	});

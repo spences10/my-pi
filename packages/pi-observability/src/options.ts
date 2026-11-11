@@ -14,13 +14,17 @@ function parse_positive_integer(
 	fallback: number,
 ): number {
 	const parsed = Number(value ?? fallback);
+
 	if (!Number.isInteger(parsed) || parsed < 1) return fallback;
+
 	return parsed;
 }
 
 function parse_port(value: string | undefined): number {
 	const port = parse_positive_integer(value, 43190);
+
 	if (port > 65535) return 43190;
+
 	return port;
 }
 
@@ -32,6 +36,7 @@ function default_token_path(env: NodeJS.ProcessEnv): string {
 	const agent_dir =
 		env.PI_CODING_AGENT_DIR ??
 		join(env.HOME ?? homedir(), '.pi', 'agent');
+
 	return resolve(
 		env.MY_PI_OBSERVABILITY_TOKEN_FILE ??
 			join(agent_dir, 'observability-token'),
@@ -42,14 +47,18 @@ export function resolve_observability_token(
 	env: NodeJS.ProcessEnv = process.env,
 ): string {
 	const configured = env.MY_PI_OBSERVABILITY_TOKEN?.trim();
+
 	if (configured) return configured;
 
 	const path = default_token_path(env);
+
 	try {
 		const existing = readFileSync(path, 'utf8').trim();
+
 		if (!existing)
 			throw new Error(`Observability token file is empty: ${path}`);
 		chmodSync(path, 0o600);
+
 		return existing;
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
@@ -58,20 +67,24 @@ export function resolve_observability_token(
 
 	mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
 	const generated = generate_observability_token();
+
 	try {
 		writeFileSync(path, `${generated}\n`, {
 			encoding: 'utf8',
 			flag: 'wx',
 			mode: 0o600,
 		});
+
 		return generated;
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== 'EEXIST')
 			throw error;
 		const existing = readFileSync(path, 'utf8').trim();
+
 		if (!existing)
 			throw new Error(`Observability token file is empty: ${path}`);
 		chmodSync(path, 0o600);
+
 		return existing;
 	}
 }

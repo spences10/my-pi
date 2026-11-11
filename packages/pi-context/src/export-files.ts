@@ -23,6 +23,7 @@ export function default_context_export_path(
 	chunk_id?: string,
 ): string {
 	const suffix = chunk_id ? `-${safe_path_segment(chunk_id)}` : '';
+
 	return join(
 		context_export_dir(),
 		`${safe_path_segment(source_id)}${suffix}.txt`,
@@ -37,6 +38,7 @@ export function resolve_context_export_path(
 ): string {
 	if (!file_path)
 		return default_context_export_path(source_id, chunk_id);
+
 	return isAbsolute(file_path) ? file_path : resolve(cwd, file_path);
 }
 
@@ -56,18 +58,22 @@ export function cleanup_context_exports(
 	now = Date.now(),
 ): { deleted: number; dir: string } {
 	const dir = context_export_dir();
+
 	if (policy.retention_days === null || !existsSync(dir))
 		return { deleted: 0, dir };
 
 	const cutoff = now - policy.retention_days * DAY_MS;
 	let deleted = 0;
+
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		const path = join(dir, entry.name);
 		const stats = statSync(path);
+
 		if (stats.mtimeMs >= cutoff) continue;
 		rmSync(path, { recursive: entry.isDirectory(), force: true });
 		deleted += 1;
 	}
+
 	return { deleted, dir };
 }
 

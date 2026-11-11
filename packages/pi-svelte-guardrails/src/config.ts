@@ -23,8 +23,10 @@ export const DEFAULT_SVELTE_GUARDRAILS_CONFIG: SvelteGuardrailsConfig =
 export function get_svelte_guardrails_config_path(): string {
 	if (process.env.MY_PI_SVELTE_GUARDRAILS_CONFIG)
 		return process.env.MY_PI_SVELTE_GUARDRAILS_CONFIG;
+
 	const xdg =
 		process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
+
 	return join(xdg, 'my-pi', 'svelte-guardrails.json');
 }
 
@@ -60,6 +62,7 @@ export function load_svelte_guardrails_config(
 	const global_config = read_svelte_guardrails_config_file(
 		get_svelte_guardrails_config_path(),
 	);
+
 	const project_config = read_svelte_guardrails_config_file(
 		get_project_svelte_guardrails_config_path(cwd),
 	);
@@ -80,7 +83,9 @@ function read_svelte_guardrails_config_file(
 				{},
 			);
 		}
+
 		if (!existsSync(path)) return {};
+
 		return JSON.parse(
 			readFileSync(path, 'utf-8'),
 		) as Partial<SvelteGuardrailsConfig>;
@@ -101,6 +106,7 @@ export function is_path_allowed(
 	cwd = process.cwd(),
 ): boolean {
 	const normalized = normalize_path(path, cwd);
+
 	return patterns.some((pattern) =>
 		glob_matches(normalized, pattern),
 	);
@@ -108,21 +114,26 @@ export function is_path_allowed(
 
 function normalize_path(path: string, cwd: string): string {
 	const resolved = isAbsolute(path) ? path : resolve(cwd, path);
+
 	return relative(cwd, resolved).replaceAll('\\', '/');
 }
 
 function glob_matches(path: string, pattern: string): boolean {
 	const normalized_pattern = pattern.replaceAll('\\', '/');
+
 	return glob_to_regexp(normalized_pattern).test(path);
 }
 
 function glob_to_regexp(glob: string): RegExp {
 	let source = '^';
+
 	for (let i = 0; i < glob.length; i++) {
 		const char = glob[i];
 		const next = glob[i + 1];
+
 		if (char === '*' && next === '*') {
 			const after = glob[i + 2];
+
 			if (after === '/') {
 				source += '(?:.*/)?';
 				i += 2;
@@ -136,6 +147,7 @@ function glob_to_regexp(glob: string): RegExp {
 			source += escape_regexp(char);
 		}
 	}
+
 	return new RegExp(`${source}$`);
 }
 

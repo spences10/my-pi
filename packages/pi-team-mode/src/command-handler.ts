@@ -39,9 +39,12 @@ export async function handle_team_command(
 				get_session_id,
 			),
 	};
+
 	const trimmed = args.trim();
+
 	if (!trimmed) {
 		show_team_help(deps);
+
 		return;
 	}
 

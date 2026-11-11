@@ -10,6 +10,7 @@ import {
 const { list_resumable_sessions } = vi.hoisted(() => ({
 	list_resumable_sessions: vi.fn(),
 }));
+
 vi.mock('pirecall/resumable', () => ({
 	RESUMABLE_API_SCHEMA_VERSION: 1,
 	RESUMABLE_API_CAPABILITIES: [
@@ -42,10 +43,13 @@ function create_ctx(
 	options: { has_ui?: boolean; keys?: string[] } = {},
 ) {
 	const notify = vi.fn();
+
 	const switch_session = vi
 		.fn()
 		.mockResolvedValue({ cancelled: false });
+
 	const request_render = vi.fn();
+
 	const custom = vi.fn(
 		(
 			factory: (
@@ -77,6 +81,7 @@ function create_ctx(
 					},
 					resolve,
 				);
+
 				for (const [index, key] of (
 					options.keys ?? ['enter']
 				).entries()) {
@@ -84,6 +89,7 @@ function create_ctx(
 				}
 			}),
 	);
+
 	return {
 		ctx: {
 			cwd: '/tmp/project',
@@ -170,6 +176,7 @@ describe('run_recall_resume', () => {
 			],
 			sessions: [session],
 		});
+
 		const { ctx, switch_session } = create_ctx({
 			keys: ['tab', 'escape'],
 		});

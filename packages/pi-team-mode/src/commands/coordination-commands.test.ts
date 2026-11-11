@@ -11,6 +11,7 @@ const dirs: string[] = [];
 async function tmp_db(): Promise<TeamDatabase> {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-team-command-actions-'));
 	dirs.push(dir);
+
 	return TeamDatabase.open(join(dir, 'coordination.db'));
 }
 
@@ -23,6 +24,7 @@ afterEach(() => {
 describe('coordination commands', () => {
 	it('uses compact session inbox output unless --full is passed', async () => {
 		const db = await tmp_db();
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({ session_id: 'worker', cwd: '/repo' });
@@ -32,6 +34,7 @@ describe('coordination commands', () => {
 				body: `please inspect ${'private context '.repeat(40)}final detail`,
 			});
 			const notifications: string[] = [];
+
 			const deps = {
 				ctx: {
 					ui: {

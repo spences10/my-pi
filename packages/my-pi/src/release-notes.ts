@@ -8,6 +8,7 @@ const changelog_key = JSON.stringify({
 	source: 'my-pi',
 	scope: 'user',
 });
+
 const changelog_url =
 	'https://github.com/spences10/my-pi/blob/main/packages/my-pi/CHANGELOG.md';
 
@@ -17,6 +18,7 @@ export function notify_release_update(
 	ctx: ExtensionContext,
 ): void {
 	if (event.reason !== 'startup' || ctx.mode !== 'tui') return;
+
 	if (
 		ctx.sessionManager
 			.getEntries()
@@ -25,12 +27,16 @@ export function notify_release_update(
 		return;
 
 	const settings = SettingsManager.create(ctx.cwd);
+
 	const last_version =
 		settings.getExtensionChangelogVersion(changelog_key);
+
 	if (!last_version) {
 		settings.setExtensionChangelogVersion(changelog_key, version);
+
 		return;
 	}
+
 	if (
 		version.localeCompare(last_version, 'en', { numeric: true }) <= 0
 	)

@@ -27,6 +27,7 @@ import {
 import { star_color, star_frame } from './stars.js';
 
 const identity = (text: string) => text;
+
 const editor_theme: EditorTheme = {
 	borderColor: identity,
 	selectList: {
@@ -37,6 +38,7 @@ const editor_theme: EditorTheme = {
 		noMatch: identity,
 	},
 };
+
 const keybindings = {
 	matches: () => false,
 } as unknown as KeybindingsManager;
@@ -62,17 +64,21 @@ function make_theme(
 
 function setup() {
 	const request_render = vi.fn();
+
 	const tui = {
 		terminal: { rows: 40 },
 		requestRender: request_render,
 	} as unknown as TUI;
+
 	let mode: StarfieldMode = 'on';
 	let active = true;
 	let theme = make_theme();
 	let suggestion: string | undefined;
+
 	const on_accept = vi.fn(() => {
 		suggestion = undefined;
 	});
+
 	const editor = new StarfieldEditor(tui, editor_theme, keybindings, {
 		theme: () => theme,
 		mode: () => mode,
@@ -80,7 +86,9 @@ function setup() {
 		suggestion: () => suggestion,
 		on_accept_suggestion: on_accept,
 	});
+
 	editor.focused = true;
+
 	return {
 		editor,
 		request_render,
@@ -102,6 +110,7 @@ function setup() {
 }
 
 beforeEach(() => vi.useFakeTimers());
+
 afterEach(() => vi.useRealTimers());
 
 const plain = (lines: string[]) => lines.map(stripTerminalSequences);
@@ -116,6 +125,7 @@ describe('star frames', () => {
 		expect(first).toEqual(
 			star_frame(180, 0).filter((star) => star.x < 120),
 		);
+
 		for (const star of first) {
 			expect(visibleWidth(star.glyph)).toBe(1);
 			expect(star.brightness).toBeGreaterThanOrEqual(0.02);
@@ -180,6 +190,7 @@ describe('StarfieldEditor', () => {
 	it('delegates text, paste, and history to Pi', () => {
 		const { editor, base } = setup();
 		base.focused = true;
+
 		for (const input of [
 			'hello',
 			'\x1b[200~line one\nemoji 😀 and 日本語\x1b[201~',
@@ -191,6 +202,7 @@ describe('StarfieldEditor', () => {
 				plain(base.render(30)).slice(1, -1),
 			);
 		}
+
 		editor.setText('');
 		editor.addToHistory('earlier prompt');
 		editor.handleInput('\x1b[A');
@@ -231,6 +243,7 @@ describe('StarfieldEditor', () => {
 	it('keeps the background through typing, cursor resets, and multiline input', () => {
 		const { editor } = setup();
 		const background = '\x1b[48;2;32;32;32m';
+
 		for (const text of ['hello', 'first line\nsecond line']) {
 			editor.setText(text);
 			const lines = editor.render(60);
@@ -245,6 +258,7 @@ describe('StarfieldEditor', () => {
 			);
 			expect(vi.getTimerCount()).toBe(1);
 		}
+
 		editor.setText(
 			Array.from({ length: 30 }, (_, index) => `line ${index}`).join(
 				'\n',
@@ -347,14 +361,17 @@ describe('StarfieldEditor', () => {
 			).toBe(true);
 			expect(lines.join('')).not.toContain('\x1b[48;2;32;32;32m');
 			expect(lines.join('')).not.toMatch(/[\u2800-\u28ff]/);
+
 			if (width === 80) {
 				expect(plain(lines)[1]).toContain('run the tests  ⇥');
 				expect(lines.join('').split(CURSOR_MARKER)).toHaveLength(2);
 			}
+
 			expect(editor.getText()).toBe('');
 			expect(vi.getTimerCount()).toBe(0);
 			set_suggestion(undefined);
 			expect(editor.render(width)).toEqual(normal);
+
 			for (const text of ['hello', 'first line\nsecond line']) {
 				editor.setText(text);
 				base.setText(text);

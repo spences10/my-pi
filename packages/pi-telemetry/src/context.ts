@@ -7,6 +7,7 @@ import type { EvalMetadata } from './types.js';
 export function parse_int(value: string | undefined): number | null {
 	if (!value) return null;
 	const parsed = Number.parseInt(value, 10);
+
 	return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -31,6 +32,7 @@ export function get_model_identity(
 	if (!model) {
 		return { provider: null, id: null };
 	}
+
 	return {
 		provider:
 			typeof model.provider === 'string' ? model.provider : null,
@@ -44,20 +46,25 @@ export function get_session_file(
 	const session_manager = ctx.sessionManager as {
 		getSessionFile?: () => string | undefined;
 	};
+
 	return session_manager.getSessionFile?.() ?? null;
 }
 
 export function get_stop_reason(message: unknown): string | null {
 	if (!message || typeof message !== 'object') return null;
+
 	const stop_reason = (message as { stopReason?: unknown })
 		.stopReason;
+
 	return typeof stop_reason === 'string' ? stop_reason : null;
 }
 
 export function get_error_message(message: unknown): string | null {
 	if (!message || typeof message !== 'object') return null;
+
 	const error_message = (message as { errorMessage?: unknown })
 		.errorMessage;
+
 	return typeof error_message === 'string' ? error_message : null;
 }
 
@@ -76,8 +83,10 @@ export function infer_run_outcome(event: {
 	const assistant_messages = event.messages.filter(
 		(message) => message.role === 'assistant',
 	);
+
 	const last_assistant = assistant_messages.at(-1);
 	const stop_reason = get_stop_reason(last_assistant);
+
 	if (stop_reason === 'error') {
 		return {
 			success: false,
@@ -85,6 +94,7 @@ export function infer_run_outcome(event: {
 				get_error_message(last_assistant) ?? 'agent error',
 		};
 	}
+
 	if (stop_reason === 'aborted') {
 		return {
 			success: false,
@@ -92,6 +102,7 @@ export function infer_run_outcome(event: {
 				get_error_message(last_assistant) ?? 'agent aborted',
 		};
 	}
+
 	return {
 		success: true,
 		error_message: null,
@@ -102,6 +113,7 @@ export function describe_session_shutdown(
 	event: Pick<SessionShutdownEvent, 'reason' | 'targetSessionFile'>,
 ): string {
 	const base = `session shutdown (${event.reason})`;
+
 	return event.targetSessionFile
 		? `${base} → ${event.targetSessionFile}`
 		: base;

@@ -32,8 +32,10 @@ export function create_mock_client(
 class RequiredMap<K, V> extends Map<K, V> {
 	override get(key: K): V {
 		const value = super.get(key);
+
 		if (value === undefined)
 			throw new Error(`Missing test key: ${String(key)}`);
+
 		return value;
 	}
 }
@@ -48,6 +50,7 @@ export function create_test_pi() {
 			parameters: { additionalProperties?: boolean };
 		}
 	>();
+
 	const commands = new RequiredMap<string, { handler: Function }>();
 	const events = new RequiredMap<string, Function>();
 
@@ -83,6 +86,7 @@ export async function create_test_lsp_extension(
 ) {
 	const test_pi = create_test_pi();
 	await register_test_lsp_extension(test_pi.pi, options);
+
 	return test_pi;
 }
 
@@ -99,7 +103,9 @@ export function create_command_context(
 ) {
 	const notifications: Array<{ message: string; level?: string }> =
 		[];
+
 	const selections: string[] = [];
+
 	const select = vi.fn(
 		async (
 			_title: string,
@@ -107,6 +113,7 @@ export function create_command_context(
 			_opts?: { signal?: AbortSignal },
 		) => selections.shift(),
 	);
+
 	return {
 		ctx: {
 			mode: 'tui',
@@ -127,6 +134,7 @@ export function create_command_context(
 								{},
 								vi.fn(),
 							);
+
 							return modal_results.shift();
 						})
 					: undefined,
@@ -141,9 +149,11 @@ export function create_command_context(
 export function create_deferred<T>() {
 	let resolve!: (value: T | PromiseLike<T>) => void;
 	let reject!: (reason?: unknown) => void;
+
 	const promise = new Promise<T>((res, rej) => {
 		resolve = res;
 		reject = rej;
 	});
+
 	return { promise, resolve, reject };
 }

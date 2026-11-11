@@ -74,6 +74,7 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	set focused(value: boolean) {
 		this._focused = value;
+
 		if (this.composer) this.composer.focused = value;
 	}
 
@@ -81,6 +82,7 @@ export class GitStageBody implements ModalBody, Focusable {
 		this.busy = true;
 		this.message = 'Loading git status…';
 		this.request_render();
+
 		try {
 			this.status = await read_status(this.cwd);
 			this.restore_selection(preferred_path);
@@ -99,6 +101,7 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	render(width: number): string[] {
 		if (this.composer) return this.composer.render(width);
+
 		return render_stage(
 			{
 				theme: this.theme,
@@ -125,35 +128,48 @@ export class GitStageBody implements ModalBody, Focusable {
 		if (this.composer) {
 			this.composer.handleInput(data);
 			this.request_render();
+
 			return;
 		}
+
 		if (this.actions) {
 			this.handle_action_input(data);
 			this.request_render();
+
 			return;
 		}
+
 		if (this.show_help) {
 			if (data === '\x1B' || data === 'q' || data === '?')
 				this.show_help = false;
 			this.request_render();
+
 			return;
 		}
+
 		if (this.repo_overview) {
 			if (data === '\x1B' || data === 'q')
 				this.repo_overview = undefined;
 			this.request_render();
+
 			return;
 		}
+
 		if (this.capturing_filter) {
 			this.handle_filter_input(data);
 			this.request_render();
+
 			return;
 		}
+
 		if (this.busy) return;
+
 		if (data === 'q' || data === '\x1B') {
 			this.done();
+
 			return;
 		}
+
 		if (key_is_up(data)) this.move_selection(-1);
 		else if (key_is_down(data)) this.move_selection(1);
 		else if (data === '\x1B[C' || data === 'l') this.scroll_diff(4);
@@ -196,9 +212,12 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	private visible_files(): GitFile[] {
 		const query = this.filter_text.trim().toLowerCase();
+
 		if (!query) return this.status.files;
+
 		return this.status.files.filter((file) => {
 			const searchable_text = `${file.path} ${state_label(file.state)} ${status_code(file)}`;
+
 			return searchable_text.toLowerCase().includes(query);
 		});
 	}
@@ -210,9 +229,11 @@ export class GitStageBody implements ModalBody, Focusable {
 	private restore_selection(preferred_path?: string): void {
 		const files = this.visible_files();
 		const path = preferred_path ?? files[this.selected]?.path;
+
 		const index = path
 			? files.findIndex((file) => file.path === path)
 			: -1;
+
 		this.selected =
 			index >= 0
 				? index
@@ -221,10 +242,12 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	private move_selection(delta: number): void {
 		const files = this.visible_files();
+
 		const next = Math.max(
 			0,
 			Math.min(files.length - 1, this.selected + delta),
 		);
+
 		if (next === this.selected) return;
 		this.selected = next;
 		this.diff_scroll = 0;
@@ -250,8 +273,10 @@ export class GitStageBody implements ModalBody, Focusable {
 			this.message = this.filter_text
 				? `Filtered by ${this.filter_text}`
 				: '';
+
 			return;
 		}
+
 		if (data === '\x7F' || data === '\b') {
 			this.filter_text = this.filter_text.slice(0, -1);
 		} else if (data === '\x15') {
@@ -259,6 +284,7 @@ export class GitStageBody implements ModalBody, Focusable {
 		} else if (data.length === 1 && data >= ' ') {
 			this.filter_text += data;
 		}
+
 		this.selected = 0;
 		this.diff_scroll = 0;
 		this.selected_hunk = 0;
@@ -272,8 +298,10 @@ export class GitStageBody implements ModalBody, Focusable {
 	private move_hunk(delta: number): void {
 		if (!this.diff || this.diff.hunks.length === 0) {
 			this.message = 'No hunks in selected diff.';
+
 			return;
 		}
+
 		this.selected_hunk = Math.max(
 			0,
 			Math.min(
@@ -282,6 +310,7 @@ export class GitStageBody implements ModalBody, Focusable {
 			),
 		);
 		const hunk = this.selected_diff_hunk();
+
 		if (hunk) {
 			this.diff_scroll = hunk.line_index;
 			this.selected_line_index = changed_line_indexes(hunk)[0];
@@ -290,12 +319,16 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	private move_line(delta: number): void {
 		const indexes = this.stageable_line_indexes();
+
 		if (indexes.length === 0) {
 			this.message = 'No stageable lines in selected diff.';
+
 			return;
 		}
+
 		const current = this.selected_line_index ?? indexes[0]!;
 		const current_index = Math.max(0, indexes.indexOf(current));
+
 		const next =
 			indexes[
 				Math.max(
@@ -303,11 +336,14 @@ export class GitStageBody implements ModalBody, Focusable {
 					Math.min(indexes.length - 1, current_index + delta),
 				)
 			]!;
+
 		this.selected_line_index = next;
 		this.diff_scroll = next;
+
 		const hunk_index = this.diff?.hunks.findIndex((hunk) =>
 			changed_line_indexes(hunk).includes(next),
 		);
+
 		if (hunk_index !== undefined && hunk_index >= 0)
 			this.selected_hunk = hunk_index;
 	}
@@ -329,15 +365,20 @@ export class GitStageBody implements ModalBody, Focusable {
 	private async load_diff(): Promise<void> {
 		const request_id = ++this.diff_request_id;
 		const file = this.selected_file();
+
 		if (!file) {
 			this.diff = undefined;
 			this.diff_for_path = '';
+
 			return;
 		}
+
 		const path = file.path;
 		this.diff_for_path = path;
+
 		try {
 			const diff = await read_diff(this.cwd, file);
+
 			if (request_id !== this.diff_request_id) return;
 			this.diff = diff;
 			this.selected_hunk = Math.min(
@@ -353,11 +394,13 @@ export class GitStageBody implements ModalBody, Focusable {
 				hunks: [],
 			};
 		}
+
 		this.request_render();
 	}
 
 	private async toggle_selected(): Promise<void> {
 		const file = this.selected_file();
+
 		if (!file) return;
 		const verb = file.state === 'staged' ? 'Unstaged' : 'Staged';
 		await this.run(
@@ -368,6 +411,7 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	private async stage_selected(): Promise<void> {
 		const file = this.selected_file();
+
 		if (!file) return;
 		await this.run(
 			() => stage_file(this.cwd, file),
@@ -377,6 +421,7 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	private async unstage_selected(): Promise<void> {
 		const file = this.selected_file();
+
 		if (!file) return;
 		await this.run(
 			() => unstage_file(this.cwd, file),
@@ -390,19 +435,25 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	private async stage_selected_hunk(): Promise<void> {
 		const hunk = this.selected_diff_hunk();
+
 		if (!hunk) {
 			this.message = 'No hunk selected.';
+
 			return;
 		}
+
 		await this.run(() => stage_hunk(this.cwd, hunk), 'Staged hunk');
 	}
 
 	private async unstage_selected_hunk(): Promise<void> {
 		const hunk = this.selected_diff_hunk();
+
 		if (!hunk) {
 			this.message = 'No hunk selected.';
+
 			return;
 		}
+
 		await this.run(
 			() => unstage_hunk(this.cwd, hunk),
 			'Unstaged hunk',
@@ -411,10 +462,13 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	private async stage_selected_line(): Promise<void> {
 		const hunk = this.selected_line_hunk();
+
 		if (!hunk || this.selected_line_index === undefined) {
 			this.message = 'No line selected.';
+
 			return;
 		}
+
 		await this.run(
 			() => stage_line(this.cwd, hunk, this.selected_line_index!),
 			'Staged line',
@@ -423,10 +477,13 @@ export class GitStageBody implements ModalBody, Focusable {
 
 	private async unstage_selected_line(): Promise<void> {
 		const hunk = this.selected_line_hunk();
+
 		if (!hunk || this.selected_line_index === undefined) {
 			this.message = 'No line selected.';
+
 			return;
 		}
+
 		await this.run(
 			() => unstage_line(this.cwd, hunk, this.selected_line_index!),
 			'Unstaged line',
@@ -437,19 +494,25 @@ export class GitStageBody implements ModalBody, Focusable {
 		const unsafe = this.status.files.find(
 			(file) => file.state === 'mixed' || file.state === 'conflicted',
 		);
+
 		if (unsafe) {
 			this.message = `Stage all blocked by ${state_label(unsafe.state)} file ${unsafe.path}. Use A to force.`;
+
 			return;
 		}
+
 		await this.run(() => stage_all(this.cwd), 'Staged all changes');
 	}
 
 	private open_action_menu(): void {
 		const file = this.selected_file();
+
 		if (!file) {
 			this.message = 'No file selected.';
+
 			return;
 		}
+
 		this.actions = build_stage_actions(file, {
 			stage_file: () => void this.stage_selected(),
 			unstage_file: () => void this.unstage_selected(),
@@ -471,17 +534,22 @@ export class GitStageBody implements ModalBody, Focusable {
 	private handle_action_input(data: string): void {
 		if (data === '\x1B' || data === 'q') {
 			this.actions = undefined;
+
 			return;
 		}
+
 		const next = next_action_index(
 			this.selected_action,
 			this.actions?.length ?? 1,
 			data,
 		);
+
 		if (next !== this.selected_action) {
 			this.selected_action = next;
+
 			return;
 		}
+
 		if (data !== '\r' && data !== '\n') return;
 		const action = this.actions?.[this.selected_action];
 		this.actions = undefined;
@@ -497,6 +565,7 @@ export class GitStageBody implements ModalBody, Focusable {
 		this.busy = true;
 		this.message = 'Loading repository overview…';
 		this.request_render();
+
 		try {
 			this.repo_overview = await read_repo_overview(this.cwd);
 		} catch (error) {
@@ -530,8 +599,10 @@ export class GitStageBody implements ModalBody, Focusable {
 			this.message = amend
 				? 'No staged changes to amend.'
 				: 'No staged changes to commit.';
+
 			return;
 		}
+
 		this.composer = new CommitComposer(
 			this.theme,
 			staged_file_count(this.status.files),
@@ -563,6 +634,7 @@ export class GitStageBody implements ModalBody, Focusable {
 		this.busy = true;
 		this.message = 'Working…';
 		this.request_render();
+
 		try {
 			await action();
 			this.message = success;

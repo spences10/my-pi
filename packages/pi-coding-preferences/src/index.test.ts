@@ -114,6 +114,7 @@ describe('coding preferences', () => {
 				},
 			],
 		};
+
 		const violation = find_coding_preference_violation(
 			event('edit', {
 				path: 'src/example.ts',
@@ -172,6 +173,7 @@ describe('coding preferences', () => {
 					},
 				],
 			};
+
 			expect(
 				find_coding_preference_violation(
 					event(tool_name, input),
@@ -187,10 +189,12 @@ describe('coding preferences', () => {
 			pattern: 'forbidden',
 			reason: 'Restricted content.',
 		};
+
 		const correction = event('edit', {
 			path: 'forbidden.ts',
 			edits: [{ oldText: 'forbidden', newText: 'safe' }],
 		});
+
 		expect(
 			should_block_coding_preference(correction, {
 				rules: [{ ...rule, target: 'content' }],
@@ -223,6 +227,7 @@ describe('coding preferences', () => {
 				},
 			],
 		};
+
 		for (const call of [
 			event('bash', { command: 'forbidden', content: 'forbidden' }),
 			event('write', {

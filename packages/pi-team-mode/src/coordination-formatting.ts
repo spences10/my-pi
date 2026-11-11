@@ -22,6 +22,7 @@ function copyable_session_target(
 	all_session_ids: string[],
 ): string {
 	let length = Math.min(12, session_id.length);
+
 	while (
 		length < session_id.length &&
 		all_session_ids.some(
@@ -31,6 +32,7 @@ function copyable_session_target(
 		)
 	)
 		length += 1;
+
 	return session_id.slice(0, length);
 }
 
@@ -50,9 +52,11 @@ function quote_peer_body(body: string): string {
 
 function compact_body(body: string): CompactBody {
 	const normalized = body.replace(/\s+/g, ' ').trim();
+
 	if (normalized.length <= COMPACT_BODY_LIMIT)
 		return { text: normalized, truncated: false };
 	const marker = '… [truncated]';
+
 	return {
 		text: `${normalized.slice(0, COMPACT_BODY_LIMIT - marker.length).trimEnd()}${marker}`,
 		truncated: true,
@@ -64,34 +68,44 @@ export function format_sessions(
 	options: { full_ids?: boolean; target_ids?: string[] } = {},
 ): string {
 	if (sessions.length === 0) return 'No registered sessions.';
+
 	const target_ids =
 		options.target_ids ??
 		sessions.map((session) => session.session_id);
+
 	return sessions
 		.map((session) => {
 			const id = options.full_ids
 				? session.session_id
 				: copyable_session_target(session.session_id, target_ids);
+
 			const name = session.agent_name ? ` ${session.agent_name}` : '';
+
 			const alias = session.session_alias
 				? ` (${session.session_alias})`
 				: '';
+
 			const availability =
 				session.availability !== 'available'
 					? ` · ${session.availability}`
 					: '';
+
 			const intent =
 				options.full_ids && session.intent
 					? ` · ${session.intent}`
 					: '';
+
 			const standby = session.intent
 				? undefined
 				: standby_label(session.metadata);
+
 			const standby_text = standby ? ` · ${standby}` : '';
 			const model = session.model_id ? ` · ${session.model_id}` : '';
+
 			const thinking = session.thinking_level
 				? ` · thinking ${session.thinking_level}`
 				: '';
+
 			return `- ${id}${name}${alias} — ${session.status}${availability}${intent}${standby_text}; ${session.cwd}${model}${thinking}`;
 		})
 		.join('\n');
@@ -101,9 +115,11 @@ export function format_artifacts(
 	artifacts: CoordinationArtifact[],
 ): string {
 	if (artifacts.length === 0) return 'No coordination artifacts.';
+
 	return artifacts
 		.map((artifact) => {
 			const metadata = format_chunk_metadata(artifact.body);
+
 			return `- ${artifact.artifact_id} [${artifact.kind}] ${artifact.title}: ${artifact.summary} (${metadata}; use artifact_get with chunk_index or mode=full)`;
 		})
 		.join('\n');
@@ -119,6 +135,7 @@ export function format_artifact(
 	} = {},
 ): string {
 	const metadata = body_chunk_metadata(artifact.body);
+
 	return [
 		`${artifact.artifact_id} [${artifact.kind}] ${artifact.title}`,
 		`Summary: ${artifact.summary}`,
@@ -145,9 +162,11 @@ export function format_inbox(
 	options: { full?: boolean } = {},
 ): string {
 	if (messages.length === 0) return 'No matching inbox messages.';
+
 	const lines = messages.map((message) => {
 		const from =
 			message.from_agent_name ?? short_id(message.from_session_id);
+
 		const states = [
 			message.delivered_at ? 'delivered' : 'undelivered',
 			message.read_at ? 'read' : undefined,
@@ -155,16 +174,21 @@ export function format_inbox(
 		]
 			.filter(Boolean)
 			.join(', ');
+
 		const body = options.full
 			? message.body
 			: compact_body(message.body).text;
+
 		const metadata = format_chunk_metadata(message.body);
+
 		return `- ${message.message_id} from ${from} (${states}; ${metadata}): ${body}`;
 	});
+
 	if (!options.full)
 		lines.push(
 			'Use `team session_inbox` with the message_id and `mode=full` for focused full text, or retrieve the referenced Team Mode artifact for a long handoff.',
 		);
+
 	return lines.join('\n');
 }
 
@@ -176,12 +200,15 @@ export function format_groups(
 	> = new Map(),
 ): string {
 	if (groups.length === 0) return 'No coordination groups.';
+
 	return groups
 		.map((group) => {
 			const members = members_by_group.get(group.group_id) ?? [];
 			let member_text = '';
+
 			if (members.length)
 				member_text = ` · ${members.length} member${members.length === 1 ? '' : 's'}`;
+
 			return `- ${group.name} (${group.group_id})${group.closed_at ? ' · closed' : ''}${member_text}${group.cwd ? ` · ${group.cwd}` : ''}`;
 		})
 		.join('\n');
@@ -193,6 +220,7 @@ export function format_coordination_identity(
 ): string | undefined {
 	if (memberships.length === 0 && !options.thinking_level)
 		return undefined;
+
 	return [
 		'Current coordination identity:',
 		...(options.thinking_level
@@ -200,9 +228,11 @@ export function format_coordination_identity(
 			: []),
 		...memberships.map((membership) => {
 			const alias = membership.alias ? ` as ${membership.alias}` : '';
+
 			const cwd = membership.group_cwd
 				? ` · ${membership.group_cwd}`
 				: '';
+
 			return `- ${membership.group_name} (${membership.group_id}): ${membership.role}${alias}${cwd}`;
 		}),
 	].join('\n');
@@ -247,6 +277,7 @@ export function format_peer_message_for_injection(
 		message,
 		body: compact_body(message.body),
 	}));
+
 	return [
 		'[Team Mode peer message — not direct user input]',
 		`Recipient session: ${own_session_id}`,

@@ -23,6 +23,7 @@ describe('thinking footer model helpers', () => {
 				],
 			},
 		});
+
 		expect(get_current_thinking_level(ctx)).toBe('high');
 	});
 
@@ -35,6 +36,7 @@ describe('thinking footer model helpers', () => {
 				],
 			},
 		});
+
 		expect(get_current_thinking_level(ctx)).toBe('off');
 	});
 });

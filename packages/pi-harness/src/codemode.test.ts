@@ -26,23 +26,29 @@ describe('native codemode harness execution', () => {
 		async (scenario) => {
 			const cwd = mkdtempSync(join(tmpdir(), 'pi-harness-codemode-'));
 			let harness_dir: string | undefined;
+
 			let session:
 				| Awaited<ReturnType<typeof createAgentSession>>['session']
 				| undefined;
+
 			try {
 				execFileSync('git', ['-C', cwd, 'init'], { stdio: 'ignore' });
+
 				const settings = SettingsManager.inMemory({
 					compaction: { enabled: false },
 					retry: { enabled: false },
 				});
+
 				const runtime = await ModelRuntime.create({
 					authPath: join(cwd, 'auth.json'),
 					modelsPath: null,
 					modelsStorePath: join(cwd, 'models-cache.json'),
 					refreshOnCreate: false,
 				});
+
 				const calls: ToolCallEvent[] = [];
 				const controller = new AbortController();
+
 				const loader = new DefaultResourceLoader({
 					cwd,
 					agentDir: cwd,
@@ -58,17 +64,21 @@ describe('native codemode harness execution', () => {
 						(pi) => {
 							pi.on('tool_call', (event) => {
 								calls.push(event);
+
 								if (event.toolName !== 'bash') return;
+
 								if (scenario === 'blocked')
 									return {
 										block: true,
 										reason: 'Validation permission denied',
 									};
+
 								if (scenario === 'cancelled') controller.abort();
 							});
 						},
 					],
 				});
+
 				await loader.reload();
 				const manager = SessionManager.inMemory(cwd);
 				({ session } = await createAgentSession({
@@ -84,10 +94,13 @@ describe('native codemode harness execution', () => {
 					onError: (error) => errors.push(error),
 				});
 				session.setActiveToolsByName(['bash', 'codemode']);
+
 				const harness_tools = session
 					.getAllTools()
 					.filter((tool) => tool.name.startsWith('harness_'));
+
 				expect(harness_tools).toHaveLength(6);
+
 				for (const tool of harness_tools) {
 					expect(tool.exposure).toBe('codemode');
 					expect(session.getActiveToolNames()).not.toContain(
@@ -95,9 +108,11 @@ describe('native codemode harness execution', () => {
 					);
 					expect(session.getCallableToolNames()).toContain(tool.name);
 				}
+
 				const codemode = session.agent.state.tools.find(
 					(tool) => tool.name === 'codemode',
 				)!;
+
 				const run_code = async (
 					id: string,
 					code: string,
@@ -136,8 +151,10 @@ describe('native codemode harness execution', () => {
 							timestamp: Date.now(),
 						},
 					];
+
 					return codemode.execute(id, { code }, signal);
 				};
+
 				const creation = await run_code(
 					'create-script',
 					`text(ALL_TOOLS.filter(t => t.name.startsWith('harness_')));
@@ -148,13 +165,16 @@ return await tools.harness_create(${JSON.stringify({
 						],
 					})});`,
 				);
+
 				expect(JSON.stringify(creation.content)).toContain(
 					'Script completed',
 				);
+
 				for (const tool of harness_tools)
 					expect(JSON.stringify(creation.content)).toContain(
 						tool.name,
 					);
+
 				const entry = manager
 					.getBranch()
 					.find(
@@ -162,10 +182,12 @@ return await tools.harness_create(${JSON.stringify({
 							entry.type === 'custom' &&
 							entry.customType === HARNESS_CUSTOM_TYPE,
 					);
+
 				if (!entry || entry.type !== 'custom')
 					throw new Error('Harness was not activated');
 				harness_dir = (entry.data as { active_harness_dir: string })
 					.active_harness_dir;
+
 				const update_finished = new Promise<void>((resolve) => {
 					session!.subscribe((event) => {
 						if (
@@ -175,6 +197,7 @@ return await tools.harness_create(${JSON.stringify({
 							resolve();
 					});
 				});
+
 				const completion = await run_code(
 					'complete-script',
 					`return await tools.harness_update(${JSON.stringify({
@@ -185,11 +208,14 @@ return await tools.harness_create(${JSON.stringify({
 					})});`,
 					controller.signal,
 				);
+
 				// Cancellation can return before nested calls finish unwinding.
 				await update_finished;
+
 				const status = JSON.parse(
 					readFileSync(join(harness_dir, 'status.json'), 'utf8'),
 				) as HarnessStatusFile;
+
 				expect(status.status).toBe(
 					scenario === 'passed' ? 'completed' : 'failed',
 				);
@@ -198,22 +224,29 @@ return await tools.harness_create(${JSON.stringify({
 				expect(checks.every((check) => check.passed)).toBe(
 					scenario === 'passed',
 				);
+
 				const update = calls.find(
 					(call) => call.toolName === 'harness_update',
 				)!;
+
 				expect(update.parentToolCallId).toBe('complete-script');
+
 				const bash_calls = calls.filter(
 					(call) => call.toolName === 'bash',
 				);
+
 				expect(bash_calls).toHaveLength(
 					scenario === 'passed' ? 2 : 1,
 				);
+
 				for (const call of bash_calls)
 					expect(call.parentToolCallId).toBe(update.toolCallId);
+
 				if (scenario === 'blocked')
 					expect(
 						readFileSync(checks[0]!.output_file, 'utf8'),
 					).toContain('Validation permission denied');
+
 				if (scenario !== 'cancelled')
 					expect(JSON.stringify(completion.content)).toContain(
 						scenario === 'passed'
@@ -223,6 +256,7 @@ return await tools.harness_create(${JSON.stringify({
 				expect(errors).toEqual([]);
 			} finally {
 				session?.dispose();
+
 				if (harness_dir)
 					rmSync(harness_dir, { recursive: true, force: true });
 				rmSync(cwd, { recursive: true, force: true });

@@ -69,6 +69,7 @@ export function source_texts(): Record<
 
 export function seed(store: ContextStore): Map<string, SeededSource> {
 	const seeded = new Map<string, SeededSource>();
+
 	for (const [name, source] of Object.entries(source_texts())) {
 		const stored = store.store({
 			text: source.text,
@@ -78,6 +79,7 @@ export function seed(store: ContextStore): Map<string, SeededSource> {
 			session_id: SESSION,
 			force: true,
 		});
+
 		if (!stored) throw new Error(`Failed to seed ${name}`);
 		seeded.set(name, {
 			name,
@@ -85,6 +87,7 @@ export function seed(store: ContextStore): Map<string, SeededSource> {
 			first_chunk_id: stored.first_chunk_id,
 		});
 	}
+
 	return seeded;
 }
 

@@ -30,6 +30,7 @@ export function resource<T>(load: () => Promise<T>): Resource<T> {
 			.finally(() => {
 				if (!cancelled) state.loading = false;
 			});
+
 		return () => {
 			cancelled = true;
 		};

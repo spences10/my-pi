@@ -59,12 +59,15 @@ let bail = false;
 
 function next_value(index: number): string {
 	const value = args[index + 1];
+
 	if (!value) usage();
+
 	return value;
 }
 
 for (let index = 0; index < args.length; index++) {
 	const arg = args[index];
+
 	if (arg === '--suite') suite_path = next_value(index++);
 	else if (arg === '--case') case_filter = next_value(index++);
 	else if (arg === '--json') json_output = true;
@@ -74,20 +77,25 @@ for (let index = 0; index < args.length; index++) {
 
 function read_suite(path: string): EvalSuite {
 	const absolute = resolve(path);
+
 	if (!existsSync(absolute)) {
 		throw new Error(`Eval suite not found: ${path}`);
 	}
+
 	const suite = JSON.parse(
 		readFileSync(absolute, 'utf-8'),
 	) as EvalSuite;
+
 	if (suite.version !== 1) {
 		throw new Error(
 			`Unsupported eval suite version: ${suite.version}`,
 		);
 	}
+
 	if (!suite.name || !Array.isArray(suite.cases)) {
 		throw new Error('Invalid eval suite: expected name and cases');
 	}
+
 	return suite;
 }
 
@@ -127,11 +135,13 @@ function evaluate_assertions(
 ): string[] {
 	const details: string[] = [];
 	const expected_code = assertions.exit_code ?? 0;
+
 	if (actual.code !== expected_code) {
 		details.push(
 			`exit code expected ${expected_code}, got ${actual.code ?? 'null'}`,
 		);
 	}
+
 	const output = `${actual.stdout}\n${actual.stderr}`;
 	includes_all(
 		actual.stdout,
@@ -164,12 +174,14 @@ function evaluate_assertions(
 		'output',
 		details,
 	);
+
 	return details;
 }
 
 function run_case(test_case: EvalCase): EvalResult {
 	const started = Date.now();
 	const missing = missing_env(test_case.requires_env);
+
 	if (missing.length) {
 		return {
 			id: test_case.id,
@@ -188,6 +200,7 @@ function run_case(test_case: EvalCase): EvalResult {
 	});
 
 	const duration_ms = Date.now() - started;
+
 	if (child.error) {
 		return {
 			id: test_case.id,
@@ -216,29 +229,37 @@ function run_case(test_case: EvalCase): EvalResult {
 
 try {
 	const suite = read_suite(suite_path);
+
 	const selected = case_filter
 		? suite.cases.filter((test_case) => test_case.id === case_filter)
 		: suite.cases;
+
 	if (case_filter && selected.length === 0) {
 		throw new Error(`Unknown eval case: ${case_filter}`);
 	}
 
 	const results: EvalResult[] = [];
+
 	for (const test_case of selected) {
 		const result = run_case(test_case);
 		results.push(result);
+
 		if (!json_output) {
 			let marker = '✗';
+
 			if (result.status === 'pass') marker = '✓';
 			else if (result.status === 'skip') marker = '-';
 			console.log(
 				`${marker} ${test_case.id} ${result.status} (${result.duration_ms}ms)`,
 			);
+
 			for (const detail of result.details ?? []) {
 				console.log(`  ${detail}`);
 			}
+
 			if (result.reason) console.log(`  ${result.reason}`);
 		}
+
 		if (bail && result.status === 'fail') break;
 	}
 

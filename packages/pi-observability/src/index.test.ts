@@ -24,7 +24,9 @@ function observability_harness(options?: {
 		string,
 		(event: unknown, ctx: unknown) => Promise<void>
 	>();
+
 	const session_name = options?.session_name;
+
 	const context_usage = vi.fn(
 		():
 			| {
@@ -34,15 +36,19 @@ function observability_harness(options?: {
 			  }
 			| undefined => undefined,
 	);
+
 	const sent: ObservabilityEvent[] = [];
+
 	const fetch_mock = vi
 		.spyOn(globalThis, 'fetch')
 		.mockImplementation(async (_input, init) => {
 			if (typeof init?.body !== 'string')
 				throw new TypeError('Expected a JSON request body');
 			sent.push(...(JSON.parse(init.body) as ObservabilityEvent[]));
+
 			return new Response(null, { status: 200 });
 		});
+
 	const flags = new Map<string, unknown>([
 		['observability-url', 'http://observability.test'],
 		...(options?.configured_name
@@ -55,13 +61,16 @@ function observability_harness(options?: {
 			? ([['observability-forward-session-id', true]] as const)
 			: []),
 	]);
+
 	const pi = {
 		registerFlag: vi.fn(),
 		registerCommand: vi.fn(),
 		getFlag: (name: string) => flags.get(name),
 		on: (name: string, handler: never) => handlers.set(name, handler),
 	};
+
 	observability(pi as never);
+
 	const ctx = {
 		cwd: '/repo',
 		model: undefined,
@@ -72,6 +81,7 @@ function observability_harness(options?: {
 			getSessionName: () => session_name,
 		},
 	};
+
 	return {
 		fetch_mock,
 		sent,
@@ -106,10 +116,12 @@ describe('resolve_dashboard_command', () => {
 describe('resolve_observability_config', () => {
 	it('defaults to authenticated local auto-start without a server url', () => {
 		const home = mkdtempSync(join(tmpdir(), 'pi-obs-config-'));
+
 		const config = resolve_observability_config(
 			{ getFlag: () => undefined },
 			{ HOME: home },
 		);
+
 		expect(config).toMatchObject({
 			server_url: 'http://127.0.0.1:43190',
 			auto_start_server: true,
@@ -129,6 +141,7 @@ describe('resolve_observability_config', () => {
 
 	it('treats empty token environment values as unconfigured', () => {
 		const home = mkdtempSync(join(tmpdir(), 'pi-obs-empty-token-'));
+
 		const config = resolve_observability_config(
 			{ getFlag: () => undefined },
 			{ HOME: home, MY_PI_OBSERVABILITY_TOKEN: '' },
@@ -143,6 +156,7 @@ describe('resolve_observability_config', () => {
 			['observability-url', 'http://127.0.0.1:43190'],
 			['observability-tag', 'one,two'],
 		]);
+
 		const config = resolve_observability_config(
 			{
 				getFlag: (key) =>
@@ -154,6 +168,7 @@ describe('resolve_observability_config', () => {
 				MY_PI_OBSERVABILITY_FORWARD_SESSION_ID: 'true',
 			},
 		);
+
 		expect(config).toMatchObject({
 			server_url: 'http://127.0.0.1:43190',
 			pool: 'test',
@@ -171,14 +186,17 @@ describe('resolve_observability_config', () => {
 		vi.stubEnv('PI_OBSERVABILITY_URL', '');
 		vi.stubEnv('MY_PI_OBSERVABILITY_TOKEN', '');
 		vi.stubEnv('PI_OBSERVABILITY_TOKEN', '');
+
 		const requests: Array<{
 			authorization: string | null;
 			url: string;
 		}> = [];
+
 		const fetch_mock = vi
 			.spyOn(globalThis, 'fetch')
 			.mockImplementation(async (input, init) => {
 				let url: string;
+
 				if (typeof input === 'string') url = input;
 				else url = input instanceof URL ? input.href : input.url;
 				requests.push({
@@ -187,14 +205,17 @@ describe('resolve_observability_config', () => {
 					),
 					url,
 				});
+
 				return new Response(JSON.stringify({ ok: true }), {
 					status: 200,
 				});
 			});
+
 		const handlers = new Map<
 			string,
 			(event: unknown, ctx: unknown) => Promise<void>
 		>();
+
 		const pi = {
 			registerFlag: vi.fn(),
 			registerCommand: vi.fn(),
@@ -202,7 +223,9 @@ describe('resolve_observability_config', () => {
 			on: (name: string, handler: never) =>
 				handlers.set(name, handler),
 		};
+
 		observability(pi as never);
+
 		const ctx = {
 			cwd: '/repo',
 			model: undefined,
@@ -231,6 +254,7 @@ describe('resolve_observability_config', () => {
 describe('provider session attribution', () => {
 	it('does not change provider headers by default', async () => {
 		const harness = observability_harness();
+
 		const headers = {
 			authorization: 'Bearer provider-secret',
 			'x-existing': 'keep',
@@ -252,6 +276,7 @@ describe('provider session attribution', () => {
 			configured_token: 'observability-secret',
 			forward_session_id: true,
 		});
+
 		const headers = {
 			authorization: 'Bearer provider-secret',
 			'x-existing': 'keep',
@@ -360,6 +385,7 @@ describe('payload safety', () => {
 			{ message: { responseModel: 'x'.repeat(600) } },
 			'summary',
 		);
+
 		expect(summary).toMatchObject({
 			message: { responseModel: `${'x'.repeat(500)}…` },
 		});
@@ -428,9 +454,11 @@ describe('payload safety', () => {
 
 	it('stores a fingerprint instead of provider request instructions', () => {
 		const instructions = 'You are a coding agent. '.repeat(200);
+
 		const summary = summarize_payload({
 			payload: { model: 'm', instructions },
 		}) as { payload: Record<string, unknown> };
+
 		expect(summary.payload.instructions).toEqual(
 			text_fingerprint(instructions),
 		);
@@ -485,6 +513,7 @@ describe('session names', () => {
 			configured_name: 'override',
 			session_name: 'before',
 		});
+
 		await harness.trigger('session_start');
 		await harness.trigger('session_info_changed', { name: 'after' });
 		await harness.trigger('session_shutdown');
@@ -503,6 +532,7 @@ describe('session names', () => {
 describe('context usage snapshots', () => {
 	it('captures native context after persistence checkpoints, including unknown after compaction', async () => {
 		const harness = observability_harness();
+
 		try {
 			harness.context_usage.mockReturnValue({
 				tokens: 80_000,
@@ -520,6 +550,7 @@ describe('context usage snapshots', () => {
 				contextWindow: 200_000,
 				percent: 42,
 			});
+
 			for (const name of [
 				'turn_end',
 				'agent_end',
@@ -536,10 +567,12 @@ describe('context usage snapshots', () => {
 			await harness.trigger('session_compact');
 			harness.context_usage.mockReturnValue(undefined);
 			await harness.trigger('session_shutdown');
+
 			const snapshots = harness.sent.map(
 				(event) =>
 					(event.payload as Record<string, unknown>).contextUsage,
 			);
+
 			expect(snapshots[0]).toEqual({
 				tokens: 80_000,
 				contextWindow: 200_000,
@@ -572,6 +605,7 @@ describe('context usage snapshots', () => {
 				contextWindow: 200_000,
 				percent: 0,
 			};
+
 			expect(
 				summarize_payload({ contextUsage: context_usage }, detail),
 			).toMatchObject({ contextUsage: context_usage });
@@ -583,6 +617,7 @@ describe('tool execution updates', () => {
 	it('counts updates on the end event instead of sending each one', async () => {
 		const harness = observability_harness();
 		await harness.trigger('session_start');
+
 		for (let i = 0; i < 3; i += 1)
 			await harness.trigger('tool_execution_update', {
 				type: 'tool_execution_update',
@@ -646,6 +681,7 @@ describe('create_event_envelope', () => {
 				max_payload_bytes: 1000,
 			},
 		);
+
 		expect(event).toMatchObject({
 			type: 'tool_call',
 			session_id: 's1',
@@ -675,24 +711,29 @@ describe('EventQueue body limit', () => {
 	function limited_server(max_bytes: number) {
 		const accepted: ObservabilityEvent[] = [];
 		let requests = 0;
+
 		const fetch_mock = vi
 			.spyOn(globalThis, 'fetch')
 			.mockImplementation(async (_input, init) => {
 				requests += 1;
 				const body = typeof init?.body === 'string' ? init.body : '';
+
 				if (Buffer.byteLength(body) > max_bytes)
 					return new Response(JSON.stringify({ max_bytes }), {
 						status: 413,
 					});
 				accepted.push(...(JSON.parse(body) as ObservabilityEvent[]));
+
 				return new Response('{}', { status: 200 });
 			});
+
 		return { accepted, fetch_mock, requests: () => requests };
 	}
 
 	it('splits a rejected batch instead of retrying it forever', async () => {
 		const server = limited_server(700);
 		const queue = new EventQueue('http://obs.test', undefined, 4);
+
 		for (let seq = 0; seq < 4; seq += 1)
 			queue.push(queue_event(seq, 'x'.repeat(120)));
 		await vi.waitFor(() =>
@@ -739,10 +780,12 @@ describe('payload cap', () => {
 			pool: 'default',
 			tags: [],
 		};
+
 		const payload = {
 			prompt: 'p'.repeat(100),
 			detail: 'd'.repeat(50_000),
 		};
+
 		const uncapped = create_event_envelope(
 			'custom',
 			payload,
@@ -754,7 +797,9 @@ describe('payload cap', () => {
 				max_payload_bytes: 0,
 			},
 		);
+
 		expect(uncapped.payload).toEqual(payload);
+
 		const capped = create_event_envelope(
 			'custom',
 			payload,
@@ -766,6 +811,7 @@ describe('payload cap', () => {
 				max_payload_bytes: 1_000,
 			},
 		);
+
 		expect(capped.payload).toMatchObject({ truncated: true });
 	});
 });
@@ -818,11 +864,14 @@ describe('failure details', () => {
 			isError: false,
 			content: [{ type: 'text', text: 'ok' }],
 		});
+
 		expect(success).not.toHaveProperty('errorText');
+
 		const summary = summarize_payload(
 			{ isError: true, content: [{ type: 'text', text: 'boom' }] },
 			'summary',
 		);
+
 		expect(summary).not.toHaveProperty('errorText');
 	});
 
@@ -846,6 +895,7 @@ describe('failure details', () => {
 				max_payload_bytes: 0,
 			},
 		);
+
 		expect(event.payload).toMatchObject({
 			errorText: 'auth failed for [REDACTED]',
 		});

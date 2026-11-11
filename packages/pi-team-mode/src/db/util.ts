@@ -10,6 +10,7 @@ export function json<T>(value: T): string {
 
 export function parse_json<T>(value: string | null, fallback: T): T {
 	if (!value) return fallback;
+
 	try {
 		return JSON.parse(value) as T;
 	} catch {
@@ -29,5 +30,6 @@ export function get_user_version(db: DatabaseSync): number {
 	const row = db.prepare('PRAGMA user_version').get() as {
 		user_version: number;
 	};
+
 	return row.user_version;
 }

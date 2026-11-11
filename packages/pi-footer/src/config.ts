@@ -23,6 +23,7 @@ export function load_footer_state(): FooterState {
 			'footer',
 			{},
 		);
+
 		return normalize_footer_state(parsed);
 	} catch {
 		return clone_default_state();
@@ -76,11 +77,15 @@ function normalize_status_layout(
 			([key, placement]) => [key, { ...placement }],
 		),
 	);
+
 	if (!layout || typeof layout !== 'object') return normalized;
+
 	for (const [key, value] of Object.entries(layout)) {
 		const placement = normalize_status_placement(value);
+
 		if (key.length > 0 && placement) normalized[key] = placement;
 	}
+
 	return normalized;
 }
 
@@ -99,10 +104,13 @@ function normalize_status_placement(
 			},
 			hidden: { row: 1, alignment: 'left', hidden: true },
 		};
+
 		return legacy[value];
 	}
+
 	if (!value || typeof value !== 'object') return undefined;
 	const candidate = value as Partial<FooterStatusPlacement>;
+
 	if (
 		!Number.isInteger(candidate.row) ||
 		(candidate.row ?? 0) < 1 ||
@@ -110,6 +118,7 @@ function normalize_status_placement(
 		!FOOTER_STATUS_ALIGNMENTS.includes(candidate.alignment as never)
 	)
 		return undefined;
+
 	return {
 		row: candidate.row!,
 		alignment: candidate.alignment!,

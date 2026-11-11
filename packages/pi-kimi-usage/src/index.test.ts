@@ -75,6 +75,7 @@ describe('parse_kimi_usage_response', () => {
 			usage: { limit: '500', used: '250' },
 			limits: [],
 		});
+
 		expect(snapshot?.primary.usedPercent).toBe(50);
 		expect(snapshot?.secondary).toBeUndefined();
 	});
@@ -93,6 +94,7 @@ describe('parse_kimi_usage_response', () => {
 				},
 			],
 		});
+
 		expect(snapshot?.primary.usedPercent).toBe(30);
 		expect(snapshot?.secondary?.usedPercent).toBe(10);
 	});

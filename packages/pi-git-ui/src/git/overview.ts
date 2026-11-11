@@ -20,6 +20,7 @@ export async function read_repo_overview(
 			format_git_error(error),
 		),
 	]);
+
 	return {
 		branches: split_non_empty(branches),
 		log: split_non_empty(log),

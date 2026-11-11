@@ -51,7 +51,9 @@ export function is_authorized(
 ): boolean {
 	if (!token || !authorization?.startsWith('Bearer ')) return false;
 	const provided = authorization.slice('Bearer '.length);
+
 	if (!provided) return false;
+
 	return timingSafeEqual(token_digest(token), token_digest(provided));
 }
 
@@ -68,11 +70,14 @@ export async function read_body(
 ): Promise<string> {
 	const chunks: Buffer[] = [];
 	let total = 0;
+
 	for await (const chunk of req) {
 		const buffer = Buffer.from(chunk);
 		total += buffer.byteLength;
+
 		if (total > max_bytes) throw new BodyTooLargeError(max_bytes);
 		chunks.push(buffer);
 	}
+
 	return Buffer.concat(chunks).toString('utf8');
 }

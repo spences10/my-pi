@@ -22,6 +22,7 @@ describe('lsp prompt guidance', () => {
 					sections: { unrelated: 'keep' } as Record<string, string>,
 				},
 			};
+
 			expect(
 				await events.get('before_agent_start')(event),
 			).toBeUndefined();
@@ -29,6 +30,7 @@ describe('lsp prompt guidance', () => {
 			expect(event.systemPromptOptions.sections.unrelated).toBe(
 				'keep',
 			);
+
 			for (const text of [
 				'Language server support via LSP tools',
 				'tools.lsp_hover()',
@@ -60,6 +62,7 @@ describe('lsp prompt guidance', () => {
 				systemPromptOptions: { selectedTools: ['lsp_hover'] },
 			}),
 		).toBe(true);
+
 		for (const tool of ['codemode', 'tool_search']) {
 			expect(
 				should_inject_lsp_prompt({
@@ -67,6 +70,7 @@ describe('lsp prompt guidance', () => {
 				}),
 			).toBe(true);
 		}
+
 		expect(
 			should_inject_lsp_prompt({
 				systemPromptOptions: {

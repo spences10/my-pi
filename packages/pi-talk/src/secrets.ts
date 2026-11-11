@@ -30,7 +30,9 @@ export function read_talk_secrets(
 		const parsed = JSON.parse(
 			readFileSync(path, 'utf8'),
 		) as SecretsFile;
+
 		const talk = parsed.packages?.['pi-talk'];
+
 		return {
 			enabled: talk?.enabled === true,
 			apiKey:
@@ -48,6 +50,7 @@ export function write_talk_secrets(
 	path = join(getAgentDir(), SECRETS_FILE),
 ): void {
 	let secrets = empty_secrets();
+
 	try {
 		secrets = JSON.parse(readFileSync(path, 'utf8')) as SecretsFile;
 	} catch (error) {
@@ -59,6 +62,7 @@ export function write_talk_secrets(
 			throw error;
 		}
 	}
+
 	secrets.version = 1;
 	secrets.packages ??= {};
 	secrets.packages['pi-talk'] = {
@@ -79,16 +83,21 @@ export function forget_talk_secrets(
 	path = join(getAgentDir(), SECRETS_FILE),
 ): void {
 	let secrets: SecretsFile;
+
 	try {
 		secrets = JSON.parse(readFileSync(path, 'utf8')) as SecretsFile;
 	} catch {
 		return;
 	}
+
 	delete secrets.packages?.['pi-talk'];
+
 	if (Object.keys(secrets.packages ?? {}).length === 0) {
 		rmSync(path, { force: true });
+
 		return;
 	}
+
 	const temporary = `${path}.${process.pid}.tmp`;
 	writeFileSync(temporary, `${JSON.stringify(secrets, null, 2)}\n`, {
 		mode: 0o600,

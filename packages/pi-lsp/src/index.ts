@@ -12,6 +12,7 @@ import {
 import { register_lsp_tools } from './tools.js';
 
 export { should_inject_lsp_prompt } from './prompt.js';
+
 export type { LspClientLike } from './server-manager.js';
 
 export interface CreateLspExtensionOptions extends CreateLspServerManagerOptions {}
@@ -23,8 +24,10 @@ export function create_lsp_extension(
 		const manager = new LspServerManager(options);
 
 		register_lsp_tools(pi, manager);
+
 		const automatic_diagnostics =
 			create_automatic_diagnostics(manager);
+
 		pi.on('tool_result', automatic_diagnostics.record_edit);
 		pi.on('turn_end', automatic_diagnostics.flush);
 		pi.on('session_start', automatic_diagnostics.reset);

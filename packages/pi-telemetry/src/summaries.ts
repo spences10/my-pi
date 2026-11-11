@@ -1,5 +1,6 @@
 export function safe_json_stringify(value: unknown): string | null {
 	if (value === undefined) return null;
+
 	try {
 		return JSON.stringify(value);
 	} catch {
@@ -12,6 +13,7 @@ export function safe_json_stringify(value: unknown): string | null {
 
 export function summarize_value(value: unknown, depth = 0): unknown {
 	if (value == null) return null;
+
 	if (typeof value === 'string') {
 		return {
 			type: 'string',
@@ -19,6 +21,7 @@ export function summarize_value(value: unknown, depth = 0): unknown {
 			lines: value === '' ? 0 : value.split(/\r?\n/).length,
 		};
 	}
+
 	if (
 		typeof value === 'number' ||
 		typeof value === 'boolean' ||
@@ -26,6 +29,7 @@ export function summarize_value(value: unknown, depth = 0): unknown {
 	) {
 		return value;
 	}
+
 	if (Array.isArray(value)) {
 		return {
 			type: 'array',
@@ -38,12 +42,15 @@ export function summarize_value(value: unknown, depth = 0): unknown {
 							.map((item) => summarize_value(item, depth + 1)),
 		};
 	}
+
 	if (typeof value === 'object') {
 		const entries = Object.entries(value as Record<string, unknown>);
+
 		const summary: Record<string, unknown> = {
 			type: 'object',
 			keys: entries.map(([key]) => key).slice(0, 20),
 		};
+
 		if (depth < 1) {
 			for (const [key, child] of entries.slice(0, 10)) {
 				if (
@@ -58,11 +65,14 @@ export function summarize_value(value: unknown, depth = 0): unknown {
 					);
 					continue;
 				}
+
 				summary[key] = summarize_value(child, depth + 1);
 			}
 		}
+
 		return summary;
 	}
+
 	return {
 		type: typeof value,
 	};
@@ -77,6 +87,7 @@ export function summarize_tool_args(
 	}
 
 	const input = args as Record<string, unknown>;
+
 	switch (tool_name) {
 		case 'bash':
 			return safe_json_stringify({

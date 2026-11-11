@@ -26,6 +26,7 @@ describe('TypeScript 7 native LSP integration', () => {
 		const workspace = mkdtempSync(
 			join(process.cwd(), '.tmp-typescript-native-lsp-'),
 		);
+
 		dirs.push(workspace);
 		mkdirSync(join(workspace, 'src'), { recursive: true });
 		writeFileSync(
@@ -50,9 +51,11 @@ describe('TypeScript 7 native LSP integration', () => {
 		);
 
 		const manager = new LspServerManager({ cwd: () => workspace });
+
 		try {
 			const resolved = await manager.resolve_file_state(file, ctx);
 			expect(resolved.ok).toBe(true);
+
 			if (!resolved.ok) return;
 			const { state, uri } = resolved.result;
 			expect(state.backend).toBe('typescript-native');
@@ -62,6 +65,7 @@ describe('TypeScript 7 native LSP integration', () => {
 				uri,
 				5_000,
 			);
+
 			expect(diagnostics?.some((item) => item.severity === 1)).toBe(
 				true,
 			);

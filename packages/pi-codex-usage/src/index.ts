@@ -49,9 +49,11 @@ export function parse_codex_usage_response(
 	const root = read_record(payload);
 	const rate_limit = read_record(root?.rate_limit);
 	const primary = read_record(rate_limit?.primary_window);
+
 	if (!primary) return null;
 
 	const primary_used = read_number(primary.used_percent);
+
 	if (primary_used === undefined) return null;
 
 	const secondary = read_record(rate_limit?.secondary_window);
@@ -76,9 +78,12 @@ function compact_reset(
 ): string {
 	if (!resetAtSeconds) return '';
 	const remaining_ms = resetAtSeconds * 1000 - nowMs;
+
 	if (remaining_ms <= 0) return 'now';
 	const hours = Math.ceil(remaining_ms / (60 * 60 * 1000));
+
 	if (hours < 24) return `${hours}h`;
+
 	return `${Math.ceil(hours / 24)}d`;
 }
 
@@ -94,9 +99,11 @@ export function format_codex_usage_status(
 		snapshot.primaryResetAtSeconds,
 		nowMs,
 	);
+
 	const primary = primary_reset
 		? `${primary_reset} ${percent(snapshot.primaryUsedPercent)}`
 		: percent(snapshot.primaryUsedPercent);
+
 	const parts = [`cx ${primary}`];
 
 	if (snapshot.secondaryUsedPercent !== undefined) {
@@ -104,6 +111,7 @@ export function format_codex_usage_status(
 			snapshot.secondaryResetAtSeconds,
 			nowMs,
 		);
+
 		parts.push(
 			secondary_reset
 				? `${secondary_reset} ${percent(snapshot.secondaryUsedPercent)}`
@@ -121,8 +129,11 @@ export function get_codex_usage_tone(
 		snapshot.primaryUsedPercent,
 		snapshot.secondaryUsedPercent ?? 0,
 	);
+
 	if (max_used >= 100) return 'error';
+
 	if (max_used >= 80) return 'warning';
+
 	return 'dim';
 }
 
@@ -133,9 +144,11 @@ export async function read_codex_access_token(
 		const auth = JSON.parse(
 			await readFile(authPath, 'utf8'),
 		) as unknown;
+
 		const root = read_record(auth);
 		const codex = read_record(root?.[CODEX_PROVIDER]);
 		const access = codex?.access;
+
 		return typeof access === 'string' && access.trim()
 			? access
 			: null;
@@ -159,11 +172,13 @@ function themed(
 			theme?: { fg?: (tone: string, text: string) => string };
 		}
 	).theme;
+
 	return theme?.fg ? theme.fg(tone, text) : text;
 }
 
 async function fetch_codex_usage(): Promise<CodexUsageSnapshot | null> {
 	const token = await read_codex_access_token();
+
 	if (!token) return null;
 
 	const response = await fetch(CODEX_USAGE_URL, {
@@ -174,8 +189,10 @@ async function fetch_codex_usage(): Promise<CodexUsageSnapshot | null> {
 			originator: 'Codex Desktop',
 		},
 	});
+
 	if (!response.ok)
 		throw new Error(`Codex usage failed: ${response.status}`);
+
 	return parse_codex_usage_response(await response.json());
 }
 
@@ -193,14 +210,17 @@ export default async function codex_usage(pi: ExtensionAPI) {
 		if (!ctx.hasUI || !is_codex_provider(active_provider(ctx))) {
 			stop_interval();
 			ctx.ui.setStatus(STATUS_KEY, undefined);
+
 			return;
 		}
 
 		try {
 			const snapshot = await fetch_codex_usage();
+
 			const text = snapshot
 				? format_codex_usage_status(snapshot)
 				: undefined;
+
 			ctx.ui.setStatus(
 				STATUS_KEY,
 				snapshot
@@ -229,6 +249,7 @@ export default async function codex_usage(pi: ExtensionAPI) {
 
 	pi.on('turn_end', async (_event, ctx) => {
 		const now = Date.now();
+
 		if (now - last_turn_refresh < TURN_REFRESH_DEBOUNCE_MS) return;
 		last_turn_refresh = now;
 		await publish(ctx);

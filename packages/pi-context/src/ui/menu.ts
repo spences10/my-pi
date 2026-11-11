@@ -23,10 +23,12 @@ export async function show_context_list(
 	limit?: number,
 ): Promise<void> {
 	const scope = scope_from_context(ctx);
+
 	const text = format_list_results(
 		get_context_store(scope).list({ ...scope, limit }),
 		{ audience: 'tui' },
 	);
+
 	if (ctx.hasUI) {
 		await show_context_text_modal(
 			ctx,
@@ -49,12 +51,14 @@ export async function purge_context(
 	const policy = get_context_store().stats();
 	const days = options.older_than_days ?? policy.retention_days ?? 14;
 	let description: string;
+
 	if (options.expired)
 		description = 'Delete expired context sources now?';
 	else
 		description = options.source_id
 			? `Delete context source ${options.source_id}?`
 			: `Delete context sources older than ${days} day(s)?`;
+
 	const confirmed = ctx.hasUI
 		? await show_confirm_modal(ctx, {
 				title: 'Purge context sidecar?',
@@ -62,9 +66,11 @@ export async function purge_context(
 				confirm_label: 'Purge',
 			})
 		: await ctx.ui.confirm('Purge context sidecar?', description);
+
 	if (!confirmed) return;
 	const scope = scope_from_context(ctx);
 	let details: ContextPurgeDetails;
+
 	if (options.expired)
 		details = { deleted: get_context_store(scope).cleanup().deleted };
 	else
@@ -108,7 +114,9 @@ export async function show_context_menu(
 			],
 			footer: 'enter opens • esc close',
 		});
+
 		if (!selected) return;
+
 		if (selected === 'list') await show_context_list(ctx);
 		else if (selected === 'stats') await show_context_stats(ctx);
 		else if (selected === 'settings')

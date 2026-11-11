@@ -25,6 +25,7 @@ interface RedactionOptions {
 
 const PRIVATE_KEY_BEGIN_PATTERN =
 	/-----BEGIN[ \t]+[\w -]*PRIVATE[ \t]+KEY-----/;
+
 const PRIVATE_KEY_END_PATTERN =
 	/-----END[ \t]+[\w -]*PRIVATE[ \t]+KEY-----/;
 
@@ -124,34 +125,43 @@ const SECRET_PATTERNS: SecretPattern[] = [
 
 const SECRET_FIELD_NAME =
 	'(?:[A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY)|password|passwd|secret|token|api[_-]?key|access[_-]?token|client[_-]?secret|private[_-]?key)';
+
 const JSON_SECRET_FIELD_NAME =
 	'[A-Za-z0-9_-]*(?:password|passwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)';
+
 const PREFIXED_CONFIG_SECRET_FIELD_NAME =
 	'[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)*[_-](?:password|passwd|secret|token|api[_-]?key)';
+
 const DOUBLE_QUOTED_JSON_SECRET_FIELD_PATTERN = new RegExp(
 	`(^|[^A-Za-z0-9_])((?:"${JSON_SECRET_FIELD_NAME}")[ \\t]*:[ \\t]*")((?:\\\\.|[^"\\\\]){8,})"`,
 	'gim',
 );
+
 const SINGLE_QUOTED_JSON_SECRET_FIELD_PATTERN = new RegExp(
 	`(^|[^A-Za-z0-9_])((?:'${JSON_SECRET_FIELD_NAME}')[ \\t]*:[ \\t]*')((?:\\\\.|[^'\\\\]){8,})'`,
 	'gim',
 );
+
 const DOUBLE_QUOTED_SECRET_FIELD_PATTERN = new RegExp(
 	`(^|[^A-Za-z0-9_])((?:"?${SECRET_FIELD_NAME}"?)[ \\t]*[:=][ \\t]*")((?:\\\\.|[^"\\\\]){8,})"`,
 	'gm',
 );
+
 const SINGLE_QUOTED_SECRET_FIELD_PATTERN = new RegExp(
 	`(^|[^A-Za-z0-9_])((?:'?${SECRET_FIELD_NAME}'?)[ \\t]*[:=][ \\t]*')((?:\\\\.|[^'\\\\]){8,})'`,
 	'gm',
 );
+
 const DOUBLE_QUOTED_PREFIXED_CONFIG_SECRET_FIELD_PATTERN = new RegExp(
 	`^([ \\t]*)((?:${PREFIXED_CONFIG_SECRET_FIELD_NAME})[ \\t]*=[ \\t]*")((?:\\\\.|[^"\\\\]){8,})"(?=[ \\t]*(?:#.*)?$)`,
 	'gim',
 );
+
 const SINGLE_QUOTED_PREFIXED_CONFIG_SECRET_FIELD_PATTERN = new RegExp(
 	`^([ \\t]*)((?:${PREFIXED_CONFIG_SECRET_FIELD_NAME})[ \\t]*=[ \\t]*')((?:\\\\.|[^'\\\\]){8,})'(?=[ \\t]*(?:#.*)?$)`,
 	'gim',
 );
+
 const UNQUOTED_SECRET_FIELD_PATTERN = new RegExp(
 	`(^|[^A-Za-z0-9_])((?:${SECRET_FIELD_NAME})[ \\t]*[:=][ \\t]*)([^\\s"',;}\\]]{8,})`,
 	'gm',
@@ -159,11 +169,13 @@ const UNQUOTED_SECRET_FIELD_PATTERN = new RegExp(
 
 const SSH_CONFIG_VALUE_DIRECTIVE_PATTERN =
 	/^([ \t]*)(HostName|User|IdentityFile|CertificateFile|ProxyJump|ProxyCommand|LocalForward|RemoteForward|DynamicForward|HostKeyAlias)(\s+)(.+)$/gim;
+
 const SSH_CONFIG_HOST_PATTERN = /^([ \t]*)(Host)(\s+)(.+)$/gim;
 const SSH_CONFIG_MATCH_PATTERN = /^([ \t]*)(Match)(\s+)(.+)$/gim;
 
 export function looks_like_ssh_config(text: string): boolean {
 	const has_scope_line = /^\s*(?:Host|Match)\b/m.test(text);
+
 	const has_sensitive_directive =
 		/^\s*(?:HostName|User|IdentityFile|CertificateFile|ProxyJump|ProxyCommand|LocalForward|RemoteForward|DynamicForward|HostKeyAlias)\b/im.test(
 			text,
@@ -186,6 +198,7 @@ export function redact_ssh_config_metadata(
 	): string => {
 		if (value.includes('[REDACTED:')) return match;
 		count++;
+
 		return `${indent}${directive}${spacing}[REDACTED:SSH ${directive}]`;
 	};
 
@@ -204,9 +217,11 @@ export function redact_ssh_config_metadata(
 			value: string,
 		) => {
 			const trimmed = value.trim();
+
 			if (trimmed === '*' || value.includes('[REDACTED:'))
 				return match;
 			count++;
+
 			return `${indent}${directive}${spacing}[REDACTED:SSH Host]`;
 		},
 	);
@@ -221,8 +236,10 @@ export function redact_ssh_config_metadata(
 			value: string,
 		) => {
 			if (value.trim().toLowerCase() === 'all') return match;
+
 			if (value.includes('[REDACTED:')) return match;
 			count++;
+
 			return `${indent}${directive}${spacing}[REDACTED:SSH Match]`;
 		},
 	);
@@ -247,6 +264,7 @@ function redact_secret_fields(text: string): RedactionResult {
 			) => {
 				if (value.includes('[REDACTED:')) return match;
 				count += 1;
+
 				return `${boundary}${assignment}${marker}${quote}`;
 			},
 		);
@@ -270,6 +288,7 @@ function redact_secret_fields(text: string): RedactionResult {
 		(match, boundary: string, assignment: string, value: string) => {
 			if (value.includes('[REDACTED:')) return match;
 			count += 1;
+
 			return `${boundary}${assignment}${marker}`;
 		},
 	);
@@ -286,6 +305,7 @@ function redact_secret_patterns(text: string): RedactionResult {
 		result = result.replace(sp.pattern, (match) => {
 			count++;
 			const prefix = match.slice(0, 4);
+
 			return `${prefix}${'*'.repeat(Math.min(match.length - 4, 20))}[REDACTED:${sp.name}]`;
 		});
 	}
@@ -296,6 +316,7 @@ function redact_secret_patterns(text: string): RedactionResult {
 function is_ssh_config_path(path: unknown): boolean {
 	if (typeof path !== 'string') return false;
 	const normalized = path.replaceAll('\\', '/').toLowerCase();
+
 	return /(?:^|\/)(?:\.ssh\/(?:config|config\.d\/.+|conf\.d\/.+)|ssh_config)$/.test(
 		normalized,
 	);
@@ -306,7 +327,9 @@ function should_force_ssh_config_redaction(event: {
 	input?: unknown;
 }): boolean {
 	if (event.toolName !== 'read') return false;
+
 	if (!event.input || typeof event.input !== 'object') return false;
+
 	return is_ssh_config_path((event.input as { path?: unknown }).path);
 }
 
@@ -354,19 +377,23 @@ export default async function filter_output(pi: ExtensionAPI) {
 
 	pi.on('context', async (event) => {
 		let modified = false;
+
 		const messages = event.messages.map((message) => {
 			if (message.role !== 'bashExecution' || !message.output) {
 				return message;
 			}
 
 			const { redacted, count } = redact_text(message.output);
+
 			if (count === 0) return message;
 
 			modified = true;
+
 			if (!counted_bash_execution_timestamps.has(message.timestamp)) {
 				counted_bash_execution_timestamps.add(message.timestamp);
 				total_redacted += count;
 			}
+
 			return { ...message, output: redacted };
 		});
 
@@ -377,6 +404,7 @@ export default async function filter_output(pi: ExtensionAPI) {
 		if (!event.content) return;
 
 		const force_ssh_config = should_force_ssh_config_redaction(event);
+
 		const input_path =
 			event.toolName === 'read' &&
 			event.input &&
@@ -384,21 +412,26 @@ export default async function filter_output(pi: ExtensionAPI) {
 			typeof (event.input as { path?: unknown }).path === 'string'
 				? (event.input as { path: string }).path
 				: undefined;
+
 		const normalized_input_path = input_path
 			? resolve(input_path)
 			: undefined;
+
 		let private_key_continuation = Boolean(
 			normalized_input_path &&
 			partial_private_key_paths.has(normalized_input_path),
 		);
+
 		let modified = false;
 
 		const new_content = event.content.map((item) => {
 			if (!is_text_content(item) || !item.text) return item;
+
 			const { redacted, count } = redact_text(item.text, {
 				force_ssh_config,
 				force_private_key: private_key_continuation,
 			});
+
 			if (count > 0) {
 				modified = true;
 				total_redacted += count;
@@ -407,12 +440,15 @@ export default async function filter_output(pi: ExtensionAPI) {
 			const has_private_key_begin = PRIVATE_KEY_BEGIN_PATTERN.test(
 				item.text,
 			);
+
 			const has_private_key_end = PRIVATE_KEY_END_PATTERN.test(
 				item.text,
 			);
+
 			if (private_key_continuation && has_private_key_end) {
 				private_key_continuation = false;
 			}
+
 			if (has_private_key_begin) {
 				private_key_continuation = !has_private_key_end;
 			}

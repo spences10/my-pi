@@ -18,9 +18,11 @@ const SCHEMA = readFileSync(
 	new URL('./schema.sql', import.meta.url),
 	'utf-8',
 );
+
 const LATEST_TELEMETRY_SCHEMA_VERSION = 1;
 const PERSISTENT_PRAGMAS = SQLITE_PERSISTENT_PRAGMAS;
 const CONNECTION_PRAGMAS = SQLITE_CONNECTION_PRAGMAS;
+
 const MIGRATIONS: Record<number, string> = {
 	1: SCHEMA,
 };
@@ -154,6 +156,7 @@ export class TelemetryDatabase {
 
 	static async open(db_path: string): Promise<TelemetryDatabase> {
 		const sqlite = await import('node:sqlite');
+
 		return new TelemetryDatabase(sqlite.DatabaseSync, db_path);
 	}
 
@@ -162,6 +165,7 @@ export class TelemetryDatabase {
 		db_path: string,
 	) {
 		const dir = dirname(db_path);
+
 		if (!existsSync(dir)) {
 			mkdirSync(dir, { recursive: true, mode: 0o700 });
 		}
@@ -352,11 +356,13 @@ export class TelemetryDatabase {
 		const row = this.db.prepare('PRAGMA user_version').get() as {
 			user_version: number;
 		};
+
 		return row.user_version;
 	}
 
 	private apply_migrations(): void {
 		const current_version = this.get_user_version();
+
 		if (current_version > LATEST_TELEMETRY_SCHEMA_VERSION) {
 			this.db.close();
 			throw new Error(
@@ -370,6 +376,7 @@ export class TelemetryDatabase {
 			next_version++
 		) {
 			const migration = MIGRATIONS[next_version];
+
 			if (!migration) {
 				this.db.close();
 				throw new Error(
@@ -406,18 +413,22 @@ export class TelemetryDatabase {
 			conditions.push('r.cwd = ?');
 			params.push(filters.cwd);
 		}
+
 		if (filters.eval_run_id !== undefined) {
 			conditions.push('r.eval_run_id = ?');
 			params.push(filters.eval_run_id);
 		}
+
 		if (filters.eval_case_id !== undefined) {
 			conditions.push('r.eval_case_id = ?');
 			params.push(filters.eval_case_id);
 		}
+
 		if (filters.eval_suite !== undefined) {
 			conditions.push('r.eval_suite = ?');
 			params.push(filters.eval_suite);
 		}
+
 		if (filters.success === null) {
 			conditions.push('r.success IS NULL');
 		} else if (filters.success !== undefined) {
@@ -429,10 +440,12 @@ export class TelemetryDatabase {
 			conditions.length > 0
 				? `WHERE ${conditions.join(' AND ')}`
 				: '';
+
 		const limit_clause =
 			typeof filters.limit === 'number' && filters.limit > 0
 				? 'LIMIT ?'
 				: '';
+
 		if (limit_clause) {
 			params.push(filters.limit!);
 		}
@@ -508,14 +521,17 @@ export class TelemetryDatabase {
 			.get() as {
 			count: number;
 		};
+
 		const turns = this.db
 			.prepare('SELECT COUNT(*) as count FROM turns')
 			.get() as {
 			count: number;
 		};
+
 		const tool_calls = this.db
 			.prepare('SELECT COUNT(*) as count FROM tool_calls')
 			.get() as { count: number };
+
 		const provider_requests = this.db
 			.prepare('SELECT COUNT(*) as count FROM provider_requests')
 			.get() as { count: number };

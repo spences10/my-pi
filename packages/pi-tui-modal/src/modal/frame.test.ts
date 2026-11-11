@@ -12,10 +12,12 @@ const theme: ModalTheme = {
 	fg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
 };
+
 const ansi_pattern = new RegExp(
 	`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
 	'g',
 );
+
 const content = {
 	render: (width: number) => [`x`.repeat(width + 2), 'ok'],
 	invalidate: () => {},

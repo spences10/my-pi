@@ -2,6 +2,7 @@ import { Type, type Static } from 'typebox';
 
 export const HARNESS_VERSION = 2;
 export const HARNESS_CUSTOM_TYPE = 'pi-harness-state';
+
 // Explicit command exclusions are optional workflow checks, not a shell sandbox.
 export const DEFAULT_FORBIDDEN_COMMANDS: string[] = [];
 
@@ -140,6 +141,7 @@ export type HarnessStatus =
 	| 'reviewing'
 	| 'completed'
 	| 'failed';
+
 export type HarnessThinking = Static<typeof thinking_levels_schema>;
 
 export interface HarnessPolicy {

@@ -52,6 +52,7 @@ import {
 	show_telemetry_home_modal,
 	show_telemetry_text_modal,
 } from './ui.js';
+
 export {
 	format_telemetry_query_results,
 	format_telemetry_stats,
@@ -59,10 +60,12 @@ export {
 	parse_telemetry_command,
 	type ParsedTelemetryCommand,
 } from './commands.js';
+
 export {
 	describe_session_shutdown,
 	infer_run_outcome,
 } from './context.js';
+
 export type { CreateTelemetryExtensionOptions } from './types.js';
 
 const telemetry_tool_params_schema = Type.Object({
@@ -125,30 +128,37 @@ export function create_telemetry_extension(
 		const db_path = resolve_telemetry_db_path(cwd, options.db_path);
 		let config: TelemetryConfig = load_telemetry_config();
 		let store: TelemetryStore | null = null;
+
 		let effective_enabled = resolve_telemetry_enabled(
 			config,
 			options.enabled,
 		);
+
 		let current_model = {
 			provider: null as string | null,
 			id: null as string | null,
 		};
+
 		let active_run: ActiveRun | null = null;
 		let enabled_by_tool = false;
 		let stop_after_turn = false;
 		let recording_metadata: EvalMetadata | null = null;
+
 		let current_turn: {
 			turnIndex: number;
 			timestamp: number;
 		} | null = null;
+
 		const active_turns = new Map<number, ActiveTurn>();
 		const provider_request_ids: string[] = [];
 
 		async function ensure_store(): Promise<TelemetryStore | null> {
 			if (!effective_enabled) return null;
+
 			if (!store) {
 				store = await load_store(db_path);
 			}
+
 			return store;
 		}
 
@@ -175,9 +185,11 @@ export function create_telemetry_extension(
 		): void {
 			const run_id = randomUUID();
 			const started_at = now();
+
 			const model_identity = ctx.model
 				? get_model_identity(ctx.model)
 				: current_model;
+
 			active_store.insert_run({
 				id: run_id,
 				session_file: get_session_file(ctx),
@@ -195,6 +207,7 @@ export function create_telemetry_extension(
 			};
 			active_turns.clear();
 			provider_request_ids.length = 0;
+
 			// Enabling from a tool happens after this turn's turn_start.
 			// Record only the remaining window, not time before opt-in.
 			if (current_turn) {
@@ -267,9 +280,12 @@ export function create_telemetry_extension(
 					'Telemetry',
 					`No telemetry database at ${db_path}`,
 				);
+
 				return null;
 			}
+
 			const active_store = store ?? (await load_store(db_path));
+
 			return {
 				active_store,
 				should_close_after: active_store !== store,
@@ -291,12 +307,15 @@ export function create_telemetry_extension(
 						db_path,
 					}),
 				);
+
 				return;
 			}
 
 			if (action === 'stats') {
 				const opened = await open_readonly_store(ctx);
+
 				if (!opened) return;
+
 				try {
 					await show_telemetry_text_modal(
 						ctx,
@@ -309,17 +328,22 @@ export function create_telemetry_extension(
 				} finally {
 					if (opened.should_close_after) opened.active_store.close();
 				}
+
 				return;
 			}
 
 			if (action === 'query' || action === 'export') {
 				const opened = await open_readonly_store(ctx);
+
 				if (!opened) return;
+
 				try {
 					const filters: TelemetryQueryFilters = {
 						limit: DEFAULT_QUERY_LIMIT,
 					};
+
 					const runs = opened.active_store.query_runs(filters);
+
 					if (action === 'query') {
 						await show_telemetry_text_modal(
 							ctx,
@@ -330,14 +354,17 @@ export function create_telemetry_extension(
 								runs,
 							}),
 						);
+
 						return;
 					}
 
 					const export_path = get_default_telemetry_export_path(cwd);
+
 					const confirmed = await ctx.ui.confirm(
 						'Export telemetry runs?',
 						`Write ${runs.length} run${runs.length === 1 ? '' : 's'} to ${export_path}`,
 					);
+
 					if (!confirmed) return;
 					mkdirSync(dirname(export_path), { recursive: true });
 					writeFileSync(
@@ -363,17 +390,21 @@ export function create_telemetry_extension(
 				} finally {
 					if (opened.should_close_after) opened.active_store.close();
 				}
+
 				return;
 			}
 
 			const next_enabled = action === 'on';
+
 			const confirmed = await ctx.ui.confirm(
 				`${next_enabled ? 'Enable' : 'Disable'} telemetry?`,
 				`Save telemetry ${next_enabled ? 'enabled' : 'disabled'} as the default for future sessions.`,
 			);
+
 			if (!confirmed) return;
 			config = { ...config, enabled: next_enabled };
 			save_telemetry_config(config);
+
 			if (options.enabled !== undefined) {
 				ctx.ui.notify(
 					[
@@ -382,20 +413,25 @@ export function create_telemetry_extension(
 					].join(' '),
 					'info',
 				);
+
 				return;
 			}
+
 			effective_enabled = next_enabled;
 			enabled_by_tool = false;
 			stop_after_turn = false;
 			recording_metadata = null;
+
 			if (effective_enabled) {
 				await ensure_store();
 				ctx.ui.notify(
 					`Telemetry enabled. Writing to ${db_path}`,
 					'info',
 				);
+
 				return;
 			}
+
 			finish_active_run_on_disable('telemetry disabled');
 			close_store();
 			ctx.ui.notify('Telemetry disabled.', 'info');
@@ -407,6 +443,7 @@ export function create_telemetry_extension(
 			getArgumentCompletions: (prefix) => {
 				const trimmed = prefix.trim();
 				const first_token = trimmed.split(/\s+/, 1)[0] ?? '';
+
 				return COMMANDS.filter((command) =>
 					command.startsWith(first_token),
 				).map((command) => ({ value: command, label: command }));
@@ -414,6 +451,7 @@ export function create_telemetry_extension(
 			handler: async (args, ctx) => {
 				if (!args.trim() && has_modal_ui(ctx)) {
 					let selected: string | undefined;
+
 					while (
 						(selected = await show_telemetry_home_modal(
 							ctx,
@@ -422,20 +460,25 @@ export function create_telemetry_extension(
 					) {
 						await handle_telemetry_home_action(ctx, selected);
 					}
+
 					return;
 				}
 
 				const parsed = parse_telemetry_command(args);
 				const subcommand = parsed.subcommand;
+
 				if (!COMMANDS.includes(subcommand)) {
 					command_message(
 						ctx,
 						`Unknown telemetry command: ${subcommand}. Use: ${COMMANDS.join(', ')}`,
 					);
+
 					return;
 				}
+
 				if (parsed.errors.length > 0) {
 					command_message(ctx, parsed.errors.join('\n'));
+
 					return;
 				}
 
@@ -449,6 +492,7 @@ export function create_telemetry_extension(
 							db_path,
 						}),
 					);
+
 					return;
 				}
 
@@ -458,11 +502,13 @@ export function create_telemetry_extension(
 							ctx,
 							`No telemetry database at ${db_path}`,
 						);
+
 						return;
 					}
 
 					const stats_store = store ?? (await load_store(db_path));
 					const should_close_after = stats_store !== store;
+
 					try {
 						command_message(
 							ctx,
@@ -476,6 +522,7 @@ export function create_telemetry_extension(
 							stats_store.close();
 						}
 					}
+
 					return;
 				}
 
@@ -485,13 +532,16 @@ export function create_telemetry_extension(
 							ctx,
 							`No telemetry database at ${db_path}`,
 						);
+
 						return;
 					}
 
 					const query_store = store ?? (await load_store(db_path));
 					const should_close_after = query_store !== store;
+
 					try {
 						const runs = query_store.query_runs(parsed.filters);
+
 						if (subcommand === 'query') {
 							command_message(
 								ctx,
@@ -501,6 +551,7 @@ export function create_telemetry_extension(
 									runs,
 								}),
 							);
+
 							return;
 						}
 
@@ -509,6 +560,7 @@ export function create_telemetry_extension(
 							parsed.export_path ??
 								get_default_telemetry_export_path(cwd),
 						);
+
 						mkdirSync(dirname(export_path), { recursive: true });
 						writeFileSync(
 							export_path,
@@ -530,6 +582,7 @@ export function create_telemetry_extension(
 							ctx,
 							`Exported ${runs.length} telemetry run${runs.length === 1 ? '' : 's'} to ${export_path}`,
 						);
+
 						return;
 					} finally {
 						if (should_close_after) {
@@ -540,6 +593,7 @@ export function create_telemetry_extension(
 
 				if (subcommand === 'path') {
 					command_message(ctx, db_path);
+
 					return;
 				}
 
@@ -555,6 +609,7 @@ export function create_telemetry_extension(
 							`Current process still uses ${options.enabled ? '--telemetry' : '--no-telemetry'}.`,
 						].join(' '),
 					);
+
 					return;
 				}
 
@@ -562,12 +617,14 @@ export function create_telemetry_extension(
 				enabled_by_tool = false;
 				stop_after_turn = false;
 				recording_metadata = null;
+
 				if (effective_enabled) {
 					await ensure_store();
 					command_message(
 						ctx,
 						`Telemetry enabled. Writing to ${db_path}`,
 					);
+
 					return;
 				}
 
@@ -602,6 +659,7 @@ export function create_telemetry_extension(
 					if (!existsSync(db_path)) {
 						return tool_text(`No telemetry database at ${db_path}`);
 					}
+
 					const filters: TelemetryQueryFilters = {
 						cwd: params.cwd,
 						eval_suite: params.eval_suite,
@@ -609,7 +667,9 @@ export function create_telemetry_extension(
 						success: params.success,
 						limit: params.limit ?? DEFAULT_QUERY_LIMIT,
 					};
+
 					const query_store = store ?? (await load_store(db_path));
+
 					try {
 						return tool_text(
 							JSON.stringify(
@@ -643,11 +703,13 @@ export function create_telemetry_extension(
 								: `Telemetry is already on. No new task recording or labels were created. Writing to ${db_path}`,
 						);
 					}
+
 					const metadata = get_eval_metadata();
 					metadata.suite = params.eval_suite ?? metadata.suite;
 					metadata.case_id = params.eval_case_id ?? metadata.case_id;
 					// Do not advertise recording until opening and initialization succeed.
 					const active_store = await load_store(db_path);
+
 					try {
 						start_run(active_store, ctx, metadata);
 					} catch (error) {
@@ -656,10 +718,12 @@ export function create_telemetry_extension(
 						active_turns.clear();
 						throw error;
 					}
+
 					store = active_store;
 					recording_metadata = metadata;
 					effective_enabled = true;
 					enabled_by_tool = true;
+
 					return tool_text(
 						`Telemetry on for this session only. Saved default unchanged. Writing to ${db_path}\nRun: ${active_run?.id}\nSession: ${get_session_file(ctx) ?? 'ephemeral'}`,
 					);
@@ -668,12 +732,15 @@ export function create_telemetry_extension(
 				if (!effective_enabled) {
 					return tool_text('Telemetry is already off.');
 				}
+
 				if (!enabled_by_tool) {
 					return tool_text(
 						'Not changed. The user enabled telemetry; only the user turns it off with /telemetry off.',
 					);
 				}
+
 				stop_after_turn = true;
+
 				return tool_text(
 					'Telemetry will stop at the end of this turn, after tool results are recorded. Query in a later turn. Saved default unchanged.',
 				);
@@ -686,6 +753,7 @@ export function create_telemetry_extension(
 
 		pi.on('agent_start', async (_event, ctx) => {
 			const active_store = await ensure_store();
+
 			if (!active_store) return;
 			start_run(active_store, ctx);
 		});
@@ -706,6 +774,7 @@ export function create_telemetry_extension(
 
 		pi.on('turn_start', async (event) => {
 			current_turn = event;
+
 			if (!store || !active_run) return;
 			start_turn(
 				store,
@@ -717,6 +786,7 @@ export function create_telemetry_extension(
 
 		pi.on('turn_end', async (event) => {
 			const active_turn = active_turns.get(event.turnIndex);
+
 			if (store && active_turn) {
 				store.finish_turn({
 					id: active_turn.id,
@@ -726,7 +796,9 @@ export function create_telemetry_extension(
 				});
 				active_turns.delete(event.turnIndex);
 			}
+
 			current_turn = null;
+
 			if (stop_after_turn) stop_tool_recording();
 		});
 
@@ -791,6 +863,7 @@ export function create_telemetry_extension(
 		pi.on('after_provider_response', async (event) => {
 			if (!store || !active_run) return;
 			const request_id = provider_request_ids.shift();
+
 			if (!request_id) return;
 			store.finish_provider_request({
 				id: request_id,
@@ -809,6 +882,7 @@ export function create_telemetry_extension(
 					error_message: describe_session_shutdown(event),
 				});
 			}
+
 			close_store();
 			active_run = null;
 			current_turn = null;

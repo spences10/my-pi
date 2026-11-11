@@ -25,6 +25,7 @@ export function register_context_lifecycle(pi: ExtensionAPI): void {
 	pi.on('session_shutdown', async () => {
 		const store = get_context_store();
 		const stats = store.stats();
+
 		if (stats.purge_on_shutdown) store.cleanup();
 		set_context_sidecar_enabled(false);
 	});
@@ -34,16 +35,22 @@ export function register_context_lifecycle(pi: ExtensionAPI): void {
 		if (event.isError || event.parentToolCallId) return;
 
 		const tool_name = String(event.toolName ?? 'tool');
+
 		if (should_skip_tool(tool_name)) return;
+
 		if (!Array.isArray(event.content)) return;
 
 		const text_items = event.content.filter(is_text_content);
+
 		if (text_items.length === 0) return;
+
 		const visible_text = text_items
 			.map((item) => item.text)
 			.join('\n');
+
 		if (visible_text.includes('[context-sidecar]')) return;
 		const text = select_context_output(event, visible_text);
+
 		if (!should_index_text(text)) return;
 
 		try {
@@ -53,7 +60,9 @@ export function register_context_lifecycle(pi: ExtensionAPI): void {
 				input_summary: summarize_tool_input(event.input),
 				...scope_from_context(ctx),
 			});
+
 			if (!stored) return;
+
 			return {
 				content: [
 					{ type: 'text' as const, text: stored.receipt },

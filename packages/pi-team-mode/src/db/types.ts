@@ -9,6 +9,7 @@ export type CoordinationSessionAvailability =
 	| 'standby'
 	| 'handoff'
 	| 'offline';
+
 export type CoordinationArtifactKind =
 	| 'summary'
 	| 'handoff'
@@ -24,12 +25,15 @@ export type CoordinationSessionStatus =
 	| 'running'
 	| 'blocked'
 	| 'offline';
+
 export type CoordinationRole = 'peer' | 'lead' | 'teammate';
+
 export type CoordinationGroupRole =
 	| 'lead'
 	| 'teammate'
 	| 'peer'
 	| 'reviewer';
+
 export type CoordinationTaskStatus =
 	| 'pending'
 	| 'in_progress'

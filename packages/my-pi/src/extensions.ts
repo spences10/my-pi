@@ -121,9 +121,11 @@ export const EXTENSIONS: readonly MyPiExtension[] = [
 		description: 'Ephemeral task harness runtime and skills',
 		load: async () => {
 			const entry = import.meta.resolve('@spences10/pi-harness');
+
 			const { default: factory } = (await import(
 				entry
 			)) as ExtensionModule;
+
 			return with_resources(factory, {
 				skillPaths: [join(package_dir(entry), 'skills')],
 			});
@@ -171,9 +173,11 @@ export const EXTENSIONS: readonly MyPiExtension[] = [
 		load: async () => {
 			const entry = import.meta
 				.resolve('@spences10/pi-tool-guidance');
+
 			const { default: factory } = (await import(
 				entry
 			)) as ExtensionModule;
+
 			return with_resources(factory, {
 				skillPaths: [join(package_dir(entry), 'skills')],
 			});

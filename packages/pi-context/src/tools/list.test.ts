@@ -26,6 +26,7 @@ type RegisteredTool = {
 function temp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-list-'));
 	dirs.push(dir);
+
 	return join(dir, 'context.db');
 }
 
@@ -36,14 +37,17 @@ function register_tool(): RegisteredTool {
 			tool = value;
 		},
 	} as unknown as ExtensionAPI);
+
 	return tool!;
 }
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+
 	if (original_context_db === undefined)
 		delete process.env.MY_PI_CONTEXT_DB;
 	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs.length = 0;
@@ -81,6 +85,7 @@ describe('context_list tool', () => {
 				sessionManager: { getSessionId: () => 's-a' },
 			},
 		);
+
 		expect(scoped.content[0].text).toContain('Project: /repo-a');
 		expect(scoped.content[0].text).not.toContain('Project: /repo-b');
 		expect(scoped.details.count).toBe(1);
@@ -89,6 +94,7 @@ describe('context_list tool', () => {
 			project_path: '/repo-b',
 			limit: 10,
 		});
+
 		expect(explicit.content[0].text).toContain('Tool: read');
 		expect(explicit.details.count).toBe(1);
 	});

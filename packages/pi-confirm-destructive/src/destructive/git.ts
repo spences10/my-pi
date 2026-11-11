@@ -20,12 +20,15 @@ function is_git_repo(cwd: string): boolean {
 
 function is_same_or_parent(parent: string, child: string): boolean {
 	const rel = relative(resolve(parent), resolve(child));
+
 	return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
 function deletes_repository_root(cwd: string, path: string): boolean {
 	const root = git(['rev-parse', '--show-toplevel'], cwd);
+
 	if (!root) return false;
+
 	return is_same_or_parent(resolve(cwd, path), root);
 }
 
@@ -39,10 +42,13 @@ function directory_for_path(path: string): string {
 
 function find_containing_git_root(path: string): string | undefined {
 	let candidate = directory_for_path(path);
+
 	while (true) {
 		const root = git(['rev-parse', '--show-toplevel'], candidate);
+
 		if (root) return root;
 		const parent = dirname(candidate);
+
 		if (parent === candidate) return undefined;
 		candidate = parent;
 	}
@@ -54,13 +60,17 @@ export function is_git_protected_path(
 ): boolean {
 	const absolute = resolve(cwd, path);
 	const root = find_containing_git_root(absolute);
+
 	if (!root) {
 		const current_root = git(['rev-parse', '--show-toplevel'], cwd);
+
 		if (!current_root) return false;
+
 		const current_git_directory = git(
 			['rev-parse', '--absolute-git-dir'],
 			current_root,
 		);
+
 		return Boolean(
 			is_same_or_parent(resolve(current_root, '.git'), absolute) ||
 			(current_git_directory &&
@@ -69,10 +79,12 @@ export function is_git_protected_path(
 	}
 
 	const git_marker = resolve(root, '.git');
+
 	const git_directory = git(
 		['rev-parse', '--absolute-git-dir'],
 		root,
 	);
+
 	if (
 		is_same_or_parent(absolute, root) ||
 		is_same_or_parent(git_marker, absolute) ||
@@ -84,6 +96,7 @@ export function is_git_protected_path(
 	}
 
 	const relative_path = relative(root, absolute);
+
 	if (
 		!relative_path ||
 		relative_path.startsWith('..') ||
@@ -91,11 +104,14 @@ export function is_git_protected_path(
 	) {
 		return true;
 	}
+
 	const status = git(
 		['status', '--porcelain=v1', '--', relative_path],
 		root,
 	);
+
 	if (status === undefined) return true;
+
 	return status
 		.split('\n')
 		.some((line) => line && !line.startsWith('??'));
@@ -106,10 +122,13 @@ export function get_git_recoverability(
 	path: string,
 ): GitRecoverability {
 	if (!is_git_repo(cwd)) return 'not-git';
+
 	if (deletes_repository_root(cwd, path)) return 'repo-root';
 
 	const status = git(['status', '--porcelain=v1', '--', path], cwd);
+
 	if (status === undefined) return 'not-git';
+
 	if (status.length > 0) {
 		return status.split('\n').some((line) => line.startsWith('??'))
 			? 'untracked'
@@ -127,9 +146,11 @@ export function get_git_recoverability(
 		],
 		cwd,
 	);
+
 	if (ignored) return 'ignored';
 
 	const tracked = git(['ls-files', '--', path], cwd);
+
 	return tracked ? 'tracked-clean' : 'untracked';
 }
 

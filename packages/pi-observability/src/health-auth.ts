@@ -27,6 +27,7 @@ export function health_proof_matches(
 	if (typeof proof !== 'string') return false;
 	const expected = Buffer.from(create_health_proof(token, challenge));
 	const provided = Buffer.from(proof);
+
 	return (
 		expected.length === provided.length &&
 		timingSafeEqual(expected, provided)

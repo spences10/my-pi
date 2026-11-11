@@ -17,13 +17,16 @@ function fake_response() {
 		writeHead(status: number, headers: Record<string, string>) {
 			this.status = status;
 			this.headers = headers;
+
 			return this;
 		},
 		end(body: unknown) {
 			this.body = body;
+
 			return this;
 		},
 	};
+
 	return response as typeof response & ServerResponse;
 }
 

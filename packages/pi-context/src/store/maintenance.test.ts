@@ -16,6 +16,7 @@ function create_store(): ContextStore {
 describe('context store maintenance helpers', () => {
 	it('reports scoped stats and purges matching sources with details', () => {
 		const store = create_store();
+
 		const stored = store.store({
 			text: `maintenance-token\n${'x '.repeat(100)}`,
 			tool_name: 'bash',
@@ -33,6 +34,7 @@ describe('context store maintenance helpers', () => {
 		const details = context_store_purge_with_details(store, {
 			source_id: stored!.source_id,
 		});
+
 		expect(details).toMatchObject({
 			deleted: 1,
 			source_id: stored!.source_id,

@@ -32,7 +32,9 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 		string,
 		(event: unknown, ctx: ExtensionContext) => void
 	>();
+
 	let command: Parameters<ExtensionAPI['registerCommand']>[1];
+
 	const api = {
 		on: (
 			name: string,
@@ -42,16 +44,20 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 			command = value;
 		},
 	} as unknown as ExtensionAPI;
+
 	let factory: EditorFactory;
 	const notify = vi.fn();
+
 	const set_editor = vi.fn((value: EditorFactory) => {
 		factory = value;
 	});
+
 	const stream_simple = vi.fn(() => ({
 		result: async () => ({
 			content: [{ type: 'text', text: '"run the tests"' }],
 		}),
 	}));
+
 	const ctx = {
 		mode,
 		hasUI: mode === 'tui' || mode === 'rpc',
@@ -63,7 +69,9 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 			notify,
 		},
 	} as unknown as ExtensionContext;
+
 	starfield(api);
+
 	return {
 		ctx,
 		set_editor,
@@ -207,6 +215,7 @@ describe('starfield extension', () => {
 			const app = setup();
 			app.emit('session_start');
 			await app.command(mode);
+
 			const turn = {
 				messages: [
 					{ role: 'user', content: 'fix the bug' },
@@ -216,6 +225,7 @@ describe('starfield extension', () => {
 					},
 				],
 			};
+
 			app.emit('agent_end', turn);
 			expect(app.stream_simple).toHaveBeenCalledWith(
 				{ id: 'test-model' },

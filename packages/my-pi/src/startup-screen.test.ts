@@ -15,7 +15,9 @@ import startup_screen, { render_splash } from './startup-screen.js';
 type HeaderFactory = NonNullable<
 	Parameters<ExtensionContext['ui']['setHeader']>[0]
 >;
+
 type Handler = (event: unknown, ctx: ExtensionContext) => void;
+
 type Command = Parameters<ExtensionAPI['registerCommand']>[1];
 
 function make_theme(
@@ -44,6 +46,7 @@ function make_theme(
 }
 
 const theme = make_theme();
+
 const info = {
 	version: '0.6.0',
 	model_id: 'test-model',
@@ -59,21 +62,25 @@ function harness(mode: ExtensionContext['mode'] = 'tui') {
 	const commands = new Map<string, Command>();
 	const set_header = vi.fn<ExtensionContext['ui']['setHeader']>();
 	const request_render = vi.fn();
+
 	const ctx = {
 		mode,
 		cwd: '/work/my-project',
 		model: { id: 'first-model' },
 		ui: { setHeader: set_header },
 	} as unknown as ExtensionContext;
+
 	startup_screen({
 		on: (name: string, handler: Handler) =>
 			handlers.set(name, handler),
 		registerCommand: (name: string, command: Command) =>
 			commands.set(name, command),
 	} as unknown as ExtensionAPI);
+
 	function component() {
 		const factory = set_header.mock.calls.at(-1)?.[0];
 		expect(factory).toBeTypeOf('function');
+
 		return factory!(
 			{
 				requestRender: request_render,
@@ -81,6 +88,7 @@ function harness(mode: ExtensionContext['mode'] = 'tui') {
 			theme,
 		);
 	}
+
 	return {
 		ctx,
 		handlers,
@@ -113,8 +121,10 @@ describe('My-Pi splash rendering', () => {
 				model_id: 'long-model-name-'.repeat(10),
 				project: '项目🚀👩‍💻e\u0301'.repeat(20),
 			});
+
 			for (const line of lines)
 				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+
 			if (width === 0) expect(lines).toEqual([]);
 			else if (width < Math.max(...logo_lines.map(visibleWidth)))
 				expect(lines).toHaveLength(2);
@@ -143,12 +153,14 @@ describe('My-Pi splash lifecycle', () => {
 		expect(state.set_header).not.toHaveBeenCalled();
 		state.handlers.get('session_start')!({}, state.ctx);
 		const header = state.component();
+
 		const { version } = JSON.parse(
 			readFileSync(
 				new URL('../package.json', import.meta.url),
 				'utf8',
 			),
 		);
+
 		expect(plain(header.render(100))).toContain(`My-Pi v${version}`);
 		expect(plain(header.render(100))).toContain(
 			'first-model · my-project',
@@ -222,11 +234,13 @@ describe('My-Pi splash lifecycle', () => {
 
 	it('handles missing models and session changes with a fresh project', () => {
 		const state = harness();
+
 		const next = {
 			...state.ctx,
 			model: undefined,
 			cwd: '/work/another-project',
 		};
+
 		state.handlers.get('session_start')!({}, next);
 		expect(plain(state.component().render(100))).toContain(
 			'no model selected · another-project',

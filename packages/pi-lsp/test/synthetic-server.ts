@@ -13,9 +13,11 @@ import { Buffer } from 'node:buffer';
 import process from 'node:process';
 
 const pull = process.argv.includes('--pull');
+
 const expected_initialization_options = process.argv
 	.find((arg) => arg.startsWith('--expect-initialization-options='))
 	?.slice('--expect-initialization-options='.length);
+
 const docs = new Map<string, string>();
 let buffer = Buffer.alloc(0);
 
@@ -57,18 +59,24 @@ function run_directives(
 	text: string,
 ): void {
 	if (pull) return;
+
 	for (const line of text.split('\n')) {
 		const [directive, argument] = line.trim().split(':');
+
 		if (directive === 'publish-clean') publish(uri, version, []);
+
 		if (directive === 'publish-error') {
 			publish(uri, version, [error_diagnostic]);
 		}
+
 		if (directive === 'publish-stale-clean') {
 			publish(uri, version - 1, []);
 		}
+
 		if (directive === 'publish-delayed') {
 			setTimeout(() => publish(uri, version, []), Number(argument));
 		}
+
 		if (directive === 'publish-delayed-error') {
 			setTimeout(
 				() => publish(uri, version, [error_diagnostic]),
@@ -90,6 +98,7 @@ interface ClientMessage {
 
 function handle(message: ClientMessage): void {
 	const { id, method, params } = message;
+
 	if (method === 'initialize') {
 		if (
 			expected_initialization_options !== undefined &&
@@ -104,8 +113,10 @@ function handle(message: ClientMessage): void {
 					message: 'Unexpected initialization options',
 				},
 			});
+
 			return;
 		}
+
 		send({
 			jsonrpc: '2.0',
 			id,
@@ -124,17 +135,21 @@ function handle(message: ClientMessage): void {
 		run_directives(uri, version, text);
 	} else if (method === 'textDocument/didClose') {
 		const { uri } = params.textDocument;
+
 		if (docs.get(uri)?.includes('publish-clean-on-close')) {
 			publish(uri, undefined, []);
 		}
+
 		const delay = docs
 			.get(uri)
 			?.match(/publish-delayed-clean-on-close:(\d+)/);
+
 		if (delay)
 			setTimeout(() => publish(uri, undefined, []), Number(delay[1]));
 		docs.delete(uri);
 	} else if (method === 'textDocument/diagnostic') {
 		const text = docs.get(params.textDocument.uri) ?? '';
+
 		const reply = () => {
 			if (text.includes('publish-error')) {
 				send({
@@ -152,7 +167,9 @@ function handle(message: ClientMessage): void {
 				send({ jsonrpc: '2.0', id, result: null });
 			}
 		};
+
 		const delay = text.match(/pull-delayed:(\d+)/);
+
 		if (delay) setTimeout(reply, Number(delay[1]));
 		else reply();
 	} else if (method === 'shutdown') {
@@ -164,15 +181,20 @@ function handle(message: ClientMessage): void {
 
 process.stdin.on('data', (chunk: Buffer) => {
 	buffer = Buffer.concat([buffer, chunk]);
+
 	while (true) {
 		const header_end = buffer.indexOf('\r\n\r\n');
+
 		if (header_end === -1) return;
+
 		const match = buffer
 			.subarray(0, header_end)
 			.toString('ascii')
 			.match(/Content-Length:\s*(\d+)/i);
+
 		const length = Number(match?.[1]);
 		const body_start = header_end + 4;
+
 		if (buffer.length < body_start + length) return;
 		const body = buffer.subarray(body_start, body_start + length);
 		buffer = buffer.subarray(body_start + length);

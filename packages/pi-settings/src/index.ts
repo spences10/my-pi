@@ -31,7 +31,9 @@ function default_settings(): MyPiSettingsFile {
 
 export function read_settings(): MyPiSettingsFile {
 	const path = get_settings_path();
+
 	if (!existsSync(path)) return default_settings();
+
 	return {
 		...default_settings(),
 		...JSON.parse(readFileSync(path, 'utf-8')),
@@ -52,9 +54,12 @@ export function write_settings(settings: MyPiSettingsFile): void {
 
 export function extract_input_strings(value: unknown): string[] {
 	if (typeof value === 'string') return [value];
+
 	if (Array.isArray(value))
 		return value.flatMap(extract_input_strings);
+
 	if (!value || typeof value !== 'object') return [];
+
 	return Object.values(value as Record<string, unknown>).flatMap(
 		extract_input_strings,
 	);
@@ -65,6 +70,7 @@ export function read_settings_section<T>(
 	fallback: T,
 ): T {
 	const settings = read_settings();
+
 	return (
 		settings[key] === undefined ? fallback : settings[key]
 	) as T;
@@ -75,6 +81,7 @@ export function read_package_settings<T>(
 	fallback: T,
 ): T {
 	const packages = read_settings().packages ?? {};
+
 	return (
 		packages[name] === undefined ? fallback : packages[name]
 	) as T;
@@ -93,6 +100,7 @@ export function write_package_settings<T>(
 
 export function read_trust_settings<T>(name: string, fallback: T): T {
 	const trust = read_settings().trust ?? {};
+
 	return (trust[name] === undefined ? fallback : trust[name]) as T;
 }
 

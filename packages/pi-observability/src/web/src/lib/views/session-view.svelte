@@ -41,12 +41,14 @@
 
 	const detail = resource(async () => {
 		void live.session_revision(id);
+
 		const [trace, spans, events, timeline] = await Promise.all([
 			api.trace(id),
 			api.spans(id),
 			api.events(id),
 			api.timeline(id),
 		]);
+
 		return { trace, spans, events: events.events, timeline };
 	});
 
@@ -57,15 +59,19 @@
 	const tools = $derived(detail.data?.spans.tools ?? []);
 	const events = $derived(detail.data?.events ?? []);
 	const active = $derived(live.is_active(id, session?.last_ts));
+
 	const model_ms = $derived(
 		turns.reduce((sum, turn) => sum + (turn.provider_ms ?? 0), 0),
 	);
+
 	const tool_ms = $derived(
 		turns.reduce((sum, turn) => sum + (turn.tool_ms ?? 0), 0),
 	);
+
 	const turn_ms = $derived(
 		turns.reduce((sum, turn) => sum + turn.duration_ms, 0),
 	);
+
 	const partial = $derived(
 		session && session.event_count > events.length,
 	);

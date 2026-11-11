@@ -6,6 +6,7 @@ import {
 
 export const COORDINATION_BROKER_PORT_ENV =
 	'MY_PI_COORDINATION_BROKER_PORT';
+
 const DEFAULT_COORDINATION_BROKER_PORT = 43191;
 
 type BrokerEvent = {
@@ -25,6 +26,7 @@ const clients = new Set<BrokerClient>();
 
 export function get_coordination_broker_port(): number {
 	const value = Number(process.env[COORDINATION_BROKER_PORT_ENV]);
+
 	return Number.isInteger(value) && value > 0
 		? value
 		: DEFAULT_COORDINATION_BROKER_PORT;
@@ -39,8 +41,10 @@ async function read_body(
 	request: NodeJS.ReadableStream,
 ): Promise<string> {
 	const chunks: Buffer[] = [];
+
 	for await (const chunk of request)
 		chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+
 	return Buffer.concat(chunks).toString('utf8');
 }
 
@@ -60,12 +64,16 @@ export async function ensure_coordination_broker(): Promise<void> {
 			request.url ?? '/',
 			`http://127.0.0.1:${port}`,
 		);
+
 		if (request.method === 'GET' && url.pathname === '/events') {
 			const session_id = url.searchParams.get('session_id')?.trim();
+
 			if (!session_id) {
 				response.writeHead(400).end('session_id required');
+
 				return;
 			}
+
 			response.writeHead(200, {
 				'content-type': 'text/event-stream',
 				'cache-control': 'no-cache',
@@ -75,20 +83,27 @@ export async function ensure_coordination_broker(): Promise<void> {
 			clients.add(client);
 			response.write(': connected\n\n');
 			request.on('close', () => clients.delete(client));
+
 			return;
 		}
+
 		if (request.method === 'POST' && url.pathname === '/notify') {
 			const event = JSON.parse(
 				await read_body(request),
 			) as BrokerEvent;
+
 			notify_clients(event);
 			response.writeHead(204).end();
+
 			return;
 		}
+
 		if (request.method === 'GET' && url.pathname === '/health') {
 			response.writeHead(200).end('ok');
+
 			return;
 		}
+
 		response.writeHead(404).end('not found');
 	});
 	broker_server.on('error', (error: NodeJS.ErrnoException) => {
@@ -131,6 +146,7 @@ export class CoordinationBrokerClient {
 		message_id?: string,
 	): Promise<void> {
 		if (to_session_ids.length === 0) return;
+
 		try {
 			await fetch(`http://127.0.0.1:${this.port}/notify`, {
 				method: 'POST',
@@ -148,24 +164,31 @@ export class CoordinationBrokerClient {
 
 	private async subscribe(): Promise<void> {
 		const session_id = this.options.get_session_id();
+
 		if (!session_id || this.stopped) return;
 		const controller = new AbortController();
 		this.controller = controller;
+
 		try {
 			const response = await fetch(
 				`http://127.0.0.1:${this.port}/events?session_id=${encodeURIComponent(session_id)}`,
 				{ signal: controller.signal },
 			);
+
 			const reader = response.body?.getReader();
+
 			if (!reader) return;
 			const decoder = new TextDecoder();
 			let buffer = '';
+
 			while (!controller.signal.aborted) {
 				const { done, value } = await reader.read();
+
 				if (done) break;
 				buffer += decoder.decode(value, { stream: true });
 				const events = buffer.split('\n\n');
 				buffer = events.pop() ?? '';
+
 				for (const event of events) {
 					if (event.includes('event: messages'))
 						this.options.on_message();
@@ -174,6 +197,7 @@ export class CoordinationBrokerClient {
 		} catch {
 			// Retry below unless explicitly stopped.
 		}
+
 		if (!this.stopped && !controller.signal.aborted) {
 			setTimeout(() => this.subscribe(), 1000).unref();
 		}

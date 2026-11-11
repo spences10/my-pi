@@ -18,6 +18,7 @@ export const number_crunch = (num: number | string): string => {
 	const abbreviation = (
 		num_absolute / Math.pow(10, magnitude * 3)
 	).toFixed(magnitude === 0 ? 0 : 1);
+
 	const abbreviation_without_trailing_zero = abbreviation.endsWith(
 		'.0',
 	)

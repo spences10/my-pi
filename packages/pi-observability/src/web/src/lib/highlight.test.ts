@@ -7,6 +7,7 @@ describe('highlight', () => {
 			'{"isError": true, "exitCode": 2}',
 			'json',
 		);
+
 		expect(json).toContain('twinkleplop');
 		expect(json).toContain('isError');
 		expect(json).not.toContain('<script');
@@ -27,6 +28,7 @@ describe('highlight', () => {
 			JSON.stringify({ toolName: 'bash', keys: ['a:b'] }, null, 2),
 			'json',
 		);
+
 		expect(html).toContain(
 			'<span class="tok property">&quot;toolName&quot;</span>',
 		);

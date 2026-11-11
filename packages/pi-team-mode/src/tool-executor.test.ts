@@ -44,6 +44,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 		const busy_db = db as unknown as {
 			send_to_session_target: () => never;
 		};
+
 		busy_db.send_to_session_target = () => {
 			throw new SqliteBusyError(
 				'Update team coordination database',
@@ -82,6 +83,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 			target: 'lead',
 			body: 'first',
 		});
+
 		const second = db.send_to_session_target({
 			from_session_id: 'alice',
 			target: 'lead',
@@ -101,6 +103,7 @@ describe('execute_team_tool peer mailbox actions', () => {
 			include_read: true,
 			include_acknowledged: true,
 		});
+
 		expect(
 			messages.find(
 				(message) => message.message_id === first.message_id,

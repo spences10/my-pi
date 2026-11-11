@@ -20,6 +20,7 @@ import {
 import { register_context_tools } from '../tools/index.js';
 
 type Variant = 'baseline' | 'codemode-first' | 'native-only';
+
 type Scenario =
 	| 'bash-filter'
 	| 'read-filter'
@@ -48,10 +49,12 @@ const scenarios: Scenario[] = [
 	'final-overflow',
 	'small-output',
 ];
+
 const metrics = (count: number) =>
 	Array.from({ length: count }, (_, i) => `metric=${i + 1}`).join(
 		'\n',
 	) + '\n';
+
 const summarize = `const values = [...raw.matchAll(/^metric=(\\d+)/gm)].map(m => Number(m[1])); text({ count: values.length, sum: values.reduce((a, b) => a + b, 0) });`;
 
 async function run_case(
@@ -62,16 +65,22 @@ async function run_case(
 	const dir = mkdtempSync(
 		join(tmpdir(), 'pi-context-codemode-bench-'),
 	);
+
 	const previous_db = process.env.MY_PI_CONTEXT_DB;
 	const previous_config = process.env.MY_PI_CONTEXT_CONFIG;
 	const previous_retention = process.env.MY_PI_CONTEXT_RETENTION_DAYS;
+
 	const previous_capture_kb =
 		process.env.MY_PI_CONTEXT_CAPTURE_MAX_KB;
+
 	const previous_capture_lines =
 		process.env.MY_PI_CONTEXT_CAPTURE_MAX_LINES;
+
 	const previous_max_mb = process.env.MY_PI_CONTEXT_MAX_MB;
+
 	const previous_shutdown =
 		process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
+
 	process.env.MY_PI_CONTEXT_DB = join(dir, 'context.db');
 	process.env.MY_PI_CONTEXT_CONFIG = join(dir, 'context.json');
 	process.env.MY_PI_CONTEXT_RETENTION_DAYS = 'off';
@@ -112,14 +121,17 @@ async function run_case(
 					get_context_store,
 					set_context_sidecar_enabled,
 				};
+
 	let nested_calls = 0;
 	let retrieval_calls = 0;
 	const mcp_text = metrics(1000);
+
 	const extension = (pi: ExtensionAPI) => {
 		if (variant !== 'native-only') {
 			sidecar.register_context_lifecycle(pi);
 			sidecar.register_context_tools(pi);
 		}
+
 		// Deterministic MCP-shaped result; no external server, credentials, or network.
 		pi.registerTool({
 			name: 'mcp__fixture__metrics',
@@ -146,12 +158,15 @@ async function run_case(
 		});
 		pi.on('tool_result', async (event) => {
 			if (event.parentToolCallId) nested_calls++;
+
 			if (event.toolName.startsWith('context_')) retrieval_calls++;
 		});
 	};
+
 	const settingsManager = SettingsManager.inMemory({
 		defaultTools: ['read', 'bash', 'codemode'],
 	});
+
 	const loader = new DefaultResourceLoader({
 		cwd: dir,
 		agentDir: dir,
@@ -163,13 +178,16 @@ async function run_case(
 		agentsFilesOverride: () => ({ agentsFiles: [] }),
 		extensionFactories: [createCodemodeExtension(), extension],
 	});
+
 	await loader.reload();
+
 	const modelRuntime = await ModelRuntime.create({
 		authPath: join(dir, 'auth.json'),
 		modelsPath: null,
 		modelsStorePath: join(dir, 'models-cache.json'),
 		refreshOnCreate: false,
 	});
+
 	const { session } = await createAgentSession({
 		cwd: dir,
 		agentDir: dir,
@@ -178,6 +196,7 @@ async function run_case(
 		settingsManager,
 		sessionManager: SessionManager.inMemory(dir),
 	});
+
 	try {
 		await session.bindExtensions({});
 		// A scripted assistant fixture enables the real nested-call pipeline without an LLM request.
@@ -204,9 +223,11 @@ async function run_case(
 			stopReason: 'stop',
 			timestamp: Date.now(),
 		});
+
 		const codemode = session.agent.state.tools.find(
 			(tool) => tool.name === 'codemode',
 		)!;
+
 		const tool_declaration_bytes = Buffer.byteLength(
 			JSON.stringify(
 				session.agent.state.tools.map(
@@ -218,11 +239,14 @@ async function run_case(
 				),
 			),
 		);
+
 		let top_level_calls = 0;
 		let model_facing_bytes = 0;
+
 		const run = async (code: string) => {
 			const id = `bench-${++top_level_calls}`;
 			const result = await codemode.execute(id, { code });
+
 			const replacement =
 				await session.extensionRunner.emitToolResult({
 					type: 'tool_result',
@@ -234,17 +258,24 @@ async function run_case(
 					structuredContent: result.structuredContent,
 					isError: false,
 				});
+
 			const content = replacement?.content ?? result.content;
+
 			const text = content
 				.filter((item) => item.type === 'text')
 				.map((item) => item.text)
 				.join('\n');
+
 			model_facing_bytes += Buffer.byteLength(text);
+
 			if (text.includes('Script failed')) throw new Error(text);
+
 			return text;
 		};
+
 		const started = performance.now();
 		let code: string;
+
 		if (scenario === 'small-output')
 			code = 'text({ count: 1, sum: 1 });';
 		else if (scenario === 'final-overflow')
@@ -252,6 +283,7 @@ async function run_case(
 		else {
 			let call: string;
 			let extract: string;
+
 			if (scenario === 'bash-filter') {
 				call = `await tools.bash({ command: "printf 'metric=%s\\n' {1..400}" })`;
 				extract = 'r.output';
@@ -262,10 +294,13 @@ async function run_case(
 				call = 'await tools.mcp__fixture__metrics({})';
 				extract = 'r.content.map(c => c.text).join("\\n")';
 			}
+
 			code = `const r = ${call}; if (typeof r === 'string' && r.includes('[context-sidecar]')) { text(r); exit(); } const raw = ${extract}; ${summarize}`;
 		}
+
 		let output = await run(code);
 		const receipt_source = /Source: (ctx_\w+)/.exec(output)?.[1];
+
 		if (receipt_source) {
 			if (scenario === 'final-overflow') {
 				output = await run(
@@ -277,7 +312,9 @@ async function run_case(
 				);
 			}
 		}
+
 		let correct: boolean;
+
 		if (scenario === 'final-overflow')
 			correct = output.includes(
 				receipt_source ? '"found":true' : 'overflow-marker',
@@ -290,10 +327,12 @@ async function run_case(
 					? '"count":1000,"sum":500500'
 					: '"count":400,"sum":80200',
 			);
+
 		const stats =
 			variant === 'native-only'
 				? undefined
 				: sidecar.get_context_store().stats();
+
 		return {
 			variant,
 			scenario,
@@ -312,12 +351,14 @@ async function run_case(
 			variant === 'native-only'
 				? undefined
 				: sidecar.get_context_store();
+
 		await session.extensionRunner.emit({
 			type: 'session_shutdown',
 			reason: 'quit',
 		});
 		session.dispose();
 		store?.close();
+
 		for (const [key, value] of Object.entries({
 			MY_PI_CONTEXT_DB: previous_db,
 			MY_PI_CONTEXT_CONFIG: previous_config,
@@ -330,6 +371,7 @@ async function run_case(
 			if (value === undefined) delete process.env[key];
 			else process.env[key] = value;
 		}
+
 		rmSync(dir, { recursive: true, force: true });
 	}
 }
@@ -340,11 +382,14 @@ export async function run_codemode_benchmark(
 ) {
 	if (!Number.isInteger(runs) || runs < 1 || runs > 20)
 		throw new Error('runs must be an integer from 1 to 20');
+
 	const results: Array<CodemodeBenchmarkResult & { run: number }> =
 		[];
+
 	const variants: Variant[] = baseline_dir
 		? ['baseline', 'codemode-first', 'native-only']
 		: ['codemode-first', 'native-only'];
+
 	for (let run = 1; run <= runs; run++) {
 		for (const variant of variants) {
 			for (const scenario of scenarios)
@@ -354,6 +399,7 @@ export async function run_codemode_benchmark(
 				});
 		}
 	}
+
 	return {
 		version: 1,
 		runs,
@@ -371,19 +417,25 @@ if (
 	const baseline = process.argv.includes('--baseline')
 		? process.argv[process.argv.indexOf('--baseline') + 1]
 		: undefined;
+
 	if (process.argv.includes('--baseline') && !baseline)
 		throw new Error('--baseline requires a dist directory');
+
 	const runs = process.argv.includes('--runs')
 		? Number(process.argv[process.argv.indexOf('--runs') + 1])
 		: 3;
+
 	const report = await run_codemode_benchmark(
 		baseline ? resolve(baseline) : undefined,
 		runs,
 	);
+
 	const output = process.argv[process.argv.indexOf('--output') + 1];
+
 	if (process.argv.includes('--output') && output)
 		writeFileSync(output, JSON.stringify(report, null, 2) + '\n');
 	console.log(JSON.stringify(report, null, 2));
+
 	if (report.results.some((result) => !result.correct))
 		process.exitCode = 1;
 }

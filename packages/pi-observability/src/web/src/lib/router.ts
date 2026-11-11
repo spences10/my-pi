@@ -29,11 +29,15 @@ const SESSION_TABS: SessionTab[] = [
 // and the fragment carries the dashboard token.
 export function parse_route(url: URL): Route {
 	const view = url.searchParams.get('view');
+
 	if (view === 'sessions') return { name: 'sessions' };
+
 	if (view === 'tools') return { name: 'tools' };
 	const id = url.searchParams.get('session');
+
 	if (view === 'session' && id) {
 		const tab = url.searchParams.get('tab') as SessionTab | null;
+
 		return {
 			name: 'session',
 			id,
@@ -41,18 +45,24 @@ export function parse_route(url: URL): Route {
 			span: url.searchParams.get('span'),
 		};
 	}
+
 	return { name: 'overview' };
 }
 
 export function href(route: Route): string {
 	if (route.name === 'overview') return '/';
+
 	if (route.name !== 'session') return `/?view=${route.name}`;
+
 	const params = new URLSearchParams({
 		view: 'session',
 		session: route.id,
 	});
+
 	if (route.tab !== 'trace') params.set('tab', route.tab);
+
 	if (route.span) params.set('span', route.span);
+
 	return `/?${params}`;
 }
 
@@ -80,5 +90,6 @@ export function is_app_navigation(
 	)
 		return false;
 	const url = new URL(anchor.href);
+
 	return url.origin === origin && url.pathname === '/';
 }

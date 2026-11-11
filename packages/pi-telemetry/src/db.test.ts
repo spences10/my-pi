@@ -13,6 +13,7 @@ import { TelemetryDatabase } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEST_DB_PATH = join(__dirname, 'telemetry-test.db');
+
 const busy_error = Object.assign(new Error('database is locked'), {
 	code: 'ERR_SQLITE_ERROR',
 	errcode: 5,
@@ -33,6 +34,7 @@ describe('TelemetryDatabase', () => {
 		} catch {
 			// already closed in test
 		}
+
 		db = null;
 		rmSync(TEST_DB_PATH, { force: true });
 	});
@@ -50,16 +52,19 @@ describe('TelemetryDatabase', () => {
 		const version = db?.read_rows<{
 			user_version: number;
 		}>('PRAGMA user_version');
+
 		expect(version).toEqual([{ user_version: 1 }]);
 
 		const journal_mode = db?.read_rows<{
 			journal_mode: string;
 		}>('PRAGMA journal_mode');
+
 		expect(journal_mode).toEqual([{ journal_mode: 'wal' }]);
 
 		const busy_timeout = db?.read_rows<{
 			timeout: number;
 		}>('PRAGMA busy_timeout');
+
 		expect(busy_timeout).toEqual([{ timeout: 5000 }]);
 	});
 
@@ -67,6 +72,7 @@ describe('TelemetryDatabase', () => {
 		const run = vi.fn(() => {
 			throw busy_error;
 		});
+
 		(
 			db as unknown as { stmt_insert_run: { run: typeof run } }
 		).stmt_insert_run = {
@@ -168,6 +174,7 @@ describe('TelemetryDatabase', () => {
 		}>(
 			'SELECT id, model_provider, model_id, eval_case_id, success FROM runs',
 		);
+
 		expect(runs).toEqual([
 			{
 				id: 'run-1',
@@ -185,6 +192,7 @@ describe('TelemetryDatabase', () => {
 		}>(
 			'SELECT tool_call_id, partial_update_count, is_error FROM tool_calls',
 		);
+
 		expect(tool_calls).toEqual([
 			{
 				tool_call_id: 'tool-1',
@@ -207,6 +215,7 @@ describe('TelemetryDatabase', () => {
 			eval_attempt: null,
 			eval_suite: 'repeatable',
 		};
+
 		db!.insert_run(matching);
 		db!.insert_run({
 			...matching,
@@ -372,6 +381,7 @@ describe('TelemetryDatabase', () => {
 			success: number | null;
 			error_message: string | null;
 		}>("SELECT success, error_message FROM runs WHERE id = 'run-2'");
+
 		expect(rows).toEqual([
 			{
 				success: null,

@@ -16,13 +16,16 @@ export function build_sections(
 		'cost',
 		'dedupe',
 	];
+
 	return categories
 		.map((category) => {
 			const section = results.filter(
 				(result) => result.category === category,
 			);
+
 			const passed = section.filter((result) => result.passed).length;
 			const total = section.length;
+
 			return {
 				category,
 				passed,

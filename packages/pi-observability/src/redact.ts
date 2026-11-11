@@ -1,5 +1,6 @@
 const SECRET_KEY_RE =
 	/(api[_-]?key|authorization|bearer|client[_-]?secret|cookie|password|secret|token)/i;
+
 // Usage counters such as totalTokens, max_tokens, or tokenCount hold
 // numbers, not credentials.
 const TOKEN_COUNT_KEY_RE = /(tokens|token[_-]?count)$/i;
@@ -7,6 +8,7 @@ const TOKEN_COUNT_KEY_RE = /(tokens|token[_-]?count)$/i;
 export function is_secret_key(key: string): boolean {
 	return SECRET_KEY_RE.test(key) && !TOKEN_COUNT_KEY_RE.test(key);
 }
+
 const SECRET_VALUE_PATTERNS = [
 	/\b[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b/g,
 	/\b(?:sk|pk|ghp|github_pat|glpat|xox[baprs])-?[A-Za-z0-9_-]{20,}\b/g,
@@ -14,24 +16,30 @@ const SECRET_VALUE_PATTERNS = [
 
 export function redact_text(value: string): string {
 	let redacted = value;
+
 	for (const pattern of SECRET_VALUE_PATTERNS) {
 		redacted = redacted.replace(pattern, '[REDACTED]');
 	}
+
 	return redacted;
 }
 
 export function redact_value(value: unknown): unknown {
 	if (typeof value === 'string') return redact_text(value);
+
 	if (Array.isArray(value))
 		return value.map((item) => redact_value(item));
+
 	if (!value || typeof value !== 'object') return value;
 
 	const output: Record<string, unknown> = {};
+
 	for (const [key, item] of Object.entries(value)) {
 		output[key] = is_secret_key(key)
 			? '[REDACTED]'
 			: redact_value(item);
 	}
+
 	return output;
 }
 
@@ -48,7 +56,9 @@ export function truncate_json_value(
 	max_bytes: number,
 ): unknown {
 	const json = safe_json(value);
+
 	if (Buffer.byteLength(json, 'utf8') <= max_bytes) return value;
+
 	return {
 		truncated: true,
 		bytes: Buffer.byteLength(json, 'utf8'),

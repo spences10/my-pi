@@ -53,6 +53,7 @@ async function map_with_concurrency<T, R>(
 			while (true) {
 				const index = next_index;
 				next_index += 1;
+
 				if (index >= items.length) return;
 				results[index] = await mapper(items[index], index);
 			}
@@ -76,12 +77,16 @@ async function with_file_state(
 		ctx,
 		signal,
 	);
+
 	if (!resolved.ok) {
 		return make_tool_error(resolved.error);
 	}
+
 	const { result } = resolved;
+
 	try {
 		const output = await run(result);
+
 		return make_tool_result(
 			typeof output === 'string' ? output : output.text,
 			{
@@ -124,6 +129,7 @@ export async function run_diagnostics_many(
 				ctx,
 				signal,
 			);
+
 			if (!resolved.ok) {
 				return {
 					line: format_tool_error(resolved.error),
@@ -131,12 +137,14 @@ export async function run_diagnostics_many(
 					status: 'error' as const,
 				};
 			}
+
 			try {
 				const diagnostics =
 					await resolved.result.state.client.wait_for_diagnostics(
 						resolved.result.uri,
 						wait_ms,
 					);
+
 				if (!diagnostics) {
 					return {
 						line: format_missing_diagnostics(
@@ -147,6 +155,7 @@ export async function run_diagnostics_many(
 						status: 'incomplete' as const,
 					};
 				}
+
 				return {
 					line: format_diagnostics(resolved.result.abs, diagnostics),
 					diagnostics: diagnostics.length,
@@ -178,14 +187,17 @@ export async function run_diagnostics_many(
 	let error_count = 0;
 	let incomplete_count = 0;
 	const lines: string[] = [];
+
 	for (const entry of lines_with_stats) {
 		lines.push(entry.line);
+
 		if (entry.status === 'error') {
 			error_count += 1;
 		} else if (entry.status === 'incomplete') {
 			incomplete_count += 1;
 		} else {
 			diagnostic_count += entry.diagnostics;
+
 			if (entry.diagnostics === 0) clean_count += 1;
 		}
 	}
@@ -237,17 +249,20 @@ export function register_lsp_tools(
 					signal,
 					async (result) => {
 						const wait_ms = params.wait_ms ?? 1500;
+
 						const diagnostics =
 							await result.state.client.wait_for_diagnostics(
 								result.uri,
 								wait_ms,
 							);
+
 						if (!diagnostics) {
 							return {
 								text: format_missing_diagnostics(result.abs, wait_ms),
 								details: { ok: false, incomplete: true },
 							};
 						}
+
 						return format_diagnostics(result.abs, diagnostics);
 					},
 				),
@@ -334,6 +349,7 @@ export function register_lsp_tools(
 					async (result) => {
 						const symbols =
 							await result.state.client.document_symbols(result.uri);
+
 						return format_symbol_matches(
 							result.abs,
 							params.query,
@@ -379,6 +395,7 @@ export function register_lsp_tools(
 								character: params.character,
 							},
 						);
+
 						return format_hover(hover);
 					},
 				),
@@ -415,6 +432,7 @@ export function register_lsp_tools(
 								character: params.character,
 							},
 						);
+
 						return format_locations(
 							locations,
 							'No definition found.',
@@ -452,6 +470,7 @@ export function register_lsp_tools(
 							},
 							params.include_declaration ?? true,
 						);
+
 						return format_locations(
 							locations,
 							'No references found.',
@@ -484,6 +503,7 @@ export function register_lsp_tools(
 					async (result) => {
 						const symbols =
 							await result.state.client.document_symbols(result.uri);
+
 						return format_document_symbols(result.abs, symbols);
 					},
 				),

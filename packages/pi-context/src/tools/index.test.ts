@@ -8,6 +8,7 @@ describe('register_context_tools', () => {
 			name: string;
 			constrainedSampling?: unknown;
 		}> = [];
+
 		register_context_tools({
 			registerTool(tool: {
 				name: string;

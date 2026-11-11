@@ -21,24 +21,29 @@ const original_context_db = process.env.MY_PI_CONTEXT_DB;
 function temp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-lifecycle-'));
 	dirs.push(dir);
+
 	return join(dir, 'context.db');
 }
 
 function fake_pi() {
 	const hooks = new Map<string, HookHandler[]>();
+
 	const pi = {
 		on(name: string, handler: HookHandler) {
 			hooks.set(name, [...(hooks.get(name) ?? []), handler]);
 		},
 	} as unknown as ExtensionAPI;
+
 	return { pi, hooks };
 }
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+
 	if (original_context_db === undefined)
 		delete process.env.MY_PI_CONTEXT_DB;
 	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs.length = 0;
@@ -69,11 +74,13 @@ describe('register_context_lifecycle', () => {
 			process.env.MY_PI_CONTEXT_DB = temp_db();
 			const { pi, hooks } = fake_pi();
 			register_context_lifecycle(pi);
+
 			const event = {
 				toolName: 'bash',
 				isError: true,
 				content: [{ type: 'text', text: `failure-marker\n${text}` }],
 			};
+
 			const original = structuredClone(event);
 
 			expect(
@@ -94,6 +101,7 @@ describe('register_context_lifecycle', () => {
 			process.env.MY_PI_CONTEXT_DB = temp_db();
 			const { pi, hooks } = fake_pi();
 			register_context_lifecycle(pi);
+
 			const event = {
 				toolName,
 				parentToolCallId: 'script-1',
@@ -105,6 +113,7 @@ describe('register_context_lifecycle', () => {
 					truncated: false,
 				},
 			};
+
 			const original = structuredClone(event);
 			expect(
 				await hooks.get('tool_result')![0](event),
@@ -118,11 +127,13 @@ describe('register_context_lifecycle', () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
 		const { pi, hooks } = fake_pi();
 		register_context_lifecycle(pi);
+
 		const image = {
 			type: 'image',
 			data: 'eA==',
 			mimeType: 'image/png',
 		};
+
 		const result = (await hooks.get('tool_result')![0]({
 			toolName: 'codemode',
 			content: [
@@ -130,6 +141,7 @@ describe('register_context_lifecycle', () => {
 				image,
 			],
 		})) as { content: unknown[] };
+
 		expect(result.content).toContainEqual(image);
 		expect(
 			get_context_store().search('final-marker', { global: true }),
@@ -173,9 +185,11 @@ describe('register_context_lifecycle', () => {
 		});
 		const store = get_context_store();
 		const source = store.list({ global: true })[0]!;
+
 		const text = store.export_content(source.source_id, undefined, {
 			global: true,
 		}).content;
+
 		expect(text).toContain('[REDACTED:');
 		expect(text).not.toContain('synthetic-benchmark-secret');
 	});

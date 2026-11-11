@@ -14,8 +14,10 @@ export function is_text_content(
 
 export function summarize_tool_input(input: unknown): string | null {
 	if (!input || typeof input !== 'object') return null;
+
 	try {
 		const json = JSON.stringify(input);
+
 		return json.length > 500 ? `${json.slice(0, 497)}...` : json;
 	} catch {
 		return null;
@@ -38,6 +40,7 @@ export function session_id_from_context(
 	ctx?: Pick<ExtensionCommandContext, 'sessionManager'>,
 ): string | null {
 	const manager = ctx?.sessionManager;
+
 	return (
 		manager?.getSessionFile?.() ?? manager?.getSessionId?.() ?? null
 	);

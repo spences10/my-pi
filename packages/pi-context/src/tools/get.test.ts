@@ -26,6 +26,7 @@ type RegisteredTool = {
 function temp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-get-'));
 	dirs.push(dir);
+
 	return join(dir, 'context.db');
 }
 
@@ -36,14 +37,17 @@ function register_tool(): RegisteredTool {
 			tool = value;
 		},
 	} as unknown as ExtensionAPI);
+
 	return tool!;
 }
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+
 	if (original_context_db === undefined)
 		delete process.env.MY_PI_CONTEXT_DB;
 	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs.length = 0;
@@ -55,11 +59,13 @@ describe('context_get tool', () => {
 		set_context_sidecar_enabled(true, {
 			db_path: process.env.MY_PI_CONTEXT_DB,
 		});
+
 		const stored = get_context_store().store({
 			text: `get-token\n${'x '.repeat(400)}`,
 			tool_name: 'bash',
 			force: true,
 		});
+
 		const tool = register_tool();
 
 		expect(tool.description).toContain('source_id plus chunk_id');
@@ -76,6 +82,7 @@ describe('context_get tool', () => {
 			source_id: stored!.source_id,
 			global: true,
 		});
+
 		expect(found.content[0].text).toContain('get-token');
 		expect(found.details).toMatchObject({ count: 1 });
 
@@ -84,6 +91,7 @@ describe('context_get tool', () => {
 			chunk_id: 'missing',
 			global: true,
 		});
+
 		expect(missing.content[0].text).toContain('No chunk found');
 		expect(missing.details).toMatchObject({ count: 0 });
 	});

@@ -15,6 +15,7 @@ import { diagnostic_error } from './diagnostics.js';
 import type { WorkerInfo, WorkerManager } from './manager.js';
 
 type WorkerControls = Pick<WorkerManager, 'list' | 'send' | 'stop'>;
+
 type WorkerAction = 'send' | 'stop' | 'refresh';
 
 function can_send(worker: WorkerInfo): boolean {
@@ -70,11 +71,14 @@ async function pick_worker(
 						noMatch: (text) => theme.fg('warning', text),
 					},
 				);
+
 			let max_visible = 0;
 			let list = make_list(1);
+
 			return {
 				render(width) {
 					const budget = layout.get_max_body_lines(width);
+
 					const visible = Math.max(
 						1,
 						Math.min(
@@ -86,6 +90,7 @@ async function pick_worker(
 									: 0),
 						),
 					);
+
 					if (visible !== max_visible) {
 						const selected = list.getSelectedItem()?.value;
 						list = make_list(visible);
@@ -99,6 +104,7 @@ async function pick_worker(
 						list.onCancel = () => done(undefined);
 						max_visible = visible;
 					}
+
 					return list.render(width);
 				},
 				invalidate: () => list.invalidate(),
@@ -134,10 +140,12 @@ async function show_details(
 		},
 		({ done }, theme, layout, tui) => {
 			const keybindings = getKeybindings();
+
 			const scroll = new ScrollView(
 				new Text(worker_details(worker), 0, 0),
 				{ scrollbar: 'hidden' },
 			);
+
 			return {
 				render(width) {
 					const lines = scroll.render(width);
@@ -146,10 +154,12 @@ async function show_details(
 					scroll.updateLayout(lines.length, height, () =>
 						tui.requestRender(),
 					);
+
 					const end = Math.min(
 						lines.length,
 						scroll.scrollTop + height,
 					);
+
 					return [
 						...lines.slice(scroll.scrollTop, end),
 						...(lines.length > height && budget > 1
@@ -190,45 +200,61 @@ export async function show_workers(
 	manager: WorkerControls,
 ): Promise<void> {
 	let selected_id: string | undefined;
+
 	while (true) {
 		const workers = manager.list();
+
 		if (!workers.length) {
 			ctx.ui.notify('No owned workers in this session.', 'info');
+
 			return;
 		}
+
 		if (!selected_id) {
 			const selected = await pick_worker(ctx, workers);
+
 			if (selected === undefined) return;
+
 			if (selected === null) continue;
 			selected_id = selected;
 		}
+
 		const worker = manager
 			.list()
 			.find((info) => info.id === selected_id);
+
 		if (!worker) {
 			selected_id = undefined;
 			continue;
 		}
+
 		const action = await show_details(ctx, worker);
+
 		if (!action) {
 			selected_id = undefined;
 			continue;
 		}
+
 		const name = stripVTControlCharacters(worker.name);
+
 		try {
 			if (action === 'send') {
 				const message = await show_input_modal(ctx, {
 					title: `Send / steer ${name}`,
 					label: 'Message for the selected worker',
 				});
+
 				if (!message?.trim()) continue;
+
 				const current = manager
 					.list()
 					.find((info) => info.id === worker.id);
+
 				if (!current || !can_send(current)) {
 					ctx.ui.notify('Worker is no longer running.', 'warning');
 					continue;
 				}
+
 				await manager.send(worker.id, message);
 				ctx.ui.notify(`Message sent to ${name}.`, 'info');
 			} else if (

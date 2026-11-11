@@ -10,9 +10,11 @@ const SCHEMA = readFileSync(
 	new URL('./schema.sql', import.meta.url),
 	'utf8',
 );
+
 const LATEST_CONTEXT_SCHEMA_VERSION = 1;
 const PERSISTENT_PRAGMAS = SQLITE_PERSISTENT_PRAGMAS;
 const CONNECTION_PRAGMAS = SQLITE_CONNECTION_PRAGMAS;
+
 const MIGRATIONS: Record<number, string> = {
 	1: SCHEMA,
 };
@@ -21,6 +23,7 @@ function get_user_version(db: DatabaseSync): number {
 	const row = db.prepare('PRAGMA user_version').get() as {
 		user_version: number;
 	};
+
 	return row.user_version;
 }
 
@@ -29,6 +32,7 @@ export function apply_schema(db: DatabaseSync): void {
 	db.exec(CONNECTION_PRAGMAS);
 
 	const current_version = get_user_version(db);
+
 	if (current_version > LATEST_CONTEXT_SCHEMA_VERSION) {
 		db.close();
 		throw new Error(
@@ -42,6 +46,7 @@ export function apply_schema(db: DatabaseSync): void {
 		next_version++
 	) {
 		const migration = MIGRATIONS[next_version];
+
 		if (!migration) {
 			db.close();
 			throw new Error(

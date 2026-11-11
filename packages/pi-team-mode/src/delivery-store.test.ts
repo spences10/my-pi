@@ -8,13 +8,16 @@ import { execute_coordination_action } from './tools/coordination-actions.js';
 
 const databases: TeamDatabase[] = [];
 const dirs: string[] = [];
+
 async function setup() {
 	const dir = mkdtempSync(join(tmpdir(), 'team-delivery-test-'));
 	dirs.push(dir);
 	const db = await TeamDatabase.open(join(dir, 'coordination.db'));
 	databases.push(db);
+
 	for (const id of ['sender', 'receiver', 'other'])
 		db.register_session({ session_id: id, cwd: '/repo' });
+
 	const send = (
 		extra: Partial<Parameters<TeamDatabase['send_message']>[0]> = {},
 	) =>
@@ -26,16 +29,20 @@ async function setup() {
 			body: 'hello',
 			...extra,
 		});
+
 	const context = {
 		ctx: { cwd: '/repo' },
 		coordination_db: db,
 		notify_coordination_messages: async () => {},
 		require_session_id: () => 'receiver',
 	};
+
 	return { db, dir, send, context };
 }
+
 afterEach(() => {
 	for (const db of databases.splice(0)) db.close();
+
 	for (const dir of dirs.splice(0))
 		rmSync(dir, { recursive: true, force: true });
 });
@@ -43,14 +50,18 @@ afterEach(() => {
 describe('retry-safe messages', () => {
 	it('atomically reuses one message, receipt, event, and timestamp for repeated keys across connections', async () => {
 		const { db, dir, send } = await setup();
+
 		const first = send({
 			idempotency_key: 'delivery-1',
 			ttl_ms: 60_000,
 		});
+
 		const second_db = await TeamDatabase.open(
 			join(dir, 'coordination.db'),
 		);
+
 		databases.push(second_db);
+
 		const second = second_db.send_message({
 			from_session_id: 'sender',
 			to_session_ids: ['receiver', 'receiver'],
@@ -60,6 +71,7 @@ describe('retry-safe messages', () => {
 			idempotency_key: 'delivery-1',
 			ttl_ms: 60_000,
 		});
+
 		expect(second).toEqual(first);
 		db.mark_messages_acknowledged('receiver', [first.message_id]);
 		expect(
@@ -82,6 +94,7 @@ describe('retry-safe messages', () => {
 	it('rejects changed payloads and recipients without modifying the original message', async () => {
 		const { db, send } = await setup();
 		const original = send({ idempotency_key: 'same' });
+
 		for (const extra of [
 			{ body: 'changed' },
 			{ urgent: true },
@@ -99,12 +112,14 @@ describe('retry-safe messages', () => {
 
 	it('never deduplicates unkeyed sends or keys from different senders', async () => {
 		const { send } = await setup();
+
 		const ids = [
 			send(),
 			send(),
 			send({ idempotency_key: 'key' }),
 			send({ from_session_id: 'other', idempotency_key: 'key' }),
 		].map((message) => message.message_id);
+
 		expect(new Set(ids).size).toBe(4);
 	});
 
@@ -125,19 +140,23 @@ describe('retry-safe messages', () => {
 
 	it('forwards send options through both direct and group tools', async () => {
 		const { db, context } = await setup();
+
 		const sender_context = {
 			...context,
 			require_session_id: () => 'sender',
 		};
+
 		const group = db.create_group({
 			name: 'workers',
 			cwd: '/repo',
 			created_by_session_id: 'sender',
 		});
+
 		db.add_group_member({
 			group_id: group.group_id,
 			session_id: 'receiver',
 		});
+
 		for (const params of [
 			{ action: 'session_send' as const, to: 'receiver' },
 			{ action: 'group_send' as const, team_id: group.group_id },
@@ -163,6 +182,7 @@ describe('retry-safe messages', () => {
 				sender_context,
 			);
 		}
+
 		expect(db.list_inbox('receiver')).toHaveLength(2);
 		expect(
 			db
@@ -182,25 +202,32 @@ describe('surfacing is not completion', () => {
 		async (action) => {
 			const { db, send, context } = await setup();
 			const message = send();
+
 			const result = await execute_coordination_action(
 				{ action, timeout_ms: 0 },
 				context,
 			);
+
 			expect(result.content[0]?.text).toContain('hello');
+
 			const receipt = db.list_inbox('receiver', {
 				include_read: true,
 			})[0]!;
+
 			expect(receipt.delivered_at).toBeDefined();
 			expect(receipt.read_at).toBeUndefined();
 			expect(receipt.acknowledged_at).toBeUndefined();
+
 			const poller = new CoordinationPoller({
 				db,
 				get_session_id: () => 'receiver',
 				should_auto_inject_messages: () => true,
 			});
+
 			const pi = { sendMessage: vi.fn() };
 			poller.poll(pi);
 			expect(pi.sendMessage).not.toHaveBeenCalled();
+
 			const full = await execute_coordination_action(
 				{
 					action: 'session_inbox',
@@ -209,17 +236,21 @@ describe('surfacing is not completion', () => {
 				},
 				context,
 			);
+
 			expect(full.content[0]?.text).toContain('hello');
 		},
 	);
 
 	it('marks only a surfaced inbox page, keeping offset pagination stable', async () => {
 		const { db, send, context } = await setup();
+
 		for (let i = 0; i < 25; i++) send({ body: `message-${i}` });
+
 		const page = await execute_coordination_action(
 			{ action: 'session_inbox', limit: 5, offset: 10 },
 			context,
 		);
+
 		expect(page.details).toMatchObject({
 			total_count: 25,
 			returned_count: 5,
@@ -228,10 +259,12 @@ describe('surfacing is not completion', () => {
 		expect(
 			db.list_inbox('receiver', { undelivered_only: true }),
 		).toHaveLength(20);
+
 		const next = await execute_coordination_action(
 			{ action: 'session_inbox', limit: 5, offset: 15 },
 			context,
 		);
+
 		expect(next.details).toMatchObject({
 			total_count: 25,
 			returned_count: 5,
@@ -247,10 +280,12 @@ describe('surfacing is not completion', () => {
 		const ack = send();
 		db.mark_messages_read('receiver', [read.message_id]);
 		db.mark_messages_acknowledged('receiver', [ack.message_id]);
+
 		const receipts = db.list_inbox('receiver', {
 			include_read: true,
 			include_acknowledged: true,
 		});
+
 		expect(
 			receipts.every(
 				(message) => !!message.delivered_at && !!message.read_at,

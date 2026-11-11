@@ -31,6 +31,7 @@ describe('render_footer_status_line', () => {
 			[],
 			'prompt:terse',
 		);
+
 		expect(line).toContain('prompt:terse');
 		expect(line?.startsWith(' ')).toBe(true);
 	});

@@ -25,7 +25,9 @@ const state = vi.hoisted(() => ({
 	stop: vi.fn(),
 	show_workers: vi.fn(),
 }));
+
 vi.mock('./tui.js', () => ({ show_workers: state.show_workers }));
+
 vi.mock('./manager.js', () => ({
 	child_env: 'MY_PI_WORKER_CHILD',
 	WorkerManager: class {
@@ -44,6 +46,7 @@ vi.mock('./manager.js', () => ({
 
 let directory: string;
 const shutdowns: Function[] = [];
+
 beforeEach(() => {
 	directory = mkdtempSync(join(tmpdir(), 'workers-extension-'));
 	vi.stubEnv(
@@ -75,6 +78,7 @@ async function setup(
 	const send_message = vi.fn();
 	const register_message_renderer = vi.fn();
 	const active_tools = ['workers'];
+
 	const pi = {
 		on: (name: string, handler: Function) =>
 			events.set(name, handler),
@@ -87,6 +91,7 @@ async function setup(
 		sendMessage: send_message,
 		registerMessageRenderer: register_message_renderer,
 	} as unknown as ExtensionAPI;
+
 	const ctx = {
 		cwd: directory,
 		isIdle: () => true,
@@ -99,6 +104,7 @@ async function setup(
 		},
 		ui: { confirm, input, select, notify },
 	} as unknown as ExtensionContext;
+
 	workers(pi);
 	await events.get('session_start')?.({}, ctx);
 	state.options?.on_started?.({
@@ -108,8 +114,10 @@ async function setup(
 		cwd: directory,
 		status: 'idle',
 	});
+
 	if (events.has('session_shutdown'))
 		shutdowns.push(events.get('session_shutdown')!);
+
 	return {
 		events,
 		tools,
@@ -265,6 +273,7 @@ describe('worker extension', () => {
 	it('serializes dialogs and explicitly cancels dismissed inputs', async () => {
 		const { input } = await setup();
 		const respond = vi.fn();
+
 		for (const id of ['first', 'second'])
 			state.options!.on_ui(
 				'owned',
@@ -384,9 +393,11 @@ describe('worker extension', () => {
 			expect(report.content).not.toContain(secret);
 			expect(report.content).toContain('[REDACTED:');
 			expect(JSON.stringify(report.details)).not.toContain(secret);
+
 			const db = await TeamDatabase.open(
 				process.env.MY_PI_COORDINATION_DB!,
 			);
+
 			try {
 				const stored = db.list_inbox('parent')[0];
 				expect(stored.body).not.toContain(secret);
@@ -394,6 +405,7 @@ describe('worker extension', () => {
 			} finally {
 				db.close();
 			}
+
 			expect(report.details).toMatchObject({
 				authority: 'peer-only',
 				direct_user_authority: false,
@@ -404,7 +416,9 @@ describe('worker extension', () => {
 	it('pauses completion notifications without stopping workers or losing results, and resumes without a backlog', async () => {
 		const { commands, ctx, events, send_message, tools } =
 			await setup();
+
 		await commands.get('workers')!.handler('pause', ctx);
+
 		const complete = () =>
 			state.options!.on_complete({
 				id: 'owned',
@@ -414,6 +428,7 @@ describe('worker extension', () => {
 				status: 'idle',
 				result: 'saved result',
 			});
+
 		complete();
 		expect(send_message).not.toHaveBeenCalled();
 		expect(state.stop).not.toHaveBeenCalled();
@@ -436,9 +451,11 @@ describe('worker extension', () => {
 		).toBeUndefined();
 		complete();
 		expect(send_message).toHaveBeenCalledTimes(1);
+
 		const db = await TeamDatabase.open(
 			process.env.MY_PI_COORDINATION_DB!,
 		);
+
 		try {
 			expect(db.list_inbox('parent')).toHaveLength(2);
 		} finally {
@@ -458,9 +475,11 @@ describe('worker extension', () => {
 			result: 'done',
 		});
 		expect(send_message).not.toHaveBeenCalled();
+
 		const db = await TeamDatabase.open(
 			process.env.MY_PI_COORDINATION_DB!,
 		);
+
 		try {
 			expect(db.list_auto_inbox('parent')).toHaveLength(1);
 		} finally {
@@ -470,9 +489,11 @@ describe('worker extension', () => {
 
 	it('retains late completion after collaboration closure without waking the parent', async () => {
 		const { send_message } = await setup();
+
 		const db = await TeamDatabase.open(
 			process.env.MY_PI_COORDINATION_DB!,
 		);
+
 		try {
 			db.delivery.close_group(state.options!.group_id!, 'parent');
 			const next_group = state.options!.get_group_id!();
@@ -483,6 +504,7 @@ describe('worker extension', () => {
 		} finally {
 			db.close();
 		}
+
 		state.options!.on_complete({
 			id: 'owned',
 			session_id: 'worker',
@@ -509,6 +531,7 @@ describe('worker extension', () => {
 			],
 			process.execPath,
 		);
+
 		expect(launch.args).toEqual([
 			import.meta.filename,
 			'-e',

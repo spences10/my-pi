@@ -3,6 +3,7 @@ import type { GitFile } from './types.js';
 
 export function git_path(file: GitFile): string {
 	const arrow = ' → ';
+
 	return file.path.includes(arrow)
 		? file.path.split(arrow).at(-1)!
 		: file.path;
@@ -31,11 +32,13 @@ export async function toggle_file(
 			'Partial file: space is disabled. Use s to stage worktree changes or x to unstage staged changes.',
 		);
 	}
+
 	if (file.state === 'conflicted') {
 		throw new Error(
 			'Conflicted file: resolve conflicts, then stage explicitly with s.',
 		);
 	}
+
 	if (file.state === 'staged') await unstage_file(cwd, file);
 	else await stage_file(cwd, file);
 }
@@ -53,6 +56,7 @@ export async function discard_file(
 	file: GitFile,
 ): Promise<void> {
 	const path = git_path(file);
+
 	if (file.state === 'untracked')
 		await git(['clean', '-f', '--', path], cwd);
 	else await git(['restore', '--worktree', '--', path], cwd);
@@ -64,6 +68,7 @@ export async function commit(
 	options: { amend?: boolean } = {},
 ): Promise<void> {
 	const args = ['commit'];
+
 	if (options.amend) args.push('--amend');
 	args.push('-m', message);
 	await git(args, cwd);

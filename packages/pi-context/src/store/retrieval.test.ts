@@ -16,6 +16,7 @@ function create_store(): ContextStore {
 describe('context store retrieval helpers', () => {
 	it('summarizes chunks and resolves numeric chunk references', () => {
 		const store = create_store();
+
 		const stored = store.store({
 			text: `needle-retrieval\n${'x '.repeat(5000)}`,
 			tool_name: 'bash',
@@ -25,6 +26,7 @@ describe('context store retrieval helpers', () => {
 			store,
 			stored!.source_id,
 		);
+
 		expect(summary?.chunk_count).toBe(stored!.chunk_count);
 		expect(summary?.first_chunk_id).toBe(stored!.first_chunk_id);
 

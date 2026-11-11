@@ -19,7 +19,9 @@ export function themed_text(
 	text: string,
 ): string {
 	if (tone === 'bright') return theme.fg(FOOTER_COLORS.accent, text);
+
 	if (tone === 'balanced') return text;
+
 	return theme.fg(FOOTER_COLORS.muted, text);
 }
 

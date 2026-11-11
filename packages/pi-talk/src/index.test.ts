@@ -13,14 +13,17 @@ import talk, { write_talk_secrets } from './index.js';
 vi.mock('@earendil-works/pi-coding-agent', () => ({
 	getAgentDir: vi.fn(),
 }));
+
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
 
 const temporary_dirs: string[] = [];
+
 afterEach(() => {
 	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	vi.unstubAllEnvs();
 	vi.clearAllMocks();
+
 	for (const dir of temporary_dirs.splice(0))
 		rmSync(dir, { recursive: true, force: true });
 });
@@ -46,6 +49,7 @@ function setup_extension(enabled = true) {
 		state.ctx,
 	);
 	const input = state.ui.onTerminalInput.mock.calls[0]?.[0];
+
 	return {
 		...state,
 		command: (action: string) =>
@@ -55,6 +59,7 @@ function setup_extension(enabled = true) {
 		start_hold: () => {
 			for (const delay of [0, 500, 30]) {
 				vi.advanceTimersByTime(delay);
+
 				if (!input?.(' ')?.consume) state.editor.handleInput(' ');
 			}
 		},
@@ -69,10 +74,12 @@ describe('Talk integration', () => {
 	it('keeps fast typing intact through the registered terminal listener', () => {
 		vi.useFakeTimers();
 		const { input, editor, ui, shutdown } = setup_extension();
+
 		for (const key of 'hello world next ') {
 			if (!input?.(key)?.consume) editor.handleInput(key);
 			vi.advanceTimersByTime(30);
 		}
+
 		expect(editor.getText()).toBe('hello world next ');
 		expect(ui.setEditorText).not.toHaveBeenCalled();
 		expect(spawn).not.toHaveBeenCalled();
@@ -81,8 +88,10 @@ describe('Talk integration', () => {
 
 	it('records with raw Space, preserving edits while transcribing', () => {
 		vi.useFakeTimers();
+
 		const { start_hold, editor, registerShortcut, shutdown } =
 			setup_extension();
+
 		editor.setText('hello');
 		start_hold();
 		const socket = FakeSocket.instances[0];
@@ -107,8 +116,10 @@ describe('Talk integration', () => {
 
 	it('disabling Talk cancels recording and ignores a late transcript', async () => {
 		vi.useFakeTimers();
+
 		const { start_hold, command, editor, recorder, ui, shutdown } =
 			setup_extension();
+
 		start_hold();
 		const socket = FakeSocket.instances[0];
 		await command('off');

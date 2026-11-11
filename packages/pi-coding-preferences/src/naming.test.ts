@@ -100,6 +100,7 @@ describe('syntax-aware naming', () => {
 			'<p>const badName = 1;</p><!-- function badName() {} -->',
 			'Example.svelte',
 		);
+
 		for (const context of ['', ' module']) {
 			expect(() =>
 				check(
@@ -170,6 +171,7 @@ describe('syntax-aware naming', () => {
 			functions: false,
 			types: false,
 		});
+
 		if (custom === false) throw new Error('Missing custom policy');
 		assert_naming(
 			'example.ts',
@@ -190,9 +192,11 @@ describe('syntax-aware naming', () => {
 		expect(() => resolve_naming_config([] as never)).toThrow(
 			'must be an object or false',
 		);
+
 		const function_policy = resolve_naming_config({
 			functions: 'PascalCase',
 		});
+
 		if (function_policy === false)
 			throw new Error('Missing function policy');
 		assert_naming(

@@ -21,10 +21,12 @@ import { EXTENSIONS } from './extensions.js';
 
 const dirs: string[] = [];
 const original_agent_dir = process.env.PI_CODING_AGENT_DIR;
+
 afterEach(() => {
 	if (original_agent_dir === undefined)
 		delete process.env.PI_CODING_AGENT_DIR;
 	else process.env.PI_CODING_AGENT_DIR = original_agent_dir;
+
 	for (const dir of dirs.splice(0))
 		rmSync(dir, { recursive: true, force: true });
 });
@@ -34,18 +36,21 @@ describe('Pi prompt compatibility', () => {
 		const root = mkdtempSync(join(tmpdir(), 'my-pi-native-skills-'));
 		dirs.push(root);
 		process.env.PI_CODING_AGENT_DIR = root;
+
 		const package_path = fileURLToPath(
 			new URL(
 				'../',
 				import.meta.resolve('@spences10/pi-tool-guidance'),
 			),
 		);
+
 		const loader = new DefaultResourceLoader({
 			cwd: root,
 			agentDir: root,
 			noContextFiles: true,
 			additionalExtensionPaths: [package_path],
 		});
+
 		await loader.reload();
 		expect(loader.getExtensions().errors).toEqual([]);
 		expect(loader.getSkills().diagnostics).toEqual([]);
@@ -81,6 +86,7 @@ describe('Pi prompt compatibility', () => {
 				join(agentDir, 'APPEND_SYSTEM.md'),
 				'USER_APPEND_MARKER',
 			);
+
 			const keys = [
 				'tool-guidance',
 				'lsp',
@@ -88,7 +94,9 @@ describe('Pi prompt compatibility', () => {
 				'team-mode',
 				'harness',
 			];
+
 			if (reverse) keys.reverse();
+
 			const factories: InlineExtension[] = await Promise.all(
 				keys.map(async (key) => ({
 					name: key,
@@ -97,6 +105,7 @@ describe('Pi prompt compatibility', () => {
 					)!.load(),
 				})),
 			);
+
 			let rendered = '';
 			factories.push({
 				name: 'late-section-probe',
@@ -108,16 +117,19 @@ describe('Pi prompt compatibility', () => {
 					});
 				},
 			});
+
 			const loader = new DefaultResourceLoader({
 				cwd,
 				agentDir,
 				extensionFactories: factories,
 				noContextFiles: true,
 			});
+
 			await loader.reload();
 			const loaded = loader.getExtensions();
 			expect(loaded.errors).toEqual([]);
 			loaded.runtime.getAllTools = () => [];
+
 			const runner = new ExtensionRunner(
 				loaded.extensions,
 				loaded.runtime,
@@ -125,8 +137,10 @@ describe('Pi prompt compatibility', () => {
 				SessionManager.inMemory(cwd),
 				{} as ModelRegistry,
 			);
+
 			const errors: unknown[] = [];
 			runner.onError((error) => errors.push(error));
+
 			try {
 				const result = await runner.emitBeforeAgentStart(
 					{
@@ -152,10 +166,12 @@ describe('Pi prompt compatibility', () => {
 						},
 					},
 				);
+
 				expect(errors).toEqual([]);
 				expect(
 					result.systemPromptOptions.forceSystemPrompt,
 				).toBeUndefined();
+
 				for (const text of [
 					'USER_SYSTEM_MARKER',
 					'USER_APPEND_MARKER',
@@ -169,6 +185,7 @@ describe('Pi prompt compatibility', () => {
 					'LATE_SECTION_MARKER',
 				])
 					expect(rendered).toContain(text);
+
 				for (const key of [
 					'lsp',
 					'session_recall',

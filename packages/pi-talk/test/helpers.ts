@@ -56,15 +56,18 @@ export class FakeSocket {
 export function setup_dictation() {
 	FakeSocket.instances = [];
 	vi.stubGlobal('WebSocket', FakeSocket);
+
 	const recorder = Object.assign(new EventEmitter(), {
 		stdout: new EventEmitter(),
 		stderr: { resume: vi.fn() },
 		kill: vi.fn(),
 	});
+
 	vi.mocked(spawn).mockReturnValue(
 		recorder as unknown as ReturnType<typeof spawn>,
 	);
 	const editor = create_editor();
+
 	const ui = {
 		getEditorText: () => editor.getText(),
 		setEditorText: vi.fn((text: string) => editor.setText(text)),
@@ -74,7 +77,9 @@ export function setup_dictation() {
 			vi.fn(),
 		),
 	};
+
 	const ctx = { mode: 'tui', ui } as unknown as ExtensionContext;
+
 	return {
 		dictation: new Dictation(ctx, () => 'test-key'),
 		editor,

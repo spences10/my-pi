@@ -8,8 +8,10 @@ function setup() {
 		on_start: vi.fn(() => true),
 		on_stop: vi.fn(),
 	};
+
 	const hold = new HoldSpace(callbacks);
 	const editor = create_editor();
+
 	return {
 		hold,
 		callbacks,
@@ -29,10 +31,12 @@ describe('HoldSpace', () => {
 		(delay) => {
 			vi.useFakeTimers();
 			const { input, editor, callbacks } = setup();
+
 			for (const key of 'hello world  next ') {
 				input(key);
 				vi.advanceTimersByTime(delay);
 			}
+
 			expect(editor.getText()).toBe('hello world  next ');
 			expect(callbacks.on_start).not.toHaveBeenCalled();
 		},
@@ -73,6 +77,7 @@ describe('HoldSpace', () => {
 	it('cancels raw candidates on typing, navigation and paste', () => {
 		vi.useFakeTimers();
 		const { input, callbacks } = setup();
+
 		for (const other of [
 			'x',
 			'\u001b[D',
@@ -86,6 +91,7 @@ describe('HoldSpace', () => {
 			input(' ');
 			vi.advanceTimersByTime(200);
 		}
+
 		expect(callbacks.on_start).not.toHaveBeenCalled();
 	});
 

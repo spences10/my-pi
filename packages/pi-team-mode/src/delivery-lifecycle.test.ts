@@ -22,6 +22,7 @@ vi.mock('./coordination-broker.js', () => ({
 }));
 
 const cleanup: (() => Promise<void>)[] = [];
+
 afterEach(async () => {
 	for (const run of cleanup.splice(0)) await run();
 	vi.unstubAllEnvs();
@@ -35,16 +36,20 @@ async function setup(reconcile = false) {
 	vi.stubEnv('MY_PI_COORDINATION_DB', path);
 	vi.stubEnv('MY_PI_TEAM_AUTO_INJECT_MESSAGES', 'true');
 	const db = await TeamDatabase.open(path);
+
 	for (const id of ['sender', 'receiver'])
 		db.register_session({ session_id: id, cwd: '/repo' });
+
 	const group = db.create_group({
 		name: 'test',
 		created_by_session_id: 'sender',
 	});
+
 	db.add_group_member({
 		group_id: group.group_id,
 		session_id: 'receiver',
 	});
+
 	const send = (status = false) =>
 		db.send_message({
 			from_session_id: 'sender',
@@ -55,6 +60,7 @@ async function setup(reconcile = false) {
 			message_type: status ? 'status' : 'action',
 			status_key: status ? 'build' : undefined,
 		});
+
 	const historical = reconcile
 		? create_peer_message_delivery('receiver', [
 				{
@@ -64,8 +70,10 @@ async function setup(reconcile = false) {
 				},
 			])
 		: undefined;
+
 	const handlers = new Map<string, (...args: never[]) => unknown>();
 	const isIdle = vi.fn(() => true);
+
 	const ctx = {
 		cwd: '/repo',
 		isIdle,
@@ -76,6 +84,7 @@ async function setup(reconcile = false) {
 				historical ? [{ type: 'custom_message', ...historical }] : [],
 		},
 	} as unknown as ExtensionContext;
+
 	const pi = {
 		on: vi.fn(
 			(name: string, handler: (...args: never[]) => unknown) => {
@@ -89,8 +98,10 @@ async function setup(reconcile = false) {
 		registerMessageRenderer: vi.fn(),
 		sendMessage: vi.fn(),
 	};
+
 	const emit = async (name: string, event: unknown = {}) =>
 		handlers.get(name)?.(event as never, ctx as never);
+
 	await team_mode(pi as unknown as ExtensionAPI);
 	cleanup.push(async () => {
 		await emit('session_shutdown');
@@ -98,6 +109,7 @@ async function setup(reconcile = false) {
 		rmSync(dir, { recursive: true, force: true });
 	});
 	await emit('session_start');
+
 	return { db, send, emit, isIdle, pi, handlers, historical };
 }
 
@@ -138,10 +150,12 @@ describe('upstream Team Mode lifecycle integration', () => {
 		const last = send(true);
 		vi.advanceTimersByTime(1000);
 		expect(pi.sendMessage).not.toHaveBeenCalled();
+
 		const result = (await emit(
 			'before_agent_start',
 			user_start(),
 		)) as BeforeAgentStartEventResult;
+
 		expect(result.message?.content).toContain('Build running');
 		await emit('message_end', {
 			message: { role: 'custom', ...result.message },
@@ -176,6 +190,7 @@ describe('upstream Team Mode lifecycle integration', () => {
 			outcome: 'completed',
 			context: { canContinue: false },
 		})) as AgentBeforeSettleEventResult;
+
 		expect(result.continue).toBe(true);
 		expect(result.entries).toHaveLength(1);
 		expect(result.entries?.[0]).toMatchObject({
@@ -196,10 +211,12 @@ describe('upstream Team Mode lifecycle integration', () => {
 		send();
 		vi.advanceTimersByTime(2000);
 		expect(pi.sendMessage).not.toHaveBeenCalled();
+
 		const result = (await emit(
 			'before_agent_start',
 			user_start(),
 		)) as BeforeAgentStartEventResult;
+
 		expect(result.message?.content).toContain('Review required');
 	});
 

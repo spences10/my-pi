@@ -15,6 +15,7 @@ function fixture(mode = 'tui') {
 		appendEntry,
 		registerEntryRenderer,
 	} as unknown as ExtensionAPI);
+
 	const ctx = {
 		mode,
 		ui: {
@@ -22,6 +23,7 @@ function fixture(mode = 'tui') {
 			theme: { fg: (_color: string, text: string) => text },
 		},
 	};
+
 	return {
 		events,
 		ctx,
@@ -142,6 +144,7 @@ describe('turn timer', () => {
 				.render(80)
 				.join(''),
 		).toContain('Stopped in 1.2s');
+
 		for (const data of [
 			undefined,
 			{},

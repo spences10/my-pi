@@ -7,6 +7,7 @@
 
 	const label = $derived.by(() => {
 		if (!live.connected) return 'Offline';
+
 		return live.paused ? 'Paused' : 'Live';
 	});
 </script>

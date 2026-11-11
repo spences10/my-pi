@@ -16,11 +16,13 @@ const storage_key = 'pi-observability-range';
 function read_range(): RangeKey {
 	try {
 		const stored = localStorage.getItem(storage_key);
+
 		if (RANGES.some((range) => range.key === stored))
 			return stored as RangeKey;
 	} catch {
 		// Fall through to the default.
 	}
+
 	return '7d';
 }
 
@@ -33,6 +35,7 @@ class Range {
 
 	set(key: RangeKey): void {
 		this.key = key;
+
 		try {
 			localStorage.setItem(storage_key, key);
 		} catch {
@@ -43,6 +46,7 @@ class Range {
 	/** ISO start of the range, computed at call time. */
 	since(): string | null {
 		const ms = RANGES.find((range) => range.key === this.key)?.ms;
+
 		return ms ? new Date(Date.now() - ms).toISOString() : null;
 	}
 }

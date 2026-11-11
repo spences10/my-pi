@@ -61,12 +61,14 @@ describe('resolve_server_command', () => {
 			recursive: true,
 		});
 		mkdirSync(nested, { recursive: true });
+
 		const binary = join(
 			root,
 			'node_modules',
 			'.bin',
 			'typescript-language-server',
 		);
+
 		writeFileSync(binary, '#!/bin/sh\n', { mode: 0o755 });
 
 		expect(
@@ -161,12 +163,14 @@ describe('get_server_config', () => {
 			join(cwd, 'node_modules', 'typescript', 'lib', 'tsserver.js'),
 			'',
 		);
+
 		const server = join(
 			cwd,
 			'node_modules',
 			'.bin',
 			'typescript-language-server',
 		);
+
 		writeFileSync(server, '#!/bin/sh\n', { mode: 0o755 });
 
 		expect(get_server_config('typescript', cwd)).toMatchObject({
@@ -198,9 +202,11 @@ describe('get_server_config', () => {
 	it('returns a resolved config for known languages', () => {
 		const cwd = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
 		dirs.push(cwd);
+
 		const config = get_server_config('typescript', cwd, {
 			global_typescript_major: () => 6,
 		});
+
 		expect(config).toMatchObject({
 			language: 'typescript',
 			args: ['--stdio'],
@@ -267,6 +273,7 @@ const binary_suffix = process.platform === 'win32' ? '.exe' : '';
 function project(): string {
 	const directory = mkdtempSync(join(tmpdir(), 'my-pi-python-lsp-'));
 	dirs.push(directory);
+
 	return directory;
 }
 
@@ -278,6 +285,7 @@ function binary(
 	mkdirSync(directory, { recursive: true });
 	const path = join(directory, command + binary_suffix);
 	writeFileSync(path, '#!/bin/sh\n', { mode });
+
 	return path;
 }
 
@@ -324,10 +332,12 @@ describe('Python server selection', () => {
 		const cwd = project();
 		const nested = join(cwd, 'src', 'nested');
 		mkdirSync(nested, { recursive: true });
+
 		const local = binary(
 			join(cwd, '.venv', venv_bin),
 			'basedpyright-langserver',
 		);
+
 		expect(config(nested)).toMatchObject({
 			command: local,
 			args: ['--stdio'],
@@ -338,10 +348,12 @@ describe('Python server selection', () => {
 
 	it('prefers project-local Pyright over global Basedpyright when pylsp is absent', () => {
 		const cwd = project();
+
 		const local = binary(
 			join(cwd, 'node_modules', '.bin'),
 			'pyright-langserver',
 		);
+
 		const bin = join(cwd, 'global');
 		binary(bin, 'basedpyright-langserver');
 		expect(config(cwd, { PATH: bin })).toMatchObject({
@@ -358,10 +370,12 @@ describe('Python server selection', () => {
 			join(cwd, 'node_modules', '.bin'),
 			'basedpyright-langserver',
 		);
+
 		const local = binary(
 			join(nested, 'node_modules', '.bin'),
 			'pyright-langserver',
 		);
+
 		expect(config(nested)?.command).toBe(local);
 	});
 
@@ -507,10 +521,12 @@ describe('Python server selection', () => {
 		'does not treat a PATH symlink to an untrusted server as global',
 		() => {
 			const cwd = project();
+
 			const local = binary(
 				join(cwd, '.venv', venv_bin),
 				'pyright-langserver',
 			);
+
 			const bin = join(cwd, 'alias');
 			mkdirSync(bin, { recursive: true });
 			symlinkSync(local, join(bin, 'pyright-langserver'));
@@ -553,18 +569,22 @@ describe('Python server selection', () => {
 		'skips broken local symlinks',
 		() => {
 			const cwd = project();
+
 			const broken = join(
 				cwd,
 				'.venv',
 				venv_bin,
 				'basedpyright-langserver',
 			);
+
 			mkdirSync(dirname(broken), { recursive: true });
 			symlinkSync(join(cwd, 'missing'), broken);
+
 			const local = binary(
 				join(cwd, 'node_modules', '.bin'),
 				'pyright-langserver',
 			);
+
 			expect(config(cwd)?.command).toBe(local);
 		},
 	);

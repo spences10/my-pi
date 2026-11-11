@@ -1,6 +1,7 @@
 import type { Context } from '@earendil-works/pi-ai';
 
 type Block = { type: string; text?: string };
+
 type MessageLike = { role?: string; content?: string | Block[] };
 
 const MAX_REPLY_CHARS = 4000;
@@ -12,7 +13,9 @@ No quotes, no preamble. If there is no obvious next step, reply with nothing.`;
 
 function text_of(message: MessageLike | undefined): string {
 	if (!message) return '';
+
 	if (typeof message.content === 'string') return message.content;
+
 	return (message.content ?? [])
 		.filter((block) => block.type === 'text' && block.text)
 		.map((block) => block.text)
@@ -24,13 +27,17 @@ export function suggestion_context(
 	messages: readonly unknown[],
 ): Context | undefined {
 	const typed = [...(messages as MessageLike[])].reverse();
+
 	const user = text_of(
 		typed.find((message) => message.role === 'user'),
 	).trim();
+
 	const reply = text_of(
 		typed.find((message) => message.role === 'assistant'),
 	).trim();
+
 	if (!user || !reply) return undefined;
+
 	return {
 		systemPrompt: SYSTEM_PROMPT,
 		messages: [
@@ -51,5 +58,6 @@ export function clean_suggestion(text: string): string | undefined {
 		.trim()
 		.replace(/^["'`“]+|["'`”]+$/g, '')
 		.trim();
+
 	return line ? line.slice(0, MAX_SUGGESTION_CHARS) : undefined;
 }

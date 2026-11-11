@@ -21,14 +21,18 @@ export function run_search_evals(
 ): void {
 	for (const scenario of search_scenarios) {
 		const source = seeded.get(scenario.source);
+
 		if (!source) throw new Error(`Missing source ${scenario.source}`);
+
 		const search = store.search(scenario.query, {
 			source_id: source.source_id,
 			limit: scenario.limit,
 		});
+
 		const passed = search.some((result) =>
 			result.content.includes(scenario.expect),
 		);
+
 		results.push({
 			name: scenario.name,
 			category: 'search',
@@ -50,11 +54,14 @@ export function run_retrieval_evals(
 ): void {
 	for (const scenario of get_scenarios) {
 		const source = seeded.get(scenario.source);
+
 		if (!source) throw new Error(`Missing source ${scenario.source}`);
 		const chunks = store.get(source.source_id, scenario.chunk_id);
+
 		const passed = chunks.some((chunk) =>
 			chunk.content.includes(scenario.expect),
 		);
+
 		results.push({
 			name: scenario.name,
 			category: 'retrieval',
@@ -75,24 +82,30 @@ export function run_lifecycle_evals(
 	results: EvalCaseResult[],
 ): void {
 	const source = seeded.get('staging-help');
+
 	if (!source) throw new Error('Missing source staging-help');
 	store.purge({ source_id: source.source_id, global: true });
+
 	const chunks = store.get(source.source_id, undefined, {
 		global: true,
 	});
+
 	const summary = store.chunk_summary(source.source_id, {
 		global: true,
 	});
+
 	const text = format_get_result(
 		source.source_id,
 		undefined,
 		chunks,
 		summary,
 	);
+
 	const passed =
 		chunks.length === 0 &&
 		text.includes('was not found') &&
 		text.includes('expired');
+
 	results.push({
 		name: 'missing-source-guidance',
 		category: 'lifecycle',
@@ -109,14 +122,18 @@ export function run_lifecycle_evals(
 
 export function run_capture_evals(results: EvalCaseResult[]): void {
 	const large_text = 'x'.repeat(24 * 1024 + 1);
+
 	const many_lines = Array.from({ length: 301 }, (_, index) =>
 		String(index),
 	).join('\n');
+
 	const small_text = 'small output';
+
 	const passed =
 		should_index_text(large_text) &&
 		should_index_text(many_lines) &&
 		!should_index_text(small_text);
+
 	results.push({
 		name: 'capture-thresholds',
 		category: 'capture',
@@ -144,11 +161,13 @@ export function run_retention_evals(
 		tool_name: 'bash',
 		force: true,
 	});
+
 	const fresh = store.store({
 		text: `fresh-retention-token\n${'f '.repeat(500)}`,
 		tool_name: 'bash',
 		force: true,
 	});
+
 	if (!old || !fresh)
 		throw new Error('Failed to seed retention eval');
 	with_sqlite_busy_retry(
@@ -160,24 +179,29 @@ export function run_retention_evals(
 				.run(Date.now() - 10 * 24 * 60 * 60 * 1000, old.source_id),
 		{ operation: 'Seed context retention eval' },
 	);
+
 	const cleanup = store.cleanup({
 		retention_days: 7,
 		purge_on_shutdown: false,
 		max_mb: null,
 		max_bytes: null,
 	});
+
 	const old_results = store.search('old-retention-token', {
 		source_id: old.source_id,
 		global: true,
 	});
+
 	const fresh_results = store.search('fresh-retention-token', {
 		source_id: fresh.source_id,
 		global: true,
 	});
+
 	const passed =
 		cleanup.age_deleted >= 1 &&
 		old_results.length === 0 &&
 		fresh_results.length > 0;
+
 	results.push({
 		name: 'age-retention-cleanup',
 		category: 'retention',
@@ -196,11 +220,14 @@ export function run_cost_evals(
 	results: EvalCaseResult[],
 ): void {
 	const source = seeded.get('chunk-boundary');
+
 	if (!source) throw new Error('Missing source chunk-boundary');
+
 	const search = store.search('alpha-token omega-token', {
 		source_id: source.source_id,
 		limit: 25,
 	});
+
 	const bytes = result_bytes(search);
 	const passed = search.length > 0 && bytes <= 24 * 1024;
 	results.push({
@@ -217,13 +244,16 @@ export function run_cost_evals(
 
 export function run_dedupe_evals(results: EvalCaseResult[]): void {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-dedupe-eval-'));
+
 	const store = new ContextStore({
 		db_path: join(dir, 'context.db'),
 		project_path: PROJECT,
 		session_id: `${SESSION}:a`,
 	});
+
 	try {
 		const text = `shared-dedupe-token\n${make_noise_lines(40, 'dedupe')}`;
+
 		const first = store.store({
 			text,
 			tool_name: 'read',
@@ -231,6 +261,7 @@ export function run_dedupe_evals(results: EvalCaseResult[]): void {
 			project_path: PROJECT,
 			force: true,
 		});
+
 		const same_session = store.store({
 			text,
 			tool_name: 'read',
@@ -238,6 +269,7 @@ export function run_dedupe_evals(results: EvalCaseResult[]): void {
 			project_path: PROJECT,
 			force: true,
 		});
+
 		const other_session = store.store({
 			text,
 			tool_name: 'read',
@@ -245,6 +277,7 @@ export function run_dedupe_evals(results: EvalCaseResult[]): void {
 			project_path: PROJECT,
 			force: true,
 		});
+
 		if (!first || !same_session || !other_session)
 			throw new Error('Failed to seed dedupe eval');
 
@@ -256,10 +289,12 @@ export function run_dedupe_evals(results: EvalCaseResult[]): void {
 				project_path: PROJECT,
 			},
 		);
+
 		const same_session_passed =
 			first.source_id === same_session.source_id &&
 			same_session.deduped === true &&
 			same_session_chunks.length === first.chunk_count;
+
 		results.push({
 			name: 'same-session-dedupe',
 			category: 'dedupe',
@@ -279,6 +314,7 @@ export function run_dedupe_evals(results: EvalCaseResult[]): void {
 				project_path: PROJECT,
 			},
 		);
+
 		const hidden_from_first_session = store.get(
 			other_session.source_id,
 			undefined,
@@ -287,13 +323,16 @@ export function run_dedupe_evals(results: EvalCaseResult[]): void {
 				project_path: PROJECT,
 			},
 		);
+
 		const stats = store.stats({ global: true });
+
 		const cross_session_passed =
 			other_session.source_id !== first.source_id &&
 			other_session.deduped !== true &&
 			stats.sources === 2 &&
 			other_session_chunks.length === other_session.chunk_count &&
 			hidden_from_first_session.length === 0;
+
 		results.push({
 			name: 'cross-session-dedupe-isolation',
 			category: 'dedupe',

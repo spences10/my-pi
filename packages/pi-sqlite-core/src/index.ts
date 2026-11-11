@@ -16,8 +16,10 @@ export function sqlite_pragmas(
 	} = {},
 ): { persistent: string; connection: string } {
 	const foreign_keys = options.foreign_keys ?? true;
+
 	const busy_timeout_ms =
 		options.busy_timeout_ms ?? DEFAULT_SQLITE_BUSY_TIMEOUT_MS;
+
 	return {
 		persistent: SQLITE_PERSISTENT_PRAGMAS,
 		connection: [
@@ -31,12 +33,14 @@ export function sqlite_pragmas(
 
 export function is_sqlite_busy(error: unknown): boolean {
 	if (typeof error !== 'object' || error === null) return false;
+
 	const candidate = error as {
 		code?: unknown;
 		errcode?: unknown;
 		errstr?: unknown;
 		message?: unknown;
 	};
+
 	return (
 		candidate.code === 'ERR_SQLITE_ERROR' &&
 		(candidate.errcode === 5 ||
@@ -88,6 +92,7 @@ export function with_sqlite_busy_retry<T>(
 	const attempts = Math.max(1, options.attempts ?? 3);
 	const delay_ms = Math.max(0, options.delay_ms ?? 25);
 	let last_error: unknown;
+
 	for (let attempt = 1; attempt <= attempts; attempt++) {
 		try {
 			return fn();
@@ -95,9 +100,11 @@ export function with_sqlite_busy_retry<T>(
 			if (!is_sqlite_busy(error)) throw error;
 			last_error = error;
 			options.on_busy?.(attempt, error);
+
 			if (attempt < attempts) sleep_sync(delay_ms * attempt);
 		}
 	}
+
 	throw new SqliteBusyError(
 		options.operation ?? 'SQLite operation',
 		last_error,
@@ -115,9 +122,11 @@ export function with_sqlite_transaction<T>(
 ): T {
 	const run = (): T => {
 		db.exec(options.immediate ? 'BEGIN IMMEDIATE' : 'BEGIN');
+
 		try {
 			const result = fn();
 			db.exec('COMMIT');
+
 			return result;
 		} catch (error) {
 			try {
@@ -125,9 +134,11 @@ export function with_sqlite_transaction<T>(
 			} catch (rollback_error) {
 				if (!is_sqlite_busy(rollback_error)) throw rollback_error;
 			}
+
 			throw error;
 		}
 	};
+
 	return options.retry === false
 		? run()
 		: with_sqlite_busy_retry(run, { operation: options.operation });

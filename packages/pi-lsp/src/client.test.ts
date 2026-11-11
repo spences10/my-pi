@@ -14,8 +14,10 @@ describe('LspClient.start', () => {
 			const server = fileURLToPath(
 				new URL('../test/synthetic-server.ts', import.meta.url),
 			);
+
 			const expected =
 				JSON.stringify(initialization_options) ?? 'undefined';
+
 			const client = new LspClient({
 				command: process.execPath,
 				args: [server, `--expect-initialization-options=${expected}`],
@@ -24,6 +26,7 @@ describe('LspClient.start', () => {
 				initialization_options,
 				request_timeout_ms: 2_000,
 			});
+
 			try {
 				await client.start();
 				expect(client.is_ready()).toBe(true);

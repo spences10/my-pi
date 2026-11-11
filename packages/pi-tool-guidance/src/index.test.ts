@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import guidance, { tool_guidance } from './index.js';
 
 type Tool = Parameters<typeof tool_guidance>[1][number];
+
 const mcp = (
 	server: string,
 	exposure: Tool['exposure'] = 'codemode',
@@ -19,6 +20,7 @@ describe('tool guidance', () => {
 			{ cwd: '/fresh-user', selectedTools: ['bash'] },
 			[],
 		);
+
 		expect(text).toContain('Never read secret files');
 		expect(text).toContain('separate Pi shells');
 		expect(text).not.toContain('scott');
@@ -35,6 +37,7 @@ describe('tool guidance', () => {
 				{ cwd: '/', selectedTools: [route] },
 				[mcp('mcp-omnisearch'), mcp('mcp_sqlite_tools', 'deferred')],
 			);
+
 			expect(text).toContain('Omnisearch');
 			expect(text).toContain('SQLite');
 			expect(text).toContain('backup');
@@ -53,6 +56,7 @@ describe('tool guidance', () => {
 			},
 			[],
 		);
+
 		expect(text).toContain('Omnisearch');
 		expect(text).toContain('SQLite');
 	});
@@ -104,6 +108,7 @@ describe('tool guidance', () => {
 			expect(text).toContain('exit codes');
 			expect(text).toContain('not syntax');
 		}
+
 		const indirect = tool_guidance(
 			{ cwd: '/', selectedTools: ['codemode'] },
 			[
@@ -111,7 +116,9 @@ describe('tool guidance', () => {
 				{ name: 'edit', exposure: 'deferred' },
 			],
 		);
+
 		expect(indirect).toContain('Language-aware validation');
+
 		for (const tools of [
 			[],
 			[{ name: 'edit', exposure: 'hidden' as const }],
@@ -123,6 +130,7 @@ describe('tool guidance', () => {
 				),
 			).not.toContain('Language-aware validation');
 		}
+
 		expect(
 			tool_guidance({ cwd: '/', selectedTools: ['edit'] }, []),
 		).not.toContain('Language-aware validation');
@@ -136,6 +144,7 @@ describe('tool guidance', () => {
 			},
 			getAllTools: () => [],
 		} as unknown as ExtensionAPI);
+
 		const event = {
 			systemPrompt: 'USER SYSTEM AND APPEND',
 			systemPromptOptions: {
@@ -146,6 +155,7 @@ describe('tool guidance', () => {
 				sections: { unrelated: 'keep' } as Record<string, string>,
 			},
 		};
+
 		expect(handler(event)).toBeUndefined();
 		expect(
 			event.systemPromptOptions.sections.my_pi_tool_guidance,
@@ -174,13 +184,16 @@ describe('tool guidance', () => {
 				'utf8',
 			),
 		);
+
 		expect(manifest.files).toContain('skills');
 		expect(manifest.pi.skills).toEqual(['./skills']);
+
 		for (const name of ['nopeek', 'omnisearch', 'sqlite']) {
 			const skill = readFileSync(
 				new URL(`../skills/my-pi-${name}/SKILL.md`, import.meta.url),
 				'utf8',
 			);
+
 			expect(skill).toContain(`name: my-pi-${name}`);
 			expect(skill).toContain('description: Use when');
 			expect(skill).not.toContain('/home/scott');

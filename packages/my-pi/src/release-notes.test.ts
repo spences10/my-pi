@@ -13,18 +13,23 @@ afterEach(() => vi.restoreAllMocks());
 
 function setup(last_version?: string) {
 	const settings = SettingsManager.inMemory();
+
 	if (last_version)
 		settings.setExtensionChangelogVersion(key, last_version);
+
 	const create = vi
 		.spyOn(SettingsManager, 'create')
 		.mockReturnValue(settings);
+
 	const notify = vi.fn();
+
 	const ctx = {
 		mode: 'tui',
 		cwd: '/tmp',
 		sessionManager: { getEntries: () => [] },
 		ui: { notify },
 	} as unknown as ExtensionContext;
+
 	return { settings, create, notify, ctx };
 }
 

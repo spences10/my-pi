@@ -11,6 +11,7 @@ function row(
 	payload: Record<string, unknown> = {},
 ): TimelineEventRow {
 	const columns = derive_event_columns(type, payload);
+
 	return {
 		seq: seq++,
 		ts: new Date(Date.UTC(2026, 9, 31, 10, 0, second)).toISOString(),
@@ -45,6 +46,7 @@ describe('build_timeline', () => {
 		'shows model routing from %s events without replacing the requested ID',
 		(detail_level) => {
 			seq = 0;
+
 			const payload = summarize_payload(
 				{
 					message: {
@@ -56,6 +58,7 @@ describe('build_timeline', () => {
 				},
 				detail_level,
 			) as Record<string, unknown>;
+
 			const timeline = build_timeline([
 				row(0, 'agent_start'),
 				row(0, 'turn_start'),
@@ -64,6 +67,7 @@ describe('build_timeline', () => {
 				row(3, 'turn_end'),
 				row(3, 'agent_end'),
 			]);
+
 			expect(
 				timeline.runs[0]!.children[0]!.children[0],
 			).toMatchObject({
@@ -89,6 +93,7 @@ describe('build_timeline', () => {
 					},
 				}),
 			]);
+
 			const model = timeline.runs[0]!.children[0]!;
 			expect(model.name).toBe('gpt-test');
 			expect(model.requested_model).toBe('gpt-test');
@@ -109,7 +114,9 @@ describe('build_timeline', () => {
 					{ type: 'thinking', thinking: 'Hidden' },
 				],
 			};
+
 			let payload: Record<string, unknown>;
+
 			if (mode === 'raw') payload = { message };
 			else if (mode === 'historical')
 				payload = {
@@ -121,10 +128,12 @@ describe('build_timeline', () => {
 					mode === 'summary' ? 'summary' : 'detailed',
 					'message_end',
 				) as Record<string, unknown>;
+
 			const timeline = build_timeline([
 				row(0, 'provider_request'),
 				row(1, 'message_end', payload),
 			]);
+
 			const model = timeline.runs[0]!.children[0]!;
 			expect(model.response_text).toBe(
 				mode === 'raw' || mode === 'detailed'
@@ -155,6 +164,7 @@ describe('build_timeline', () => {
 				},
 			}),
 		]);
+
 		const [first, second] = timeline.runs[0]!.children;
 		expect(first).toMatchObject({
 			requested_model: 'gpt-test',
@@ -169,6 +179,7 @@ describe('build_timeline', () => {
 
 	it('nests runs, turns, model calls, and tool calls with failures', () => {
 		seq = 0;
+
 		const timeline = build_timeline([
 			row(0, 'session_start'),
 			row(1, 'agent_start', { prompt: 'Fix   the\nbuild' }),
@@ -287,6 +298,7 @@ describe('build_timeline', () => {
 
 	it('closes model calls from older events that only list message keys', () => {
 		seq = 0;
+
 		const timeline = build_timeline([
 			row(0, 'agent_start', { prompt: 'Old' }),
 			row(0, 'turn_start', { turnIndex: 0 }),
@@ -304,6 +316,7 @@ describe('build_timeline', () => {
 			row(4, 'agent_end'),
 			row(36_000, 'session_shutdown'),
 		]);
+
 		const model = timeline.runs[0]!.children[0]!.children[0]!;
 		expect(model).toMatchObject({
 			kind: 'model',
@@ -323,6 +336,7 @@ describe('build_timeline', () => {
 		'marks missing ends interrupted at %s without including the gap or later usage',
 		(boundary) => {
 			seq = 0;
+
 			const timeline = build_timeline([
 				row(0, 'agent_start', { prompt: 'Interrupted' }),
 				row(0, 'turn_start', { turnIndex: 54 }),
@@ -341,6 +355,7 @@ describe('build_timeline', () => {
 				row(613, 'turn_end'),
 				row(613, 'agent_end'),
 			]);
+
 			const old_turn = timeline.runs[0]!.children[0]!;
 			expect(old_turn).toMatchObject({
 				open: false,
@@ -367,6 +382,7 @@ describe('build_timeline', () => {
 
 	it('ends spans without an end event where their parent ends', () => {
 		seq = 0;
+
 		const timeline = build_timeline([
 			row(0, 'agent_start', { prompt: 'Crash' }),
 			row(0, 'turn_start', { turnIndex: 0 }),
@@ -378,6 +394,7 @@ describe('build_timeline', () => {
 			row(2, 'agent_end'),
 			row(3_600, 'session_shutdown'),
 		]);
+
 		const tool = timeline.runs[0]!.children[0]!.children[0]!;
 		expect(tool).toMatchObject({
 			kind: 'tool',

@@ -82,16 +82,19 @@ export class WorkerManager {
 
 	private find(id: string): Worker {
 		const entries = [...this.workers.values()];
+
 		// Explicit identities keep targeting historical workers. A reused name
 		// targets its newest owner, never an older stopped or failed process.
 		const worker =
 			this.workers.get(id) ??
 			entries.find((entry) => entry.info.session_id === id) ??
 			entries.reverse().find((entry) => entry.info.name === id);
+
 		if (!worker)
 			throw new Error(
 				'Not an owned worker. Use Team Mode for independently opened sessions.',
 			);
+
 		return worker;
 	}
 
@@ -112,23 +115,30 @@ export class WorkerManager {
 	): Promise<WorkerInfo> {
 		if (this.disposed) throw new Error('Worker manager is closed');
 		signal?.throwIfAborted();
+
 		if (!options.name.trim() || !options.task.trim())
 			throw new Error('name and task must not be empty');
+
 		if (!isAbsolute(options.cwd))
 			throw new Error('cwd must be an absolute directory path');
 		const cwd = realpathSync(options.cwd);
+
 		if (!statSync(cwd).isDirectory())
 			throw new Error('cwd must be a directory');
+
 		const alive = [...this.workers.values()].filter(
 			(worker) => worker.process.alive,
 		);
+
 		if (alive.length >= max_workers)
 			throw new Error(
 				`At most ${max_workers} live workers; stop an idle worker first`,
 			);
+
 		if (alive.some((worker) => worker.info.name === options.name))
 			throw new Error('Worker name is already in use');
 		const id = randomUUID();
+
 		const info: WorkerInfo = {
 			parent_session_id: this.options.parent_session_id,
 			group_id:
@@ -138,6 +148,7 @@ export class WorkerManager {
 			cwd,
 			status: 'starting',
 		};
+
 		const args = [
 			...this.options.args,
 			'--mode',
@@ -147,8 +158,11 @@ export class WorkerManager {
 			'--name',
 			options.name,
 		];
+
 		if (options.model) args.push('--model', options.model);
+
 		if (options.thinking) args.push('--thinking', options.thinking);
+
 		const env: NodeJS.ProcessEnv = {
 			...this.options.env,
 			[child_env]: '1',
@@ -158,7 +172,9 @@ export class WorkerManager {
 			MY_PI_TEAM_GROUP_ID: info.group_id,
 			MY_PI_WORKER_ID: id,
 		};
+
 		delete env.MY_PI_OBSERVABILITY_NAME;
+
 		const worker: Worker = {
 			info,
 			active: false,
@@ -170,31 +186,41 @@ export class WorkerManager {
 				on_record: (record) => this.record(worker, record),
 				on_exit: (error) => {
 					this.options.on_dialogs_end(id);
+
 					if (info.status === 'stopped' || info.status === 'failed')
 						return;
 					info.status = 'failed';
 					info.error = diagnostic_error(error).message;
 					worker.active = false;
 					void worker.process.stop();
+
 					if (!this.disposed)
 						this.options.on_complete(worker_snapshot(info));
 				},
 			}),
 		};
+
 		this.workers.set(id, worker);
+
 		const abort = () => {
 			void this.stop(id);
 		};
+
 		signal?.addEventListener('abort', abort, { once: true });
+
 		try {
 			worker.process.start();
 			info.pid = worker.process.pid;
+
 			const state = (await worker.process.request({
 				type: 'get_state',
 			})) as unknown as RpcSessionState;
+
 			signal?.throwIfAborted();
+
 			if (this.disposed || info.status === 'stopped')
 				throw new Error('Worker stopped during startup');
+
 			if (
 				options.model &&
 				options.model !==
@@ -209,12 +235,14 @@ export class WorkerManager {
 			this.options.on_started?.(worker_snapshot(info));
 			await this.send(id, options.task);
 			signal?.throwIfAborted();
+
 			return worker_snapshot(info);
 		} catch (error) {
 			if (info.status !== 'stopped') {
 				info.status = 'failed';
 				info.error = diagnostic_error(error).message;
 			}
+
 			await worker.process.stop();
 			throw error;
 		} finally {
@@ -228,8 +256,10 @@ export class WorkerManager {
 		queue = false,
 	): Promise<WorkerInfo> {
 		if (this.disposed) throw new Error('Worker manager is closed');
+
 		if (!message.trim()) throw new Error('message must not be empty');
 		const worker = this.find(id);
+
 		if (
 			!worker.process.alive ||
 			worker.info.status === 'stopped' ||
@@ -237,12 +267,14 @@ export class WorkerManager {
 		)
 			throw new Error('Worker is not running');
 		worker.info.status = 'running';
+
 		try {
 			const accepted = await worker.process.request({
 				type: 'prompt',
 				message,
 				streamingBehavior: queue ? 'followUp' : 'steer',
 			});
+
 			if (accepted.disposition === 'handled' && !worker.active)
 				worker.info.status = 'idle';
 		} catch (error) {
@@ -250,9 +282,11 @@ export class WorkerManager {
 				worker.info.status = 'failed';
 				worker.info.error = diagnostic_error(error).message;
 			}
+
 			await worker.process.stop();
 			throw diagnostic_error(error);
 		}
+
 		return worker_snapshot(worker.info);
 	}
 
@@ -262,6 +296,7 @@ export class WorkerManager {
 		worker.active = false;
 		this.options.on_dialogs_end(worker.info.id);
 		await worker.process.stop();
+
 		return worker_snapshot(worker.info);
 	}
 
@@ -274,12 +309,14 @@ export class WorkerManager {
 
 	private record(worker: Worker, event: RpcRecord): void {
 		const info = worker.info;
+
 		if (
 			info.status === 'stopped' ||
 			info.status === 'failed' ||
 			this.disposed
 		)
 			return;
+
 		if (event.type === 'extension_ui_request') {
 			this.options.on_ui(
 				info.id,
@@ -300,6 +337,7 @@ export class WorkerManager {
 				info.error = undefined;
 				worker.last_error = undefined;
 			}
+
 			worker.active = true;
 			info.status = 'running';
 		} else if (event.type === 'message_end') {
@@ -309,7 +347,9 @@ export class WorkerManager {
 				stopReason?: string;
 				errorMessage?: string;
 			};
+
 			if (message.role !== 'assistant') return;
+
 			const text = message.content
 				? diagnostic_text(
 						message.content
@@ -318,6 +358,7 @@ export class WorkerManager {
 							.join('\n'),
 					)
 				: undefined;
+
 			info.result =
 				text && text.length > max_result_chars
 					? text.slice(0, max_result_chars) +
@@ -334,6 +375,7 @@ export class WorkerManager {
 			this.options.on_dialogs_end(info.id);
 		} else if (event.type === 'agent_settled') {
 			this.options.on_dialogs_end(info.id);
+
 			if (!worker.active) return;
 			worker.active = false;
 			info.status = 'idle';

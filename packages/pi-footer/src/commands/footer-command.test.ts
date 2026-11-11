@@ -38,6 +38,7 @@ describe('register_footer_command', () => {
 		if (agent_dir)
 			rmSync(agent_dir, { recursive: true, force: true });
 		agent_dir = undefined;
+
 		if (original_agent_dir === undefined)
 			delete process.env.PI_CODING_AGENT_DIR;
 		else process.env.PI_CODING_AGENT_DIR = original_agent_dir;
@@ -46,6 +47,7 @@ describe('register_footer_command', () => {
 	it('persists the current state when the footer command closes', async () => {
 		modal_mocks.show_settings_modal.mockResolvedValueOnce(undefined);
 		const register_command = vi.fn();
+
 		const state = {
 			...DEFAULT_FOOTER_STATE,
 			density: 'expanded' as const,
@@ -55,6 +57,7 @@ describe('register_footer_command', () => {
 				),
 			),
 		};
+
 		register_footer_command(
 			{ registerCommand: register_command } as never,
 			state,
@@ -92,10 +95,12 @@ describe('register_footer_command', () => {
 				).toEqual(
 					expect.arrayContaining(['harness', 'mcp', 'codex-usage']),
 				);
+
 				return 'mcp';
 			})
 			.mockResolvedValueOnce(undefined);
 		const register_command = vi.fn();
+
 		const state = {
 			...DEFAULT_FOOTER_STATE,
 			status_layout: Object.fromEntries(
@@ -104,6 +109,7 @@ describe('register_footer_command', () => {
 				),
 			),
 		};
+
 		register_footer_command(
 			{ registerCommand: register_command } as never,
 			state,
@@ -123,9 +129,11 @@ describe('register_footer_command', () => {
 			alignment: 'center',
 			hidden: false,
 		});
+
 		const persisted = JSON.parse(
 			readFileSync(join(agent_dir!, 'my-pi-settings.json'), 'utf-8'),
 		);
+
 		expect(persisted.packages.footer.status_layout.mcp).toEqual({
 			row: 3,
 			alignment: 'center',

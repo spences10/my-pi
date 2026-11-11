@@ -13,6 +13,7 @@ export async function read_diff(
 	file: GitFile,
 ): Promise<DiffView> {
 	const path = git_path(file);
+
 	if (file.state === 'untracked') {
 		return {
 			path: file.path,
@@ -28,17 +29,21 @@ export async function read_diff(
 
 	const lines: string[] = [];
 	const hunks: DiffHunk[] = [];
+
 	const staged = await git(
 		['diff', '--cached', '--', path],
 		cwd,
 	).catch((error) => format_git_error(error));
+
 	const unstaged = await git(['diff', '--', path], cwd).catch(
 		(error) => format_git_error(error),
 	);
 
 	append_diff_section(lines, hunks, 'staged', staged);
+
 	if (staged.trim() && unstaged.trim()) lines.push('', '');
 	append_diff_section(lines, hunks, 'unstaged', unstaged);
+
 	if (lines.length === 0)
 		lines.push('No textual diff for this file.');
 
@@ -55,9 +60,11 @@ function append_diff_section(
 	lines.push(section.toUpperCase(), '');
 	const offset = lines.length;
 	const parsed = parse_diff_hunks(raw, section);
+
 	for (const hunk of parsed) {
 		hunks.push({ ...hunk, line_index: offset + hunk.line_index });
 	}
+
 	lines.push(...raw.split('\n'));
 }
 
@@ -68,6 +75,7 @@ export function parse_diff_hunks(
 	const lines = raw.endsWith('\n')
 		? raw.slice(0, -1).split('\n')
 		: raw.split('\n');
+
 	const hunks: DiffHunk[] = [];
 	let file_header: string[] = [];
 	let current_hunk: { start: number; lines: string[] } | undefined;
@@ -85,29 +93,37 @@ export function parse_diff_hunks(
 
 	for (let index = 0; index < lines.length; index++) {
 		const line = lines[index]!;
+
 		if (line.startsWith('diff --git ')) {
 			flush_hunk();
 			file_header = [line];
 			continue;
 		}
+
 		if (line.startsWith('@@')) {
 			flush_hunk();
 			current_hunk = { start: index, lines: [line] };
 			continue;
 		}
+
 		if (current_hunk) current_hunk.lines.push(line);
 		else if (file_header.length > 0) file_header.push(line);
 	}
+
 	flush_hunk();
+
 	return hunks;
 }
 
 export function changed_line_indexes(hunk: DiffHunk): number[] {
 	const lines = hunk.patch.split('\n');
+
 	const header_index = lines.findIndex((line) =>
 		line.startsWith('@@'),
 	);
+
 	if (header_index < 0) return [];
+
 	return lines
 		.slice(header_index + 1)
 		.flatMap((line, index) =>
@@ -178,14 +194,17 @@ export function build_line_patch(
 	line_index: number,
 ): string {
 	const lines = hunk.patch.split('\n');
+
 	const header_index = lines.findIndex((line) =>
 		line.startsWith('@@'),
 	);
+
 	if (header_index < 0)
 		throw new Error('Selected hunk has no header.');
 	const body_index = line_index - hunk.line_index - 1;
 	const body = lines.slice(header_index + 1);
 	const selected = body[body_index];
+
 	if (
 		!selected ||
 		(!selected.startsWith('+') && !selected.startsWith('-'))
@@ -195,11 +214,16 @@ export function build_line_patch(
 
 	const next_body = body.flatMap((line, index) => {
 		if (index === body_index) return [line];
+
 		if (line.startsWith('+')) return [];
+
 		if (line.startsWith('-')) return [` ${line.slice(1)}`];
+
 		return [line];
 	});
+
 	const header = rebuild_hunk_header(lines[header_index]!, next_body);
+
 	return [...lines.slice(0, header_index), header, ...next_body].join(
 		'\n',
 	);
@@ -209,13 +233,18 @@ function rebuild_hunk_header(header: string, body: string[]): string {
 	const match = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/.exec(
 		header,
 	);
+
 	if (!match) return header;
 	let old_count = 0;
 	let new_count = 0;
+
 	for (const line of body) {
 		if (line.startsWith('\\')) continue;
+
 		if (!line.startsWith('+')) old_count++;
+
 		if (!line.startsWith('-')) new_count++;
 	}
+
 	return `@@ -${match[1]},${old_count} +${match[2]},${new_count} @@${match[3]}`;
 }

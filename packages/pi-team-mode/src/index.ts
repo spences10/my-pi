@@ -43,6 +43,7 @@ function extract_latest_user_text(
 	event: unknown,
 ): string | undefined {
 	const prompt = (event as { prompt?: unknown }).prompt;
+
 	return typeof prompt === 'string' ? prompt : undefined;
 }
 
@@ -53,6 +54,7 @@ function register_standby_session(
 	registration: StandbyRegistration,
 ): void {
 	const session = coordination_db.get_session(session_id);
+
 	if (!session) return;
 	coordination_db.register_session({
 		session_id,
@@ -94,6 +96,7 @@ export async function send_peer_workflow_feedback(input: {
 	const coordination_db = await TeamDatabase.open(
 		get_coordination_db_path(),
 	);
+
 	try {
 		const message = coordination_db.send_message({
 			from_session_id: input.from_session_id,
@@ -110,6 +113,7 @@ export async function send_peer_workflow_feedback(input: {
 				packet_id: input.packet_id,
 			},
 		});
+
 		return { message_id: message.message_id };
 	} finally {
 		coordination_db.close();
@@ -120,6 +124,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 	const coordination_db = await TeamDatabase.open(
 		get_coordination_db_path(),
 	);
+
 	pi.registerMessageRenderer(
 		'team-mode-peer-message',
 		render_peer_message,
@@ -132,9 +137,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 	let stopped = false;
 	const own_member = process.env[TEAM_MEMBER_ENV] || 'peer';
 	const own_role = process.env[TEAM_ROLE_ENV] || 'peer';
+
 	const fallback_agent_name =
 		process.env.MY_PI_OBSERVABILITY_NAME ||
 		(process.env[TEAM_MEMBER_ENV] ? own_member : undefined);
+
 	const coordination_poller = new CoordinationPoller({
 		db: coordination_db,
 		get_session_id: () => own_session_id,
@@ -145,6 +152,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 		is_agent_active: () =>
 			auto_delivery_paused || !session_context?.isIdle(),
 	});
+
 	const coordination_broker = new CoordinationBrokerClient({
 		get_session_id: () => own_session_id,
 		on_message: () => coordination_poller.poll(pi),
@@ -187,11 +195,13 @@ export default async function team_mode(pi: ExtensionAPI) {
 				.map((tag) => tag.trim())
 				.filter(Boolean),
 		});
+
 		for (const entry of ctx.sessionManager.getBranch())
 			if (entry.type === 'custom_message')
 				coordination_poller.confirm_delivery(entry);
 		coordination_db.mark_stale_sessions_offline();
 		const retention_ms = get_startup_coordination_retention_ms();
+
 		if (retention_ms !== undefined)
 			coordination_db.prune_historical_data({ retention_ms });
 		void ensure_coordination_broker();
@@ -215,6 +225,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 		session_context = undefined;
 		const session_id = own_session_id;
 		own_session_id = undefined;
+
 		try {
 			if (session_id)
 				coordination_db.mark_session_status(session_id, 'offline');
@@ -226,9 +237,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 	pi.on('before_agent_start', async (event) => {
 		if (event.messageType === 'user') auto_delivery_paused = false;
 		team_prompt_enabled = should_inject_team_prompt(event);
+
 		const standby_registration = detect_standby_registration(
 			extract_latest_user_text(event),
 		);
+
 		if (standby_registration && own_session_id) {
 			register_standby_session(
 				coordination_db,
@@ -237,23 +250,29 @@ export default async function team_mode(pi: ExtensionAPI) {
 				standby_registration,
 			);
 		}
+
 		if (!team_prompt_enabled) {
 			delete event.systemPromptOptions.sections.team_mode;
+
 			return;
 		}
+
 		const own_session = own_session_id
 			? coordination_db.get_session(own_session_id)
 			: undefined;
+
 		const coordination_identity = own_session_id
 			? format_coordination_identity(
 					coordination_db.list_group_memberships(own_session_id),
 					{ thinking_level: own_session?.thinking_level },
 				)
 			: undefined;
+
 		const worker_id =
 			typeof own_session?.metadata.worker_id === 'string'
 				? own_session.metadata.worker_id
 				: 'unknown';
+
 		event.systemPromptOptions.sections.team_mode =
 			append_team_system_prompt('', {
 				coordination_identity,
@@ -262,6 +281,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				? `\nYour registered worker parent is ${own_session.parent_session_id}. Use to: "parent" for parent reports; never infer ownership from session names or directories. Worker id: ${worker_id}.`
 				: '');
 		const message = coordination_poller.take_delivery(true);
+
 		return message ? { message } : undefined;
 	});
 
@@ -272,10 +292,13 @@ export default async function team_mode(pi: ExtensionAPI) {
 	pi.on('agent_before_settle', async (event) => {
 		if (event.outcome !== 'completed') {
 			auto_delivery_paused = true;
+
 			return;
 		}
+
 		if (auto_delivery_paused) return;
 		const message = coordination_poller.take_delivery(false);
+
 		return message
 			? {
 					entries: [{ type: 'custom_message' as const, ...message }],
@@ -290,9 +313,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 
 	pi.on('context', async (event) => {
 		if (!own_session_id) return;
+
 		for (const message of event.messages)
 			if (message.role === 'custom')
 				coordination_poller.confirm_delivery(message);
+
 		return {
 			messages: summarize_completed_peer_messages(
 				event.messages,
@@ -326,6 +351,7 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'close',
 				'group send',
 			];
+
 			return subs
 				.filter((sub) => sub.startsWith(prefix.trim()))
 				.map((sub) => ({ value: sub, label: sub }));

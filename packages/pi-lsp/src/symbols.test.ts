@@ -50,6 +50,7 @@ describe('lsp symbol tools', () => {
 				},
 			]),
 		});
+
 		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export class Widget {}\n',
@@ -119,6 +120,7 @@ describe('lsp symbol tools', () => {
 				},
 			]),
 		});
+
 		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export class Widget {}\n',
@@ -134,6 +136,7 @@ describe('lsp symbol tools', () => {
 				top_level_only: true,
 				kinds: ['class'],
 			});
+
 		expect(top_level.content[0].text).toContain(
 			'/repo/src/file.ts: 1 symbol match(es) for "Widget"',
 		);
@@ -151,6 +154,7 @@ describe('lsp symbol tools', () => {
 			exact_match: true,
 			kinds: ['method'],
 		});
+
 		expect(methods.content[0].text).toContain('method Widget @ 3:2');
 		expect(methods.content[0].text).not.toContain('class Widget');
 	});
@@ -187,6 +191,7 @@ describe('lsp symbol tools', () => {
 				},
 			]),
 		});
+
 		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export class Widget {}\n',
@@ -198,6 +203,7 @@ describe('lsp symbol tools', () => {
 			.execute('1', {
 				file: 'src/file.ts',
 			});
+
 		const text = result.content[0].text;
 
 		expect(text).toContain(

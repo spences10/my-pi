@@ -15,6 +15,7 @@ describe('suggestion_context', () => {
 			},
 			{ role: 'toolResult', content: [] },
 		]);
+
 		const content = context?.messages[0]?.content;
 		expect(content).toContain('fix the bug');
 		expect(content).toContain('Fixed.');
