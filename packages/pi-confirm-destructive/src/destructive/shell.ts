@@ -520,9 +520,9 @@ function expand_invocation(
 function invocations_from_segment(
 	segment: ShellToken[],
 ): ShellInvocation[] {
-	const words = segment
-		.filter((token) => token.kind === 'word')
-		.map((token) => token.value);
+	const words = segment.flatMap((token) =>
+		token.kind === 'word' ? [token.value] : [],
+	);
 
 	const invocation = unwrap_command(words);
 

@@ -48,8 +48,11 @@ export function state_counts(files: GitFile[]): string {
 	return (
 		['conflicted', 'changed', 'untracked', 'mixed', 'staged'] as const
 	)
-		.filter((state) => counts.has(state))
-		.map((state) => `${state_label(state)} ${counts.get(state)}`)
+		.flatMap((state) =>
+			counts.has(state)
+				? [`${state_label(state)} ${counts.get(state)}`]
+				: [],
+		)
 		.join(' • ');
 }
 

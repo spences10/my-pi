@@ -13,9 +13,11 @@ export function register_context_commands(pi: ExtensionAPI): void {
 	pi.registerCommand('context', {
 		description: 'Inspect and manage the context sidecar',
 		getArgumentCompletions: (prefix) =>
-			['list', 'stats', 'settings', 'purge']
-				.filter((item) => item.startsWith(prefix.trim()))
-				.map((item) => ({ value: item, label: item })),
+			['list', 'stats', 'settings', 'purge'].flatMap((item) =>
+				item.startsWith(prefix.trim())
+					? [{ value: item, label: item }]
+					: [],
+			),
 		handler: async (args, ctx) => {
 			const [sub = '', ...rest] = args
 				.trim()

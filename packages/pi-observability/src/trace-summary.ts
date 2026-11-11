@@ -16,9 +16,11 @@ function timestamp_ms(value: string | undefined): number {
 }
 
 function duration_ms(events: ObservabilityEvent[]): number {
-	const times = events
-		.map((event) => timestamp_ms(event.ts))
-		.filter(Boolean);
+	const times = events.flatMap((event) => {
+		const time = timestamp_ms(event.ts);
+
+		return time ? [time] : [];
+	});
 
 	return times.length > 1
 		? Math.max(...times) - Math.min(...times)

@@ -352,9 +352,11 @@ export default async function team_mode(pi: ExtensionAPI) {
 				'group send',
 			];
 
-			return subs
-				.filter((sub) => sub.startsWith(prefix.trim()))
-				.map((sub) => ({ value: sub, label: sub }));
+			return subs.flatMap((sub) =>
+				sub.startsWith(prefix.trim())
+					? [{ value: sub, label: sub }]
+					: [],
+			);
 		},
 		handler: async (args, ctx) =>
 			handle_team_command(

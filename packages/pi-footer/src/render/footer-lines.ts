@@ -34,9 +34,9 @@ interface StatusRow {
 function enabled_items(
 	items: Array<[string, boolean | undefined]>,
 ): string[] {
-	return items
-		.filter(([text, enabled]) => enabled && Boolean(text))
-		.map(([text]) => text);
+	return items.flatMap(([text, enabled]) =>
+		enabled && text ? [text] : [],
+	);
 }
 
 function render_stats_line(

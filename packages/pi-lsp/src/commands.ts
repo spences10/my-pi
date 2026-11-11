@@ -28,20 +28,20 @@ export function register_lsp_command(
 			}
 
 			if (parts.length <= 1) {
-				return subcommands
-					.filter((value) => value.startsWith(parts[0]))
-					.map((value) => ({ value, label: value }));
+				return subcommands.flatMap((value) =>
+					value.startsWith(parts[0]) ? [{ value, label: value }] : [],
+				);
 			}
 
 			if (parts[0] === 'restart') {
 				const candidate = parts[1] ?? '';
 
-				return ['all', ...list_supported_languages()]
-					.filter((value) => value.startsWith(candidate))
-					.map((value) => ({
-						value: `restart ${value}`,
-						label: value,
-					}));
+				return ['all', ...list_supported_languages()].flatMap(
+					(value) =>
+						value.startsWith(candidate)
+							? [{ value: `restart ${value}`, label: value }]
+							: [],
+				);
 			}
 
 			return null;

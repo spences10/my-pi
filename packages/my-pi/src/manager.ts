@@ -73,8 +73,8 @@ export default function extensions_manager(pi: ExtensionAPI): void {
 			const [sub = '', query = ''] = prefix.trimStart().split(/\s+/);
 
 			if (!['enable', 'disable'].includes(sub)) {
-				return SUBCOMMANDS.filter((name) => name.startsWith(sub)).map(
-					(name) => ({ value: name, label: name }),
+				return SUBCOMMANDS.flatMap((name) =>
+					name.startsWith(sub) ? [{ value: name, label: name }] : [],
 				);
 			}
 

@@ -17,25 +17,27 @@ export function build_sections(
 		'dedupe',
 	];
 
-	return categories
-		.map((category) => {
-			const section = results.filter(
-				(result) => result.category === category,
-			);
+	return categories.flatMap((category) => {
+		const section = results.filter(
+			(result) => result.category === category,
+		);
 
-			const passed = section.filter((result) => result.passed).length;
-			const total = section.length;
+		const passed = section.filter((result) => result.passed).length;
+		const total = section.length;
 
-			return {
+		if (total === 0) return [];
+
+		return [
+			{
 				category,
 				passed,
 				failed: total - passed,
 				total,
 				score_pct:
 					total === 0 ? 0 : Math.round((passed / total) * 1000) / 10,
-			};
-		})
-		.filter((section) => section.total > 0);
+			},
+		];
+	});
 }
 
 export function format_report(report: EvalReport): string {

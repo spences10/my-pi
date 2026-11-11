@@ -73,8 +73,7 @@ function has_sequence(args: string[], sequence: string[]): boolean {
 
 function option_letters(args: string[]): string {
 	return args
-		.filter((arg) => /^-[^-]/.test(arg))
-		.map((arg) => arg.slice(1))
+		.flatMap((arg) => (/^-[^-]/.test(arg) ? [arg.slice(1)] : []))
 		.join('');
 }
 
