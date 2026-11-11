@@ -2,7 +2,6 @@ import { with_sqlite_busy_retry } from '@spences10/pi-sqlite-core';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { DatabaseSync } from 'node:sqlite';
 import { format_get_result } from '../context-format.js';
 import { ContextStore, should_index_text } from '../store.js';
 import {
@@ -148,10 +147,6 @@ export function run_capture_evals(results: EvalCaseResult[]): void {
 	});
 }
 
-function store_db(store: ContextStore): DatabaseSync {
-	return Reflect.get(store, 'db') as DatabaseSync;
-}
-
 export function run_retention_evals(
 	store: ContextStore,
 	results: EvalCaseResult[],
@@ -172,7 +167,7 @@ export function run_retention_evals(
 		throw new Error('Failed to seed retention eval');
 	with_sqlite_busy_retry(
 		() =>
-			store_db(store)
+			store.db
 				.prepare(
 					'UPDATE context_sources SET created_at = ? WHERE id = ?',
 				)
