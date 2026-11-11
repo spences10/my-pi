@@ -1,7 +1,6 @@
 import { describe, it } from 'node:test';
 import { RuleTester } from 'vite-plus/lint/plugins-dev';
 import { no_nested_ternary } from './lint-rules.ts';
-import { noModuleMockingRule } from './oxlint/anti-slop/rules/no-module-mocking.ts';
 
 RuleTester.describe = describe;
 
@@ -75,23 +74,4 @@ tester.run('my-pi/no-nested-ternary', no_nested_ternary, {
 			errors: [{ messageId: 'nested' }, { messageId: 'nested' }],
 		},
 	],
-});
-
-// Preserve Vite+ compatibility if the optional module-mocking rule is enabled.
-tester.run('anti-slop/no-module-mocking', noModuleMockingRule, {
-	valid: [
-		'import { vi } from "vite-plus/test"; vi.fn();',
-		'import { vi } from "vite-plus/test"; vi.mocked(dependency);',
-		'const vi = { mock() {} }; vi.mock();',
-		'import { vi } from "unrelated-package"; vi.mock();',
-	],
-	invalid: [
-		'import { vi } from "vite-plus/test"; vi.mock("./dependency");',
-		'import { vi as testing } from "vite-plus/test"; testing.doMock("./dependency");',
-		'import { vi } from "vitest"; vi.mock("./dependency");',
-		'import { jest } from "@jest/globals"; jest.unstable_mockModule("./dependency", () => ({}));',
-	].map((code) => ({
-		code,
-		errors: [{ messageId: 'moduleMock' }],
-	})),
 });

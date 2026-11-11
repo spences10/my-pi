@@ -1,15 +1,20 @@
 import type { DashboardEvent } from './api.js';
 
+/* oxlint-disable anti-slop/no-unknown-returns, anti-slop/no-unsafe-dictionary-type -- Generic path inspection leaves arbitrary payload values unvalidated. */
 export function payload_value(
 	payload: Record<string, unknown> | undefined,
 	path: string,
 ): unknown {
 	return path.split('.').reduce<unknown>((value, key) => {
 		if (!value || typeof value !== 'object') return undefined;
+		// SAFETY: The guard excludes null and primitives; property values remain unknown.
 		return (value as Record<string, unknown>)[key];
 	}, payload);
 }
 
+/* oxlint-enable anti-slop/no-unknown-returns, anti-slop/no-unsafe-dictionary-type */
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Previewing arbitrary payloads is this helper's contract.
 export function text_preview(value: unknown, limit = 220): string {
 	if (value == null) return '';
 	let text: string;
@@ -55,8 +60,10 @@ export function event_summary(event: DashboardEvent): string {
 	return '';
 }
 
+/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type -- Recursively inspect arbitrary external payloads without claiming a domain schema. */
 function has_error_value(value: unknown): boolean {
 	if (!value || typeof value !== 'object') return false;
+	// SAFETY: The guard excludes null and primitives; every property remains unknown.
 	const record = value as Record<string, unknown>;
 	if (
 		record.isError === true ||
@@ -67,6 +74,8 @@ function has_error_value(value: unknown): boolean {
 		return true;
 	return Object.values(record).some(has_error_value);
 }
+
+/* oxlint-enable anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type */
 
 export function event_has_error(event: DashboardEvent): boolean {
 	return event.type === 'error' || has_error_value(event.payload);

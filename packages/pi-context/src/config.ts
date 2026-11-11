@@ -11,6 +11,55 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import * as v from 'valibot';
+
+const context_settings_preset_schema = v.picklist([
+	'default',
+	'light',
+	'balanced',
+	'research',
+	'archive',
+]);
+
+const positive_number_schema = v.pipe(
+	v.number(),
+	v.finite(),
+	v.minValue(Number.MIN_VALUE),
+);
+
+// Invalid fields fall back independently to the selected preset below.
+const context_settings_input_schema = v.pipe(
+	v.unknown(),
+	v.check((value) => !Array.isArray(value)),
+	v.object({
+		preset: v.fallback(
+			v.optional(
+				v.union([
+					context_settings_preset_schema,
+					v.literal('custom'),
+				]),
+			),
+			undefined,
+		),
+		retention_days: v.fallback(
+			v.optional(v.nullable(positive_number_schema)),
+			undefined,
+		),
+		max_mb: v.fallback(
+			v.optional(v.nullable(positive_number_schema)),
+			undefined,
+		),
+		purge_on_shutdown: v.fallback(v.optional(v.boolean()), undefined),
+		capture_max_bytes: v.fallback(
+			v.optional(positive_number_schema),
+			undefined,
+		),
+		capture_max_lines: v.fallback(
+			v.optional(positive_number_schema),
+			undefined,
+		),
+	}),
+);
 
 export type ContextSettingsPreset =
 	| 'default'
@@ -117,8 +166,10 @@ export const DEFAULT_CONTEXT_SETTINGS: ContextSettingsConfig = {
 export function get_context_settings_config_path(): string {
 	if (process.env.MY_PI_CONTEXT_CONFIG)
 		return process.env.MY_PI_CONTEXT_CONFIG;
+
 	const xdg =
 		process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
+
 	return join(xdg, 'my-pi', 'context.json');
 }
 
@@ -126,6 +177,7 @@ export function context_settings_from_preset(
 	preset: ContextSettingsPreset,
 ): ContextSettingsConfig {
 	const definition = CONTEXT_SETTINGS_PRESETS[preset];
+
 	return {
 		version: 1,
 		preset,
@@ -139,20 +191,21 @@ export function context_settings_from_preset(
 
 export function load_context_settings_config(): ContextSettingsConfig | null {
 	const path = get_context_settings_config_path();
+
 	try {
-		let parsed: Partial<ContextSettingsConfig> | null;
+		let raw: unknown;
+
 		if (process.env.MY_PI_CONTEXT_CONFIG)
-			parsed = existsSync(path)
+			raw = existsSync(path)
 				? JSON.parse(readFileSync(path, 'utf-8'))
 				: null;
-		else
-			parsed =
-				read_package_settings<Partial<ContextSettingsConfig> | null>(
-					'context',
-					null,
-				);
-		if (!parsed) return null;
-		return normalize_context_settings_config(parsed);
+		else raw = read_package_settings<unknown>('context', null);
+
+		const parsed = v.safeParse(context_settings_input_schema, raw);
+
+		if (!parsed.success) return null;
+
+		return normalize_context_settings_config(parsed.output);
 	} catch {
 		return null;
 	}
@@ -163,10 +216,13 @@ export function save_context_settings_config(
 ): void {
 	if (!process.env.MY_PI_CONTEXT_CONFIG) {
 		write_package_settings('context', config);
+
 		return;
 	}
+
 	const path = get_context_settings_config_path();
 	const dir = dirname(path);
+
 	if (!existsSync(dir))
 		mkdirSync(dir, { recursive: true, mode: 0o700 });
 
@@ -182,6 +238,7 @@ export function get_context_capture_limits(
 ): ContextOutputLimits {
 	const saved = load_context_settings_config();
 	const fallback = saved ?? DEFAULT_CONTEXT_SETTINGS;
+
 	return {
 		max_bytes: parse_positive_byte_env(
 			env.MY_PI_CONTEXT_CAPTURE_MAX_KB,
@@ -200,6 +257,7 @@ export function normalize_context_settings_config(
 	const preset = is_context_settings_preset(value.preset)
 		? value.preset
 		: 'custom';
+
 	const base =
 		preset !== 'custom'
 			? context_settings_from_preset(preset)
@@ -216,10 +274,9 @@ export function normalize_context_settings_config(
 			value.max_mb,
 			base.max_mb,
 		),
-		purge_on_shutdown:
-			typeof value.purge_on_shutdown === 'boolean'
-				? value.purge_on_shutdown
-				: base.purge_on_shutdown,
+		purge_on_shutdown: v.is(v.boolean(), value.purge_on_shutdown)
+			? value.purge_on_shutdown
+			: base.purge_on_shutdown,
 		capture_max_bytes: normalize_positive_number(
 			value.capture_max_bytes,
 			base.capture_max_bytes,
@@ -234,27 +291,28 @@ export function normalize_context_settings_config(
 export function is_context_settings_preset(
 	value: unknown,
 ): value is ContextSettingsPreset {
-	return (
-		typeof value === 'string' &&
-		Object.hasOwn(CONTEXT_SETTINGS_PRESETS, value)
-	);
+	return v.is(context_settings_preset_schema, value);
 }
 
 function normalize_optional_positive_number(
-	value: unknown,
+	value: number | null | undefined,
 	fallback: number | null,
 ): number | null {
-	if (value === null) return null;
-	if (typeof value !== 'number') return fallback;
-	return Number.isFinite(value) && value > 0 ? value : fallback;
+	const parsed = v.safeParse(
+		v.nullable(positive_number_schema),
+		value,
+	);
+
+	return parsed.success ? parsed.output : fallback;
 }
 
 function normalize_positive_number(
-	value: unknown,
+	value: number | undefined,
 	fallback: number,
 ): number {
-	if (typeof value !== 'number') return fallback;
-	return Number.isFinite(value) && value > 0 ? value : fallback;
+	const parsed = v.safeParse(positive_number_schema, value);
+
+	return parsed.success ? parsed.output : fallback;
 }
 
 function parse_positive_number_env(
@@ -263,6 +321,7 @@ function parse_positive_number_env(
 ): number {
 	if (value === undefined || value.trim() === '') return fallback;
 	const parsed = Number(value.trim());
+
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
@@ -271,5 +330,6 @@ function parse_positive_byte_env(
 	fallback: number,
 ): number {
 	const kb = parse_positive_number_env(value, fallback / 1024);
+
 	return Math.round(kb * 1024);
 }
