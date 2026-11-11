@@ -199,41 +199,46 @@ export class LspClient extends EventEmitter {
 		});
 
 		try {
-			const initialize_result = await Promise.race([
-				this.#request('initialize', {
-					processId: process.pid,
-					rootUri: this.#options.root_uri,
-					...(this.#options.initialization_options
-						? {
-								initializationOptions:
-									this.#options.initialization_options,
-							}
-						: {}),
-					capabilities: {
-						textDocument: {
-							diagnostic: {},
-							publishDiagnostics: {
-								relatedInformation: true,
-								versionSupport: true,
-							},
-							hover: {
-								contentFormat: ['markdown', 'plaintext'],
-							},
-							definition: { linkSupport: false },
-							references: {},
-							documentSymbol: {
-								hierarchicalDocumentSymbolSupport: true,
-							},
+			const base_initialize_params = {
+				processId: process.pid,
+				rootUri: this.#options.root_uri,
+
+				capabilities: {
+					textDocument: {
+						diagnostic: {},
+						publishDiagnostics: {
+							relatedInformation: true,
+							versionSupport: true,
 						},
-						workspace: {
-							workspaceFolders: true,
-							symbol: {},
+						hover: {
+							contentFormat: ['markdown', 'plaintext'],
+						},
+						definition: { linkSupport: false },
+						references: {},
+						documentSymbol: {
+							hierarchicalDocumentSymbolSupport: true,
 						},
 					},
-					workspaceFolders: [
-						{ uri: this.#options.root_uri, name: 'workspace' },
-					],
-				}),
+					workspace: {
+						workspaceFolders: true,
+						symbol: {},
+					},
+				},
+				workspaceFolders: [
+					{ uri: this.#options.root_uri, name: 'workspace' },
+				],
+			};
+
+			const initialize_params = this.#options.initialization_options
+				? {
+						...base_initialize_params,
+						initializationOptions:
+							this.#options.initialization_options,
+					}
+				: base_initialize_params;
+
+			const initialize_result = await Promise.race([
+				this.#request('initialize', initialize_params),
 				start_failure,
 			]);
 

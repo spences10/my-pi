@@ -284,10 +284,13 @@ export function failure_details(event: Record<string, unknown>): {
 		.flatMap((source) => [source.exit_code, source.exitCode])
 		.find((value): value is number => typeof value === 'number');
 
-	return {
-		...(text ? { error_text: text } : {}),
-		...(exit_code === undefined ? {} : { exit_code }),
-	};
+	const details: ReturnType<typeof failure_details> = {};
+
+	if (text) details.error_text = text;
+
+	if (exit_code !== undefined) details.exit_code = exit_code;
+
+	return details;
 }
 
 export function summarize_payload(
@@ -347,18 +350,28 @@ export function summarize_payload(
 		} else if (value && typeof value === 'object') {
 			const nested = value as Record<string, unknown>;
 
-			if (detail_level === 'summary')
-				summary[key] = {
+			if (detail_level === 'summary') {
+				const metadata = {
 					type: 'object',
 					keys: Object.keys(nested).slice(0, 20),
-					...('usage' in nested
-						? { usage: summarize_metric_value(nested.usage) }
-						: {}),
-					...('cost' in nested
-						? { cost: summarize_metric_value(nested.cost) }
-						: {}),
 				};
-			else summary[key] = detailed_object_summary(key, nested);
+
+				const with_usage =
+					'usage' in nested
+						? {
+								...metadata,
+								usage: summarize_metric_value(nested.usage),
+							}
+						: metadata;
+
+				summary[key] =
+					'cost' in nested
+						? {
+								...with_usage,
+								cost: summarize_metric_value(nested.cost),
+							}
+						: with_usage;
+			} else summary[key] = detailed_object_summary(key, nested);
 
 			if (key === 'message' && detail_level === 'summary') {
 				const message = summary[key] as Record<string, unknown>;

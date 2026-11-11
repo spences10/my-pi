@@ -62,19 +62,17 @@ export function paginate_team_items<T>(
 	const page_items = items.slice(offset, offset + limit);
 	const has_more = offset + page_items.length < items.length;
 
-	return {
-		items: page_items,
-		pagination: {
-			returned_count: page_items.length,
-			total_count: items.length,
-			has_more,
-			limit,
-			offset,
-			...(has_more
-				? { next_offset: offset + page_items.length }
-				: {}),
-		},
+	const pagination: TeamPaginationMetadata = {
+		returned_count: page_items.length,
+		total_count: items.length,
+		has_more,
+		limit,
+		offset,
 	};
+
+	if (has_more) pagination.next_offset = offset + page_items.length;
+
+	return { items: page_items, pagination };
 }
 
 export function format_team_page(

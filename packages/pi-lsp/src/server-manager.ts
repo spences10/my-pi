@@ -300,19 +300,19 @@ export class LspServerManager {
 			if (!server_config) return undefined;
 			const root_uri = file_path_to_uri(workspace_root);
 
-			const client = this.#create_client({
+			const client_options: LspClientOptions = {
 				command: server_config.command,
 				args: server_config.args,
 				root_uri,
-				...(server_config.backend === 'typescript-language-server'
-					? {
-							initialization_options: {
-								tsserver: { useSyntaxServer: 'never' },
-							},
-						}
-					: {}),
 				language_id_for_uri: (uri) => language_id_for_file(uri),
-			});
+			};
+
+			if (server_config.backend === 'typescript-language-server')
+				client_options.initialization_options = {
+					tsserver: { useSyntaxServer: 'never' },
+				};
+
+			const client = this.#create_client(client_options);
 
 			try {
 				await client.start();

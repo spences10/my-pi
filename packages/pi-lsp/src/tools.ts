@@ -87,16 +87,20 @@ async function with_file_state(
 	try {
 		const output = await run(result);
 
-		return make_tool_result(
-			typeof output === 'string' ? output : output.text,
-			{
-				ok: true,
-				language: result.state.language,
-				command: result.state.command,
-				workspace_root: result.state.workspace_root,
-				...(typeof output === 'string' ? {} : output.details),
-			},
-		);
+		const details = {
+			ok: true,
+			language: result.state.language,
+			command: result.state.command,
+			workspace_root: result.state.workspace_root,
+		};
+
+		if (typeof output === 'string')
+			return make_tool_result(output, details);
+
+		return make_tool_result(output.text, {
+			...details,
+			...output.details,
+		});
 	} catch (error) {
 		return make_tool_error(
 			to_lsp_tool_error(

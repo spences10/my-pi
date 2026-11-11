@@ -65,12 +65,15 @@ export function register_context_export_tool(pi: ExtensionAPI): void {
 			const scope = scope_from_context(ctx);
 			const store = get_context_store(scope);
 
-			const scope_options = {
-				...(params.global ? {} : scope),
+			const selection_options = {
 				global: params.global,
 				before: params.before,
 				after: params.after,
 			};
+
+			const scope_options = params.global
+				? selection_options
+				: { ...scope, ...selection_options };
 
 			const exported = store.export_content(
 				params.source_id,

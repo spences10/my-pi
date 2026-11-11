@@ -219,12 +219,15 @@ function run_case(test_case: EvalCase): EvalResult {
 		test_case.assert,
 	);
 
-	return {
+	const result: EvalResult = {
 		id: test_case.id,
 		status: details.length ? 'fail' : 'pass',
 		duration_ms,
-		...(details.length ? { details } : {}),
 	};
+
+	if (details.length) result.details = details;
+
+	return result;
 }
 
 try {

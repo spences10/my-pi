@@ -54,12 +54,15 @@ export function register_context_get_tool(pi: ExtensionAPI): void {
 			const scope = scope_from_context(ctx);
 			const store = get_context_store(scope);
 
-			const scope_options = {
-				...(params.global ? {} : scope),
+			const selection_options = {
 				global: params.global,
 				before: params.before,
 				after: params.after,
 			};
+
+			const scope_options = params.global
+				? selection_options
+				: { ...scope, ...selection_options };
 
 			const chunks = store.get(
 				params.source_id,

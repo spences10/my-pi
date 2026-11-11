@@ -65,10 +65,9 @@ export function write_talk_secrets(
 
 	secrets.version = 1;
 	secrets.packages ??= {};
-	secrets.packages['pi-talk'] = {
-		enabled: value.enabled,
-		...(value.apiKey ? { deepgramApiKey: value.apiKey } : {}),
-	};
+	secrets.packages['pi-talk'] = value.apiKey
+		? { enabled: value.enabled, deepgramApiKey: value.apiKey }
+		: { enabled: value.enabled };
 	mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
 	const temporary = `${path}.${process.pid}.tmp`;
 	writeFileSync(temporary, `${JSON.stringify(secrets, null, 2)}\n`, {

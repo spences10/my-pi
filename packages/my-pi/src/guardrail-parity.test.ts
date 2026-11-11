@@ -447,12 +447,15 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 					const { name, tool, input, initial, expected, blocked } =
 						test_case;
 
+					const allowed = { allow: test_case.allow ?? [] };
+
+					const guardrail_settings = test_case.mode
+						? { ...allowed, mode: test_case.mode }
+						: allowed;
+
 					writeFileSync(
 						join(dir, '.pi', 'svelte-guardrails.json'),
-						JSON.stringify({
-							...(test_case.mode ? { mode: test_case.mode } : {}),
-							allow: test_case.allow ?? [],
-						}),
+						JSON.stringify(guardrail_settings),
 					);
 
 					const project_preferences = join(
