@@ -83,18 +83,34 @@ export const default_config: CodingPreferencesConfig = {
 	],
 };
 
-function input_record(event: ToolCallEvent): Record<string, unknown> {
-	return event.input as Record<string, unknown>;
+const tool_input_schema = v.looseObject({
+	path: v.optional(v.unknown()),
+	file_path: v.optional(v.unknown()),
+	filePath: v.optional(v.unknown()),
+	command: v.optional(v.unknown()),
+	content: v.optional(v.unknown()),
+	newText: v.optional(v.unknown()),
+	edits: v.optional(v.unknown()),
+});
+
+function tool_input(
+	event: ToolCallEvent,
+): v.InferOutput<typeof tool_input_schema> {
+	return v.parse(tool_input_schema, event.input);
 }
 
 function path_value_from(
 	event: ToolCallEvent,
 ): TargetValue | undefined {
-	const input = input_record(event);
+	const input = tool_input(event);
 
-	for (const key of ['path', 'file_path', 'filePath']) {
-		const value = input[key];
+	const candidates: Array<[string, unknown]> = [
+		['path', input.path],
+		['file_path', input.file_path],
+		['filePath', input.filePath],
+	];
 
+	for (const [key, value] of candidates) {
 		if (typeof value === 'string') {
 			return { field: `input.${key}`, value };
 		}
@@ -106,7 +122,7 @@ function path_value_from(
 function command_value_from(
 	event: ToolCallEvent,
 ): TargetValue | undefined {
-	const command = input_record(event).command;
+	const command = tool_input(event).command;
 
 	return typeof command === 'string'
 		? { field: 'input.command', value: command }
@@ -156,7 +172,7 @@ function target_values(
 	}
 
 	if (target === 'content') {
-		const input = input_record(event);
+		const input = tool_input(event);
 
 		if (event.toolName === 'write') {
 			return typeof input.content === 'string'

@@ -10,7 +10,11 @@ import {
 	readFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
-import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import {
+	DatabaseSync,
+	type SQLOutputValue,
+	type StatementSync,
+} from 'node:sqlite';
 import * as v from 'valibot';
 import {
 	derive_event_columns,
@@ -170,7 +174,7 @@ function table_columns(db: DatabaseSync, table: string): Set<string> {
 }
 
 function scalar(db: DatabaseSync, sql: string): number {
-	const row = db.prepare(sql).get() as Record<string, unknown>;
+	const row = db.prepare(sql).get() as Record<string, SQLOutputValue>;
 
 	return Number(Object.values(row)[0] ?? 0);
 }

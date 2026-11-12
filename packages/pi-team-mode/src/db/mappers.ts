@@ -10,7 +10,12 @@ import type {
 	InboxRow,
 	SessionRow,
 } from './types.js';
-import { bool, optional, parse_json } from './util.js';
+import {
+	bool,
+	optional,
+	parse_json,
+	parse_json_record,
+} from './util.js';
 
 export function map_session(row: SessionRow): CoordinationSession {
 	return {
@@ -30,7 +35,7 @@ export function map_session(row: SessionRow): CoordinationSession {
 		parent_session_id: optional(row.parent_session_id),
 		pool: row.pool,
 		tags: parse_json(row.tags_json, []),
-		metadata: parse_json(row.metadata_json, {}),
+		metadata: parse_json_record(row.metadata_json),
 		created_at: row.created_at,
 		updated_at: row.updated_at,
 		last_seen_at: row.last_seen_at,
@@ -50,7 +55,7 @@ export function map_artifact(row: ArtifactRow): CoordinationArtifact {
 		body_format: row.body_format,
 		created_at: row.created_at,
 		updated_at: row.updated_at,
-		metadata: parse_json(row.metadata_json, {}),
+		metadata: parse_json_record(row.metadata_json),
 	};
 }
 
@@ -64,7 +69,7 @@ export function map_group(row: GroupRow): CoordinationGroup {
 		created_at: row.created_at,
 		updated_at: row.updated_at,
 		next_task_id: row.next_task_id,
-		metadata: parse_json(row.metadata_json, {}),
+		metadata: parse_json_record(row.metadata_json),
 	};
 }
 
@@ -97,7 +102,7 @@ export function map_inbox(row: InboxRow): CoordinationInboxMessage {
 		expires_at: optional(row.expires_at),
 		requires_ack: bool(row.requires_ack),
 		created_at: row.created_at,
-		metadata: parse_json(row.metadata_json, {}),
+		metadata: parse_json_record(row.metadata_json),
 		to_session_id: row.to_session_id,
 		delivered_at: optional(row.delivered_at),
 		read_at: optional(row.read_at),

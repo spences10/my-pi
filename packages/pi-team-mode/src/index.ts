@@ -172,8 +172,12 @@ export default async function team_mode(pi: ExtensionAPI) {
 			metadata:
 				process.env.MY_PI_WORKER_CHILD === '1'
 					? {
-							worker_id: process.env.MY_PI_WORKER_ID,
-							worker_group_id: process.env.MY_PI_TEAM_GROUP_ID,
+							...(process.env.MY_PI_WORKER_ID !== undefined && {
+								worker_id: process.env.MY_PI_WORKER_ID,
+							}),
+							...(process.env.MY_PI_TEAM_GROUP_ID !== undefined && {
+								worker_group_id: process.env.MY_PI_TEAM_GROUP_ID,
+							}),
 						}
 					: undefined,
 			agent_name: pi.getSessionName?.() || fallback_agent_name,

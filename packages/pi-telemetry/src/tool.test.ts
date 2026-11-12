@@ -110,7 +110,9 @@ describe('telemetry tool', () => {
 
 		const tool = register_tool.mock.calls[0][0];
 
-		const call = async (params: Record<string, unknown>) => {
+		const call = async (
+			params: Parameters<typeof tool.execute>[1],
+		) => {
 			const result = await tool.execute(
 				'id',
 				params,

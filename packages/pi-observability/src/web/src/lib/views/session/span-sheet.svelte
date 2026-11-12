@@ -5,7 +5,7 @@
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import * as Collapsible from '#lib/components/ui/collapsible/index.js';
 	import * as Sheet from '#lib/components/ui/sheet/index.js';
-	import { type_label } from '#lib/events.js';
+	import { payload_value, type_label } from '#lib/events.js';
 	import {
 		clock,
 		duration,
@@ -49,10 +49,6 @@
 			(event) => event.type === 'tool_call',
 		);
 
-		const input = call?.payload.input as
-			| Record<string, unknown>
-			| undefined;
-
 		const value = [
 			'command',
 			'path',
@@ -61,7 +57,7 @@
 			'query',
 			'url',
 		]
-			.map((key) => input?.[key])
+			.map((key) => payload_value(call?.payload, `input.${key}`))
 			.find((item): item is string => typeof item === 'string');
 
 		return value ?? span?.detail ?? null;

@@ -10,6 +10,7 @@ import { homedir } from 'node:os';
 import * as v from 'valibot';
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { health_proof_matches } from './health-auth.js';
+import type { PayloadObject } from './json.js';
 import { assistant_text, message_schema } from './message-text.js';
 import { resolve_observability_token } from './options.js';
 import {
@@ -155,14 +156,12 @@ export function resolve_dashboard_command(
 	return 'web';
 }
 
-function summarize_metric_value<T>(
-	value: T,
-): T | Record<string, unknown> {
+function summarize_metric_value<T>(value: T): T | PayloadObject {
 	if (!value || typeof value !== 'object') return value;
 
 	if (Array.isArray(value))
 		return { type: 'array', length: value.length };
-	const summary: Record<string, unknown> = {};
+	const summary: PayloadObject = {};
 
 	for (const [key, child] of Object.entries(value)) {
 		if (
@@ -186,17 +185,16 @@ function summarize_text(value: string, limit: number): string {
 // Provider requests repeat the same system prompt on every turn. The
 // agent_start event keeps a preview, so requests store only a
 // fingerprint that shows when the prompt changes.
-interface TextFingerprint {
+type TextFingerprint = {
 	type: 'string';
 	length: number;
 	sha256: string;
-}
+};
 
-interface ObjectSummary {
+type ObjectSummary = PayloadObject & {
 	type: string | number | boolean;
 	keys: string[] | string | number | boolean;
-	[field: string]: unknown;
-}
+};
 
 interface FailureDetails {
 	error_text?: string;
@@ -221,7 +219,7 @@ export function text_fingerprint(value: string): TextFingerprint {
 
 function detailed_object_summary(
 	key: string,
-	value: Record<string, unknown>,
+	value: PayloadObject,
 ): ObjectSummary {
 	const summary: ObjectSummary = {
 		type: 'object',
@@ -361,10 +359,11 @@ export function summarize_payload<T>(
 	event: T,
 	detail_level: ObservabilityConfig['detail_level'] = 'detailed',
 	event_type?: ObservabilityEventType,
-): T | Record<string, unknown> {
+): T | PayloadObject {
 	if (!event || typeof event !== 'object') return event;
-	const object = event as Record<string, unknown>;
-	const summary: Record<string, unknown> = {};
+	// SAFETY: Only objects reach this point; fields are read and copied into the summary, never mutated.
+	const object = event as PayloadObject;
+	const summary: PayloadObject = {};
 
 	for (const key of [
 		'reason',
@@ -401,7 +400,8 @@ export function summarize_payload<T>(
 		} else if (Array.isArray(value)) {
 			summary[key] = { type: 'array', length: value.length };
 		} else if (value && typeof value === 'object') {
-			const nested = value as Record<string, unknown>;
+			// SAFETY: Arrays and primitives were handled by the branches above, leaving an object.
+			const nested = value as PayloadObject;
 
 			if (detail_level === 'summary') {
 				const metadata = {
@@ -427,7 +427,8 @@ export function summarize_payload<T>(
 			} else summary[key] = detailed_object_summary(key, nested);
 
 			if (key === 'message' && detail_level === 'summary') {
-				const message = summary[key] as Record<string, unknown>;
+				// SAFETY: The summary-level branch above stored an object under this key.
+				const message = summary[key] as PayloadObject;
 
 				for (const field of ['model', 'responseModel']) {
 					const identifier = nested[field];

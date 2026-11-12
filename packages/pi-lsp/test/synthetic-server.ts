@@ -86,11 +86,19 @@ function run_directives(
 	}
 }
 
+type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue };
+
 interface ClientMessage {
 	id?: number;
 	method?: string;
 	params: {
-		initializationOptions?: Record<string, unknown>;
+		initializationOptions?: JsonValue;
 		textDocument: { uri: string; version: number; text: string };
 		contentChanges: Array<{ text: string }>;
 	};

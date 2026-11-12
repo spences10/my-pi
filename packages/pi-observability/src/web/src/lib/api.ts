@@ -1,3 +1,4 @@
+import type { JsonValue } from '../../../json';
 import type {
 	DashboardSession,
 	FailureRow,
@@ -11,7 +12,7 @@ import type {
 } from '../../../types';
 
 export type DashboardEvent = ObservabilityEvent<
-	Record<string, unknown>
+	Record<string, JsonValue>
 >;
 
 // The dashboard URL carries the token in the fragment so it never

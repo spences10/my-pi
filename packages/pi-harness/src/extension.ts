@@ -419,7 +419,12 @@ export default function harness(pi: ExtensionAPI) {
 		}
 
 		if (event.toolName === 'write' || event.toolName === 'edit') {
-			const input = event.input as Record<string, unknown>;
+			const input: {
+				path?: unknown;
+				file_path?: unknown;
+				filePath?: unknown;
+			} = event.input;
+
 			const path = input.path ?? input.file_path ?? input.filePath;
 
 			if (typeof path !== 'string')

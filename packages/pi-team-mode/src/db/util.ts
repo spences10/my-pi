@@ -1,4 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
+import { json_record_schema, type JsonRecord } from '../json.js';
 
 export function now(): string {
 	return new Date().toISOString();
@@ -15,6 +17,18 @@ export function parse_json<T>(value: string | null, fallback: T): T {
 		return JSON.parse(value) as T;
 	} catch {
 		return fallback;
+	}
+}
+
+export function parse_json_record(value: string | null): JsonRecord {
+	if (!value) return {};
+
+	try {
+		const parsed = v.safeParse(json_record_schema, JSON.parse(value));
+
+		return parsed.success ? parsed.output : {};
+	} catch {
+		return {};
 	}
 }
 

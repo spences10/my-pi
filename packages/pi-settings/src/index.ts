@@ -9,12 +9,20 @@ import {
 import { dirname, join } from 'node:path';
 import * as v from 'valibot';
 
+export type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue };
+
 export interface MyPiSettingsFile {
 	version: 1;
 	extensions?: { enabled?: Record<string, boolean> };
 	codingPreferences?: unknown;
-	trust?: Record<string, unknown>;
-	packages?: Record<string, unknown>;
+	trust?: Record<string, JsonValue>;
+	packages?: Record<string, JsonValue>;
 }
 
 export function get_settings_path(): string {
@@ -124,7 +132,8 @@ export function write_package_settings<T>(
 	const settings = read_settings();
 	write_settings({
 		...settings,
-		packages: { ...settings.packages, [name]: value },
+		// SAFETY: the value is serialised to JSON by write_settings.
+		packages: { ...settings.packages, [name]: value as JsonValue },
 	});
 }
 
@@ -141,6 +150,7 @@ export function write_trust_settings<T>(
 	const settings = read_settings();
 	write_settings({
 		...settings,
-		trust: { ...settings.trust, [name]: value },
+		// SAFETY: the value is serialised to JSON by write_settings.
+		trust: { ...settings.trust, [name]: value as JsonValue },
 	});
 }

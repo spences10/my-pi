@@ -22,6 +22,7 @@ import {
 	find_stale_sessions,
 	type ProcessAliveCheck,
 } from '../session-liveness.js';
+import type { JsonRecord } from '../json.js';
 import { DeliveryPolicy } from './delivery-policy.js';
 import {
 	map_artifact,
@@ -62,7 +63,7 @@ import {
 	json,
 	now,
 	optional,
-	parse_json,
+	parse_json_record,
 } from './util.js';
 
 export { LATEST_TEAM_SCHEMA_VERSION } from './schema.js';
@@ -383,7 +384,7 @@ export class TeamDatabase {
 		name: string;
 		cwd?: string;
 		created_by_session_id?: string;
-		metadata?: Record<string, unknown>;
+		metadata?: JsonRecord;
 	}): CoordinationGroup {
 		const timestamp = now();
 
@@ -898,7 +899,7 @@ export class TeamDatabase {
 		session_id?: string;
 		group_id?: string;
 		message_id?: string;
-		data?: Record<string, unknown>;
+		data?: JsonRecord;
 	}): void {
 		this.write(() =>
 			this.statements.insert_event.run(
@@ -985,7 +986,7 @@ export class TeamDatabase {
 			expires_at: optional(row.expires_at),
 			requires_ack: bool(row.requires_ack),
 			created_at: row.created_at,
-			metadata: parse_json(row.metadata_json, {}),
+			metadata: parse_json_record(row.metadata_json),
 		};
 	}
 }

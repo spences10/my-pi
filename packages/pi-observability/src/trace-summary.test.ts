@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import type { JsonValue } from './json.js';
 import { trace_summary } from './trace-summary.js';
 import type {
 	DashboardSession,
@@ -13,7 +14,7 @@ const dirs: string[] = [];
 function event(
 	type: ObservabilityEvent['type'],
 	seq: number,
-	payload: Record<string, unknown>,
+	payload: Record<string, JsonValue>,
 	ts = `2026-01-01T00:00:0${seq}.000Z`,
 ): ObservabilityEvent {
 	return {

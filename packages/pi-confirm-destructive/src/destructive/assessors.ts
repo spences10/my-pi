@@ -574,7 +574,7 @@ function assess_file_write(
 
 function assess_file_edit(
 	cwd: string,
-	input: Record<string, unknown>,
+	input: { path?: unknown; edits?: unknown },
 	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
 	const path =
@@ -624,11 +624,12 @@ function assess_custom_tool(
 	if (!DESTRUCTIVE_CUSTOM_TOOL_NAME.test(event.toolName))
 		return undefined;
 
-	const input = event.input as Record<string, unknown>;
+	const input_query =
+		'query' in event.input ? event.input.query : undefined;
 
 	const query =
-		typeof input.query === 'string'
-			? `\n\nQuery: ${preview(input.query)}`
+		typeof input_query === 'string'
+			? `\n\nQuery: ${preview(input_query)}`
 			: '';
 
 	return {

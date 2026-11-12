@@ -14,6 +14,7 @@ import {
 import { show_modal } from '@spences10/pi-tui-modal';
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { open_dashboard } from './index.js';
+import type { JsonValue } from './json.js';
 
 interface DashboardSession {
 	session_id: string;
@@ -33,7 +34,7 @@ interface DashboardEvent {
 	seq: number;
 	ts: string;
 	type: string;
-	payload?: Record<string, unknown>;
+	payload?: Record<string, JsonValue>;
 }
 
 interface DashboardSnapshot {

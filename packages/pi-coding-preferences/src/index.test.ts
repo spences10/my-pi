@@ -26,13 +26,17 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 		join(tmpdir(), 'pi-coding-preferences-test-agent'),
 }));
 
-function event(toolName: string, input: Record<string, unknown>) {
+type TestToolCallEvent = Parameters<
+	typeof should_block_coding_preference
+>[0];
+
+function event(toolName: string, input: TestToolCallEvent['input']) {
 	return {
 		type: 'tool_call',
 		toolName,
 		toolCallId: 'test',
 		input,
-	} as Parameters<typeof should_block_coding_preference>[0];
+	} as TestToolCallEvent;
 }
 
 function write_project_config(

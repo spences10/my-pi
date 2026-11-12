@@ -8,7 +8,11 @@ import {
 	start_observability_server,
 	type RunningObservabilityServer,
 } from './server.js';
-import type { ObservabilityEvent } from './types.js';
+import type {
+	ObservabilityEvent,
+	OverviewResponse,
+	SessionSpansResponse,
+} from './types.js';
 
 const servers: RunningObservabilityServer[] = [];
 
@@ -607,7 +611,7 @@ describe('start_observability_server', () => {
 
 		const overview = (await (
 			await fetch(`${server.url}/stats/overview?since=not-a-date`)
-		).json()) as Record<string, unknown>;
+		).json()) as OverviewResponse;
 
 		expect(overview).toMatchObject({
 			since: null,
@@ -625,7 +629,7 @@ describe('start_observability_server', () => {
 
 		const spans = (await (
 			await fetch(`${server.url}/sessions/session-1/spans`)
-		).json()) as Record<string, unknown>;
+		).json()) as SessionSpansResponse;
 
 		expect(spans).toMatchObject({
 			turns: [{ turn_index: 0, provider_ms: 600, tool_ms: 240 }],

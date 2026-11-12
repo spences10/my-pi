@@ -1,3 +1,5 @@
+import type { JsonRecord } from './json.js';
+
 export type StandbyIntent =
 	| 'subordinate'
 	| 'handoff-target'
@@ -58,14 +60,12 @@ export function detect_standby_registration(
 	};
 }
 
-export function is_standby_session(
-	metadata: Record<string, unknown>,
-): boolean {
+export function is_standby_session(metadata: JsonRecord): boolean {
 	return metadata.availability === 'standby';
 }
 
 export function standby_label(
-	metadata: Record<string, unknown>,
+	metadata: JsonRecord,
 ): string | undefined {
 	if (!is_standby_session(metadata)) return undefined;
 

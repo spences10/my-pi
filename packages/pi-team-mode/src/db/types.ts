@@ -1,4 +1,5 @@
 import type { StatementSync } from 'node:sqlite';
+import type { JsonRecord } from '../json.js';
 
 export type DatabaseSyncConstructor =
 	typeof import('node:sqlite').DatabaseSync;
@@ -58,7 +59,7 @@ export interface CoordinationSessionInput {
 	parent_session_id?: string;
 	pool?: string;
 	tags?: string[];
-	metadata?: Record<string, unknown>;
+	metadata?: JsonRecord;
 }
 
 export interface CoordinationSession extends Required<
@@ -78,7 +79,7 @@ export interface CoordinationSession extends Required<
 	parent_session_id?: string;
 	pool: string;
 	tags: string[];
-	metadata: Record<string, unknown>;
+	metadata: JsonRecord;
 	created_at: string;
 	updated_at: string;
 	last_seen_at: string;
@@ -96,7 +97,7 @@ export interface CoordinationArtifact {
 	body_format: string;
 	created_at: string;
 	updated_at: string;
-	metadata: Record<string, unknown>;
+	metadata: JsonRecord;
 }
 
 export interface CoordinationArtifactInput {
@@ -107,7 +108,7 @@ export interface CoordinationArtifactInput {
 	summary: string;
 	body: string;
 	body_format?: string;
-	metadata?: Record<string, unknown>;
+	metadata?: JsonRecord;
 }
 
 export interface CoordinationGroup {
@@ -119,7 +120,7 @@ export interface CoordinationGroup {
 	created_at: string;
 	updated_at: string;
 	next_task_id: number;
-	metadata: Record<string, unknown>;
+	metadata: JsonRecord;
 }
 
 export interface CoordinationGroupMember {
@@ -150,7 +151,7 @@ export interface CoordinationMessageInput {
 	reply_to?: string;
 	ttl_ms?: number;
 	requires_ack?: boolean;
-	metadata?: Record<string, unknown>;
+	metadata?: JsonRecord;
 }
 
 export interface CoordinationCleanupOptions {
@@ -182,7 +183,7 @@ export interface CoordinationMessage {
 	expires_at?: string;
 	requires_ack: boolean;
 	created_at: string;
-	metadata: Record<string, unknown>;
+	metadata: JsonRecord;
 }
 
 export interface CoordinationInboxMessage extends CoordinationMessage {

@@ -4,8 +4,30 @@ import type {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vite-plus/test';
 
+interface TextFixture {
+	type: 'text';
+	text: string;
+}
+
+interface MessageFixture {
+	role: string;
+	timestamp: number;
+	command?: string;
+	output?: string;
+	exitCode?: number;
+	cancelled?: boolean;
+	content?: TextFixture[];
+}
+
+interface RedactionEventFixture {
+	toolName?: string;
+	input?: { path: string; offset?: number };
+	content?: TextFixture[];
+	messages?: MessageFixture[];
+}
+
 type RedactionHandler = (
-	event: Record<string, unknown>,
+	event: RedactionEventFixture,
 ) => Promise<ContextEventResult | ToolResultEventResult | undefined>;
 
 import filter_output, {
@@ -482,7 +504,7 @@ describe('filter_output', () => {
 		await filter_output(pi as never);
 		const secret = ['fake', '-shell-secret-', 'value'].join('');
 
-		const shell_message = {
+		const shell_message: MessageFixture = {
 			role: 'bashExecution',
 			command: 'cat /tmp/pi-redact-test.toml',
 			output: `password = "${secret}"`,
@@ -491,7 +513,7 @@ describe('filter_output', () => {
 			timestamp: 1_234,
 		};
 
-		const user_message = {
+		const user_message: MessageFixture = {
 			role: 'user',
 			content: [{ type: 'text', text: `password = "${secret}"` }],
 			timestamp: 1_235,
@@ -500,11 +522,11 @@ describe('filter_output', () => {
 		const event = { messages: [shell_message, user_message] };
 
 		const first = (await context_handler?.(event)) as {
-			messages?: Array<Record<string, unknown>>;
+			messages?: MessageFixture[];
 		};
 
 		const second = (await context_handler?.(event)) as {
-			messages?: Array<Record<string, unknown>>;
+			messages?: MessageFixture[];
 		};
 
 		const notifications: string[] = [];

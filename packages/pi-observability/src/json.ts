@@ -9,6 +9,22 @@ export type JsonValue =
 	| JsonValue[]
 	| { [key: string]: JsonValue };
 
+/**
+ * A JSON value that may also be `undefined`, as found in in-process
+ * event payloads before they are serialised.
+ */
+export type PayloadValue =
+	| undefined
+	| null
+	| boolean
+	| number
+	| string
+	| PayloadValue[]
+	| { [key: string]: PayloadValue };
+
+/** An event payload object whose fields are payload values. */
+export type PayloadObject = { [key: string]: PayloadValue };
+
 export const json_value_schema: v.GenericSchema<unknown, JsonValue> =
 	v.lazy(() =>
 		v.union([

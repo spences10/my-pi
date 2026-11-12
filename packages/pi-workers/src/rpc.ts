@@ -10,7 +10,15 @@ import {
 import { readFileSync, readdirSync } from 'node:fs';
 import { StringDecoder } from 'node:string_decoder';
 
-export type RpcRecord = Record<string, unknown>;
+type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue };
+
+export type RpcRecord = Record<string, JsonValue>;
 
 interface ProcessIdentity {
 	pid: number;
@@ -140,8 +148,10 @@ export class WorkerProcess {
 						clearTimeout(pending.timer);
 						this.pending.delete(record.id as string);
 
+						const failure: unknown = record.error;
+
 						if (record.success === false)
-							pending.reject(new Error(String(record.error)));
+							pending.reject(new Error(String(failure)));
 						else pending.resolve((record.data ?? {}) as RpcRecord);
 					} else if (record.type !== 'response') {
 						this.options.on_record(record);

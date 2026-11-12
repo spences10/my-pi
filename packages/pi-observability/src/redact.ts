@@ -1,3 +1,5 @@
+import type { PayloadObject } from './json.js';
+
 const SECRET_KEY_RE =
 	/(api[_-]?key|authorization|bearer|client[_-]?secret|cookie|password|secret|token)/i;
 
@@ -26,7 +28,7 @@ export function redact_text(value: string): string {
 
 export function redact_value<T>(
 	value: T,
-): T | string | unknown[] | Record<string, unknown> {
+): T | string | unknown[] | PayloadObject {
 	if (typeof value === 'string') return redact_text(value);
 
 	if (Array.isArray(value))
@@ -34,7 +36,7 @@ export function redact_value<T>(
 
 	if (!value || typeof value !== 'object') return value;
 
-	const output: Record<string, unknown> = {};
+	const output: PayloadObject = {};
 
 	for (const [key, item] of Object.entries(value)) {
 		output[key] = is_secret_key(key)

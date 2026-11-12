@@ -8,7 +8,6 @@ import {
 import { execute_coordination_action } from './tools/coordination-actions.js';
 
 export interface TeamToolExecutorDeps {
-	[key: string]: unknown;
 	coordination_db: TeamDatabase;
 	set_active_team_id?: (team_id: string | undefined) => void;
 	reset_activity?: (team_id: string | undefined) => void;

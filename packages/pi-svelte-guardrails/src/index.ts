@@ -26,6 +26,18 @@ const edits_schema = v.fallback(
 	[],
 );
 
+const tool_input_schema = v.looseObject({
+	path: v.optional(v.unknown()),
+	file_path: v.optional(v.unknown()),
+	filePath: v.optional(v.unknown()),
+	content: v.optional(v.unknown()),
+	newText: v.optional(v.unknown()),
+	edits: v.optional(v.unknown()),
+	command: v.optional(v.unknown()),
+});
+
+type SvelteToolInput = v.InferOutput<typeof tool_input_schema>;
+
 const EFFECT_RE = /\$effect(?:\s*\(|\s*\.)/;
 
 export function is_svelte_path(value: string): boolean {
@@ -37,11 +49,9 @@ export function contains_disallowed_effect(value: string): boolean {
 }
 
 export function find_svelte_path(
-	input: Record<string, unknown>,
+	input: SvelteToolInput,
 ): string | undefined {
-	for (const key of ['path', 'file_path', 'filePath']) {
-		const value = input[key];
-
+	for (const value of [input.path, input.file_path, input.filePath]) {
 		if (typeof value === 'string' && is_svelte_path(value))
 			return value;
 	}
@@ -86,7 +96,7 @@ function effect_reason(
 }
 
 function proposed_content(
-	input: Record<string, unknown>,
+	input: SvelteToolInput,
 	tool_name: string,
 ): string[] {
 	if (tool_name === 'write')
@@ -115,7 +125,7 @@ export function assess_svelte_effect(
 ): SvelteEffectAssessment | undefined {
 	if (!config.blockEffect || config.mode === 'off') return undefined;
 
-	const input = event.input as Record<string, unknown>;
+	const input = v.parse(tool_input_schema, event.input);
 
 	if (['write', 'edit'].includes(event.toolName)) {
 		const path = find_svelte_path(input);

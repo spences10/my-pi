@@ -12,7 +12,7 @@
 		isActive = false,
 		...restProps
 	}: WithElementRef<HTMLAnchorAttributes> & {
-		child?: Snippet<[{ props: Record<string, unknown> }]>;
+		child?: Snippet<[{ props: HTMLAnchorAttributes }]>;
 		size?: 'sm' | 'md';
 		isActive?: boolean;
 	} = $props();

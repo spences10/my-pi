@@ -19,6 +19,7 @@ import observability, {
 	summarize_payload,
 	text_fingerprint,
 } from './index.js';
+import type { PayloadObject } from './json.js';
 import { redact_value, truncate_json_value } from './redact.js';
 import type { ObservabilityEvent } from './types.js';
 
@@ -481,7 +482,7 @@ describe('payload safety', () => {
 
 		const summary = summarize_payload({
 			payload: { model: 'm', instructions },
-		}) as { payload: Record<string, unknown> };
+		}) as { payload: PayloadObject };
 
 		expect(summary.payload.instructions).toEqual(
 			text_fingerprint(instructions),
@@ -593,8 +594,7 @@ describe('context usage snapshots', () => {
 			await harness.trigger('session_shutdown');
 
 			const snapshots = harness.sent.map(
-				(event) =>
-					(event.payload as Record<string, unknown>).contextUsage,
+				(event) => (event.payload as PayloadObject).contextUsage,
 			);
 
 			expect(snapshots[0]).toEqual({
