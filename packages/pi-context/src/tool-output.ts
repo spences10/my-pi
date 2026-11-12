@@ -15,6 +15,14 @@ const mcp_output_schema = v.object({
 	),
 });
 
+const native_details_schema = v.object({
+	truncation: v.fallback(
+		v.optional(v.object({ truncated: v.optional(v.unknown()) })),
+		undefined,
+	),
+	fullOutputPath: v.optional(v.unknown()),
+});
+
 /** Prefer native machine-readable output over an already truncated chat preview. */
 export function select_context_output(
 	event: {
@@ -62,24 +70,12 @@ export function select_context_output(
 		}
 	}
 
-	const details = event.details;
-
-	const truncation =
-		details && typeof details === 'object' && 'truncation' in details
-			? details.truncation
-			: undefined;
-
-	const truncated =
-		truncation &&
-		typeof truncation === 'object' &&
-		'truncated' in truncation &&
-		truncation.truncated === true;
+	const details = v.safeParse(native_details_schema, event.details);
 
 	if (
-		details &&
-		typeof details === 'object' &&
-		(truncated ||
-			('fullOutputPath' in details && details.fullOutputPath))
+		details.success &&
+		(details.output.truncation?.truncated === true ||
+			details.output.fullOutputPath)
 	) {
 		return `[Partial native output; omitted text is not indexed.]\n${visible_text}`;
 	}

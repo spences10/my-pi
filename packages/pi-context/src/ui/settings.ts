@@ -11,7 +11,6 @@ import {
 	load_context_settings_config,
 	save_context_settings_config,
 	type ContextSettingsConfig,
-	type ContextSettingsPreset,
 } from '../config.js';
 import {
 	format_context_settings_status,
@@ -250,11 +249,8 @@ async function show_context_preset_settings(
 		footer: 'enter applies preset • esc back',
 	});
 
-	if (!selected) return;
-	save_context_settings(
-		ctx,
-		context_settings_from_preset(selected as ContextSettingsPreset),
-	);
+	if (!selected || !is_context_settings_preset(selected)) return;
+	save_context_settings(ctx, context_settings_from_preset(selected));
 }
 
 async function show_context_retention_settings(

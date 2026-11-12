@@ -6,6 +6,8 @@ import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import * as v from 'valibot';
 import {
+	content_hash_row_schema,
+	duplicate_source_row_schema,
 	list_row_schema,
 	search_row_schema,
 } from './store/row-schemas.js';
@@ -199,8 +201,10 @@ export class ContextStore {
 			...scoped.params,
 		];
 
-		const row = this.db
-			.prepare(`
+		const row = v.parse(
+			v.optional(duplicate_source_row_schema),
+			this.db
+				.prepare(`
 				SELECT
 					context_sources.id,
 					COUNT(context_chunks.id) as chunk_count,
@@ -216,13 +220,8 @@ export class ContextStore {
 				ORDER BY context_sources.created_at DESC
 				LIMIT 1
 			`)
-			.get(...params) as
-			| {
-					id: string;
-					chunk_count: number;
-					first_chunk_id: string | null;
-			  }
-			| undefined;
+				.get(...params),
+		);
 
 		return row ?? null;
 	}
@@ -608,11 +607,14 @@ export class ContextStore {
 			...scoped.params,
 		];
 
-		const row = this.db
-			.prepare(
-				`SELECT content_hash FROM context_sources WHERE ${filters.join(' AND ')} LIMIT 1`,
-			)
-			.get(...params) as { content_hash: string } | undefined;
+		const row = v.parse(
+			v.optional(content_hash_row_schema),
+			this.db
+				.prepare(
+					`SELECT content_hash FROM context_sources WHERE ${filters.join(' AND ')} LIMIT 1`,
+				)
+				.get(...params),
+		);
 
 		return row?.content_hash ?? null;
 	}

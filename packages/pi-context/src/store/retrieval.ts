@@ -1,8 +1,11 @@
 import type { DatabaseSync } from 'node:sqlite';
 import * as v from 'valibot';
-import { context_chunk_schema } from './row-schemas.js';
+import {
+	chunk_ordinal_row_schema,
+	chunk_summary_row_schema,
+	context_chunk_schema,
+} from './row-schemas.js';
 import type {
-	ChunkSummaryRow,
 	ContextChunk,
 	ContextChunkSelectionOptions,
 	ContextChunkSummary,
@@ -59,8 +62,10 @@ export function context_store_chunk_summary(
 		...scoped.params,
 	];
 
-	const row = store.db
-		.prepare(`
+	const row = v.parse(
+		v.optional(chunk_summary_row_schema),
+		store.db
+			.prepare(`
 			SELECT
 				context_sources.id as source_id,
 				COUNT(context_chunks.id) as chunk_count,
@@ -81,7 +86,8 @@ export function context_store_chunk_summary(
 			WHERE ${filters.join(' AND ')}
 			GROUP BY context_sources.id
 		`)
-		.get(...params) as ChunkSummaryRow | undefined;
+			.get(...params),
+	);
 
 	return row ?? null;
 }
@@ -115,17 +121,18 @@ function resolve_chunk_ordinal(
 		...scoped.where,
 	];
 
-	const row = store.db
-		.prepare(`
+	const row = v.parse(
+		v.optional(chunk_ordinal_row_schema),
+		store.db
+			.prepare(`
 			SELECT context_chunks.ordinal
 			FROM context_chunks
 			JOIN context_sources ON context_sources.id = context_chunks.source_id
 			WHERE ${filters.join(' AND ')}
 			LIMIT 1
 		`)
-		.get(source_id, chunk_id, ...scoped.params) as
-		| { ordinal: number }
-		| undefined;
+			.get(source_id, chunk_id, ...scoped.params),
+	);
 
 	return row?.ordinal ?? null;
 }

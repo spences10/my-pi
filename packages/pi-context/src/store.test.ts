@@ -1,6 +1,7 @@
 import { SqliteBusyError } from '@spences10/pi-sqlite-core';
 import { existsSync, readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
 import {
 	afterEach,
 	beforeEach,
@@ -327,11 +328,14 @@ describe('ContextStore', () => {
 		});
 
 		try {
-			const row = db
-				.prepare(
-					'SELECT content FROM context_chunks WHERE source_id = ?',
-				)
-				.get(forced!.source_id) as { content: string };
+			const row = v.parse(
+				v.object({ content: v.string() }),
+				db
+					.prepare(
+						'SELECT content FROM context_chunks WHERE source_id = ?',
+					)
+					.get(forced!.source_id),
+			);
 
 			expect(row.content).toContain('[REDACTED:');
 			expect(row.content).not.toContain(secret);
@@ -822,11 +826,14 @@ describe('ContextStore', () => {
 		});
 
 		try {
-			const objects = db
-				.prepare(
-					`SELECT type, name FROM sqlite_master ORDER BY type, name`,
-				)
-				.all() as Array<{ type: string; name: string }>;
+			const objects = v.parse(
+				v.array(v.object({ type: v.string(), name: v.string() })),
+				db
+					.prepare(
+						`SELECT type, name FROM sqlite_master ORDER BY type, name`,
+					)
+					.all(),
+			);
 
 			const names = objects.map((object) => object.name);
 			expect(names).toContain('context_sources');
