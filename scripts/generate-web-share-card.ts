@@ -7,6 +7,7 @@ import { logo_lines } from '../apps/web/src/lib/config/logo.ts';
 import { site_config } from '../apps/web/src/lib/config/site.ts';
 
 const OUTPUT_PATH = 'apps/web/static/og.png';
+
 // The 1.91:1 card that every platform crops to.
 const WIDTH = 1200;
 const HEIGHT = 630;
@@ -19,14 +20,17 @@ const VIOLET = '#9d4dff';
 const MAGENTA = '#ff00cc';
 const BLUE = '#00eaff';
 const GREEN = '#ccff00';
+
 const GRADIENT = [
 	[204, 255, 0],
 	[255, 176, 0],
 	[255, 0, 204],
 	[0, 234, 255],
 ];
+
 const FONT =
 	"'VictorMono Nerd Font', 'Victor Mono', 'DejaVu Sans Mono', monospace";
+
 const TAGLINE = 'a curated Pi coding-agent distribution';
 const COMMAND = 'pnpx my-pi@latest';
 const DOMAIN = new URL(site_config.url).host;
@@ -35,11 +39,13 @@ function gradient_at(position: number, shade = 1) {
 	const scaled = Math.min(Math.max(position, 0), 1) * 3;
 	const index = Math.min(2, Math.floor(scaled));
 	const mix = scaled - index;
+
 	const channels = GRADIENT[index].map((from, channel) =>
 		Math.round(
 			(from + (GRADIENT[index + 1][channel] - from) * mix) * shade,
 		),
 	);
+
 	return `rgb(${channels.join(',')})`;
 }
 
@@ -84,6 +90,7 @@ const cubes = cells
 	.map(({ x, y, position }) => {
 		const right = x + CELL_WIDTH;
 		const bottom = y + CELL_HEIGHT;
+
 		return [
 			`<polygon points="${right},${y} ${right + DEPTH_X},${y + DEPTH_Y} ${right + DEPTH_X},${bottom + DEPTH_Y} ${right},${bottom}" fill="${gradient_at(position, 0.55)}"/>`,
 			`<polygon points="${x},${bottom} ${x + DEPTH_X},${bottom + DEPTH_Y} ${right + DEPTH_X},${bottom + DEPTH_Y} ${right},${bottom}" fill="${gradient_at(position, 0.4)}"/>`,
@@ -94,13 +101,16 @@ const cubes = cells
 
 // A floor grid in perspective below the logo.
 const horizon = 392;
+
 const floor = [
 	...Array.from({ length: 9 }, (_, index) => {
 		const y = horizon + 12 * 1.55 ** index;
+
 		return `<line x1="0" y1="${y}" x2="${WIDTH}" y2="${y}"/>`;
 	}),
 	...Array.from({ length: 31 }, (_, index) => {
 		const spread = (index - 15) * 190;
+
 		return `<line x1="${WIDTH / 2 + spread * 0.16}" y1="${horizon}" x2="${WIDTH / 2 + spread}" y2="${HEIGHT}"/>`;
 	}),
 ].join('');
@@ -151,4 +161,5 @@ const png = new Resvg(svg, { fitTo: { mode: 'original' } })
 // Lossless oxipng pass so committed PNGs need no later optimisation
 // (ImgBot otherwise opens a PR after every regeneration).
 writeFileSync(OUTPUT_PATH, losslessCompressPngSync(png));
+
 console.log(`Generated ${OUTPUT_PATH}`);

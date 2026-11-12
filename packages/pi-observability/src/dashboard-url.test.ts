@@ -7,6 +7,7 @@ describe('authenticated_dashboard_url', () => {
 			'http://127.0.0.1:43190/',
 			'local value',
 		);
+
 		const parsed = new URL(url);
 
 		expect(parsed.search).toBe('');

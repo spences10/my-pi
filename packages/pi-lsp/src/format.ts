@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { Type } from 'typebox';
+import * as v from 'valibot';
 import {
 	LspClientStartError,
 	type LspDiagnostic,
@@ -7,6 +8,10 @@ import {
 	type LspHover,
 	type LspLocation,
 } from './client.js';
+import {
+	coded_error_schema,
+	marked_string_text_schema,
+} from './response-schemas.js';
 import {
 	get_server_config,
 	list_supported_languages,
@@ -23,7 +28,7 @@ export interface LspFormatServerState {
 	last_used_at?: number;
 }
 
-export interface LspToolErrorDetails {
+export type LspToolErrorDetails = {
 	kind:
 		| 'unsupported_language'
 		| 'server_start_failed'
@@ -35,7 +40,7 @@ export interface LspToolErrorDetails {
 	workspace_root?: string;
 	install_hint?: string;
 	code?: string;
-}
+};
 
 export class LspToolError extends Error {
 	details: LspToolErrorDetails;
@@ -47,23 +52,26 @@ export class LspToolError extends Error {
 	}
 }
 
-const SYMBOL_KIND_LABELS: Record<number, string> = {
-	2: 'module',
-	3: 'namespace',
-	5: 'class',
-	6: 'method',
-	7: 'property',
-	8: 'field',
-	9: 'constructor',
-	11: 'interface',
-	12: 'function',
-	13: 'variable',
-	14: 'constant',
-	23: 'struct',
-	24: 'event',
-};
+const SYMBOL_KIND_LABELS = new Map([
+	[2, 'module'],
+	[3, 'namespace'],
+	[5, 'class'],
+	[6, 'method'],
+	[7, 'property'],
+	[8, 'field'],
+	[9, 'constructor'],
+	[11, 'interface'],
+	[12, 'function'],
+	[13, 'variable'],
+	[14, 'constant'],
+	[23, 'struct'],
+	[24, 'event'],
+]);
 
-export const SYMBOL_KIND_NAMES = Object.values(SYMBOL_KIND_LABELS);
+export const SYMBOL_KIND_NAMES = Array.from(
+	SYMBOL_KIND_LABELS.values(),
+);
+
 export const SYMBOL_KIND_SCHEMA = Type.Union(
 	SYMBOL_KIND_NAMES.map((name) => Type.Literal(name)),
 );
@@ -76,16 +84,20 @@ export function format_lsp_view(
 ): string {
 	if (view === 'running') {
 		const lines = format_running_server_lines(clients_by_server);
+
 		return lines.length > 0
 			? lines.join('\n')
 			: 'No running language servers.';
 	}
+
 	if (view === 'failed') {
 		const lines = format_failed_server_lines(failed_servers);
+
 		return lines.length > 0
 			? lines.join('\n')
 			: 'No failed language servers.';
 	}
+
 	return format_status_lines(
 		cwd,
 		clients_by_server,
@@ -112,11 +124,14 @@ function format_running_server_line(
 		state.client.open_document_count?.() ??
 		state.active_request_count ??
 		0;
+
 	const idle_suffix = state.last_used_at
 		? `, idle=${Math.max(0, Math.round((Date.now() - state.last_used_at) / 1000))}s`
 		: '';
+
 	const backend = state.backend ? ` via ${state.backend}` : '';
 	const command = [state.command, ...(state.args ?? [])].join(' ');
+
 	return `${state.language}: running (ready=${state.client.is_ready()}, open_docs=${open_documents}, active=${state.active_request_count ?? 0}${idle_suffix})${backend} — ${command} [workspace ${state.workspace_root}]`;
 }
 
@@ -135,6 +150,7 @@ function format_failed_server_lines(
 			const workspace = failure.workspace_root
 				? ` [workspace ${failure.workspace_root}]`
 				: '';
+
 			return `${failure.language ?? 'unknown'}: failed — ${failure.message}${workspace}`;
 		});
 }
@@ -146,11 +162,13 @@ export function format_status_lines(
 ): string[] {
 	const lines: string[] = [];
 	const active_languages = new Set<string>();
+
 	const running_states = Array.from(clients_by_server.values()).sort(
 		(a, b) =>
 			a.language.localeCompare(b.language) ||
 			a.workspace_root.localeCompare(b.workspace_root),
 	);
+
 	for (const running of running_states) {
 		active_languages.add(running.language);
 		lines.push(format_running_server_line(running));
@@ -161,13 +179,16 @@ export function format_status_lines(
 			(a.language ?? '').localeCompare(b.language ?? '') ||
 			(a.workspace_root ?? '').localeCompare(b.workspace_root ?? ''),
 	);
+
 	for (const failure of failures) {
 		if (failure.language) {
 			active_languages.add(failure.language);
 		}
+
 		const workspace = failure.workspace_root
 			? ` [workspace ${failure.workspace_root}]`
 			: '';
+
 		const language = failure.language ?? 'unknown';
 		lines.push(
 			`${language}: failed — ${failure.message}${workspace}`,
@@ -177,12 +198,14 @@ export function format_status_lines(
 	for (const language of list_supported_languages()) {
 		if (active_languages.has(language)) continue;
 		const config = get_server_config(language, cwd);
+
 		if (config) {
 			const backend = config.backend ? ` via ${config.backend}` : '';
 			const command = [config.command, ...config.args].join(' ');
 			lines.push(`${language}: idle${backend} — ${command}`);
 		}
 	}
+
 	return lines.length > 0
 		? lines
 		: ['No language servers configured for this project.'];
@@ -194,13 +217,15 @@ export function to_lsp_tool_error(
 	workspace_root: string,
 	command: string,
 	install_hint: string | undefined,
-	error: unknown,
+	cause: unknown,
 ): LspToolErrorDetails {
-	if (error instanceof LspToolError) {
-		return error.details;
+	if (cause instanceof LspToolError) {
+		return cause.details;
 	}
-	if (error instanceof LspClientStartError) {
-		const missing_binary = error.code === 'ENOENT';
+
+	if (cause instanceof LspClientStartError) {
+		const missing_binary = cause.code === 'ENOENT';
+
 		return {
 			kind: 'server_start_failed',
 			file,
@@ -208,12 +233,19 @@ export function to_lsp_tool_error(
 			workspace_root,
 			command,
 			install_hint,
-			code: error.code,
+			code: cause.code,
 			message: missing_binary
 				? `command "${command}" not found`
-				: error.message,
+				: cause.message,
 		};
 	}
+
+	const parsed_error = v.safeParse(coded_error_schema, cause);
+
+	const coded_error = parsed_error.success
+		? parsed_error.output
+		: undefined;
+
 	return {
 		kind: 'tool_execution_failed',
 		file,
@@ -221,14 +253,8 @@ export function to_lsp_tool_error(
 		workspace_root,
 		command,
 		install_hint,
-		message: error instanceof Error ? error.message : String(error),
-		code:
-			typeof error === 'object' &&
-			error !== null &&
-			'code' in error &&
-			typeof (error as { code?: unknown }).code === 'string'
-				? (error as { code: string }).code
-				: undefined,
+		message: cause instanceof Error ? cause.message : String(cause),
+		code: coded_error?.code,
 	};
 }
 
@@ -238,21 +264,26 @@ export function format_tool_error(
 	if (details.kind === 'unsupported_language') {
 		return details.message;
 	}
+
 	const lines = [
 		details.language
 			? `${details.language} LSP unavailable for ${details.file}`
 			: `LSP request failed for ${details.file}`,
 		`Reason: ${details.message}`,
 	];
+
 	if (details.command) {
 		lines.push(`Command: ${details.command}`);
 	}
+
 	if (details.workspace_root) {
 		lines.push(`Workspace: ${details.workspace_root}`);
 	}
+
 	if (details.install_hint) {
 		lines.push(`Hint: ${details.install_hint}`);
 	}
+
 	return lines.join('\n');
 }
 
@@ -278,7 +309,9 @@ export function format_diagnostics(
 	if (diagnostics.length === 0) {
 		return `${file}: no diagnostics`;
 	}
+
 	const lines = [`${file}: ${diagnostics.length} diagnostic(s)`];
+
 	for (const d of diagnostics) {
 		const position = `${d.range.start.line + 1}:${d.range.start.character + 1}`;
 		const source = d.source ? ` [${d.source}]` : '';
@@ -287,6 +320,7 @@ export function format_diagnostics(
 			`  ${position} ${severity_label(d.severity)}${source}${code}: ${d.message}`,
 		);
 	}
+
 	return lines.join('\n');
 }
 
@@ -300,18 +334,20 @@ export function format_missing_diagnostics(
 export function format_hover(hover: LspHover | null): string {
 	if (!hover) return 'No hover info.';
 	const contents = hover.contents;
+
 	const extract = (
 		item:
 			| string
 			| { language?: string; value: string }
 			| { kind: string; value: string },
-	): string => (typeof item === 'string' ? item : (item.value ?? ''));
+	): string => v.parse(marked_string_text_schema, item);
 
 	if (Array.isArray(contents)) {
 		return (
 			contents.map(extract).join('\n\n').trim() || 'No hover info.'
 		);
 	}
+
 	return extract(contents).trim() || 'No hover info.';
 }
 
@@ -320,9 +356,11 @@ export function format_locations(
 	empty_message: string,
 ): string {
 	if (locations.length === 0) return empty_message;
+
 	return locations
 		.map((loc) => {
 			const path = file_url_to_path_or_value(loc.uri);
+
 			return `${path}:${loc.range.start.line + 1}:${loc.range.start.character + 1}`;
 		})
 		.join('\n');
@@ -335,8 +373,10 @@ export function format_document_symbols(
 	if (symbols.length === 0) {
 		return `${file}: no symbols`;
 	}
+
 	const lines = [`${file}: ${symbols.length} top-level symbol(s)`];
 	append_symbol_lines(lines, symbols, 1);
+
 	return lines.join('\n');
 }
 
@@ -351,21 +391,28 @@ export function find_symbol_matches(
 	},
 ): Array<{ symbol: LspDocumentSymbol; depth: number }> {
 	const normalized = query.trim().toLowerCase();
+
 	if (!normalized) return [];
+
 	const matches: Array<{ symbol: LspDocumentSymbol; depth: number }> =
 		[];
+
 	const matches_query = (symbol: LspDocumentSymbol): boolean => {
 		const values = [symbol.name, symbol.detail ?? ''].map((value) =>
 			value.trim().toLowerCase(),
 		);
+
 		return options.exact_match
 			? values.some((value) => value === normalized)
 			: values.some((value) => value.includes(normalized));
 	};
+
 	const matches_kind = (symbol: LspDocumentSymbol): boolean => {
 		if (options.kinds.size === 0) return true;
+
 		return options.kinds.has(symbol_kind_label(symbol.kind));
 	};
+
 	const visit = (
 		entries: LspDocumentSymbol[],
 		depth: number,
@@ -373,19 +420,24 @@ export function find_symbol_matches(
 		for (const symbol of entries) {
 			if (matches_kind(symbol) && matches_query(symbol)) {
 				matches.push({ symbol, depth });
+
 				if (matches.length >= options.max_results) {
 					return;
 				}
 			}
+
 			if (!options.top_level_only && symbol.children?.length) {
 				visit(symbol.children, depth + 1);
+
 				if (matches.length >= options.max_results) {
 					return;
 				}
 			}
 		}
 	};
+
 	visit(symbols, 1);
+
 	return matches;
 }
 
@@ -397,9 +449,11 @@ export function format_symbol_matches(
 	if (matches.length === 0) {
 		return `${file}: no symbols matching "${query}"`;
 	}
+
 	const lines = [
 		`${file}: ${matches.length} symbol match(es) for "${query}"`,
 	];
+
 	for (const { symbol, depth } of matches) {
 		const indent = '  '.repeat(depth);
 		const detail = symbol.detail ? ` — ${symbol.detail}` : '';
@@ -408,6 +462,7 @@ export function format_symbol_matches(
 			`${indent}${symbol_kind_label(symbol.kind)} ${symbol.name}${detail} @ ${range}`,
 		);
 	}
+
 	return lines.join('\n');
 }
 
@@ -423,6 +478,7 @@ function append_symbol_lines(
 		lines.push(
 			`${indent}${symbol_kind_label(symbol.kind)} ${symbol.name}${detail} @ ${range}`,
 		);
+
 		if (symbol.children?.length) {
 			append_symbol_lines(lines, symbol.children, depth + 1);
 		}
@@ -430,7 +486,7 @@ function append_symbol_lines(
 }
 
 function symbol_kind_label(kind: number): string {
-	return SYMBOL_KIND_LABELS[kind] ?? 'symbol';
+	return SYMBOL_KIND_LABELS.get(kind) ?? 'symbol';
 }
 
 function file_url_to_path_or_value(uri: string): string {

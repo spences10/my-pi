@@ -5,6 +5,7 @@ function setup(fallback_agent_name?: string) {
 	let handler:
 		| ((event: { name: string | undefined }) => void)
 		| undefined;
+
 	const update_session_agent_name = vi.fn();
 	register_session_name_sync(
 		{
@@ -16,6 +17,7 @@ function setup(fallback_agent_name?: string) {
 		() => 'session-1',
 		fallback_agent_name,
 	);
+
 	return {
 		emit: (name: string | undefined) => handler?.({ name }),
 		update_session_agent_name,

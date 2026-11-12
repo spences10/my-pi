@@ -8,10 +8,14 @@ import extensions_manager from './manager.js';
 import { is_enabled } from './settings.js';
 
 process.title = 'my-pi';
+
 process.env.PI_CODING_AGENT = 'true';
+
 process.env.AI_AGENT = 'pi';
+
 // my-pi pins its Pi version, so upstream's update notice does not apply.
 process.env.PI_SKIP_VERSION_CHECK ??= '1';
+
 // Same as upstream's CLI: hides node:sqlite's ExperimentalWarning.
 process.emitWarning = () => {};
 
@@ -41,7 +45,9 @@ const subcommands = new Set([
 	'uninstall',
 	'update',
 ]);
+
 const args = process.argv.slice(2);
+
 const theme_args =
 	is_enabled('themes') && !subcommands.has(args[0])
 		? ['--theme', themes_dir()]

@@ -35,8 +35,10 @@ function require_integer_in_range(
 			maximum === undefined
 				? `at least ${minimum}`
 				: `between ${minimum} and ${maximum}`;
+
 		throw new Error(`Team ${name} must be an integer ${range}.`);
 	}
+
 	return value;
 }
 
@@ -50,26 +52,27 @@ export function paginate_team_items<T>(
 		1,
 		MAX_TEAM_LIST_LIMIT,
 	);
+
 	const offset = require_integer_in_range(
 		input.offset ?? 0,
 		'offset',
 		0,
 	);
+
 	const page_items = items.slice(offset, offset + limit);
 	const has_more = offset + page_items.length < items.length;
-	return {
-		items: page_items,
-		pagination: {
-			returned_count: page_items.length,
-			total_count: items.length,
-			has_more,
-			limit,
-			offset,
-			...(has_more
-				? { next_offset: offset + page_items.length }
-				: {}),
-		},
+
+	const pagination: TeamPaginationMetadata = {
+		returned_count: page_items.length,
+		total_count: items.length,
+		has_more,
+		limit,
+		offset,
 	};
+
+	if (has_more) pagination.next_offset = offset + page_items.length;
+
+	return { items: page_items, pagination };
 }
 
 export function format_team_page(
@@ -85,9 +88,11 @@ export function format_team_page(
 		`limit=${pagination.limit}`,
 		`offset=${pagination.offset}`,
 	].join(' ');
+
 	const next = pagination.has_more
 		? `Next page: repeat action=${action} with limit=${pagination.limit} offset=${pagination.next_offset}.`
 		: undefined;
+
 	return [
 		options.warning ? `Warning: ${options.warning}` : undefined,
 		body,

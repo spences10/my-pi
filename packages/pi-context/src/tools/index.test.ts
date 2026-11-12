@@ -1,21 +1,13 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
+import { make_api } from '../../../../tools/test-sdk.js';
 import { register_context_tools } from './index.js';
 
 describe('register_context_tools', () => {
 	it('registers all context tools in a stable order', () => {
-		const tools: Array<{
-			name: string;
-			constrainedSampling?: unknown;
-		}> = [];
-		register_context_tools({
-			registerTool(tool: {
-				name: string;
-				constrainedSampling?: unknown;
-			}) {
-				tools.push(tool);
-			},
-		} as unknown as ExtensionAPI);
+		const pi = make_api();
+		const register_tool = vi.spyOn(pi, 'registerTool');
+		register_context_tools(pi);
+		const tools = register_tool.mock.calls.map(([tool]) => tool);
 
 		expect(tools.map((tool) => tool.name)).toEqual([
 			'context_search',

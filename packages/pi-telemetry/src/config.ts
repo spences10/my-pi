@@ -4,6 +4,7 @@ import {
 	write_package_settings,
 } from '@spences10/pi-settings';
 import { join, resolve } from 'node:path';
+import * as v from 'valibot';
 
 export interface TelemetryConfig {
 	version: number;
@@ -14,6 +15,11 @@ const DEFAULT_CONFIG: TelemetryConfig = {
 	version: 1,
 	enabled: false,
 };
+
+const config_schema = v.looseObject({
+	version: v.fallback(v.number(), DEFAULT_CONFIG.version),
+	enabled: v.fallback(v.boolean(), DEFAULT_CONFIG.enabled),
+});
 
 export function get_telemetry_config_path(): string {
 	return join(getAgentDir(), 'telemetry.json');
@@ -28,28 +34,16 @@ export function resolve_telemetry_db_path(
 	override_path?: string,
 ): string {
 	if (!override_path) return get_default_telemetry_db_path();
+
 	return resolve(cwd, override_path);
 }
 
 export function load_telemetry_config(): TelemetryConfig {
 	try {
-		const parsed = read_package_settings(
-			'telemetry',
-			DEFAULT_CONFIG,
-		) as {
-			version?: unknown;
-			enabled?: unknown;
-		};
-		return {
-			version:
-				typeof parsed.version === 'number'
-					? parsed.version
-					: DEFAULT_CONFIG.version,
-			enabled:
-				typeof parsed.enabled === 'boolean'
-					? parsed.enabled
-					: DEFAULT_CONFIG.enabled,
-		};
+		return v.parse(
+			config_schema,
+			read_package_settings('telemetry', DEFAULT_CONFIG),
+		);
 	} catch {
 		return { ...DEFAULT_CONFIG };
 	}

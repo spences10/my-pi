@@ -1,3 +1,4 @@
+import * as v from 'valibot';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,6 +17,7 @@ const dirs: string[] = [];
 function tmp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-team-db-'));
 	dirs.push(dir);
+
 	return join(dir, 'nested', 'coordination.db');
 }
 
@@ -28,18 +30,19 @@ afterEach(() => {
 describe('TeamDatabase coordination store', () => {
 	it('retries transient busy errors for coordination writes', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			const run = vi
 				.fn()
 				.mockImplementationOnce(() => {
 					throw busy_error;
 				})
-				.mockReturnValue({ changes: 1 });
-			(
-				db as unknown as {
-					statements: { mark_session_status: { run: typeof run } };
-				}
-			).statements.mark_session_status = { run };
+				.mockReturnValue({ changes: 1, lastInsertRowid: 0 });
+
+			vi.spyOn(
+				db.statements.mark_session_status,
+				'run',
+			).mockImplementation(run);
 
 			expect(() =>
 				db.mark_session_status('session-1', 'online'),
@@ -53,22 +56,33 @@ describe('TeamDatabase coordination store', () => {
 	it('creates parent directories, applies pragmas, and migrates schema version', async () => {
 		const db_path = tmp_db();
 		const db = await TeamDatabase.open(db_path);
+
 		try {
 			expect(existsSync(db_path)).toBe(true);
 			expect(db.get_schema_version()).toBe(6);
 			expect(
-				db.read_rows<{ name: string }>(
+				db.read_rows(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'message_receipts'",
+					v.object({ name: v.string() }),
 				),
 			).toEqual([{ name: 'message_receipts' }]);
 			expect(
-				db.read_rows<{ journal_mode: string }>('PRAGMA journal_mode'),
+				db.read_rows(
+					'PRAGMA journal_mode',
+					v.object({ journal_mode: v.string() }),
+				),
 			).toEqual([{ journal_mode: 'wal' }]);
 			expect(
-				db.read_rows<{ foreign_keys: number }>('PRAGMA foreign_keys'),
+				db.read_rows(
+					'PRAGMA foreign_keys',
+					v.object({ foreign_keys: v.number() }),
+				),
 			).toEqual([{ foreign_keys: 1 }]);
 			expect(
-				db.read_rows<{ timeout: number }>('PRAGMA busy_timeout'),
+				db.read_rows(
+					'PRAGMA busy_timeout',
+					v.object({ timeout: v.number() }),
+				),
 			).toEqual([{ timeout: 5000 }]);
 		} finally {
 			db.close();
@@ -80,6 +94,7 @@ describe('TeamDatabase coordination store', () => {
 		mkdirSync(join(db_path, '..'), { recursive: true });
 		const { DatabaseSync } = await import('node:sqlite');
 		const v3_db = new DatabaseSync(db_path);
+
 		try {
 			for (const migration of MIGRATIONS.slice(0, 3))
 				v3_db.exec(migration.sql);
@@ -87,12 +102,15 @@ describe('TeamDatabase coordination store', () => {
 		} finally {
 			v3_db.close();
 		}
+
 		const db = await TeamDatabase.open(db_path);
+
 		try {
 			expect(db.get_schema_version()).toBe(6);
 			expect(
-				db.read_rows<{ name: string }>(
+				db.read_rows(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('session_runtimes', 'runtime_events') ORDER BY name",
+					v.object({ name: v.string() }),
 				),
 			).toEqual([
 				{ name: 'runtime_events' },
@@ -108,6 +126,7 @@ describe('TeamDatabase coordination store', () => {
 		mkdirSync(join(db_path, '..'), { recursive: true });
 		const { DatabaseSync } = await import('node:sqlite');
 		const v1_db = new DatabaseSync(db_path);
+
 		try {
 			v1_db.exec(MIGRATIONS[0]!.sql);
 			v1_db.exec('PRAGMA user_version = 1;');
@@ -116,11 +135,13 @@ describe('TeamDatabase coordination store', () => {
 		}
 
 		const db = await TeamDatabase.open(db_path);
+
 		try {
 			expect(db.get_schema_version()).toBe(6);
 			expect(
-				db.read_rows<{ name: string }>(
+				db.read_rows(
 					"SELECT name FROM pragma_table_info('sessions') WHERE name IN ('thinking_level', 'availability') ORDER BY name",
+					v.object({ name: v.string() }),
 				),
 			).toEqual([
 				{ name: 'availability' },
@@ -133,6 +154,7 @@ describe('TeamDatabase coordination store', () => {
 
 	it('registers sessions and sends direct peer messages with receipt state', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({
 				session_id: 's1',
@@ -200,6 +222,7 @@ describe('TeamDatabase coordination store', () => {
 
 	it('updates and clears a live session name used for peer targeting', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({
 				session_id: 'worker',
@@ -224,6 +247,7 @@ describe('TeamDatabase coordination store', () => {
 
 	it('keeps independently opened peers targetable after shutdown', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo' });
 			db.register_session({
@@ -260,6 +284,7 @@ describe('TeamDatabase coordination store', () => {
 
 	it('prefers a single active named session over stale offline duplicates', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({
 				session_id: 'old-reviewer',
@@ -289,6 +314,7 @@ describe('TeamDatabase coordination store', () => {
 
 	it('keeps offline parent sessions targetable by durable session id', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({
 				session_id: 'lead-session',
@@ -325,8 +351,10 @@ describe('TeamDatabase coordination store', () => {
 
 	it('creates and searches coordination artifacts', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo-a' });
+
 			const artifact = db.create_artifact({
 				kind: 'handoff',
 				owner_session_id: 'lead',
@@ -352,6 +380,7 @@ describe('TeamDatabase coordination store', () => {
 
 	it('marks registered sessions with dead pids offline', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({
 				session_id: 'live',
@@ -401,6 +430,7 @@ describe('TeamDatabase coordination store', () => {
 
 	it('resolves unique session id prefixes and reports ambiguous or unknown targets', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({
 				session_id: '019f0f71-967e-7aed-853c-94ac29fbe7b6',
@@ -445,14 +475,17 @@ describe('TeamDatabase coordination store', () => {
 
 	it('resolves group ids exactly and same-name groups only within the caller cwd', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({ session_id: 'lead-a', cwd: '/repo-a' });
 			db.register_session({ session_id: 'lead-b', cwd: '/repo-b' });
+
 			const group_a = db.create_group({
 				name: 'review',
 				cwd: '/repo-a',
 				created_by_session_id: 'lead-a',
 			});
+
 			const group_b = db.create_group({
 				name: 'review',
 				cwd: '/repo-b',
@@ -484,13 +517,16 @@ describe('TeamDatabase coordination store', () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({ session_id: 'member', cwd: '/repo' });
+
 			const group = db.create_group({
 				name: 'long-running',
 				cwd: '/repo',
 				created_by_session_id: 'member',
 			});
+
 			db.insert_event({ type: 'manual-retention-test' });
 
 			vi.setSystemTime(new Date('2026-02-01T00:00:00.000Z'));
@@ -508,6 +544,7 @@ describe('TeamDatabase coordination store', () => {
 
 	it('prunes historical coordination rows without deleting active sessions or unacknowledged messages', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			for (const session_id of [
 				'active',
@@ -525,11 +562,13 @@ describe('TeamDatabase coordination store', () => {
 				cwd: '/repo',
 				created_by_session_id: 'group-owner',
 			});
+
 			const active_group = db.create_group({
 				name: 'active-group',
 				cwd: '/repo',
 				created_by_session_id: 'active',
 			});
+
 			const artifact = db.create_artifact({
 				kind: 'handoff',
 				owner_session_id: 'artifact-owner',
@@ -538,6 +577,7 @@ describe('TeamDatabase coordination store', () => {
 				summary: 'Already completed',
 				body: 'Old coordination context',
 			});
+
 			const pending_artifact = db.create_artifact({
 				kind: 'evidence',
 				owner_session_id: 'pending-sender',
@@ -546,6 +586,7 @@ describe('TeamDatabase coordination store', () => {
 				summary: 'Awaiting acknowledgement',
 				body: 'Evidence needed to process the pending message',
 			});
+
 			const acknowledged = db.send_message({
 				from_session_id: 'ack-sender',
 				to_session_ids: ['ack-recipient'],
@@ -555,9 +596,11 @@ describe('TeamDatabase coordination store', () => {
 				ttl_ms: 1,
 				requires_ack: true,
 			});
+
 			db.mark_messages_acknowledged('ack-recipient', [
 				acknowledged.message_id,
 			]);
+
 			const pending = db.send_message({
 				from_session_id: 'pending-sender',
 				to_session_ids: ['pending-recipient'],
@@ -567,7 +610,9 @@ describe('TeamDatabase coordination store', () => {
 				ttl_ms: 1,
 				requires_ack: true,
 			});
+
 			db.insert_event({ type: 'historical-test' });
+
 			for (const session_id of [
 				'group-owner',
 				'artifact-owner',
@@ -603,16 +648,20 @@ describe('TeamDatabase coordination store', () => {
 			expect(db.get_session('pending-sender')).toBeDefined();
 			expect(db.get_session('pending-recipient')).toBeDefined();
 			expect(
-				db.read_rows<{ message_id: string }>(
+				db.read_rows(
 					'SELECT message_id FROM messages',
+					v.object({ message_id: v.string() }),
 				),
 			).toEqual([{ message_id: pending.message_id }]);
 			expect(
-				db.read_rows<{ message_id: string }>(
+				db.read_rows(
 					'SELECT message_id FROM message_receipts',
+					v.object({ message_id: v.string() }),
 				),
 			).toEqual([{ message_id: pending.message_id }]);
-			expect(db.read_rows('SELECT * FROM events')).toEqual([]);
+			expect(
+				db.read_rows('SELECT * FROM events', v.looseObject({})),
+			).toEqual([]);
 		} finally {
 			db.close();
 		}
@@ -620,14 +669,17 @@ describe('TeamDatabase coordination store', () => {
 
 	it('creates groups and sends group messages to independent sessions', async () => {
 		const db = await TeamDatabase.open(tmp_db());
+
 		try {
 			db.register_session({ session_id: 'lead', cwd: '/repo-a' });
 			db.register_session({ session_id: 'reviewer', cwd: '/repo-b' });
+
 			const group = db.create_group({
 				name: 'refactor',
 				cwd: '/repo-a',
 				created_by_session_id: 'lead',
 			});
+
 			db.add_group_member({
 				group_id: group.group_id,
 				session_id: 'reviewer',

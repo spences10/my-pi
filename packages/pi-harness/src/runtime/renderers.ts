@@ -88,6 +88,7 @@ export function build_validate_script(
 			...contract.scaffold.validation_commands,
 		]),
 	];
+
 	return `#!/usr/bin/env bash
 set -euo pipefail
 ${build_resolve_cwd_script(contract)}

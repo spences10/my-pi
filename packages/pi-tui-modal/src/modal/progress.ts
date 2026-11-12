@@ -75,6 +75,7 @@ class ProgressModalBody implements ModalBody {
 			'accent',
 			this.frames[this.frame] ?? '•',
 		);
+
 		const count =
 			this.state.total !== undefined &&
 			this.state.completed !== undefined
@@ -83,6 +84,7 @@ class ProgressModalBody implements ModalBody {
 						` ${this.state.completed}/${this.state.total}`,
 					)
 				: '';
+
 		const lines = [`${spinner} ${this.state.message}${count}`];
 
 		if (this.state.current) {
@@ -130,6 +132,7 @@ export async function run_with_progress_modal<T>(
 		},
 		({ done }, theme, _layout, tui) => {
 			const abort_controller = new AbortController();
+
 			const state: ProgressState = {
 				message: options.message,
 				lines: [],
@@ -139,11 +142,15 @@ export async function run_with_progress_modal<T>(
 			const update = (update: ProgressModalUpdate) => {
 				if (update.message !== undefined)
 					state.message = update.message;
+
 				if (update.current !== undefined)
 					state.current = update.current;
+
 				if (update.completed !== undefined)
 					state.completed = update.completed;
+
 				if (update.total !== undefined) state.total = update.total;
+
 				if (update.line) state.lines.push(update.line);
 				tui.requestRender();
 			};
@@ -170,12 +177,14 @@ export async function run_with_progress_modal<T>(
 							: { status: 'success', value },
 					);
 				})
-				.catch((error: unknown) => {
+				.catch((cause: unknown) => {
 					if (state.cancelled || abort_controller.signal.aborted) {
 						done({ status: 'cancelled' });
+
 						return;
 					}
-					done({ status: 'error', error });
+
+					done({ status: 'error', error: cause });
 				});
 
 			return body;
@@ -184,8 +193,11 @@ export async function run_with_progress_modal<T>(
 
 	if (result.status === 'cancelled') {
 		ctx.ui.notify('Cancelled', 'info');
+
 		return undefined;
 	}
+
 	if (result.status === 'error') throw result.error;
+
 	return result.value;
 }

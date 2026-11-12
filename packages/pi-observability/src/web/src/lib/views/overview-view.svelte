@@ -25,10 +25,12 @@
 
 	const overview = resource(() => {
 		void live.revision;
+
 		return api.overview(range.since(), 8);
 	});
 
 	const totals = $derived(overview.data?.totals);
+
 	const daily = $derived(
 		fill_days(
 			overview.data?.daily ?? [],
@@ -47,6 +49,7 @@
 			}),
 		),
 	);
+
 	const cache_share = $derived(
 		totals
 			? percent(

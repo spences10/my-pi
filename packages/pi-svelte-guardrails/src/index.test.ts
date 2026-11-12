@@ -1,7 +1,5 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from '@earendil-works/pi-coding-agent';
+import { make_api, make_context } from '../../../tools/test-sdk.js';
+
 import { write_package_settings } from '@spences10/pi-settings';
 import {
 	mkdirSync,
@@ -32,6 +30,7 @@ const block_config = {
 
 const original_config_path =
 	process.env.MY_PI_SVELTE_GUARDRAILS_CONFIG;
+
 const original_agent_dir = process.env.PI_CODING_AGENT_DIR;
 
 afterEach(() => {
@@ -40,6 +39,7 @@ afterEach(() => {
 	} else {
 		process.env.MY_PI_SVELTE_GUARDRAILS_CONFIG = original_config_path;
 	}
+
 	if (original_agent_dir === undefined) {
 		delete process.env.PI_CODING_AGENT_DIR;
 	} else {
@@ -195,12 +195,20 @@ EOF`;
 		write_package_settings('svelteGuardrails', { mode: 'warn' });
 
 		const events = new Map<string, Function>();
-		svelte_guardrails({
-			on: (name: string, handler: Function) =>
-				events.set(name, handler),
-		} as unknown as ExtensionAPI);
+		svelte_guardrails(
+			make_api({
+				on: (name: string, handler: Function) => {
+					events.set(name, handler);
+
+					return () => {
+						events.delete(name);
+					};
+				},
+			}),
+		);
 
 		const notifications: string[] = [];
+
 		const result = await events.get('tool_call')?.(
 			{
 				type: 'tool_call',
@@ -211,11 +219,11 @@ EOF`;
 					content: '<script>$effect(() => {})</script>',
 				},
 			} satisfies Parameters<typeof should_block_svelte_effect>[0],
-			{
+			make_context({
 				ui: {
 					notify: (message: string) => notifications.push(message),
 				},
-			} as unknown as ExtensionContext,
+			}),
 		);
 
 		expect(result).toBeUndefined();
@@ -233,11 +241,14 @@ EOF`;
 				content: '<script>$effect(() => {})</script>',
 			},
 		};
+
 		expect(DEFAULT_SVELTE_GUARDRAILS_CONFIG.mode).toBe('block');
+
 		const reason = should_block_svelte_effect(
 			call,
 			DEFAULT_SVELTE_GUARDRAILS_CONFIG,
 		);
+
 		expect(reason).toContain('was not created or modified');
 		expect(reason).toContain('$derived/$derived.by');
 		expect(reason).toContain('onMount with cleanup');
@@ -285,6 +296,7 @@ EOF`;
 				{ oldText: 'placeholder', newText: '$effect.pre(() => {});' },
 			],
 		};
+
 		expect(
 			should_block_svelte_effect(
 				{
@@ -333,11 +345,13 @@ EOF`;
 	it('loads global config with project-local overrides', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'svelte-guardrails-'));
 		const project = join(dir, 'project');
+
 		const project_config = join(
 			project,
 			'.pi',
 			'svelte-guardrails.json',
 		);
+
 		mkdirSync(join(project, '.pi'), { recursive: true });
 		process.env.PI_CODING_AGENT_DIR = dir;
 		write_package_settings('svelteGuardrails', {
@@ -353,5 +367,26 @@ EOF`;
 			mode: 'warn',
 		});
 		rmSync(dir, { recursive: true, force: true });
+	});
+});
+
+describe('svelte guardrails edit tolerance', () => {
+	it('skips malformed edit entries and still finds $effect in valid ones', () => {
+		const input = {
+			path: 'src/App.svelte',
+			edits: [null, 'text', { newText: '$effect(() => {})' }],
+		};
+
+		expect(
+			should_block_svelte_effect(
+				{
+					type: 'tool_call',
+					toolName: 'edit',
+					toolCallId: 'e1',
+					input,
+				} satisfies Parameters<typeof should_block_svelte_effect>[0],
+				block_config,
+			),
+		).toContain('was not created or modified');
 	});
 });

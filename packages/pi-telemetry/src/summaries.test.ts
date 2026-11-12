@@ -1,5 +1,7 @@
+import * as v from 'valibot';
 import { describe, expect, it } from 'vite-plus/test';
 import {
+	summarizable_schema,
 	summarize_provider_payload,
 	summarize_tool_args,
 	summarize_tool_result,
@@ -7,15 +9,18 @@ import {
 
 describe('telemetry summaries', () => {
 	it('summarizes bash commands without storing command text', () => {
-		const summary = JSON.parse(
-			summarize_tool_args('bash', {
-				command: `secret-token-${'x'.repeat(100)}`,
-				timeout: 120,
-			})!,
-		) as {
-			command: { type: string; bytes: number };
-			timeout: number;
-		};
+		const summary = v.parse(
+			v.object({
+				command: v.object({ type: v.string(), bytes: v.number() }),
+				timeout: v.number(),
+			}),
+			JSON.parse(
+				summarize_tool_args('bash', {
+					command: `secret-token-${'x'.repeat(100)}`,
+					timeout: 120,
+				})!,
+			),
+		);
 
 		expect(summary.timeout).toBe(120);
 		expect(summary.command.type).toBe('string');
@@ -37,5 +42,15 @@ describe('telemetry summaries', () => {
 			keys: ['text'],
 			text_summary: { type: 'string', bytes: 5, lines: 1 },
 		});
+	});
+});
+
+describe('summarizable_schema', () => {
+	it('passes through any runtime value and maps NaN to null', () => {
+		expect(v.parse(summarizable_schema, { a: 1 })).toEqual({ a: 1 });
+		expect(v.parse(summarizable_schema, [1, 'b'])).toEqual([1, 'b']);
+		expect(v.parse(summarizable_schema, 'text')).toBe('text');
+		expect(v.parse(summarizable_schema, undefined)).toBeUndefined();
+		expect(v.parse(summarizable_schema, Number.NaN)).toBeNull();
 	});
 });

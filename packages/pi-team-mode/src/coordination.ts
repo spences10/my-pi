@@ -4,6 +4,9 @@ export {
 	get_coordination_db_path,
 	should_auto_inject_messages,
 } from './config.js';
+
 export { CoordinationPoller } from './coordination-poller.js';
+
 export { TeamDatabase } from './db/index.js';
+
 export { render_peer_message } from './rendering.js';

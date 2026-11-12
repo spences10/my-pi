@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { make_api } from '../../../tools/test-sdk.js';
+
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import turn_timer, {
 	format_clock,
@@ -9,12 +10,20 @@ function fixture(mode = 'tui') {
 	const events = new Map<string, Function>();
 	const appendEntry = vi.fn();
 	const registerEntryRenderer = vi.fn();
-	turn_timer({
-		on: (name: string, handler: Function) =>
-			events.set(name, handler),
-		appendEntry,
-		registerEntryRenderer,
-	} as unknown as ExtensionAPI);
+	turn_timer(
+		make_api({
+			on: (name: string, handler: Function) => {
+				events.set(name, handler);
+
+				return () => {
+					events.delete(name);
+				};
+			},
+			appendEntry,
+			registerEntryRenderer,
+		}),
+	);
+
 	const ctx = {
 		mode,
 		ui: {
@@ -22,6 +31,7 @@ function fixture(mode = 'tui') {
 			theme: { fg: (_color: string, text: string) => text },
 		},
 	};
+
 	return {
 		events,
 		ctx,
@@ -142,6 +152,7 @@ describe('turn timer', () => {
 				.render(80)
 				.join(''),
 		).toContain('Stopped in 1.2s');
+
 		for (const data of [
 			undefined,
 			{},

@@ -19,26 +19,31 @@ export function register_lsp_command(
 		getArgumentCompletions: (prefix) => {
 			const parts = prefix.trim().split(/\s+/);
 			const subcommands = ['status', 'list', 'restart'];
+
 			if (!prefix.trim()) {
 				return subcommands.map((value) => ({
 					value,
 					label: value,
 				}));
 			}
+
 			if (parts.length <= 1) {
-				return subcommands
-					.filter((value) => value.startsWith(parts[0]))
-					.map((value) => ({ value, label: value }));
+				return subcommands.flatMap((value) =>
+					value.startsWith(parts[0]) ? [{ value, label: value }] : [],
+				);
 			}
+
 			if (parts[0] === 'restart') {
 				const candidate = parts[1] ?? '';
-				return ['all', ...list_supported_languages()]
-					.filter((value) => value.startsWith(candidate))
-					.map((value) => ({
-						value: `restart ${value}`,
-						label: value,
-					}));
+
+				return ['all', ...list_supported_languages()].flatMap(
+					(value) =>
+						value.startsWith(candidate)
+							? [{ value: `restart ${value}`, label: value }]
+							: [],
+				);
 			}
+
 			return null;
 		},
 		handler: async (args, ctx) => {
@@ -53,18 +58,23 @@ export async function handle_lsp_command(
 	manager: LspServerManager,
 ): Promise<void> {
 	const parts = args.trim() ? args.trim().split(/\s+/, 2) : [];
+
 	if (parts.length === 0 && has_modal_ui(ctx)) {
 		let selected: string | undefined;
+
 		while ((selected = await show_lsp_home_modal(ctx, manager))) {
 			if (selected === 'restart') {
 				await handle_lsp_restart_modal(ctx, manager);
 				continue;
 			}
+
 			if (selected === 'restart-all') {
 				await restart_all_lsp_servers(ctx, manager);
 				continue;
 			}
+
 			let title = 'LSP status';
+
 			if (selected === 'running') title = 'Running LSP servers';
 			else if (selected === 'failed') title = 'Failed LSP servers';
 			await show_lsp_text_modal(
@@ -78,6 +88,7 @@ export async function handle_lsp_command(
 				),
 			);
 		}
+
 		return;
 	}
 
@@ -95,28 +106,37 @@ export async function handle_lsp_command(
 					manager.failed_servers,
 				).join('\n'),
 			);
+
 			return;
 		case 'restart': {
 			if (!target && has_modal_ui(ctx)) {
 				await handle_lsp_restart_modal(ctx, manager);
+
 				return;
 			}
+
 			if (!target || target === 'all') {
 				await manager.clear_language_state();
 				ctx.ui.notify('Restarted all language server state.');
+
 				return;
 			}
+
 			if (!list_supported_languages().includes(target)) {
 				ctx.ui.notify(
 					`Unknown language: ${target}. Use one of: ${list_supported_languages().join(', ')}`,
 					'warning',
 				);
+
 				return;
 			}
+
 			await manager.clear_language_state(target);
 			ctx.ui.notify(`Restarted ${target} language server state.`);
+
 			return;
 		}
+
 		default:
 			ctx.ui.notify(
 				`Unknown subcommand: ${subcommand}. Use: status, list, restart`,
@@ -126,7 +146,7 @@ export async function handle_lsp_command(
 }
 
 function has_modal_ui(ctx: ExtensionCommandContext): boolean {
-	return ctx.mode === 'tui' && typeof ctx.ui.custom === 'function';
+	return ctx.mode === 'tui' && ctx.ui.custom !== undefined;
 }
 
 async function present_lsp_text(
@@ -136,8 +156,10 @@ async function present_lsp_text(
 ): Promise<void> {
 	if (has_modal_ui(ctx)) {
 		await show_lsp_text_modal(ctx, title, text);
+
 		return;
 	}
+
 	ctx.ui.notify(text);
 }
 
@@ -147,6 +169,7 @@ async function show_lsp_home_modal(
 ): Promise<string | undefined> {
 	const running_count = manager.clients_by_server.size;
 	const failed_count = manager.failed_servers.size;
+
 	return await show_picker_modal(ctx, {
 		title: 'Language servers',
 		subtitle: `${running_count} running • ${failed_count} failed • ${list_supported_languages().length} supported`,
@@ -210,11 +233,15 @@ async function handle_lsp_restart_modal(
 		],
 		footer: 'enter restarts • esc back',
 	});
+
 	if (!selected) return;
+
 	if (selected === 'all') {
 		await restart_all_lsp_servers(ctx, manager);
+
 		return;
 	}
+
 	await manager.clear_language_state(selected);
 	ctx.ui.notify(`Restarted ${selected} language server state.`);
 }

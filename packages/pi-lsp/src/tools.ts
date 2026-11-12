@@ -4,6 +4,7 @@ import {
 	type ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
+import type { JsonValue } from './client.js';
 import {
 	find_symbol_matches,
 	format_diagnostics,
@@ -25,7 +26,12 @@ import {
 
 const DIAGNOSTICS_MANY_CONCURRENCY = 8;
 
-function make_tool_result(text: string, details: unknown = {}) {
+type LspToolDetails = Record<string, JsonValue>;
+
+function make_tool_result(
+	text: string,
+	details: LspToolDetails = {},
+) {
 	return {
 		content: [{ type: 'text' as const, text }],
 		details,
@@ -53,6 +59,7 @@ async function map_with_concurrency<T, R>(
 			while (true) {
 				const index = next_index;
 				next_index += 1;
+
 				if (index >= items.length) return;
 				results[index] = await mapper(items[index], index);
 			}
@@ -69,29 +76,34 @@ async function with_file_state(
 	signal: AbortSignal | undefined,
 	run: (
 		result: FileState,
-	) => Promise<string | { text: string; details: object }>,
+	) => Promise<{ text: string; details?: LspToolDetails }>,
 ) {
 	const resolved = await manager.resolve_file_state(
 		file,
 		ctx,
 		signal,
 	);
+
 	if (!resolved.ok) {
 		return make_tool_error(resolved.error);
 	}
+
 	const { result } = resolved;
+
 	try {
 		const output = await run(result);
-		return make_tool_result(
-			typeof output === 'string' ? output : output.text,
-			{
-				ok: true,
-				language: result.state.language,
-				command: result.state.command,
-				workspace_root: result.state.workspace_root,
-				...(typeof output === 'string' ? {} : output.details),
-			},
-		);
+
+		const details = {
+			ok: true,
+			language: result.state.language,
+			command: result.state.command,
+			workspace_root: result.state.workspace_root,
+		};
+
+		return make_tool_result(output.text, {
+			...details,
+			...output.details,
+		});
 	} catch (error) {
 		return make_tool_error(
 			to_lsp_tool_error(
@@ -124,6 +136,7 @@ export async function run_diagnostics_many(
 				ctx,
 				signal,
 			);
+
 			if (!resolved.ok) {
 				return {
 					line: format_tool_error(resolved.error),
@@ -131,12 +144,14 @@ export async function run_diagnostics_many(
 					status: 'error' as const,
 				};
 			}
+
 			try {
 				const diagnostics =
 					await resolved.result.state.client.wait_for_diagnostics(
 						resolved.result.uri,
 						wait_ms,
 					);
+
 				if (!diagnostics) {
 					return {
 						line: format_missing_diagnostics(
@@ -147,6 +162,7 @@ export async function run_diagnostics_many(
 						status: 'incomplete' as const,
 					};
 				}
+
 				return {
 					line: format_diagnostics(resolved.result.abs, diagnostics),
 					diagnostics: diagnostics.length,
@@ -178,14 +194,17 @@ export async function run_diagnostics_many(
 	let error_count = 0;
 	let incomplete_count = 0;
 	const lines: string[] = [];
+
 	for (const entry of lines_with_stats) {
 		lines.push(entry.line);
+
 		if (entry.status === 'error') {
 			error_count += 1;
 		} else if (entry.status === 'incomplete') {
 			incomplete_count += 1;
 		} else {
 			diagnostic_count += entry.diagnostics;
+
 			if (entry.diagnostics === 0) clean_count += 1;
 		}
 	}
@@ -237,18 +256,23 @@ export function register_lsp_tools(
 					signal,
 					async (result) => {
 						const wait_ms = params.wait_ms ?? 1500;
+
 						const diagnostics =
 							await result.state.client.wait_for_diagnostics(
 								result.uri,
 								wait_ms,
 							);
+
 						if (!diagnostics) {
 							return {
 								text: format_missing_diagnostics(result.abs, wait_ms),
 								details: { ok: false, incomplete: true },
 							};
 						}
-						return format_diagnostics(result.abs, diagnostics);
+
+						return {
+							text: format_diagnostics(result.abs, diagnostics),
+						};
 					},
 				),
 		}),
@@ -334,16 +358,19 @@ export function register_lsp_tools(
 					async (result) => {
 						const symbols =
 							await result.state.client.document_symbols(result.uri);
-						return format_symbol_matches(
-							result.abs,
-							params.query,
-							find_symbol_matches(symbols, params.query, {
-								max_results: params.max_results ?? 20,
-								top_level_only: params.top_level_only ?? false,
-								exact_match: params.exact_match ?? false,
-								kinds: new Set(params.kinds ?? []),
-							}),
-						);
+
+						return {
+							text: format_symbol_matches(
+								result.abs,
+								params.query,
+								find_symbol_matches(symbols, params.query, {
+									max_results: params.max_results ?? 20,
+									top_level_only: params.top_level_only ?? false,
+									exact_match: params.exact_match ?? false,
+									kinds: new Set(params.kinds ?? []),
+								}),
+							),
+						};
 					},
 				),
 		}),
@@ -379,7 +406,8 @@ export function register_lsp_tools(
 								character: params.character,
 							},
 						);
-						return format_hover(hover);
+
+						return { text: format_hover(hover) };
 					},
 				),
 		}),
@@ -415,10 +443,13 @@ export function register_lsp_tools(
 								character: params.character,
 							},
 						);
-						return format_locations(
-							locations,
-							'No definition found.',
-						);
+
+						return {
+							text: format_locations(
+								locations,
+								'No definition found.',
+							),
+						};
 					},
 				),
 		}),
@@ -452,10 +483,13 @@ export function register_lsp_tools(
 							},
 							params.include_declaration ?? true,
 						);
-						return format_locations(
-							locations,
-							'No references found.',
-						);
+
+						return {
+							text: format_locations(
+								locations,
+								'No references found.',
+							),
+						};
 					},
 				),
 		}),
@@ -484,7 +518,10 @@ export function register_lsp_tools(
 					async (result) => {
 						const symbols =
 							await result.state.client.document_symbols(result.uri);
-						return format_document_symbols(result.abs, symbols);
+
+						return {
+							text: format_document_symbols(result.abs, symbols),
+						};
 					},
 				),
 		}),

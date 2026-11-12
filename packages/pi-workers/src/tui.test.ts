@@ -1,17 +1,23 @@
-import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import {
-	getKeybindings,
-	visibleWidth,
-	type Component,
-} from '@earendil-works/pi-tui';
+	make_context,
+	make_theme,
+	make_keybindings,
+} from '../../../tools/test-sdk.js';
+import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { visibleWidth, type Component } from '@earendil-works/pi-tui';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { WorkerInfo } from './manager.js';
 import { show_workers } from './tui.js';
+import {
+	make_terminal,
+	make_tui,
+} from '../../../tools/test-terminal.js';
 
 const dialogs = vi.hoisted(() => ({
 	input: vi.fn(async (): Promise<string | undefined> => undefined),
 	confirm: vi.fn(async () => false),
 }));
+
 vi.mock('@spences10/pi-tui-modal', async (import_original) => ({
 	...(await import_original<
 		typeof import('@spences10/pi-tui-modal')
@@ -19,13 +25,23 @@ vi.mock('@spences10/pi-tui-modal', async (import_original) => ({
 	show_input_modal: dialogs.input,
 	show_confirm_modal: dialogs.confirm,
 }));
+
 beforeEach(() => {
 	dialogs.input.mockReset().mockResolvedValue(undefined);
 	dialogs.confirm.mockReset().mockResolvedValue(false);
 });
 
 type CustomFactory = Parameters<ExtensionContext['ui']['custom']>[0];
+
+type TypedCustomFactory<T> = (
+	tui: Parameters<CustomFactory>[0],
+	theme: Parameters<CustomFactory>[1],
+	keybindings: Parameters<CustomFactory>[2],
+	done: (result: T) => void,
+) => ReturnType<CustomFactory>;
+
 type Step = (component: Component) => void;
+
 const enter = '\r';
 const escape = '\u001b';
 const down = '\u001b[B';
@@ -53,7 +69,8 @@ function worker(overrides: Partial<WorkerInfo> = {}): WorkerInfo {
 
 function setup(steps: Step[], workers = [worker()]) {
 	const screens: string[][] = [];
-	const terminal = { rows: 40 };
+	const terminal = make_terminal();
+
 	const manager = {
 		list: vi.fn(() => workers.map((info) => ({ ...info }))),
 		send: vi.fn(async (id: string, _message: string) =>
@@ -62,46 +79,51 @@ function setup(steps: Step[], workers = [worker()]) {
 		stop: vi.fn(async (id: string) => {
 			const info = workers.find((entry) => entry.id === id)!;
 			info.status = 'stopped';
+
 			return { ...info };
 		}),
 	};
+
 	const ui = {
 		notify: vi.fn(),
 		input: dialogs.input,
 		confirm: dialogs.confirm,
-		custom: vi.fn(
-			async (factory: CustomFactory, options: unknown) => {
-				expect(options).toMatchObject({ overlay: true });
-				let finished = false;
-				let result: unknown;
-				const component = await factory(
-					{
-						terminal,
-						requestRender: vi.fn(),
-					} as unknown as Parameters<CustomFactory>[0],
-					{
-						fg: (_color: string, text: string) => text,
-						bold: (text: string) => text,
-					} as unknown as Parameters<CustomFactory>[1],
-					getKeybindings() as Parameters<CustomFactory>[2],
-					(value) => {
-						finished = true;
-						result = value;
-					},
-				);
-				screens.push(component.render(100));
-				const step = steps.shift();
-				if (!step) throw new Error('Unexpected custom screen');
-				step(component);
-				expect(finished, 'screen must finish through done()').toBe(
-					true,
-				);
-				component.dispose?.();
-				return result;
-			},
-		),
+		custom: async <T>(
+			factory: TypedCustomFactory<T>,
+			options?: Parameters<ExtensionContext['ui']['custom']>[1],
+		) => {
+			expect(options).toMatchObject({ overlay: true });
+			let finished = false;
+			let result!: T;
+
+			const component = await factory(
+				make_tui(terminal).tui,
+				make_theme(),
+				make_keybindings(),
+				(value) => {
+					finished = true;
+					result = value;
+				},
+			);
+
+			screens.push(component.render(100));
+			const step = steps.shift();
+
+			if (!step) throw new Error('Unexpected custom screen');
+			step(component);
+			expect(finished, 'screen must finish through done()').toBe(
+				true,
+			);
+			component.dispose?.();
+
+			return result;
+		},
 	};
-	const ctx = { mode: 'tui', ui } as unknown as ExtensionContext;
+
+	vi.spyOn(ui, 'custom');
+
+	const ctx = make_context({ mode: 'tui', ui });
+
 	return {
 		ui,
 		manager,
@@ -131,6 +153,7 @@ describe('worker management TUI', () => {
 			press(escape),
 			press(escape),
 		]);
+
 		await harness.run();
 		expect(harness.screens[0].join('\n')).toContain(
 			'reviewer [idle]',
@@ -139,6 +162,7 @@ describe('worker management TUI', () => {
 		expect(harness.screens[0][0]).toContain('╭');
 		expect(harness.screens[0].at(-1)).toContain('╰');
 		const details = harness.screens[1].join('\n');
+
 		for (const value of [
 			'worker-1',
 			'123',
@@ -155,6 +179,7 @@ describe('worker management TUI', () => {
 			[press(enter), press('s'), press(escape), press(escape)],
 			[worker(), worker({ id: 'worker-2', session_id: 'session-2' })],
 		);
+
 		harness.ui.input.mockResolvedValue('Check error paths');
 		await harness.run();
 		expect(harness.manager.send).toHaveBeenCalledWith(
@@ -172,6 +197,7 @@ describe('worker management TUI', () => {
 			[press(down, enter), press('x'), press(escape), press(escape)],
 			[worker(), worker({ id: 'worker-2' })],
 		);
+
 		harness.ui.confirm.mockResolvedValue(true);
 		await harness.run();
 		expect(harness.ui.confirm).toHaveBeenCalledWith(
@@ -194,6 +220,7 @@ describe('worker management TUI', () => {
 			press(escape),
 			press(escape),
 		]);
+
 		harness.ui.input
 			.mockResolvedValueOnce(undefined)
 			.mockResolvedValueOnce('  ');
@@ -204,12 +231,15 @@ describe('worker management TUI', () => {
 
 	it('rechecks status after message entry instead of sending to an exited worker', async () => {
 		const info = worker();
+
 		const harness = setup(
 			[press(enter), press('s'), press(escape), press(escape)],
 			[info],
 		);
+
 		harness.ui.input.mockImplementation(async () => {
 			info.status = 'failed';
+
 			return 'Too late';
 		});
 		await harness.run();
@@ -222,6 +252,7 @@ describe('worker management TUI', () => {
 
 	it('refreshes both list and details from the manager', async () => {
 		const info = worker();
+
 		const harness = setup(
 			[
 				(component) => {
@@ -238,6 +269,7 @@ describe('worker management TUI', () => {
 			],
 			[info],
 		);
+
 		await harness.run();
 		expect(harness.screens[1].join('\n')).toContain('[running]');
 		expect(harness.screens[3].join('\n')).toContain('Updated result');
@@ -248,6 +280,7 @@ describe('worker management TUI', () => {
 			[press(enter), press('s', 'x', escape), press(escape)],
 			[worker({ status: 'stopped', error: 'Worker exited' })],
 		);
+
 		await harness.run();
 		expect(harness.screens[1].join('\n')).toContain('Worker exited');
 		expect(harness.ui.input).not.toHaveBeenCalled();
@@ -263,6 +296,7 @@ describe('worker management TUI', () => {
 				press(escape),
 				press(escape),
 			]);
+
 			harness.ui.input.mockResolvedValue('Continue');
 			harness.ui.confirm.mockResolvedValue(true);
 			harness.manager[action].mockRejectedValue(
@@ -292,6 +326,7 @@ describe('worker management TUI', () => {
 				worker({ id: `id-${index}`, name: `worker-${index}` }),
 			),
 		);
+
 		await harness.run();
 	});
 
@@ -300,6 +335,7 @@ describe('worker management TUI', () => {
 			{ length: 60 },
 			(_, index) => `Result ${index}: 界🌍`,
 		).join('\n');
+
 		const harness = setup(
 			[
 				(component) => {
@@ -311,9 +347,11 @@ describe('worker management TUI', () => {
 				(component) => {
 					harness.terminal.rows = 12;
 					component.invalidate();
+
 					for (const line of component.render(12))
 						expect(visibleWidth(line)).toBeLessThanOrEqual(12);
 					component.render(40);
+
 					for (let page = 0; page < 100; page++)
 						press(page_down)(component);
 					expect(component.render(40).join('\n')).toContain(
@@ -325,6 +363,7 @@ describe('worker management TUI', () => {
 			],
 			[worker({ name: '界🌍 reviewer', result })],
 		);
+
 		await harness.run();
 	});
 });

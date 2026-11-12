@@ -1,7 +1,9 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from '@earendil-works/pi-coding-agent';
+import {
+	make_api,
+	make_context,
+	make_model,
+} from '../../../tools/test-sdk.js';
+import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { TeamDatabase } from '@spences10/pi-team-mode/coordination';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,19 +15,31 @@ import {
 	expect,
 	it,
 	vi,
+	type Mock,
 } from 'vite-plus/test';
 import workers, { worker_launch } from './index.js';
 import type { ManagerOptions } from './manager.js';
 
-const state = vi.hoisted(() => ({
-	options: undefined as ManagerOptions | undefined,
+interface HoistedState {
+	options: ManagerOptions | undefined;
+	dispose: Mock;
+	spawn: Mock<() => Promise<{ id: string }>>;
+	send: Mock;
+	stop: Mock;
+	show_workers: Mock;
+}
+
+const state = vi.hoisted((): HoistedState => ({
+	options: undefined,
 	dispose: vi.fn(),
 	spawn: vi.fn(async () => ({ id: 'owned' })),
 	send: vi.fn(),
 	stop: vi.fn(),
 	show_workers: vi.fn(),
 }));
+
 vi.mock('./tui.js', () => ({ show_workers: state.show_workers }));
+
 vi.mock('./manager.js', () => ({
 	child_env: 'MY_PI_WORKER_CHILD',
 	WorkerManager: class {
@@ -44,6 +58,7 @@ vi.mock('./manager.js', () => ({
 
 let directory: string;
 const shutdowns: Function[] = [];
+
 beforeEach(() => {
 	directory = mkdtempSync(join(tmpdir(), 'workers-extension-'));
 	vi.stubEnv(
@@ -75,9 +90,15 @@ async function setup(
 	const send_message = vi.fn();
 	const register_message_renderer = vi.fn();
 	const active_tools = ['workers'];
-	const pi = {
-		on: (name: string, handler: Function) =>
-			events.set(name, handler),
+
+	const pi = make_api({
+		on: (name: string, handler: Function) => {
+			events.set(name, handler);
+
+			return () => {
+				events.delete(name);
+			};
+		},
 		registerTool: (tool: { name: string; execute: Function }) =>
 			tools.set(tool.name, tool),
 		registerCommand: (name: string, command: { handler: Function }) =>
@@ -86,19 +107,21 @@ async function setup(
 		getThinkingLevel: () => 'high',
 		sendMessage: send_message,
 		registerMessageRenderer: register_message_renderer,
-	} as unknown as ExtensionAPI;
-	const ctx = {
+	});
+
+	const ctx = make_context({
 		cwd: directory,
 		isIdle: () => true,
 		mode,
 		hasUI: has_ui,
-		model: { provider: 'test', id: 'model' },
+		model: make_model({ provider: 'test', id: 'model' }),
 		sessionManager: {
 			getSessionFile: () => '/tmp/parent.jsonl',
 			getSessionId: () => 'parent',
 		},
 		ui: { confirm, input, select, notify },
-	} as unknown as ExtensionContext;
+	});
+
 	workers(pi);
 	await events.get('session_start')?.({}, ctx);
 	state.options?.on_started?.({
@@ -108,8 +131,10 @@ async function setup(
 		cwd: directory,
 		status: 'idle',
 	});
+
 	if (events.has('session_shutdown'))
 		shutdowns.push(events.get('session_shutdown')!);
+
 	return {
 		events,
 		tools,
@@ -265,6 +290,7 @@ describe('worker extension', () => {
 	it('serializes dialogs and explicitly cancels dismissed inputs', async () => {
 		const { input } = await setup();
 		const respond = vi.fn();
+
 		for (const id of ['first', 'second'])
 			state.options!.on_ui(
 				'owned',
@@ -285,8 +311,8 @@ describe('worker extension', () => {
 		const { confirm } = await setup();
 		confirm.mockImplementation(
 			(
-				_title?: unknown,
-				_message?: unknown,
+				_title?: string,
+				_message?: string,
 				options?: { signal?: AbortSignal },
 			) =>
 				new Promise<boolean>((resolve) =>
@@ -384,9 +410,11 @@ describe('worker extension', () => {
 			expect(report.content).not.toContain(secret);
 			expect(report.content).toContain('[REDACTED:');
 			expect(JSON.stringify(report.details)).not.toContain(secret);
+
 			const db = await TeamDatabase.open(
 				process.env.MY_PI_COORDINATION_DB!,
 			);
+
 			try {
 				const stored = db.list_inbox('parent')[0];
 				expect(stored.body).not.toContain(secret);
@@ -394,6 +422,7 @@ describe('worker extension', () => {
 			} finally {
 				db.close();
 			}
+
 			expect(report.details).toMatchObject({
 				authority: 'peer-only',
 				direct_user_authority: false,
@@ -404,7 +433,9 @@ describe('worker extension', () => {
 	it('pauses completion notifications without stopping workers or losing results, and resumes without a backlog', async () => {
 		const { commands, ctx, events, send_message, tools } =
 			await setup();
+
 		await commands.get('workers')!.handler('pause', ctx);
+
 		const complete = () =>
 			state.options!.on_complete({
 				id: 'owned',
@@ -414,6 +445,7 @@ describe('worker extension', () => {
 				status: 'idle',
 				result: 'saved result',
 			});
+
 		complete();
 		expect(send_message).not.toHaveBeenCalled();
 		expect(state.stop).not.toHaveBeenCalled();
@@ -436,9 +468,11 @@ describe('worker extension', () => {
 		).toBeUndefined();
 		complete();
 		expect(send_message).toHaveBeenCalledTimes(1);
+
 		const db = await TeamDatabase.open(
 			process.env.MY_PI_COORDINATION_DB!,
 		);
+
 		try {
 			expect(db.list_inbox('parent')).toHaveLength(2);
 		} finally {
@@ -458,9 +492,11 @@ describe('worker extension', () => {
 			result: 'done',
 		});
 		expect(send_message).not.toHaveBeenCalled();
+
 		const db = await TeamDatabase.open(
 			process.env.MY_PI_COORDINATION_DB!,
 		);
+
 		try {
 			expect(db.list_auto_inbox('parent')).toHaveLength(1);
 		} finally {
@@ -470,9 +506,11 @@ describe('worker extension', () => {
 
 	it('retains late completion after collaboration closure without waking the parent', async () => {
 		const { send_message } = await setup();
+
 		const db = await TeamDatabase.open(
 			process.env.MY_PI_COORDINATION_DB!,
 		);
+
 		try {
 			db.delivery.close_group(state.options!.group_id!, 'parent');
 			const next_group = state.options!.get_group_id!();
@@ -483,6 +521,7 @@ describe('worker extension', () => {
 		} finally {
 			db.close();
 		}
+
 		state.options!.on_complete({
 			id: 'owned',
 			session_id: 'worker',
@@ -509,6 +548,7 @@ describe('worker extension', () => {
 			],
 			process.execPath,
 		);
+
 		expect(launch.args).toEqual([
 			import.meta.filename,
 			'-e',

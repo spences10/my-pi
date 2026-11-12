@@ -1,3 +1,4 @@
+import type { BuildSystemPromptOptions } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vite-plus/test';
 import {
 	create_mock_client,
@@ -15,13 +16,18 @@ describe('lsp prompt guidance', () => {
 				cwd: () => '/repo',
 			});
 
+			const sections: NonNullable<
+				BuildSystemPromptOptions['sections']
+			> = { unrelated: 'keep' };
+
 			const event = {
 				systemPrompt: 'base prompt',
 				systemPromptOptions: {
 					selectedTools: [tool],
-					sections: { unrelated: 'keep' } as Record<string, string>,
+					sections,
 				},
 			};
+
 			expect(
 				await events.get('before_agent_start')(event),
 			).toBeUndefined();
@@ -29,6 +35,7 @@ describe('lsp prompt guidance', () => {
 			expect(event.systemPromptOptions.sections.unrelated).toBe(
 				'keep',
 			);
+
 			for (const text of [
 				'Language server support via LSP tools',
 				'tools.lsp_hover()',
@@ -60,6 +67,7 @@ describe('lsp prompt guidance', () => {
 				systemPromptOptions: { selectedTools: ['lsp_hover'] },
 			}),
 		).toBe(true);
+
 		for (const tool of ['codemode', 'tool_search']) {
 			expect(
 				should_inject_lsp_prompt({
@@ -67,6 +75,7 @@ describe('lsp prompt guidance', () => {
 				}),
 			).toBe(true);
 		}
+
 		expect(
 			should_inject_lsp_prompt({
 				systemPromptOptions: {

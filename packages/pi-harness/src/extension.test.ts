@@ -1,34 +1,42 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { BuildSystemPromptOptions } from '@earendil-works/pi-coding-agent';
+import { make_api } from '../../../tools/test-sdk.js';
+
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import * as v from 'valibot';
 import { HARNESS_ASSESSMENT_CUSTOM_TYPE } from './assessment.js';
 import harness from './extension.js';
 import { HARNESS_SYSTEM_PROMPT } from './prompt.js';
 import { HARNESS_CUSTOM_TYPE } from './schema.js';
 
 const cleanup: string[] = [];
+
 afterEach(() => {
 	for (const dir of cleanup.splice(0).reverse())
 		rmSync(dir, { recursive: true, force: true });
 });
+
 function fixture() {
 	const cwd = mkdtempSync(join(tmpdir(), 'pi-harness-extension-'));
 	cleanup.push(cwd);
 	execFileSync('git', ['-C', cwd, 'init'], { stdio: 'ignore' });
 	const commands = new Map<string, { handler: Function }>();
+
 	const tools = new Map<
 		string,
 		{ execute: Function; exposure?: string; executionMode?: string }
 	>();
+
 	const handlers = new Map<string, Function>();
 	const appendEntry = vi.fn();
 	const setActiveTools = vi.fn();
 	const sendUserMessage = vi.fn();
 	let branch: unknown[] = [];
-	const api = {
+
+	const api = make_api({
 		appendEntry,
 		setActiveTools,
 		getActiveTools: () => [
@@ -48,10 +56,16 @@ function fixture() {
 			exposure?: string;
 			executionMode?: string;
 		}) => tools.set(definition.name, definition),
-		on: (name: string, handler: Function) =>
-			handlers.set(name, handler),
+		on: (name: string, handler: Function) => {
+			handlers.set(name, handler);
+
+			return () => {
+				handlers.delete(name);
+			};
+		},
 		sendUserMessage,
-	} as unknown as ExtensionAPI;
+	});
+
 	const ctx = {
 		cwd,
 		hasUI: true,
@@ -72,6 +86,7 @@ function fixture() {
 					cwd,
 					encoding: 'utf8',
 				});
+
 				return {
 					isError: result.status !== 0,
 					result: {
@@ -84,6 +99,7 @@ function fixture() {
 			},
 		),
 	};
+
 	return {
 		api,
 		ctx,
@@ -98,16 +114,22 @@ function fixture() {
 		},
 	};
 }
+
 it('adds harness context without freezing other prompt sections', async () => {
 	const f = fixture();
 	harness(f.api);
+
+	const sections: NonNullable<BuildSystemPromptOptions['sections']> =
+		{ unrelated: 'keep' };
+
 	const event = {
 		systemPrompt: 'custom system and append',
 		systemPromptOptions: {
 			selectedTools: ['codemode'],
-			sections: { unrelated: 'keep' } as Record<string, string>,
+			sections,
 		},
 	};
+
 	await expect(
 		f.handlers.get('before_agent_start')!(event),
 	).resolves.toBeUndefined();
@@ -138,11 +160,18 @@ async function create(
 		undefined,
 		f.ctx,
 	);
+
 	const entry = f.appendEntry.mock.calls.find(
 		([kind]) => kind === HARNESS_CUSTOM_TYPE,
 	);
-	const dir = entry![1].active_harness_dir as string;
+
+	const dir = v.parse(
+		v.object({ active_harness_dir: v.string() }),
+		entry![1],
+	).active_harness_dir;
+
 	cleanup.push(dir);
+
 	return dir;
 }
 
@@ -151,8 +180,10 @@ describe('harness extension', () => {
 		const f = fixture();
 		harness(f.api);
 		expect(f.tools.size).toBe(6);
+
 		for (const [name, tool] of f.tools) {
 			expect(tool.exposure, name).toBe('codemode');
+
 			if (name !== 'harness_read')
 				expect(tool.executionMode, name).toBe('sequential');
 		}
@@ -160,12 +191,13 @@ describe('harness extension', () => {
 	it('replaces idle guidance with active context even without discovery tools', async () => {
 		const f = fixture();
 		harness(f.api);
+
+		const sections: Record<string, string> = {};
+
 		const event = {
-			systemPromptOptions: {
-				selectedTools: ['codemode'],
-				sections: {} as Record<string, string>,
-			},
+			systemPromptOptions: { selectedTools: ['codemode'], sections },
 		};
+
 		await f.handlers.get('before_agent_start')!(event);
 		expect(event.systemPromptOptions.sections.harness).toBe(
 			HARNESS_SYSTEM_PROMPT,
@@ -248,6 +280,7 @@ describe('harness extension', () => {
 				undefined,
 				f.ctx,
 			);
+
 		for (const event of [
 			{ toolName: 'codemode', input: {} },
 			{ toolName: 'tool_search', input: {} },
@@ -301,6 +334,7 @@ describe('harness extension', () => {
 	it('reports when there is no active harness to clear, including repeated clears', async () => {
 		const f = fixture();
 		harness(f.api);
+
 		for (let attempt = 0; attempt < 2; attempt++) {
 			await f.commands.get('harness')!.handler('clear', f.ctx);
 			expect(f.ctx.ui.notify).toHaveBeenLastCalledWith(
@@ -308,6 +342,7 @@ describe('harness extension', () => {
 				'info',
 			);
 		}
+
 		expect(f.ctx.ui.notify).toHaveBeenCalledTimes(2);
 	});
 	it('confirms the selected harness without starting an agent turn', async () => {
@@ -357,9 +392,11 @@ describe('harness extension', () => {
 				f.ctx,
 			);
 		expect(f.ctx.executeTool).toHaveBeenCalledTimes(2);
+
 		const outcome = JSON.parse(
 			readFileSync(join(dir, 'outcome.json'), 'utf8'),
 		);
+
 		expect(outcome.status).toBe('completed');
 		expect(outcome.validation.checks).toHaveLength(2);
 		expect(
@@ -444,9 +481,11 @@ describe('harness extension', () => {
 			{ stdio: 'ignore' },
 		);
 		await create(f, ['true'], [join(f.ctx.cwd, 'src/**')]);
+
 		const worktree = mkdtempSync(
 			join(tmpdir(), 'pi-harness-hook-worktree-'),
 		);
+
 		cleanup.push(worktree);
 		execFileSync(
 			'git',

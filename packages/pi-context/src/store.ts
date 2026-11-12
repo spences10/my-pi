@@ -4,6 +4,13 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
+import {
+	content_hash_row_schema,
+	duplicate_source_row_schema,
+	list_row_schema,
+	search_row_schema,
+} from './store/row-schemas.js';
 import { get_context_capture_limits } from './config.js';
 import { parse_context_retention_policy } from './policy.js';
 import { apply_schema } from './schema.js';
@@ -44,9 +51,7 @@ import type {
 	ContextSearchResult,
 	ContextStats,
 	ContextStoreOptions,
-	ListRow,
 	ScopedFilter,
-	SearchRow,
 	StoreContextInput,
 	StoredContextOutput,
 } from './types.js';
@@ -55,11 +60,13 @@ export {
 	DEFAULT_CONTEXT_RETENTION_DAYS,
 	parse_context_retention_policy,
 } from './policy.js';
+
 export {
 	default_context_db_path,
 	is_context_sidecar_enabled,
 	set_context_sidecar_enabled,
 } from './store/registry.js';
+
 export {
 	count_lines,
 	DEFAULT_CONTEXT_MAX_BYTES,
@@ -68,6 +75,7 @@ export {
 	make_preview,
 	should_index_text,
 } from './text.js';
+
 export type {
 	ContextChunk,
 	ContextChunkSelectionOptions,
@@ -119,6 +127,7 @@ export class ContextStore {
 		this.max_lines = options.max_lines ?? capture_limits.max_lines;
 
 		const dir = dirname(this.db_path);
+
 		if (!existsSync(dir))
 			mkdirSync(dir, { recursive: true, mode: 0o700 });
 		this.db = new DatabaseSync(this.db_path, {
@@ -130,6 +139,7 @@ export class ContextStore {
 	configure(options: ContextStoreOptions = {}): void {
 		if (options.project_path !== undefined)
 			this.project_path = options.project_path;
+
 		if (options.session_id !== undefined)
 			this.session_id = options.session_id;
 		const capture_limits = get_context_capture_limits();
@@ -143,6 +153,7 @@ export class ContextStore {
 	): ScopedFilter {
 		const where: string[] = [];
 		const params: Array<string | number> = [];
+
 		if (options.session_id === null) {
 			where.push(`${alias}.session_id IS NULL`);
 		} else if (options.session_id !== undefined) {
@@ -179,16 +190,21 @@ export class ContextStore {
 		first_chunk_id: string | null;
 	} | null {
 		const scoped = this.scoped_filter('context_sources', scope);
+
 		const filters = [
 			'context_sources.content_hash = ?',
 			...scoped.where,
 		];
+
 		const params: Array<string | number> = [
 			content_hash,
 			...scoped.params,
 		];
-		const row = this.db
-			.prepare(`
+
+		const row = v.parse(
+			v.optional(duplicate_source_row_schema),
+			this.db
+				.prepare(`
 				SELECT
 					context_sources.id,
 					COUNT(context_chunks.id) as chunk_count,
@@ -204,19 +220,16 @@ export class ContextStore {
 				ORDER BY context_sources.created_at DESC
 				LIMIT 1
 			`)
-			.get(...params) as
-			| {
-					id: string;
-					chunk_count: number;
-					first_chunk_id: string | null;
-			  }
-			| undefined;
+				.get(...params),
+		);
+
 		return row ?? null;
 	}
 
 	store(input: StoreContextInput): StoredContextOutput | null {
 		const redaction = redact_text(input.text);
 		const text = redaction.redacted;
+
 		if (
 			!input.force &&
 			!should_index_text(text, {
@@ -229,16 +242,20 @@ export class ContextStore {
 		const bytes = Buffer.byteLength(text, 'utf8');
 		const lines = count_lines(text);
 		const created_at = Date.now();
+
 		const content_hash = createHash('sha256')
 			.update(text)
 			.digest('hex');
+
 		const session_id = input.session_id ?? this.session_id;
 		const project_path = input.project_path ?? this.project_path;
 		const preview = make_preview(text);
+
 		const duplicate = this.find_duplicate_source(content_hash, {
 			project_path,
 			session_id,
 		});
+
 		if (duplicate) {
 			const provisional: StoredContextOutput = {
 				source_id: duplicate.id,
@@ -255,6 +272,7 @@ export class ContextStore {
 				capture_max_bytes: this.max_bytes,
 				capture_max_lines: this.max_lines,
 			};
+
 			const receipt = summarize_source(provisional, input.tool_name);
 			const returned_bytes = Buffer.byteLength(receipt, 'utf8');
 			with_sqlite_transaction(
@@ -268,8 +286,10 @@ export class ContextStore {
 				},
 				{ operation: 'Update context receipt bytes' },
 			);
+
 			return { ...provisional, receipt, returned_bytes };
 		}
+
 		const source_id = `ctx_${Date.now().toString(36)}_${randomUUID().slice(0, 8)}`;
 		const chunks = chunk_text(text, source_id);
 		const preview_bytes = Buffer.byteLength(preview, 'utf8');
@@ -280,10 +300,12 @@ export class ContextStore {
 				byte_count, line_count, content_hash, preview_byte_count, returned_byte_count
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
 		`);
+
 		const insert_chunk = this.db.prepare(`
 			INSERT INTO context_chunks (id, source_id, ordinal, title, content, byte_count)
 			VALUES (?, ?, ?, ?, ?, ?)
 		`);
+
 		const update_returned = this.db.prepare(`
 			UPDATE context_sources SET returned_byte_count = ? WHERE id = ?
 		`);
@@ -303,6 +325,7 @@ export class ContextStore {
 					content_hash,
 					preview_bytes,
 				);
+
 				for (const chunk of chunks) {
 					insert_chunk.run(
 						chunk.id,
@@ -313,6 +336,7 @@ export class ContextStore {
 						chunk.byte_count,
 					);
 				}
+
 				const provisional: StoredContextOutput = {
 					source_id,
 					bytes,
@@ -327,12 +351,15 @@ export class ContextStore {
 					capture_max_bytes: this.max_bytes,
 					capture_max_lines: this.max_lines,
 				};
+
 				const receipt = summarize_source(
 					provisional,
 					input.tool_name,
 				);
+
 				const returned_bytes = Buffer.byteLength(receipt, 'utf8');
 				update_returned.run(returned_bytes, source_id);
+
 				return { ...provisional, receipt, returned_bytes };
 			},
 			{ operation: 'Store context output' },
@@ -354,30 +381,37 @@ export class ContextStore {
 		const scoped = this.scoped_filter('context_sources', options);
 		const filters: string[] = [...scoped.where];
 		const params: Array<string | number> = [...scoped.params];
+
 		if (options.source_id) {
 			filters.push('context_sources.id = ?');
 			params.push(options.source_id);
 		}
+
 		if (options.tool_name) {
 			filters.push('context_sources.tool_name = ?');
 			params.push(options.tool_name);
 		}
+
 		if (options.newer_than_days !== undefined) {
 			filters.push('context_sources.created_at >= ?');
 			params.push(
 				Date.now() - options.newer_than_days * 24 * 60 * 60 * 1000,
 			);
 		}
+
 		if (options.older_than_days !== undefined) {
 			filters.push('context_sources.created_at < ?');
 			params.push(
 				Date.now() - options.older_than_days * 24 * 60 * 60 * 1000,
 			);
 		}
+
 		params.push(limit, offset);
+
 		const where_clause = filters.length
 			? `WHERE ${filters.join(' AND ')}`
 			: '';
+
 		const stmt = this.db.prepare(`
 			SELECT
 				context_sources.id as source_id,
@@ -406,8 +440,10 @@ export class ContextStore {
 			ORDER BY context_sources.created_at DESC
 			LIMIT ? OFFSET ?
 		`);
-		return (stmt.all(...params) as unknown as ListRow[]).map(
-			(row) => ({
+
+		return v
+			.parse(v.array(list_row_schema), stmt.all(...params))
+			.map((row) => ({
 				source_id: row.source_id,
 				created_at: row.created_at,
 				project_path: row.project_path,
@@ -419,8 +455,7 @@ export class ContextStore {
 				chunk_count: row.chunk_count,
 				first_chunk_title: row.first_chunk_title,
 				preview: row.preview,
-			}),
-		);
+			}));
 	}
 
 	search(
@@ -436,16 +471,20 @@ export class ContextStore {
 		const strict = escape_fts5_query(query);
 		const relaxed = relaxed_fts5_query(query);
 		const results = this.search_match(strict, options, limit);
+
 		if (results.length >= limit || !relaxed || relaxed === strict)
 			return results;
 
 		const seen = new Set(results.map((result) => result.chunk_id));
+
 		for (const result of this.search_match(relaxed, options, limit)) {
 			if (seen.has(result.chunk_id)) continue;
 			results.push(result);
 			seen.add(result.chunk_id);
+
 			if (results.length >= limit) break;
 		}
+
 		return results;
 	}
 
@@ -461,23 +500,30 @@ export class ContextStore {
 		const scoped = options.source_id
 			? { where: [], params: [] }
 			: this.scoped_filter('context_sources', options);
+
 		const filters: string[] = [...scoped.where];
 		const params: Array<string | number> = [match, ...scoped.params];
+
 		if (options.source_id) {
 			filters.push('context_sources.id = ?');
 			params.push(options.source_id);
 		}
+
 		if (options.tool_name) {
 			filters.push('context_sources.tool_name = ?');
 			params.push(options.tool_name);
 		}
+
 		params.push(limit);
+
 		const where_filters = filters.length
 			? ` AND ${filters.join(' AND ')}`
 			: '';
+
 		const content_expression = options.full_content
 			? 'context_chunks.content'
 			: "snippet(context_chunks_fts, 1, '', '', ' … ', 48)";
+
 		const stmt = this.db.prepare(`
 			SELECT
 				context_sources.id,
@@ -497,8 +543,10 @@ export class ContextStore {
 			ORDER BY rank
 			LIMIT ?
 		`);
-		return (stmt.all(...params) as unknown as SearchRow[]).map(
-			(row) => ({
+
+		return v
+			.parse(v.array(search_row_schema), stmt.all(...params))
+			.map((row) => ({
 				source_id: row.id,
 				chunk_id: row.chunk_id,
 				ordinal: row.ordinal,
@@ -510,8 +558,7 @@ export class ContextStore {
 				lines: row.line_count,
 				rank: row.rank,
 				snippet: !options.full_content,
-			}),
-		);
+			}));
 	}
 
 	chunk_summary(
@@ -536,12 +583,15 @@ export class ContextStore {
 	): ContextExportContent {
 		const chunks = this.get(source_id, chunk_id, options);
 		const content = chunks.map((chunk) => chunk.content).join('');
+
 		const hash = chunk_id
 			? null
 			: this.source_content_hash(source_id, options);
+
 		const verified = hash
 			? createHash('sha256').update(content).digest('hex') === hash
 			: null;
+
 		return { chunks, content, verified };
 	}
 
@@ -551,15 +601,21 @@ export class ContextStore {
 	): string | null {
 		const scoped = this.scoped_filter('context_sources', options);
 		const filters = ['context_sources.id = ?', ...scoped.where];
+
 		const params: Array<string | number> = [
 			source_id,
 			...scoped.params,
 		];
-		const row = this.db
-			.prepare(
-				`SELECT content_hash FROM context_sources WHERE ${filters.join(' AND ')} LIMIT 1`,
-			)
-			.get(...params) as { content_hash: string } | undefined;
+
+		const row = v.parse(
+			v.optional(content_hash_row_schema),
+			this.db
+				.prepare(
+					`SELECT content_hash FROM context_sources WHERE ${filters.join(' AND ')} LIMIT 1`,
+				)
+				.get(...params),
+		);
+
 		return row?.content_hash ?? null;
 	}
 

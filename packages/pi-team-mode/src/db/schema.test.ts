@@ -16,6 +16,7 @@ const dirs: string[] = [];
 function migration_dir(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-team-migrations-'));
 	dirs.push(dir);
+
 	return dir;
 }
 
@@ -50,10 +51,12 @@ describe('Team Mode migration discovery', () => {
 		async (version) => {
 			const path = join(migration_dir(), 'coordination.db');
 			const old = new DatabaseSync(path);
+
 			try {
 				for (const migration of MIGRATIONS.slice(0, version))
 					old.exec(migration.sql);
 				old.exec(`PRAGMA user_version = ${version}`);
+
 				for (const id of ['sender', 'receiver'])
 					old
 						.prepare(
@@ -66,6 +69,7 @@ describe('Team Mode migration discovery', () => {
 							'2026-01-01',
 							'2026-01-01',
 						);
+
 				for (const id of ['reviewed', 'completed', 'pending']) {
 					old
 						.prepare(
@@ -82,6 +86,7 @@ describe('Team Mode migration discovery', () => {
 							id === 'completed' ? '2026-01-03' : null,
 						);
 				}
+
 				if (version === 5)
 					old.exec(
 						`UPDATE message_receipts SET delivered_at = COALESCE(read_at, acknowledged_at), read_at = COALESCE(read_at, acknowledged_at)`,
@@ -89,14 +94,18 @@ describe('Team Mode migration discovery', () => {
 			} finally {
 				old.close();
 			}
+
 			const db = await TeamDatabase.open(path);
+
 			try {
 				expect(db.get_schema_version()).toBe(6);
 				expect(db.list_auto_inbox('receiver')).toEqual([]);
+
 				const receipts = db.list_inbox('receiver', {
 					include_read: true,
 					include_acknowledged: true,
 				});
+
 				expect(receipts).toHaveLength(3);
 				expect(
 					receipts.every(

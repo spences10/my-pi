@@ -18,8 +18,10 @@
 
 	const load_sessions_view = () =>
 		import('#lib/views/sessions-view.svelte');
+
 	const load_tools_view = () =>
 		import('#lib/views/tools-view.svelte');
+
 	const load_session_view = () =>
 		import('#lib/views/session-view.svelte');
 
@@ -34,10 +36,13 @@
 
 	onMount(() => {
 		void recent_sessions.load();
+
 		const stop_refresh = live.on_refresh(
 			() => void recent_sessions.load(),
 		);
+
 		const disconnect = live.connect();
+
 		return () => {
 			stop_refresh();
 			disconnect();

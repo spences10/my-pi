@@ -10,6 +10,7 @@ export function collect_git_changed_files(
 ): string[] {
 	let status: string;
 	let root: string;
+
 	try {
 		root = execFileSync(
 			'git',
@@ -33,15 +34,20 @@ export function collect_git_changed_files(
 		if (allow_non_git && !is_git_workspace(cwd)) return [];
 		throw error;
 	}
+
 	const entries = status.split('\0');
 	const paths: string[] = [];
+
 	for (let index = 0; index < entries.length; index++) {
 		const entry = entries[index];
+
 		if (!entry) continue;
 		paths.push(relative(cwd, resolve(root, entry.slice(3))));
+
 		if (/[RC]/.test(entry.slice(0, 2)))
 			paths.push(relative(cwd, resolve(root, entries[++index])));
 	}
+
 	return [...new Set(paths)].sort();
 }
 
@@ -50,6 +56,7 @@ export function file_state(
 	path: string,
 ): string | undefined {
 	const absolute_path = resolve(cwd, path);
+
 	const index_state = execFileSync('git', [
 		'--no-optional-locks',
 		'--literal-pathspecs',
@@ -61,13 +68,18 @@ export function file_state(
 		'--',
 		path,
 	]);
+
 	const hash = createHash('sha256').update(index_state).update('\0');
+
 	try {
 		const stat = lstatSync(absolute_path);
+
 		if (!stat.isFile() && !stat.isSymbolicLink()) return undefined;
+
 		const content = stat.isSymbolicLink()
 			? readlinkSync(absolute_path, { encoding: 'buffer' })
 			: readFileSync(absolute_path);
+
 		return hash
 			.update(
 				`${stat.isSymbolicLink() ? 'symlink' : 'file'}:${stat.mode & 0o7777}:`,
@@ -75,7 +87,11 @@ export function file_state(
 			.update(content)
 			.digest('hex');
 	} catch (error) {
-		const code = (error as NodeJS.ErrnoException).code;
+		const code =
+			error instanceof Error && 'code' in error
+				? error.code
+				: undefined;
+
 		if (code === 'ENOENT' || code === 'ENOTDIR')
 			return hash.update('missing').digest('hex');
 		throw error;
@@ -87,6 +103,7 @@ function is_git_workspace(cwd: string): boolean {
 		execFileSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], {
 			stdio: 'ignore',
 		});
+
 		return true;
 	} catch {
 		return false;
@@ -101,12 +118,15 @@ export function capture_baseline(
 > {
 	if (!is_git_workspace(cwd)) return { baseline_changed_files: [] };
 	const baseline_changed_files = collect_git_changed_files(cwd);
+
 	const baseline_file_states = Object.fromEntries(
 		baseline_changed_files.flatMap((path) => {
 			const state = file_state(cwd, path);
+
 			return state === undefined ? [] : [[path, state]];
 		}),
 	);
+
 	return { baseline_changed_files, baseline_file_states };
 }
 
@@ -118,6 +138,7 @@ export function collect_task_changed_files(
 		resolve(cwd) === resolve(policy.cwd)
 			? (policy.baseline_file_states ?? {})
 			: {};
+
 	return [
 		...new Set([
 			...collect_git_changed_files(

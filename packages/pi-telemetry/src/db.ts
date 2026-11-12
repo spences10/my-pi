@@ -11,6 +11,7 @@ import {
 	statSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
+import * as v from 'valibot';
 
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
 
@@ -18,12 +19,39 @@ const SCHEMA = readFileSync(
 	new URL('./schema.sql', import.meta.url),
 	'utf-8',
 );
+
 const LATEST_TELEMETRY_SCHEMA_VERSION = 1;
 const PERSISTENT_PRAGMAS = SQLITE_PERSISTENT_PRAGMAS;
 const CONNECTION_PRAGMAS = SQLITE_CONNECTION_PRAGMAS;
-const MIGRATIONS: Record<number, string> = {
-	1: SCHEMA,
-};
+
+const MIGRATIONS = new Map([[1, SCHEMA]]);
+
+const user_version_row_schema = v.object({
+	user_version: v.number(),
+});
+
+const count_row_schema = v.object({ count: v.number() });
+
+const run_summary_row_schema = v.object({
+	id: v.string(),
+	session_file: v.nullable(v.string()),
+	cwd: v.string(),
+	started_at: v.number(),
+	ended_at: v.nullable(v.number()),
+	duration_ms: v.nullable(v.number()),
+	model_provider: v.nullable(v.string()),
+	model_id: v.nullable(v.string()),
+	eval_run_id: v.nullable(v.string()),
+	eval_case_id: v.nullable(v.string()),
+	eval_attempt: v.nullable(v.number()),
+	eval_suite: v.nullable(v.string()),
+	success: v.nullable(v.number()),
+	error_message: v.nullable(v.string()),
+	turn_count: v.number(),
+	tool_call_count: v.number(),
+	tool_error_count: v.number(),
+	provider_request_count: v.number(),
+});
 
 type DatabaseSyncConstructor =
 	typeof import('node:sqlite').DatabaseSync;
@@ -154,6 +182,7 @@ export class TelemetryDatabase {
 
 	static async open(db_path: string): Promise<TelemetryDatabase> {
 		const sqlite = await import('node:sqlite');
+
 		return new TelemetryDatabase(sqlite.DatabaseSync, db_path);
 	}
 
@@ -162,6 +191,7 @@ export class TelemetryDatabase {
 		db_path: string,
 	) {
 		const dir = dirname(db_path);
+
 		if (!existsSync(dir)) {
 			mkdirSync(dir, { recursive: true, mode: 0o700 });
 		}
@@ -344,19 +374,22 @@ export class TelemetryDatabase {
 		);
 	}
 
-	private write(fn: () => unknown): void {
+	private write(fn: () => void): void {
 		safe_sqlite_tick(fn);
 	}
 
 	private get_user_version(): number {
-		const row = this.db.prepare('PRAGMA user_version').get() as {
-			user_version: number;
-		};
+		const row = v.parse(
+			user_version_row_schema,
+			this.db.prepare('PRAGMA user_version').get(),
+		);
+
 		return row.user_version;
 	}
 
 	private apply_migrations(): void {
 		const current_version = this.get_user_version();
+
 		if (current_version > LATEST_TELEMETRY_SCHEMA_VERSION) {
 			this.db.close();
 			throw new Error(
@@ -369,7 +402,8 @@ export class TelemetryDatabase {
 			next_version <= LATEST_TELEMETRY_SCHEMA_VERSION;
 			next_version++
 		) {
-			const migration = MIGRATIONS[next_version];
+			const migration = MIGRATIONS.get(next_version);
+
 			if (!migration) {
 				this.db.close();
 				throw new Error(
@@ -406,18 +440,22 @@ export class TelemetryDatabase {
 			conditions.push('r.cwd = ?');
 			params.push(filters.cwd);
 		}
+
 		if (filters.eval_run_id !== undefined) {
 			conditions.push('r.eval_run_id = ?');
 			params.push(filters.eval_run_id);
 		}
+
 		if (filters.eval_case_id !== undefined) {
 			conditions.push('r.eval_case_id = ?');
 			params.push(filters.eval_case_id);
 		}
+
 		if (filters.eval_suite !== undefined) {
 			conditions.push('r.eval_suite = ?');
 			params.push(filters.eval_suite);
 		}
+
 		if (filters.success === null) {
 			conditions.push('r.success IS NULL');
 		} else if (filters.success !== undefined) {
@@ -429,15 +467,17 @@ export class TelemetryDatabase {
 			conditions.length > 0
 				? `WHERE ${conditions.join(' AND ')}`
 				: '';
+
+		const limit = filters.limit;
+
 		const limit_clause =
-			typeof filters.limit === 'number' && filters.limit > 0
-				? 'LIMIT ?'
-				: '';
-		if (limit_clause) {
-			params.push(filters.limit!);
+			limit !== undefined && limit > 0 ? 'LIMIT ?' : '';
+
+		if (limit !== undefined && limit_clause) {
+			params.push(limit);
 		}
 
-		const rows = this.db
+		const raw_rows = this.db
 			.prepare(
 				`
 				SELECT
@@ -475,26 +515,9 @@ export class TelemetryDatabase {
 				${limit_clause}
 				`,
 			)
-			.all(...params) as Array<{
-			id: string;
-			session_file: string | null;
-			cwd: string;
-			started_at: number;
-			ended_at: number | null;
-			duration_ms: number | null;
-			model_provider: string | null;
-			model_id: string | null;
-			eval_run_id: string | null;
-			eval_case_id: string | null;
-			eval_attempt: number | null;
-			eval_suite: string | null;
-			success: number | null;
-			error_message: string | null;
-			turn_count: number;
-			tool_call_count: number;
-			tool_error_count: number;
-			provider_request_count: number;
-		}>;
+			.all(...params);
+
+		const rows = v.parse(v.array(run_summary_row_schema), raw_rows);
 
 		return rows.map((row) => ({
 			...row,
@@ -503,22 +526,29 @@ export class TelemetryDatabase {
 	}
 
 	get_stats(): TelemetryStats {
-		const runs = this.db
-			.prepare('SELECT COUNT(*) as count FROM runs')
-			.get() as {
-			count: number;
-		};
-		const turns = this.db
-			.prepare('SELECT COUNT(*) as count FROM turns')
-			.get() as {
-			count: number;
-		};
-		const tool_calls = this.db
-			.prepare('SELECT COUNT(*) as count FROM tool_calls')
-			.get() as { count: number };
-		const provider_requests = this.db
-			.prepare('SELECT COUNT(*) as count FROM provider_requests')
-			.get() as { count: number };
+		const runs = v.parse(
+			count_row_schema,
+			this.db.prepare('SELECT COUNT(*) as count FROM runs').get(),
+		);
+
+		const turns = v.parse(
+			count_row_schema,
+			this.db.prepare('SELECT COUNT(*) as count FROM turns').get(),
+		);
+
+		const tool_calls = v.parse(
+			count_row_schema,
+			this.db
+				.prepare('SELECT COUNT(*) as count FROM tool_calls')
+				.get(),
+		);
+
+		const provider_requests = v.parse(
+			count_row_schema,
+			this.db
+				.prepare('SELECT COUNT(*) as count FROM provider_requests')
+				.get(),
+		);
 
 		const db_bytes = get_file_size(this.db_path);
 		const wal_bytes = get_file_size(`${this.db_path}-wal`);
@@ -535,8 +565,11 @@ export class TelemetryDatabase {
 		};
 	}
 
-	read_rows<T extends Record<string, unknown>>(query: string): T[] {
-		return this.db.prepare(query).all() as T[];
+	read_rows<TSchema extends v.GenericSchema>(
+		query: string,
+		row_schema: TSchema,
+	): Array<v.InferOutput<TSchema>> {
+		return v.parse(v.array(row_schema), this.db.prepare(query).all());
 	}
 
 	close(): void {

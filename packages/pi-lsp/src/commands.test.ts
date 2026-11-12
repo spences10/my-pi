@@ -10,10 +10,12 @@ import {
 describe('lsp command', () => {
 	it('reports idle, running, and restarted server state via /lsp', async () => {
 		const stop = vi.fn().mockResolvedValue(undefined);
+
 		const client = create_mock_client({
 			hover: vi.fn().mockResolvedValue({ contents: 'hover docs' }),
 			stop,
 		});
+
 		const { pi, tools, commands } = create_test_pi();
 		const { ctx, notifications } = create_command_context();
 
@@ -47,14 +49,17 @@ describe('lsp command', () => {
 
 	it('offers restart all directly from the modal home', async () => {
 		const stop = vi.fn().mockResolvedValue(undefined);
+
 		const client = create_mock_client({
 			hover: vi.fn().mockResolvedValue({ contents: 'hover docs' }),
 			stop,
 		});
+
 		const { pi, tools, commands } = create_test_pi();
+
 		const { ctx, notifications } = create_command_context([
-			'restart-all',
-			undefined,
+			['\u001b[B', '\u001b[B', '\u001b[B', '\u001b[B', '\r'],
+			['\u001b'],
 		]);
 
 		await register_test_lsp_extension(pi, {
@@ -79,17 +84,21 @@ describe('lsp command', () => {
 	it('does not reuse a cancelled in-flight startup after restart', async () => {
 		const startup = create_deferred<void>();
 		const stop_first = vi.fn().mockResolvedValue(undefined);
+
 		const first_client = create_mock_client({
 			start: vi.fn(() => startup.promise),
 			stop: stop_first,
 		});
+
 		const second_client = create_mock_client({
 			hover: vi.fn().mockResolvedValue({ contents: 'second hover' }),
 		});
+
 		const create_client = vi
 			.fn()
 			.mockReturnValueOnce(first_client)
 			.mockReturnValueOnce(second_client);
+
 		const { pi, tools, commands } = create_test_pi();
 		const { ctx, notifications } = create_command_context();
 
@@ -134,6 +143,7 @@ describe('lsp command', () => {
 			undefined,
 			ctx,
 		);
+
 		expect(second_hover.content[0].text).toBe('second hover');
 		expect(create_client).toHaveBeenCalledTimes(2);
 	});

@@ -7,6 +7,7 @@ export {
 	get_current_thinking_level,
 	get_default_footer_thinking_level,
 } from './model/thinking.js';
+
 export {
 	FOOTER_DENSITIES,
 	FOOTER_PRESETS,
@@ -21,12 +22,16 @@ export {
 	type FooterTone,
 	type FooterWidget,
 } from './presets/types.js';
+
 export { FOOTER_RESEARCH_REFERENCES } from './reference/research.js';
+
 export { render_footer_lines } from './render/footer-lines.js';
+
 export {
 	render_footer_status_line,
 	render_footer_three_column_line,
 } from './render/status-line.js';
+
 export { FOOTER_COLORS, type FooterTheme } from './theme/tokens.js';
 
 const state = load_footer_state();

@@ -12,6 +12,7 @@ export async function git(
 		encoding: 'utf8',
 		maxBuffer: 1024 * 1024 * 8,
 	});
+
 	return stdout;
 }
 

@@ -20,9 +20,11 @@ export function install_footer(
 	if (!ctx.hasUI) return;
 	ctx.ui.setFooter((tui, theme, footer_data) => {
 		current_footer_data = footer_data;
+
 		const unsubscribe = footer_data.onBranchChange(() =>
 			tui.requestRender(),
 		);
+
 		return {
 			dispose: unsubscribe,
 			invalidate() {},

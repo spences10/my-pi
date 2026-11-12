@@ -9,6 +9,7 @@ import { WorkerProcess } from './rpc.js';
 const fixture = fileURLToPath(
 	new URL('./fixtures/rpc-child.ts', import.meta.url),
 );
+
 const managers: WorkerManager[] = [];
 const processes: WorkerProcess[] = [];
 const directories: string[] = [];
@@ -18,18 +19,20 @@ afterEach(async () => {
 		...managers.splice(0).map((manager) => manager.dispose()),
 		...processes.splice(0).map((process) => process.stop()),
 	]);
+
 	for (const directory of directories.splice(0))
 		rmSync(directory, { recursive: true, force: true });
 });
 
-function setup() {
+function setup(args: string[] = [fixture]) {
 	const directory = mkdtempSync(join(tmpdir(), 'pi-workers-'));
 	directories.push(directory);
 	const completed: WorkerInfo[] = [];
 	const started: WorkerInfo[] = [];
+
 	const manager = new WorkerManager({
 		command: process.execPath,
-		args: [fixture],
+		args,
 		env: {},
 		session_dir: directory,
 		parent_session_id: 'actual-parent',
@@ -39,7 +42,9 @@ function setup() {
 		on_dialogs_end: () => {},
 		on_ui: (_id, _request, respond) => respond({ confirmed: true }),
 	});
+
 	managers.push(manager);
+
 	return {
 		manager,
 		completed,
@@ -49,12 +54,27 @@ function setup() {
 }
 
 describe('owned worker lifecycle', () => {
+	it('rejects malformed startup identity before notifying ownership listeners', async () => {
+		const { manager, started, options } = setup([
+			fixture,
+			'--invalid-state',
+		]);
+
+		await expect(manager.spawn(options)).rejects.toThrow(
+			'Invalid type',
+		);
+		expect(started).toEqual([]);
+		expect(manager.list()[0].status).toBe('failed');
+	});
+
 	it('registers ownership before the first prompt and gives the child exact parent, collaboration and worker identities', async () => {
 		const { manager, completed, started, options } = setup();
+
 		const worker = await manager.spawn({
 			...options,
 			task: 'identity',
 		});
+
 		expect(started).toHaveLength(1);
 		expect(started[0]).toMatchObject({
 			parent_session_id: 'actual-parent',
@@ -91,10 +111,12 @@ describe('owned worker lifecycle', () => {
 
 	it('handles intercepted prompts without waiting for a nonexistent run', async () => {
 		const { manager, completed, options } = setup();
+
 		const worker = await manager.spawn({
 			...options,
 			task: 'handled',
 		});
+
 		expect(worker.status).toBe('idle');
 		expect(completed).toHaveLength(0);
 	});
@@ -120,6 +142,7 @@ describe('owned worker lifecycle', () => {
 		const { manager, options } = setup();
 		const old = await manager.spawn({ ...options, task: 'handled' });
 		await manager.stop(old.id);
+
 		const current = await manager.spawn({
 			...options,
 			task: 'handled',
@@ -143,6 +166,7 @@ describe('owned worker lifecycle', () => {
 		const { manager, options } = setup();
 		const old = await manager.spawn({ ...options, task: 'handled' });
 		await manager.stop(old.id);
+
 		const current = await manager.spawn({
 			...options,
 			task: 'handled',
@@ -192,10 +216,12 @@ describe('owned worker lifecycle', () => {
 		'escalates cancellation and terminates stubborn descendants',
 		async () => {
 			const { manager, completed, options } = setup();
+
 			const worker = await manager.spawn({
 				...options,
 				task: 'stubborn',
 			});
+
 			await expect.poll(() => completed.length).toBe(1);
 			const descendant = Number(completed[0].result);
 			expect(descendant).toBeGreaterThan(0);
@@ -239,6 +265,7 @@ describe('owned worker lifecycle', () => {
 		await expect(manager.spawn(options)).rejects.toThrow(
 			'name is already in use',
 		);
+
 		for (let index = 1; index < 4; index++)
 			await manager.spawn({
 				...options,
@@ -278,11 +305,13 @@ describe('owned worker lifecycle', () => {
 			on_record: () => {},
 			on_exit: () => {},
 		});
+
 		processes.push(process_client);
 		process_client.start();
 		await expect(
 			process_client.request({ type: 'get_state' }, 20),
 		).rejects.toThrow('timed out');
+
 		const missing = new WorkerProcess({
 			command: '/does-not-exist/pi',
 			args: [],
@@ -291,6 +320,7 @@ describe('owned worker lifecycle', () => {
 			on_record: () => {},
 			on_exit: () => {},
 		});
+
 		processes.push(missing);
 		missing.start();
 		await expect(

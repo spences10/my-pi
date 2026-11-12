@@ -5,6 +5,7 @@ import {
 	test_theme,
 } from '../test-utils.js';
 import { build_footer_model } from './footer-model.js';
+import { make_usage, make_usage_entry } from './test-fixtures.js';
 
 const original_home = process.env.HOME;
 
@@ -17,27 +18,24 @@ function cost_model(
 	flags: (boolean | undefined)[],
 	subscription = false,
 ) {
+	const kinds: Parameters<typeof make_usage_entry>[0][] = [
+		'assistant',
+		'toolResult',
+		'compaction',
+	];
+
 	const entries = flags.map((flag, index) => {
-		const usage = {
+		const usage = make_usage({
 			input: 1,
 			output: 1,
 			cacheRead: 0,
 			cacheWrite: 0,
 			cost: { total: 0.1, totalFromProvider: flag },
-		};
-		if (index < 2)
-			return {
-				type: 'message',
-				message: {
-					role: index === 0 ? 'assistant' : 'toolResult',
-					usage,
-				},
-			};
-		return {
-			type: index === 2 ? 'compaction' : 'branch_summary',
-			usage,
-		};
+		});
+
+		return make_usage_entry(kinds[index] ?? 'branch_summary', usage);
 	});
+
 	return build_footer_model(
 		make_context({
 			sessionManager: {
@@ -83,59 +81,55 @@ describe('build_footer_model', () => {
 
 	it('builds path, stats, model, and status data', () => {
 		process.env.HOME = '/home/scott';
+
 		const ctx = make_context({
 			sessionManager: {
 				getEntries: vi.fn(() => [
-					{
-						type: 'message',
-						message: {
-							role: 'assistant',
-							usage: {
-								input: 1200,
-								output: 3400,
-								cacheRead: 500,
-								cacheWrite: 100,
-								cost: { total: 0.1234 },
-							},
-						},
-					},
-					{
-						type: 'message',
-						message: {
-							role: 'toolResult',
-							usage: {
-								input: 100,
-								output: 100,
-								cacheRead: 100,
-								cacheWrite: 100,
-								cost: { total: 0.02 },
-							},
-						},
-					},
-					{
-						type: 'compaction',
-						usage: {
+					make_usage_entry(
+						'assistant',
+						make_usage({
+							input: 1200,
+							output: 3400,
+							cacheRead: 500,
+							cacheWrite: 100,
+							cost: { total: 0.1234 },
+						}),
+					),
+					make_usage_entry(
+						'toolResult',
+						make_usage({
+							input: 100,
+							output: 100,
+							cacheRead: 100,
+							cacheWrite: 100,
+							cost: { total: 0.02 },
+						}),
+					),
+					make_usage_entry(
+						'compaction',
+						make_usage({
 							input: 100,
 							output: 100,
 							cacheRead: 100,
 							cacheWrite: 100,
 							cost: { total: 0.03 },
-						},
-					},
-					{
-						type: 'branch_summary',
-						usage: {
+						}),
+					),
+					make_usage_entry(
+						'branch_summary',
+						make_usage({
 							input: 100,
 							output: 100,
 							cacheRead: 100,
 							cacheWrite: 100,
 							cost: { total: 0.03 },
-						},
-					},
+						}),
+					),
 				]),
 				getSessionName: vi.fn(() => 'named'),
 			},
 		});
+
 		const footer_data = make_footer_data({
 			getExtensionStatuses: vi.fn(
 				() =>

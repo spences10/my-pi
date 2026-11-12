@@ -19,6 +19,7 @@
 
 	const sessions = resource(() => {
 		void live.revision;
+
 		return api.session_stats(range.since());
 	});
 
@@ -30,6 +31,7 @@
 
 	const visible = $derived.by(() => {
 		const needle = query.trim().toLowerCase();
+
 		return (sessions.data?.sessions ?? []).filter(
 			(session) =>
 				(project === ALL || repo_name(session) === project) &&

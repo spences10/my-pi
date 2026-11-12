@@ -1,7 +1,7 @@
+import { make_context, make_api } from '../../../tools/test-sdk.js';
 import type {
 	AgentBeforeSettleEventResult,
 	BeforeAgentStartEventResult,
-	ExtensionAPI,
 	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -11,6 +11,49 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { create_peer_message_delivery } from './coordination-formatting.js';
 import { TeamDatabase } from './db/index.js';
 import team_mode from './index.js';
+
+type DeliveryHookResult =
+	| void
+	| BeforeAgentStartEventResult
+	| AgentBeforeSettleEventResult;
+
+interface EventFixture {
+	aborted?: boolean;
+	outcome?: string;
+	context?: { canContinue: boolean };
+	message?: { role: string } & Partial<
+		NonNullable<BeforeAgentStartEventResult['message']>
+	>;
+	messageType?: string;
+	prompt?: string;
+	systemPromptOptions?: {
+		selectedTools: string[];
+		sections: Record<string, string>;
+	};
+}
+
+type DeliveryHook = (
+	event: EventFixture,
+	ctx: ExtensionContext,
+) => DeliveryHookResult | Promise<DeliveryHookResult>;
+
+function before_start_result(
+	result: DeliveryHookResult,
+): BeforeAgentStartEventResult {
+	if (!result || !('message' in result))
+		throw new Error('expected a before_agent_start result');
+
+	return result;
+}
+
+function before_settle_result(
+	result: DeliveryHookResult,
+): AgentBeforeSettleEventResult {
+	if (!result || !('continue' in result))
+		throw new Error('expected an agent_before_settle result');
+
+	return result;
+}
 
 vi.mock('./coordination-broker.js', () => ({
 	ensure_coordination_broker: vi.fn(async () => {}),
@@ -22,6 +65,7 @@ vi.mock('./coordination-broker.js', () => ({
 }));
 
 const cleanup: (() => Promise<void>)[] = [];
+
 afterEach(async () => {
 	for (const run of cleanup.splice(0)) await run();
 	vi.unstubAllEnvs();
@@ -35,16 +79,20 @@ async function setup(reconcile = false) {
 	vi.stubEnv('MY_PI_COORDINATION_DB', path);
 	vi.stubEnv('MY_PI_TEAM_AUTO_INJECT_MESSAGES', 'true');
 	const db = await TeamDatabase.open(path);
+
 	for (const id of ['sender', 'receiver'])
 		db.register_session({ session_id: id, cwd: '/repo' });
+
 	const group = db.create_group({
 		name: 'test',
 		created_by_session_id: 'sender',
 	});
+
 	db.add_group_member({
 		group_id: group.group_id,
 		session_id: 'receiver',
 	});
+
 	const send = (status = false) =>
 		db.send_message({
 			from_session_id: 'sender',
@@ -55,6 +103,7 @@ async function setup(reconcile = false) {
 			message_type: status ? 'status' : 'action',
 			status_key: status ? 'build' : undefined,
 		});
+
 	const historical = reconcile
 		? create_peer_message_delivery('receiver', [
 				{
@@ -64,24 +113,41 @@ async function setup(reconcile = false) {
 				},
 			])
 		: undefined;
-	const handlers = new Map<string, (...args: never[]) => unknown>();
+
+	const handlers = new Map<string, DeliveryHook>();
 	const isIdle = vi.fn(() => true);
-	const ctx = {
+
+	const ctx = make_context({
 		cwd: '/repo',
 		isIdle,
 		sessionManager: {
 			getSessionId: () => 'receiver',
 			getSessionFile: () => undefined,
 			getBranch: () =>
-				historical ? [{ type: 'custom_message', ...historical }] : [],
+				historical
+					? [
+							{
+								id: 'historical',
+								parentId: null,
+								timestamp: new Date(0).toISOString(),
+								type: 'custom_message',
+								...historical,
+							},
+						]
+					: [],
 		},
-	} as unknown as ExtensionContext;
-	const pi = {
-		on: vi.fn(
-			(name: string, handler: (...args: never[]) => unknown) => {
-				handlers.set(name, handler);
-			},
-		),
+	});
+
+	const mock_api = {
+		on: (name: string, handler: Function) => {
+			// SAFETY: the lifecycle fixture invokes only hooks registered by team-mode.
+			const hook = handler as DeliveryHook;
+			handlers.set(name, hook);
+
+			return () => {
+				handlers.delete(name);
+			};
+		},
 		getSessionName: () => undefined,
 		getActiveTools: () => ['team'],
 		registerCommand: vi.fn(),
@@ -89,16 +155,29 @@ async function setup(reconcile = false) {
 		registerMessageRenderer: vi.fn(),
 		sendMessage: vi.fn(),
 	};
-	const emit = async (name: string, event: unknown = {}) =>
-		handlers.get(name)?.(event as never, ctx as never);
-	await team_mode(pi as unknown as ExtensionAPI);
+
+	const pi = make_api(mock_api);
+
+	const emit = async (name: string, event: EventFixture = {}) =>
+		handlers.get(name)?.(event, ctx);
+
+	await team_mode(pi);
 	cleanup.push(async () => {
 		await emit('session_shutdown');
 		db.close();
 		rmSync(dir, { recursive: true, force: true });
 	});
 	await emit('session_start');
-	return { db, send, emit, isIdle, pi, handlers, historical };
+
+	return {
+		db,
+		send,
+		emit,
+		isIdle,
+		pi: mock_api,
+		handlers,
+		historical,
+	};
 }
 
 function user_start() {
@@ -138,10 +217,11 @@ describe('upstream Team Mode lifecycle integration', () => {
 		const last = send(true);
 		vi.advanceTimersByTime(1000);
 		expect(pi.sendMessage).not.toHaveBeenCalled();
-		const result = (await emit(
-			'before_agent_start',
-			user_start(),
-		)) as BeforeAgentStartEventResult;
+
+		const result = before_start_result(
+			await emit('before_agent_start', user_start()),
+		);
+
 		expect(result.message?.content).toContain('Build running');
 		await emit('message_end', {
 			message: { role: 'custom', ...result.message },
@@ -172,10 +252,13 @@ describe('upstream Team Mode lifecycle integration', () => {
 		).toBeUndefined();
 		send();
 
-		const result = (await emit('agent_before_settle', {
-			outcome: 'completed',
-			context: { canContinue: false },
-		})) as AgentBeforeSettleEventResult;
+		const result = before_settle_result(
+			await emit('agent_before_settle', {
+				outcome: 'completed',
+				context: { canContinue: false },
+			}),
+		);
+
 		expect(result.continue).toBe(true);
 		expect(result.entries).toHaveLength(1);
 		expect(result.entries?.[0]).toMatchObject({
@@ -196,10 +279,11 @@ describe('upstream Team Mode lifecycle integration', () => {
 		send();
 		vi.advanceTimersByTime(2000);
 		expect(pi.sendMessage).not.toHaveBeenCalled();
-		const result = (await emit(
-			'before_agent_start',
-			user_start(),
-		)) as BeforeAgentStartEventResult;
+
+		const result = before_start_result(
+			await emit('before_agent_start', user_start()),
+		);
+
 		expect(result.message?.content).toContain('Review required');
 	});
 

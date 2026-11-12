@@ -18,7 +18,9 @@ function tmp_home(): string {
 		tmpdir(),
 		`my-pi-telemetry-${randomBytes(4).toString('hex')}`,
 	);
+
 	mkdirSync(dir, { recursive: true });
+
 	return dir;
 }
 
@@ -31,11 +33,13 @@ describe('telemetry config', () => {
 		for (const home of homes.splice(0)) {
 			rmSync(home, { recursive: true, force: true });
 		}
+
 		if (original_home === undefined) {
 			delete process.env.HOME;
 		} else {
 			process.env.HOME = original_home;
 		}
+
 		if (original_agent_dir === undefined) {
 			delete process.env.PI_CODING_AGENT_DIR;
 		} else {

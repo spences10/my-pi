@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { make_api } from '../../../tools/test-sdk.js';
+
 import {
 	existsSync,
 	mkdtempSync,
@@ -17,6 +18,7 @@ let temp_dir: string | undefined;
 afterEach(() => {
 	if (temp_dir) rmSync(temp_dir, { recursive: true, force: true });
 	temp_dir = undefined;
+
 	if (original_agent_dir === undefined)
 		delete process.env.PI_CODING_AGENT_DIR;
 	else process.env.PI_CODING_AGENT_DIR = original_agent_dir;
@@ -39,6 +41,7 @@ describe('extensions', () => {
 	it('bundles the restored extensions and resolves skills without local configuration', async () => {
 		temp_dir = mkdtempSync(join(tmpdir(), 'my-pi-fresh-'));
 		process.env.PI_CODING_AGENT_DIR = temp_dir;
+
 		for (const key of [
 			'startup-screen',
 			'turn-timer',
@@ -53,18 +56,28 @@ describe('extensions', () => {
 			set_enabled(key, false);
 			expect(is_enabled(key)).toBe(false);
 		}
+
 		const extension = EXTENSIONS.find(
 			(item) => item.key === 'tool-guidance',
 		)!;
+
 		const factory = await extension.load();
 		const events = new Map<string, Function>();
-		await factory({
-			on: (name: string, handler: Function) =>
-				events.set(name, handler),
-		} as unknown as ExtensionAPI);
+		await factory(
+			make_api({
+				on: (name: string, handler: Function) => {
+					events.set(name, handler);
+
+					return () => {
+						events.delete(name);
+					};
+				},
+			}),
+		);
 		const resources = events.get('resources_discover')!();
 		expect(resources.skillPaths).toHaveLength(1);
 		expect(existsSync(resources.skillPaths[0])).toBe(true);
+
 		for (const name of ['nopeek', 'omnisearch', 'sqlite']) {
 			expect(
 				readFileSync(

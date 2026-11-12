@@ -19,6 +19,7 @@ export {
 	harness_assessment_submit_params_schema,
 	submit_assessment_record,
 } from './assessment.js';
+
 export type {
 	HarnessAssessmentRecommendation,
 	HarnessAssessmentRecord,
@@ -27,15 +28,19 @@ export type {
 	HarnessAssessmentStatus,
 	HarnessAssessParams,
 } from './assessment.js';
+
 export {
 	check_command_allowed,
 	check_path_allowed,
 } from './enforcement/policy.js';
+
 export {
 	default,
 	should_inject_harness_prompt,
 } from './extension.js';
+
 export { HARNESS_SYSTEM_PROMPT } from './prompt.js';
+
 export {
 	active_harness_context,
 	amend_harness_runtime,
@@ -44,12 +49,15 @@ export {
 	format_harness_summary,
 	update_harness_runtime,
 } from './runtime/index.js';
+
 export {
 	collect_harness_outcome,
 	render_outcome_markdown,
 	write_outcome_artifacts,
 } from './runtime/outcome.js';
+
 export type { HarnessVerificationOptions } from './runtime/verification.js';
+
 export {
 	DEFAULT_FORBIDDEN_COMMANDS,
 	harness_amend_params_schema,
@@ -60,6 +68,7 @@ export {
 	HARNESS_VERSION,
 	thinking_levels_schema,
 } from './schema.js';
+
 export type {
 	HarnessAmendment,
 	HarnessAmendParams,

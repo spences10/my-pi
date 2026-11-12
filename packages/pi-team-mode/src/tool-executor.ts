@@ -8,7 +8,6 @@ import {
 import { execute_coordination_action } from './tools/coordination-actions.js';
 
 export interface TeamToolExecutorDeps {
-	[key: string]: unknown;
 	coordination_db: TeamDatabase;
 	set_active_team_id?: (team_id: string | undefined) => void;
 	reset_activity?: (team_id: string | undefined) => void;
@@ -25,10 +24,13 @@ export async function execute_team_tool(
 	deps: TeamToolExecutorDeps,
 ) {
 	validate_team_tool_params(params);
+
 	const require_session_id = () => {
 		const session_id = deps.get_session_id();
+
 		if (!session_id)
 			throw new Error('Current session is not registered yet.');
+
 		return session_id;
 	};
 
@@ -51,6 +53,7 @@ export async function execute_team_tool(
 				details: { retryable: true },
 			};
 		}
+
 		throw error;
 	}
 }

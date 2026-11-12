@@ -1,5 +1,21 @@
 import { with_sqlite_transaction } from '@spences10/pi-sqlite-core';
 import type { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
+
+const collaboration_row_schema = v.optional(
+	v.object({ group_id: v.string() }),
+);
+
+const deliverable_row_schema = v.optional(
+	v.object({
+		from_session_id: v.string(),
+		collaboration_id: v.nullable(v.string()),
+	}),
+);
+
+const group_owner_row_schema = v.optional(
+	v.object({ created_by_session_id: v.nullable(v.string()) }),
+);
 
 export type DeliveryScope = 'session' | 'sender' | 'group';
 
@@ -12,17 +28,19 @@ export class DeliveryPolicy {
 		recipient: string,
 		group_id?: string,
 	): string | undefined {
-		const row = this.db
-			.prepare(`
+		const row = v.parse(
+			collaboration_row_schema,
+			this.db
+				.prepare(`
    SELECT g.group_id FROM groups g
    JOIN group_members s ON s.group_id = g.group_id AND s.session_id = ? AND s.status = 'active'
    JOIN group_members r ON r.group_id = g.group_id AND r.session_id = ? AND r.status = 'active'
    WHERE g.closed_at IS NULL AND (? IS NULL OR g.group_id = ?)
    ORDER BY g.created_at DESC, g.group_id LIMIT 1
   `)
-			.get(sender, recipient, group_id ?? null, group_id ?? null) as
-			| { group_id: string }
-			| undefined;
+				.get(sender, recipient, group_id ?? null, group_id ?? null),
+		);
+
 		return row?.group_id;
 	}
 
@@ -57,13 +75,15 @@ export class DeliveryPolicy {
 	}
 
 	can_deliver(message_id: string, recipient: string): boolean {
-		const row = this.db
-			.prepare(`SELECT m.from_session_id, r.collaboration_id FROM message_receipts r
+		const row = v.parse(
+			deliverable_row_schema,
+			this.db
+				.prepare(`SELECT m.from_session_id, r.collaboration_id FROM message_receipts r
    JOIN messages m USING (message_id) WHERE r.message_id = ? AND r.to_session_id = ? AND r.auto_delivery = 1
   `)
-			.get(message_id, recipient) as
-			| { from_session_id: string; collaboration_id: string | null }
-			| undefined;
+				.get(message_id, recipient),
+		);
+
 		return (
 			!!row?.collaboration_id &&
 			!!this.collaboration(
@@ -101,6 +121,7 @@ export class DeliveryPolicy {
 						paused ? 1 : 0,
 						new Date().toISOString(),
 					);
+
 				if (paused)
 					this.db
 						.prepare(`UPDATE message_receipts SET auto_delivery = 0 WHERE to_session_id = ?
@@ -147,13 +168,15 @@ export class DeliveryPolicy {
 		with_sqlite_transaction(
 			this.db,
 			() => {
-				const group = this.db
-					.prepare(
-						'SELECT created_by_session_id FROM groups WHERE group_id = ?',
-					)
-					.get(group_id) as
-					| { created_by_session_id: string | null }
-					| undefined;
+				const group = v.parse(
+					group_owner_row_schema,
+					this.db
+						.prepare(
+							'SELECT created_by_session_id FROM groups WHERE group_id = ?',
+						)
+						.get(group_id),
+				);
+
 				if (
 					!group ||
 					group.created_by_session_id !== owner_session_id

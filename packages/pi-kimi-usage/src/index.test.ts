@@ -75,6 +75,7 @@ describe('parse_kimi_usage_response', () => {
 			usage: { limit: '500', used: '250' },
 			limits: [],
 		});
+
 		expect(snapshot?.primary.usedPercent).toBe(50);
 		expect(snapshot?.secondary).toBeUndefined();
 	});
@@ -93,6 +94,7 @@ describe('parse_kimi_usage_response', () => {
 				},
 			],
 		});
+
 		expect(snapshot?.primary.usedPercent).toBe(30);
 		expect(snapshot?.secondary?.usedPercent).toBe(10);
 	});
@@ -105,6 +107,29 @@ describe('parse_kimi_usage_response', () => {
 		expect(
 			parse_kimi_usage_response({ usage: { limit: '100' } }),
 		).toBeNull();
+	});
+});
+
+describe('parse_kimi_usage_response tolerance', () => {
+	it('ignores malformed windows, blank levels and non-object entries', () => {
+		const snapshot = parse_kimi_usage_response({
+			usage: { limit: 100, used: 'x1' },
+			limits: [],
+		});
+
+		expect(snapshot).toBeNull();
+		expect(parse_kimi_usage_response(null)).toBeNull();
+		expect(
+			parse_kimi_usage_response({
+				usage: { limit: '100', used: '10', resetTime: 'nope' },
+				limits: ['bad', null, { detail: 7 }],
+				user: { membership: { level: '  ' } },
+			}),
+		).toEqual({
+			membershipLevel: undefined,
+			primary: { usedPercent: 10, resetAtSeconds: undefined },
+			secondary: undefined,
+		});
 	});
 });
 

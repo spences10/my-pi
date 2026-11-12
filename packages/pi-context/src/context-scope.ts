@@ -1,21 +1,15 @@
-import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import type {
+	ExtensionCommandContext,
+	ToolResultEvent,
+} from '@earendil-works/pi-coding-agent';
 import type { ContextScopeOptions } from './store.js';
 
-export function is_text_content(
-	item: unknown,
-): item is { type: 'text'; text: string } {
-	return (
-		!!item &&
-		typeof item === 'object' &&
-		(item as { type?: unknown }).type === 'text' &&
-		typeof (item as { text?: unknown }).text === 'string'
-	);
-}
-
-export function summarize_tool_input(input: unknown): string | null {
-	if (!input || typeof input !== 'object') return null;
+export function summarize_tool_input(
+	event: Pick<ToolResultEvent, 'input'>,
+): string | null {
 	try {
-		const json = JSON.stringify(input);
+		const json = JSON.stringify(event.input);
+
 		return json.length > 500 ? `${json.slice(0, 497)}...` : json;
 	} catch {
 		return null;
@@ -38,6 +32,7 @@ export function session_id_from_context(
 	ctx?: Pick<ExtensionCommandContext, 'sessionManager'>,
 ): string | null {
 	const manager = ctx?.sessionManager;
+
 	return (
 		manager?.getSessionFile?.() ?? manager?.getSessionId?.() ?? null
 	);

@@ -20,6 +20,7 @@ export function register_session_name_sync(
 ): void {
 	pi.on('session_info_changed', (event) => {
 		const session_id = get_session_id();
+
 		if (!session_id) return;
 		db.update_session_agent_name(
 			session_id,

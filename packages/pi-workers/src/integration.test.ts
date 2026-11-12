@@ -8,9 +8,12 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as v from 'valibot';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { WorkerManager, type WorkerInfo } from './manager.js';
 import { WorkerProcess } from './rpc.js';
+
+const address_schema = v.object({ port: v.number() });
 
 const cli = join(
 	dirname(
@@ -20,18 +23,23 @@ const cli = join(
 	),
 	'cli.js',
 );
+
 const provider = fileURLToPath(
 	new URL('./fixtures/provider.ts', import.meta.url),
 );
+
 const team_extension = fileURLToPath(
 	import.meta.resolve('@spences10/pi-team-mode'),
 );
+
 const observability_extension = fileURLToPath(
 	import.meta.resolve('@spences10/pi-observability'),
 );
+
 const workers_extension = fileURLToPath(
 	new URL('./index.ts', import.meta.url),
 );
+
 const cleanup: (() => Promise<void> | void)[] = [];
 
 afterEach(async () => {
@@ -42,9 +50,11 @@ async function setup() {
 	const directory = mkdtempSync(
 		join(tmpdir(), 'pi-workers-integration-'),
 	);
+
 	cleanup.push(() =>
 		rmSync(directory, { recursive: true, force: true }),
 	);
+
 	const server = start_observability_server({
 		host: '127.0.0.1',
 		port: 0,
@@ -52,21 +62,27 @@ async function setup() {
 		db_path: join(directory, 'observability.db'),
 		log: false,
 	});
+
 	await new Promise<void>((resolve) => {
 		if (server.server.listening) resolve();
 		else server.server.once('listening', resolve);
 	});
-	server.url = `http://127.0.0.1:${(server.server.address() as { port: number }).port}`;
+	server.url = `http://127.0.0.1:${v.parse(address_schema, server.server.address()).port}`;
 	cleanup.push(() => server.close());
 	const port_server = createServer();
 	await new Promise<void>((resolve) =>
 		port_server.listen(0, '127.0.0.1', resolve),
 	);
-	const broker_port = (port_server.address() as { port: number })
-		.port;
+
+	const broker_port = v.parse(
+		address_schema,
+		port_server.address(),
+	).port;
+
 	await new Promise<void>((resolve, reject) =>
 		port_server.close((error) => (error ? reject(error) : resolve())),
 	);
+
 	const env = {
 		...process.env,
 		PI_CODING_AGENT_DIR: directory,
@@ -77,6 +93,7 @@ async function setup() {
 		MY_PI_OBSERVABILITY_URL: server.url,
 		MY_PI_OBSERVABILITY_TOKEN: server.token,
 	};
+
 	const args = [
 		cli,
 		'--no-extensions',
@@ -93,7 +110,9 @@ async function setup() {
 		'-e',
 		workers_extension,
 	];
+
 	const completed: WorkerInfo[] = [];
+
 	const manager = new WorkerManager({
 		command: process.execPath,
 		args,
@@ -103,7 +122,9 @@ async function setup() {
 		on_dialogs_end: () => {},
 		on_ui: (_id, _request, respond) => respond({ confirmed: false }),
 	});
+
 	cleanup.push(() => manager.dispose());
+
 	return {
 		directory,
 		server,
@@ -125,11 +146,16 @@ async function observed_sessions(server: RunningObservabilityServer) {
 	const response = await fetch(`${server.url}/sessions`, {
 		headers: { authorization: `Bearer ${server.token}` },
 	});
+
 	expect(response.ok).toBe(true);
-	return (
-		(await response.json()) as {
-			sessions: { session_id: string; event_count: number }[];
-		}
+
+	return v.parse(
+		v.object({
+			sessions: v.array(
+				v.object({ session_id: v.string(), event_count: v.number() }),
+			),
+		}),
+		await response.json(),
 	).sessions;
 }
 
@@ -138,13 +164,16 @@ describe('real upstream Pi RPC workers', () => {
 		'applies persistent completion policy with Team Mode loaded=%s',
 		async (with_team) => {
 			const { args, env, directory, options } = await setup();
+
 			const parent_args = args.filter(
 				(arg, index) =>
 					with_team ||
 					(arg !== team_extension &&
 						!(arg === '-e' && args[index + 1] === team_extension)),
 			);
+
 			let settled = 0;
+
 			const parent = new WorkerProcess({
 				command: process.execPath,
 				args: [
@@ -163,10 +192,11 @@ describe('real upstream Pi RPC workers', () => {
 				},
 				on_exit: () => {},
 			});
+
 			cleanup.push(() => parent.stop());
 			parent.start();
 			const state = await parent.request({ type: 'get_state' });
-			const parent_id = state.sessionId as string;
+			const parent_id = v.parse(v.string(), state.sessionId);
 			await parent.request({
 				type: 'prompt',
 				message: '/workers pause',
@@ -176,17 +206,20 @@ describe('real upstream Pi RPC workers', () => {
 				message: `spawn-owned:${directory}`,
 			});
 			const db = await TeamDatabase.open(env.MY_PI_COORDINATION_DB);
+
 			try {
 				await expect
 					.poll(() => db.list_inbox(parent_id).length, {
 						timeout: 15_000,
 					})
 					.toBe(1);
+
 				const child = db
 					.list_sessions({ include_offline: true })
 					.find(
 						(session) => session.parent_session_id === parent_id,
 					)!;
+
 				expect(child).toBeDefined();
 				expect(child.metadata.worker_id).toBeTruthy();
 				expect(db.list_inbox(parent_id)[0]).toMatchObject({
@@ -227,9 +260,11 @@ describe('real upstream Pi RPC workers', () => {
 					)
 					.toBe(1);
 				expect(db.list_inbox(parent_id)).toHaveLength(2);
+
 				const history = JSON.stringify(
 					await parent.request({ type: 'get_messages' }),
 				);
+
 				expect(history).toContain('team-mode-peer-message');
 				expect(history).toContain('fresh task');
 			} finally {
@@ -280,6 +315,7 @@ describe('real upstream Pi RPC workers', () => {
 			args,
 			directory,
 		} = await setup();
+
 		const peer = new WorkerProcess({
 			command: process.execPath,
 			args: [
@@ -298,16 +334,21 @@ describe('real upstream Pi RPC workers', () => {
 			on_record: () => {},
 			on_exit: () => {},
 		});
+
 		cleanup.push(() => peer.stop());
 		peer.start();
 		const state = await peer.request({ type: 'get_state' });
-		const peer_id = state.sessionId;
-		if (typeof peer_id !== 'string')
+		const parsed_peer_id = v.safeParse(v.string(), state.sessionId);
+
+		if (!parsed_peer_id.success)
 			throw new Error('Peer did not report a session id');
+		const peer_id = parsed_peer_id.output;
+
 		const worker = await manager.spawn({
 			...options,
 			task: `send-peer:${peer_id}`,
 		});
+
 		await expect
 			.poll(() => completed[0]?.result, { timeout: 15_000 })
 			.toContain('Sent coordination message');
@@ -316,11 +357,13 @@ describe('real upstream Pi RPC workers', () => {
 			JSON.stringify(await peer.request({ type: 'get_messages' })),
 		).not.toContain('hello from rpc-worker');
 		const db = await TeamDatabase.open(env.MY_PI_COORDINATION_DB);
+
 		try {
 			const group = db.create_group({
 				name: 'explicit-collaboration',
 				created_by_session_id: peer_id,
 			});
+
 			db.add_group_member({
 				group_id: group.group_id,
 				session_id: worker.session_id!,
@@ -328,6 +371,7 @@ describe('real upstream Pi RPC workers', () => {
 		} finally {
 			db.close();
 		}
+
 		await manager.send(worker.id, `send-peer:${peer_id}`);
 		await expect
 			.poll(

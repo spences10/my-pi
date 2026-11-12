@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import * as v from 'valibot';
 import type {
 	ContextUsageSnapshot,
 	DashboardSession,
@@ -11,79 +12,104 @@ import type {
 
 function timestamp_ms(value: string | undefined): number {
 	const time = new Date(value ?? '').valueOf();
+
 	return Number.isNaN(time) ? 0 : time;
 }
 
 function duration_ms(events: ObservabilityEvent[]): number {
-	const times = events
-		.map((event) => timestamp_ms(event.ts))
-		.filter(Boolean);
+	const times = events.flatMap((event) => {
+		const time = timestamp_ms(event.ts);
+
+		return time ? [time] : [];
+	});
+
 	return times.length > 1
 		? Math.max(...times) - Math.min(...times)
 		: 0;
 }
 
-function number_value(value: unknown): number {
-	if (typeof value === 'number' && Number.isFinite(value))
-		return value;
-	if (typeof value === 'string') {
-		const parsed = Number(value);
-		return Number.isFinite(parsed) ? parsed : 0;
-	}
-	return 0;
-}
+const payload_record_schema = v.fallback(
+	v.pipe(
+		v.looseObject({}),
+		v.check((value) => !Array.isArray(value)),
+	),
+	{},
+);
+
+type PayloadRecord = v.InferOutput<typeof payload_record_schema>;
+
+const number_schema = v.fallback(
+	v.union([
+		v.pipe(v.number(), v.finite()),
+		v.pipe(v.string(), v.transform(Number), v.finite()),
+	]),
+	0,
+);
 
 function record_value(
-	record: Record<string, unknown>,
+	record: PayloadRecord,
 	key: string,
-): Record<string, unknown> {
-	const value = record[key];
-	return value && typeof value === 'object' && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
+): PayloadRecord {
+	return v.parse(payload_record_schema, record[key]);
 }
 
-function text_value(value: unknown, fallback = ''): string {
-	if (typeof value === 'string') return value;
-	if (typeof value === 'number' || typeof value === 'boolean')
-		return String(value);
-	return fallback;
-}
+const text_schema = v.union([
+	v.string(),
+	v.pipe(v.union([v.number(), v.boolean()]), v.transform(String)),
+]);
+
+/** Whether a tool payload, or anything nested in it, reports a failure. */
+const structured_error_schema: v.GenericSchema<unknown, boolean> =
+	v.fallback(
+		v.lazy(() =>
+			v.pipe(
+				v.looseObject({}),
+				v.transform((record: PayloadRecord) => {
+					const status = v.safeParse(
+						v.pipe(v.string(), v.toLowerCase()),
+						record.status,
+					);
+
+					return (
+						record.isError === true ||
+						record.error === true ||
+						v.is(v.looseObject({}), record.error) ||
+						(status.success &&
+							['error', 'failed', 'failure'].includes(
+								status.output,
+							)) ||
+						Object.values(record).some((child) =>
+							v.parse(structured_error_schema, child),
+						)
+					);
+				}),
+			),
+		),
+		false,
+	);
 
 function tool_id(event: ObservabilityEvent): string {
-	const payload = (event.payload ?? {}) as Record<string, unknown>;
-	return text_value(
+	const payload = v.parse(payload_record_schema, event.payload);
+
+	return v.parse(
+		v.fallback(text_schema, ''),
 		payload.toolCallId ?? payload.tool_call_id ?? payload.id,
 	);
 }
 
 function tool_name(event: ObservabilityEvent): string {
-	const payload = (event.payload ?? {}) as Record<string, unknown>;
-	return text_value(
-		payload.toolName ?? payload.tool_name ?? payload.name,
-		'unknown tool',
-	);
-}
+	const payload = v.parse(payload_record_schema, event.payload);
 
-function has_structured_error(value: unknown): boolean {
-	if (!value || typeof value !== 'object') return false;
-	const record = value as Record<string, unknown>;
-	if (
-		record.isError === true ||
-		record.error === true ||
-		(typeof record.error === 'object' && record.error !== null) ||
-		(typeof record.status === 'string' &&
-			['error', 'failed', 'failure'].includes(
-				record.status.toLowerCase(),
-			))
-	)
-		return true;
-	return Object.values(record).some(has_structured_error);
+	return v.parse(
+		v.fallback(text_schema, 'unknown tool'),
+		payload.toolName ?? payload.tool_name ?? payload.name,
+	);
 }
 
 function event_has_error(event: ObservabilityEvent): boolean {
 	return (
-		event.type === 'error' || has_structured_error(event.payload)
+		event.type === 'error' ||
+		v.parse(structured_error_schema, event.payload)
 	);
 }
 
@@ -93,39 +119,48 @@ type UsageMetrics = Pick<
 >;
 
 function first_number(
-	record: Record<string, unknown>,
+	record: PayloadRecord,
 	...keys: string[]
 ): number {
 	for (const key of keys) {
-		if (record[key] !== undefined) return number_value(record[key]);
+		if (record[key] !== undefined)
+			return v.parse(number_schema, record[key]);
 	}
+
 	return 0;
 }
 
-function add_usage(target: UsageMetrics, payload: unknown): boolean {
-	if (!payload || typeof payload !== 'object') return false;
-	const record = payload as Record<string, unknown>;
+function add_usage(
+	target: UsageMetrics,
+	record: PayloadRecord,
+): boolean {
 	const usage = record_value(record, 'usage');
+
 	if (!Object.keys(usage).length) return false;
 	const cost = record_value(usage, 'cost');
+
 	const input = first_number(
 		usage,
 		'input',
 		'input_tokens',
 		'prompt_tokens',
 	);
+
 	const output = first_number(
 		usage,
 		'output',
 		'output_tokens',
 		'completion_tokens',
 	);
+
 	const cache_read = first_number(usage, 'cacheRead', 'cache_read');
+
 	const cache_write = first_number(
 		usage,
 		'cacheWrite',
 		'cache_write',
 	);
+
 	target.input_tokens += input;
 	target.output_tokens += output;
 	target.total_tokens += input + output + cache_read + cache_write;
@@ -135,21 +170,26 @@ function add_usage(target: UsageMetrics, payload: unknown): boolean {
 		'total_cost',
 		'cost_usd',
 	);
+
 	return true;
 }
 
 function add_entry_usage(
 	totals: UsageMetrics,
-	entry: Record<string, unknown>,
+	entry: PayloadRecord,
 ): boolean {
 	if (entry.type === 'message') {
 		const message = record_value(entry, 'message');
+
 		if (message.role !== 'assistant' && message.role !== 'toolResult')
 			return false;
+
 		return add_usage(totals, message);
 	}
+
 	if (entry.type === 'compaction' || entry.type === 'branch_summary')
 		return add_usage(totals, entry);
+
 	return false;
 }
 
@@ -157,21 +197,25 @@ function session_file_usage(
 	session_file: string | undefined,
 ): UsageMetrics | null {
 	if (!session_file) return null;
+
 	const totals: UsageMetrics = {
 		input_tokens: 0,
 		output_tokens: 0,
 		total_tokens: 0,
 		cost_usd: 0,
 	};
+
 	try {
 		let found_usage = false;
+
 		for (const line of readFileSync(session_file, 'utf8').split(
 			'\n',
 		)) {
 			if (!line.trim()) continue;
-			const entry = JSON.parse(line) as Record<string, unknown>;
+			const entry: PayloadRecord = JSON.parse(line);
 			found_usage = add_entry_usage(totals, entry) || found_usage;
 		}
+
 		return found_usage ? totals : null;
 	} catch {
 		return null;
@@ -185,9 +229,10 @@ function event_usage(events: ObservabilityEvent[]): UsageMetrics {
 		total_tokens: 0,
 		cost_usd: 0,
 	};
+
 	for (const event of events) {
 		if (event.type !== 'message_end') continue;
-		const payload = (event.payload ?? {}) as Record<string, unknown>;
+		const payload = v.parse(payload_record_schema, event.payload);
 		add_usage(
 			totals,
 			Object.keys(record_value(payload, 'message')).length
@@ -195,8 +240,23 @@ function event_usage(events: ObservabilityEvent[]): UsageMetrics {
 				: payload,
 		);
 	}
+
 	return totals;
 }
+
+const non_negative_or_null = v.fallback(
+	v.nullable(v.pipe(v.number(), v.finite(), v.minValue(0))),
+	null,
+);
+
+const context_usage_schema = v.object({
+	contextWindow: v.fallback(
+		v.nullable(v.pipe(v.number(), v.finite())),
+		null,
+	),
+	tokens: non_negative_or_null,
+	percent: non_negative_or_null,
+});
 
 /** Latest native snapshot wins, including an explicit unavailable value. */
 function latest_context_usage(
@@ -204,36 +264,27 @@ function latest_context_usage(
 ): ContextUsageSnapshot | null {
 	for (let index = events.length - 1; index >= 0; index -= 1) {
 		const event = events[index]!;
-		const payload = (event.payload ?? {}) as Record<string, unknown>;
+		const payload = v.parse(payload_record_schema, event.payload);
+
 		if (!Object.hasOwn(payload, 'contextUsage')) continue;
 		const usage = record_value(payload, 'contextUsage');
-		const context_window = usage.contextWindow;
-		if (
-			typeof context_window !== 'number' ||
-			!Number.isFinite(context_window) ||
-			context_window <= 0
-		)
-			return null;
-		const tokens =
-			typeof usage.tokens === 'number' &&
-			Number.isFinite(usage.tokens) &&
-			usage.tokens >= 0
-				? usage.tokens
-				: null;
+
+		const { contextWindow, tokens, percent } = v.parse(
+			context_usage_schema,
+			usage,
+		);
+
+		if (contextWindow === null || contextWindow <= 0) return null;
+
 		return {
 			tokens,
-			context_window,
-			percent:
-				tokens !== null &&
-				typeof usage.percent === 'number' &&
-				Number.isFinite(usage.percent) &&
-				usage.percent >= 0
-					? usage.percent
-					: null,
+			context_window: contextWindow,
+			percent: tokens === null ? null : percent,
 			ts: event.ts,
 			model: event.model ?? null,
 		};
 	}
+
 	return null;
 }
 
@@ -242,6 +293,7 @@ export function trace_summary(
 	events: ObservabilityEvent[],
 ): TraceSummary {
 	const ascending = events.slice().sort((a, b) => a.seq - b.seq);
+
 	const calls = new Map<
 		string,
 		{
@@ -257,19 +309,24 @@ export function trace_summary(
 	for (const event of ascending) {
 		if (!event.type.startsWith('tool')) continue;
 		const id = tool_id(event);
+
 		if (!id) continue;
+
 		const call = calls.get(id) ?? {
 			id,
 			name: tool_name(event),
 			error: false,
 			event_count: 0,
 		};
+
 		if (call.name === 'unknown tool') call.name = tool_name(event);
+
 		if (
 			event.type === 'tool_execution_start' ||
 			event.type === 'tool_call'
 		)
 			call.start ??= event;
+
 		if (
 			event.type === 'tool_execution_end' ||
 			event.type === 'tool_result'
@@ -282,6 +339,7 @@ export function trace_summary(
 
 	const tool_metrics = new Map<string, ToolMetricsSummary>();
 	const spans: TraceSpanSummary[] = [];
+
 	for (const call of calls.values()) {
 		const duration =
 			call.start && call.end
@@ -290,6 +348,7 @@ export function trace_summary(
 						timestamp_ms(call.end.ts) - timestamp_ms(call.start.ts),
 					)
 				: 0;
+
 		const metrics = tool_metrics.get(call.name) ?? {
 			name: call.name,
 			calls: 0,
@@ -298,6 +357,7 @@ export function trace_summary(
 			avg_duration_ms: 0,
 			max_duration_ms: 0,
 		};
+
 		metrics.calls += 1;
 		metrics.errors += Number(call.error);
 		metrics.total_duration_ms += duration;
@@ -306,6 +366,7 @@ export function trace_summary(
 			duration,
 		);
 		tool_metrics.set(call.name, metrics);
+
 		if (call.start && call.end) {
 			spans.push({
 				id: `tool:${call.id}`,
@@ -328,12 +389,16 @@ export function trace_summary(
 				: 0,
 		}))
 		.sort((a, b) => b.total_duration_ms - a.total_duration_ms);
+
 	spans.sort((a, b) => b.duration_ms - a.duration_ms);
+
 	const usage =
 		session_file_usage(session?.session_file) ?? event_usage(events);
+
 	const tool_failures = [...calls.values()].filter(
 		(call) => call.error,
 	).length;
+
 	return {
 		session,
 		context_usage: latest_context_usage(ascending),

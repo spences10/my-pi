@@ -24,6 +24,7 @@ export function body_chunk_metadata(body: string): BodyChunkMetadata {
 
 export function format_chunk_metadata(body: string): string {
 	const metadata = body_chunk_metadata(body);
+
 	return `body_length:${metadata.body_length} chunk_count:${metadata.chunk_count}`;
 }
 
@@ -36,15 +37,18 @@ export function get_body_chunks(
 	} = {},
 ): BodyChunk[] {
 	const metadata = body_chunk_metadata(body);
+
 	const requested = Math.min(
 		Math.max(0, Math.floor(options.chunk_index ?? 0)),
 		metadata.chunk_count - 1,
 	);
+
 	const before = Math.max(0, Math.floor(options.before ?? 0));
 	const after = Math.max(0, Math.floor(options.after ?? 0));
 	const first = Math.max(0, requested - before);
 	const last = Math.min(metadata.chunk_count - 1, requested + after);
 	const chunks: BodyChunk[] = [];
+
 	for (let index = first; index <= last; index += 1) {
 		const start = index * BODY_CHUNK_SIZE;
 		const end = Math.min(body.length, start + BODY_CHUNK_SIZE);
@@ -56,6 +60,7 @@ export function get_body_chunks(
 			text: body.slice(start, end),
 		});
 	}
+
 	return chunks;
 }
 
@@ -69,6 +74,7 @@ export function format_body_chunks(
 	} = {},
 ): string {
 	const chunks = get_body_chunks(body, options);
+
 	return chunks
 		.map(
 			(chunk) =>

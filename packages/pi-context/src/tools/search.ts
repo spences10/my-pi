@@ -53,14 +53,24 @@ export function register_context_search_tool(pi: ExtensionAPI): void {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const scope = scope_from_context(ctx);
-			const results = get_context_store(scope).search(params.query, {
-				...(params.global ? {} : scope),
+
+			const search_options = {
 				global: params.global,
 				source_id: params.source_id,
 				tool_name: params.tool_name,
 				limit: params.limit,
 				full_content: params.full_content,
-			});
+			};
+
+			const scope_options = params.global
+				? search_options
+				: { ...scope, ...search_options };
+
+			const results = get_context_store(scope).search(
+				params.query,
+				scope_options,
+			);
+
 			return {
 				content: [
 					{

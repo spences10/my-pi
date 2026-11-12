@@ -7,6 +7,7 @@ import {
 	realpathSync,
 	statSync,
 } from 'node:fs';
+import * as v from 'valibot';
 import {
 	delimiter,
 	dirname,
@@ -25,82 +26,106 @@ export interface LspServerConfig {
 	is_project_local?: boolean;
 }
 
-const EXTENSION_LANGUAGES: Record<string, string> = {
-	'.ts': 'typescript',
-	'.tsx': 'typescript',
-	'.mts': 'typescript',
-	'.cts': 'typescript',
-	'.js': 'typescript',
-	'.jsx': 'typescript',
-	'.mjs': 'typescript',
-	'.cjs': 'typescript',
-	'.py': 'python',
-	'.rs': 'rust',
-	'.go': 'go',
-	'.rb': 'ruby',
-	'.java': 'java',
-	'.lua': 'lua',
-	'.svelte': 'svelte',
-};
+const EXTENSION_LANGUAGES = new Map([
+	['.ts', 'typescript'],
+	['.tsx', 'typescript'],
+	['.mts', 'typescript'],
+	['.cts', 'typescript'],
+	['.js', 'typescript'],
+	['.jsx', 'typescript'],
+	['.mjs', 'typescript'],
+	['.cjs', 'typescript'],
+	['.py', 'python'],
+	['.rs', 'rust'],
+	['.go', 'go'],
+	['.rb', 'ruby'],
+	['.java', 'java'],
+	['.lua', 'lua'],
+	['.svelte', 'svelte'],
+]);
 
-const LANGUAGE_SERVERS: Record<string, LspServerConfig> = {
-	typescript: {
-		language: 'typescript',
-		command: 'typescript-language-server',
-		args: ['--stdio'],
-		backend: 'typescript-language-server',
-		install_hint:
-			'Install TypeScript LSP with: pnpm add -D typescript typescript-language-server',
-	},
-	python: {
-		language: 'python',
-		command: 'pylsp',
-		args: [],
-		install_hint:
-			'Install Python LSP with: pip install python-lsp-server',
-	},
-	rust: {
-		language: 'rust',
-		command: 'rust-analyzer',
-		args: [],
-		install_hint:
-			'Install Rust Analyzer and ensure the rust-analyzer binary is on PATH.',
-	},
-	go: {
-		language: 'go',
-		command: 'gopls',
-		args: ['serve'],
-		install_hint:
-			'Install Go LSP with: go install golang.org/x/tools/gopls@latest',
-	},
-	ruby: {
-		language: 'ruby',
-		command: 'solargraph',
-		args: ['stdio'],
-		install_hint: 'Install Ruby LSP with: gem install solargraph',
-	},
-	java: {
-		language: 'java',
-		command: 'jdtls',
-		args: [],
-		install_hint:
-			'Install Eclipse JDT Language Server and ensure the jdtls binary is on PATH.',
-	},
-	lua: {
-		language: 'lua',
-		command: 'lua-language-server',
-		args: [],
-		install_hint:
-			'Install Lua LSP and ensure the lua-language-server binary is on PATH.',
-	},
-	svelte: {
-		language: 'svelte',
-		command: 'svelteserver',
-		args: ['--stdio'],
-		install_hint:
-			'Install Svelte LSP with: pnpm add -D svelte-language-server (or volta install svelte-language-server)',
-	},
-};
+const LANGUAGE_SERVERS = new Map<string, LspServerConfig>([
+	[
+		'typescript',
+		{
+			language: 'typescript',
+			command: 'typescript-language-server',
+			args: ['--stdio'],
+			backend: 'typescript-language-server',
+			install_hint:
+				'Install TypeScript LSP with: pnpm add -D typescript typescript-language-server',
+		},
+	],
+	[
+		'python',
+		{
+			language: 'python',
+			command: 'pylsp',
+			args: [],
+			install_hint:
+				'Install Python LSP with: pip install python-lsp-server',
+		},
+	],
+	[
+		'rust',
+		{
+			language: 'rust',
+			command: 'rust-analyzer',
+			args: [],
+			install_hint:
+				'Install Rust Analyzer and ensure the rust-analyzer binary is on PATH.',
+		},
+	],
+	[
+		'go',
+		{
+			language: 'go',
+			command: 'gopls',
+			args: ['serve'],
+			install_hint:
+				'Install Go LSP with: go install golang.org/x/tools/gopls@latest',
+		},
+	],
+	[
+		'ruby',
+		{
+			language: 'ruby',
+			command: 'solargraph',
+			args: ['stdio'],
+			install_hint: 'Install Ruby LSP with: gem install solargraph',
+		},
+	],
+	[
+		'java',
+		{
+			language: 'java',
+			command: 'jdtls',
+			args: [],
+			install_hint:
+				'Install Eclipse JDT Language Server and ensure the jdtls binary is on PATH.',
+		},
+	],
+	[
+		'lua',
+		{
+			language: 'lua',
+			command: 'lua-language-server',
+			args: [],
+			install_hint:
+				'Install Lua LSP and ensure the lua-language-server binary is on PATH.',
+		},
+	],
+	[
+		'svelte',
+		{
+			language: 'svelte',
+			command: 'svelteserver',
+			args: ['--stdio'],
+			install_hint:
+				'Install Svelte LSP with: pnpm add -D svelte-language-server (or volta install svelte-language-server)',
+		},
+	],
+]);
 
 const WORKSPACE_MARKERS = [
 	'svelte.config.js',
@@ -129,11 +154,11 @@ const REPOSITORY_MARKERS = [
 export function detect_language(
 	file_path: string,
 ): string | undefined {
-	return EXTENSION_LANGUAGES[extname(file_path).toLowerCase()];
+	return EXTENSION_LANGUAGES.get(extname(file_path).toLowerCase());
 }
 
 export function list_supported_languages(): string[] {
-	return Object.keys(LANGUAGE_SERVERS).sort();
+	return Array.from(LANGUAGE_SERVERS.keys()).sort();
 }
 
 export interface ResolvedServerCommand {
@@ -156,6 +181,7 @@ export function resolve_server_command_info(
 
 	for (const dir of ancestor_directories(cwd)) {
 		const local_bin = resolve_local_binary(dir, command);
+
 		if (local_bin) {
 			return { command: local_bin, is_project_local: true };
 		}
@@ -180,9 +206,11 @@ export function get_server_config(
 		allow_project_local?: boolean;
 	} = {},
 ): LspServerConfig | undefined {
-	const base = LANGUAGE_SERVERS[language];
+	const base = LANGUAGE_SERVERS.get(language);
+
 	if (!base) return undefined;
 	const allow_project_local = options.allow_project_local ?? true;
+
 	if (language === 'python') {
 		return resolve_python_server(
 			cwd,
@@ -190,15 +218,19 @@ export function get_server_config(
 			allow_project_local,
 		);
 	}
+
 	if (language === 'typescript') {
 		const native = allow_project_local
 			? resolve_native_typescript_server(cwd)
 			: undefined;
+
 		if (native) return native;
+
 		if (!allow_project_local || !has_project_typescript(cwd)) {
 			const global_major =
 				options.global_typescript_major?.() ??
 				resolve_global_typescript_major();
+
 			if (global_major !== undefined && global_major >= 7) {
 				return {
 					language: 'typescript',
@@ -212,9 +244,11 @@ export function get_server_config(
 			}
 		}
 	}
+
 	const resolved = allow_project_local
 		? resolve_server_command_info(base.command, cwd)
 		: { command: base.command, is_project_local: false };
+
 	return {
 		...base,
 		command: resolved.command,
@@ -233,16 +267,19 @@ export function find_workspace_root(
 	fallback: string = process.cwd(),
 ): string {
 	const start = resolve(dirname(file_path));
+
 	const project_root = find_nearest_marker_directory(
 		start,
 		WORKSPACE_MARKERS,
 	);
+
 	if (project_root) return project_root;
 
 	const repo_root = find_nearest_marker_directory(
 		start,
 		REPOSITORY_MARKERS,
 	);
+
 	if (repo_root) return repo_root;
 
 	return resolve(fallback);
@@ -257,18 +294,22 @@ function find_nearest_marker_directory(
 			return dir;
 		}
 	}
+
 	return undefined;
 }
 
 function ancestor_directories(start: string): string[] {
 	const dirs: string[] = [];
 	let current = resolve(start);
+
 	while (true) {
 		dirs.push(current);
 		const parent = dirname(current);
+
 		if (parent === current) break;
 		current = parent;
 	}
+
 	return dirs;
 }
 
@@ -278,8 +319,10 @@ function resolve_global_typescript_major(): number | undefined {
 		timeout: 2_000,
 		windowsHide: true,
 	});
+
 	if (result.status !== 0) return undefined;
 	const match = /Version\s+(\d+)/.exec(result.stdout);
+
 	return match ? Number.parseInt(match[1], 10) : undefined;
 }
 
@@ -291,6 +334,10 @@ function has_project_typescript(cwd: string): boolean {
 	);
 }
 
+const package_manifest_schema = v.object({
+	version: v.optional(v.string()),
+});
+
 function resolve_native_typescript_server(
 	cwd: string,
 ): LspServerConfig | undefined {
@@ -298,17 +345,20 @@ function resolve_native_typescript_server(
 		const package_dir = join(dir, 'node_modules', 'typescript');
 		const package_json = join(package_dir, 'package.json');
 		const command = resolve_local_binary(dir, 'tsc');
+
 		if (!command || !existsSync(package_json)) continue;
+
 		try {
-			const manifest = JSON.parse(
-				readFileSync(package_json, 'utf8'),
-			) as {
-				version?: string;
-			};
+			const manifest = v.parse(
+				package_manifest_schema,
+				JSON.parse(readFileSync(package_json, 'utf8')),
+			);
+
 			const major = Number.parseInt(
 				manifest.version?.split('.')[0] ?? '',
 				10,
 			);
+
 			if (
 				major >= 7 &&
 				!existsSync(join(package_dir, 'lib', 'tsserver.js'))
@@ -327,6 +377,7 @@ function resolve_native_typescript_server(
 			continue;
 		}
 	}
+
 	return undefined;
 }
 
@@ -338,6 +389,7 @@ function resolve_local_binary(
 		join(directory, 'node_modules', '.bin', command),
 		join(directory, 'node_modules', '.bin', `${command}.cmd`),
 	];
+
 	return candidates.find((candidate) => existsSync(candidate));
 }
 
@@ -362,11 +414,18 @@ const PYTHON_SERVERS = {
 		install_hint: 'Install Pyright with: pip install pyright',
 	},
 } satisfies Record<
-	string,
+	PythonServer,
 	{ command: string; args: string[]; install_hint: string }
 >;
 
-type PythonServer = keyof typeof PYTHON_SERVERS;
+const python_server_schema = v.picklist([
+	'pylsp',
+	'basedpyright',
+	'pyright',
+]);
+
+type PythonServer = v.InferOutput<typeof python_server_schema>;
+
 const TYPE_CHECKING_SERVERS: PythonServer[] = [
 	'basedpyright',
 	'pyright',
@@ -378,22 +437,30 @@ function resolve_python_server(
 	allow_project_local = true,
 ): LspServerConfig {
 	const selection = env[PYTHON_SERVER_ENV]?.trim() || 'auto';
+
 	if (selection !== 'auto') {
-		if (!Object.hasOwn(PYTHON_SERVERS, selection)) {
+		const parsed = v.safeParse(python_server_schema, selection);
+
+		if (!parsed.success) {
 			throw new Error(
 				`${PYTHON_SERVER_ENV} must be auto, pylsp, basedpyright, or pyright (received ${JSON.stringify(selection)}).`,
 			);
 		}
-		const backend = selection as PythonServer;
+
+		const backend = parsed.output;
+
 		const config =
 			(allow_project_local && find_local_server(cwd, [backend])) ||
 			find_path_server(cwd, env, [backend], allow_project_local);
+
 		if (config) return config;
+
 		if (!allow_project_local) {
 			throw new Error(
 				`No ${backend} server on PATH outside the project. ${PYTHON_SERVERS[backend].install_hint}`,
 			);
 		}
+
 		return server_config(backend);
 	}
 
@@ -409,12 +476,15 @@ function resolve_python_server(
 			TYPE_CHECKING_SERVERS,
 			allow_project_local,
 		);
+
 	if (config) return config;
+
 	if (!allow_project_local) {
 		throw new Error(
 			`No Python language server on PATH outside the project. ${PYTHON_SERVERS.pylsp.install_hint}`,
 		);
 	}
+
 	return server_config('pylsp');
 }
 
@@ -444,10 +514,12 @@ function find_local_server(
 					bin_directory,
 					PYTHON_SERVERS[backend].command,
 				);
+
 				if (command) return server_config(backend, command, true);
 			}
 		}
 	}
+
 	return undefined;
 }
 
@@ -465,7 +537,9 @@ function find_path_server(
 				directory,
 				PYTHON_SERVERS[backend].command,
 			);
+
 			if (!command) continue;
+
 			const is_project_local = ancestor_directories(cwd).some(
 				(directory) =>
 					python_bin_directories(directory).some((bin_directory) => {
@@ -473,16 +547,20 @@ function find_path_server(
 							bin_directory,
 							PYTHON_SERVERS[backend].command,
 						);
+
 						return (
 							local !== undefined &&
 							realpathSync(local) === realpathSync(command)
 						);
 					}),
 			);
+
 			if (is_project_local && !allow_project_local) continue;
+
 			return server_config(backend, command, is_project_local);
 		}
 	}
+
 	return undefined;
 }
 
@@ -504,15 +582,19 @@ function find_executable(
 	// Windows shell wrappers cannot be launched by the client's shell-free spawn.
 	const extensions =
 		process.platform === 'win32' ? ['.exe', ''] : [''];
+
 	for (const extension of extensions) {
 		const path = resolve(directory, command + extension);
+
 		try {
 			if (!statSync(path).isFile()) continue;
 			accessSync(path, constants.X_OK);
+
 			return path;
 		} catch {
 			// Missing, broken, or non-executable candidates must not block discovery.
 		}
 	}
+
 	return undefined;
 }

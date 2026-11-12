@@ -1,9 +1,11 @@
 export { run_with_progress_modal } from './modal/progress.js';
+
 export type {
 	ProgressModalController,
 	ProgressModalOptions,
 	ProgressModalUpdate,
 } from './modal/progress.js';
+
 export {
 	show_command_output_modal,
 	show_confirm_modal,
@@ -13,6 +15,7 @@ export {
 	show_settings_modal,
 	show_text_modal,
 } from './modal/show.js';
+
 export type {
 	ConfirmModalOptions,
 	InputModalOptions,

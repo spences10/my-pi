@@ -32,9 +32,11 @@ export function register_context_stats_tool(pi: ExtensionAPI): void {
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const scope = scope_from_context(ctx);
+
 			const stats = get_context_store(scope).stats(
 				params.global === true ? { global: true } : scope,
 			);
+
 			return {
 				content: [
 					{ type: 'text' as const, text: format_stats(stats) },

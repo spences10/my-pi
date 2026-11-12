@@ -1,3 +1,6 @@
+import * as v from 'valibot';
+import type { JsonValue } from './json.js';
+
 /** Query columns derived from an event payload at ingest. */
 export interface EventColumns {
 	turn_index: number | null;
@@ -34,64 +37,108 @@ export const EVENT_COLUMN_NAMES = [
 	'parent_tool_call_id',
 ] as const satisfies ReadonlyArray<keyof EventColumns>;
 
-function record(value: unknown): Record<string, unknown> {
-	return value && typeof value === 'object' && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
+const finite_or_null = v.fallback(
+	v.nullable(v.pipe(v.number(), v.finite())),
+	null,
+);
 
-function number_or_null(value: unknown): number | null {
-	return typeof value === 'number' && Number.isFinite(value)
-		? value
-		: null;
-}
+const text_or_null = v.fallback(
+	v.nullable(v.pipe(v.string(), v.nonEmpty())),
+	null,
+);
 
-function text_or_null(value: unknown): string | null {
-	return typeof value === 'string' && value.length > 0 ? value : null;
-}
+const usage_schema = v.fallback(
+	v.object({
+		input: finite_or_null,
+		output: finite_or_null,
+		cacheRead: finite_or_null,
+		cacheWrite: finite_or_null,
+		cost: v.fallback(v.object({ total: finite_or_null }), {
+			total: null,
+		}),
+	}),
+	{
+		input: null,
+		output: null,
+		cacheRead: null,
+		cacheWrite: null,
+		cost: { total: null },
+	},
+);
+
+const message_schema = v.fallback(
+	v.object({
+		role: v.fallback(v.optional(v.string()), undefined),
+		stopReason: text_or_null,
+		durationMs: finite_or_null,
+		errorMessage: text_or_null,
+		usage: usage_schema,
+	}),
+	{
+		role: undefined,
+		stopReason: null,
+		durationMs: null,
+		errorMessage: null,
+		usage: v.getFallback(usage_schema),
+	},
+);
+
+const payload_schema = v.object({
+	turnIndex: finite_or_null,
+	toolCallId: text_or_null,
+	toolName: text_or_null,
+	isError: v.fallback(v.optional(v.boolean()), undefined),
+	durationMs: finite_or_null,
+	stopReason: text_or_null,
+	errorText: text_or_null,
+	exitCode: finite_or_null,
+	parentToolCallId: text_or_null,
+	message: message_schema,
+});
+
+const empty_payload = v.parse(payload_schema, {});
 
 export function derive_event_columns(
 	type: string,
-	payload: unknown,
+	payload: JsonValue,
 ): EventColumns {
-	const body = record(payload);
-	const message = record(body.message);
-	const stop_reason =
-		text_or_null(message.stopReason) ?? text_or_null(body.stopReason);
+	const parsed = v.safeParse(payload_schema, payload);
+	const body = parsed.success ? parsed.output : empty_payload;
+	const message = body.message;
+
+	const stop_reason = message.stopReason ?? body.stopReason;
+
 	let is_error: number | null;
-	if (typeof body.isError === 'boolean')
-		is_error = Number(body.isError);
+
+	if (body.isError !== undefined) is_error = Number(body.isError);
 	else is_error = stop_reason === 'error' ? 1 : null;
 	// Usage is read from message_end only. turn_end repeats the same
 	// assistant message, so reading both would count it twice.
-	const usage = type === 'message_end' ? record(message.usage) : {};
+	const usage = type === 'message_end' ? message.usage : null;
+
 	return {
-		turn_index: number_or_null(body.turnIndex),
-		tool_call_id: text_or_null(body.toolCallId),
-		tool_name: text_or_null(body.toolName),
+		turn_index: body.turnIndex,
+		tool_call_id: body.toolCallId,
+		tool_name: body.toolName,
 		is_error,
 		// toolResult messages repeat the tool duration; only assistant
 		// messages carry provider latency.
 		duration_ms:
-			number_or_null(body.durationMs) ??
-			(message.role === 'assistant'
-				? number_or_null(message.durationMs)
-				: null),
+			body.durationMs ??
+			(message.role === 'assistant' ? message.durationMs : null),
 		stop_reason,
-		input_tokens: number_or_null(usage.input),
-		output_tokens: number_or_null(usage.output),
-		cache_read_tokens: number_or_null(usage.cacheRead),
-		cache_write_tokens: number_or_null(usage.cacheWrite),
-		cost_usd: number_or_null(record(usage.cost).total),
+		input_tokens: usage?.input ?? null,
+		output_tokens: usage?.output ?? null,
+		cache_read_tokens: usage?.cacheRead ?? null,
+		cache_write_tokens: usage?.cacheWrite ?? null,
+		cost_usd: usage?.cost.total ?? null,
 		// Tool failures carry errorText; failed model calls carry the
 		// provider's errorMessage on the assistant message.
 		error_text:
-			text_or_null(body.errorText) ??
-			(stop_reason === 'error'
-				? text_or_null(message.errorMessage)
-				: null),
-		exit_code: number_or_null(body.exitCode),
-		parent_tool_call_id: text_or_null(body.parentToolCallId),
+			body.errorText ??
+			(stop_reason === 'error' ? message.errorMessage : null),
+		exit_code: body.exitCode,
+		parent_tool_call_id: body.parentToolCallId,
 	};
 }
 

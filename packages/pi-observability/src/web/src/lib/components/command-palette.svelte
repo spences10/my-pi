@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { json_string } from '../../../../json';
 	import { api, type DashboardEvent } from '#lib/api.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Command from '#lib/components/ui/command/index.js';
@@ -45,6 +46,7 @@
 	let search_id = 0;
 
 	const needle = $derived(query.trim().toLowerCase());
+
 	const matches = (...values: (string | null | undefined)[]) =>
 		!needle ||
 		values.some((value) => value?.toLowerCase().includes(needle));
@@ -61,6 +63,7 @@
 			)
 			.slice(0, needle ? 8 : 5),
 	);
+
 	const failure_matches = $derived(
 		failures
 			.filter((failure) =>
@@ -72,6 +75,7 @@
 			)
 			.slice(0, needle ? 6 : 3),
 	);
+
 	const current_session = $derived(
 		router.route.name === 'session' ? router.route.id : null,
 	);
@@ -80,6 +84,7 @@
 	// kept fresh by the sidebar.
 	function set_open(value: boolean): void {
 		open = value;
+
 		if (!value) return;
 		api
 			.failures(null, 30)
@@ -91,14 +96,18 @@
 	// watching the query.
 	function set_query(value: string): void {
 		query = value;
+
 		if (search_timer) clearTimeout(search_timer);
 		const text = value.trim();
 		const id = ++search_id;
+
 		if (text.length < MIN_SEARCH_CHARS) {
 			event_hits = [];
 			searching = false;
+
 			return;
 		}
+
 		searching = true;
 		search_timer = setTimeout(() => {
 			api
@@ -128,8 +137,9 @@
 	// Tool events open their span in the trace; others open the
 	// session's event list.
 	function event_href(event: DashboardEvent): string {
-		const call_id = event.payload?.toolCallId;
-		return typeof call_id === 'string'
+		const call_id = json_string(event.payload?.toolCallId);
+
+		return call_id !== undefined
 			? session_href(event.session_id, 'trace', `tool:${call_id}`)
 			: session_href(event.session_id, 'events');
 	}
@@ -153,6 +163,7 @@
 		{ name: 'sessions', label: 'Sessions', icon: ListIcon },
 		{ name: 'tools', label: 'Tools', icon: WrenchIcon },
 	] as const;
+
 	const themes = [
 		{ mode: 'light', label: 'Light theme', icon: SunIcon },
 		{ mode: 'dark', label: 'Dark theme', icon: MoonIcon },

@@ -1,7 +1,11 @@
-import { read_package_settings } from '@spences10/pi-settings';
+import {
+	read_package_settings,
+	type JsonValue,
+} from '@spences10/pi-settings';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
+import * as v from 'valibot';
 
 export type SvelteGuardrailsMode = 'block' | 'warn' | 'off';
 
@@ -23,29 +27,48 @@ export const DEFAULT_SVELTE_GUARDRAILS_CONFIG: SvelteGuardrailsConfig =
 export function get_svelte_guardrails_config_path(): string {
 	if (process.env.MY_PI_SVELTE_GUARDRAILS_CONFIG)
 		return process.env.MY_PI_SVELTE_GUARDRAILS_CONFIG;
+
 	const xdg =
 		process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
+
 	return join(xdg, 'my-pi', 'svelte-guardrails.json');
 }
 
+const config_schema = v.object({
+	blockEffect: v.fallback(
+		v.boolean(),
+		DEFAULT_SVELTE_GUARDRAILS_CONFIG.blockEffect,
+	),
+	allow: v.fallback(
+		v.pipe(
+			v.array(v.fallback(v.optional(v.string()), undefined)),
+			v.transform((items) =>
+				items.filter((item): item is string => item !== undefined),
+			),
+		),
+		DEFAULT_SVELTE_GUARDRAILS_CONFIG.allow,
+	),
+	mode: v.fallback(
+		v.picklist(['block', 'warn', 'off']),
+		DEFAULT_SVELTE_GUARDRAILS_CONFIG.mode,
+	),
+});
+
+/** One config file's fields before validation; bad values are replaced on normalization. */
+const config_file_schema = v.object({
+	blockEffect: v.optional(v.unknown()),
+	allow: v.optional(v.unknown()),
+	mode: v.optional(v.unknown()),
+});
+
+type SvelteGuardrailsConfigFile = v.InferOutput<
+	typeof config_file_schema
+>;
+
 export function normalize_svelte_guardrails_config(
-	value: Partial<SvelteGuardrailsConfig>,
+	value: SvelteGuardrailsConfigFile,
 ): SvelteGuardrailsConfig {
-	return {
-		version: 1,
-		blockEffect:
-			typeof value.blockEffect === 'boolean'
-				? value.blockEffect
-				: DEFAULT_SVELTE_GUARDRAILS_CONFIG.blockEffect,
-		allow: Array.isArray(value.allow)
-			? value.allow.filter(
-					(item): item is string => typeof item === 'string',
-				)
-			: DEFAULT_SVELTE_GUARDRAILS_CONFIG.allow,
-		mode: is_svelte_guardrails_mode(value.mode)
-			? value.mode
-			: DEFAULT_SVELTE_GUARDRAILS_CONFIG.mode,
-	};
+	return { version: 1, ...v.parse(config_schema, value) };
 }
 
 export function get_project_svelte_guardrails_config_path(
@@ -60,6 +83,7 @@ export function load_svelte_guardrails_config(
 	const global_config = read_svelte_guardrails_config_file(
 		get_svelte_guardrails_config_path(),
 	);
+
 	const project_config = read_svelte_guardrails_config_file(
 		get_project_svelte_guardrails_config_path(cwd),
 	);
@@ -72,27 +96,24 @@ export function load_svelte_guardrails_config(
 
 function read_svelte_guardrails_config_file(
 	path: string,
-): Partial<SvelteGuardrailsConfig> {
+): SvelteGuardrailsConfigFile {
 	try {
 		if (path === get_svelte_guardrails_config_path()) {
-			return read_package_settings<Partial<SvelteGuardrailsConfig>>(
-				'svelteGuardrails',
-				{},
+			return v.parse(
+				config_file_schema,
+				read_package_settings<JsonValue>('svelteGuardrails', {}),
 			);
 		}
+
 		if (!existsSync(path)) return {};
-		return JSON.parse(
-			readFileSync(path, 'utf-8'),
-		) as Partial<SvelteGuardrailsConfig>;
+
+		return v.parse(
+			config_file_schema,
+			JSON.parse(readFileSync(path, 'utf-8')),
+		);
 	} catch {
 		return {};
 	}
-}
-
-function is_svelte_guardrails_mode(
-	value: unknown,
-): value is SvelteGuardrailsMode {
-	return value === 'block' || value === 'warn' || value === 'off';
 }
 
 export function is_path_allowed(
@@ -101,6 +122,7 @@ export function is_path_allowed(
 	cwd = process.cwd(),
 ): boolean {
 	const normalized = normalize_path(path, cwd);
+
 	return patterns.some((pattern) =>
 		glob_matches(normalized, pattern),
 	);
@@ -108,21 +130,26 @@ export function is_path_allowed(
 
 function normalize_path(path: string, cwd: string): string {
 	const resolved = isAbsolute(path) ? path : resolve(cwd, path);
+
 	return relative(cwd, resolved).replaceAll('\\', '/');
 }
 
 function glob_matches(path: string, pattern: string): boolean {
 	const normalized_pattern = pattern.replaceAll('\\', '/');
+
 	return glob_to_regexp(normalized_pattern).test(path);
 }
 
 function glob_to_regexp(glob: string): RegExp {
 	let source = '^';
+
 	for (let i = 0; i < glob.length; i++) {
 		const char = glob[i];
 		const next = glob[i + 1];
+
 		if (char === '*' && next === '*') {
 			const after = glob[i + 2];
+
 			if (after === '/') {
 				source += '(?:.*/)?';
 				i += 2;
@@ -136,6 +163,7 @@ function glob_to_regexp(glob: string): RegExp {
 			source += escape_regexp(char);
 		}
 	}
+
 	return new RegExp(`${source}$`);
 }
 

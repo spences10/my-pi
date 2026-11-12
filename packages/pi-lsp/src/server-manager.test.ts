@@ -19,20 +19,25 @@ function create_python_project() {
 	const root = mkdtempSync(join(tmpdir(), 'my-pi-python-lsp-'));
 	const file = join(root, 'main.py');
 	const suffix = process.platform === 'win32' ? '.exe' : '';
+
 	const project_bin = join(
 		root,
 		'.venv',
 		process.platform === 'win32' ? 'Scripts' : 'bin',
 	);
+
 	const project_server = join(
 		project_bin,
 		'pyright-langserver' + suffix,
 	);
+
 	const global_bin = join(root, 'global');
+
 	const global_server = join(
 		global_bin,
 		'pyright-langserver' + suffix,
 	);
+
 	dirs.push(root);
 	mkdirSync(project_bin, { recursive: true });
 	mkdirSync(global_bin, { recursive: true });
@@ -45,6 +50,7 @@ function create_python_project() {
 	writeFileSync(global_server, '#!/bin/sh\n', { mode: 0o755 });
 	vi.stubEnv('PATH', global_bin);
 	vi.stubEnv('MY_PI_LSP_PYTHON_SERVER', 'pyright');
+
 	return { root, file, project_server, global_server };
 }
 
@@ -65,6 +71,7 @@ function create_typescript_7_project() {
 		JSON.stringify({ version: '7.0.2' }),
 	);
 	writeFileSync(project_tsc, '#!/bin/sh\n', { mode: 0o755 });
+
 	return { root, file, project_tsc };
 }
 
@@ -79,12 +86,14 @@ describe('lsp server manager', () => {
 		const ensure_document_open = vi.fn().mockResolvedValue(undefined);
 		const close_document = vi.fn().mockResolvedValue(undefined);
 		const stop = vi.fn().mockResolvedValue(undefined);
+
 		const client = create_mock_client({
 			ensure_document_open,
 			close_document,
 			stop,
 			hover: vi.fn().mockResolvedValue({ contents: 'hover docs' }),
 		});
+
 		const { pi, tools, events } = create_test_pi();
 		const { ctx } = create_command_context();
 
@@ -123,20 +132,25 @@ describe('lsp server manager', () => {
 		writeFileSync(join(root, 'package.json'), '{}\n');
 		writeFileSync(file, 'export const value = 1;\n');
 		let release_first!: () => void;
+
 		const first_hover = new Promise<{ contents: string }>(
 			(resolve) => {
 				release_first = () => resolve({ contents: 'first' });
 			},
 		);
+
 		const close_document = vi.fn().mockResolvedValue(undefined);
+
 		const hover = vi
 			.fn()
 			.mockReturnValueOnce(first_hover)
 			.mockResolvedValueOnce({ contents: 'second' });
+
 		const client = create_mock_client({
 			close_document,
 			hover,
 		});
+
 		const { pi, tools } = create_test_pi();
 		const { ctx } = create_command_context();
 
@@ -155,7 +169,9 @@ describe('lsp server manager', () => {
 				undefined,
 				ctx,
 			);
+
 		await vi.waitFor(() => expect(hover).toHaveBeenCalledTimes(1));
+
 		const second = await tools
 			.get('lsp_hover')
 			.execute(
@@ -175,6 +191,7 @@ describe('lsp server manager', () => {
 
 	it('stops idle servers by default and restarts them on later use', async () => {
 		vi.useFakeTimers();
+
 		try {
 			const root = mkdtempSync(join(tmpdir(), 'my-pi-lsp-'));
 			const file = join(root, 'src', 'main.ts');
@@ -183,17 +200,21 @@ describe('lsp server manager', () => {
 			writeFileSync(join(root, 'package.json'), '{}\n');
 			writeFileSync(file, 'export const value = 1;\n');
 			const first_stop = vi.fn().mockResolvedValue(undefined);
+
 			const first_client = create_mock_client({
 				stop: first_stop,
 				hover: vi.fn().mockResolvedValue({ contents: 'first' }),
 			});
+
 			const second_client = create_mock_client({
 				hover: vi.fn().mockResolvedValue({ contents: 'second' }),
 			});
+
 			const create_client = vi
 				.fn()
 				.mockReturnValueOnce(first_client)
 				.mockReturnValueOnce(second_client);
+
 			const { pi, tools } = create_test_pi();
 			const { ctx } = create_command_context();
 
@@ -234,14 +255,18 @@ describe('lsp server manager', () => {
 
 	it('reuses a project binary after an idle restart without approval', async () => {
 		vi.useFakeTimers();
+
 		try {
 			const { root, file, project_tsc } =
 				create_typescript_7_project();
+
 			const first_stop = vi.fn().mockResolvedValue(undefined);
+
 			const create_client = vi
 				.fn()
 				.mockReturnValueOnce(create_mock_client({ stop: first_stop }))
 				.mockReturnValueOnce(create_mock_client());
+
 			const { pi, tools } = create_test_pi();
 			const { ctx, select } = create_command_context();
 			await register_test_lsp_extension(pi, {
@@ -260,7 +285,9 @@ describe('lsp server manager', () => {
 						undefined,
 						ctx,
 					);
+
 				expect(result.details.ok).toBe(true);
+
 				if (id === '1') {
 					await vi.advanceTimersByTimeAsync(11);
 					expect(first_stop).toHaveBeenCalledTimes(1);
@@ -282,6 +309,7 @@ describe('lsp server manager', () => {
 		async (has_ui) => {
 			const { root, file, project_tsc } =
 				create_typescript_7_project();
+
 			vi.stubEnv('MY_PI_LSP_PROJECT_BINARY', 'skip');
 			const create_client = vi.fn(() => create_mock_client());
 			const { pi, tools } = create_test_pi();
@@ -386,6 +414,7 @@ describe('lsp server manager', () => {
 				create_client,
 				cwd: () => root,
 			});
+
 			for (const id of ['1', '2']) {
 				const result = await tools
 					.get('lsp_hover')
@@ -396,6 +425,7 @@ describe('lsp server manager', () => {
 						undefined,
 						{ ...ctx, hasUI: has_ui },
 					);
+
 				expect(result.details.ok).toBe(true);
 			}
 
@@ -427,6 +457,7 @@ describe('lsp server manager', () => {
 			create_client,
 			cwd: () => root,
 		});
+
 		const result = await tools
 			.get('lsp_hover')
 			.execute('1', { file, line: 0, character: 0 });
@@ -440,6 +471,7 @@ describe('lsp server manager', () => {
 	it('reports the selected Python backend setup hint without changing backends on failure', async () => {
 		const { root, file } = create_python_project();
 		vi.stubEnv('MY_PI_LSP_PYTHON_SERVER', 'basedpyright');
+
 		const client = create_mock_client({
 			start: vi.fn().mockRejectedValue(
 				Object.assign(new Error('server missing'), {
@@ -447,6 +479,7 @@ describe('lsp server manager', () => {
 				}),
 			),
 		});
+
 		const create_client = vi.fn(() => client);
 		const { pi, tools } = create_test_pi();
 		const { ctx } = create_command_context();
@@ -455,6 +488,7 @@ describe('lsp server manager', () => {
 			read_file: async () => 'value: int = 1\n',
 			cwd: () => root,
 		});
+
 		const result = await tools
 			.get('lsp_hover')
 			.execute(
@@ -464,6 +498,7 @@ describe('lsp server manager', () => {
 				undefined,
 				ctx,
 			);
+
 		expect(result.details.ok).toBe(false);
 		expect(result.content[0].text).toContain(
 			'basedpyright-langserver',

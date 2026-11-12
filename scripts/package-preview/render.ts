@@ -7,12 +7,14 @@ import { logo_lines } from 'my-pi/logo';
 import { load_preview_config, type PreviewConfig } from './config.ts';
 
 type Rgb = [number, number, number];
+
 type Cell = {
 	char: string;
 	column: number;
 	color: string;
 	bold: boolean;
 };
+
 type PreviewLine = {
 	text: string;
 	cells: Cell[];
@@ -25,12 +27,14 @@ const palette: Rgb[] = [
 	[0, 234, 255],
 	[204, 255, 0],
 ];
+
 const font_size = 20;
 const line_height = 33;
 const pad_x = 18;
 const pad_y = 4;
 const char_width = 12;
 const columns = 96;
+
 const segmenter = new Intl.Segmenter(undefined, {
 	granularity: 'grapheme',
 });
@@ -42,6 +46,7 @@ function gradient_color(position: number): string {
 	const mix = scaled - index;
 	const from = palette[index];
 	const to = palette[(index + 1) % palette.length];
+
 	return `rgb(${from.map((channel, i) => Math.round(channel + (to[i] - channel) * mix)).join(',')})`;
 }
 
@@ -54,9 +59,11 @@ function cells(
 	style: (column: number) => { color: string; bold: boolean },
 ): Cell[] {
 	let column = 0;
+
 	return Array.from(segmenter.segment(text), ({ segment }) => {
 		const cell = { char: segment, column, ...style(column) };
 		column += visibleWidth(segment);
+
 		return cell;
 	});
 }
@@ -67,10 +74,12 @@ function header_line(
 	logo = false,
 ): PreviewLine {
 	const clipped = clip(text, columns);
+
 	const padding = Math.max(
 		0,
 		Math.floor((columns - visibleWidth(clipped)) / 2),
 	);
+
 	return {
 		text: clipped,
 		columns: visibleWidth(clipped),
@@ -96,6 +105,7 @@ function substitute(
 		model: config.model,
 		project: config.project,
 	};
+
 	return text.replace(
 		/\{(version|model|project)\}/g,
 		(_match, key: keyof typeof values) => values[key],
@@ -105,10 +115,12 @@ function substitute(
 function align_footer(left: string, right: string): string {
 	const clipped_right = clip(right, columns);
 	const gap = left && right ? 1 : 0;
+
 	const clipped_left = clip(
 		left,
 		Math.max(0, columns - visibleWidth(clipped_right) - gap),
 	);
+
 	return (
 		clipped_left +
 		' '.repeat(
@@ -127,6 +139,7 @@ function preview_lines(
 	const logo_width = Math.max(
 		...logo_lines.map((line) => visibleWidth(line)),
 	);
+
 	const lines = [
 		header_line(''),
 		header_line(`My-Pi v${version}`, 0.12),
@@ -143,15 +156,21 @@ function preview_lines(
 		),
 		header_line(''),
 	];
+
 	if (config.footer.enabled && config.footer.rows.length > 0) {
 		const footer_lines: { text: string; cursor?: boolean }[] = [];
 		const separator = { text: '─'.repeat(columns) };
+
 		if (config.footer.editor) lines.push(header_line(''));
+
 		if (config.footer.separator) footer_lines.push(separator);
+
 		if (config.footer.editor) {
 			footer_lines.push({ text: '█'.padEnd(columns), cursor: true });
+
 			if (config.footer.separator) footer_lines.push(separator);
 		}
+
 		footer_lines.push(
 			...config.footer.rows.map((row) => ({
 				text: align_footer(
@@ -172,6 +191,7 @@ function preview_lines(
 			})),
 		);
 	}
+
 	return lines;
 }
 
@@ -191,28 +211,36 @@ export function render_preview_svg(
 	const lines = preview_lines(version, config);
 	const width = Math.ceil(columns * char_width + pad_x * 2);
 	const height = Math.ceil(lines.length * line_height + pad_y * 2);
+
 	const rows = lines
 		.map((line, row) => {
 			const x =
 				line.align === 'center'
 					? (width - line.columns * char_width) / 2
 					: pad_x;
+
 			const content = line.cells
 				.map((cell) => {
 					if (cell.char === ' ') return '';
 					const cell_x = (x + cell.column * char_width).toFixed(1);
+
 					if (cell.char === '█') {
 						return `<rect x="${cell_x}" y="${pad_y + row * line_height - 5}" width="${char_width}" height="${line_height}" fill="${cell.color}"/>`;
 					}
+
 					return `<text x="${cell_x}" y="${pad_y + row * line_height + font_size}" fill="${cell.color}" font-weight="${cell.bold ? 700 : 500}">${escape_xml(cell.char)}</text>`;
 				})
 				.join('');
+
 			return `<g aria-label="${escape_xml(line.text)}">${content}</g>`;
 		})
 		.join('\n');
+
 	let frame = '<rect width="100%" height="100%" fill="#07020d"/>';
+
 	if (config.border.enabled)
 		frame = `<rect data-preview-border="true" x="${config.border.width}" y="${config.border.width}" width="${width - config.border.width * 2}" height="${height - config.border.width * 2}" rx="${config.border.radius}" fill="#07020d" stroke="${config.border.gradient ? 'url(#preview-frame)' : config.border.color}" stroke-width="${config.border.width}"/>`;
+
 	return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <title>My-Pi v${escape_xml(version)} — package preview</title>
   ${config.border.gradient ? `<defs><linearGradient id="preview-frame" x1="0%" y1="0%" x2="100%" y2="100%">${config.border.gradient.map((color, index, stops) => `<stop offset="${(index / (stops.length - 1)) * 100}%" stop-color="${color}"/>`).join('')}</linearGradient></defs>` : ''}

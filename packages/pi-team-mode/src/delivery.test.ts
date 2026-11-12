@@ -32,6 +32,7 @@ function message(
 
 function setup(messages = [message('m1')]) {
 	const delivered = new Set<string>();
+
 	const db = {
 		heartbeat_session: vi.fn(),
 		list_auto_inbox: vi.fn(() =>
@@ -43,12 +44,15 @@ function setup(messages = [message('m1')]) {
 			},
 		),
 	};
+
 	const poller = new CoordinationPoller({
 		db,
 		get_session_id: () => 'receiver',
 		should_auto_inject_messages: () => true,
 	});
+
 	const pi = { sendMessage: vi.fn() };
+
 	return { db, poller, pi };
 }
 
@@ -57,7 +61,9 @@ describe('bounded peer delivery', () => {
 		let pending = Array.from({ length: 100 }, (_, index) =>
 			message(`m${index}`, { body: '🧑‍💻'.repeat(200) }),
 		);
+
 		const surfaced: string[] = [];
+
 		while (pending.length) {
 			const delivery = bounded_peer_delivery('receiver', pending)!;
 			expect(Buffer.byteLength(delivery.content)).toBeLessThanOrEqual(
@@ -72,6 +78,7 @@ describe('bounded peer delivery', () => {
 				(item) => !ids.includes(item.message_id),
 			);
 		}
+
 		expect(surfaced).toHaveLength(100);
 		expect(new Set(surfaced).size).toBe(100);
 	});
@@ -106,6 +113,7 @@ describe('bounded peer delivery', () => {
 			message('unkeyed-1', { message_type: 'status' }),
 			message('unkeyed-2', { message_type: 'status' }),
 		])!;
+
 		expect(delivery.details.messages).toHaveLength(6);
 		expect(delivery_message_ids(delivery.details)).toHaveLength(7);
 		expect(delivery.content).not.toContain('old update');
@@ -122,6 +130,7 @@ describe('bounded peer delivery', () => {
 			),
 			message('urgent', { urgent: true }),
 		])!;
+
 		expect(delivery.details.messages[0]?.message_id).toBe('urgent');
 		expect(delivery.details.messages).toHaveLength(
 			MAX_DELIVERY_MESSAGES,
@@ -132,6 +141,7 @@ describe('bounded peer delivery', () => {
 		const delivery = create_peer_message_delivery('receiver', [
 			message('m1'),
 		]);
+
 		expect(peer_delivery_details(delivery, 'receiver')).toBeDefined();
 		expect(peer_delivery_details(delivery, 'other')).toBeUndefined();
 		expect(
@@ -182,6 +192,7 @@ describe('delivery confirmation', () => {
 			message('old', { message_type: 'status', status_key: 'build' }),
 			message('new', { message_type: 'status', status_key: 'build' }),
 		]);
+
 		poller.poll(pi);
 		expect(pi.sendMessage).not.toHaveBeenCalled();
 		const delivery = poller.take_delivery(true)!;
@@ -197,6 +208,7 @@ describe('delivery confirmation', () => {
 
 	it('retries a queued delivery with no persistence confirmation after its lease expires', () => {
 		vi.useFakeTimers();
+
 		try {
 			const { poller, pi } = setup();
 			poller.poll(pi);
@@ -234,6 +246,7 @@ describe('delivery confirmation', () => {
 			create_peer_message_delivery('receiver', [message('m1')]),
 		);
 		poller.start(pi);
+
 		try {
 			poller.poll(pi);
 			expect(db.mark_messages_delivered).toHaveBeenCalledTimes(2);

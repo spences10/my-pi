@@ -1,7 +1,4 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from '@earendil-works/pi-coding-agent';
+import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { execFileSync } from 'node:child_process';
 import {
 	mkdirSync,
@@ -13,6 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import { make_api } from '../../../tools/test-sdk.js';
 import confirm_destructive, {
 	assess_bash_command,
 	assess_tool_call,
@@ -20,11 +18,15 @@ import confirm_destructive, {
 
 function create_test_pi() {
 	const events = new Map<string, Function>();
-	const pi = {
+
+	const pi = make_api({
 		on(name: string, handler: Function) {
 			events.set(name, handler);
+
+			return () => events.delete(name);
 		},
-	} as unknown as ExtensionAPI;
+	});
+
 	return { pi, events };
 }
 
@@ -50,6 +52,7 @@ const dirs: string[] = [];
 function tmp_dir(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'my-pi-guard-'));
 	dirs.push(dir);
+
 	return dir;
 }
 
@@ -57,7 +60,9 @@ function work_dir(): string {
 	const dir = mkdtempSync(
 		join(process.cwd(), '.pi-confirm-destructive-test-'),
 	);
+
 	dirs.push(dir);
+
 	return dir;
 }
 
@@ -74,6 +79,7 @@ function create_git_repo(cwd = work_dir()): string {
 	writeFileSync(join(cwd, 'tracked.md'), 'tracked');
 	git(cwd, ['add', 'tracked.md']);
 	git(cwd, ['commit', '-m', 'initial']);
+
 	return cwd;
 }
 
@@ -290,6 +296,7 @@ describe('assess_bash_command', () => {
 			'rm -rf is dangerous documentation',
 			'EOF',
 		].join('\n');
+
 		expect(assess_bash_command(command)).toBeUndefined();
 	});
 
@@ -300,6 +307,7 @@ describe('assess_bash_command', () => {
 			'EOF',
 			'rm -rf untracked.md',
 		].join('\n');
+
 		expect(assess_bash_command(command)).toBeTruthy();
 	});
 
@@ -723,6 +731,7 @@ describe('confirm-destructive extension', () => {
 			},
 			ctx,
 		);
+
 		const second = await handler(
 			{
 				type: 'tool_call',

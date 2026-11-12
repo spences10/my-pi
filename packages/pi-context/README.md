@@ -231,6 +231,11 @@ custom values are available with:
 /context settings custom <days|off> <max-mb|off> [capture-kb] [capture-lines] [purge-on-shutdown]
 ```
 
+Saved settings are validated with Valibot on load. Malformed JSON and
+non-object values are ignored. Invalid fields fall back independently
+to preset defaults; explicit `null` retention and size caps are
+preserved.
+
 Capture thresholds control when large tool output is moved into the
 sidecar instead of staying inline in the model context. Defaults match
 historical behavior: tools capture after `24 KiB` or `300` lines.

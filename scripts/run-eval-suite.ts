@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import * as v from 'valibot';
 
 interface EvalSuite {
 	version: number;
@@ -30,6 +31,38 @@ interface EvalAssertions {
 	stderr_not_contains?: string[];
 	output_not_contains?: string[];
 }
+
+const assertions_schema: v.GenericSchema<unknown, EvalAssertions> =
+	v.object({
+		exit_code: v.exactOptional(v.number()),
+		stdout_contains: v.exactOptional(v.array(v.string())),
+		stderr_contains: v.exactOptional(v.array(v.string())),
+		output_contains: v.exactOptional(v.array(v.string())),
+		stdout_not_contains: v.exactOptional(v.array(v.string())),
+		stderr_not_contains: v.exactOptional(v.array(v.string())),
+		output_not_contains: v.exactOptional(v.array(v.string())),
+	});
+
+const case_schema: v.GenericSchema<unknown, EvalCase> = v.object({
+	id: v.string(),
+	description: v.exactOptional(v.string()),
+	command: v.string(),
+	args: v.exactOptional(v.array(v.string())),
+	timeout_ms: v.exactOptional(v.number()),
+	env: v.exactOptional(v.record(v.string(), v.string())),
+	requires_env: v.exactOptional(v.array(v.string())),
+	assert: assertions_schema,
+});
+
+const suite_schema: v.GenericSchema<unknown, EvalSuite> = v.object({
+	version: v.number(),
+	name: v.pipe(v.string(), v.nonEmpty()),
+	cases: v.array(case_schema),
+});
+
+const suite_version_schema = v.object({
+	version: v.optional(v.unknown()),
+});
 
 interface EvalResult {
 	id: string;
@@ -59,12 +92,15 @@ let bail = false;
 
 function next_value(index: number): string {
 	const value = args[index + 1];
+
 	if (!value) usage();
+
 	return value;
 }
 
 for (let index = 0; index < args.length; index++) {
 	const arg = args[index];
+
 	if (arg === '--suite') suite_path = next_value(index++);
 	else if (arg === '--case') case_filter = next_value(index++);
 	else if (arg === '--json') json_output = true;
@@ -74,21 +110,27 @@ for (let index = 0; index < args.length; index++) {
 
 function read_suite(path: string): EvalSuite {
 	const absolute = resolve(path);
+
 	if (!existsSync(absolute)) {
 		throw new Error(`Eval suite not found: ${path}`);
 	}
-	const suite = JSON.parse(
-		readFileSync(absolute, 'utf-8'),
-	) as EvalSuite;
-	if (suite.version !== 1) {
+
+	const raw = JSON.parse(readFileSync(absolute, 'utf-8'));
+	const { version } = v.parse(suite_version_schema, raw);
+
+	if (version !== 1) {
 		throw new Error(
-			`Unsupported eval suite version: ${suite.version}`,
+			`Unsupported eval suite version: ${String(version)}`,
 		);
 	}
-	if (!suite.name || !Array.isArray(suite.cases)) {
+
+	const suite = v.safeParse(suite_schema, raw);
+
+	if (!suite.success) {
 		throw new Error('Invalid eval suite: expected name and cases');
 	}
-	return suite;
+
+	return suite.output;
 }
 
 function missing_env(required: string[] | undefined): string[] {
@@ -127,11 +169,13 @@ function evaluate_assertions(
 ): string[] {
 	const details: string[] = [];
 	const expected_code = assertions.exit_code ?? 0;
+
 	if (actual.code !== expected_code) {
 		details.push(
 			`exit code expected ${expected_code}, got ${actual.code ?? 'null'}`,
 		);
 	}
+
 	const output = `${actual.stdout}\n${actual.stderr}`;
 	includes_all(
 		actual.stdout,
@@ -164,12 +208,14 @@ function evaluate_assertions(
 		'output',
 		details,
 	);
+
 	return details;
 }
 
 function run_case(test_case: EvalCase): EvalResult {
 	const started = Date.now();
 	const missing = missing_env(test_case.requires_env);
+
 	if (missing.length) {
 		return {
 			id: test_case.id,
@@ -188,6 +234,7 @@ function run_case(test_case: EvalCase): EvalResult {
 	});
 
 	const duration_ms = Date.now() - started;
+
 	if (child.error) {
 		return {
 			id: test_case.id,
@@ -206,39 +253,50 @@ function run_case(test_case: EvalCase): EvalResult {
 		test_case.assert,
 	);
 
-	return {
+	const result: EvalResult = {
 		id: test_case.id,
 		status: details.length ? 'fail' : 'pass',
 		duration_ms,
-		...(details.length ? { details } : {}),
 	};
+
+	if (details.length) result.details = details;
+
+	return result;
 }
 
 try {
 	const suite = read_suite(suite_path);
+
 	const selected = case_filter
 		? suite.cases.filter((test_case) => test_case.id === case_filter)
 		: suite.cases;
+
 	if (case_filter && selected.length === 0) {
 		throw new Error(`Unknown eval case: ${case_filter}`);
 	}
 
 	const results: EvalResult[] = [];
+
 	for (const test_case of selected) {
 		const result = run_case(test_case);
 		results.push(result);
+
 		if (!json_output) {
 			let marker = '✗';
+
 			if (result.status === 'pass') marker = '✓';
 			else if (result.status === 'skip') marker = '-';
 			console.log(
 				`${marker} ${test_case.id} ${result.status} (${result.duration_ms}ms)`,
 			);
+
 			for (const detail of result.details ?? []) {
 				console.log(`  ${detail}`);
 			}
+
 			if (result.reason) console.log(`  ${result.reason}`);
 		}
+
 		if (bail && result.status === 'fail') break;
 	}
 

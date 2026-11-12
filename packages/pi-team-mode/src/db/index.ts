@@ -7,12 +7,22 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
+import * as v from 'valibot';
+import {
+	artifact_row_schema,
+	group_member_row_schema,
+	group_membership_row_schema,
+	group_row_schema,
+	inbox_row_schema,
+	session_row_schema,
+} from './row-schemas.js';
 
 import { DEFAULT_MANUAL_COORDINATION_RETENTION_MS } from '../retention.js';
 import {
 	find_stale_sessions,
 	type ProcessAliveCheck,
 } from '../session-liveness.js';
+import { metadata_text, type JsonRecord } from '../json.js';
 import { DeliveryPolicy } from './delivery-policy.js';
 import {
 	map_artifact,
@@ -25,7 +35,6 @@ import { apply_migrations } from './migrate.js';
 import { CONNECTION_PRAGMAS, PERSISTENT_PRAGMAS } from './schema.js';
 import { prepare_statements } from './statements.js';
 import type {
-	ArtifactRow,
 	CoordinationArtifact,
 	CoordinationArtifactInput,
 	CoordinationArtifactKind,
@@ -42,11 +51,6 @@ import type {
 	CoordinationSessionInput,
 	CoordinationSessionStatus,
 	DatabaseSyncConstructor,
-	GroupMemberRow,
-	GroupMembershipRow,
-	GroupRow,
-	InboxRow,
-	SessionRow,
 	TeamDatabaseStatements,
 } from './types.js';
 import {
@@ -55,9 +59,35 @@ import {
 	json,
 	now,
 	optional,
-	parse_json,
+	parse_json_record,
 } from './util.js';
+
+const idempotent_message_row_schema = v.optional(
+	v.object({
+		message_id: v.string(),
+		request_hash: v.nullable(v.string()),
+	}),
+);
+
+const prunable_receipt_count_schema = v.object({
+	count: v.union([v.number(), v.bigint()]),
+});
+
+/** A `messages` row: an inbox row without its per-recipient receipt columns. */
+const message_row_schema = v.optional(
+	v.omit(inbox_row_schema, [
+		'to_session_id',
+		'delivered_at',
+		'read_at',
+		'acknowledged_at',
+		'receipt_created_at',
+		'from_agent_name',
+		'from_cwd',
+	]),
+);
+
 export { LATEST_TEAM_SCHEMA_VERSION } from './schema.js';
+
 export type {
 	CoordinationArtifact,
 	CoordinationArtifactInput,
@@ -86,6 +116,7 @@ export class TeamDatabase {
 
 	static async open(db_path: string): Promise<TeamDatabase> {
 		const sqlite = await import('node:sqlite');
+
 		return new TeamDatabase(sqlite.DatabaseSync, db_path);
 	}
 
@@ -94,6 +125,7 @@ export class TeamDatabase {
 		db_path: string,
 	) {
 		const dir = dirname(db_path);
+
 		if (!existsSync(dir))
 			mkdirSync(dir, { recursive: true, mode: 0o700 });
 		this.db = new DatabaseSyncCtor(db_path, {
@@ -140,34 +172,46 @@ export class TeamDatabase {
 				timestamp,
 			),
 		);
+
 		return this.get_session(input.session_id)!;
 	}
 
 	get_session(session_id: string): CoordinationSession | undefined {
-		const row = this.statements.get_session.get(session_id) as
-			| SessionRow
-			| undefined;
-		return row ? map_session(row) : undefined;
+		const row = this.statements.get_session.get(session_id);
+
+		return row
+			? map_session(v.parse(session_row_schema, row))
+			: undefined;
 	}
 
 	list_sessions(
 		options: { include_offline?: boolean } = {},
 	): CoordinationSession[] {
-		const rows = (options.include_offline
-			? this.statements.list_sessions.all()
-			: this.statements.list_online_sessions.all()) as unknown as SessionRow[];
+		const rows = v.parse(
+			v.array(session_row_schema),
+			options.include_offline
+				? this.statements.list_sessions.all()
+				: this.statements.list_online_sessions.all(),
+		);
+
 		return rows.map((row) => map_session(row));
 	}
 
 	mark_stale_sessions_offline(
 		is_alive?: ProcessAliveCheck,
 	): string[] {
-		const sessions = (
-			this.statements.list_online_sessions.all() as unknown as SessionRow[]
-		).map((row) => map_session(row));
+		const sessions = v
+			.parse(
+				v.array(session_row_schema),
+				this.statements.list_online_sessions.all(),
+			)
+			.map((row) => map_session(row));
+
 		const stale = find_stale_sessions(sessions, is_alive);
+
 		for (const session of stale)
 			this.mark_session_status(session.session_id, 'offline');
+
 		return stale.map((session) => session.session_id);
 	}
 
@@ -183,21 +227,30 @@ export class TeamDatabase {
 			const parent_id =
 				sender_session_id &&
 				this.get_session(sender_session_id)?.parent_session_id;
+
 			const parent = parent_id
 				? this.get_session(parent_id)
 				: undefined;
+
 			if (!parent)
 				throw new Error(
 					'This session has no registered worker parent',
 				);
+
 			return [parent];
 		}
-		const targetable_sessions = (
-			this.statements.list_sessions.all() as unknown as SessionRow[]
-		).map((row) => map_session(row));
+
+		const targetable_sessions = v
+			.parse(
+				v.array(session_row_schema),
+				this.statements.list_sessions.all(),
+			)
+			.map((row) => map_session(row));
+
 		const exact_session_id = targetable_sessions.filter(
 			(session) => session.session_id === target,
 		);
+
 		if (exact_session_id.length > 0) return exact_session_id;
 
 		const exact_named = targetable_sessions.filter(
@@ -205,11 +258,14 @@ export class TeamDatabase {
 				session.agent_name === target ||
 				session.session_alias === target,
 		);
+
 		if (exact_named.length === 1) return exact_named;
+
 		if (exact_named.length > 1) {
 			const active_named = exact_named.filter(
 				(session) => session.status !== 'offline',
 			);
+
 			if (active_named.length === 1) return active_named;
 			throw new Error(
 				`Ambiguous session target: ${target}. Matching sessions: ${exact_named
@@ -221,6 +277,7 @@ export class TeamDatabase {
 		const prefix_matches = targetable_sessions.filter((session) =>
 			session.session_id.startsWith(target),
 		);
+
 		if (prefix_matches.length <= 1) return prefix_matches;
 
 		throw new Error(
@@ -271,8 +328,10 @@ export class TeamDatabase {
 	): CoordinationArtifact {
 		if (!input.title.trim())
 			throw new Error('Artifact title is required');
+
 		if (!input.summary.trim())
 			throw new Error('Artifact summary is required');
+
 		if (!input.body.trim())
 			throw new Error('Artifact body is required');
 		const timestamp = now();
@@ -292,16 +351,18 @@ export class TeamDatabase {
 				json(input.metadata ?? {}),
 			),
 		);
+
 		return this.get_artifact(artifact_id)!;
 	}
 
 	get_artifact(
 		artifact_id: string,
 	): CoordinationArtifact | undefined {
-		const row = this.statements.get_artifact.get(artifact_id) as
-			| ArtifactRow
-			| undefined;
-		return row ? map_artifact(row) : undefined;
+		const row = this.statements.get_artifact.get(artifact_id);
+
+		return row
+			? map_artifact(v.parse(artifact_row_schema, row))
+			: undefined;
 	}
 
 	list_artifacts(
@@ -309,12 +370,12 @@ export class TeamDatabase {
 	): CoordinationArtifact[] {
 		const cwd = options.cwd ?? null;
 		const kind = options.kind ?? null;
-		const rows = this.statements.list_artifacts.all(
-			cwd,
-			cwd,
-			kind,
-			kind,
-		) as unknown as ArtifactRow[];
+
+		const rows = v.parse(
+			v.array(artifact_row_schema),
+			this.statements.list_artifacts.all(cwd, cwd, kind, kind),
+		);
+
 		return rows.map((row) => map_artifact(row));
 	}
 
@@ -324,13 +385,18 @@ export class TeamDatabase {
 	): CoordinationArtifact[] {
 		const pattern = `%${query.trim()}%`;
 		const cwd = options.cwd ?? null;
-		const rows = this.statements.search_artifacts.all(
-			cwd,
-			cwd,
-			pattern,
-			pattern,
-			pattern,
-		) as unknown as ArtifactRow[];
+
+		const rows = v.parse(
+			v.array(artifact_row_schema),
+			this.statements.search_artifacts.all(
+				cwd,
+				cwd,
+				pattern,
+				pattern,
+				pattern,
+			),
+		);
+
 		return rows.map((row) => map_artifact(row));
 	}
 
@@ -338,9 +404,10 @@ export class TeamDatabase {
 		name: string;
 		cwd?: string;
 		created_by_session_id?: string;
-		metadata?: Record<string, unknown>;
+		metadata?: JsonRecord;
 	}): CoordinationGroup {
 		const timestamp = now();
+
 		const group_id = `${input.name
 			.trim()
 			.toLowerCase()
@@ -348,6 +415,7 @@ export class TeamDatabase {
 				/[^a-z0-9_.-]+/g,
 				'-',
 			)}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+
 		this.write(() =>
 			this.statements.insert_group.run(
 				group_id,
@@ -359,6 +427,7 @@ export class TeamDatabase {
 				json(input.metadata ?? {}),
 			),
 		);
+
 		if (input.created_by_session_id) {
 			this.add_group_member({
 				group_id,
@@ -367,6 +436,7 @@ export class TeamDatabase {
 				role: 'lead',
 			});
 		}
+
 		return this.get_group(group_id)!;
 	}
 
@@ -374,20 +444,22 @@ export class TeamDatabase {
 		group_id_or_name: string,
 		options: { cwd?: string } = {},
 	): CoordinationGroup | undefined {
-		const exact = this.statements.get_group.get(group_id_or_name) as
-			| GroupRow
-			| undefined;
-		if (exact) return map_group(exact);
+		const exact = this.statements.get_group.get(group_id_or_name);
 
-		const rows = (options.cwd
-			? this.statements.find_groups_by_name_cwd.all(
-					group_id_or_name,
-					options.cwd,
-				)
-			: this.statements.find_groups_by_name.all(
-					group_id_or_name,
-				)) as unknown as GroupRow[];
+		if (exact) return map_group(v.parse(group_row_schema, exact));
+
+		const rows = v.parse(
+			v.array(group_row_schema),
+			options.cwd
+				? this.statements.find_groups_by_name_cwd.all(
+						group_id_or_name,
+						options.cwd,
+					)
+				: this.statements.find_groups_by_name.all(group_id_or_name),
+		);
+
 		if (rows.length === 0) return undefined;
+
 		if (rows.length === 1) return map_group(rows[0]!);
 		throw new Error(
 			`Ambiguous group target: ${group_id_or_name}. Matching groups: ${rows
@@ -397,9 +469,12 @@ export class TeamDatabase {
 	}
 
 	list_groups(): CoordinationGroup[] {
-		return (
-			this.statements.list_groups.all() as unknown as GroupRow[]
-		).map((row) => map_group(row));
+		return v
+			.parse(
+				v.array(group_row_schema),
+				this.statements.list_groups.all(),
+			)
+			.map((row) => map_group(row));
 	}
 
 	add_group_member(input: {
@@ -410,6 +485,7 @@ export class TeamDatabase {
 		status?: 'active' | 'inactive';
 	}): CoordinationGroupMember {
 		const group = this.get_group(input.group_id);
+
 		if (!group || group.closed_at)
 			throw new Error('Collaboration is closed or unknown');
 		const timestamp = now();
@@ -424,6 +500,7 @@ export class TeamDatabase {
 				timestamp,
 			),
 		);
+
 		return this.list_group_members(input.group_id).find(
 			(member) => member.session_id === input.session_id,
 		)!;
@@ -438,10 +515,12 @@ export class TeamDatabase {
 		const invited = this.list_group_members(group_id).find(
 			(member) => member.session_id === session_id,
 		);
+
 		if (!invited)
 			throw new Error(
 				'Ask the group owner for an invitation before joining',
 			);
+
 		return this.add_group_member({
 			group_id,
 			session_id,
@@ -455,39 +534,47 @@ export class TeamDatabase {
 		options: { cwd?: string } = {},
 	): CoordinationGroupMember[] {
 		const group = this.get_group(group_id_or_name, options);
+
 		if (!group) return [];
-		return (
-			this.statements.list_group_members.all(
-				group.group_id,
-			) as unknown as GroupMemberRow[]
-		).map((row) => map_group_member(row));
+
+		return v
+			.parse(
+				v.array(group_member_row_schema),
+				this.statements.list_group_members.all(group.group_id),
+			)
+			.map((row) => map_group_member(row));
 	}
 
 	list_group_memberships(
 		session_id: string,
 	): CoordinationGroupMembership[] {
-		return (
-			this.statements.list_group_memberships.all(
-				session_id,
-			) as unknown as GroupMembershipRow[]
-		).map((row) => ({
-			...map_group_member(row),
-			group_name: row.group_name,
-			group_cwd: optional(row.group_cwd),
-		}));
+		return v
+			.parse(
+				v.array(group_membership_row_schema),
+				this.statements.list_group_memberships.all(session_id),
+			)
+			.map((row) => ({
+				...map_group_member(row),
+				group_name: row.group_name,
+				group_cwd: optional(row.group_cwd),
+			}));
 	}
 
 	send_message(input: CoordinationMessageInput): CoordinationMessage {
 		if (!input.body.trim())
 			throw new Error('Message body is required');
+
 		const recipients = [...new Set(input.to_session_ids)].filter(
 			(session_id) => session_id !== input.from_session_id,
 		);
+
 		if (recipients.length === 0)
 			throw new Error('No message recipients');
 		const message_type = input.message_type ?? 'action';
+
 		if (!['action', 'status'].includes(message_type))
 			throw new Error('Invalid message_type');
+
 		if (
 			message_type === 'status' &&
 			(input.urgent || input.requires_ack)
@@ -495,6 +582,7 @@ export class TeamDatabase {
 			throw new Error(
 				'Status messages cannot be urgent or require acknowledgement',
 			);
+
 		if (
 			input.status_key !== undefined &&
 			(!input.status_key.trim() || message_type !== 'status')
@@ -502,11 +590,13 @@ export class TeamDatabase {
 			throw new Error(
 				'status_key requires a status message and a non-empty key',
 			);
+
 		if (
 			input.idempotency_key !== undefined &&
 			!input.idempotency_key.trim()
 		)
 			throw new Error('idempotency_key must not be empty');
+
 		const request_hash = createHash('sha256')
 			.update(
 				JSON.stringify([
@@ -524,28 +614,35 @@ export class TeamDatabase {
 				]),
 			)
 			.digest('hex');
+
 		const timestamp = now();
 		const message_id = `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+
 		const expires_at = input.ttl_ms
 			? new Date(Date.now() + input.ttl_ms).toISOString()
 			: null;
+
 		return this.transaction(() => {
 			if (input.idempotency_key !== undefined) {
-				const existing = this.db
-					.prepare(
-						'SELECT message_id, request_hash FROM messages WHERE from_session_id = ? AND idempotency_key = ?',
-					)
-					.get(input.from_session_id, input.idempotency_key) as
-					| { message_id: string; request_hash: string }
-					| undefined;
+				const existing = v.parse(
+					idempotent_message_row_schema,
+					this.db
+						.prepare(
+							'SELECT message_id, request_hash FROM messages WHERE from_session_id = ? AND idempotency_key = ?',
+						)
+						.get(input.from_session_id, input.idempotency_key),
+				);
+
 				if (existing) {
 					if (existing.request_hash !== request_hash)
 						throw new Error(
 							'idempotency_key was already used with a different message',
 						);
+
 					return this.list_message_by_id(existing.message_id)!;
 				}
 			}
+
 			this.statements.insert_message.run(
 				message_id,
 				input.from_session_id,
@@ -563,6 +660,7 @@ export class TeamDatabase {
 				input.idempotency_key ?? null,
 				request_hash,
 			);
+
 			for (const session_id of recipients) {
 				this.statements.insert_message_receipt.run(
 					message_id,
@@ -571,15 +669,23 @@ export class TeamDatabase {
 				);
 				const sender = this.get_session(input.from_session_id);
 				const recipient = this.get_session(session_id);
-				let owned_group: unknown;
+				let owned_group: string | undefined;
+
 				if (sender?.parent_session_id)
-					owned_group = sender.metadata.worker_group_id;
+					owned_group = metadata_text(
+						sender.metadata,
+						'worker_group_id',
+					);
 				else if (
 					recipient?.parent_session_id === input.from_session_id
 				)
-					owned_group = recipient.metadata.worker_group_id;
-				let delivery_group =
-					typeof owned_group === 'string' ? owned_group : undefined;
+					owned_group = metadata_text(
+						recipient.metadata,
+						'worker_group_id',
+					);
+
+				let delivery_group = owned_group;
+
 				if (input.scope === 'group') delivery_group = input.target;
 				this.delivery.enroll_receipt(
 					message_id,
@@ -588,6 +694,7 @@ export class TeamDatabase {
 					delivery_group,
 				);
 			}
+
 			this.insert_event({
 				type: 'message_sent',
 				session_id: input.from_session_id,
@@ -598,6 +705,7 @@ export class TeamDatabase {
 					recipients,
 				},
 			});
+
 			return this.list_message_by_id(message_id)!;
 		});
 	}
@@ -609,6 +717,7 @@ export class TeamDatabase {
 			input.target,
 			input.from_session_id,
 		);
+
 		if (targets.length === 0) {
 			const suggestions = this.list_sessions({
 				include_offline: true,
@@ -620,10 +729,12 @@ export class TeamDatabase {
 						session.session_alias?.includes(input.target),
 				)
 				.map((session) => session.session_id);
+
 			throw new Error(
 				`Unknown session target: ${input.target}${suggestions.length ? `. Matching sessions: ${suggestions.join(', ')}` : ''}`,
 			);
 		}
+
 		return this.send_message({
 			...input,
 			scope: 'session',
@@ -636,8 +747,11 @@ export class TeamDatabase {
 		options: { cwd?: string } = {},
 	): CoordinationMessage {
 		const group = this.get_group(input.target, options);
+
 		if (!group) throw new Error(`Unknown group: ${input.target}`);
+
 		if (group.closed_at) throw new Error('Collaboration is closed');
+
 		if (
 			!this.list_group_members(group.group_id).some(
 				(member) =>
@@ -648,9 +762,11 @@ export class TeamDatabase {
 			throw new Error(
 				'Join this collaboration before sending to the group',
 			);
+
 		const members = this.list_group_members(group.group_id).filter(
 			(member) => member.status === 'active',
 		);
+
 		return this.send_message({
 			...input,
 			target: group.group_id,
@@ -667,10 +783,13 @@ export class TeamDatabase {
 			undelivered_only?: boolean;
 		} = {},
 	): CoordinationInboxMessage[] {
-		const rows = this.statements.list_inbox.all(
-			session_id,
-		) as unknown as InboxRow[];
+		const rows = v.parse(
+			v.array(inbox_row_schema),
+			this.statements.list_inbox.all(session_id),
+		);
+
 		const timestamp = Date.now();
+
 		return rows
 			.map((row) => map_inbox(row))
 			.filter((message) => {
@@ -679,11 +798,15 @@ export class TeamDatabase {
 					Date.parse(message.expires_at) <= timestamp
 				)
 					return false;
+
 				if (options.undelivered_only && message.delivered_at)
 					return false;
+
 				if (!options.include_read && message.read_at) return false;
+
 				if (!options.include_acknowledged && message.acknowledged_at)
 					return false;
+
 				return true;
 			});
 	}
@@ -736,40 +859,54 @@ export class TeamDatabase {
 		const retention_ms =
 			options.retention_ms ??
 			DEFAULT_MANUAL_COORDINATION_RETENTION_MS;
+
 		if (!Number.isFinite(retention_ms) || retention_ms < 0)
 			throw new Error('Coordination retention must be non-negative');
 		const reference_time = options.reference_time ?? new Date();
+
 		if (Number.isNaN(reference_time.getTime()))
 			throw new Error(
 				'Coordination cleanup reference time is invalid',
 			);
 		const reference = reference_time.toISOString();
+
 		const cutoff = new Date(
 			reference_time.getTime() - retention_ms,
 		).toISOString();
+
 		const changes = (result: { changes: number | bigint }): number =>
 			Number(result.changes);
+
 		let cleanup_result: CoordinationCleanupResult | undefined;
 		this.transaction(() => {
-			const receipt_row = this.statements.count_prunable_receipts.get(
-				reference,
-				cutoff,
-			) as { count: number | bigint };
+			const receipt_row = v.parse(
+				prunable_receipt_count_schema,
+				this.statements.count_prunable_receipts.get(
+					reference,
+					cutoff,
+				),
+			);
+
 			const events = changes(
 				this.statements.prune_events.run(cutoff),
 			);
+
 			const messages = changes(
 				this.statements.prune_messages.run(reference, cutoff),
 			);
+
 			const artifacts = changes(
 				this.statements.prune_artifacts.run(cutoff),
 			);
+
 			const groups = changes(
 				this.statements.prune_groups.run(cutoff, cutoff),
 			);
+
 			const sessions = changes(
 				this.statements.prune_sessions.run(cutoff),
 			);
+
 			cleanup_result = {
 				cutoff,
 				artifacts,
@@ -780,6 +917,7 @@ export class TeamDatabase {
 				sessions,
 			};
 		});
+
 		return cleanup_result!;
 	}
 
@@ -788,7 +926,7 @@ export class TeamDatabase {
 		session_id?: string;
 		group_id?: string;
 		message_id?: string;
-		data?: Record<string, unknown>;
+		data?: JsonRecord;
 	}): void {
 		this.write(() =>
 			this.statements.insert_event.run(
@@ -807,8 +945,11 @@ export class TeamDatabase {
 		return get_user_version(this.db);
 	}
 
-	read_rows<T>(query: string): T[] {
-		return this.db.prepare(query).all() as T[];
+	read_rows<TSchema extends v.GenericSchema>(
+		query: string,
+		row_schema: TSchema,
+	): Array<v.InferOutput<TSchema>> {
+		return v.parse(v.array(row_schema), this.db.prepare(query).all());
 	}
 
 	close(): void {
@@ -844,21 +985,15 @@ export class TeamDatabase {
 	private list_message_by_id(
 		message_id: string,
 	): CoordinationMessage | undefined {
-		const row = this.db
-			.prepare('SELECT * FROM messages WHERE message_id = ?')
-			.get(message_id) as
-			| Omit<
-					InboxRow,
-					| 'to_session_id'
-					| 'delivered_at'
-					| 'read_at'
-					| 'acknowledged_at'
-					| 'receipt_created_at'
-					| 'from_agent_name'
-					| 'from_cwd'
-			  >
-			| undefined;
+		const row = v.parse(
+			message_row_schema,
+			this.db
+				.prepare('SELECT * FROM messages WHERE message_id = ?')
+				.get(message_id),
+		);
+
 		if (!row) return undefined;
+
 		return {
 			message_id: row.message_id,
 			from_session_id: row.from_session_id,
@@ -873,7 +1008,7 @@ export class TeamDatabase {
 			expires_at: optional(row.expires_at),
 			requires_ack: bool(row.requires_ack),
 			created_at: row.created_at,
-			metadata: parse_json(row.metadata_json, {}),
+			metadata: parse_json_record(row.metadata_json),
 		};
 	}
 }

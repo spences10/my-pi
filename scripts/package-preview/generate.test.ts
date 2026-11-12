@@ -26,6 +26,7 @@ function pixel_hash(png: Buffer): string {
 	const channels = pixels.length / count;
 	assert.ok(channels === 3 || channels === 4);
 	const rgba = Buffer.alloc(count * 4, 255);
+
 	for (let pixel = 0; pixel < count; pixel++) {
 		pixels.copy(
 			rgba,
@@ -34,6 +35,7 @@ function pixel_hash(png: Buffer): string {
 			(pixel + 1) * channels,
 		);
 	}
+
 	// Compare hashes, not multi-megabyte buffers: failed buffer assertions
 	// can exhaust memory while formatting their diff.
 	return createHash('sha256').update(rgba).digest('hex');
@@ -58,6 +60,7 @@ void test('renders a padded logo, configurable frame and minimal footer without 
 			rows: [{ left: '~/repos/{project}', right: '{model}' }],
 		},
 	});
+
 	assert.match(svg, /width="1188" height="536"/);
 	assert.match(svg, /data-preview-border="true"/);
 	assert.match(svg, /stroke="#ff00b4" stroke-width="1.5"/);
@@ -89,6 +92,7 @@ void test('rounded frames have transparent corners without a square background',
 	const { width, height } = image.metadataSync();
 	const pixels = image.rawPixelsSync();
 	assert.equal(pixels.length, width * height * 4);
+
 	for (const [x, y] of [
 		[0, 0],
 		[width - 1, 0],
@@ -103,6 +107,7 @@ void test('rounded frames have transparent corners without a square background',
 			`alpha at ${x},${y}`,
 		);
 	}
+
 	assert.equal(
 		pixels[
 			(Math.floor(height / 2) * width + Math.floor(width / 2)) * 4 + 3
@@ -131,6 +136,7 @@ void test('compression preserves pixels and reduces the rendered PNG size', (t) 
 	const dir = mkdtempSync(join(tmpdir(), 'my-pi-preview-'));
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
 	const output = join(dir, 'preview.png');
+
 	const original = new Resvg(render_preview_svg('0.6.0'))
 		.render()
 		.asPng();
@@ -172,6 +178,7 @@ void test('release and validation scripts retain preview generation and checks',
 			'utf8',
 		),
 	);
+
 	assert.equal(
 		scripts.version,
 		'changeset version && pnpm run preview:generate',
@@ -179,6 +186,7 @@ void test('release and validation scripts retain preview generation and checks',
 	assert.match(scripts.check, /pnpm run preview:check/);
 	assert.match(scripts.build, /pnpm run preview:check/);
 	assert.match(scripts.test, /pnpm run test:preview/);
+
 	for (const command of [
 		'preview:generate',
 		'preview:check',
@@ -198,6 +206,7 @@ void test('the committed preview matches the launcher version', () => {
 			'utf8',
 		),
 	);
+
 	assert.equal(
 		check_preview(
 			version,

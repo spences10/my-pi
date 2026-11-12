@@ -41,7 +41,8 @@
 	"dependencies": {
 		"@spences10/pi-settings": "workspace:*",
 		"svelte": "catalog:",
-		"typescript": "catalog:typescript6"
+		"typescript": "catalog:typescript6",
+		"valibot": "catalog:"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "catalog:",

@@ -2,14 +2,17 @@ import { spawn } from 'node:child_process';
 
 let buffer = '';
 let stubborn = false;
+
 type Command = {
 	type: string;
 	id?: string;
 	message?: string;
 	confirmed?: boolean;
 };
+
 const send = (value: object) =>
 	process.stdout.write(JSON.stringify(value) + '\n');
+
 const response = (command: Command, data: object = {}) =>
 	send({
 		type: 'response',
@@ -18,6 +21,7 @@ const response = (command: Command, data: object = {}) =>
 		success: true,
 		data,
 	});
+
 const complete = (text: string) => {
 	send({
 		type: 'message_end',
@@ -29,15 +33,21 @@ const complete = (text: string) => {
 	});
 	send({ type: 'agent_settled', aborted: false });
 };
+
 process.stdin.setEncoding('utf8');
+
 process.stdin.on('data', (data) => {
 	buffer += data;
 	let index;
+
 	while ((index = buffer.indexOf('\n')) >= 0) {
 		const command: Command = JSON.parse(buffer.slice(0, index));
 		buffer = buffer.slice(index + 1);
+
 		if (command.type === 'get_state') {
-			if (!process.argv.includes('--hang'))
+			if (process.argv.includes('--invalid-state'))
+				response(command, { sessionId: 123 });
+			else if (!process.argv.includes('--hang'))
 				response(command, {
 					sessionId: 'session-' + process.pid,
 					sessionFile: '/tmp/session-' + process.pid + '.jsonl',
@@ -52,14 +62,18 @@ process.stdin.on('data', (data) => {
 				});
 				continue;
 			}
+
 			if (command.message === 'handled') {
 				response(command, { disposition: 'handled' });
 				continue;
 			}
+
 			send({ type: 'agent_start' });
+
 			if (command.message === 'crash') {
 				process.exit(7);
 			}
+
 			if (command.message === 'identity') {
 				complete(
 					JSON.stringify({
@@ -71,16 +85,21 @@ process.stdin.on('data', (data) => {
 				response(command, { disposition: 'started' });
 				continue;
 			}
+
 			if (command.message === 'fast') {
 				complete('fast result');
 				response(command, { disposition: 'started' });
 				continue;
 			}
+
 			response(command, { disposition: 'started' });
+
 			if (command.message === 'wait') continue;
+
 			if (command.message === 'stubborn') {
 				stubborn = true;
 				process.on('SIGTERM', () => {});
+
 				const descendant = spawn(
 					process.execPath,
 					[
@@ -89,9 +108,11 @@ process.stdin.on('data', (data) => {
 					],
 					{ stdio: ['ignore', 'inherit', 'inherit'] },
 				);
+
 				complete(String(descendant.pid));
 				continue;
 			}
+
 			if (command.message === 'approval') {
 				send({
 					type: 'extension_ui_request',
@@ -112,6 +133,7 @@ process.stdin.on('data', (data) => {
 		} else response(command);
 	}
 });
+
 process.stdin.on('end', () => {
 	if (!stubborn) process.exit(0);
 });

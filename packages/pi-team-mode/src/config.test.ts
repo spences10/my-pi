@@ -13,6 +13,7 @@ afterEach(() => {
 	if (original_auto_inject === undefined)
 		delete process.env[AUTO_INJECT_ENV];
 	else process.env[AUTO_INJECT_ENV] = original_auto_inject;
+
 	if (original_db_path === undefined)
 		delete process.env[COORDINATION_DB_ENV];
 	else process.env[COORDINATION_DB_ENV] = original_db_path;

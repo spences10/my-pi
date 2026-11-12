@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { capture_tool, tool_text } from '../../test/tool-fixtures.js';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,38 +12,24 @@ import { register_context_export_tool } from './export.js';
 const dirs: string[] = [];
 const original_context_db = process.env.MY_PI_CONTEXT_DB;
 
-type RegisteredTool = {
-	name: string;
-	description: string;
-	promptSnippet: string;
-	parameters: { properties: Record<string, { description: string }> };
-	execute: (...args: unknown[]) => Promise<{
-		content: Array<{ text: string }>;
-		details: { count?: number; [key: string]: unknown };
-	}>;
-};
-
 function temp_dir(prefix: string): string {
 	const dir = mkdtempSync(join(tmpdir(), prefix));
 	dirs.push(dir);
+
 	return dir;
 }
 
-function register_tool(): RegisteredTool {
-	let tool: RegisteredTool | undefined;
-	register_context_export_tool({
-		registerTool(value: RegisteredTool) {
-			tool = value;
-		},
-	} as unknown as ExtensionAPI);
-	return tool!;
+function register_tool() {
+	return capture_tool(register_context_export_tool);
 }
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+
 	if (original_context_db === undefined)
 		delete process.env.MY_PI_CONTEXT_DB;
 	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs.length = 0;
@@ -56,23 +42,32 @@ describe('context_export tool', () => {
 		set_context_sidecar_enabled(true, {
 			db_path: process.env.MY_PI_CONTEXT_DB,
 		});
+
 		const stored = get_context_store().store({
 			text: `export-token\n${'x '.repeat(400)}`,
 			tool_name: 'bash',
 			force: true,
 		});
+
 		const output = join(
 			temp_dir('pi-context-export-out-'),
 			'export.txt',
 		);
+
 		const tool = register_tool();
 
 		expect(tool.description).toContain('broad/full JSON/log/script');
 		expect(tool.description).toContain('full source offline');
 		expect(tool.promptSnippet).toContain('offline rg/jq/Python');
-		expect(tool.parameters.properties.chunk_id.description).toContain(
-			'full source for offline processing',
-		);
+		expect(tool.parameters).toMatchObject({
+			properties: {
+				chunk_id: {
+					description: expect.stringContaining(
+						'full source for offline processing',
+					),
+				},
+			},
+		});
 
 		const result = await tool.execute('call', {
 			source_id: stored!.source_id,
@@ -80,8 +75,8 @@ describe('context_export tool', () => {
 			global: true,
 		});
 
-		expect(result.content[0].text).toContain('Exported 1 chunk(s)');
-		expect(result.content[0].text).not.toContain('export-token');
+		expect(tool_text(result)).toContain('Exported 1 chunk(s)');
+		expect(tool_text(result)).not.toContain('export-token');
 		expect(readFileSync(output, 'utf8')).toContain('export-token');
 		expect(result.details).toMatchObject({
 			count: 1,
@@ -104,7 +99,7 @@ describe('context_export tool', () => {
 			global: true,
 		});
 
-		expect(result.content[0].text).toContain(
+		expect(tool_text(result)).toContain(
 			'Source ctx_missing was not found',
 		);
 		expect(result.details).toMatchObject({

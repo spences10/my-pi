@@ -11,6 +11,7 @@
 		turns.map((turn, index) => {
 			const provider = turn.provider_ms ?? 0;
 			const tool = turn.tool_ms ?? 0;
+
 			return {
 				turn: String(index + 1),
 				provider,

@@ -44,22 +44,28 @@
 	} = $props();
 
 	let failures_only = $state(false);
+
 	// A bulk choice also applies to prompts arriving after the click.
 	let all_open = $state<boolean | null>(null);
+
 	// Runs the reader opened or closed; others use default_open.
 	const run_overrides = new SvelteMap<string, boolean>();
+
 	// The span the page opened on, e.g. from the failures list. Its row
 	// scrolls into view once, when it first renders.
 	const arrival_id = untrack(() => selected_id);
 
 	const runs = $derived(timeline.runs.toReversed());
 	const failures = $derived(failed_spans(runs));
+
 	const selected = $derived(
 		selected_id ? find_span(runs, selected_id) : null,
 	);
+
 	const selected_run_id = $derived(
 		selected_id ? (run_of(runs, selected_id)?.id ?? null) : null,
 	);
+
 	const visible_runs = $derived(
 		failures_only ? runs.filter(contains_failure) : runs,
 	);
@@ -93,11 +99,14 @@
 
 	async function next_failure(): Promise<void> {
 		if (failures.length === 0) return;
+
 		const current = failures.findIndex(
 			(span) => span.id === selected_id,
 		);
+
 		const next = failures[(current + 1) % failures.length]!;
 		const run = run_of(runs, next.id);
+
 		if (run) run_overrides.set(run.id, true);
 		on_select(next.id);
 		await tick();

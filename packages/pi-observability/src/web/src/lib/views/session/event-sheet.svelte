@@ -17,6 +17,7 @@
 	const json = $derived(
 		event ? JSON.stringify(event.payload, null, 2) : '',
 	);
+
 	const summary = $derived(event ? event_summary(event) : '');
 </script>
 

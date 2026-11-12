@@ -42,6 +42,7 @@ export function should_inject_recall_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
 ): boolean {
 	const selected_tools = event.systemPromptOptions?.selectedTools;
+
 	return !selected_tools || selected_tools.includes('bash');
 }
 
@@ -61,6 +62,7 @@ function sync_recall_db(
 
 		if (!options.wait) {
 			proc.unref();
+
 			return;
 		}
 

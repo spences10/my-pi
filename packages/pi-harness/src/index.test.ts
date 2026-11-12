@@ -48,6 +48,7 @@ async function run_check(command: string, cwd: string) {
 		cwd,
 		encoding: 'utf8',
 	});
+
 	return {
 		passed: result.status === 0,
 		output: result.stdout + result.stderr,
@@ -58,8 +59,10 @@ function temp_project(): string {
 	const path = mkdtempSync(
 		join(tmpdir(), 'pi-harness-test-project-'),
 	);
+
 	cleanup_paths.push(path);
 	execFileSync('git', ['-C', path, 'init'], { stdio: 'ignore' });
+
 	return path;
 }
 
@@ -72,6 +75,7 @@ afterEach(() => {
 describe('create_harness_runtime', () => {
 	it('creates a /tmp runtime with contract, prompts, scripts, and status', () => {
 		const cwd = temp_project();
+
 		const { harness_dir, contract } = create_harness_runtime(
 			{
 				task: 'Add harness tests',
@@ -82,6 +86,7 @@ describe('create_harness_runtime', () => {
 			},
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 
 		expect(harness_dir).toContain('my-pi-harness-harness-tests');
@@ -123,12 +128,15 @@ describe('create_harness_runtime', () => {
 
 	it('amends only the inner scaffold and records version history', () => {
 		const cwd = temp_project();
+
 		const { harness_dir, contract: original } =
 			create_harness_runtime(
 				{ task: 'Initial task', forbidden_paths: ['.git/**'] },
 				cwd,
 			);
+
 		cleanup_paths.push(harness_dir);
+
 		const amended = amend_harness_runtime({
 			harness_dir,
 			reason: 'User requested test coverage',
@@ -136,6 +144,7 @@ describe('create_harness_runtime', () => {
 			allowed_paths: ['src/**', 'tests/**'],
 			allow_test_changes: true,
 		});
+
 		expect(amended.scaffold.version).toBe(2);
 		expect(amended.scaffold.allow_test_changes).toBe(true);
 		expect(amended.policy).toEqual(original.policy);
@@ -155,10 +164,12 @@ describe('create_harness_runtime', () => {
 
 	it('rejects an empty scaffold amendment', () => {
 		const cwd = temp_project();
+
 		const { harness_dir } = create_harness_runtime(
 			{ task: 'Task' },
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 		expect(() =>
 			amend_harness_runtime({
@@ -170,10 +181,12 @@ describe('create_harness_runtime', () => {
 
 	it('updates status and appends notes without treating them as executed checks', async () => {
 		const cwd = temp_project();
+
 		const { harness_dir } = create_harness_runtime(
 			{ task: 'Update status' },
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 
 		const status_file = await update_harness_runtime({
@@ -195,9 +208,11 @@ describe('create_harness_runtime', () => {
 		expect(status_file.log.at(-1)?.team_status).toBe(
 			'executor completed task #1',
 		);
+
 		const outcome = JSON.parse(
 			readFileSync(join(harness_dir, 'outcome.json'), 'utf8'),
 		);
+
 		expect(outcome.changed_files).toContain('src/index.ts');
 		expect(outcome.validation.evidence.at(-1).evidence).toBe(
 			'tests passed',
@@ -213,10 +228,12 @@ describe('create_harness_runtime', () => {
 
 	it('keeps completed runs sealed for the remainder of the current turn', async () => {
 		const cwd = temp_project();
+
 		const { harness_dir } = create_harness_runtime(
 			{ task: 'Complete guarded work' },
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 		await update_harness_runtime(
 			{ harness_dir, status: 'completed' },
@@ -241,7 +258,9 @@ describe('optional assessment', () => {
 			'Investigate adapters',
 			'user',
 		);
+
 		expect(assessment_active(state)).toBe(true);
+
 		const submitted = submit_assessment_record(state, {
 			task: state.task,
 			evidence: ['Existing adapter'],
@@ -250,6 +269,7 @@ describe('optional assessment', () => {
 			smallest_vertical_slice: 'One adapter',
 			recommendation: 'direct',
 		});
+
 		expect(submitted.status).toBe('assessed');
 		expect(assessment_active(submitted)).toBe(false);
 		expect(format_assessment_record(submitted)).toContain('Pi tools');
@@ -259,6 +279,7 @@ describe('optional assessment', () => {
 describe('harness enforcement helpers', () => {
 	it('allows edits inside relative and absolute allowed paths', () => {
 		const cwd = temp_project();
+
 		const { contract, harness_dir } = create_harness_runtime(
 			{
 				task: 'Allowed path',
@@ -266,6 +287,7 @@ describe('harness enforcement helpers', () => {
 			},
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 
 		expect(check_path_allowed(contract, 'src/index.ts')).toEqual({
@@ -278,6 +300,7 @@ describe('harness enforcement helpers', () => {
 
 	it('blocks edits outside scope and honors explicit test restrictions', () => {
 		const cwd = temp_project();
+
 		const { contract, harness_dir } = create_harness_runtime(
 			{
 				task: 'Blocked path',
@@ -286,6 +309,7 @@ describe('harness enforcement helpers', () => {
 			},
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 
 		expect(check_path_allowed(contract, 'README.md')).toMatchObject({
@@ -300,6 +324,7 @@ describe('harness enforcement helpers', () => {
 
 	it('blocks forbidden commands', () => {
 		const cwd = temp_project();
+
 		const { contract, harness_dir } = create_harness_runtime(
 			{
 				task: 'Blocked command',
@@ -307,6 +332,7 @@ describe('harness enforcement helpers', () => {
 			},
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 
 		expect(
@@ -317,6 +343,7 @@ describe('harness enforcement helpers', () => {
 	it('generates a guard that accepts allowed drift and rejects out-of-contract drift', () => {
 		const cwd = temp_project();
 		execFileSync('git', ['-C', cwd, 'init'], { stdio: 'ignore' });
+
 		const { harness_dir } = create_harness_runtime(
 			{
 				task: 'Guard drift',
@@ -324,6 +351,7 @@ describe('harness enforcement helpers', () => {
 			},
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 
 		mkdirSync(join(cwd, 'src'), { recursive: true });
@@ -369,14 +397,17 @@ describe('harness enforcement helpers', () => {
 			},
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 
 		expect(() =>
 			execFileSync('node', [join(harness_dir, 'guard.mjs')]),
 		).not.toThrow();
+
 		const outcome = JSON.parse(
 			readFileSync(join(harness_dir, 'outcome.json'), 'utf8'),
 		);
+
 		expect(outcome.baseline_changed_files).toContain('README.md');
 		expect(outcome.changed_files).not.toContain('README.md');
 	});
@@ -402,6 +433,7 @@ describe('harness enforcement helpers', () => {
 			},
 		);
 		cleanup_paths.push(worktree);
+
 		const { harness_dir } = create_harness_runtime(
 			{
 				task: 'Worktree execution',
@@ -409,6 +441,7 @@ describe('harness enforcement helpers', () => {
 			},
 			cwd,
 		);
+
 		cleanup_paths.push(harness_dir);
 
 		writeFileSync(
@@ -420,9 +453,11 @@ describe('harness enforcement helpers', () => {
 				cwd: worktree,
 			}),
 		).not.toThrow();
+
 		const outcome = JSON.parse(
 			readFileSync(join(harness_dir, 'outcome.json'), 'utf8'),
 		);
+
 		expect(outcome.execution_cwd).toBe(worktree);
 		expect(outcome.changed_files).toContain('src/index.ts');
 	});
@@ -456,7 +491,7 @@ describe('harness guidance', () => {
 			expect(
 				should_inject_harness_prompt({
 					systemPromptOptions: { selectedTools: selected_tools },
-				} as Parameters<typeof should_inject_harness_prompt>[0]),
+				}),
 			).toBe(expected);
 		},
 	);

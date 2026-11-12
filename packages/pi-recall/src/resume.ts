@@ -16,6 +16,7 @@ import {
 const PAGE_SIZE = 50;
 const MAX_VISIBLE = 12;
 const SEARCH_DEBOUNCE_MS = 120;
+
 const REQUIRED_CAPABILITIES = [
 	'archive-preserving-source-liveness',
 	'cwd-scope',
@@ -43,19 +44,26 @@ export function supports_resumable_contract(result: {
 function relative_age(timestamp: string, now = Date.now()): string {
 	const elapsed = Math.max(0, now - new Date(timestamp).getTime());
 	const minutes = Math.floor(elapsed / 60_000);
+
 	if (minutes < 1) return 'now';
+
 	if (minutes < 60) return `${minutes}m`;
 	const hours = Math.floor(minutes / 60);
+
 	if (hours < 24) return `${hours}h`;
 	const days = Math.floor(hours / 24);
+
 	if (days < 30) return `${days}d`;
+
 	return `${Math.floor(days / 30)}mo`;
 }
 
 function compact_title(session: ResumableSession): string {
 	const raw_title =
 		session.name?.trim() || session.first_message || session.id;
+
 	const title = raw_title.replace(/\s+/g, ' ').trim();
+
 	return title.length > 100 ? `${title.slice(0, 97)}…` : title;
 }
 
@@ -64,9 +72,11 @@ export function format_resumable_session(
 	index: number,
 ): string {
 	const date = new Date(session.modified_at);
+
 	const modified = Number.isNaN(date.getTime())
 		? session.modified_at
 		: date.toLocaleString();
+
 	return `${index + 1}. ${compact_title(session)} · ${modified} · ${session.cwd || session.path}`;
 }
 
@@ -125,6 +135,7 @@ async function show_recall_resume_picker(
 				loading = true;
 				status = append ? 'Loading more…' : 'Searching…';
 				tui.requestRender();
+
 				try {
 					const result = await list_resumable_sessions({
 						scope,
@@ -133,13 +144,17 @@ async function show_recall_resume_picker(
 						limit: PAGE_SIZE,
 						offset: append ? sessions.length : 0,
 					});
+
 					if (sequence !== request_sequence) return;
+
 					if (!supports_resumable_contract(result)) {
 						finish({
 							error: 'Pirecall has an incompatible resumable API.',
 						});
+
 						return;
 					}
+
 					sessions = append
 						? [...sessions, ...result.sessions]
 						: result.sessions;
@@ -148,6 +163,7 @@ async function show_recall_resume_picker(
 						Math.max(0, sessions.length - 1),
 					);
 					has_more = result.sessions.length === PAGE_SIZE;
+
 					if (sessions.length)
 						status = `${sessions.length}${has_more ? '+' : ''} live sessions`;
 					else status = 'No matching live sessions';
@@ -171,12 +187,15 @@ async function show_recall_resume_picker(
 			};
 
 			void load();
+
 			return {
 				render: (width: number) => {
 					const scope_label =
 						scope === 'project' ? 'Current Folder' : 'All Sessions';
+
 					const heading = 'Resume with Recall';
 					const scope_status = `● ${scope_label} · ${sessions.length}${has_more ? '+' : ''} live`;
+
 					const heading_gap = ' '.repeat(
 						Math.max(
 							1,
@@ -185,6 +204,7 @@ async function show_recall_resume_picker(
 								visibleWidth(scope_status),
 						),
 					);
+
 					const lines = [
 						`${theme.fg('accent', theme.bold(heading))}${heading_gap}${theme.fg('accent', scope_status)}`,
 						theme.fg(
@@ -195,24 +215,30 @@ async function show_recall_resume_picker(
 						...search_input.render(width),
 						'',
 					];
+
 					const start = Math.max(
 						0,
 						selected_index - Math.floor(MAX_VISIBLE / 2),
 					);
+
 					const visible = sessions.slice(start, start + MAX_VISIBLE);
+
 					for (const [offset, session] of visible.entries()) {
 						const index = start + offset;
 						const selected = index === selected_index;
 						const prefix = `${selected ? '›' : ' '} ${session.parent_session_path ? '↳ ' : ''}`;
 						const right = `${session.message_count}  ${relative_age(session.modified_at)}`;
+
 						const available = Math.max(
 							8,
 							width - visibleWidth(prefix) - visibleWidth(right) - 1,
 						);
+
 						const title = truncateToWidth(
 							compact_title(session),
 							available,
 						);
+
 						const gap = ' '.repeat(
 							Math.max(
 								1,
@@ -222,12 +248,14 @@ async function show_recall_resume_picker(
 									visibleWidth(right),
 							),
 						);
+
 						const title_color = session.name ? 'accent' : 'text';
 						const line = `${prefix}${theme.fg(title_color, title)}${gap}${theme.fg('dim', right)}`;
 						lines.push(
 							selected ? theme.bg('selectedBg', line) : line,
 						);
 					}
+
 					if (visible.length === 0)
 						lines.push(theme.fg('dim', status));
 					const selected = sessions[selected_index];
@@ -235,16 +263,19 @@ async function show_recall_resume_picker(
 						'',
 						theme.fg('dim', loading ? 'Working…' : status),
 					);
+
 					if (selected) {
 						const prompt = selected.first_message
 							.replace(/\s+/g, ' ')
 							.trim();
+
 						lines.push(
 							theme.fg(
 								'muted',
 								truncateToWidth(`Prompt: ${prompt}`, width),
 							),
 						);
+
 						if (show_path) {
 							lines.push(
 								theme.fg(
@@ -254,6 +285,7 @@ async function show_recall_resume_picker(
 							);
 						}
 					}
+
 					return lines;
 				},
 				invalidate: () => search_input.invalidate(),
@@ -265,6 +297,7 @@ async function show_recall_resume_picker(
 							Math.max(0, sessions.length - 1),
 							selected_index + 1,
 						);
+
 						if (
 							has_more &&
 							!loading &&
@@ -285,11 +318,13 @@ async function show_recall_resume_picker(
 							Math.max(0, sessions.length - 1),
 							selected_index + MAX_VISIBLE,
 						);
+
 						if (has_more && !loading) void load(true);
 					} else if (
 						matches(keybindings, data, 'tui.select.confirm')
 					) {
 						const selected = sessions[selected_index];
+
 						if (selected) finish({ path: selected.path });
 					} else if (
 						matches(keybindings, data, 'tui.select.cancel')
@@ -307,6 +342,7 @@ async function show_recall_resume_picker(
 						search_input.handleInput(data);
 						schedule_search();
 					}
+
 					tui.requestRender();
 				},
 			};
@@ -323,6 +359,7 @@ export async function run_recall_resume(
 			ctx,
 			'The recall picker requires interactive mode.',
 		);
+
 		return;
 	}
 
@@ -330,19 +367,26 @@ export async function run_recall_resume(
 		initial_query.trim(),
 		ctx,
 	);
+
 	if (!result) return;
+
 	if (result.error) {
 		show_native_fallback(ctx, result.error);
+
 		return;
 	}
+
 	if (!result.path) return;
+
 	if (!existsSync(result.path)) {
 		ctx.ui.notify(
 			'That session file is no longer available. Refreshing pirecall; use /resume if it persists.',
 			'warning',
 		);
+
 		return;
 	}
+
 	await ctx.switchSession(result.path);
 }
 

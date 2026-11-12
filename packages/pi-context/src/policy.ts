@@ -12,14 +12,17 @@ export function parse_context_retention_policy(
 ): ContextRetentionPolicy {
 	const saved = load_context_settings_config();
 	const fallback = saved ?? DEFAULT_CONTEXT_SETTINGS;
+
 	const retention_days = parse_optional_positive_number(
 		env.MY_PI_CONTEXT_RETENTION_DAYS,
 		fallback.retention_days,
 	);
+
 	const max_mb = parse_optional_positive_number(
 		env.MY_PI_CONTEXT_MAX_MB,
 		fallback.max_mb,
 	);
+
 	return {
 		retention_days,
 		purge_on_shutdown:
@@ -36,6 +39,7 @@ function parse_optional_positive_number(
 ): number | null {
 	if (value === undefined || value.trim() === '') return fallback;
 	const normalized = value.trim().toLowerCase();
+
 	if (
 		normalized === '0' ||
 		normalized === 'off' ||
@@ -45,6 +49,7 @@ function parse_optional_positive_number(
 	)
 		return null;
 	const parsed = Number(normalized);
+
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
@@ -53,7 +58,10 @@ function parse_boolean_env(
 ): boolean | undefined {
 	if (value === undefined || value.trim() === '') return undefined;
 	const normalized = value.trim().toLowerCase();
+
 	if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+
 	if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+
 	return undefined;
 }

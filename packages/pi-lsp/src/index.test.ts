@@ -7,6 +7,7 @@ import {
 describe('lsp extension wiring', () => {
 	it('registers the LSP tools and /lsp command', async () => {
 		const client = create_mock_client();
+
 		const { tools, commands, events } =
 			await create_test_lsp_extension({
 				create_client: () => client,
@@ -23,12 +24,15 @@ describe('lsp extension wiring', () => {
 			'lsp_hover',
 			'lsp_references',
 		]);
+
 		for (const tool of tools.values()) {
 			expect(tool).toMatchObject({ exposure: 'codemode' });
 		}
+
 		const constrained_tools = Array.from(tools.values()).filter(
 			(tool) => tool.constrainedSampling !== undefined,
 		);
+
 		expect(constrained_tools.map((tool) => tool.name)).toEqual([
 			'lsp_hover',
 			'lsp_definition',

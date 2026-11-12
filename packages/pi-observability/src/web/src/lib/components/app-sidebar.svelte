@@ -31,6 +31,7 @@
 
 	const sessions = $derived.by(() => {
 		const needle = filter.trim().toLowerCase();
+
 		return recent_sessions.list
 			.filter(
 				(session) =>

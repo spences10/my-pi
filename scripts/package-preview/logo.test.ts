@@ -12,26 +12,35 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import * as v from 'valibot';
 
 void test('the published logo entrypoint works with only the compiled logo artifacts', (t) => {
 	const dir = mkdtempSync(join(tmpdir(), 'my-pi-logo-'));
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
+
 	const source = fileURLToPath(
 		new URL('../../packages/my-pi/', import.meta.url),
 	);
+
 	const target = join(dir, 'node_modules', 'my-pi');
 	mkdirSync(join(target, 'dist'), { recursive: true });
-	const manifest = JSON.parse(
-		readFileSync(join(source, 'package.json'), 'utf8'),
-	) as { files: string[] };
+
+	const manifest = v.parse(
+		v.object({ files: v.array(v.string()) }),
+		JSON.parse(readFileSync(join(source, 'package.json'), 'utf8')),
+	);
+
 	assert.ok(manifest.files.includes('dist'));
+
 	for (const file of ['dist/logo.js', 'dist/logo.d.ts']) {
 		copyFileSync(join(source, file), join(target, file));
 	}
+
 	copyFileSync(
 		join(source, 'package.json'),
 		join(target, 'package.json'),
 	);
+
 	const result = spawnSync(
 		process.execPath,
 		[
@@ -42,6 +51,7 @@ void test('the published logo entrypoint works with only the compiled logo artif
 		],
 		{ cwd: dir, encoding: 'utf8' },
 	);
+
 	assert.equal(result.status, 0, result.stderr);
 	assert.deepEqual(JSON.parse(result.stdout), {
 		lines: logo_lines,

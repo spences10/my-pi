@@ -7,6 +7,7 @@ import {
 	derive_event_columns,
 	event_column_values,
 } from './event-columns.js';
+import type { JsonValue } from './json.js';
 import {
 	create_stats_queries,
 	parse_since,
@@ -21,7 +22,7 @@ afterEach(() => {
 	dirs.length = 0;
 });
 
-type Fixture = [string, string, Record<string, unknown>];
+type Fixture = [string, string, JsonValue];
 
 // Noon UTC keeps the local calendar day equal to the UTC day for
 // time zones within ±11 hours.
@@ -122,6 +123,7 @@ function setup() {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-observability-stats-'));
 	dirs.push(dir);
 	const { db, statements } = prepare_db(join(dir, 'events.db'));
+
 	const insert = (session_id: string, fixtures: Fixture[]) => {
 		fixtures.forEach(([ts, type, payload], seq) => {
 			statements.insert_event.run(
@@ -152,8 +154,10 @@ function setup() {
 			);
 		});
 	};
+
 	insert('s1', SESSION_1);
 	insert('s2', SESSION_2);
+
 	return { db, stats: create_stats_queries(db) };
 }
 
@@ -180,6 +184,7 @@ describe('percentile', () => {
 describe('create_stats_queries', () => {
 	it('totals events and provider latency across all sessions', () => {
 		const { db, stats } = setup();
+
 		try {
 			expect(stats.totals(null)).toEqual({
 				sessions: 2,
@@ -201,6 +206,7 @@ describe('create_stats_queries', () => {
 
 	it('returns null provider latency when no message has a duration', () => {
 		const { db, stats } = setup();
+
 		try {
 			expect(stats.totals('2030-01-01T00:00:00.000Z')).toMatchObject({
 				sessions: 0,
@@ -216,6 +222,7 @@ describe('create_stats_queries', () => {
 
 	it('groups daily rows by local day in ascending order', () => {
 		const { db, stats } = setup();
+
 		try {
 			expect(stats.daily(null)).toEqual([
 				expect.objectContaining({
@@ -241,6 +248,7 @@ describe('create_stats_queries', () => {
 
 	it('computes tool percentiles and filters by since', () => {
 		const { db, stats } = setup();
+
 		try {
 			expect(stats.tool_stats(null)).toEqual([
 				{
@@ -274,6 +282,7 @@ describe('create_stats_queries', () => {
 
 	it('aggregates sessions newest first with a limit', () => {
 		const { db, stats } = setup();
+
 		try {
 			const sessions = stats.session_stats(null, 10);
 			expect(sessions.map((row) => row.session_id)).toEqual([
@@ -304,6 +313,7 @@ describe('create_stats_queries', () => {
 
 	it('returns turn and tool spans for one session', () => {
 		const { db, stats } = setup();
+
 		try {
 			const spans = stats.session_spans('s1');
 			expect(spans.turns).toEqual([
@@ -342,6 +352,7 @@ describe('create_stats_queries', () => {
 
 	it('exposes interrupted turns without duplicating the resumed turn in the API', () => {
 		const { db, stats } = setup();
+
 		try {
 			db.exec(`
 				INSERT INTO events (event_id, session_id, seq, ts, type, payload_json, input_tokens, duration_ms) VALUES
@@ -382,6 +393,7 @@ describe('create_stats_queries', () => {
 
 	it('combines everything in the overview', () => {
 		const { db, stats } = setup();
+
 		try {
 			const overview = stats.overview(null, 1);
 			expect(overview.since).toBeNull();
@@ -399,6 +411,7 @@ describe('create_stats_queries', () => {
 
 	it('lists tool and model failures newest first', () => {
 		const { db, stats } = setup();
+
 		try {
 			db.prepare(
 				`INSERT INTO events (event_id, session_id, seq, ts, type, payload_json, model, stop_reason, error_text)

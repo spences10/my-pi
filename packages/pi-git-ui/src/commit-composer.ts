@@ -40,6 +40,7 @@ export class CommitComposer implements Focusable {
 
 	render(width: number): string[] {
 		if (this.step === 'type') return this.render_type_picker(width);
+
 		return this.render_summary(width);
 	}
 
@@ -47,21 +48,28 @@ export class CommitComposer implements Focusable {
 		if (this.step === 'type') {
 			if (data === '\x1B' || data === 'q') {
 				this.on_cancel();
+
 				return;
 			}
+
 			if (data === 'n') {
 				this.conventional = false;
 				this.step = 'summary';
+
 				return;
 			}
+
 			const match = TYPES.find((type) => type.key === data);
+
 			if (match) {
 				this.selected_type = match.type;
 				this.conventional = true;
 				this.step = 'summary';
 			}
+
 			return;
 		}
+
 		this.input.handleInput(data);
 	}
 
@@ -81,16 +89,19 @@ export class CommitComposer implements Focusable {
 			'',
 			'Choose commit format:',
 		];
+
 		for (const item of TYPES) {
 			lines.push(
 				`  ${this.theme.fg('accent', item.key)}  ${item.type.padEnd(8)} ${this.theme.fg('dim', item.label)}`,
 			);
 		}
+
 		lines.push(
 			`  ${this.theme.fg('accent', 'n')}  raw      ${this.theme.fg('dim', 'plain git commit message')}`,
 			'',
 			this.theme.fg('dim', 'esc/q cancel'),
 		);
+
 		return lines.flatMap((line) =>
 			new Text(line, 0, 0).render(width),
 		);
@@ -98,6 +109,7 @@ export class CommitComposer implements Focusable {
 
 	private render_summary(width: number): string[] {
 		const preview = this.build_message(this.input.getValue().trim());
+
 		const lines = [
 			this.theme.bold(
 				this.amend ? 'Amend message' : 'Commit message',
@@ -122,18 +134,22 @@ export class CommitComposer implements Focusable {
 					: 'enter commit • esc cancel',
 			),
 		];
+
 		return lines;
 	}
 
 	private submit(summary: string): void {
 		const message = this.build_message(summary.trim());
+
 		if (!message) return;
 		this.on_commit(message);
 	}
 
 	private build_message(summary: string): string {
 		if (!summary) return '';
+
 		if (!this.conventional) return summary;
+
 		return `${this.selected_type}(git-ui): ${summary}`;
 	}
 }

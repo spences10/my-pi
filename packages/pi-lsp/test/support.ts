@@ -1,7 +1,9 @@
-import type {
-	ExtensionAPI,
-	ExtensionCommandContext,
-} from '@earendil-works/pi-coding-agent';
+import {
+	make_api,
+	make_command_context,
+	make_custom_ui,
+} from '../../../tools/test-sdk.js';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { rmSync } from 'node:fs';
 import { afterEach, vi } from 'vite-plus/test';
 import {
@@ -32,8 +34,10 @@ export function create_mock_client(
 class RequiredMap<K, V> extends Map<K, V> {
 	override get(key: K): V {
 		const value = super.get(key);
+
 		if (value === undefined)
 			throw new Error(`Missing test key: ${String(key)}`);
+
 		return value;
 	}
 }
@@ -48,25 +52,27 @@ export function create_test_pi() {
 			parameters: { additionalProperties?: boolean };
 		}
 	>();
+
 	const commands = new RequiredMap<string, { handler: Function }>();
 	const events = new RequiredMap<string, Function>();
 
-	const pi = {
-		registerTool(definition: {
-			name: string;
-			execute: Function;
-			constrainedSampling?: unknown;
-			parameters: { additionalProperties?: boolean };
-		}) {
-			tools.set(definition.name, definition);
-		},
-		registerCommand(name: string, definition: { handler: Function }) {
-			commands.set(name, definition);
-		},
+	const pi = make_api({
 		on(name: string, handler: Function) {
 			events.set(name, handler);
+
+			return () => events.delete(name);
 		},
-	} as unknown as ExtensionAPI;
+	});
+
+	vi.spyOn(pi, 'registerTool').mockImplementation((definition) => {
+		tools.set(definition.name, definition);
+	});
+
+	vi.spyOn(pi, 'registerCommand').mockImplementation(
+		(name, definition) => {
+			commands.set(name, definition);
+		},
+	);
 
 	return { pi, tools, commands, events };
 }
@@ -83,6 +89,7 @@ export async function create_test_lsp_extension(
 ) {
 	const test_pi = create_test_pi();
 	await register_test_lsp_extension(test_pi.pi, options);
+
 	return test_pi;
 }
 
@@ -94,12 +101,12 @@ afterEach(() => {
 	}
 });
 
-export function create_command_context(
-	modal_results: unknown[] = [],
-) {
+export function create_command_context(modal_steps: string[][] = []) {
 	const notifications: Array<{ message: string; level?: string }> =
 		[];
+
 	const selections: string[] = [];
+
 	const select = vi.fn(
 		async (
 			_title: string,
@@ -107,31 +114,19 @@ export function create_command_context(
 			_opts?: { signal?: AbortSignal },
 		) => selections.shift(),
 	);
+
 	return {
-		ctx: {
-			mode: 'tui',
+		ctx: make_command_context({
+			mode: modal_steps.length ? 'tui' : 'rpc',
 			hasUI: true,
 			ui: {
 				notify(message: string, level?: string) {
 					notifications.push({ message, level });
 				},
 				select,
-				custom: modal_results.length
-					? vi.fn(async (create_component: Function) => {
-							create_component(
-								{ requestRender: vi.fn() },
-								{
-									fg: (_color: string, text: string) => text,
-									bold: (text: string) => text,
-								},
-								{},
-								vi.fn(),
-							);
-							return modal_results.shift();
-						})
-					: undefined,
+				custom: make_custom_ui(modal_steps),
 			},
-		} as unknown as ExtensionCommandContext,
+		}),
 		notifications,
 		selections,
 		select,
@@ -140,10 +135,12 @@ export function create_command_context(
 
 export function create_deferred<T>() {
 	let resolve!: (value: T | PromiseLike<T>) => void;
-	let reject!: (reason?: unknown) => void;
+	let reject!: (cause?: unknown) => void;
+
 	const promise = new Promise<T>((res, rej) => {
 		resolve = res;
 		reject = rej;
 	});
+
 	return { promise, resolve, reject };
 }

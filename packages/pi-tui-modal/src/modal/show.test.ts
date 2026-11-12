@@ -1,5 +1,5 @@
 import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
-import type { Component, TUI } from '@earendil-works/pi-tui';
+import { isFocusable, type Component } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import {
 	show_command_output_modal,
@@ -10,56 +10,73 @@ import {
 	show_settings_modal,
 	show_text_modal,
 } from './show.js';
-import type { ModalTheme } from './types.js';
+import {
+	make_keybindings,
+	make_theme,
+} from '../../../../tools/test-sdk.js';
+import {
+	make_terminal,
+	make_tui,
+} from '../../../../tools/test-terminal.js';
 
 type CustomFactory = Parameters<
 	ExtensionCommandContext['ui']['custom']
 >[0];
+
 type CustomFactoryArgs = Parameters<CustomFactory>;
 
-const theme: ModalTheme = {
-	fg: (_color: string, text: string) => text,
-	bold: (text: string) => text,
-};
+type ModalTestResult = string | boolean | undefined;
+
+type ModalTestFactory = (
+	tui: CustomFactoryArgs[0],
+	theme: CustomFactoryArgs[1],
+	keybindings: CustomFactoryArgs[2],
+	done: (result: ModalTestResult) => void,
+) => ReturnType<CustomFactory>;
 
 function create_ctx(
-	result?: unknown,
+	result?: ModalTestResult,
 	send_input?: string,
 	terminal_rows = 24,
 ) {
 	const notify = vi.fn();
 	const rendered_lines: string[] = [];
+
 	const custom = vi.fn(
 		async (
-			factory: Parameters<ExtensionCommandContext['ui']['custom']>[0],
+			factory: ModalTestFactory,
 			_options: Parameters<
 				ExtensionCommandContext['ui']['custom']
 			>[1],
 		) => {
 			let resolved = result;
+
 			const component = await factory(
-				{
-					terminal: { rows: terminal_rows },
-					requestRender: vi.fn(),
-				} as unknown as TUI,
-				theme as unknown as CustomFactoryArgs[1],
-				{} as CustomFactoryArgs[2],
-				(value: unknown) => {
+				make_tui(make_terminal({ rows: terminal_rows })).tui,
+				make_theme(),
+				make_keybindings(),
+				(value) => {
 					resolved = value;
 				},
 			);
-			(component as Component & { focused: boolean }).focused = true;
+
+			const focus_target: Component = component;
+
+			if (isFocusable(focus_target)) focus_target.focused = true;
 			rendered_lines.push(...component.render(100));
+
 			if (send_input) component.handleInput?.(send_input);
 			component.dispose?.();
+
 			return resolved;
 		},
 	);
+
 	return {
 		ctx: {
 			ui: {
-				custom:
-					custom as unknown as ExtensionCommandContext['ui']['custom'],
+				// SAFETY: each test passes the canned result of the type its show_* helper resolves with, so this mock's untyped result matches the helper's `custom<T>` call.
+				custom: custom as ExtensionCommandContext['ui']['custom'],
 				notify,
 			},
 		},

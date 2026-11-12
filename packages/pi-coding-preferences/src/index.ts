@@ -4,16 +4,24 @@ import {
 	type ToolCallEvent,
 	type ToolCallEventResult,
 } from '@earendil-works/pi-coding-agent';
-import { read_settings_section } from '@spences10/pi-settings';
+import {
+	input_node_schema,
+	read_settings_section,
+	type InputNode,
+	type JsonValue,
+} from '@spences10/pi-settings';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import * as v from 'valibot';
 import { register_guarded_tools } from './guarded-tools.js';
 import {
+	naming_config_schema,
 	resolve_naming_config,
 	type NamingConfig,
 } from './naming.js';
 
 export { assert_naming, resolve_naming_config } from './naming.js';
+
 export type { NamingConfig, NamingStyle } from './naming.js';
 
 export type PreferenceRuleConfig = {
@@ -77,45 +85,75 @@ export const default_config: CodingPreferencesConfig = {
 	],
 };
 
-function input_record(event: ToolCallEvent): Record<string, unknown> {
-	return event.input as Record<string, unknown>;
+const tool_input_schema = v.looseObject({
+	path: v.fallback(v.optional(v.string()), undefined),
+	file_path: v.fallback(v.optional(v.string()), undefined),
+	filePath: v.fallback(v.optional(v.string()), undefined),
+	command: v.fallback(v.optional(v.string()), undefined),
+	content: v.fallback(v.optional(v.string()), undefined),
+	newText: v.fallback(v.optional(v.string()), undefined),
+	edits: v.optional(v.unknown()),
+});
+
+function tool_input(
+	event: ToolCallEvent,
+): v.InferOutput<typeof tool_input_schema> {
+	return v.parse(tool_input_schema, event.input);
 }
 
 function path_value_from(
 	event: ToolCallEvent,
 ): TargetValue | undefined {
-	const input = input_record(event);
-	for (const key of ['path', 'file_path', 'filePath']) {
-		const value = input[key];
-		if (typeof value === 'string') {
+	const input = tool_input(event);
+
+	const candidates: Array<[string, string | undefined]> = [
+		['path', input.path],
+		['file_path', input.file_path],
+		['filePath', input.filePath],
+	];
+
+	for (const [key, value] of candidates) {
+		if (value !== undefined) {
 			return { field: `input.${key}`, value };
 		}
 	}
+
 	return undefined;
 }
 
 function command_value_from(
 	event: ToolCallEvent,
 ): TargetValue | undefined {
-	const command = input_record(event).command;
-	return typeof command === 'string'
+	const command = tool_input(event).command;
+
+	return command !== undefined
 		? { field: 'input.command', value: command }
 		: undefined;
 }
 
+const edit_new_text_schema = v.fallback(
+	v.object({
+		newText: v.fallback(v.optional(v.string()), undefined),
+	}),
+	{},
+);
+
 function input_values(
-	value: unknown,
+	value: InputNode,
 	field = 'input',
 ): TargetValue[] {
-	if (typeof value === 'string') return [{ field, value }];
+	if (value === null) return [];
+
 	if (Array.isArray(value)) {
 		return value.flatMap((item, index) =>
 			input_values(item, `${field}[${index}]`),
 		);
 	}
-	if (!value || typeof value !== 'object') return [];
-	return Object.entries(value as Record<string, unknown>).flatMap(
-		([key, item]) => input_values(item, `${field}.${key}`),
+
+	if (!(value instanceof Object)) return [{ field, value }];
+
+	return Object.entries(value).flatMap(([key, item]) =>
+		input_values(item, `${field}.${key}`),
 	);
 }
 
@@ -125,42 +163,54 @@ function target_values(
 ): TargetValue[] {
 	if (target === 'command') {
 		const command = command_value_from(event);
+
 		return command ? [command] : [];
 	}
+
 	if (target === 'path') {
 		const path = path_value_from(event);
+
 		return path ? [path] : [];
 	}
+
 	if (target === 'content') {
-		const input = input_record(event);
+		const input = tool_input(event);
+
 		if (event.toolName === 'write') {
-			return typeof input.content === 'string'
+			return input.content !== undefined
 				? [{ field: 'input.content', value: input.content }]
 				: [];
 		}
+
 		if (event.toolName !== 'edit') return [];
 		const replacements: TargetValue[] = [];
-		if (typeof input.newText === 'string') {
+
+		if (input.newText !== undefined) {
 			replacements.push({
 				field: 'input.newText',
 				value: input.newText,
 			});
 		}
-		if (Array.isArray(input.edits)) {
-			input.edits.forEach((edit: unknown, index) => {
-				if (!edit || typeof edit !== 'object') return;
-				const value = (edit as Record<string, unknown>).newText;
-				if (typeof value === 'string') {
-					replacements.push({
-						field: `input.edits[${index}].newText`,
-						value,
-					});
-				}
+
+		const edits = v.safeParse(
+			v.array(edit_new_text_schema),
+			input.edits,
+		);
+
+		if (edits.success) {
+			edits.output.forEach((edit, index) => {
+				if (edit.newText === undefined) return;
+				replacements.push({
+					field: `input.edits[${index}].newText`,
+					value: edit.newText,
+				});
 			});
 		}
+
 		return replacements;
 	}
-	return input_values(event.input);
+
+	return input_values(v.parse(input_node_schema, event.input));
 }
 
 export function get_global_config_path(): string {
@@ -171,42 +221,89 @@ export function get_project_config_path(cwd = process.cwd()): string {
 	return join(resolve(cwd), '.pi', 'coding-preferences.json');
 }
 
+const preference_rule_schema: v.GenericSchema<
+	unknown,
+	PreferenceRuleConfig
+> = v.object({
+	name: v.string(),
+	toolNames: v.exactOptional(v.array(v.string())),
+	pattern: v.string(),
+	target: v.exactOptional(
+		v.picklist(['command', 'path', 'input', 'content']),
+	),
+	reason: v.string(),
+});
+
+const config_file_schema: v.GenericSchema<
+	unknown,
+	Partial<CodingPreferencesConfig> | null | undefined
+> = v.nullish(
+	v.object({
+		rules: v.exactOptional(v.array(preference_rule_schema)),
+		naming: v.exactOptional(naming_config_schema),
+	}),
+);
+
+/** The most specific validation message, so a bad naming style names itself. */
+function issue_message(issue: v.BaseIssue<unknown>): string {
+	// Nested issue paths are relative to their parent issue.
+	const deepest = (issue.issues ?? [])
+		.filter((nested) => (nested.path?.length ?? 0) > 0)
+		.sort((a, b) => (b.path?.length ?? 0) - (a.path?.length ?? 0))[0];
+
+	return deepest ? issue_message(deepest) : issue.message;
+}
+
+function parse_config_file(
+	raw: JsonValue | undefined,
+): Partial<CodingPreferencesConfig> | undefined {
+	const parsed = v.safeParse(config_file_schema, raw);
+
+	if (!parsed.success)
+		throw new Error(issue_message(parsed.issues[0]));
+
+	return parsed.output ?? undefined;
+}
+
 function read_config_file(
 	path: string,
 ): Partial<CodingPreferencesConfig> | undefined {
-	let parsed: Partial<CodingPreferencesConfig> | undefined;
 	if (path === get_global_config_path()) {
-		parsed = read_settings_section<
-			Partial<CodingPreferencesConfig> | undefined
-		>('codingPreferences', undefined);
-	} else {
-		if (!existsSync(path)) return undefined;
-		parsed = JSON.parse(
-			readFileSync(path, 'utf8'),
-		) as Partial<CodingPreferencesConfig>;
+		return parse_config_file(
+			read_settings_section<JsonValue | undefined>(
+				'codingPreferences',
+				undefined,
+			),
+		);
 	}
-	if (!parsed) return undefined;
-	return parsed;
+
+	if (!existsSync(path)) return undefined;
+
+	return parse_config_file(JSON.parse(readFileSync(path, 'utf8')));
 }
 
 export function load_config(
 	cwd = process.cwd(),
 ): CodingPreferencesConfig {
 	const global_config = read_config_file(get_global_config_path());
+
 	const project_config = read_config_file(
 		get_project_config_path(cwd),
 	);
+
 	if (!global_config && !project_config) return default_config;
 	resolve_naming_config(global_config?.naming);
 	resolve_naming_config(project_config?.naming);
 	const project_naming = project_config?.naming;
 	let naming = global_config?.naming;
+
 	if (project_naming !== undefined) {
 		naming =
 			project_naming === false
 				? false
 				: { ...global_config?.naming, ...project_naming };
 	}
+
 	return {
 		rules:
 			global_config?.rules === undefined &&
@@ -228,8 +325,10 @@ export function find_coding_preference_violation(
 		if (rule.toolNames && !rule.toolNames.includes(event.toolName))
 			continue;
 		const pattern = new RegExp(rule.pattern);
+
 		for (const target of target_values(event, rule.target)) {
 			pattern.lastIndex = 0;
+
 			if (pattern.test(target.value)) {
 				return {
 					field: target.field,
@@ -239,6 +338,7 @@ export function find_coding_preference_violation(
 			}
 		}
 	}
+
 	return undefined;
 }
 
@@ -264,7 +364,9 @@ export default function coding_preferences(pi: ExtensionAPI) {
 				event,
 				load_config(ctx.cwd),
 			);
+
 			if (!violation) return undefined;
+
 			return {
 				block: true,
 				reason: format_coding_preference_violation(violation),

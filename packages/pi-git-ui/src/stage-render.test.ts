@@ -6,6 +6,7 @@ const theme: StageRenderState['theme'] = {
 	fg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
 };
+
 const base_state: StageRenderState = {
 	theme,
 	status: {

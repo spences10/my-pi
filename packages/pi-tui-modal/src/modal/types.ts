@@ -12,6 +12,7 @@ export type ModalColor =
 	| 'dim'
 	| 'warning'
 	| 'success';
+
 export type ModalBorderStyle = 'rounded' | 'square' | 'line' | 'none';
 
 export interface ModalStyle {
@@ -25,6 +26,7 @@ export type ModalTheme = {
 };
 
 export type ModalText = string | (() => string | string[]);
+
 export type ModalMetadata =
 	| string
 	| string[]

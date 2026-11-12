@@ -15,6 +15,7 @@ export async function read_status(cwd: string): Promise<GitStatus> {
 		).catch(() => ''),
 		git(['status', '--porcelain=v1', '-z'], cwd),
 	]);
+
 	const counts = upstream.trim()
 		? await read_ahead_behind(cwd)
 		: { ahead: 0, behind: 0 };
@@ -34,7 +35,9 @@ async function read_ahead_behind(
 		['rev-list', '--left-right', '--count', '@{upstream}...HEAD'],
 		cwd,
 	).catch(() => '');
+
 	const [behind = '0', ahead = '0'] = raw.trim().split(/\s+/);
+
 	return { ahead: Number(ahead) || 0, behind: Number(behind) || 0 };
 }
 
@@ -51,6 +54,7 @@ export function parse_porcelain_z(raw: string): GitFile[] {
 
 		if (index_status === 'R' || index_status === 'C') {
 			const original = entries[++i];
+
 			if (original) path = `${original} → ${path}`;
 		}
 
@@ -75,6 +79,7 @@ function get_file_state(
 ): FileState {
 	if (index_status === '?' && worktree_status === '?')
 		return 'untracked';
+
 	if (
 		index_status === 'U' ||
 		worktree_status === 'U' ||
@@ -83,10 +88,14 @@ function get_file_state(
 	) {
 		return 'conflicted';
 	}
+
 	const has_index = index_status !== ' ';
 	const has_worktree = worktree_status !== ' ';
+
 	if (has_index && has_worktree) return 'mixed';
+
 	if (has_index) return 'staged';
+
 	return 'changed';
 }
 

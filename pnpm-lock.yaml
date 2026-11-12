@@ -290,6 +290,9 @@ catalogs:
     typescript:
       specifier: ^7.0.0
       version: 7.0.2
+    valibot:
+      specifier: ^1.5.0
+      version: 1.5.0
     vite:
       specifier: npm:@voidzero-dev/vite-plus-core@1.5.0
       version: 1.5.0
@@ -321,12 +324,21 @@ importers:
       '@changesets/cli':
         specifier: 'catalog:'
         version: 3.0.3
+      '@earendil-works/pi-ai':
+        specifier: 'catalog:'
+        version: 1.5.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(undici@8.12.3)(ws@8.22.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
+        specifier: 'catalog:'
+        version: 1.5.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 1.5.0
       '@napi-rs/image':
         specifier: 'catalog:'
         version: 1.16.0
+      '@oxlint/plugins':
+        specifier: 1.91.0
+        version: 1.91.0
       '@resvg/resvg-js':
         specifier: 'catalog:'
         version: 2.6.2
@@ -339,6 +351,9 @@ importers:
       my-pi:
         specifier: workspace:*
         version: link:packages/my-pi
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
       vite:
         specifier: 'catalog:'
         version: '@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.0)'
@@ -525,6 +540,9 @@ importers:
       '@spences10/pi-workers':
         specifier: workspace:*
         version: link:../pi-workers
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -540,6 +558,10 @@ importers:
         version: 1.5.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
 
   packages/pi-codex-usage:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -565,6 +587,9 @@ importers:
       typescript:
         specifier: catalog:typescript6
         version: 6.0.3
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@6.0.3)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -577,6 +602,10 @@ importers:
         version: 1.5.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(typescript@6.0.3)(yaml@2.9.0)
 
   packages/pi-confirm-destructive:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -608,6 +637,9 @@ importers:
       typebox:
         specifier: '*'
         version: 1.4.6
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -670,6 +702,10 @@ importers:
         version: 7.0.2
 
   packages/pi-harness:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -688,6 +724,10 @@ importers:
         version: 1.5.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
 
   packages/pi-kimi-usage:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -710,6 +750,9 @@ importers:
       typebox:
         specifier: '*'
         version: 1.4.6
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -732,6 +775,9 @@ importers:
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@6.0.3)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -832,6 +878,10 @@ importers:
         version: 1.5.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
 
   packages/pi-redact:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -868,6 +918,10 @@ importers:
         version: 1.5.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
 
   packages/pi-settings:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -883,6 +937,10 @@ importers:
         version: 1.5.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
 
   packages/pi-sqlite-core:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -899,6 +957,9 @@ importers:
       '@spences10/pi-settings':
         specifier: workspace:*
         version: link:../pi-settings
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -924,6 +985,9 @@ importers:
       '@spences10/pi-settings':
         specifier: workspace:*
         version: link:../pi-settings
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -939,6 +1003,10 @@ importers:
         version: 1.5.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
 
   packages/pi-talk:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -964,6 +1032,9 @@ importers:
       typebox:
         specifier: '*'
         version: 1.4.6
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -998,6 +1069,9 @@ importers:
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -1036,6 +1110,10 @@ importers:
         version: 1.5.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(typescript@7.0.2)(yaml@2.9.0)
 
   packages/pi-tui-modal:
+    dependencies:
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
@@ -1082,6 +1160,9 @@ importers:
       '@spences10/pi-tui-modal':
         specifier: workspace:*
         version: link:../pi-tui-modal
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -3920,6 +4001,14 @@ packages:
   unenv@2.0.0-rc.24:
     resolution: {integrity: sha512-i7qRCmY42zmCwnYlh9H2SvLEypEFGye5iRmEMKjcGi7zk9UquigRjFtTLz0TYqr0ZGLZhaMHl/foy1bZR+Cwlw==}
 
+  valibot@1.5.0:
+    resolution: {integrity: sha512-nil6AkP2TChWL43Z5uJ6GTxX01CUA+g8LWUM+N/rB9NBbkUMaUsi9PUNzlUPgoKASgmx9f7eGOYpJ04/fSa6FQ==}
+    peerDependencies:
+      typescript: '>=5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   vite-plus@1.5.0:
     resolution: {integrity: sha512-4MIyj2aLe+n4wGnjPr3g56nF164aZFcd+UJQ50hpJ88rJv6EYRRAaR4AQhi9s32uD1TiNPqvKe33Klxmq7BeOg==}
     engines: {node: ^22.18.0 || ^24.11.0 || >=26.0.0}
@@ -6718,6 +6807,14 @@ snapshots:
   unenv@2.0.0-rc.24:
     dependencies:
       pathe: 2.0.3
+
+  valibot@1.5.0(typescript@6.0.3):
+    optionalDependencies:
+      typescript: 6.0.3
+
+  valibot@1.5.0(typescript@7.0.2):
+    optionalDependencies:
+      typescript: 7.0.2
 
   vite-plus@1.5.0(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.0)(svelte@5.57.3)(typescript@6.0.3)(yaml@2.9.0):
     dependencies:

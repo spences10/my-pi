@@ -62,6 +62,7 @@ export async function show_modal<T>(
 				get_max_body_lines: (body_width?: number) =>
 					get_modal_body_line_budget(tui, options, body_width),
 			};
+
 			const body = create_body({ done }, theme, layout, tui);
 
 			return {
@@ -81,9 +82,11 @@ export async function show_modal<T>(
 							0,
 						),
 					);
+
 					for (const line of normalize_text(options.subtitle)) {
 						content.addChild(new Text(theme.fg('muted', line), 0, 0));
 					}
+
 					content.addChild({
 						render: (body_width: number) =>
 							body
@@ -91,6 +94,7 @@ export async function show_modal<T>(
 								.slice(0, layout.get_max_body_lines(body_width)),
 						invalidate: () => body.invalidate(),
 					});
+
 					for (const line of normalize_text(options.footer)) {
 						content.addChild(new Text(theme.fg('dim', line), 0, 0));
 					}
@@ -128,12 +132,15 @@ export async function show_picker_modal(
 ): Promise<string | undefined> {
 	if (options.items.length === 0) {
 		if (options.empty_message) ctx.ui.notify(options.empty_message);
+
 		return undefined;
 	}
 
 	let selected_item: SelectItem | undefined =
 		options.items[options.initial_index ?? 0];
+
 	const default_footer = '↑↓ navigate • enter select • esc cancel';
+
 	return await show_modal<string | undefined>(
 		ctx,
 		{
@@ -143,10 +150,13 @@ export async function show_picker_modal(
 				? () => {
 						const selected_footer =
 							options.selected_footer?.(selected_item);
+
 						if (selected_footer !== undefined) return selected_footer;
-						if (typeof options.footer === 'function') {
+
+						if (options.footer instanceof Function) {
 							return options.footer();
 						}
+
 						return options.footer ?? default_footer;
 					}
 				: (options.footer ?? default_footer),
@@ -156,6 +166,7 @@ export async function show_picker_modal(
 		({ done }, theme, layout) => {
 			const preferred_max_visible =
 				options.max_visible ?? Math.min(options.items.length, 12);
+
 			const select_list = new SelectList(
 				options.items,
 				fit_visible_items(
@@ -166,14 +177,18 @@ export async function show_picker_modal(
 				make_select_theme(theme),
 				options.layout,
 			);
+
 			if (options.initial_index !== undefined) {
 				select_list.setSelectedIndex(options.initial_index);
 			}
+
 			select_list.onSelectionChange = (item) => {
 				selected_item = item;
 			};
+
 			select_list.onSelect = (item) => done(item.value);
 			select_list.onCancel = () => done(undefined);
+
 			return {
 				render: (width: number) => {
 					set_component_max_visible(
@@ -184,6 +199,7 @@ export async function show_picker_modal(
 							layout.get_max_body_lines(width),
 						),
 					);
+
 					return select_list.render(width);
 				},
 				invalidate: () => select_list.invalidate(),
@@ -208,12 +224,14 @@ export async function show_text_modal(
 		},
 		({ done }, theme, layout) => {
 			const preferred_max_visible = options.max_visible_lines ?? 18;
+
 			const body = new TextModalBody(
 				options.text,
 				Math.min(preferred_max_visible, layout.get_max_body_lines()),
 				theme,
 				() => done(),
 			);
+
 			return {
 				render: (width: number) => {
 					body.set_max_visible_lines(
@@ -222,6 +240,7 @@ export async function show_text_modal(
 							layout.get_max_body_lines(width),
 						),
 					);
+
 					return body.render(width);
 				},
 				invalidate: () => body.invalidate(),
@@ -302,6 +321,7 @@ export async function show_confirm_modal(
 			},
 		],
 	});
+
 	return selected === 'confirm';
 }
 
@@ -324,6 +344,7 @@ export async function show_settings_modal(
 			const preferred_max_visible =
 				options.max_visible ??
 				Math.min(Math.max(options.items.length + 4, 8), 16);
+
 			const get_max_visible = (width?: number) =>
 				fit_visible_items(
 					options.items.length,
@@ -334,14 +355,18 @@ export async function show_settings_modal(
 						2 -
 						(options.metadata ? 3 : 0),
 				);
+
 			const settings_theme = make_settings_theme(theme);
+
 			const handle_change = (id: string, new_value: string) => {
 				if (options.on_change(id, new_value)) done();
 			};
+
 			const handle_cancel = () => {
 				options.on_cancel?.();
 				done();
 			};
+
 			const list = options.detail
 				? new DetailedSettingsList(
 						options.items,
@@ -366,20 +391,25 @@ export async function show_settings_modal(
 			return {
 				render: (width: number) => {
 					const max_visible = get_max_visible(width);
+
 					if (list instanceof DetailedSettingsList) {
 						list.set_max_visible(max_visible);
 					} else {
 						set_component_max_visible(list, max_visible);
 					}
+
 					const lines = list.render(width);
+
 					const selected_item =
 						list instanceof DetailedSettingsList
 							? list.get_selected_item()
 							: get_selected_setting(list);
+
 					const metadata_lines = normalize_metadata(
 						options.metadata,
 						selected_item,
 					);
+
 					if (metadata_lines.length === 0) return lines;
 
 					return [
@@ -398,14 +428,18 @@ export async function show_settings_modal(
 							matchesKey(data, Key.right))
 					) {
 						const item = get_selected_setting(list);
+
 						const new_value = cycle_setting_value(
 							item,
 							matchesKey(data, Key.left) ? -1 : 1,
 						);
+
 						if (item && new_value !== undefined)
 							handle_change(item.id, new_value);
+
 						return;
 					}
+
 					list.handleInput(data);
 				},
 			};

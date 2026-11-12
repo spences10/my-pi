@@ -16,14 +16,18 @@ export function get_coordination_db_path(): string {
 
 export function get_current_thinking_level(): string | undefined {
 	const env_value = process.env[TEAM_THINKING_ENV]?.trim();
+
 	if (env_value) return env_value;
 	const index = process.argv.indexOf('--thinking');
+
 	const arg_value =
 		index >= 0 ? process.argv[index + 1]?.trim() : undefined;
+
 	return arg_value || undefined;
 }
 
 export function should_auto_inject_messages(): boolean {
 	const value = process.env[AUTO_INJECT_ENV]?.trim().toLowerCase();
+
 	return !value || !['0', 'false', 'no', 'off'].includes(value);
 }

@@ -9,6 +9,7 @@ export function get_default_telemetry_export_path(
 	cwd: string,
 ): string {
 	const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+
 	return resolve(cwd, `telemetry-export-${stamp}.json`);
 }
 

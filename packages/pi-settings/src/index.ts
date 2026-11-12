@@ -7,13 +7,22 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import * as v from 'valibot';
+
+export type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue };
 
 export interface MyPiSettingsFile {
 	version: 1;
 	extensions?: { enabled?: Record<string, boolean> };
 	codingPreferences?: unknown;
-	trust?: Record<string, unknown>;
-	packages?: Record<string, unknown>;
+	trust?: Record<string, JsonValue>;
+	packages?: Record<string, JsonValue>;
 }
 
 export function get_settings_path(): string {
@@ -31,7 +40,9 @@ function default_settings(): MyPiSettingsFile {
 
 export function read_settings(): MyPiSettingsFile {
 	const path = get_settings_path();
+
 	if (!existsSync(path)) return default_settings();
+
 	return {
 		...default_settings(),
 		...JSON.parse(readFileSync(path, 'utf-8')),
@@ -50,14 +61,46 @@ export function write_settings(settings: MyPiSettingsFile): void {
 	renameSync(tmp, path);
 }
 
-export function extract_input_strings(value: unknown): string[] {
-	if (typeof value === 'string') return [value];
+export type InputNode =
+	| string
+	| null
+	| InputNode[]
+	| { [key: string]: InputNode };
+
+const input_container_schema: v.GenericSchema<
+	unknown,
+	InputNode[] | { [key: string]: InputNode }
+> = v.union([
+	v.array(v.lazy(() => input_node_schema)),
+	v.record(
+		v.string(),
+		v.lazy(() => input_node_schema),
+	),
+]);
+
+/**
+ * Decodes model-supplied tool input: strings, arrays and objects are kept
+ * and every other leaf collapses to null, which carries no text.
+ */
+export const input_node_schema: v.GenericSchema<unknown, InputNode> =
+	v.union([
+		v.string(),
+		input_container_schema,
+		v.pipe(
+			v.unknown(),
+			v.transform(() => null),
+		),
+	]);
+
+export function extract_input_strings(value: InputNode): string[] {
+	if (value === null) return [];
+
 	if (Array.isArray(value))
 		return value.flatMap(extract_input_strings);
-	if (!value || typeof value !== 'object') return [];
-	return Object.values(value as Record<string, unknown>).flatMap(
-		extract_input_strings,
-	);
+
+	if (v.is(v.string(), value)) return [value];
+
+	return Object.values(value).flatMap(extract_input_strings);
 }
 
 export function read_settings_section<T>(
@@ -65,6 +108,8 @@ export function read_settings_section<T>(
 	fallback: T,
 ): T {
 	const settings = read_settings();
+
+	// SAFETY: the stored section is untyped JSON; callers pick T and pass the fallback for an absent section, so T is their own contract for its shape and is not validated here.
 	return (
 		settings[key] === undefined ? fallback : settings[key]
 	) as T;
@@ -75,6 +120,8 @@ export function read_package_settings<T>(
 	fallback: T,
 ): T {
 	const packages = read_settings().packages ?? {};
+
+	// SAFETY: the stored entry is untyped JSON; callers pick T and pass the fallback for an absent entry, so T is their own contract for its shape and is not validated here.
 	return (
 		packages[name] === undefined ? fallback : packages[name]
 	) as T;
@@ -87,12 +134,15 @@ export function write_package_settings<T>(
 	const settings = read_settings();
 	write_settings({
 		...settings,
-		packages: { ...settings.packages, [name]: value },
+		// SAFETY: the value is serialised to JSON by write_settings.
+		packages: { ...settings.packages, [name]: value as JsonValue },
 	});
 }
 
 export function read_trust_settings<T>(name: string, fallback: T): T {
 	const trust = read_settings().trust ?? {};
+
+	// SAFETY: the stored entry is untyped JSON; callers pick T and pass the fallback for an absent entry, so T is their own contract for its shape and is not validated here.
 	return (trust[name] === undefined ? fallback : trust[name]) as T;
 }
 
@@ -103,6 +153,7 @@ export function write_trust_settings<T>(
 	const settings = read_settings();
 	write_settings({
 		...settings,
-		trust: { ...settings.trust, [name]: value },
+		// SAFETY: the value is serialised to JSON by write_settings.
+		trust: { ...settings.trust, [name]: value as JsonValue },
 	});
 }

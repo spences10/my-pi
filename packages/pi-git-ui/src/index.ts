@@ -8,8 +8,9 @@ import { GitStageBody } from './stage-body.js';
 async function show_git_ui(
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
-	if (!ctx.hasUI || typeof ctx.ui.custom !== 'function') {
+	if (!ctx.hasUI) {
 		ctx.ui.notify('Git UI requires interactive mode.', 'warning');
+
 		return;
 	}
 
@@ -34,7 +35,9 @@ async function show_git_ui(
 				() => tui.requestRender(),
 				done,
 			);
+
 			void body.load();
+
 			return body;
 		},
 	);

@@ -1,6 +1,11 @@
 import type { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
+import {
+	chunk_ordinal_row_schema,
+	chunk_summary_row_schema,
+	context_chunk_schema,
+} from './row-schemas.js';
 import type {
-	ChunkSummaryRow,
 	ContextChunk,
 	ContextChunkSelectionOptions,
 	ContextChunkSummary,
@@ -25,16 +30,22 @@ function chunk_reference_to_ordinal(
 	chunk_id: string,
 ): number | null {
 	const trimmed = chunk_id.trim();
+
 	const legacy_match = new RegExp(
 		`^${escape_regexp(source_id)}:chunk:(\\d+)$`,
 	).exec(trimmed);
+
 	if (legacy_match) {
 		const value = Number.parseInt(legacy_match[1]!, 10);
+
 		if (!Number.isSafeInteger(value)) return null;
+
 		return value <= 0 ? 1 : value;
 	}
+
 	if (!/^\d+$/.test(trimmed)) return null;
 	const value = Number.parseInt(trimmed, 10);
+
 	return Number.isSafeInteger(value) && value > 0 ? value : null;
 }
 
@@ -45,12 +56,16 @@ export function context_store_chunk_summary(
 ): ContextChunkSummary | null {
 	const scoped = store.scoped_filter('context_sources', options);
 	const filters = ['context_sources.id = ?', ...scoped.where];
+
 	const params: Array<string | number> = [
 		source_id,
 		...scoped.params,
 	];
-	const row = store.db
-		.prepare(`
+
+	const row = v.parse(
+		v.optional(chunk_summary_row_schema),
+		store.db
+			.prepare(`
 			SELECT
 				context_sources.id as source_id,
 				COUNT(context_chunks.id) as chunk_count,
@@ -71,7 +86,9 @@ export function context_store_chunk_summary(
 			WHERE ${filters.join(' AND ')}
 			GROUP BY context_sources.id
 		`)
-		.get(...params) as ChunkSummaryRow | undefined;
+			.get(...params),
+	);
+
 	return row ?? null;
 }
 
@@ -79,6 +96,7 @@ const MAX_NEIGHBOR_CHUNKS = 3;
 
 function clamp_neighbor_count(value: number | undefined): number {
 	if (value === undefined || !Number.isFinite(value)) return 0;
+
 	return Math.max(
 		0,
 		Math.min(Math.floor(value), MAX_NEIGHBOR_CHUNKS),
@@ -92,25 +110,30 @@ function resolve_chunk_ordinal(
 	options: ContextScopeOptions,
 ): number | null {
 	const ordinal = chunk_reference_to_ordinal(source_id, chunk_id);
+
 	if (ordinal) return ordinal;
 
 	const scoped = store.scoped_filter('context_sources', options);
+
 	const filters = [
 		'context_chunks.source_id = ?',
 		'context_chunks.id = ?',
 		...scoped.where,
 	];
-	const row = store.db
-		.prepare(`
+
+	const row = v.parse(
+		v.optional(chunk_ordinal_row_schema),
+		store.db
+			.prepare(`
 			SELECT context_chunks.ordinal
 			FROM context_chunks
 			JOIN context_sources ON context_sources.id = context_chunks.source_id
 			WHERE ${filters.join(' AND ')}
 			LIMIT 1
 		`)
-		.get(source_id, chunk_id, ...scoped.params) as
-		| { ordinal: number }
-		| undefined;
+			.get(source_id, chunk_id, ...scoped.params),
+	);
+
 	return row?.ordinal ?? null;
 }
 
@@ -122,13 +145,16 @@ export function context_store_get(
 ): ContextChunk[] {
 	const scoped = store.scoped_filter('context_sources', options);
 	const filters = ['context_chunks.source_id = ?', ...scoped.where];
+
 	const params: Array<string | number> = [
 		source_id,
 		...scoped.params,
 	];
+
 	if (chunk_id) {
 		const before = clamp_neighbor_count(options.before);
 		const after = clamp_neighbor_count(options.after);
+
 		if (before > 0 || after > 0) {
 			const ordinal = resolve_chunk_ordinal(
 				store,
@@ -136,6 +162,7 @@ export function context_store_get(
 				chunk_id,
 				options,
 			);
+
 			if (ordinal === null) {
 				filters.push('context_chunks.id = ?');
 				params.push(chunk_id);
@@ -145,6 +172,7 @@ export function context_store_get(
 			}
 		} else {
 			const ordinal = chunk_reference_to_ordinal(source_id, chunk_id);
+
 			if (ordinal) {
 				filters.push('context_chunks.ordinal = ?');
 				params.push(ordinal);
@@ -154,6 +182,7 @@ export function context_store_get(
 			}
 		}
 	}
+
 	const stmt = store.db.prepare(`
 		SELECT
 			context_chunks.id,
@@ -167,5 +196,6 @@ export function context_store_get(
 		WHERE ${filters.join(' AND ')}
 		ORDER BY context_chunks.ordinal
 	`);
-	return stmt.all(...params) as unknown as ContextChunk[];
+
+	return v.parse(v.array(context_chunk_schema), stmt.all(...params));
 }

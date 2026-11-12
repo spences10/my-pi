@@ -8,8 +8,10 @@ import type { TeamCommandDeps } from './types.js';
 
 function require_session_id(deps: TeamCommandDeps): string {
 	const session_id = deps.get_session_id?.();
+
 	if (!session_id)
 		throw new Error('Current session is not registered yet.');
+
 	return session_id;
 }
 
@@ -20,16 +22,19 @@ export function handle_delivery_control(
 ): void {
 	const session_id = require_session_id(deps);
 	const [target, group_target, ...extra] = args;
+
 	if (extra.length || (target !== '--group' && group_target))
 		throw new Error(
 			'Usage: /team pause|resume [<sender> | --group <group>]',
 		);
+
 	const group =
 		target === '--group'
 			? deps.coordination_db.get_group(group_target ?? '', {
 					cwd: deps.ctx.cwd,
 				})
 			: undefined;
+
 	const sender =
 		target && target !== '--group'
 			? deps.coordination_db.resolve_session_targets(
@@ -37,9 +42,11 @@ export function handle_delivery_control(
 					session_id,
 				)[0]
 			: undefined;
+
 	if (target && !group && !sender)
 		throw new Error('Unknown delivery control target');
 	let scope: 'session' | 'group' | 'sender' = 'session';
+
 	if (group) scope = 'group';
 	else if (sender) scope = 'sender';
 	deps.coordination_db.delivery.set_paused(
@@ -58,12 +65,15 @@ export async function handle_sessions(
 	deps: TeamCommandDeps,
 ): Promise<void> {
 	deps.coordination_db.mark_stale_sessions_offline();
+
 	const all_sessions = deps.coordination_db.list_sessions({
 		include_offline: true,
 	});
+
 	const sessions = all_sessions.filter(
 		(session) => session.status !== 'offline',
 	);
+
 	deps.ctx.ui.notify(
 		format_sessions(sessions, {
 			target_ids: all_sessions.map((session) => session.session_id),
@@ -77,25 +87,32 @@ export async function handle_session_command(
 	rest: string[],
 ): Promise<void> {
 	const [sub = 'list', ...tail] = rest;
+
 	if (sub === 'list') {
 		await handle_sessions(deps);
+
 		return;
 	}
+
 	if (sub === 'send') {
 		deps.coordination_db.mark_stale_sessions_offline();
 		const [target, ...message_parts] = tail;
+
 		if (!target || message_parts.length === 0)
 			throw new Error(
 				'Usage: /team session send <session-id-or-name> <message>',
 			);
+
 		const recipients = deps.coordination_db
 			.resolve_session_targets(target, require_session_id(deps))
 			.map((session) => session.session_id);
+
 		const message = deps.coordination_db.send_to_session_target({
 			from_session_id: require_session_id(deps),
 			target,
 			body: message_parts.join(' '),
 		});
+
 		await deps.notify_coordination_messages(
 			recipients,
 			message.message_id,
@@ -104,8 +121,10 @@ export async function handle_session_command(
 			`Sent ${message.message_id} to ${target}`,
 			'info',
 		);
+
 		return;
 	}
+
 	if (sub === 'inbox') {
 		const messages = deps.coordination_db.list_inbox(
 			require_session_id(deps),
@@ -114,6 +133,7 @@ export async function handle_session_command(
 				include_acknowledged: tail.includes('--all'),
 			},
 		);
+
 		deps.ctx.ui.notify(
 			format_inbox(messages, { full: tail.includes('--full') }),
 			'info',
@@ -122,8 +142,10 @@ export async function handle_session_command(
 			require_session_id(deps),
 			messages.map((message) => message.message_id),
 		);
+
 		return;
 	}
+
 	if (sub === 'read' || sub === 'ack') {
 		const ids = tail.length
 			? tail
@@ -132,6 +154,7 @@ export async function handle_session_command(
 						include_read: true,
 					})
 					.map((message) => message.message_id);
+
 		if (sub === 'read')
 			deps.coordination_db.mark_messages_read(
 				require_session_id(deps),
@@ -146,8 +169,10 @@ export async function handle_session_command(
 			`${sub === 'read' ? 'Read' : 'Acknowledged'} ${ids.length} message${ids.length === 1 ? '' : 's'}`,
 			'info',
 		);
+
 		return;
 	}
+
 	throw new Error('Usage: /team session list|send|inbox|read|ack');
 }
 
@@ -156,35 +181,47 @@ export async function handle_group_command(
 	rest: string[],
 ): Promise<void> {
 	const [sub = 'list', ...tail] = rest;
+
 	if (sub === 'list') {
 		const groups = deps.coordination_db.list_groups();
+
 		const members = new Map(
 			groups.map((group) => [
 				group.group_id,
 				deps.coordination_db.list_group_members(group.group_id),
 			]),
 		);
+
 		deps.ctx.ui.notify(format_groups(groups, members), 'info');
+
 		return;
 	}
+
 	if (sub === 'create') {
 		const name = tail.join(' ').trim();
+
 		if (!name) throw new Error('Usage: /team group create <name>');
+
 		const group = deps.coordination_db.create_group({
 			name,
 			cwd: deps.ctx.cwd,
 			created_by_session_id: require_session_id(deps),
 		});
+
 		deps.ctx.ui.notify(
 			`Created group ${group.name} (${group.group_id})`,
 			'info',
 		);
+
 		return;
 	}
+
 	if (sub === 'invite') {
 		const [group_target, target, ...extra] = tail;
+
 		if (!group_target || !target || extra.length)
 			throw new Error('Usage: /team group invite <group> <session>');
+
 		const result = await execute_coordination_action(
 			{
 				action: 'group_add_session',
@@ -199,16 +236,22 @@ export async function handle_group_command(
 				require_session_id: () => require_session_id(deps),
 			},
 		);
+
 		deps.ctx.ui.notify(result.content[0].text, 'info');
+
 		return;
 	}
+
 	if (sub === 'join') {
 		const [group_target, alias] = tail;
+
 		if (!group_target)
 			throw new Error('Usage: /team group join <group> [alias]');
+
 		const group = deps.coordination_db.get_group(group_target, {
 			cwd: deps.ctx.cwd,
 		});
+
 		if (!group) throw new Error(`Unknown group: ${group_target}`);
 		deps.coordination_db.join_group(
 			group.group_id,
@@ -216,13 +259,17 @@ export async function handle_group_command(
 			alias,
 		);
 		deps.ctx.ui.notify(`Joined ${group.name}`, 'info');
+
 		return;
 	}
+
 	if (sub === 'leave' || sub === 'close') {
 		const group = deps.coordination_db.get_group(tail[0] ?? '', {
 			cwd: deps.ctx.cwd,
 		});
+
 		if (!group) throw new Error(`Usage: /team group ${sub} <group>`);
+
 		if (sub === 'close')
 			deps.coordination_db.delivery.close_group(
 				group.group_id,
@@ -237,17 +284,22 @@ export async function handle_group_command(
 			`${sub === 'close' ? 'Closed' : 'Left'} ${group.name}. Worker execution is unchanged.`,
 			'info',
 		);
+
 		return;
 	}
+
 	if (sub === 'send') {
 		const [group_target, ...message_parts] = tail;
+
 		if (!group_target || message_parts.length === 0)
 			throw new Error('Usage: /team group send <group> <message>');
 		const from_session_id = require_session_id(deps);
+
 		const recipients = deps.coordination_db
 			.list_group_members(group_target, { cwd: deps.ctx.cwd })
 			.filter((member) => member.session_id !== from_session_id)
 			.map((member) => member.session_id);
+
 		const message = deps.coordination_db.send_to_group(
 			{
 				from_session_id,
@@ -256,6 +308,7 @@ export async function handle_group_command(
 			},
 			{ cwd: deps.ctx.cwd },
 		);
+
 		await deps.notify_coordination_messages(
 			recipients,
 			message.message_id,
@@ -264,8 +317,10 @@ export async function handle_group_command(
 			`Sent ${message.message_id} to ${group_target}`,
 			'info',
 		);
+
 		return;
 	}
+
 	throw new Error(
 		'Usage: /team group list|create|join|leave|close|send',
 	);

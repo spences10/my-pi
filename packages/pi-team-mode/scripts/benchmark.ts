@@ -8,21 +8,33 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import * as v from 'valibot';
 import { summarize_completed_peer_messages } from '../dist/context.js';
-import {
-	create_peer_message_delivery,
-	type TeamModePeerMessageDelivery,
-} from '../dist/coordination-formatting.js';
+import { create_peer_message_delivery } from '../dist/coordination-formatting.js';
 import { CoordinationPoller } from '../dist/coordination-poller.js';
 import { TeamDatabase } from '../dist/db/index.js';
 import { delivery_message_ids } from '../dist/delivery.js';
 import { execute_coordination_action } from '../dist/tools/coordination-actions.js';
 
 type Metrics = Record<string, number>;
+
+const metrics_schema = v.record(v.string(), v.number());
+
+/** The parts of a delivered peer message that the benchmark measures. */
+const delivered_message_schema = v.object({
+	content: v.string(),
+	details: v.object({
+		represented_message_ids: v.optional(v.array(v.string())),
+		messages: v.array(v.looseObject({ message_id: v.string() })),
+	}),
+});
+
 const results: Record<string, Metrics> = {};
+
 type SendOptions = Partial<
 	Parameters<TeamDatabase['send_message']>[0]
 >;
+
 interface Scenario {
 	db: TeamDatabase;
 	send: (
@@ -42,64 +54,81 @@ async function scenario(
 ) {
 	const dir = mkdtempSync(join(tmpdir(), 'team-benchmark-'));
 	const db = await TeamDatabase.open(join(dir, 'coordination.db'));
+
 	try {
 		db.register_session({ session_id: 'sender', cwd: '/benchmark' });
 		db.register_session({
 			session_id: 'receiver',
 			cwd: '/benchmark',
 		});
+
 		const group = db.create_group({
 			name: 'benchmark',
 			created_by_session_id: 'sender',
 		});
+
 		db.add_group_member({
 			group_id: group.group_id,
 			session_id: 'receiver',
 		});
+
 		const deliveries: {
-			message: TeamModePeerMessageDelivery;
+			message: v.InferOutput<typeof delivered_message_schema>;
 			wakeup: boolean;
 		}[] = [];
+
 		let active = false;
 		let continuations = 0;
+
 		const poller = new CoordinationPoller({
 			db,
 			get_session_id: () => 'receiver',
 			should_auto_inject_messages: () => true,
 			is_agent_active: () => active,
 		});
+
 		const record = (
-			message: TeamModePeerMessageDelivery,
+			message: Parameters<
+				Pick<ExtensionAPI, 'sendMessage'>['sendMessage']
+			>[0],
 			wakeup: boolean,
 		) => {
-			deliveries.push({ message, wakeup });
+			deliveries.push({
+				message: v.parse(delivered_message_schema, message),
+				wakeup,
+			});
 			poller.confirm_delivery({ role: 'custom', ...message });
 		};
+
 		const pi: Scenario['pi'] = {
 			sendMessage(message, options) {
-				record(
-					message as TeamModePeerMessageDelivery,
-					!!options?.triggerTurn,
-				);
+				record(message, !!options?.triggerTurn);
+
 				if (options?.triggerTurn) active = true;
 			},
 		};
+
 		// Model the upstream settlement boundary: append a batch and continue the
 		// existing run, rather than counting every provider request as a new wake-up.
 		const finishRun = () => {
 			for (let i = 0; i < 200; i++) {
 				const delivery = poller.take_delivery(false);
+
 				if (!delivery) {
 					active = false;
+
 					return;
 				}
+
 				record(delivery, false);
 				continuations++;
 			}
+
 			throw new Error(
 				'Benchmark failed to drain actionable messages',
 			);
 		};
+
 		const send: Scenario['send'] = (extra = {}) =>
 			db.send_message({
 				from_session_id: 'sender',
@@ -109,13 +138,16 @@ async function scenario(
 				body: 'Status unchanged',
 				...extra,
 			});
+
 		const context: Scenario['context'] = {
 			ctx: { cwd: '/benchmark' },
 			coordination_db: db,
 			notify_coordination_messages: async () => {},
 			require_session_id: () => 'receiver',
 		};
+
 		const start = performance.now();
+
 		const extra = await run({
 			db,
 			send,
@@ -124,9 +156,11 @@ async function scenario(
 			context,
 			finishRun,
 		});
+
 		const sizes = deliveries.map(({ message }) =>
 			Buffer.byteLength(message.content),
 		);
+
 		results[name] = {
 			...extra,
 			deliveries: deliveries.length,
@@ -156,11 +190,14 @@ await scenario(
 				() => send({ idempotency_key: 'retry-1' }).message_id,
 			),
 		);
+
 		poller.poll(pi);
 		finishRun();
+
 		return { stored_messages: ids.size };
 	},
 );
+
 await scenario(
 	'inbox_then_poll',
 	async ({ send, context, poller, pi }) => {
@@ -172,6 +209,7 @@ await scenario(
 		poller.poll(pi);
 	},
 );
+
 await scenario('status_burst', ({ send, poller, pi }) => {
 	for (let i = 0; i < 100; i++) {
 		send({
@@ -181,9 +219,12 @@ await scenario('status_burst', ({ send, poller, pi }) => {
 		});
 		poller.poll(pi);
 	}
+
 	const delivery = poller.take_delivery(true);
+
 	if (delivery) pi.sendMessage(delivery, { triggerTurn: false });
 });
+
 await scenario(
 	'action_backlog',
 	({ send, poller, pi, finishRun }) => {
@@ -193,6 +234,7 @@ await scenario(
 		finishRun();
 	},
 );
+
 await scenario('completed_context', ({ db, send }) => {
 	const ids = Array.from(
 		{ length: 100 },
@@ -200,35 +242,43 @@ await scenario('completed_context', ({ db, send }) => {
 			send({ body: `Result ${i}: ${'review context '.repeat(30)}` })
 				.message_id,
 	);
+
 	db.mark_messages_acknowledged('receiver', ids);
+
 	const inbox = db.list_inbox('receiver', {
 		include_read: true,
 		include_acknowledged: true,
 	});
+
 	const messages = inbox.map((message) => ({
 		role: 'custom' as const,
 		...create_peer_message_delivery('receiver', [message]),
 		timestamp: 0,
 	}));
+
 	const projected = summarize_completed_peer_messages(
 		messages,
 		'receiver',
 		inbox,
 	);
+
 	const contentBytes = (items: typeof projected) =>
 		items.reduce((sum, message) => {
 			if (!('content' in message)) return sum;
+
 			return (
 				sum +
 				Buffer.byteLength(
-					typeof message.content === 'string'
-						? message.content
-						: JSON.stringify(message.content),
+					Array.isArray(message.content)
+						? JSON.stringify(message.content)
+						: message.content,
 				)
 			);
 		}, 0);
+
 	const before = contentBytes(messages);
 	const after = contentBytes(projected);
+
 	return {
 		context_bytes_before: before,
 		context_bytes_after: after,
@@ -239,16 +289,23 @@ await scenario('completed_context', ({ db, send }) => {
 });
 
 const outputIndex = process.argv.indexOf('--out');
+
 if (outputIndex >= 0)
 	writeFileSync(
 		process.argv[outputIndex + 1]!,
 		`${JSON.stringify(results, null, 2)}\n`,
 	);
+
 const baselineIndex = process.argv.indexOf('--baseline');
+
 if (baselineIndex >= 0) {
-	const baseline = JSON.parse(
-		readFileSync(process.argv[baselineIndex + 1]!, 'utf8'),
-	) as Record<string, Metrics>;
+	const baseline = v.parse(
+		v.record(v.string(), metrics_schema),
+		JSON.parse(
+			readFileSync(process.argv[baselineIndex + 1]!, 'utf8'),
+		),
+	);
+
 	for (const [name, result] of Object.entries(results)) {
 		if (!baseline[name]) continue;
 		result.baseline_injected_bytes = baseline[name].injected_bytes!;
@@ -263,7 +320,9 @@ if (baselineIndex >= 0) {
 			: 0;
 	}
 }
+
 console.log(JSON.stringify(results, null, 2));
+
 if (process.argv.includes('--assert')) {
 	if (
 		results.retry_same_key!.stored_messages !== 1 ||

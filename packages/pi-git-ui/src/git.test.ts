@@ -23,6 +23,7 @@ async function git(cwd: string, args: string[]): Promise<string> {
 		cwd,
 		encoding: 'utf8',
 	});
+
 	return stdout;
 }
 
@@ -57,6 +58,7 @@ async function with_repo(
 	run: (cwd: string) => Promise<void>,
 ): Promise<void> {
 	const cwd = await mkdtemp(join(tmpdir(), 'pi-git-ui-test-'));
+
 	try {
 		await git(cwd, ['init']);
 		await git(cwd, ['config', 'user.email', 'test@example.com']);
@@ -192,6 +194,7 @@ index 1111111..2222222 100644
  const three = 3;
  const four = 4;
 `;
+
 		const hunk = parse_diff_hunks(deletion, 'unstaged')[0]!;
 		const line_index = changed_line_indexes(hunk)[0]!;
 		const patch = build_line_patch(hunk, line_index);
@@ -215,6 +218,7 @@ index 1111111..2222222 100644
 +new four
  const five = 5;
 `;
+
 		const hunk = parse_diff_hunks(replacement, 'unstaged')[0]!;
 		const line_indexes = changed_line_indexes(hunk);
 		const patch = build_line_patch(hunk, line_indexes[0]!);
@@ -273,6 +277,7 @@ index 1111111..2222222 100644
 				'--',
 				'app.ts',
 			]);
+
 			expect(staged).toContain('+const two = 2;');
 			expect(staged).not.toContain('+const four = 4;');
 		});
@@ -288,6 +293,7 @@ describe('git operations', () => {
 			await writeFile(join(cwd, 'app.ts'), 'two\n');
 			await git(cwd, ['add', 'app.ts']);
 			await writeFile(join(cwd, 'app.ts'), 'three\n');
+
 			const [file] = parse_porcelain_z(
 				await git(cwd, ['status', '--porcelain=v1', '-z']),
 			);
@@ -304,6 +310,7 @@ describe('git operations', () => {
 	it('removes untracked files when discarding them', async () => {
 		await with_repo(async (cwd) => {
 			await writeFile(join(cwd, 'scratch.ts'), 'temporary\n');
+
 			const [file] = parse_porcelain_z(
 				await git(cwd, ['status', '--porcelain=v1', '-z']),
 			);

@@ -22,14 +22,15 @@ export function resource<T>(load: () => Promise<T>): Resource<T> {
 				state.data = data;
 				state.error = null;
 			})
-			.catch((caught: unknown) => {
+			.catch((cause: unknown) => {
 				if (cancelled) return;
 				state.error =
-					caught instanceof Error ? caught.message : String(caught);
+					cause instanceof Error ? cause.message : String(cause);
 			})
 			.finally(() => {
 				if (!cancelled) state.loading = false;
 			});
+
 		return () => {
 			cancelled = true;
 		};

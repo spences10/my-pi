@@ -28,8 +28,10 @@ Options:
 
 const args = process.argv.slice(2);
 const passthrough_index = args.indexOf('--');
+
 const own_args =
 	passthrough_index === -1 ? args : args.slice(0, passthrough_index);
+
 const extra_args =
 	passthrough_index === -1 ? [] : args.slice(passthrough_index + 1);
 
@@ -40,17 +42,21 @@ const options: EvalOptions = {
 	agent_dir: '.tmp/pi-agent',
 	trusted: false,
 };
+
 let case_id = '';
 let prompt = '';
 
 function next_value(index: number): string {
 	const value = own_args[index + 1];
+
 	if (!value) usage();
+
 	return value;
 }
 
 for (let index = 0; index < own_args.length; index++) {
 	const arg = own_args[index];
+
 	if (arg === '--run') options.run = next_value(index++);
 	else if (arg === '--suite') options.suite = next_value(index++);
 	else if (arg === '--attempt') options.attempt = next_value(index++);
@@ -67,7 +73,9 @@ if (!case_id || !prompt) usage();
 const agent_dir = resolve(options.agent_dir);
 const db_path = join(agent_dir, 'telemetry.db');
 const my_pi_bin = resolve('packages/my-pi/dist/index.js');
+
 mkdirSync(agent_dir, { recursive: true });
+
 writeFileSync(
 	join(agent_dir, 'my-pi-settings.json'),
 	JSON.stringify({
@@ -121,6 +129,7 @@ child.on('exit', (code, signal) => {
 		console.error(`my-pi exited via signal ${signal}`);
 		process.exit(1);
 	}
+
 	console.error(
 		`Telemetry: /telemetry export ./tmp/eval-runs.json run=${options.run} case=${case_id}`,
 	);

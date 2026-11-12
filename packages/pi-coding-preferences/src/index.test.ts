@@ -13,22 +13,33 @@ import {
 	type CodingPreferencesConfig,
 } from './index.js';
 
-vi.mock('@spences10/pi-settings', () => ({
-	read_settings_section: vi.fn(),
-}));
+vi.mock(
+	import('@spences10/pi-settings'),
+	async (import_original) => ({
+		...(await import_original()),
+		read_settings_section: vi.fn(),
+	}),
+);
 
 vi.mock('@earendil-works/pi-coding-agent', () => ({
 	getAgentDir: () =>
 		join(tmpdir(), 'pi-coding-preferences-test-agent'),
 }));
 
-function event(toolName: string, input: Record<string, unknown>) {
+type TestToolCallEvent = Parameters<
+	typeof should_block_coding_preference
+>[0];
+
+function event(
+	toolName: string,
+	input: TestToolCallEvent['input'],
+): TestToolCallEvent {
 	return {
 		type: 'tool_call',
 		toolName,
 		toolCallId: 'test',
 		input,
-	} as Parameters<typeof should_block_coding_preference>[0];
+	};
 }
 
 function write_project_config(
@@ -114,6 +125,7 @@ describe('coding preferences', () => {
 				},
 			],
 		};
+
 		const violation = find_coding_preference_violation(
 			event('edit', {
 				path: 'src/example.ts',
@@ -172,6 +184,7 @@ describe('coding preferences', () => {
 					},
 				],
 			};
+
 			expect(
 				find_coding_preference_violation(
 					event(tool_name, input),
@@ -187,10 +200,12 @@ describe('coding preferences', () => {
 			pattern: 'forbidden',
 			reason: 'Restricted content.',
 		};
+
 		const correction = event('edit', {
 			path: 'forbidden.ts',
 			edits: [{ oldText: 'forbidden', newText: 'safe' }],
 		});
+
 		expect(
 			should_block_coding_preference(correction, {
 				rules: [{ ...rule, target: 'content' }],
@@ -223,6 +238,7 @@ describe('coding preferences', () => {
 				},
 			],
 		};
+
 		for (const call of [
 			event('bash', { command: 'forbidden', content: 'forbidden' }),
 			event('write', {

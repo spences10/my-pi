@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
+import { make_theme } from '../../../../tools/test-sdk.js';
 import { test_theme } from '../test-utils.js';
 import type { FooterTheme } from '../theme/tokens.js';
 import {
@@ -6,10 +7,13 @@ import {
 	render_footer_three_column_line,
 } from './status-line.js';
 
-const plain_theme = {
-	fg: (_color: string, text: string) => text,
-	bold: (text: string) => text,
-} as FooterTheme;
+const plain_theme: FooterTheme = make_theme();
+
+vi.spyOn(plain_theme, 'fg').mockImplementation(
+	(_color, text) => text,
+);
+
+vi.spyOn(plain_theme, 'bold').mockImplementation((text) => text);
 
 describe('render_footer_status_line', () => {
 	it('renders left-only status using the selected tone', () => {
@@ -31,6 +35,7 @@ describe('render_footer_status_line', () => {
 			[],
 			'prompt:terse',
 		);
+
 		expect(line).toContain('prompt:terse');
 		expect(line?.startsWith(' ')).toBe(true);
 	});

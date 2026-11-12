@@ -13,11 +13,13 @@ import { fileURLToPath } from 'node:url';
 
 const package_root = fileURLToPath(new URL('..', import.meta.url));
 const temp_root = mkdtempSync(join(tmpdir(), 'pi-team-mode-pack-'));
+
 const stale_path = join(
 	package_root,
 	'dist',
 	'__pack_smoke_stale__.js',
 );
+
 const forbidden_paths = [
 	/^dist\/(?:rpc(?:\/|-runner)|runner-orchestration|headless-runner|runtime)(?:\.|\/)/,
 	/^dist\/(?:child-env|diagnostics|process-identity|spawn-limits|visible-sessions|workspace-policy)(?:\.|\/)/,
@@ -48,12 +50,15 @@ function pack(destination: string) {
 		'--pack-destination',
 		destination,
 	]);
+
 	const tarballs = readdirSync(destination).filter((name) =>
 		name.endsWith('.tgz'),
 	);
+
 	if (tarballs.length !== 1) {
 		throw new Error(`expected one tarball, found ${tarballs.length}`);
 	}
+
 	return join(destination, tarballs[0]);
 }
 
@@ -76,6 +81,7 @@ try {
 		'throw new Error("stale dist output was packed");\n',
 	);
 	build();
+
 	if (existsSync(stale_path)) {
 		throw new Error(
 			'build:self did not remove the stale dist sentinel',
@@ -83,6 +89,7 @@ try {
 	}
 
 	const dirty_entries = entries(pack(join(temp_root, 'dirty')));
+
 	if (
 		JSON.stringify(clean_entries) !== JSON.stringify(dirty_entries)
 	) {
@@ -94,6 +101,7 @@ try {
 	const forbidden = dirty_entries.filter((entry) =>
 		forbidden_paths.some((pattern) => pattern.test(entry)),
 	);
+
 	if (forbidden.length > 0) {
 		throw new Error(
 			`forbidden legacy paths were packed:\n${forbidden.join('\n')}`,

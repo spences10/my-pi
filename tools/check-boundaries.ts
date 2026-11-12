@@ -3,6 +3,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import * as v from 'valibot';
 
 type Finding = { file: string; message: string; detail?: string };
 
@@ -27,18 +28,26 @@ function git_files(pattern: string): string[] {
 
 function workspace_of(file: string): string | null {
 	const match = file.match(/^(apps|packages)\/([^/]+)\//);
+
 	return match ? `${match[1]}/${match[2]}` : null;
 }
+
+const package_name_schema = v.object({
+	name: v.optional(v.string()),
+});
 
 function package_name_from_workspace(
 	workspace: string | null,
 ): string | null {
 	if (!workspace?.startsWith('packages/')) return null;
 	const package_json = `${workspace}/package.json`;
+
 	try {
-		const pkg = JSON.parse(readFileSync(package_json, 'utf8')) as {
-			name?: string;
-		};
+		const pkg = v.parse(
+			package_name_schema,
+			JSON.parse(readFileSync(package_json, 'utf8')),
+		);
+
 		return pkg.name ?? null;
 	} catch {
 		return null;
@@ -55,20 +64,24 @@ function advise(file: string, message: string, detail?: string) {
 
 function import_specifiers(source: string): string[] {
 	const specs: string[] = [];
+
 	const patterns = [
 		/import\s+(?:type\s+)?(?:[^'";]+?\s+from\s+)?['"]([^'"]+)['"]/g,
 		/export\s+(?:type\s+)?[^'";]+?\s+from\s+['"]([^'"]+)['"]/g,
 		/import\(\s*['"]([^'"]+)['"]\s*\)/g,
 	];
+
 	for (const pattern of patterns) {
 		for (const match of source.matchAll(pattern))
 			specs.push(match[1] ?? '');
 	}
+
 	return specs.filter(Boolean);
 }
 
 function check_import(file: string, specifier: string) {
 	const source_workspace = workspace_of(file);
+
 	const source_package =
 		package_name_from_workspace(source_workspace);
 
@@ -113,6 +126,7 @@ function check_import(file: string, specifier: string) {
 				specifier,
 			);
 		}
+
 		if (
 			lightweight_packages.has(source_package ?? '') &&
 			!support_packages.has(specifier)
@@ -133,7 +147,9 @@ function check_import(file: string, specifier: string) {
 	).pathname
 		.slice(process.cwd().length + 1)
 		.replace(/\/[^/]*$/, '');
+
 	const target_workspace = workspace_of(target);
+
 	if (
 		!source_workspace ||
 		!target_workspace ||
@@ -147,6 +163,7 @@ function check_import(file: string, specifier: string) {
 	) {
 		report(file, 'packages must not import from apps', specifier);
 	}
+
 	if (
 		source_workspace.startsWith('packages/') &&
 		target_workspace === null
@@ -157,6 +174,7 @@ function check_import(file: string, specifier: string) {
 			specifier,
 		);
 	}
+
 	if (
 		source_workspace.startsWith('apps/') &&
 		target_workspace.startsWith('apps/')
@@ -172,14 +190,18 @@ function check_import(file: string, specifier: string) {
 function should_check_file_size(file: string): boolean {
 	if (file.endsWith('.test.ts') || file.endsWith('.spec.ts'))
 		return false;
+
 	if (file.endsWith('.d.ts')) return false;
+
 	if (file.includes('/.svelte-kit/')) return false;
+
 	return true;
 }
 
 function check_file_size(file: string, source: string) {
 	if (!should_check_file_size(file)) return;
 	const lines = source.split('\n').length;
+
 	if (lines > 600) {
 		advise(
 			file,
@@ -190,6 +212,7 @@ function check_file_size(file: string, source: string) {
 
 function check_source_file(file: string) {
 	const source = readFileSync(file, 'utf8');
+
 	for (const specifier of import_specifiers(source))
 		check_import(file, specifier);
 	check_file_size(file, source);
@@ -197,6 +220,7 @@ function check_source_file(file: string) {
 
 function print_findings(label: string, findings: Finding[]) {
 	console.error(`${label}:`);
+
 	for (const finding of findings) {
 		const detail = finding.detail ? ` (${finding.detail})` : '';
 		console.error(`- ${finding.file}: ${finding.message}${detail}`);
@@ -207,10 +231,12 @@ function run() {
 	const files = git_files('*.ts')
 		.concat(git_files('*.svelte'))
 		.filter((file) => existsSync(file));
+
 	for (const file of files) check_source_file(file);
 
 	if (advisories.length)
 		print_findings('Architecture advisories', advisories);
+
 	if (violations.length) {
 		print_findings('Boundary check failed', violations);
 		process.exit(1);

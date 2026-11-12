@@ -91,7 +91,7 @@ export const DEFAULT_FOOTER_WIDGETS: FooterWidgetState = {
 	preset: true,
 };
 
-export const DEFAULT_FOOTER_STATUS_LAYOUT: FooterStatusLayout = {
+export const DEFAULT_FOOTER_STATUS_LAYOUT = {
 	harness: { row: 1, alignment: 'left', hidden: false },
 	preset: { row: 1, alignment: 'right', hidden: false },
 	mcp: { row: 2, alignment: 'left', hidden: false },
@@ -100,7 +100,7 @@ export const DEFAULT_FOOTER_STATUS_LAYOUT: FooterStatusLayout = {
 	recall: { row: 2, alignment: 'left', hidden: false },
 	nopeek: { row: 2, alignment: 'left', hidden: false },
 	'codex-usage': { row: 2, alignment: 'right', hidden: false },
-};
+} satisfies FooterStatusLayout;
 
 export const DEFAULT_FOOTER_STATE: FooterState = {
 	preset: 'default',
@@ -111,3 +111,11 @@ export const DEFAULT_FOOTER_STATE: FooterState = {
 	git_icon_mode: 'nerd',
 	widgets: DEFAULT_FOOTER_WIDGETS,
 };
+
+/** Return the matching member of a literal list, so no cast is needed. */
+export function find_option<T extends string>(
+	options: readonly T[],
+	value: string | undefined,
+): T | undefined {
+	return options.find((option) => option === value);
+}

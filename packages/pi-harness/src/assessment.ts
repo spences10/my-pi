@@ -3,6 +3,7 @@ import { harness_create_params_schema } from './schema.js';
 
 export const HARNESS_ASSESSMENT_CUSTOM_TYPE =
 	'pi-harness-assessment-state';
+
 export const harness_assess_params_schema = Type.Object({
 	task: Type.String({
 		minLength: 1,
@@ -10,6 +11,7 @@ export const harness_assess_params_schema = Type.Object({
 			'Optional investigation before choosing an execution path',
 	}),
 });
+
 export const harness_assessment_submit_params_schema = Type.Object({
 	task: Type.String(),
 	evidence: Type.Array(Type.String()),
@@ -23,35 +25,57 @@ export const harness_assessment_submit_params_schema = Type.Object({
 	]),
 	proposed_contract: Type.Optional(harness_create_params_schema),
 });
+
 export type HarnessAssessParams = Static<
 	typeof harness_assess_params_schema
 >;
+
 export type HarnessAssessmentRecord = Static<
 	typeof harness_assessment_submit_params_schema
 >;
+
 export type HarnessAssessmentRecommendation =
 	HarnessAssessmentRecord['recommendation'];
-export type HarnessAssessmentSource =
-	| 'agent'
-	| 'user'
-	| 'harness-create';
-export type HarnessAssessmentStatus =
-	| 'assessing'
-	| 'assessed'
-	| 'awaiting_approval'
-	| 'approved'
-	| 'rejected';
-export interface HarnessAssessmentState {
-	id: string;
-	version: number;
-	status: HarnessAssessmentStatus;
-	task: string;
-	source: HarnessAssessmentSource;
-	started_at: string;
-	tools_before_assessment?: string[];
-	record?: HarnessAssessmentRecord;
-	decision?: HarnessAssessmentRecommendation;
-}
+
+export const harness_assessment_source_schema = Type.Union([
+	Type.Literal('agent'),
+	Type.Literal('user'),
+	Type.Literal('harness-create'),
+]);
+
+export type HarnessAssessmentSource = Static<
+	typeof harness_assessment_source_schema
+>;
+
+export const harness_assessment_status_schema = Type.Union([
+	Type.Literal('assessing'),
+	Type.Literal('assessed'),
+	Type.Literal('awaiting_approval'),
+	Type.Literal('approved'),
+	Type.Literal('rejected'),
+]);
+
+export type HarnessAssessmentStatus = Static<
+	typeof harness_assessment_status_schema
+>;
+
+export const harness_assessment_state_schema = Type.Object({
+	id: Type.String(),
+	version: Type.Number(),
+	status: harness_assessment_status_schema,
+	task: Type.String(),
+	source: harness_assessment_source_schema,
+	started_at: Type.String(),
+	tools_before_assessment: Type.Optional(Type.Array(Type.String())),
+	record: Type.Optional(harness_assessment_submit_params_schema),
+	decision: Type.Optional(
+		harness_assessment_submit_params_schema.properties.recommendation,
+	),
+});
+
+export type HarnessAssessmentState = Static<
+	typeof harness_assessment_state_schema
+>;
 
 export function create_assessment_state(
 	task: string,
@@ -60,6 +84,7 @@ export function create_assessment_state(
 	now = new Date(),
 ): HarnessAssessmentState {
 	if (!task.trim()) throw new Error('Assessment task is required');
+
 	return {
 		id: `assessment-${now.getTime().toString(36)}`,
 		version: 1,
@@ -100,9 +125,12 @@ export function format_assessment_record(
 	state: HarnessAssessmentState,
 ): string {
 	const record = state.record;
+
 	if (!record) return `Assessment ${state.id}: ${state.task}`;
+
 	const list = (values: string[]) =>
 		values.map((value) => `- ${value}`).join('\n') ||
 		'- None recorded';
+
 	return `# Harness assessment\n\n${record.task}\n\nRecommendation: ${record.recommendation}\n\n## Evidence\n\n${list(record.evidence)}\n\n## Existing primitives\n\n${list(record.existing_primitives)}\n\n## Rejected options\n\n${list(record.rejected_options)}\n\n## Smallest vertical slice\n\n${record.smallest_vertical_slice}`;
 }

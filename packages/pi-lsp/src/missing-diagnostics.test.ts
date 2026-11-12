@@ -6,6 +6,7 @@ import { LspClient } from './client.js';
 const SERVER_PATH = fileURLToPath(
 	new URL('../test/synthetic-server.ts', import.meta.url),
 );
+
 const URI = 'file:///repo/src/a.ts';
 const clients: LspClient[] = [];
 
@@ -17,8 +18,10 @@ async function start_client(...args: string[]): Promise<LspClient> {
 		language_id_for_uri: () => 'typescript',
 		request_timeout_ms: 2_000,
 	});
+
 	clients.push(client);
 	await client.start();
+
 	return client;
 }
 
@@ -110,12 +113,15 @@ describe('LspClient.wait_for_diagnostics with a synthetic server', () => {
 				'publish-clean\npull-delayed:50',
 			);
 			const pending = client.wait_for_diagnostics(URI, 2_000);
+
 			if (action !== 'change') await client.close_document(URI);
+
 			if (action !== 'close')
 				await client.ensure_document_open(URI, 'publish-error');
 
 			expect(await pending).toBeNull();
 			expect(client.get_diagnostics(URI)).toBeNull();
+
 			if (action !== 'close') {
 				expect(
 					await client.wait_for_diagnostics(URI, 2_000),
@@ -128,6 +134,7 @@ describe('LspClient.wait_for_diagnostics with a synthetic server', () => {
 		const client = await start_client();
 		await client.ensure_document_open(URI, 'silent');
 		const waiting = client.wait_for_diagnostics(URI, 5_000);
+
 		const outcome = expect(waiting).rejects.toThrow(
 			'LSP client stopped',
 		);
@@ -160,7 +167,9 @@ describe('lsp diagnostics tools with a synthetic server', () => {
 					command: process.execPath,
 					args: [SERVER_PATH],
 				});
+
 				clients.push(client);
+
 				return client;
 			},
 			read_file: async (path) => texts[path] ?? 'silent',
@@ -176,6 +185,7 @@ describe('lsp diagnostics tools with a synthetic server', () => {
 		const clean = await tools
 			.get('lsp_diagnostics')
 			.execute('1', { file: 'src/clean.ts' });
+
 		const missing = await tools
 			.get('lsp_diagnostics')
 			.execute('2', { file: 'src/silent.ts', wait_ms: 50 });
@@ -200,14 +210,18 @@ describe('lsp diagnostics tools with a synthetic server', () => {
 		'keeps documents open so %s cannot mistake close cleanup for fresh diagnostics',
 		async (tool_name) => {
 			const file = '/repo/src/a.ts';
+
 			const texts = {
 				[file]: 'publish-clean\npublish-delayed-clean-on-close:25',
 			};
+
 			const { tools } = await create_tools(texts);
+
 			const params =
 				tool_name === 'lsp_diagnostics'
 					? { file, wait_ms: 1000 }
 					: { files: [file], wait_ms: 1000 };
+
 			const first = await tools.get(tool_name).execute('1', params);
 			expect(first.content[0].text).toContain('no diagnostics');
 
@@ -230,6 +244,7 @@ describe('lsp diagnostics tools with a synthetic server', () => {
 				files: ['src/clean.ts', 'src/broken.ts', 'src/silent.ts'],
 				wait_ms: 200,
 			});
+
 		const text = result.content[0].text;
 
 		expect(text).toContain(

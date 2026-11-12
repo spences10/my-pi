@@ -3,20 +3,37 @@ import type {
 	ToolRenderers,
 } from '@earendil-works/pi-coding-agent';
 import { Text, TruncatedText } from '@earendil-works/pi-tui';
+import * as v from 'valibot';
 import type { WorkerInfo } from './manager.js';
+
+const call_params_schema = v.looseObject({
+	action: v.fallback(v.optional(v.string()), undefined),
+	name: v.fallback(v.optional(v.string()), undefined),
+	worker: v.fallback(v.optional(v.string()), undefined),
+});
+
+/** The parts of worker tool details that the result preview reads. */
+const result_details_schema = v.union([
+	v.array(v.unknown()),
+	v.looseObject({
+		name: v.string(),
+		status: v.string(),
+		error: v.fallback(v.optional(v.string()), undefined),
+	}),
+]);
 
 export const render_worker_report: MessageRenderer<WorkerInfo> = (
 	message,
 	options,
 	theme,
 ) => {
-	const content =
-		typeof message.content === 'string'
-			? message.content
-			: message.content
-					.filter((block) => block.type === 'text')
-					.map((block) => block.text)
-					.join('\n');
+	const content = Array.isArray(message.content)
+		? message.content
+				.filter((block) => block.type === 'text')
+				.map((block) => block.text)
+				.join('\n')
+		: message.content;
+
 	if (options.expanded)
 		return new Text(
 			`${content}\n\n${JSON.stringify(message.details, null, 2)}`,
@@ -26,9 +43,11 @@ export const render_worker_report: MessageRenderer<WorkerInfo> = (
 
 	const info = message.details;
 	const outcome = info?.error ? 'failed' : 'finished';
+
 	const preview = (info?.error ?? info?.result ?? '(no text result)')
 		.trim()
 		.split('\n')[0];
+
 	return new TruncatedText(
 		theme.fg(
 			info?.error ? 'error' : 'muted',
@@ -44,18 +63,18 @@ export const worker_tool_renderers: Required<
 > = {
 	renderCall(args, theme, context) {
 		const title = theme.fg('toolTitle', theme.bold('Workers'));
+
 		if (context.expanded)
 			return new Text(
 				`${title}\n${JSON.stringify(args, null, 2)}`,
 				0,
 				0,
 			);
-		const params = args as {
-			action?: string;
-			name?: string;
-			worker?: string;
-		};
+
+		const params = v.parse(call_params_schema, args);
+
 		const target = params.name ?? params.worker;
+
 		return new TruncatedText(
 			`${title} · ${params.action ?? ''}${target ? ` · ${target}` : ''}`.replace(
 				/\s+/g,
@@ -70,18 +89,27 @@ export const worker_tool_renderers: Required<
 			.filter((block) => block.type === 'text')
 			.map((block) => block.text)
 			.join('\n');
+
 		if (options.expanded) return new Text(text, 0, 0);
-		const info = result.details as
-			| WorkerInfo
-			| WorkerInfo[]
-			| undefined;
+
+		const parsed_details = v.safeParse(
+			result_details_schema,
+			result.details,
+		);
+
+		const info = parsed_details.success
+			? parsed_details.output
+			: undefined;
+
 		let preview = text.trim().split('\n')[0];
+
 		if (!context.isError && info) {
 			if (Array.isArray(info))
 				preview = `${info.length} owned workers`;
 			else
 				preview = `${info.name} · ${info.status}${info.error ? `: ${info.error}` : ''}`;
 		}
+
 		return new TruncatedText(
 			theme.fg(
 				context.isError ? 'error' : 'muted',

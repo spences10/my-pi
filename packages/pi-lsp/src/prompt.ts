@@ -37,6 +37,7 @@ export function should_inject_lsp_prompt(event: {
 	>;
 }): boolean {
 	const selected_tools = event.systemPromptOptions?.selectedTools;
+
 	return (
 		!selected_tools ||
 		selected_tools.some(

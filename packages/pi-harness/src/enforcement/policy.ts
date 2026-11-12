@@ -14,17 +14,21 @@ export function pattern_matches(
 	const normalized = (
 		isAbsolute(pattern) ? relative(cwd, pattern) : pattern
 	).replaceAll('\\', '/');
+
 	const candidate = relative(cwd, resolve(cwd, path)).replaceAll(
 		'\\',
 		'/',
 	);
+
 	if (normalized === '.') return true;
+
 	if (!/[*?[{]/.test(normalized)) {
 		return (
 			candidate === normalized ||
 			candidate.startsWith(`${normalized}/`)
 		);
 	}
+
 	return matchesGlob(candidate, normalized);
 }
 
@@ -35,6 +39,7 @@ export function check_path_allowed(
 	const cwd = resolve(contract.policy.cwd);
 	const absolute_path = resolve(cwd, input_path);
 	let reason: string | undefined;
+
 	if (absolute_path !== cwd && !absolute_path.startsWith(`${cwd}/`)) {
 		reason = 'path is outside cwd';
 	} else if (
@@ -60,6 +65,7 @@ export function check_path_allowed(
 	) {
 		reason = 'path is outside allowed_paths';
 	}
+
 	return reason
 		? {
 				ok: false,
@@ -75,6 +81,7 @@ export function check_command_allowed(
 	const blocked = contract.policy.forbidden_commands.find((needle) =>
 		command.includes(needle),
 	);
+
 	return blocked
 		? {
 				ok: false,

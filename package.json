@@ -37,12 +37,16 @@
 	},
 	"devDependencies": {
 		"@changesets/cli": "catalog:",
+		"@earendil-works/pi-ai": "catalog:",
+		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
 		"@napi-rs/image": "catalog:",
+		"@oxlint/plugins": "1.91.0",
 		"@resvg/resvg-js": "catalog:",
 		"@types/node": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
 		"my-pi": "workspace:*",
+		"valibot": "catalog:",
 		"vite": "catalog:",
 		"vite-plus": "catalog:",
 		"vitest": "catalog:"

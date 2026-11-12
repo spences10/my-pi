@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import * as v from 'valibot';
 import {
 	load_preview_config,
 	parse_preview_config,
@@ -56,9 +57,11 @@ function numeric(
 	flag: string,
 ): number | undefined {
 	if (value === undefined) return undefined;
+
 	if (value.trim() === '' || !Number.isFinite(Number(value))) {
 		throw new Error(`${flag} must be a number.`);
 	}
+
 	return Number(value);
 }
 
@@ -88,9 +91,11 @@ export function preview_options(args: string[]): PreviewOptions {
 			help: { type: 'boolean', short: 'h' },
 		},
 	});
+
 	if (values.help) return { help: true };
 	const base = load_preview_config(values.config);
 	const first_row = base.footer.rows[0] ?? { left: '', right: '' };
+
 	const config = parse_preview_config(
 		{
 			model: values.model,
@@ -124,6 +129,7 @@ export function preview_options(args: string[]): PreviewOptions {
 		},
 		base,
 	);
+
 	return {
 		help: false,
 		check: values.check ?? false,
@@ -152,6 +158,7 @@ function sha256(value: string | Buffer): string {
 function preview_source(version: string, config: PreviewConfig) {
 	const resolved = parse_preview_config(config);
 	const svg = render_preview_svg(version, resolved);
+
 	return {
 		svg,
 		config_sha256: sha256(JSON.stringify(resolved)),
@@ -165,9 +172,11 @@ export function generate_preview(
 	config: PreviewConfig = load_preview_config(),
 ): void {
 	const { svg, ...fingerprints } = preview_source(version, config);
+
 	const png = new Resvg(svg, { fitTo: { mode: 'original' } })
 		.render()
 		.asPng();
+
 	const optimized = losslessCompressPngSync(png);
 	mkdirSync(dirname(output_path), { recursive: true });
 	writeFileSync(output_path, optimized);
@@ -192,9 +201,11 @@ export function check_preview(
 ): boolean {
 	try {
 		const expected = preview_source(version, config);
+
 		const metadata = JSON.parse(
 			readFileSync(`${output_path}.json`, 'utf8'),
 		);
+
 		return (
 			metadata.version === version &&
 			metadata.config_sha256 === expected.config_sha256 &&
@@ -206,15 +217,20 @@ export function check_preview(
 	}
 }
 
+const package_version_schema = v.object({ version: v.string() });
+
 if (import.meta.main) {
 	try {
 		const options = preview_options(process.argv.slice(2));
+
 		if (options.help) {
 			console.log(preview_help);
 		} else {
-			const { version } = JSON.parse(
-				readFileSync(package_path, 'utf8'),
-			) as { version: string };
+			const { version } = v.parse(
+				package_version_schema,
+				JSON.parse(readFileSync(package_path, 'utf8')),
+			);
+
 			if (options.check) {
 				if (
 					!check_preview(version, options.output_path, options.config)

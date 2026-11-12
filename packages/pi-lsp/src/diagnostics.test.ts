@@ -9,6 +9,7 @@ describe('lsp diagnostics tools', () => {
 	it('returns a friendly message for unsupported files', async () => {
 		const start = vi.fn().mockResolvedValue(undefined);
 		const client = create_mock_client({ start });
+
 		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'ignored',
@@ -35,6 +36,7 @@ describe('lsp diagnostics tools', () => {
 				}),
 			),
 		});
+
 		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => '<script lang="ts">\n</script>\n',
@@ -78,7 +80,9 @@ describe('lsp diagnostics tools', () => {
 					message: 'Boom',
 				},
 			]);
+
 		const client = create_mock_client({ wait_for_diagnostics });
+
 		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
@@ -91,6 +95,7 @@ describe('lsp diagnostics tools', () => {
 				files: ['src/a.ts', 'src/b.ts'],
 				wait_ms: 500,
 			});
+
 		const text = result.content[0].text;
 
 		expect(text).toContain(
@@ -105,14 +110,18 @@ describe('lsp diagnostics tools', () => {
 	it('checks more than ten files without exceeding LSP concurrency', async () => {
 		let active = 0;
 		let max_active = 0;
+
 		const wait_for_diagnostics = vi.fn(async () => {
 			active += 1;
 			max_active = Math.max(max_active, active);
 			await new Promise((resolve) => setTimeout(resolve, 1));
 			active -= 1;
+
 			return [];
 		});
+
 		const client = create_mock_client({ wait_for_diagnostics });
+
 		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
@@ -123,6 +132,7 @@ describe('lsp diagnostics tools', () => {
 			{ length: 12 },
 			(_, index) => `src/file-${index}.ts`,
 		);
+
 		const result = await tools
 			.get('lsp_diagnostics_many')
 			.execute('1', { files, wait_ms: 500 });
@@ -140,7 +150,9 @@ describe('lsp diagnostics tools', () => {
 			.mockResolvedValueOnce([])
 			.mockRejectedValueOnce(new Error('LSP timed out'))
 			.mockResolvedValueOnce([]);
+
 		const client = create_mock_client({ wait_for_diagnostics });
+
 		const { tools } = await create_test_lsp_extension({
 			create_client: () => client,
 			read_file: async () => 'export const value = 1;\n',
@@ -153,6 +165,7 @@ describe('lsp diagnostics tools', () => {
 				files: ['src/a.ts', 'src/b.ts', 'src/c.ts'],
 				wait_ms: 500,
 			});
+
 		const text = result.content[0].text;
 
 		expect(text).toContain(

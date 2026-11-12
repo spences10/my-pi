@@ -1,3 +1,4 @@
+import { SettingsList } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vite-plus/test';
 import {
 	count_text_lines,
@@ -5,6 +6,8 @@ import {
 	fit_visible_items,
 	get_border_line_count,
 	get_modal_body_line_budget,
+	get_selected_setting,
+	has_active_settings_search,
 	get_vertical_margin,
 	normalize_metadata,
 	normalize_text,
@@ -15,6 +18,38 @@ import {
 const tui = { terminal: { rows: 30 } };
 
 describe('modal layout helpers', () => {
+	it('validates SDK settings internals without cloning mutable items', () => {
+		const item = {
+			id: 'alignment',
+			label: 'Alignment',
+			currentValue: 'left',
+			values: ['left', 'center'],
+		};
+
+		const list = new SettingsList(
+			[item],
+			5,
+			{
+				label: (text) => text,
+				value: (text) => text,
+				description: (text) => text,
+				cursor: '>',
+				hint: (text) => text,
+			},
+			() => {},
+			() => {},
+			{ enableSearch: true },
+		);
+
+		expect(get_selected_setting(list)).toBe(item);
+		expect(has_active_settings_search(list)).toBe(false);
+		cycle_setting_value(get_selected_setting(list), 1);
+		expect(list.render(80).join('\n')).toContain('center');
+		list.handleInput('a');
+		expect(has_active_settings_search(list)).toBe(true);
+		expect(get_selected_setting(list)).toBe(item);
+	});
+
 	it('normalizes static, dynamic, and missing text', () => {
 		expect(normalize_text(undefined)).toEqual([]);
 		expect(normalize_text('hello')).toEqual(['hello']);
@@ -72,8 +107,10 @@ describe('modal layout helpers', () => {
 		expect(count_text_lines(() => ['one', '', 'two'], 10)).toBe(2);
 		expect(
 			normalize_metadata((item) => item?.label, {
+				id: 'label',
 				label: 'Label',
-			} as Parameters<typeof normalize_metadata>[1]),
+				currentValue: '',
+			}),
 		).toEqual(['Label']);
 		expect(value_color('✓ enabled')).toBe('success');
 		expect(value_color('sync queued')).toBe('warning');

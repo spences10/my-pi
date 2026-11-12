@@ -24,7 +24,9 @@ function require_arg(
 	name: string,
 ): string {
 	const trimmed = value?.trim();
+
 	if (!trimmed) throw new Error(`${name} is required`);
+
 	return trimmed;
 }
 
@@ -39,10 +41,12 @@ function resolve_sender_filter_ids(
 	from_filter: string | undefined,
 ): string[] | undefined {
 	if (!from_filter) return undefined;
+
 	try {
 		const resolved = coordination_db
 			.resolve_session_targets(from_filter)
 			.map((session) => session.session_id);
+
 		return unique_session_ids([from_filter, ...resolved]);
 	} catch {
 		return [from_filter];
@@ -55,8 +59,10 @@ function resolve_message_sender_id(
 	from: string | undefined,
 ): string {
 	const sender = from?.trim();
+
 	if (!sender) return current_session_id;
 	let resolved;
+
 	try {
 		resolved = coordination_db.resolve_session_targets(sender);
 	} catch {
@@ -64,12 +70,14 @@ function resolve_message_sender_id(
 			'Team message from is bound to the current session and cannot be an unregistered label.',
 		);
 	}
+
 	if (
 		resolved.length === 1 &&
 		resolved[0]?.session_id === current_session_id
 	) {
 		return current_session_id;
 	}
+
 	throw new Error(
 		'Team message from is bound to the current session; sender spoofing is not allowed.',
 	);
@@ -98,10 +106,13 @@ function format_message_chunk(
 ): string | undefined {
 	if (!has_chunk_request(params)) return undefined;
 	const message_id = params.message_id ?? params.message_ids?.[0];
+
 	const message = message_id
 		? messages.find((item) => item.message_id === message_id)
 		: messages[0];
+
 	if (!message) return 'No matching message for chunk retrieval.';
+
 	return [
 		`Message ${message.message_id} ${JSON.stringify(body_chunk_metadata(message.body))}`,
 		format_body_chunks(
@@ -123,9 +134,11 @@ function format_receipt_confirmation(
 ): string {
 	const is_read =
 		action === 'session_read' || action === 'message_read';
+
 	const count = message_ids.length;
 	const noun = `coordination message${count === 1 ? '' : 's'}`;
 	const ids = count > 0 ? `: ${message_ids.join(', ')}` : '';
+
 	return is_read
 		? `Marked ${count} ${noun} read${ids}`
 		: `Acknowledged ${count} ${noun}${ids}`;
@@ -141,26 +154,31 @@ export async function execute_coordination_action(
 		notify_coordination_messages,
 		require_session_id,
 	} = context;
+
 	switch (params.action) {
 		case 'session_pause':
 		case 'session_resume': {
 			if (params.to && params.team_id)
 				throw new Error('Choose a sender or a group, not both');
 			const session_id = require_session_id();
+
 			const sender = params.to
 				? coordination_db.resolve_session_targets(
 						params.to,
 						session_id,
 					)[0]
 				: undefined;
+
 			const group = params.team_id
 				? coordination_db.get_group(params.team_id, { cwd: ctx.cwd })
 				: undefined;
+
 			if ((params.to && !sender) || (params.team_id && !group))
 				throw new Error('Unknown delivery control target');
 			const paused = params.action === 'session_pause';
 			let scope: 'session' | 'sender' | 'group' = 'session';
 			let label = ' here';
+
 			if (sender) {
 				scope = 'sender';
 				label = ` from ${sender.session_id}`;
@@ -168,12 +186,14 @@ export async function execute_coordination_action(
 				scope = 'group';
 				label = ` for ${group.group_id}`;
 			}
+
 			coordination_db.delivery.set_paused(
 				session_id,
 				paused,
 				scope,
 				sender?.session_id ?? group?.group_id,
 			);
+
 			return {
 				content: [
 					{
@@ -186,13 +206,16 @@ export async function execute_coordination_action(
 				},
 			};
 		}
+
 		case 'group_leave':
 		case 'group_close': {
 			const group = coordination_db.get_group(
 				require_arg(params.team_id ?? params.name, 'group'),
 				{ cwd: ctx.cwd },
 			);
+
 			if (!group) throw new Error('Unknown coordination group');
+
 			if (params.action === 'group_close')
 				coordination_db.delivery.close_group(
 					group.group_id,
@@ -203,6 +226,7 @@ export async function execute_coordination_action(
 					group.group_id,
 					require_session_id(),
 				);
+
 			return {
 				content: [
 					{
@@ -213,6 +237,7 @@ export async function execute_coordination_action(
 				details: { group_id: group.group_id },
 			};
 		}
+
 		case 'session_list':
 			return execute_session_list_action(params, {
 				ctx,
@@ -222,20 +247,26 @@ export async function execute_coordination_action(
 		case 'message_send': {
 			coordination_db.mark_stale_sessions_offline();
 			const session_id = require_session_id();
+
 			const from_session_id = resolve_message_sender_id(
 				coordination_db,
 				session_id,
 				params.from,
 			);
+
 			const target = require_arg(params.to, 'to');
+
 			const target_sessions = coordination_db.resolve_session_targets(
 				target,
 				from_session_id,
 			);
+
 			const recipients = target_sessions.map(
 				(session) => session.session_id,
 			);
+
 			const body = require_arg(params.message, 'message');
+
 			const message = coordination_db.send_to_session_target({
 				from_session_id,
 				target,
@@ -248,10 +279,12 @@ export async function execute_coordination_action(
 				ttl_ms: params.ttl_ms,
 				requires_ack: params.requires_ack,
 			});
+
 			await notify_coordination_messages(
 				recipients,
 				message.message_id,
 			);
+
 			return {
 				content: [
 					{
@@ -262,21 +295,26 @@ export async function execute_coordination_action(
 				details: { message },
 			};
 		}
+
 		case 'session_inbox':
 		case 'message_list': {
 			const target = require_session_id();
+
 			const focused =
 				has_chunk_request(params) ||
 				(params.message_ids?.length ?? 0) > 0;
+
 			const from_filter = resolve_sender_filter_ids(
 				coordination_db,
 				params.from,
 			);
+
 			const requested_ids = new Set(
 				params.message_id
 					? [params.message_id]
 					: (params.message_ids ?? []),
 			);
+
 			const visible_messages = coordination_db
 				.list_inbox(target, {
 					include_read:
@@ -295,20 +333,24 @@ export async function execute_coordination_action(
 						(!params.unread_only || !message.read_at) &&
 						(!params.unacknowledged_only || !message.acknowledged_at),
 				);
+
 			const { items: messages, pagination } = paginate_team_items(
 				visible_messages,
 				params,
 			);
+
 			const chunk_text = format_message_chunk(messages, params);
 			coordination_db.mark_messages_delivered(
 				target,
 				messages.map((message) => message.message_id),
 			);
+
 			const warning =
 				params.mode === 'full' &&
 				(params.include_read || params.include_acknowledged)
 					? 'Broad full-history inbox reads are paginated. Prefer from, unread_only, unacknowledged_only, or a focused message_id.'
 					: undefined;
+
 			return {
 				content: [
 					{
@@ -336,15 +378,19 @@ export async function execute_coordination_action(
 				},
 			};
 		}
+
 		case 'session_wait':
 		case 'message_wait': {
 			const target = require_session_id();
+
 			const from_filter = resolve_sender_filter_ids(
 				coordination_db,
 				params.from,
 			);
+
 			const deadline =
 				Date.now() + Math.max(0, params.timeout_ms ?? 30_000);
+
 			const list_matching_messages = () =>
 				coordination_db
 					.list_inbox(target, {
@@ -356,15 +402,19 @@ export async function execute_coordination_action(
 							!from_filter ||
 							from_filter.includes(message.from_session_id),
 					);
+
 			let messages = list_matching_messages();
+
 			while (messages.length === 0 && Date.now() < deadline) {
 				await new Promise((resolve) => setTimeout(resolve, 250));
 				messages = list_matching_messages();
 			}
+
 			if (messages.length > 0) {
 				const message_ids = messages.map(
 					(message) => message.message_id,
 				);
+
 				coordination_db.mark_messages_delivered(target, message_ids);
 				const surfaced_at = new Date().toISOString();
 				messages = messages.map((message) => ({
@@ -372,7 +422,9 @@ export async function execute_coordination_action(
 					delivered_at: message.delivered_at ?? surfaced_at,
 				}));
 			}
+
 			const chunk_text = format_message_chunk(messages, params);
+
 			return {
 				content: [
 					{
@@ -389,36 +441,45 @@ export async function execute_coordination_action(
 				},
 			};
 		}
+
 		case 'session_read':
 		case 'session_ack':
 		case 'message_read':
 		case 'message_ack': {
 			const target = require_session_id();
+
 			const ids =
 				params.message_ids ??
 				coordination_db
 					.list_inbox(target, { include_read: true })
 					.map((message) => message.message_id);
+
 			if (
 				params.action === 'session_read' ||
 				params.action === 'message_read'
 			)
 				coordination_db.mark_messages_read(target, ids);
 			else coordination_db.mark_messages_acknowledged(target, ids);
+
 			const all_messages = coordination_db.list_inbox(target, {
 				include_read: true,
 				include_acknowledged: true,
 			});
+
 			const requested_ids = new Set(ids);
+
 			const messages = params.message_ids
 				? all_messages.filter((message) =>
 						requested_ids.has(message.message_id),
 					)
 				: all_messages;
+
 			const message_ids = messages.map(
 				(message) => message.message_id,
 			);
+
 			const chunk_text = format_message_chunk(messages, params);
+
 			return {
 				content: [
 					{
@@ -436,6 +497,7 @@ export async function execute_coordination_action(
 				details: { message_ids },
 			};
 		}
+
 		case 'artifact_create': {
 			const artifact = coordination_db.create_artifact({
 				kind: params.kind ?? 'summary',
@@ -447,6 +509,7 @@ export async function execute_coordination_action(
 				body: require_arg(params.body, 'body'),
 				body_format: params.body_format,
 			});
+
 			return {
 				content: [
 					{
@@ -457,11 +520,14 @@ export async function execute_coordination_action(
 				details: { artifact },
 			};
 		}
+
 		case 'artifact_get': {
 			const artifact = coordination_db.get_artifact(
 				require_arg(params.artifact_id, 'artifact_id'),
 			);
+
 			if (!artifact) throw new Error('Unknown coordination artifact');
+
 			return {
 				content: [
 					{
@@ -480,6 +546,7 @@ export async function execute_coordination_action(
 				},
 			};
 		}
+
 		case 'artifact_list':
 			return execute_artifact_list_action(params, {
 				ctx,
@@ -491,6 +558,7 @@ export async function execute_coordination_action(
 				cwd: ctx.cwd,
 				created_by_session_id: require_session_id(),
 			});
+
 			return {
 				content: [
 					{
@@ -501,6 +569,7 @@ export async function execute_coordination_action(
 				details: { group },
 			};
 		}
+
 		case 'group_list':
 			return execute_group_list_action(params, {
 				ctx,
@@ -511,13 +580,16 @@ export async function execute_coordination_action(
 				require_arg(params.team_id ?? params.name, 'group'),
 				{ cwd: ctx.cwd },
 			);
+
 			if (!group) throw new Error('Unknown coordination group');
+
 			const member = coordination_db.join_group(
 				group.group_id,
 				require_session_id(),
 				params.member,
 				params.role,
 			);
+
 			return {
 				content: [
 					{
@@ -528,21 +600,28 @@ export async function execute_coordination_action(
 				details: { group, member },
 			};
 		}
+
 		case 'group_add_session': {
 			coordination_db.mark_stale_sessions_offline();
+
 			const group = coordination_db.get_group(
 				require_arg(params.team_id ?? params.name, 'group'),
 				{ cwd: ctx.cwd },
 			);
+
 			if (!group) throw new Error('Unknown coordination group');
 			const from_session_id = require_session_id();
+
 			if (group.created_by_session_id !== from_session_id)
 				throw new Error('Only the group owner can invite sessions');
+
 			const targets = coordination_db.resolve_session_targets(
 				require_arg(params.to, 'to'),
 				from_session_id,
 			);
+
 			const role = params.role ?? 'peer';
+
 			const members = targets.map((session) =>
 				coordination_db.add_group_member({
 					group_id: group.group_id,
@@ -557,9 +636,11 @@ export async function execute_coordination_action(
 							)?.status ?? 'inactive',
 				}),
 			);
+
 			const recipients = members
 				.map((member) => member.session_id)
 				.filter((session_id) => session_id !== from_session_id);
+
 			if (recipients.length > 0) {
 				const message = coordination_db.send_message({
 					from_session_id,
@@ -569,11 +650,13 @@ export async function execute_coordination_action(
 					body: `Invitation to collaboration ${group.name} (${group.group_id}) as ${role}${params.member ? ` with alias ${params.member}` : ''}. Join explicitly with group_join to enable automatic delivery.`,
 					requires_ack: true,
 				});
+
 				await notify_coordination_messages(
 					recipients,
 					message.message_id,
 				);
 			}
+
 			return {
 				content: [
 					{
@@ -584,17 +667,22 @@ export async function execute_coordination_action(
 				details: { group, members },
 			};
 		}
+
 		case 'group_send': {
 			const group_target = require_arg(
 				params.team_id ?? params.name ?? params.to,
 				'group',
 			);
+
 			const from_session_id = require_session_id();
+
 			const members = coordination_db
 				.list_group_members(group_target, { cwd: ctx.cwd })
 				.filter((member) => member.session_id !== from_session_id);
+
 			const recipients = members.map((member) => member.session_id);
 			const body = require_arg(params.message, 'message');
+
 			const message = coordination_db.send_to_group(
 				{
 					from_session_id,
@@ -610,10 +698,12 @@ export async function execute_coordination_action(
 				},
 				{ cwd: ctx.cwd },
 			);
+
 			await notify_coordination_messages(
 				recipients,
 				message.message_id,
 			);
+
 			return {
 				content: [
 					{

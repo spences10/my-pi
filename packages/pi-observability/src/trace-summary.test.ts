@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import type { JsonValue } from './json.js';
 import { trace_summary } from './trace-summary.js';
 import type {
 	DashboardSession,
@@ -13,7 +14,7 @@ const dirs: string[] = [];
 function event(
 	type: ObservabilityEvent['type'],
 	seq: number,
-	payload: Record<string, unknown>,
+	payload: Record<string, JsonValue>,
 	ts = `2026-01-01T00:00:0${seq}.000Z`,
 ): ObservabilityEvent {
 	return {
@@ -100,6 +101,7 @@ describe('trace_summary', () => {
 				percent: 50,
 			},
 		});
+
 		const latest = event('turn_end', 3, {
 			contextUsage: {
 				tokens: 84_000,
@@ -107,7 +109,9 @@ describe('trace_summary', () => {
 				percent: 42,
 			},
 		});
+
 		latest.model = 'active-model';
+
 		const summary = trace_summary(null, [
 			latest,
 			first,
@@ -115,6 +119,7 @@ describe('trace_summary', () => {
 				message: { usage: { input: 500_000, output: 10_000 } },
 			}),
 		]);
+
 		expect(summary.context_usage).toEqual({
 			tokens: 84_000,
 			context_window: 200_000,
@@ -133,6 +138,7 @@ describe('trace_summary', () => {
 				percent: 50,
 			},
 		});
+
 		expect(
 			trace_summary(null, [
 				first,
@@ -181,6 +187,7 @@ describe('trace_summary', () => {
 				message: 'documentation about error handling',
 			}),
 		]);
+
 		expect(summary.metrics.tool_failures).toBe(0);
 		expect(summary.metrics.errors).toBe(0);
 		expect(summary.spans[0]?.error).toBe(false);
@@ -190,8 +197,10 @@ describe('trace_summary', () => {
 		const dir = mkdtempSync(
 			join(tmpdir(), 'pi-observability-trace-'),
 		);
+
 		dirs.push(dir);
 		const session_file = join(dir, 'session.jsonl');
+
 		const usage = (
 			input: number,
 			output: number,
@@ -205,6 +214,7 @@ describe('trace_summary', () => {
 			cacheWrite,
 			cost: { total: cost },
 		});
+
 		writeFileSync(
 			session_file,
 			[
@@ -228,6 +238,7 @@ describe('trace_summary', () => {
 				.map((entry) => JSON.stringify(entry))
 				.join('\n') + '\n',
 		);
+
 		const session: DashboardSession = {
 			session_id: 'session-1',
 			session_file,
@@ -238,6 +249,7 @@ describe('trace_summary', () => {
 			last_ts: 'now',
 			event_count: 1,
 		};
+
 		const duplicate_usage = {
 			usage: usage(100, 50, 1),
 		};
@@ -259,12 +271,14 @@ describe('trace_summary', () => {
 		const dir = mkdtempSync(
 			join(tmpdir(), 'pi-observability-trace-'),
 		);
+
 		dirs.push(dir);
 		const session_file = join(dir, 'session.jsonl');
 		writeFileSync(
 			session_file,
 			JSON.stringify({ type: 'session', id: 'session-1' }) + '\n',
 		);
+
 		const session = {
 			session_id: 'session-1',
 			session_file,
@@ -275,6 +289,7 @@ describe('trace_summary', () => {
 			last_ts: 'now',
 			event_count: 1,
 		} satisfies DashboardSession;
+
 		const usage = {
 			usage: {
 				input: 11,
@@ -304,10 +319,12 @@ describe('trace_summary', () => {
 				cost: { total: 0.03 },
 			},
 		};
+
 		const summary = trace_summary(null, [
 			event('message_end', 0, usage),
 			event('provider_response', 1, usage),
 		]);
+
 		expect(summary.metrics).toMatchObject({
 			input_tokens: 11,
 			output_tokens: 4,

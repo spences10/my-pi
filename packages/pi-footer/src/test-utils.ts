@@ -1,16 +1,28 @@
+import {
+	make_command_context as sdk_command_context,
+	make_context as sdk_context,
+	make_model,
+	make_model_registry,
+	make_theme,
+	type ContextOverrides,
+} from '../../../tools/test-sdk.js';
 import type {
+	ExtensionCommandContext,
 	ExtensionContext,
 	ReadonlyFooterDataProvider,
 } from '@earendil-works/pi-coding-agent';
 import { vi } from 'vite-plus/test';
 import type { FooterTheme } from './theme/tokens.js';
 
-export const test_theme = {
-	fg: vi.fn(
-		(color: string, text: string) => `<${color}>${text}</${color}>`,
-	),
-	bold: vi.fn((text: string) => `**${text}**`),
-} as unknown as FooterTheme;
+export const test_theme: FooterTheme = make_theme();
+
+vi.spyOn(test_theme, 'fg').mockImplementation(
+	(color, text) => `<${color}>${text}</${color}>`,
+);
+
+vi.spyOn(test_theme, 'bold').mockImplementation(
+	(text) => `**${text}**`,
+);
 
 export function make_footer_data(
 	overrides: Partial<ReadonlyFooterDataProvider> = {},
@@ -21,24 +33,19 @@ export function make_footer_data(
 		getExtensionStatuses: vi.fn(() => new Map()),
 		onBranchChange: vi.fn(() => vi.fn()),
 		...overrides,
-	} as unknown as ReadonlyFooterDataProvider;
+	};
 }
 
-export function make_context(
-	overrides: Record<string, unknown> = {},
-): ExtensionContext {
+function footer_context_overrides(
+	overrides: ContextOverrides,
+): ContextOverrides {
 	return {
 		hasUI: true,
 		cwd: '/home/scott/repos/my-pi',
-		model: {
-			id: 'claude-sonnet',
-			provider: 'anthropic',
-			contextWindow: 200_000,
-			reasoning: true,
-		},
-		modelRegistry: {
+		model: make_model({ id: 'claude-sonnet' }),
+		modelRegistry: make_model_registry({
 			isUsingOAuth: vi.fn(() => false),
-		},
+		}),
 		sessionManager: {
 			getEntries: vi.fn(() => []),
 			getSessionName: vi.fn(() => 'test-session'),
@@ -55,5 +62,17 @@ export function make_context(
 			notify: vi.fn(),
 		},
 		...overrides,
-	} as unknown as ExtensionContext;
+	};
+}
+
+export function make_context(
+	overrides: ContextOverrides = {},
+): ExtensionContext {
+	return sdk_context(footer_context_overrides(overrides));
+}
+
+export function make_command_context(
+	overrides: ContextOverrides = {},
+): ExtensionCommandContext {
+	return sdk_command_context(footer_context_overrides(overrides));
 }

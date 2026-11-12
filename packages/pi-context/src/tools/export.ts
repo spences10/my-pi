@@ -64,28 +64,36 @@ export function register_context_export_tool(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const scope = scope_from_context(ctx);
 			const store = get_context_store(scope);
-			const scope_options = {
-				...(params.global ? {} : scope),
+
+			const selection_options = {
 				global: params.global,
 				before: params.before,
 				after: params.after,
 			};
+
+			const scope_options = params.global
+				? selection_options
+				: { ...scope, ...selection_options };
+
 			const exported = store.export_content(
 				params.source_id,
 				params.chunk_id,
 				scope_options,
 			);
+
 			if (exported.chunks.length === 0) {
 				const summary = store.chunk_summary(
 					params.source_id,
 					scope_options,
 				);
+
 				const message = format_get_result(
 					params.source_id,
 					params.chunk_id,
 					exported.chunks,
 					summary,
 				);
+
 				return {
 					content: [{ type: 'text' as const, text: message }],
 					details: { count: 0, exported: false },
@@ -102,13 +110,16 @@ export function register_context_export_tool(pi: ExtensionAPI): void {
 
 			const cwd = ctx?.cwd ?? process.cwd();
 			cleanup_context_exports();
+
 			const file_path = resolve_context_export_path(
 				params.file_path,
 				cwd,
 				params.source_id,
 				params.chunk_id,
 			);
+
 			write_context_export_file(file_path, exported.content);
+
 			const verification =
 				exported.verified === false
 					? ' Reconstruction hash did not match the stored source; this source may have been captured by an older non-lossless chunker.'

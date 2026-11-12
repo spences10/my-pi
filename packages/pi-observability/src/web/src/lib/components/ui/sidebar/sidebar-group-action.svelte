@@ -10,7 +10,7 @@
 		child,
 		...restProps
 	}: WithElementRef<HTMLButtonAttributes> & {
-		child?: Snippet<[{ props: Record<string, unknown> }]>;
+		child?: Snippet<[{ props: HTMLButtonAttributes }]>;
 	} = $props();
 
 	const mergedProps = $derived({

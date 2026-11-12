@@ -53,27 +53,35 @@ export function register_context_get_tool(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const scope = scope_from_context(ctx);
 			const store = get_context_store(scope);
-			const scope_options = {
-				...(params.global ? {} : scope),
+
+			const selection_options = {
 				global: params.global,
 				before: params.before,
 				after: params.after,
 			};
+
+			const scope_options = params.global
+				? selection_options
+				: { ...scope, ...selection_options };
+
 			const chunks = store.get(
 				params.source_id,
 				params.chunk_id,
 				scope_options,
 			);
+
 			const summary =
 				chunks.length === 0
 					? store.chunk_summary(params.source_id, scope_options)
 					: null;
+
 			const text = format_get_result(
 				params.source_id,
 				params.chunk_id,
 				chunks,
 				summary,
 			);
+
 			return {
 				content: [{ type: 'text' as const, text }],
 				details: { count: chunks.length },

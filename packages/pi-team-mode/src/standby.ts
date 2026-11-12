@@ -1,3 +1,5 @@
+import { metadata_text, type JsonRecord } from './json.js';
+
 export type StandbyIntent =
 	| 'subordinate'
 	| 'handoff-target'
@@ -18,11 +20,13 @@ export function detect_standby_registration(
 ): StandbyRegistration | undefined {
 	if (!text) return undefined;
 	const normalized = normalize_text(text);
+
 	if (!normalized) return undefined;
 
 	const mentions_standby = /\bstand\s*by\b|\bstandby\b/.test(
 		normalized,
 	);
+
 	const mentions_available =
 		/\bavailable\s+(?:for|to)\s+(?:coordination|coordinate|handoff)\b/.test(
 			normalized,
@@ -30,11 +34,14 @@ export function detect_standby_registration(
 		/\bready\s+(?:for|to)\s+(?:coordination|coordinate|handoff)\b/.test(
 			normalized,
 		);
+
 	const mentions_subordinate =
 		/\bsubordinate\b|\bsubordonate\b|\bteammate\b/.test(normalized);
+
 	const mentions_handoff = /\bhandoff\b|\btake over\b/.test(
 		normalized,
 	);
+
 	const mentions_orchestrator = /\borchestrator\b/.test(normalized);
 
 	if (!mentions_standby && !mentions_available) {
@@ -42,6 +49,7 @@ export function detect_standby_registration(
 	}
 
 	let intent: StandbyIntent = 'standby';
+
 	if (mentions_handoff) intent = 'handoff-target';
 	else if (mentions_subordinate || mentions_orchestrator)
 		intent = 'subordinate';
@@ -52,20 +60,18 @@ export function detect_standby_registration(
 	};
 }
 
-export function is_standby_session(
-	metadata: Record<string, unknown>,
-): boolean {
+export function is_standby_session(metadata: JsonRecord): boolean {
 	return metadata.availability === 'standby';
 }
 
 export function standby_label(
-	metadata: Record<string, unknown>,
+	metadata: JsonRecord,
 ): string | undefined {
 	if (!is_standby_session(metadata)) return undefined;
-	const intent =
-		typeof metadata.intent === 'string' ? metadata.intent : 'standby';
-	const alias =
-		typeof metadata.alias === 'string' ? metadata.alias : undefined;
+
+	const intent = metadata_text(metadata, 'intent') ?? 'standby';
+	const alias = metadata_text(metadata, 'alias');
+
 	return alias
 		? `standby:${intent} as ${alias}`
 		: `standby:${intent}`;

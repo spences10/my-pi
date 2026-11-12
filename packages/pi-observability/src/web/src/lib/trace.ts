@@ -28,12 +28,16 @@ export function trace_rows(
 	failures_only = false,
 ): TraceRow[] {
 	const rows: TraceRow[] = [];
+
 	const visit = (span: TimelineSpan, depth: number) => {
 		if (failures_only && !contains_failure(span)) return;
 		rows.push({ span, depth });
+
 		for (const child of span.children) visit(child, depth + 1);
 	};
+
 	for (const child of run.children) visit(child, 0);
+
 	return rows;
 }
 
@@ -44,6 +48,7 @@ export function run_of(
 ): TimelineSpan | null {
 	const has = (span: TimelineSpan): boolean =>
 		span.id === span_id || span.children.some(has);
+
 	return runs.find(has) ?? null;
 }
 
@@ -54,19 +59,19 @@ export function find_span(
 	for (const span of spans) {
 		if (span.id === span_id) return span;
 		const found = find_span(span.children, span_id);
+
 		if (found) return found;
 	}
+
 	return null;
 }
 
 /** Bar position inside a run, as percentages of the run's length. */
-export function bar_position(
-	span: TimelineSpan,
-	run: TimelineSpan,
-): { left: number; width: number } {
+export function bar_position(span: TimelineSpan, run: TimelineSpan) {
 	const length = Math.max(1, run.end_ms - run.start_ms);
 	const left = ((span.start_ms - run.start_ms) / length) * 100;
 	const width = ((span.end_ms - span.start_ms) / length) * 100;
+
 	return {
 		left: Math.min(100, Math.max(0, left)),
 		width: Math.min(100 - Math.max(0, left), Math.max(0, width)),

@@ -1,4 +1,8 @@
-import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import {
+	make_command_context,
+	make_custom_ui,
+} from '../../../tools/test-sdk.js';
+
 import { existsSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
@@ -10,6 +14,7 @@ import {
 const { list_resumable_sessions } = vi.hoisted(() => ({
 	list_resumable_sessions: vi.fn(),
 }));
+
 vi.mock('pirecall/resumable', () => ({
 	RESUMABLE_API_SCHEMA_VERSION: 1,
 	RESUMABLE_API_CAPABILITIES: [
@@ -42,59 +47,26 @@ function create_ctx(
 	options: { has_ui?: boolean; keys?: string[] } = {},
 ) {
 	const notify = vi.fn();
+
 	const switch_session = vi
 		.fn()
 		.mockResolvedValue({ cancelled: false });
-	const request_render = vi.fn();
-	const custom = vi.fn(
-		(
-			factory: (
-				tui: { requestRender: () => void },
-				theme: {
-					fg: (_color: string, text: string) => string;
-					bg: (_color: string, text: string) => string;
-					bold: (text: string) => string;
-				},
-				keybindings: {
-					matches: (data: string, action: string) => boolean;
-				},
-				done: (result?: unknown) => void,
-			) => { handleInput?: (data: string) => void },
-		) =>
-			new Promise((resolve) => {
-				const component = factory(
-					{ requestRender: request_render },
-					{
-						fg: (_color, text) => text,
-						bg: (_color, text) => text,
-						bold: (text) => text,
-					},
-					{
-						matches: (data, action) =>
-							(data === 'enter' && action === 'tui.select.confirm') ||
-							(data === 'escape' && action === 'tui.select.cancel') ||
-							(data === 'tab' && action === 'tui.input.tab'),
-					},
-					resolve,
-				);
-				for (const [index, key] of (
-					options.keys ?? ['enter']
-				).entries()) {
-					setTimeout(() => component.handleInput?.(key), index * 5);
-				}
-			}),
+
+	const keys = (options.keys ?? ['enter']).map(
+		(key) =>
+			({ enter: '\r', escape: '\u001b', tab: '\t' })[key] ?? key,
 	);
-	return {
-		ctx: {
-			cwd: '/tmp/project',
-			hasUI: options.has_ui ?? true,
-			ui: { notify, custom },
-			switchSession: switch_session,
-		} as unknown as ExtensionCommandContext,
-		notify,
-		switch_session,
-		custom,
-	};
+
+	const ctx = make_command_context({
+		cwd: '/tmp/project',
+		hasUI: options.has_ui ?? true,
+		ui: { notify, custom: make_custom_ui([keys]) },
+		switchSession: switch_session,
+	});
+
+	const custom = vi.spyOn(ctx.ui, 'custom');
+
+	return { ctx, notify, switch_session, custom };
 }
 
 afterEach(() => {
@@ -170,6 +142,7 @@ describe('run_recall_resume', () => {
 			],
 			sessions: [session],
 		});
+
 		const { ctx, switch_session } = create_ctx({
 			keys: ['tab', 'escape'],
 		});

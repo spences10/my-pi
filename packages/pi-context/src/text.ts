@@ -11,6 +11,7 @@ const DEFAULT_PREVIEW_BYTES = 4 * 1024;
 
 export function count_lines(text: string): number {
 	if (!text) return 0;
+
 	return text.split('\n').length;
 }
 
@@ -20,6 +21,7 @@ export function should_index_text(
 ): boolean {
 	const max_bytes = options.max_bytes ?? DEFAULT_CONTEXT_MAX_BYTES;
 	const max_lines = options.max_lines ?? DEFAULT_CONTEXT_MAX_LINES;
+
 	return (
 		Buffer.byteLength(text, 'utf8') > max_bytes ||
 		count_lines(text) > max_lines
@@ -28,7 +30,9 @@ export function should_index_text(
 
 export function escape_fts5_query(query: string): string {
 	const trimmed = query.trim();
+
 	if (!trimmed) return '""';
+
 	if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
 		return trimmed.replace(
 			/"(.*)"/s,
@@ -37,12 +41,15 @@ export function escape_fts5_query(query: string): string {
 	}
 
 	const tokens = normalized_fts_tokens(trimmed).map(format_fts_token);
+
 	return tokens.length > 0 ? tokens.join(' ') : '""';
 }
 
 export function relaxed_fts5_query(query: string): string | null {
 	const normalized = normalized_fts_tokens(query);
+
 	if (normalized.length < 2) return null;
+
 	const tokens = normalized
 		.flatMap((token) =>
 			token.value.split(/\s+/).map((value) => ({
@@ -72,6 +79,7 @@ export function relaxed_fts5_query(query: string): string | null {
 		.map(format_fts_token);
 
 	if (tokens.length === 0) return null;
+
 	return tokens.join(' OR ');
 }
 
@@ -86,6 +94,7 @@ function normalized_fts_tokens(
 		.map((token) => {
 			const prefix = token.endsWith('*');
 			const base = prefix ? token.slice(0, -1) : token;
+
 			return {
 				prefix,
 				value: base
@@ -102,6 +111,7 @@ function format_fts_token(token: {
 	prefix: boolean;
 }): string {
 	const quoted = `"${token.value.replace(/"/g, '""')}"`;
+
 	return token.prefix ? `${quoted}*` : quoted;
 }
 
@@ -112,6 +122,7 @@ export function make_preview(
 ): string {
 	const lines = text.split('\n');
 	let preview: string;
+
 	if (lines.length <= max_lines) {
 		preview = text;
 	} else {
@@ -134,12 +145,15 @@ function take_utf8_bytes(text: string, max_bytes: number): string {
 	if (Buffer.byteLength(text, 'utf8') <= max_bytes) return text;
 	let bytes = 0;
 	let output = '';
+
 	for (const char of text) {
 		const char_bytes = Buffer.byteLength(char, 'utf8');
+
 		if (bytes + char_bytes > max_bytes) break;
 		bytes += char_bytes;
 		output += char;
 	}
+
 	return `${output}\n[... preview truncated at ${format_bytes(max_bytes)} ...]`;
 }
 
@@ -170,6 +184,7 @@ function split_lossless_chunks(
 	while (Buffer.byteLength(rest, 'utf8') > target_bytes) {
 		const [head, tail] = split_utf8_at_byte(rest, target_bytes);
 		const break_index = preferred_break_index(head);
+
 		if (break_index === null) {
 			chunks.push(head);
 			rest = tail;
@@ -181,11 +196,13 @@ function split_lossless_chunks(
 	}
 
 	if (rest || chunks.length === 0) chunks.push(rest);
+
 	return chunks;
 }
 
 function preferred_break_index(head: string): number | null {
 	const minimum = Math.floor(head.length * 0.6);
+
 	for (const index of [
 		last_paragraph_break_index(head),
 		head.lastIndexOf('\n') + 1,
@@ -194,13 +211,16 @@ function preferred_break_index(head: string): number | null {
 	]) {
 		if (index >= minimum) return index;
 	}
+
 	return null;
 }
 
 function last_paragraph_break_index(text: string): number {
 	let index = 0;
+
 	for (const match of text.matchAll(/\n{2,}/g))
 		index = match.index + match[0].length;
+
 	return index;
 }
 
@@ -210,12 +230,15 @@ function split_utf8_at_byte(
 ): [string, string] {
 	let bytes = 0;
 	let index = 0;
+
 	for (const char of text) {
 		const char_bytes = Buffer.byteLength(char, 'utf8');
+
 		if (bytes + char_bytes > max_bytes) break;
 		bytes += char_bytes;
 		index += char.length;
 	}
+
 	return [text.slice(0, index), text.slice(index)];
 }
 
@@ -224,12 +247,15 @@ function first_non_empty_line(text: string): string | null {
 		.split('\n')
 		.map((value) => value.trim())
 		.find(Boolean);
+
 	return line ? line.slice(0, 120) : null;
 }
 
 export function format_bytes(bytes: number): string {
 	if (bytes < 1024) return `${bytes} B`;
+
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+
 	return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 }
 
@@ -238,6 +264,7 @@ export function summarize_source(
 	tool_name: string,
 ): string {
 	const capture_reason = format_capture_reason(result);
+
 	return [
 		result.deduped
 			? `[context-sidecar] Duplicate large ${tool_name} output reused existing local index`
@@ -269,20 +296,24 @@ function format_capture_reason(
 		return undefined;
 
 	const reasons: string[] = [];
+
 	if (result.bytes > result.capture_max_bytes) {
 		reasons.push(
 			`${format_bytes(result.bytes)} exceeds ${format_bytes(result.capture_max_bytes)}`,
 		);
 	}
+
 	if (result.lines > result.capture_max_lines) {
 		reasons.push(
 			`${result.lines} lines exceeds ${result.capture_max_lines}`,
 		);
 	}
+
 	if (reasons.length === 0) {
 		reasons.push(
 			`forced capture; thresholds are ${format_bytes(result.capture_max_bytes)} or ${result.capture_max_lines} lines`,
 		);
 	}
+
 	return `Captured: ${reasons.join('; ')}.`;
 }

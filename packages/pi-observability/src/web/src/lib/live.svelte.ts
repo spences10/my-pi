@@ -1,4 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
+import * as v from 'valibot';
+import { stream_event_schema } from '../../../response-schemas';
 import { api_fetch, type DashboardEvent } from './api.js';
 
 const ACTIVE_WINDOW_MS = 90_000;
@@ -29,23 +31,27 @@ class Live {
 		const seen = this.last_seen.get(session_id) ?? 0;
 		const stored = last_ts ? Date.parse(last_ts) : 0;
 		const latest = Math.max(seen, Number.isNaN(stored) ? 0 : stored);
+
 		return this.now - latest < ACTIVE_WINDOW_MS;
 	}
 
 	/** Receives every event, even while paused (for the events tab). */
 	on_event(listener: (event: DashboardEvent) => void): () => void {
 		this.#listeners.add(listener);
+
 		return () => this.#listeners.delete(listener);
 	}
 
 	/** Runs after each batched refresh, for loaders outside views. */
 	on_refresh(listener: () => void): () => void {
 		this.#refresh_listeners.add(listener);
+
 		return () => this.#refresh_listeners.delete(listener);
 	}
 
 	toggle_paused(): void {
 		this.paused = !this.paused;
+
 		if (!this.paused) this.#schedule_refresh();
 	}
 
@@ -53,8 +59,10 @@ class Live {
 		if (event.type === 'session_shutdown')
 			this.last_seen.delete(event.session_id);
 		else this.last_seen.set(event.session_id, Date.now());
+
 		for (const listener of this.#listeners) listener(event);
 		this.#pending_sessions.add(event.session_id);
+
 		if (!this.paused) this.#schedule_refresh();
 	}
 
@@ -62,7 +70,9 @@ class Live {
 		if (this.#refresh_timer) return;
 		this.#refresh_timer = setTimeout(() => {
 			this.#refresh_timer = null;
+
 			if (this.paused) return;
+
 			for (const id of this.#pending_sessions)
 				this.#session_revisions.set(
 					id,
@@ -70,6 +80,7 @@ class Live {
 				);
 			this.#pending_sessions.clear();
 			this.revision += 1;
+
 			for (const listener of this.#refresh_listeners) listener();
 		}, REFRESH_DELAY_MS);
 	}
@@ -78,6 +89,7 @@ class Live {
 		const controller = new AbortController();
 		const clock = setInterval(() => (this.now = Date.now()), 15_000);
 		void this.#consume(controller.signal);
+
 		return () => {
 			clearInterval(clock);
 			controller.abort();
@@ -87,14 +99,20 @@ class Live {
 	#receive_frame(frame: string): void {
 		let type = 'message';
 		const data: string[] = [];
+
 		for (const line of frame.split(/\r?\n/)) {
 			if (line.startsWith('event:')) type = line.slice(6).trim();
+
 			if (line.startsWith('data:'))
 				data.push(line.slice(5).trimStart());
 		}
+
 		if (type === 'hello') this.connected = true;
+
 		if (type === 'event' && data.length > 0)
-			this.receive(JSON.parse(data.join('\n')) as DashboardEvent);
+			this.receive(
+				v.parse(stream_event_schema, JSON.parse(data.join('\n'))),
+			);
 	}
 
 	async #consume(signal: AbortSignal): Promise<void> {
@@ -103,16 +121,21 @@ class Live {
 				const response = await api_fetch('/events/stream', {
 					signal,
 				});
+
 				const reader = response.body?.getReader();
+
 				if (!reader) throw new Error('Missing event stream body');
 				const decoder = new TextDecoder();
 				let buffered = '';
+
 				while (!signal.aborted) {
 					const chunk = await reader.read();
+
 					if (chunk.done) break;
 					buffered += decoder.decode(chunk.value, { stream: true });
 					const frames = buffered.split(/\r?\n\r?\n/);
 					buffered = frames.pop() ?? '';
+
 					for (const frame of frames) this.#receive_frame(frame);
 				}
 			} catch {
@@ -120,6 +143,7 @@ class Live {
 			} finally {
 				this.connected = false;
 			}
+
 			await new Promise((resolve) => setTimeout(resolve, 1_500));
 		}
 	}

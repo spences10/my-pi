@@ -30,25 +30,31 @@ export class HoldSpace {
 			// Typing or moving the cursor cancels the candidate immediately.
 			// A late release from another key must not cancel a Space hold.
 			if (!isKeyRelease(data)) this.release();
+
 			return false;
 		}
+
 		if (data === ' ') return this.handle_legacy_space();
 
 		if (isKeyRelease(data)) {
 			this.release();
+
 			return true;
 		}
 
 		if (!isKeyRepeat(data)) {
 			if (this.legacyPresses) this.release();
 			this.pressedAt = Date.now();
+
 			// Insert the initial space immediately, preserving key order.
 			// Never rewind the editor to remove it when a hold starts.
 			return false;
 		}
 
 		if (this.pressedAt === undefined) return false;
+
 		if (Date.now() - this.pressedAt >= HOLD_MS) this.start();
+
 		return !this.attempted || this.recording;
 	}
 
@@ -67,7 +73,9 @@ export class HoldSpace {
 			this.release();
 			this.pressedAt = Date.now();
 		}
+
 		this.legacyPresses += 1;
+
 		// A double tap is ordinary input. Require a sustained run with
 		// another repeat before inferring a hold in legacy terminals.
 		if (
@@ -76,12 +84,14 @@ export class HoldSpace {
 			Date.now() - this.pressedAt >= HOLD_MS
 		)
 			this.start();
+
 		if (this.legacyReleaseTimer)
 			clearTimeout(this.legacyReleaseTimer);
 		this.legacyReleaseTimer = setTimeout(
 			() => this.release(),
 			this.legacyPresses === 1 ? FIRST_REPEAT_MS : RELEASE_MS,
 		);
+
 		// Keep every space already inserted. Only consume repeats after
 		// recording actually starts; there is no editor snapshot rollback.
 		return this.recording;
@@ -96,6 +106,7 @@ export class HoldSpace {
 	private release(): void {
 		const recording = this.recording;
 		this.reset();
+
 		if (recording) this.callbacks.on_stop();
 	}
 }

@@ -25,6 +25,7 @@
 	export type SidebarMenuButtonVariant = VariantProps<
 		typeof sidebarMenuButtonVariants
 	>['variant'];
+
 	export type SidebarMenuButtonSize = VariantProps<
 		typeof sidebarMenuButtonVariants
 	>['size'];
@@ -54,7 +55,7 @@
 		tooltipContentProps,
 		...restProps
 	}: WithElementRef<
-		HTMLAttributes<HTMLButtonElement>,
+		HTMLAttributes<HTMLElement>,
 		HTMLButtonElement
 	> & {
 		isActive?: boolean;
@@ -64,7 +65,7 @@
 		tooltipContentProps?: WithoutChildrenOrChild<
 			ComponentProps<typeof Tooltip.Content>
 		>;
-		child?: Snippet<[{ props: Record<string, unknown> }]>;
+		child?: Snippet<[{ props: HTMLAttributes<HTMLElement> }]>;
 	} = $props();
 
 	const sidebar = useSidebar();

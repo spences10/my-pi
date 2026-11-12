@@ -16,6 +16,7 @@ describe('render_footer_lines', () => {
 			{ ...DEFAULT_FOOTER_STATE, preset: 'minimal' },
 			300,
 		);
+
 		expect(lines).toHaveLength(1);
 		expect(lines[0]).toContain('claude-sonnet');
 	});
@@ -35,6 +36,7 @@ describe('render_footer_lines', () => {
 			DEFAULT_FOOTER_STATE,
 			120,
 		);
+
 		expect(lines.join('\n')).toContain('MCP 6/6 connected');
 		expect(lines.join('\n')).not.toContain('mcp:MCP');
 	});
@@ -51,6 +53,7 @@ describe('render_footer_lines', () => {
 			{ ...DEFAULT_FOOTER_STATE, status_label_mode: 'always' },
 			120,
 		);
+
 		expect(lines.join('\n')).toContain('mcp:MCP 6/6 connected');
 	});
 

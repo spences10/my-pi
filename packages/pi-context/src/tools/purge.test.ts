@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { capture_tool, tool_text } from '../../test/tool-fixtures.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,38 +12,24 @@ import { register_context_purge_tool } from './purge.js';
 const dirs: string[] = [];
 const original_context_db = process.env.MY_PI_CONTEXT_DB;
 
-type RegisteredTool = {
-	name: string;
-	description: string;
-	promptSnippet: string;
-	parameters: { properties: Record<string, { description: string }> };
-	execute: (...args: unknown[]) => Promise<{
-		content: Array<{ text: string }>;
-		details: { count?: number; [key: string]: unknown };
-	}>;
-};
-
 function temp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-purge-'));
 	dirs.push(dir);
+
 	return join(dir, 'context.db');
 }
 
-function register_tool(): RegisteredTool {
-	let tool: RegisteredTool | undefined;
-	register_context_purge_tool({
-		registerTool(value: RegisteredTool) {
-			tool = value;
-		},
-	} as unknown as ExtensionAPI);
-	return tool!;
+function register_tool() {
+	return capture_tool(register_context_purge_tool);
 }
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+
 	if (original_context_db === undefined)
 		delete process.env.MY_PI_CONTEXT_DB;
 	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs.length = 0;
@@ -55,18 +41,22 @@ describe('context_purge tool', () => {
 		set_context_sidecar_enabled(true, {
 			db_path: process.env.MY_PI_CONTEXT_DB,
 		});
+
+		const tool = register_tool();
+
 		const stored = get_context_store().store({
 			text: `purge-token\n${'x '.repeat(400)}`,
 			tool_name: 'bash',
 			force: true,
+			project_path: tool.context.cwd,
+			session_id: tool.context.sessionManager.getSessionId(),
 		});
-		const tool = register_tool();
 
 		const result = await tool.execute('call', {
 			source_id: stored!.source_id,
 		});
 
-		expect(result.content[0].text).toContain(
+		expect(tool_text(result)).toContain(
 			'Deleted 1 context source(s).',
 		);
 		expect(result.details).toMatchObject({

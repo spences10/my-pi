@@ -5,6 +5,7 @@ import {
 	bounded_peer_delivery,
 	delivery_message_ids,
 	peer_delivery_details,
+	type PeerDeliveryCandidate,
 } from './delivery.js';
 
 const HEARTBEAT_INTERVAL_MS = 10_000;
@@ -48,11 +49,14 @@ export class CoordinationPoller {
 		this.surfaced.clear();
 	}
 
-	confirm_delivery(message: unknown): void {
+	confirm_delivery(message: PeerDeliveryCandidate): void {
 		const session_id = this.options.get_session_id();
+
 		if (!session_id) return;
 		const details = peer_delivery_details(message, session_id);
+
 		if (!details) return;
+
 		for (const id of delivery_message_ids(details))
 			if (!this.surfaced.has(id)) this.confirmed.add(id);
 		safe_sqlite_tick(() => this.flush_confirmed(session_id));
@@ -62,6 +66,7 @@ export class CoordinationPoller {
 		if (!this.confirmed.size) return;
 		const ids = [...this.confirmed];
 		this.options.db.mark_messages_delivered(session_id, ids);
+
 		for (const id of ids) {
 			this.in_flight.delete(id);
 			this.confirmed.delete(id);
@@ -72,14 +77,18 @@ export class CoordinationPoller {
 	// Called at a real run boundary; status updates never start a run themselves.
 	take_delivery(allow_status_only: boolean) {
 		const session_id = this.options.get_session_id();
+
 		if (!session_id || !this.options.should_auto_inject_messages())
 			return;
 		this.flush_confirmed(session_id);
 		const now = Date.now();
+
 		for (const [id, queued_at] of this.in_flight)
 			if (now - queued_at >= DELIVERY_LEASE_MS)
 				this.in_flight.delete(id);
+
 		if (this.in_flight.size) return;
+
 		const messages = this.options.db
 			.list_auto_inbox(session_id)
 			.filter(
@@ -87,35 +96,43 @@ export class CoordinationPoller {
 					!this.options.message_filter ||
 					this.options.message_filter(message),
 			);
+
 		if (
 			!allow_status_only &&
 			!messages.some((message) => message.message_type !== 'status')
 		)
 			return;
 		const delivery = bounded_peer_delivery(session_id, messages);
+
 		if (delivery)
 			for (const id of delivery_message_ids(delivery.details))
 				this.in_flight.set(id, now);
+
 		return delivery;
 	}
 
 	poll(pi: Pick<ExtensionAPI, 'sendMessage'>): void {
 		safe_sqlite_tick(() => {
 			const session_id = this.options.get_session_id();
+
 			if (!session_id) return;
 			this.flush_confirmed(session_id);
 			const now = Date.now();
+
 			if (now - this.last_heartbeat_at >= HEARTBEAT_INTERVAL_MS) {
 				this.options.db.heartbeat_session(session_id);
 				this.last_heartbeat_at = now;
 			}
+
 			if (
 				!this.options.should_auto_inject_messages() ||
 				this.options.is_agent_active?.()
 			)
 				return;
 			const delivery = this.take_delivery(false);
+
 			if (!delivery) return;
+
 			try {
 				pi.sendMessage(delivery, {
 					triggerTurn: true,

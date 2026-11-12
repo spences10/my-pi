@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { FakeSocket, setup_dictation } from '../test/helpers.js';
 
-vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
+vi.mock('node:child_process', async (import_original) => ({
+	...(await import_original<typeof import('node:child_process')>()),
+	spawn: vi.fn(),
+}));
 
 afterEach(() => {
 	vi.unstubAllGlobals();

@@ -1,7 +1,14 @@
 import { with_sqlite_busy_retry } from '@spences10/pi-sqlite-core';
 import { existsSync, statSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
 import { parse_context_retention_policy } from '../policy.js';
+import {
+	chunk_count_row_schema,
+	source_size_row_schema,
+	source_stats_row_schema,
+	stored_bytes_row_schema,
+} from './row-schemas.js';
 import type {
 	ContextCleanupResult,
 	ContextPurgeDetails,
@@ -34,20 +41,17 @@ function file_size(path: string): number {
 function count_stats(
 	store: ContextStoreMaintenanceTarget,
 	options: ContextScopeOptions,
-): {
-	sources: number;
-	chunks: number;
-	bytes_stored: number;
-	bytes_returned: number;
-	oldest_created_at: number | null;
-	newest_created_at: number | null;
-} {
+) {
 	const scoped = store.scoped_filter('context_sources', options);
+
 	const where_clause = scoped.where.length
 		? `WHERE ${scoped.where.join(' AND ')}`
 		: '';
-	const source = store.db
-		.prepare(`
+
+	const source = v.parse(
+		source_stats_row_schema,
+		store.db
+			.prepare(`
 			SELECT
 				COUNT(*) as sources,
 				COALESCE(SUM(byte_count), 0) as bytes_stored,
@@ -57,21 +61,21 @@ function count_stats(
 			FROM context_sources
 			${where_clause}
 		`)
-		.get(...scoped.params) as {
-		sources: number;
-		bytes_stored: number;
-		bytes_returned: number;
-		oldest_created_at: number | null;
-		newest_created_at: number | null;
-	};
-	const chunks = store.db
-		.prepare(`
+			.get(...scoped.params),
+	);
+
+	const chunks = v.parse(
+		chunk_count_row_schema,
+		store.db
+			.prepare(`
 			SELECT COUNT(context_chunks.id) as chunks
 			FROM context_chunks
 			JOIN context_sources ON context_sources.id = context_chunks.source_id
 			${where_clause}
 		`)
-		.get(...scoped.params) as { chunks: number };
+			.get(...scoped.params),
+	);
+
 	return { ...source, chunks: chunks.chunks };
 }
 
@@ -80,17 +84,22 @@ export function context_store_stats(
 	options: ContextScopeOptions = { global: true },
 ): ContextStats {
 	const source = count_stats(store, options);
+
 	const global = options.global
 		? source
 		: count_stats(store, { global: true });
+
 	const bytes_saved = source.bytes_stored - source.bytes_returned;
+
 	const reduction_pct =
 		source.bytes_stored > 0
 			? Math.round((bytes_saved / source.bytes_stored) * 1000) / 10
 			: 0;
+
 	const db_bytes = file_size(store.db_path);
 	const wal_bytes = file_size(`${store.db_path}-wal`);
 	const policy = parse_context_retention_policy();
+
 	return {
 		sources: source.sources,
 		chunks: source.chunks,
@@ -123,14 +132,17 @@ export function context_store_cleanup(
 	policy: ContextRetentionPolicy = parse_context_retention_policy(),
 ): ContextCleanupResult {
 	let age_deleted = 0;
+
 	if (policy.retention_days !== null) {
 		age_deleted = store.purge({
 			older_than_days: policy.retention_days,
 		});
 	}
+
 	const size_deleted = policy.max_bytes
 		? store.purge_to_max_stored_bytes(policy.max_bytes)
 		: 0;
+
 	return {
 		deleted: age_deleted + size_deleted,
 		age_deleted,
@@ -143,35 +155,50 @@ export function context_store_purge_to_max_stored_bytes(
 	store: ContextStoreMaintenanceTarget,
 	max_bytes: number,
 ): number {
-	const total_row = store.db
-		.prepare(
-			'SELECT COALESCE(SUM(byte_count), 0) as bytes FROM context_sources',
-		)
-		.get() as { bytes: number };
+	const total_row = v.parse(
+		stored_bytes_row_schema,
+		store.db
+			.prepare(
+				'SELECT COALESCE(SUM(byte_count), 0) as bytes FROM context_sources',
+			)
+			.get(),
+	);
+
 	let total = total_row.bytes;
+
 	if (total <= max_bytes) return 0;
-	const rows = store.db
-		.prepare(
-			'SELECT id, byte_count FROM context_sources ORDER BY created_at ASC',
-		)
-		.all() as Array<{ id: string; byte_count: number }>;
+
+	const rows = v.parse(
+		v.array(source_size_row_schema),
+		store.db
+			.prepare(
+				'SELECT id, byte_count FROM context_sources ORDER BY created_at ASC',
+			)
+			.all(),
+	);
+
 	const delete_source = store.db.prepare(
 		'DELETE FROM context_sources WHERE id = ?',
 	);
+
 	let deleted = 0;
+
 	for (const row of rows) {
 		if (total <= max_bytes) break;
+
 		const result = with_sqlite_busy_retry(
 			() => delete_source.run(row.id),
 			{
 				operation: 'Purge context source',
 			},
 		);
+
 		if (Number(result.changes ?? 0) > 0) {
 			deleted += 1;
 			total -= row.byte_count;
 		}
 	}
+
 	return deleted;
 }
 
@@ -184,31 +211,38 @@ export function context_store_purge_with_details(
 ): ContextPurgeDetails {
 	const filters: string[] = [];
 	const params: Array<string | number> = [];
+
 	if (options.source_id) {
 		filters.push('id = ?');
 		params.push(options.source_id);
 	}
+
 	if (options.project_path === null) {
 		filters.push('project_path IS NULL');
 	} else if (options.project_path !== undefined) {
 		filters.push('project_path = ?');
 		params.push(options.project_path);
 	}
+
 	if (options.session_id === null) {
 		filters.push('session_id IS NULL');
 	} else if (options.session_id !== undefined) {
 		filters.push('session_id = ?');
 		params.push(options.session_id);
 	}
+
 	const days = options.older_than_days;
+
 	if (days !== undefined) {
 		const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 		filters.push('created_at < ?');
 		params.push(cutoff);
 	}
+
 	if (filters.length === 0) {
 		return { deleted: 0 };
 	}
+
 	const result = with_sqlite_busy_retry(
 		() =>
 			store.db
@@ -218,6 +252,7 @@ export function context_store_purge_with_details(
 				.run(...params),
 		{ operation: 'Purge context sources' },
 	);
+
 	return {
 		deleted: Number(result.changes ?? 0),
 		source_id: options.source_id,

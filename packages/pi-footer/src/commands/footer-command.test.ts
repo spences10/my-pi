@@ -9,9 +9,10 @@ import {
 	it,
 	vi,
 } from 'vite-plus/test';
+import { make_api } from '../../../../tools/test-sdk.js';
 import { load_footer_state } from '../config.js';
 import { DEFAULT_FOOTER_STATE } from '../presets/types.js';
-import { make_context } from '../test-utils.js';
+import { make_command_context } from '../test-utils.js';
 import { register_footer_command } from './footer-command.js';
 
 const modal_mocks = vi.hoisted(() => ({
@@ -38,6 +39,7 @@ describe('register_footer_command', () => {
 		if (agent_dir)
 			rmSync(agent_dir, { recursive: true, force: true });
 		agent_dir = undefined;
+
 		if (original_agent_dir === undefined)
 			delete process.env.PI_CODING_AGENT_DIR;
 		else process.env.PI_CODING_AGENT_DIR = original_agent_dir;
@@ -45,7 +47,9 @@ describe('register_footer_command', () => {
 
 	it('persists the current state when the footer command closes', async () => {
 		modal_mocks.show_settings_modal.mockResolvedValueOnce(undefined);
-		const register_command = vi.fn();
+		const pi = make_api();
+		const register_command = vi.spyOn(pi, 'registerCommand');
+
 		const state = {
 			...DEFAULT_FOOTER_STATE,
 			density: 'expanded' as const,
@@ -55,14 +59,12 @@ describe('register_footer_command', () => {
 				),
 			),
 		};
-		register_footer_command(
-			{ registerCommand: register_command } as never,
-			state,
-		);
+
+		register_footer_command(pi, state);
 
 		await register_command.mock.calls[0]?.[1].handler(
 			'',
-			make_context() as never,
+			make_command_context(),
 		);
 
 		expect(load_footer_state().density).toBe('expanded');
@@ -92,10 +94,13 @@ describe('register_footer_command', () => {
 				).toEqual(
 					expect.arrayContaining(['harness', 'mcp', 'codex-usage']),
 				);
+
 				return 'mcp';
 			})
 			.mockResolvedValueOnce(undefined);
-		const register_command = vi.fn();
+		const pi = make_api();
+		const register_command = vi.spyOn(pi, 'registerCommand');
+
 		const state = {
 			...DEFAULT_FOOTER_STATE,
 			status_layout: Object.fromEntries(
@@ -104,14 +109,12 @@ describe('register_footer_command', () => {
 				),
 			),
 		};
-		register_footer_command(
-			{ registerCommand: register_command } as never,
-			state,
-		);
+
+		register_footer_command(pi, state);
 		const command = register_command.mock.calls[0]?.[1];
 		expect(command).toBeDefined();
 
-		await command.handler('', make_context() as never);
+		await command.handler('', make_command_context());
 
 		expect(state.status_layout.mcp).toEqual({
 			row: 3,
@@ -123,9 +126,11 @@ describe('register_footer_command', () => {
 			alignment: 'center',
 			hidden: false,
 		});
+
 		const persisted = JSON.parse(
 			readFileSync(join(agent_dir!, 'my-pi-settings.json'), 'utf-8'),
 		);
+
 		expect(persisted.packages.footer.status_layout.mcp).toEqual({
 			row: 3,
 			alignment: 'center',

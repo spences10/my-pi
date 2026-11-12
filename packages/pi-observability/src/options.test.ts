@@ -12,6 +12,7 @@ describe('resolve_observability_server_options', () => {
 		const home = mkdtempSync(join(tmpdir(), 'pi-obs-options-'));
 		const env = { HOME: home };
 		const options = resolve_observability_server_options(env);
+
 		const token_path = join(
 			home,
 			'.pi',

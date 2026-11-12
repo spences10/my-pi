@@ -19,11 +19,13 @@
 			.toSorted((a, b) => a.seq - b.seq)
 			.find((event) => event.type === 'agent_start'),
 	);
+
 	const last_request = $derived(
 		events
 			.toSorted((a, b) => b.seq - a.seq)
 			.find((event) => event.type === 'provider_request'),
 	);
+
 	const reasoning = $derived(
 		text_preview(
 			payload_value(last_request?.payload, 'payload.reasoning'),

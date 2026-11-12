@@ -1,4 +1,9 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import {
+	make_api,
+	make_tool_context,
+	make_model,
+} from '../../../tools/test-sdk.js';
+
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,21 +16,19 @@ import {
 import { create_telemetry_extension } from './index.js';
 import type { TelemetryStore } from './types.js';
 
-type Handler = (event: unknown, ctx: unknown) => Promise<void>;
-interface Tool {
-	execute: (
-		id: string,
-		params: Record<string, unknown>,
-		signal: undefined,
-		update: undefined,
-		ctx: unknown,
-	) => Promise<{ content: Array<{ text: string }> }>;
-}
-
-const ctx = {
+const ctx = make_tool_context({
 	cwd: '/project',
-	model: { provider: 'test', id: 'model' },
+	model: make_model({ provider: 'test', id: 'model' }),
 	sessionManager: { getSessionFile: () => '/sessions/one.jsonl' },
+});
+
+type EventFixture = {
+	[key: string]:
+		| string
+		| number
+		| boolean
+		| EventFixture
+		| EventFixture[];
 };
 
 function fake_store(): TelemetryStore {
@@ -39,10 +42,19 @@ function fake_store(): TelemetryStore {
 		finish_tool_call: vi.fn(),
 		insert_provider_request: vi.fn(),
 		finish_provider_request: vi.fn(),
-		get_stats: vi.fn(),
+		get_stats: vi.fn(() => ({
+			runs: 0,
+			turns: 0,
+			tool_calls: 0,
+			provider_requests: 0,
+			schema_version: 1,
+			db_bytes: 0,
+			wal_bytes: 0,
+			total_bytes: 0,
+		})),
 		query_runs: vi.fn(() => []),
 		close: vi.fn(),
-	} as unknown as TelemetryStore;
+	};
 }
 
 describe('telemetry tool', () => {
@@ -54,8 +66,10 @@ describe('telemetry tool', () => {
 		for (const home of homes.splice(0)) {
 			rmSync(home, { recursive: true, force: true });
 		}
+
 		if (original_home === undefined) delete process.env.HOME;
 		else process.env.HOME = original_home;
+
 		if (original_agent_dir === undefined)
 			delete process.env.PI_CODING_AGENT_DIR;
 		else process.env.PI_CODING_AGENT_DIR = original_agent_dir;
@@ -68,6 +82,7 @@ describe('telemetry tool', () => {
 			tmpdir(),
 			`my-pi-telemetry-tool-${randomBytes(4).toString('hex')}`,
 		);
+
 		mkdirSync(home, { recursive: true });
 		homes.push(home);
 		process.env.HOME = home;
@@ -75,30 +90,57 @@ describe('telemetry tool', () => {
 		const db_path = join(home, 'telemetry.db');
 		const store = fake_store();
 		const load_store = vi.fn(async () => store);
+
 		if (options.saved_enabled) {
 			save_telemetry_config({ version: 1, enabled: true });
 		}
-		const handlers = new Map<string, Handler>();
-		let tool: Tool | undefined;
-		const pi = {
-			on: (name: string, handler: Handler) =>
-				handlers.set(name, handler),
-			registerCommand: () => {},
-			registerTool: (definition: Tool) => {
-				tool = definition;
+
+		const handlers = new Map<string, Function>();
+
+		const pi = make_api({
+			on: (name: string, handler: Function) => {
+				handlers.set(name, handler);
+
+				return () => {
+					handlers.delete(name);
+				};
 			},
-		} as unknown as ExtensionAPI;
+			registerCommand: () => {},
+		});
+
+		const register_tool = vi.spyOn(pi, 'registerTool');
+
 		await create_telemetry_extension({
 			...options,
 			db_path,
 			load_store,
 			now: () => 1000,
 		})(pi);
-		const call = async (params: Record<string, unknown>) =>
-			(await tool!.execute('id', params, undefined, undefined, ctx))
-				.content[0]!.text;
-		const emit = (name: string, event: unknown = {}) =>
+
+		const tool = register_tool.mock.calls[0][0];
+
+		const call = async (
+			params: Parameters<typeof tool.execute>[1],
+		) => {
+			const result = await tool.execute(
+				'id',
+				params,
+				undefined,
+				undefined,
+				ctx,
+			);
+
+			const content = result.content[0];
+
+			if (content?.type !== 'text')
+				throw new Error('Expected telemetry text result');
+
+			return content.text;
+		};
+
+		const emit = (name: string, event: EventFixture = {}) =>
 			handlers.get(name)!(event, ctx);
+
 		return { call, store, emit, handlers, db_path, load_store };
 	}
 
@@ -166,8 +208,10 @@ describe('telemetry tool', () => {
 		expect(store.finish_run).toHaveBeenCalledWith(
 			expect.objectContaining({ success: null, error_message: null }),
 		);
+
 		const closed_at = vi.mocked(store.close).mock
 			.invocationCallOrder[0]!;
+
 		expect(
 			vi.mocked(store.finish_tool_call).mock.invocationCallOrder[0],
 		).toBeLessThan(closed_at);
@@ -224,6 +268,7 @@ describe('telemetry tool', () => {
 		const { call, store, emit } = await setup({
 			saved_enabled: true,
 		});
+
 		await emit('agent_start');
 		expect(
 			await call({ action: 'on', eval_case_id: 'different-task' }),
@@ -247,12 +292,14 @@ describe('telemetry tool', () => {
 			messages: [{ role: 'assistant', stopReason: 'stop' }],
 		});
 		await emit('agent_start');
+
 		for (const [run] of vi.mocked(store.insert_run).mock.calls) {
 			expect(run).toMatchObject({
 				eval_suite: 'repeatable',
 				eval_case_id: 'check-links',
 			});
 		}
+
 		await call({ action: 'off' });
 		await emit('agent_settled', { aborted: false });
 		await call({
@@ -312,6 +359,7 @@ describe('telemetry tool', () => {
 		writeFileSync(db_path, '');
 		await call({ action: 'on', eval_case_id: 'task-a' });
 		await call({ action: 'off' });
+
 		const result = JSON.parse(
 			await call({
 				action: 'query',
@@ -319,6 +367,7 @@ describe('telemetry tool', () => {
 				eval_case_id: 'task-a',
 			}),
 		);
+
 		expect(result.runs).toEqual([]);
 		expect(result.active_run_id).toEqual(expect.any(String));
 		expect(result.stop_pending).toBe(true);

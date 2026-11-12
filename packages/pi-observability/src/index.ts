@@ -1,14 +1,23 @@
 import type {
 	ExtensionAPI,
 	ExtensionContext,
+	ExtensionEvent,
 } from '@earendil-works/pi-coding-agent';
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import { homedir } from 'node:os';
+import * as v from 'valibot';
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { health_proof_matches } from './health-auth.js';
-import { assistant_text } from './message-text.js';
+import {
+	is_json_scalar,
+	json_string,
+	payload_object,
+	type PayloadObject,
+	type PayloadValue,
+} from './json.js';
+import { assistant_text, message_schema } from './message-text.js';
 import { resolve_observability_token } from './options.js';
 import {
 	redact_value,
@@ -23,6 +32,7 @@ import type {
 } from './types.js';
 
 export { redact_text, redact_value } from './redact.js';
+
 export type {
 	ObservabilityConfig,
 	ObservabilityEvent,
@@ -37,28 +47,41 @@ const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_MAX_QUEUE_SIZE = 10_000;
 export const DEFAULT_OBSERVABILITY_URL = 'http://127.0.0.1:43190';
 
-function as_string(value: unknown): string | undefined {
-	return typeof value === 'string' && value.length > 0
-		? value
-		: undefined;
+/** What `pi.getFlag` and `process.env` hand back. */
+type ConfigValue = string | boolean | undefined;
+
+type TagInput = ConfigValue | TagInput[];
+
+const health_body_schema = v.looseObject({
+	proof: v.fallback(v.optional(v.string()), undefined),
+});
+
+function as_string(value: ConfigValue): string | undefined {
+	const text = json_string(value);
+
+	return text !== undefined && text.length > 0 ? text : undefined;
 }
 
-function as_boolean(value: unknown): boolean {
+function as_boolean(value: ConfigValue): boolean {
 	return value === true || value === 'true' || value === '1';
 }
 
 function detail_level(
-	value: unknown,
+	value: ConfigValue,
 ): ObservabilityConfig['detail_level'] {
 	return value === 'summary' ? 'summary' : 'detailed';
 }
 
-export function parse_tags(value: unknown): string[] {
+export function parse_tags(value: TagInput): string[] {
 	if (Array.isArray(value)) {
 		return value.flatMap((item) => parse_tags(item));
 	}
-	if (typeof value !== 'string') return [];
-	return value
+
+	const text = json_string(value);
+
+	if (text === undefined) return [];
+
+	return text
 		.split(',')
 		.map((tag) => tag.trim())
 		.filter(Boolean);
@@ -69,12 +92,14 @@ export function resolve_observability_config(
 	env: NodeJS.ProcessEnv = process.env,
 ): ObservabilityConfig | null {
 	if (as_boolean(pi.getFlag('observability-disable'))) return null;
+
 	if (as_boolean(env.MY_PI_OBSERVABILITY_DISABLE)) return null;
 
 	const configured_server_url =
 		as_string(pi.getFlag('observability-url')) ??
 		as_string(env.MY_PI_OBSERVABILITY_URL) ??
 		as_string(env.PI_OBSERVABILITY_URL);
+
 	const configured_token =
 		as_string(pi.getFlag('observability-token')) ??
 		as_string(env.MY_PI_OBSERVABILITY_TOKEN) ??
@@ -121,6 +146,7 @@ export function resolve_observability_config(
 
 function payload_cap(value: string | undefined): number {
 	const parsed = Number(value ?? DEFAULT_MAX_PAYLOAD_BYTES);
+
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
@@ -130,27 +156,30 @@ export function resolve_dashboard_command(
 	args: string,
 ): DashboardCommand {
 	const command = args.trim().toLowerCase();
+
 	if (command === 'tui') return 'tui';
+
 	if (command === 'url') return 'url';
+
 	return 'web';
 }
 
-function summarize_metric_value(value: unknown): unknown {
-	if (!value || typeof value !== 'object') return value;
+function summarize_metric_value(value: PayloadValue): PayloadValue {
+	if (value === null || value === undefined || is_json_scalar(value))
+		return value;
+
 	if (Array.isArray(value))
 		return { type: 'array', length: value.length };
-	const summary: Record<string, unknown> = {};
+	const summary: PayloadObject = {};
+
 	for (const [key, child] of Object.entries(value)) {
-		if (
-			typeof child === 'number' ||
-			typeof child === 'string' ||
-			typeof child === 'boolean'
-		) {
+		if (is_json_scalar(child)) {
 			summary[key] = child;
-		} else if (child && typeof child === 'object') {
+		} else if (child) {
 			summary[key] = summarize_metric_value(child);
 		}
 	}
+
 	return summary;
 }
 
@@ -161,11 +190,28 @@ function summarize_text(value: string, limit: number): string {
 // Provider requests repeat the same system prompt on every turn. The
 // agent_start event keeps a preview, so requests store only a
 // fingerprint that shows when the prompt changes.
-export function text_fingerprint(value: string): {
+type TextFingerprint = {
 	type: 'string';
 	length: number;
 	sha256: string;
-} {
+};
+
+type ObjectSummary = PayloadObject & {
+	type: string | number | boolean;
+	keys: string[] | string | number | boolean;
+};
+
+interface FailureDetails {
+	error_text?: string;
+	exit_code?: number;
+}
+
+type EventExportHeaders = {
+	'content-type': string;
+	authorization?: string;
+};
+
+export function text_fingerprint(value: string): TextFingerprint {
 	return {
 		type: 'string',
 		length: value.length,
@@ -178,13 +224,16 @@ export function text_fingerprint(value: string): {
 
 function detailed_object_summary(
 	key: string,
-	value: Record<string, unknown>,
-): Record<string, unknown> {
-	const summary: Record<string, unknown> = {
+	value: PayloadObject,
+): ObjectSummary {
+	const summary: ObjectSummary = {
 		type: 'object',
 		keys: Object.keys(value).slice(0, 20),
 	};
+
 	for (const [child_key, child] of Object.entries(value)) {
+		const text = json_string(child);
+
 		if (child_key === 'usage' || child_key === 'cost') {
 			summary[child_key] = summarize_metric_value(child);
 		} else if (
@@ -203,82 +252,119 @@ function detailed_object_summary(
 			].includes(child_key)
 		) {
 			summary[child_key] =
-				typeof child === 'string'
-					? summarize_text(child, 500)
+				text !== undefined
+					? summarize_text(text, 500)
 					: summarize_metric_value(child);
 		} else if (child_key === 'instructions') {
 			summary[child_key] =
-				typeof child === 'string'
-					? text_fingerprint(child)
+				text !== undefined
+					? text_fingerprint(text)
 					: summarize_metric_value(child);
-		} else if (
-			key === 'input' &&
-			(typeof child === 'string' ||
-				typeof child === 'number' ||
-				typeof child === 'boolean')
-		) {
+		} else if (key === 'input' && is_json_scalar(child)) {
 			summary[child_key] =
-				typeof child === 'string'
-					? summarize_text(child, 2000)
-					: child;
+				text !== undefined ? summarize_text(text, 2000) : child;
 		}
 	}
+
 	return summary;
 }
 
-function record_of(value: unknown): Record<string, unknown> {
-	return value && typeof value === 'object' && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
+const text_content_schema = v.fallback(
+	v.pipe(
+		v.array(v.unknown()),
+		v.transform((blocks) =>
+			blocks
+				.flatMap((block) => {
+					const text = v.safeParse(
+						v.object({ type: v.literal('text'), text: v.string() }),
+						block,
+					);
 
-/** Text blocks of a tool result, joined in order. */
-function content_text(content: unknown): string {
-	if (!Array.isArray(content)) return '';
-	return content
-		.map((item) => record_of(item))
-		.filter(
-			(item) => item.type === 'text' && typeof item.text === 'string',
-		)
-		.map((item) => item.text as string)
-		.join('\n');
-}
+					return text.success ? [text.output.text] : [];
+				})
+				.join('\n'),
+		),
+	),
+	'',
+);
+
+const exit_code_source_schema = v.fallback(
+	v.object({
+		exit_code: v.fallback(v.optional(v.number()), undefined),
+		exitCode: v.fallback(v.optional(v.number()), undefined),
+	}),
+	{ exit_code: undefined, exitCode: undefined },
+);
+
+const failure_result_schema = v.object({
+	content: text_content_schema,
+	structuredContent: exit_code_source_schema,
+	details: exit_code_source_schema,
+});
+
+/** The parts of a tool_result or tool_execution_end event a failure report reads. */
+export const failure_event_schema = v.object({
+	content: text_content_schema,
+	structuredContent: exit_code_source_schema,
+	details: exit_code_source_schema,
+	result: v.fallback(
+		failure_result_schema,
+		v.parse(failure_result_schema, {}),
+	),
+});
+
+export type FailureEvent = v.InferOutput<typeof failure_event_schema>;
 
 /**
  * What a failed tool call reported: its full text output and exit code.
  * tool_result carries content at the top level; tool_execution_end
  * carries it under result.
  */
-export function failure_details(event: Record<string, unknown>): {
-	error_text?: string;
-	exit_code?: number;
-} {
-	const result = record_of(event.result);
-	const text =
-		content_text(event.content) || content_text(result.content);
+export function failure_details(event: FailureEvent): FailureDetails {
+	const { result } = event;
+	const text = event.content || result.content;
+
 	const sources = [
-		record_of(event.structuredContent),
-		record_of(event.details),
-		record_of(result.structuredContent),
-		record_of(result.details),
+		event.structuredContent,
+		event.details,
+		result.structuredContent,
+		result.details,
 	];
+
 	const exit_code = sources
 		.flatMap((source) => [source.exit_code, source.exitCode])
-		.find((value): value is number => typeof value === 'number');
-	return {
-		...(text ? { error_text: text } : {}),
-		...(exit_code === undefined ? {} : { exit_code }),
-	};
+		.find((value) => value !== undefined);
+
+	const details: ReturnType<typeof failure_details> = {};
+
+	if (text) details.error_text = text;
+
+	if (exit_code !== undefined) details.exit_code = exit_code;
+
+	return details;
 }
 
-export function summarize_payload(
-	event: unknown,
+const nullable_number = v.fallback(v.nullable(v.number()), null);
+
+const context_usage_summary_schema = v.fallback(
+	v.object({
+		tokens: nullable_number,
+		contextWindow: nullable_number,
+		percent: nullable_number,
+	}),
+	{ tokens: null, contextWindow: null, percent: null },
+);
+
+export function summarize_payload<T>(
+	event: T,
 	detail_level: ObservabilityConfig['detail_level'] = 'detailed',
 	event_type?: ObservabilityEventType,
-): unknown {
-	if (!event || typeof event !== 'object') return event;
-	const object = event as Record<string, unknown>;
-	const summary: Record<string, unknown> = {};
+): T | PayloadObject {
+	if (!event || !v.is(v.looseObject({}), event)) return event;
+	// SAFETY: Only objects reach this point; fields are read and copied into the summary, never mutated.
+	const object = event as PayloadObject;
+	const summary: PayloadObject = {};
+
 	for (const key of [
 		'reason',
 		'turnIndex',
@@ -293,52 +379,60 @@ export function summarize_payload(
 	] as const) {
 		if (key in object) summary[key] = object[key];
 	}
+
 	for (const [key, value] of Object.entries(object)) {
 		if (key in summary) continue;
+		const text = json_string(value);
+		const nested = payload_object(value);
+
 		if (key === 'contextUsage') {
-			const usage = record_of(value);
 			if (value === null) {
 				summary[key] = null;
 				continue;
 			}
-			summary[key] = {
-				tokens:
-					typeof usage.tokens === 'number' ? usage.tokens : null,
-				contextWindow:
-					typeof usage.contextWindow === 'number'
-						? usage.contextWindow
-						: null,
-				percent:
-					typeof usage.percent === 'number' ? usage.percent : null,
-			};
+
+			summary[key] = v.parse(context_usage_summary_schema, value);
 		} else if (key === 'usage' || key === 'cost') {
 			summary[key] = summarize_metric_value(value);
-		} else if (typeof value === 'string') {
+		} else if (text !== undefined) {
 			summary[key] = summarize_text(
-				value,
+				text,
 				key.toLowerCase().includes('prompt') ? 4000 : 500,
 			);
 		} else if (Array.isArray(value)) {
 			summary[key] = { type: 'array', length: value.length };
-		} else if (value && typeof value === 'object') {
-			const nested = value as Record<string, unknown>;
-			if (detail_level === 'summary')
-				summary[key] = {
+		} else if (nested !== undefined) {
+			if (detail_level === 'summary') {
+				const metadata = {
 					type: 'object',
 					keys: Object.keys(nested).slice(0, 20),
-					...('usage' in nested
-						? { usage: summarize_metric_value(nested.usage) }
-						: {}),
-					...('cost' in nested
-						? { cost: summarize_metric_value(nested.cost) }
-						: {}),
 				};
-			else summary[key] = detailed_object_summary(key, nested);
+
+				const with_usage =
+					'usage' in nested
+						? {
+								...metadata,
+								usage: summarize_metric_value(nested.usage),
+							}
+						: metadata;
+
+				summary[key] =
+					'cost' in nested
+						? {
+								...with_usage,
+								cost: summarize_metric_value(nested.cost),
+							}
+						: with_usage;
+			} else summary[key] = detailed_object_summary(key, nested);
+
 			if (key === 'message' && detail_level === 'summary') {
-				const message = summary[key] as Record<string, unknown>;
+				// SAFETY: The summary-level branch above stored an object under this key.
+				const message = summary[key] as PayloadObject;
+
 				for (const field of ['model', 'responseModel']) {
-					const identifier = nested[field];
-					if (typeof identifier === 'string')
+					const identifier = json_string(nested[field]);
+
+					if (identifier !== undefined)
 						message[field] = summarize_text(identifier, 500);
 				}
 			}
@@ -346,32 +440,41 @@ export function summarize_payload(
 			summary[key] = value;
 		}
 	}
+
 	// Store visible response text once, on message_end, rather than
 	// duplicating it in turn_end / agent_end payloads. Thinking is excluded.
 	if (
 		detail_level === 'detailed' &&
 		(event_type ?? object.type) === 'message_end'
 	) {
-		const response = assistant_text(object.message);
+		const message = v.parse(message_schema, object.message);
+		const response = message && assistant_text(message);
+
 		if (response) {
 			summary.responseText = response.text;
 			summary.responseTextTruncated = response.truncated;
 		}
 	}
+
 	// Failures keep the full output; it is what explains the error.
 	if (detail_level === 'detailed' && object.isError === true) {
-		const failure = failure_details(object);
+		const failure = failure_details(
+			v.parse(failure_event_schema, object),
+		);
+
 		if (failure.error_text !== undefined)
 			summary.errorText = failure.error_text;
+
 		if (failure.exit_code !== undefined)
 			summary.exitCode = failure.exit_code;
 	}
+
 	return summary;
 }
 
-export function create_event_envelope(
+export function create_event_envelope<P>(
 	type: ObservabilityEventType,
-	payload: unknown,
+	payload: P,
 	session: SessionInfo,
 	seq: number,
 	config: Pick<
@@ -382,6 +485,7 @@ export function create_event_envelope(
 	const safe_payload = config.raw_payloads
 		? payload
 		: summarize_payload(payload, config.detail_level, type);
+
 	return {
 		event_id: randomUUID(),
 		ts: new Date().toISOString(),
@@ -414,13 +518,22 @@ async function local_server_status(
 ): Promise<LocalServerStatus> {
 	if (!token) return 'untrusted';
 	const challenge = randomUUID();
+
 	try {
 		const response = await fetch(
 			`${url.replace(/\/+$/, '')}/health?challenge=${encodeURIComponent(challenge)}`,
 		);
+
 		if (!response.ok) return 'untrusted';
-		const body = (await response.json()) as { proof?: unknown };
-		return health_proof_matches(token, challenge, body.proof)
+
+		const body = v.safeParse(
+			health_body_schema,
+			await response.json(),
+		);
+
+		if (!body.success) return 'untrusted';
+
+		return health_proof_matches(token, challenge, body.output.proof)
 			? 'authenticated'
 			: 'untrusted';
 	} catch {
@@ -437,10 +550,12 @@ async function wait_for_server_listening(
 			server.off('error', on_error);
 			resolve_listening();
 		};
+
 		const on_error = (error: Error) => {
 			server.off('listening', on_listening);
 			reject_listening(error);
 		};
+
 		server.once('listening', on_listening);
 		server.once('error', on_error);
 	});
@@ -451,7 +566,9 @@ async function ensure_local_server(
 	token: string | undefined,
 ): Promise<void> {
 	const status = await local_server_status(url, token);
+
 	if (status === 'authenticated') return;
+
 	if (status === 'untrusted') {
 		throw new Error(
 			`Observability endpoint at ${url} failed authentication`,
@@ -459,6 +576,7 @@ async function ensure_local_server(
 	}
 
 	const { start_observability_server } = await import('./server.js');
+
 	const running = start_observability_server({
 		host: '127.0.0.1',
 		port: new URL(url).port ? Number(new URL(url).port) : 43190,
@@ -469,7 +587,9 @@ async function ensure_local_server(
 		log: false,
 		throw_on_listen_error: false,
 	});
+
 	await wait_for_server_listening(running.server);
+
 	if ((await local_server_status(url, token)) !== 'authenticated') {
 		await running.close();
 		throw new Error(
@@ -480,37 +600,45 @@ async function ensure_local_server(
 
 export function open_dashboard(url: string): void {
 	let command = 'xdg-open';
+
 	if (process.platform === 'darwin') command = 'open';
 	else if (process.platform === 'win32') command = 'cmd';
+
 	const args =
 		process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+
 	const child = spawn(command, args, {
 		detached: true,
 		stdio: 'ignore',
 	});
+
 	child.unref();
 }
+
+const rejected_body_schema = v.object({
+	max_bytes: v.fallback(v.optional(v.number()), undefined),
+});
 
 async function rejected_body_limit(
 	response: Response,
 ): Promise<number | null> {
 	try {
-		const body = (await response.json()) as { max_bytes?: unknown };
-		return typeof body.max_bytes === 'number' && body.max_bytes > 0
-			? body.max_bytes
+		const { max_bytes } = v.parse(
+			rejected_body_schema,
+			await response.json(),
+		);
+
+		return max_bytes !== undefined && max_bytes > 0
+			? max_bytes
 			: null;
 	} catch {
 		return null;
 	}
 }
 
-function is_truncated_payload(payload: unknown): boolean {
-	return (
-		!!payload &&
-		typeof payload === 'object' &&
-		(payload as { truncated?: unknown }).truncated === true
-	);
-}
+const truncated_payload_schema = v.looseObject({
+	truncated: v.literal(true),
+});
 
 /**
  * Fits one event under the server's body limit. The preview is a slice
@@ -549,6 +677,7 @@ export class EventQueue {
 	push(event: ObservabilityEvent): void {
 		if (this.queue.length >= this.max_queue_size) this.queue.shift();
 		this.queue.push(event);
+
 		if (this.queue.length >= this.batch_size) void this.flush();
 		else this.schedule();
 	}
@@ -566,11 +695,14 @@ export class EventQueue {
 		this.flushing = true;
 		const batch = this.queue.slice(0, this.batch_limit);
 		let retry_now = false;
+
 		try {
-			const headers: Record<string, string> = {
+			const headers: EventExportHeaders = {
 				'content-type': 'application/json',
 			};
+
 			if (this.token) headers.authorization = `Bearer ${this.token}`;
+
 			const response = await fetch(
 				`${this.server_url.replace(/\/+$/, '')}/events`,
 				{
@@ -579,11 +711,13 @@ export class EventQueue {
 					body: safe_json(batch),
 				},
 			);
+
 			if (response.status === 413) {
 				// Retrying the same batch would fail forever and block every
 				// later event. Send fewer events; a single event that is
 				// still too large is shrunk once, then dropped.
 				const max_bytes = await rejected_body_limit(response);
+
 				if (batch.length > 1) {
 					this.batch_limit = Math.max(
 						1,
@@ -591,15 +725,18 @@ export class EventQueue {
 					);
 				} else if (
 					max_bytes &&
-					!is_truncated_payload(batch[0]!.payload)
+					!v.is(truncated_payload_schema, batch[0]!.payload)
 				) {
 					this.queue[0] = shrink_event_to_fit(batch[0]!, max_bytes);
 				} else {
 					this.queue.shift();
 				}
+
 				retry_now = true;
+
 				return;
 			}
+
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
 			this.queue.splice(0, batch.length);
 			this.batch_limit = this.batch_size;
@@ -608,6 +745,7 @@ export class EventQueue {
 			this.backoff_ms = Math.min(this.backoff_ms * 2, 5_000);
 		} finally {
 			this.flushing = false;
+
 			if (retry_now) void this.flush();
 			else if (this.queue.length > 0) this.schedule();
 		}
@@ -674,25 +812,32 @@ export default function observability(pi: ExtensionAPI) {
 			'Open the web observability dashboard; use "tui" for terminal view',
 		handler: async (args, ctx) => {
 			const command = resolve_dashboard_command(args);
+
 			if (config?.auto_start_server)
 				await ensure_local_server(config.server_url, config.token);
 			const url = config?.server_url ?? dashboard_url;
+
 			const authorized_url = authenticated_dashboard_url(
 				url,
 				config?.token,
 			);
+
 			dashboard_url = url;
+
 			if (command === 'url') {
 				ctx.ui.notify(
 					`Observability dashboard: ${authorized_url}`,
 					'info',
 				);
+
 				return;
 			}
+
 			if (command === 'tui') {
 				try {
 					const { show_observability_tui_dashboard } =
 						await import('./tui-dashboard.js');
+
 					await show_observability_tui_dashboard(
 						ctx,
 						url,
@@ -706,8 +851,10 @@ export default function observability(pi: ExtensionAPI) {
 						'error',
 					);
 				}
+
 				return;
 			}
+
 			try {
 				open_dashboard(authorized_url);
 				ctx.ui.notify(`Observability dashboard: ${url}`, 'info');
@@ -726,10 +873,7 @@ export default function observability(pi: ExtensionAPI) {
 	let seq = 0;
 	const tool_update_counts = new Map<string, number>();
 
-	function emit(
-		type: ObservabilityEventType,
-		payload: unknown,
-	): void {
+	function emit<P>(type: ObservabilityEventType, payload: P): void {
 		if (!config || !queue || !session) return;
 		queue.push(
 			create_event_envelope(type, payload, session, seq++, config),
@@ -741,17 +885,21 @@ export default function observability(pi: ExtensionAPI) {
 		obs_type: ObservabilityEventType,
 		capture_context = false,
 	): void {
+		// SAFETY: `observe` is only called with event names whose handlers receive an ExtensionEvent and ExtensionContext.
 		(
 			pi.on as (
 				name: string,
-				handler: (event: unknown, ctx: ExtensionContext) => void,
+				handler: (
+					event: ExtensionEvent,
+					ctx: ExtensionContext,
+				) => void,
 			) => void
 		)(pi_event, (event, ctx) =>
 			emit(
 				obs_type,
 				capture_context
 					? {
-							...record_of(event),
+							...event,
 							contextUsage: ctx.getContextUsage() ?? null,
 						}
 					: event,
@@ -761,8 +909,10 @@ export default function observability(pi: ExtensionAPI) {
 
 	pi.on('session_start', async (event, ctx) => {
 		config = resolve_observability_config(pi);
+
 		if (!config) return;
 		dashboard_url = config.server_url;
+
 		if (config.auto_start_server)
 			await ensure_local_server(config.server_url, config.token);
 		seq = 0;
@@ -805,6 +955,7 @@ export default function observability(pi: ExtensionAPI) {
 	pi.on('tool_execution_end', (event) => {
 		const update_count =
 			tool_update_counts.get(event.toolCallId) ?? 0;
+
 		tool_update_counts.delete(event.toolCallId);
 		emit('tool_execution_end', {
 			...event,
@@ -832,6 +983,7 @@ export default function observability(pi: ExtensionAPI) {
 			session.provider = ctx.model?.provider ?? session.provider;
 			session.model = ctx.model?.id ?? session.model;
 		}
+
 		emit('model_select', {
 			...event,
 			contextUsage: ctx.getContextUsage() ?? null,

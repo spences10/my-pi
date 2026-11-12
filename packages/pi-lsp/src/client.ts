@@ -2,16 +2,28 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { pathToFileURL } from 'node:url';
 import { create_child_process_env } from './env.js';
+import * as v from 'valibot';
+import {
+	initialize_result_schema,
+	hover_result_schema,
+	definition_result_schema,
+	references_result_schema,
+	document_symbols_result_schema,
+	diagnostic_result_schema,
+	coded_error_schema,
+	json_rpc_message_schema,
+	publish_diagnostics_params_schema,
+} from './response-schemas.js';
 
-export interface LspPosition {
+export type LspPosition = {
 	line: number;
 	character: number;
-}
+};
 
-export interface LspRange {
+export type LspRange = {
 	start: LspPosition;
 	end: LspPosition;
-}
+};
 
 export interface LspLocation {
 	uri: string;
@@ -57,14 +69,22 @@ export interface LspHover {
 	range?: LspRange;
 }
 
-interface JsonRpcMessage {
-	jsonrpc: '2.0';
-	id?: number | string;
-	method?: string;
-	params?: unknown;
-	result?: unknown;
-	error?: { code: number; message: string; data?: unknown };
-}
+/** A value that survives a JSON round trip. */
+export type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue | undefined };
+
+/** JSON-RPC ids are numbers or numeric strings; anything else matches no request. */
+const numeric_id_schema = v.union([
+	v.number(),
+	v.pipe(v.string(), v.regex(/^-?\d+$/), v.transform(Number)),
+]);
+
+type JsonRpcMessage = v.InferOutput<typeof json_rpc_message_schema>;
 
 export interface LspClientOptions {
 	command: string;
@@ -72,7 +92,7 @@ export interface LspClientOptions {
 	root_uri: string;
 	language_id_for_uri: (uri: string) => string | undefined;
 	request_timeout_ms?: number;
-	initialization_options?: Record<string, unknown>;
+	initialization_options?: Record<string, JsonValue>;
 }
 
 export class LspClientStartError extends Error {
@@ -107,7 +127,7 @@ export class LspClient extends EventEmitter {
 	#pending = new Map<
 		number,
 		{
-			resolve: (v: unknown) => void;
+			resolve: (message: JsonRpcMessage) => void;
 			reject: (e: Error) => void;
 			timer: NodeJS.Timeout;
 		}
@@ -132,16 +152,20 @@ export class LspClient extends EventEmitter {
 		});
 
 		let start_reject: ((error: Error) => void) | null = null;
+
 		const start_failure = new Promise<never>((_, reject) => {
 			start_reject = reject;
 		});
+
 		const reject_start = (error: Error): boolean => {
 			if (!start_reject) return false;
 			const reject = start_reject;
 			start_reject = null;
 			reject(error);
+
 			return true;
 		};
+
 		const start_error = (
 			message: string,
 			cause?: unknown,
@@ -160,6 +184,7 @@ export class LspClient extends EventEmitter {
 				err,
 				error_code(err),
 			);
+
 			if (!reject_start(wrapped)) {
 				this.#emit_error(wrapped);
 			}
@@ -172,10 +197,12 @@ export class LspClient extends EventEmitter {
 					),
 				);
 			}
+
 			for (const pending of this.#pending.values()) {
 				clearTimeout(pending.timer);
 				pending.reject(new Error('LSP server closed'));
 			}
+
 			this.#pending.clear();
 			this.#release_diagnostic_waiters(
 				new Error('LSP server closed'),
@@ -192,48 +219,55 @@ export class LspClient extends EventEmitter {
 		});
 
 		try {
-			const initialize_result = await Promise.race([
-				this.#request('initialize', {
-					processId: process.pid,
-					rootUri: this.#options.root_uri,
-					...(this.#options.initialization_options
-						? {
-								initializationOptions:
-									this.#options.initialization_options,
-							}
-						: {}),
-					capabilities: {
-						textDocument: {
-							diagnostic: {},
-							publishDiagnostics: {
-								relatedInformation: true,
-								versionSupport: true,
-							},
-							hover: {
-								contentFormat: ['markdown', 'plaintext'],
-							},
-							definition: { linkSupport: false },
-							references: {},
-							documentSymbol: {
-								hierarchicalDocumentSymbolSupport: true,
-							},
+			const base_initialize_params = {
+				processId: process.pid,
+				rootUri: this.#options.root_uri,
+
+				capabilities: {
+					textDocument: {
+						diagnostic: {},
+						publishDiagnostics: {
+							relatedInformation: true,
+							versionSupport: true,
 						},
-						workspace: {
-							workspaceFolders: true,
-							symbol: {},
+						hover: {
+							contentFormat: ['markdown', 'plaintext'],
+						},
+						definition: { linkSupport: false },
+						references: {},
+						documentSymbol: {
+							hierarchicalDocumentSymbolSupport: true,
 						},
 					},
-					workspaceFolders: [
-						{ uri: this.#options.root_uri, name: 'workspace' },
-					],
-				}),
+					workspace: {
+						workspaceFolders: true,
+						symbol: {},
+					},
+				},
+				workspaceFolders: [
+					{ uri: this.#options.root_uri, name: 'workspace' },
+				],
+			};
+
+			const initialize_params = this.#options.initialization_options
+				? {
+						...base_initialize_params,
+						initializationOptions:
+							this.#options.initialization_options,
+					}
+				: base_initialize_params;
+
+			const initialize_result = await Promise.race([
+				this.#request(
+					'initialize',
+					initialize_params,
+					initialize_result_schema,
+				),
 				start_failure,
 			]);
-			const capabilities = (
-				initialize_result as {
-					capabilities?: { diagnosticProvider?: unknown };
-				}
-			)?.capabilities;
+
+			const capabilities = initialize_result?.capabilities;
+
 			this.#supports_pull_diagnostics = Boolean(
 				capabilities?.diagnosticProvider,
 			);
@@ -255,21 +289,25 @@ export class LspClient extends EventEmitter {
 		text: string,
 	): Promise<void> {
 		const existing = this.#open_docs.get(uri);
+
 		if (existing?.text === text) return;
 		// Never reuse a version, including after a document closes and reopens.
 		const version = ++this.#document_version;
 		this.#open_docs.set(uri, { version, text });
 		this.#diagnostics_by_uri.delete(uri);
+
 		if (existing) {
 			this.#notify('textDocument/didChange', {
 				textDocument: { uri, version },
 				contentChanges: [{ text }],
 			});
+
 			return;
 		}
 
 		const language_id =
 			this.#options.language_id_for_uri(uri) ?? 'plaintext';
+
 		this.#notify('textDocument/didOpen', {
 			textDocument: {
 				uri,
@@ -297,10 +335,15 @@ export class LspClient extends EventEmitter {
 		uri: string,
 		position: LspPosition,
 	): Promise<LspHover | null> {
-		const result = (await this.#request('textDocument/hover', {
-			textDocument: { uri },
-			position,
-		})) as LspHover | null;
+		const result = await this.#request(
+			'textDocument/hover',
+			{
+				textDocument: { uri },
+				position,
+			},
+			hover_result_schema,
+		);
+
 		return result ?? null;
 	}
 
@@ -308,16 +351,16 @@ export class LspClient extends EventEmitter {
 		uri: string,
 		position: LspPosition,
 	): Promise<LspLocation[]> {
-		const result = (await this.#request('textDocument/definition', {
-			textDocument: { uri },
-			position,
-		})) as
-			| LspLocation
-			| LspLocation[]
-			| LspLocationLink
-			| LspLocationLink[]
-			| null;
-		return normalize_location_result(result);
+		const result = await this.#request(
+			'textDocument/definition',
+			{
+				textDocument: { uri },
+				position,
+			},
+			definition_result_schema,
+		);
+
+		return normalize_location_result(result ?? null);
 	}
 
 	async references(
@@ -325,30 +368,27 @@ export class LspClient extends EventEmitter {
 		position: LspPosition,
 		include_declaration: boolean,
 	): Promise<LspLocation[]> {
-		const result = (await this.#request('textDocument/references', {
-			textDocument: { uri },
-			position,
-			context: { includeDeclaration: include_declaration },
-		})) as LspLocation[] | null;
+		const result = await this.#request(
+			'textDocument/references',
+			{
+				textDocument: { uri },
+				position,
+				context: { includeDeclaration: include_declaration },
+			},
+			references_result_schema,
+		);
+
 		return result ?? [];
 	}
 
 	async document_symbols(uri: string): Promise<LspDocumentSymbol[]> {
-		const result = (await this.#request(
+		const result = await this.#request(
 			'textDocument/documentSymbol',
-			{
-				textDocument: { uri },
-			},
-		)) as
-			| LspDocumentSymbol[]
-			| Array<{
-					name: string;
-					kind: number;
-					location: LspLocation;
-					containerName?: string;
-			  }>
-			| null;
-		return normalize_document_symbol_result(result);
+			{ textDocument: { uri } },
+			document_symbols_result_schema,
+		);
+
+		return normalize_document_symbol_result(result ?? null);
 	}
 
 	/** Diagnostics received for the current document, or null if none arrived. */
@@ -367,33 +407,43 @@ export class LspClient extends EventEmitter {
 		timeout_ms = 1500,
 	): Promise<LspDiagnostic[] | null> {
 		const document = this.#open_docs.get(uri);
+
 		if (!document) return null;
 		const cached = this.get_diagnostics(uri);
+
 		if (cached) return cached;
+
 		if (this.#supports_pull_diagnostics) {
-			const response = (await this.#request(
+			const response = await this.#request(
 				'textDocument/diagnostic',
 				{ textDocument: { uri } },
+				diagnostic_result_schema,
 				timeout_ms,
-			)) as { items?: LspDiagnostic[] } | null;
+			);
+
 			if (
 				this.#open_docs.get(uri) !== document ||
 				!Array.isArray(response?.items)
 			)
 				return null;
 			this.#diagnostics_by_uri.set(uri, response.items);
+
 			return response.items;
 		}
+
 		return new Promise((resolve, reject) => {
 			let active = true;
+
 			const cleanup = (): boolean => {
 				if (!active) return false;
 				active = false;
 				this.off('diagnostics', handler);
 				clearTimeout(timer);
 				this.#diagnostic_waiters.delete(release);
+
 				return true;
 			};
+
 			const settle = () => {
 				if (cleanup()) {
 					resolve(
@@ -403,13 +453,16 @@ export class LspClient extends EventEmitter {
 					);
 				}
 			};
+
 			const release = (error: Error) => {
 				if (cleanup()) reject(error);
 			};
+
 			const handler = (event_uri: string) => {
 				if (event_uri !== uri) return;
 				settle();
 			};
+
 			const timer = setTimeout(settle, timeout_ms);
 			this.on('diagnostics', handler);
 			this.#diagnostic_waiters.add(release);
@@ -419,24 +472,36 @@ export class LspClient extends EventEmitter {
 	async stop(): Promise<void> {
 		if (this.#initialized) {
 			try {
-				await this.#request('shutdown', null, 1000);
+				await this.#request(
+					'shutdown',
+					null,
+					v.pipe(
+						v.unknown(),
+						v.transform(() => {}),
+					),
+					1000,
+				);
 				this.#notify('exit', null);
 			} catch {
 				// Server may already be dead; proceed.
 			}
 		}
+
 		for (const pending of this.#pending.values()) {
 			clearTimeout(pending.timer);
 			pending.reject(new Error('LSP client stopped'));
 		}
+
 		this.#pending.clear();
 		this.#release_diagnostic_waiters(new Error('LSP client stopped'));
 		this.#open_docs.clear();
 		this.#diagnostics_by_uri.clear();
+
 		if (this.#proc) {
 			this.#proc.kill();
 			this.#proc = null;
 		}
+
 		this.#initialized = false;
 		this.#supports_pull_diagnostics = false;
 	}
@@ -447,35 +512,50 @@ export class LspClient extends EventEmitter {
 		}
 	}
 
-	#request(
+	#request<T>(
 		method: string,
-		params: unknown,
+		params: JsonValue,
+		result_schema: v.GenericSchema<unknown, T>,
 		timeout_override?: number,
-	): Promise<unknown> {
+	): Promise<T> {
 		return new Promise((resolve, reject) => {
 			const id = this.#next_id++;
+
 			const timeout_ms =
 				timeout_override ??
 				this.#options.request_timeout_ms ??
 				30_000;
+
 			const timer = setTimeout(() => {
 				if (this.#pending.has(id)) {
 					this.#pending.delete(id);
 					reject(new Error(`LSP request ${method} timed out`));
 				}
 			}, timeout_ms);
-			this.#pending.set(id, { resolve, reject, timer });
+
+			this.#pending.set(id, {
+				resolve: (message) => {
+					try {
+						resolve(v.parse(result_schema, message.result));
+					} catch (error) {
+						reject(error);
+					}
+				},
+				reject,
+				timer,
+			});
+
 			try {
 				this.#send({ jsonrpc: '2.0', id, method, params });
 			} catch (error) {
 				clearTimeout(timer);
 				this.#pending.delete(id);
-				reject(error as Error);
+				reject(error);
 			}
 		});
 	}
 
-	#notify(method: string, params: unknown): void {
+	#notify(method: string, params: JsonValue): void {
 		this.#send({ jsonrpc: '2.0', method, params });
 	}
 
@@ -483,46 +563,58 @@ export class LspClient extends EventEmitter {
 		if (!this.#proc?.stdin?.writable) {
 			throw new Error('LSP server not connected');
 		}
+
 		const body = Buffer.from(JSON.stringify(message), 'utf8');
+
 		const header = Buffer.from(
 			`Content-Length: ${body.length}\r\n\r\n`,
 			'ascii',
 		);
+
 		this.#proc.stdin.write(Buffer.concat([header, body]));
 	}
 
-	#emit_error(error: unknown): void {
+	#emit_error(cause: unknown): void {
 		if (this.listenerCount('error') > 0) {
-			this.emit('error', error);
+			this.emit('error', cause);
 		}
 	}
 
 	#drain_buffer(): void {
 		while (true) {
 			const header_end = this.#buffer.indexOf('\r\n\r\n');
+
 			if (header_end === -1) return;
 
 			const header = this.#buffer
 				.subarray(0, header_end)
 				.toString('ascii');
+
 			const match = header.match(/Content-Length:\s*(\d+)/i);
+
 			if (!match) {
 				this.#buffer = this.#buffer.subarray(header_end + 4);
 				continue;
 			}
+
 			const length = Number(match[1]);
 			const body_start = header_end + 4;
+
 			if (this.#buffer.length < body_start + length) return;
 
 			const body = this.#buffer.subarray(
 				body_start,
 				body_start + length,
 			);
+
 			this.#buffer = this.#buffer.subarray(body_start + length);
 
 			try {
 				this.#handle_message(
-					JSON.parse(body.toString('utf8')) as JsonRpcMessage,
+					v.parse(
+						json_rpc_message_schema,
+						JSON.parse(body.toString('utf8')),
+					),
 				);
 			} catch (error) {
 				this.#emit_error(error);
@@ -531,17 +623,14 @@ export class LspClient extends EventEmitter {
 	}
 
 	#handle_message(message: JsonRpcMessage): void {
-		let numeric_id: number | null = null;
-		if (typeof message.id === 'number') numeric_id = message.id;
-		else if (
-			typeof message.id === 'string' &&
-			/^-?\d+$/.test(message.id)
-		)
-			numeric_id = Number(message.id);
+		const parsed_id = v.safeParse(numeric_id_schema, message.id);
+		const numeric_id = parsed_id.success ? parsed_id.output : null;
+
 		if (numeric_id != null && this.#pending.has(numeric_id)) {
 			const pending = this.#pending.get(numeric_id)!;
 			this.#pending.delete(numeric_id);
 			clearTimeout(pending.timer);
+
 			if (message.error) {
 				pending.reject(
 					new Error(
@@ -549,8 +638,9 @@ export class LspClient extends EventEmitter {
 					),
 				);
 			} else {
-				pending.resolve(message.result);
+				pending.resolve(message);
 			}
+
 			return;
 		}
 
@@ -558,23 +648,30 @@ export class LspClient extends EventEmitter {
 			message.method === 'textDocument/publishDiagnostics' &&
 			message.params
 		) {
-			const params = message.params as {
-				uri: string;
-				version?: number | null;
-				diagnostics: LspDiagnostic[];
-			};
+			const parsed = v.safeParse(
+				publish_diagnostics_params_schema,
+				message.params,
+			);
+
+			if (!parsed.success) return;
+			const params = parsed.output;
+
 			// Diagnostics for a closed document or an earlier version are
 			// stale; they must not answer for the current text.
 			const open_doc = this.#open_docs.get(params.uri);
+
 			if (!open_doc) return;
+
 			if (
-				typeof params.version === 'number' &&
+				params.version != null &&
 				params.version !== open_doc.version
 			) {
 				return;
 			}
+
 			this.#diagnostics_by_uri.set(params.uri, params.diagnostics);
 			this.emit('diagnostics', params.uri);
+
 			return;
 		}
 
@@ -599,8 +696,10 @@ export function normalize_location_result(
 ): LspLocation[] {
 	if (!result) return [];
 	const entries = Array.isArray(result) ? result : [result];
+
 	return entries.map((entry) => {
 		if ('uri' in entry) return entry;
+
 		return {
 			uri: entry.targetUri,
 			range: entry.targetSelectionRange ?? entry.targetRange,
@@ -620,37 +719,29 @@ export function normalize_document_symbol_result(
 		| null,
 ): LspDocumentSymbol[] {
 	if (!result) return [];
-	if (
-		result.length === 0 ||
-		('range' in result[0] && 'selectionRange' in result[0])
-	) {
-		return result as LspDocumentSymbol[];
-	}
-	const symbol_info = result as Array<{
-		name: string;
-		kind: number;
-		location: LspLocation;
-		containerName?: string;
-	}>;
-	return symbol_info.map((entry) => ({
-		name: entry.name,
-		kind: entry.kind,
-		range: entry.location.range,
-		selectionRange: entry.location.range,
-		containerName: entry.containerName,
-		uri: entry.location.uri,
-	}));
+
+	return result.map((entry) => {
+		if ('location' in entry) {
+			return {
+				name: entry.name,
+				kind: entry.kind,
+				range: entry.location.range,
+				selectionRange: entry.location.range,
+				containerName: entry.containerName,
+				uri: entry.location.uri,
+			};
+		}
+
+		return entry;
+	});
 }
 
 export function file_path_to_uri(file_path: string): string {
 	return pathToFileURL(file_path).href;
 }
 
-function error_code(error: unknown): string | undefined {
-	return typeof error === 'object' &&
-		error !== null &&
-		'code' in error &&
-		typeof (error as { code?: unknown }).code === 'string'
-		? (error as { code: string }).code
-		: undefined;
+function error_code(cause: Error): string | undefined {
+	const parsed = v.safeParse(coded_error_schema, cause);
+
+	return parsed.success ? parsed.output.code : undefined;
 }

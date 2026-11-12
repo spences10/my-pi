@@ -4,6 +4,7 @@ export function should_inject_team_prompt(
 	event: Partial<Pick<BeforeAgentStartEvent, 'systemPromptOptions'>>,
 ): boolean {
 	const selected_tools = event.systemPromptOptions?.selectedTools;
+
 	return !selected_tools || selected_tools.includes('team');
 }
 

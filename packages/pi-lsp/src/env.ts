@@ -31,21 +31,25 @@ export function create_child_process_env(
 	for (const key of Object.keys(source_env)) {
 		if (key.startsWith('LC_')) allowed_keys.add(key);
 	}
+
 	for (const allowlist_key of ENV_ALLOWLIST_KEYS) {
 		for (const entry of (source_env[allowlist_key] ?? '').split(
 			',',
 		)) {
 			const key = entry.trim();
+
 			if (key) allowed_keys.add(key);
 		}
 	}
 
 	for (const key of allowed_keys) {
 		const value = source_env[key];
-		if (typeof value === 'string') env[key] = value;
+
+		if (value !== undefined) env[key] = value;
 	}
+
 	for (const [key, value] of Object.entries(explicit_env)) {
-		if (typeof value === 'string') env[key] = value;
+		env[key] = value;
 	}
 
 	return env;

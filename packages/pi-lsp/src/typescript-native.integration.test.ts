@@ -6,14 +6,15 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { make_context } from '../../../tools/test-sdk.js';
 import { LspServerManager } from './server-manager.js';
 
 const dirs: string[] = [];
 
-const ctx = {
+const ctx = make_context({
 	hasUI: false,
 	ui: { select: async () => undefined },
-} as never;
+});
 
 afterEach(() => {
 	for (const dir of dirs.splice(0)) {
@@ -26,6 +27,7 @@ describe('TypeScript 7 native LSP integration', () => {
 		const workspace = mkdtempSync(
 			join(process.cwd(), '.tmp-typescript-native-lsp-'),
 		);
+
 		dirs.push(workspace);
 		mkdirSync(join(workspace, 'src'), { recursive: true });
 		writeFileSync(
@@ -50,9 +52,11 @@ describe('TypeScript 7 native LSP integration', () => {
 		);
 
 		const manager = new LspServerManager({ cwd: () => workspace });
+
 		try {
 			const resolved = await manager.resolve_file_state(file, ctx);
 			expect(resolved.ok).toBe(true);
+
 			if (!resolved.ok) return;
 			const { state, uri } = resolved.result;
 			expect(state.backend).toBe('typescript-native');
@@ -62,6 +66,7 @@ describe('TypeScript 7 native LSP integration', () => {
 				uri,
 				5_000,
 			);
+
 			expect(diagnostics?.some((item) => item.severity === 1)).toBe(
 				true,
 			);

@@ -18,6 +18,7 @@ import type { EvalCaseResult, EvalReport } from './types.js';
 export function run_context_eval(): EvalReport {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-eval-'));
 	const db_path = join(dir, 'context.db');
+
 	const store = new ContextStore({
 		db_path,
 		project_path: PROJECT,
@@ -38,10 +39,12 @@ export function run_context_eval(): EvalReport {
 
 		const passed = results.filter((result) => result.passed).length;
 		const total = results.length;
+
 		const returned_bytes = results.reduce(
 			(sum, result) => sum + result.returned_bytes,
 			0,
 		);
+
 		return {
 			version: 1,
 			summary: {
@@ -70,6 +73,7 @@ export async function run_context_eval_cli(
 			? `${JSON.stringify(report, null, 2)}\n`
 			: `${format_report(report)}\n`,
 	);
+
 	if (report.summary.failed > 0) process.exitCode = 1;
 }
 

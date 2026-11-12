@@ -3,6 +3,7 @@ import { RuleTester } from 'vite-plus/lint/plugins-dev';
 import { no_nested_ternary } from './lint-rules.ts';
 
 RuleTester.describe = describe;
+
 RuleTester.it = it;
 
 const tester = new RuleTester({

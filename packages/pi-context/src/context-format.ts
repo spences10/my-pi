@@ -19,6 +19,7 @@ export function format_search_results(
 	results: ContextSearchResult[],
 ): string {
 	if (results.length === 0) return 'No indexed context matched.';
+
 	const body = results
 		.map((result, index) =>
 			[
@@ -29,7 +30,9 @@ export function format_search_results(
 			].join('\n'),
 		)
 		.join('\n\n---\n\n');
+
 	if (!results.some((result) => result.snippet)) return body;
+
 	return [
 		body,
 		'',
@@ -68,10 +71,12 @@ export function format_get_result(
 	}
 
 	if (!chunk_id) return 'No chunks found.';
+
 	const range =
 		summary.first_chunk_id === summary.last_chunk_id
 			? summary.first_chunk_id
 			: `${summary.first_chunk_id} … ${summary.last_chunk_id}`;
+
 	return [
 		`No chunk found for chunk_id "${chunk_id}".`,
 		`Source ${source_id} has ${summary.chunk_count} chunk(s): ${range}.`,
@@ -90,6 +95,7 @@ export function format_list_results(
 ): string {
 	if (results.length === 0)
 		return 'No indexed context sources found.';
+
 	return results
 		.map((result) =>
 			[
@@ -131,6 +137,7 @@ export function format_purge_details(
 	]
 		.filter(Boolean)
 		.join(', ');
+
 	return `Deleted ${details.deleted} context source(s).${filters ? ` Filters: ${filters}.` : ''}`;
 }
 
@@ -142,6 +149,7 @@ export function format_stats(
 	},
 ): string {
 	const scoped = stats.scope_project_path || stats.scope_session_id;
+
 	const rows = [
 		`Enabled: ${is_context_sidecar_enabled()}`,
 		scoped
@@ -160,6 +168,7 @@ export function format_stats(
 		`Purge on shutdown: ${stats.purge_on_shutdown}`,
 		`Max DB size: ${stats.max_mb === null ? 'disabled' : `${stats.max_mb} MiB`}`,
 	];
+
 	if (options.audience === 'tui')
 		return [
 			...(options.title === false
@@ -167,6 +176,7 @@ export function format_stats(
 				: ['context-sidecar stats', '']),
 			...rows,
 		].join('\n');
+
 	return [
 		...(options.title === false
 			? []
@@ -209,6 +219,7 @@ export function format_context_settings_status(
 ): string {
 	const saved = load_context_settings_config();
 	const capture_limits = get_context_capture_limits();
+
 	const rows = [
 		`Config path: ${get_context_settings_config_path()}`,
 		`Saved preset: ${saved?.preset ?? '(none; using built-in defaults)'}`,
@@ -217,13 +228,16 @@ export function format_context_settings_status(
 		`Effective purge on shutdown: ${stats.purge_on_shutdown}`,
 		`Effective tool capture threshold: ${format_output_limit(capture_limits.max_bytes, capture_limits.max_lines)}`,
 	];
+
 	const presets = Object.entries(CONTEXT_SETTINGS_PRESETS).map(
 		([key, preset]) => `${key}: ${preset.description}`,
 	);
+
 	const usage = [
 		'/context settings <preset>',
 		'/context settings custom <days|off> <max-mb|off> [capture-kb] [capture-lines] [purge-on-shutdown]',
 	];
+
 	if (options.audience === 'tui')
 		return [
 			...(options.title === false
@@ -237,6 +251,7 @@ export function format_context_settings_status(
 			'Usage:',
 			...usage,
 		].join('\n');
+
 	return [
 		...(options.title === false
 			? []

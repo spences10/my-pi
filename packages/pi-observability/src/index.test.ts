@@ -1,7 +1,14 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as v from 'valibot';
+import type { ExtensionEvent } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vite-plus/test';
+import {
+	make_api,
+	make_assistant_message,
+	make_context,
+} from '../../../tools/test-sdk.js';
 import observability, {
 	create_event_envelope,
 	EventQueue,
@@ -12,7 +19,10 @@ import observability, {
 	text_fingerprint,
 } from './index.js';
 import { redact_value, truncate_json_value } from './redact.js';
+import { stream_event_schema } from './response-schemas.js';
 import type { ObservabilityEvent } from './types.js';
+
+type SentEvent = v.InferOutput<typeof stream_event_schema>;
 
 function observability_harness(options?: {
 	configured_name?: string;
@@ -20,11 +30,10 @@ function observability_harness(options?: {
 	forward_session_id?: boolean;
 	session_name?: string;
 }) {
-	const handlers = new Map<
-		string,
-		(event: unknown, ctx: unknown) => Promise<void>
-	>();
+	const handlers = new Map<string, Function>();
+
 	const session_name = options?.session_name;
+
 	const context_usage = vi.fn(
 		():
 			| {
@@ -34,16 +43,27 @@ function observability_harness(options?: {
 			  }
 			| undefined => undefined,
 	);
-	const sent: ObservabilityEvent[] = [];
+
+	const sent: SentEvent[] = [];
+
 	const fetch_mock = vi
 		.spyOn(globalThis, 'fetch')
 		.mockImplementation(async (_input, init) => {
-			if (typeof init?.body !== 'string')
+			const request_body = v.safeParse(v.string(), init?.body);
+
+			if (!request_body.success)
 				throw new TypeError('Expected a JSON request body');
-			sent.push(...(JSON.parse(init.body) as ObservabilityEvent[]));
+			sent.push(
+				...v.parse(
+					v.array(stream_event_schema),
+					JSON.parse(request_body.output),
+				),
+			);
+
 			return new Response(null, { status: 200 });
 		});
-	const flags = new Map<string, unknown>([
+
+	const flags = new Map<string, string | boolean>([
 		['observability-url', 'http://observability.test'],
 		...(options?.configured_name
 			? ([['observability-name', options.configured_name]] as const)
@@ -55,29 +75,36 @@ function observability_harness(options?: {
 			? ([['observability-forward-session-id', true]] as const)
 			: []),
 	]);
-	const pi = {
-		registerFlag: vi.fn(),
-		registerCommand: vi.fn(),
+
+	const pi = make_api({
 		getFlag: (name: string) => flags.get(name),
-		on: (name: string, handler: never) => handlers.set(name, handler),
-	};
-	observability(pi as never);
-	const ctx = {
+		on(name: string, handler: Function) {
+			handlers.set(name, handler);
+
+			return () => handlers.delete(name);
+		},
+	});
+
+	observability(pi);
+
+	const ctx = make_context({
 		cwd: '/repo',
-		model: undefined,
 		getContextUsage: context_usage,
 		sessionManager: {
 			getSessionId: () => 'session-1',
 			getSessionFile: () => '/sessions/session-1.jsonl',
 			getSessionName: () => session_name,
 		},
-	};
+	});
+
 	return {
 		fetch_mock,
 		sent,
 		context_usage,
-		trigger: async (name: string, event: unknown = {}) =>
-			handlers.get(name)?.(event, ctx),
+		trigger: async (
+			name: string,
+			event: Partial<ExtensionEvent> = {},
+		) => handlers.get(name)?.(event, ctx),
 	};
 }
 
@@ -106,10 +133,12 @@ describe('resolve_dashboard_command', () => {
 describe('resolve_observability_config', () => {
 	it('defaults to authenticated local auto-start without a server url', () => {
 		const home = mkdtempSync(join(tmpdir(), 'pi-obs-config-'));
+
 		const config = resolve_observability_config(
 			{ getFlag: () => undefined },
 			{ HOME: home },
 		);
+
 		expect(config).toMatchObject({
 			server_url: 'http://127.0.0.1:43190',
 			auto_start_server: true,
@@ -129,6 +158,7 @@ describe('resolve_observability_config', () => {
 
 	it('treats empty token environment values as unconfigured', () => {
 		const home = mkdtempSync(join(tmpdir(), 'pi-obs-empty-token-'));
+
 		const config = resolve_observability_config(
 			{ getFlag: () => undefined },
 			{ HOME: home, MY_PI_OBSERVABILITY_TOKEN: '' },
@@ -139,14 +169,14 @@ describe('resolve_observability_config', () => {
 	});
 
 	it('uses flags and environment fallbacks', () => {
-		const flags = new Map<string, unknown>([
+		const flags = new Map<string, string | boolean>([
 			['observability-url', 'http://127.0.0.1:43190'],
 			['observability-tag', 'one,two'],
 		]);
+
 		const config = resolve_observability_config(
 			{
-				getFlag: (key) =>
-					flags.get(key) as string | boolean | undefined,
+				getFlag: (key) => flags.get(key),
 			},
 			{
 				MY_PI_OBSERVABILITY_POOL: 'test',
@@ -154,6 +184,7 @@ describe('resolve_observability_config', () => {
 				MY_PI_OBSERVABILITY_FORWARD_SESSION_ID: 'true',
 			},
 		);
+
 		expect(config).toMatchObject({
 			server_url: 'http://127.0.0.1:43190',
 			pool: 'test',
@@ -171,47 +202,53 @@ describe('resolve_observability_config', () => {
 		vi.stubEnv('PI_OBSERVABILITY_URL', '');
 		vi.stubEnv('MY_PI_OBSERVABILITY_TOKEN', '');
 		vi.stubEnv('PI_OBSERVABILITY_TOKEN', '');
+
 		const requests: Array<{
 			authorization: string | null;
 			url: string;
 		}> = [];
+
 		const fetch_mock = vi
 			.spyOn(globalThis, 'fetch')
 			.mockImplementation(async (input, init) => {
 				let url: string;
-				if (typeof input === 'string') url = input;
-				else url = input instanceof URL ? input.href : input.url;
+
+				if (input instanceof URL) url = input.href;
+				else if (input instanceof Request) url = input.url;
+				else url = input;
 				requests.push({
 					authorization: new Headers(init?.headers).get(
 						'authorization',
 					),
 					url,
 				});
+
 				return new Response(JSON.stringify({ ok: true }), {
 					status: 200,
 				});
 			});
-		const handlers = new Map<
-			string,
-			(event: unknown, ctx: unknown) => Promise<void>
-		>();
-		const pi = {
-			registerFlag: vi.fn(),
-			registerCommand: vi.fn(),
+
+		const handlers = new Map<string, Function>();
+
+		const pi = make_api({
 			getFlag: () => undefined,
-			on: (name: string, handler: never) =>
-				handlers.set(name, handler),
-		};
-		observability(pi as never);
-		const ctx = {
+			on(name: string, handler: Function) {
+				handlers.set(name, handler);
+
+				return () => handlers.delete(name);
+			},
+		});
+
+		observability(pi);
+
+		const ctx = make_context({
 			cwd: '/repo',
-			model: undefined,
 			sessionManager: {
 				getSessionId: () => 'session-1',
 				getSessionFile: () => undefined,
 				getSessionName: () => undefined,
 			},
-		};
+		});
 
 		try {
 			await expect(
@@ -231,6 +268,7 @@ describe('resolve_observability_config', () => {
 describe('provider session attribution', () => {
 	it('does not change provider headers by default', async () => {
 		const harness = observability_harness();
+
 		const headers = {
 			authorization: 'Bearer provider-secret',
 			'x-existing': 'keep',
@@ -252,6 +290,7 @@ describe('provider session attribution', () => {
 			configured_token: 'observability-secret',
 			forward_session_id: true,
 		});
+
 		const headers = {
 			authorization: 'Bearer provider-secret',
 			'x-existing': 'keep',
@@ -274,6 +313,23 @@ describe('provider session attribution', () => {
 });
 
 describe('payload safety', () => {
+	it('preserves primitive and callable passthrough values', () => {
+		const values = [
+			undefined,
+			null,
+			false,
+			0,
+			12n,
+			Symbol('test'),
+			() => 42,
+		];
+
+		for (const value of values) {
+			expect(redact_value(value)).toBe(value);
+			expect(summarize_payload(value)).toBe(value);
+		}
+	});
+
 	it('redacts secret-looking keys recursively', () => {
 		expect(
 			redact_value({ nested: { api_key: 'abc', safe: 'ok' } }),
@@ -360,6 +416,7 @@ describe('payload safety', () => {
 			{ message: { responseModel: 'x'.repeat(600) } },
 			'summary',
 		);
+
 		expect(summary).toMatchObject({
 			message: { responseModel: `${'x'.repeat(500)}…` },
 		});
@@ -428,12 +485,14 @@ describe('payload safety', () => {
 
 	it('stores a fingerprint instead of provider request instructions', () => {
 		const instructions = 'You are a coding agent. '.repeat(200);
+
 		const summary = summarize_payload({
 			payload: { model: 'm', instructions },
-		}) as { payload: Record<string, unknown> };
-		expect(summary.payload.instructions).toEqual(
-			text_fingerprint(instructions),
-		);
+		});
+
+		expect(summary).toMatchObject({
+			payload: { instructions: text_fingerprint(instructions) },
+		});
 		expect(text_fingerprint(instructions)).toMatchObject({
 			type: 'string',
 			length: instructions.length,
@@ -485,6 +544,7 @@ describe('session names', () => {
 			configured_name: 'override',
 			session_name: 'before',
 		});
+
 		await harness.trigger('session_start');
 		await harness.trigger('session_info_changed', { name: 'after' });
 		await harness.trigger('session_shutdown');
@@ -503,6 +563,7 @@ describe('session names', () => {
 describe('context usage snapshots', () => {
 	it('captures native context after persistence checkpoints, including unknown after compaction', async () => {
 		const harness = observability_harness();
+
 		try {
 			harness.context_usage.mockReturnValue({
 				tokens: 80_000,
@@ -512,7 +573,7 @@ describe('context usage snapshots', () => {
 			await harness.trigger('session_start');
 			expect(harness.context_usage).toHaveBeenCalledTimes(1);
 			await harness.trigger('message_end', {
-				message: { role: 'assistant' },
+				message: make_assistant_message(),
 			});
 			expect(harness.context_usage).toHaveBeenCalledTimes(1);
 			harness.context_usage.mockReturnValue({
@@ -520,6 +581,7 @@ describe('context usage snapshots', () => {
 				contextWindow: 200_000,
 				percent: 42,
 			});
+
 			for (const name of [
 				'turn_end',
 				'agent_end',
@@ -536,10 +598,11 @@ describe('context usage snapshots', () => {
 			await harness.trigger('session_compact');
 			harness.context_usage.mockReturnValue(undefined);
 			await harness.trigger('session_shutdown');
+
 			const snapshots = harness.sent.map(
-				(event) =>
-					(event.payload as Record<string, unknown>).contextUsage,
+				(event) => event.payload.contextUsage,
 			);
+
 			expect(snapshots[0]).toEqual({
 				tokens: 80_000,
 				contextWindow: 200_000,
@@ -572,6 +635,7 @@ describe('context usage snapshots', () => {
 				contextWindow: 200_000,
 				percent: 0,
 			};
+
 			expect(
 				summarize_payload({ contextUsage: context_usage }, detail),
 			).toMatchObject({ contextUsage: context_usage });
@@ -583,6 +647,7 @@ describe('tool execution updates', () => {
 	it('counts updates on the end event instead of sending each one', async () => {
 		const harness = observability_harness();
 		await harness.trigger('session_start');
+
 		for (let i = 0; i < 3; i += 1)
 			await harness.trigger('tool_execution_update', {
 				type: 'tool_execution_update',
@@ -646,6 +711,7 @@ describe('create_event_envelope', () => {
 				max_payload_bytes: 1000,
 			},
 		);
+
 		expect(event).toMatchObject({
 			type: 'tool_call',
 			session_id: 's1',
@@ -673,26 +739,33 @@ function queue_event(seq: number, text = 'ok'): ObservabilityEvent {
 
 describe('EventQueue body limit', () => {
 	function limited_server(max_bytes: number) {
-		const accepted: ObservabilityEvent[] = [];
+		const accepted: SentEvent[] = [];
 		let requests = 0;
+
 		const fetch_mock = vi
 			.spyOn(globalThis, 'fetch')
 			.mockImplementation(async (_input, init) => {
 				requests += 1;
-				const body = typeof init?.body === 'string' ? init.body : '';
+				const body = v.parse(v.fallback(v.string(), ''), init?.body);
+
 				if (Buffer.byteLength(body) > max_bytes)
 					return new Response(JSON.stringify({ max_bytes }), {
 						status: 413,
 					});
-				accepted.push(...(JSON.parse(body) as ObservabilityEvent[]));
+				accepted.push(
+					...v.parse(v.array(stream_event_schema), JSON.parse(body)),
+				);
+
 				return new Response('{}', { status: 200 });
 			});
+
 		return { accepted, fetch_mock, requests: () => requests };
 	}
 
 	it('splits a rejected batch instead of retrying it forever', async () => {
 		const server = limited_server(700);
 		const queue = new EventQueue('http://obs.test', undefined, 4);
+
 		for (let seq = 0; seq < 4; seq += 1)
 			queue.push(queue_event(seq, 'x'.repeat(120)));
 		await vi.waitFor(() =>
@@ -739,10 +812,12 @@ describe('payload cap', () => {
 			pool: 'default',
 			tags: [],
 		};
+
 		const payload = {
 			prompt: 'p'.repeat(100),
 			detail: 'd'.repeat(50_000),
 		};
+
 		const uncapped = create_event_envelope(
 			'custom',
 			payload,
@@ -754,7 +829,9 @@ describe('payload cap', () => {
 				max_payload_bytes: 0,
 			},
 		);
+
 		expect(uncapped.payload).toEqual(payload);
+
 		const capped = create_event_envelope(
 			'custom',
 			payload,
@@ -766,6 +843,7 @@ describe('payload cap', () => {
 				max_payload_bytes: 1_000,
 			},
 		);
+
 		expect(capped.payload).toMatchObject({ truncated: true });
 	});
 });
@@ -818,11 +896,14 @@ describe('failure details', () => {
 			isError: false,
 			content: [{ type: 'text', text: 'ok' }],
 		});
+
 		expect(success).not.toHaveProperty('errorText');
+
 		const summary = summarize_payload(
 			{ isError: true, content: [{ type: 'text', text: 'boom' }] },
 			'summary',
 		);
+
 		expect(summary).not.toHaveProperty('errorText');
 	});
 
@@ -846,6 +927,7 @@ describe('failure details', () => {
 				max_payload_bytes: 0,
 			},
 		);
+
 		expect(event.payload).toMatchObject({
 			errorText: 'auth failed for [REDACTED]',
 		});

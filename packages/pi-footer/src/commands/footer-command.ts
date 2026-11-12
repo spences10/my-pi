@@ -1,7 +1,6 @@
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
-	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import { SelectList, type SettingItem } from '@earendil-works/pi-tui';
 import {
@@ -22,15 +21,10 @@ import {
 	FOOTER_WIDGETS,
 	GIT_ICON_MODES,
 	STATUS_LABEL_MODES,
-	type FooterDensity,
-	type FooterPreset,
+	find_option,
 	type FooterState,
-	type FooterStatusAlignment,
 	type FooterStatusPlacement,
-	type FooterTone,
 	type FooterWidget,
-	type GitIconMode,
-	type StatusLabelMode,
 } from '../presets/types.js';
 import { FOOTER_RESEARCH_REFERENCES } from '../reference/research.js';
 import { render_footer_lines } from '../render/footer-lines.js';
@@ -67,22 +61,28 @@ async function configure_footer(
 			on_change: (id, new_value) => {
 				if (id === 'widgets' || id === 'status-layout') {
 					next_panel = id;
+
 					return true;
 				}
+
 				apply_footer_setting(state, id, new_value);
 				save_footer_state(state);
 				install_footer(ctx, state);
+
 				return false;
 			},
 		});
+
 		if (next_panel === 'widgets') {
 			await configure_footer_widgets(ctx, state);
 			continue;
 		}
+
 		if (next_panel === 'status-layout') {
 			await configure_footer_status_layout(ctx, state);
 			continue;
 		}
+
 		return;
 	}
 }
@@ -158,6 +158,7 @@ async function configure_footer_widgets(
 				label: widget,
 				description: format_widget_state(state, widget),
 			}));
+
 			const list = new SelectList(
 				items,
 				Math.min(items.length, layout.get_max_body_lines()),
@@ -169,21 +170,32 @@ async function configure_footer_widgets(
 					noMatch: (text) => theme.fg('dim', text),
 				},
 			);
+
 			list.onCancel = () => done();
+
 			return {
 				render: (width: number) => list.render(width),
 				invalidate: () => list.invalidate(),
 				handleInput: (data: string) => {
 					if (data === ' ') {
 						const selected = list.getSelectedItem();
+
 						if (!selected) return;
-						const widget = selected.value as FooterWidget;
+
+						const widget = find_option(
+							FOOTER_WIDGETS,
+							selected.value,
+						);
+
+						if (!widget) return;
 						state.widgets[widget] = !state.widgets[widget];
 						selected.description = format_widget_state(state, widget);
 						save_footer_state(state);
 						install_footer(ctx, state);
+
 						return;
 					}
+
 					list.handleInput(data);
 				},
 			};
@@ -197,9 +209,11 @@ async function configure_footer_status_layout(
 ): Promise<void> {
 	while (true) {
 		const footer_data = get_current_footer_data();
+
 		const live_statuses = new Map(
 			footer_data?.getExtensionStatuses() ?? [],
 		);
+
 		const keys = Array.from(
 			new Set([
 				...Object.keys(state.status_layout),
@@ -207,6 +221,7 @@ async function configure_footer_status_layout(
 				'preset',
 			]),
 		);
+
 		const selected = await show_picker_modal(ctx, {
 			title: 'Extension status layout',
 			subtitle:
@@ -224,11 +239,13 @@ async function configure_footer_status_layout(
 			empty_message: 'No extension statuses available',
 			selected_footer: (item) => {
 				if (!item) return undefined;
+
 				return format_status_placement(
 					status_placement_for(state, item.value),
 				);
 			},
 		});
+
 		if (!selected) return;
 		await configure_footer_status(ctx, state, selected, keys.length);
 		compact_status_rows(state);
@@ -278,14 +295,16 @@ async function configure_footer_status(
 		metadata: () => get_footer_preview(ctx, state),
 		on_change: (id, new_value) => {
 			if (id === 'row') placement.row = Number(new_value);
-			if (
-				id === 'alignment' &&
-				FOOTER_STATUS_ALIGNMENTS.includes(
-					new_value as FooterStatusAlignment,
-				)
-			) {
-				placement.alignment = new_value as FooterStatusAlignment;
+
+			const alignment = find_option(
+				FOOTER_STATUS_ALIGNMENTS,
+				new_value,
+			);
+
+			if (id === 'alignment' && alignment) {
+				placement.alignment = alignment;
 			}
+
 			if (id === 'visibility')
 				placement.hidden = new_value === 'hidden';
 			state.status_layout[key] = placement;
@@ -316,9 +335,11 @@ function compact_status_rows(state: FooterState): void {
 				.map((placement) => placement.row),
 		),
 	).sort((a, b) => a - b);
+
 	const row_map = new Map(
 		occupied_rows.map((row, index) => [row, index + 1]),
 	);
+
 	for (const placement of Object.values(state.status_layout)) {
 		if (!placement.hidden)
 			placement.row = row_map.get(placement.row) ?? placement.row;
@@ -343,15 +364,18 @@ function get_widget_modal_subtitle(
 	state: FooterState,
 ): string[] {
 	const footer_data = get_current_footer_data();
+
 	if (!footer_data)
 		return ['Choose footer building blocks to show or hide.'];
+
 	const lines = render_footer_lines(
-		ctx as ExtensionContext,
+		ctx,
 		ctx.ui.theme,
 		footer_data,
 		state,
 		72,
 	);
+
 	return [
 		'Choose footer building blocks to show or hide.',
 		'',
@@ -374,51 +398,49 @@ function apply_footer_setting(
 	id: string,
 	new_value: string,
 ): void {
-	if (
-		id === 'preset' &&
-		FOOTER_PRESETS.includes(new_value as FooterPreset)
-	) {
-		state.preset = new_value as FooterPreset;
-	}
-	if (
-		id === 'density' &&
-		FOOTER_DENSITIES.includes(new_value as FooterDensity)
-	) {
-		state.density = new_value as FooterDensity;
-	}
-	if (
-		id === 'tone' &&
-		FOOTER_TONES.includes(new_value as FooterTone)
-	) {
-		state.tone = new_value as FooterTone;
-	}
-	if (
-		id === 'status-labels' &&
-		STATUS_LABEL_MODES.includes(new_value as StatusLabelMode)
-	) {
-		state.status_label_mode = new_value as StatusLabelMode;
-	}
-	if (
-		id === 'git-icons' &&
-		GIT_ICON_MODES.includes(new_value as GitIconMode)
-	) {
-		state.git_icon_mode = new_value as GitIconMode;
-	}
+	const preset = find_option(FOOTER_PRESETS, new_value);
+	const density = find_option(FOOTER_DENSITIES, new_value);
+	const tone = find_option(FOOTER_TONES, new_value);
+
+	const status_label_mode = find_option(
+		STATUS_LABEL_MODES,
+		new_value,
+	);
+
+	const git_icon_mode = find_option(GIT_ICON_MODES, new_value);
+
+	if (id === 'preset' && preset) state.preset = preset;
+
+	if (id === 'density' && density) state.density = density;
+
+	if (id === 'tone' && tone) state.tone = tone;
+
+	if (id === 'status-labels' && status_label_mode)
+		state.status_label_mode = status_label_mode;
+
+	if (id === 'git-icons' && git_icon_mode)
+		state.git_icon_mode = git_icon_mode;
 }
 
 function get_setting_detail(id: string): string | undefined {
 	if (id === 'preset')
 		return 'Presets are starter arrangements; widget toggles decide exact content.';
+
 	if (id === 'density')
 		return 'Compact is one row, comfortable is normal 2–3 rows, expanded adds diagnostic/footer mode detail.';
+
 	if (id === 'tone')
 		return 'Muted uses dim theme color, balanced uses plain terminal foreground, bright uses theme accent.';
+
 	if (id === 'status-labels')
 		return 'Smart avoids doubled labels such as mcp:MCP 6/6 connected.';
+
 	if (id === 'git-icons')
 		return 'Nerd uses terminal font glyphs; plain uses ASCII-safe symbols.';
+
 	if (id === 'widgets')
 		return 'Open a dedicated picker for core footer building blocks.';
+
 	if (id === 'status-layout')
 		return 'Assign each published extension status to any dynamic row with left, center, or right alignment, or hide it.';
 }
@@ -428,15 +450,18 @@ function get_footer_preview(
 	state: FooterState,
 ): string[] {
 	const footer_data = get_current_footer_data();
+
 	if (!footer_data)
 		return ['Preview unavailable before footer setup.'];
+
 	const lines = render_footer_lines(
-		ctx as ExtensionContext,
+		ctx,
 		ctx.ui.theme,
 		footer_data,
 		state,
 		72,
 	);
+
 	return [
 		'Preview:',
 		...(lines.length > 0
@@ -451,14 +476,17 @@ function get_setting_metadata(
 	state: FooterState,
 ): string[] {
 	const lines = get_footer_preview(ctx, state);
+
 	if (id === 'widgets') {
 		lines.push('', 'Shown widgets:');
+
 		for (const widget of FOOTER_WIDGETS.filter(
 			(widget) => state.widgets[widget],
 		)) {
 			lines.push(`• ${widget}`);
 		}
 	}
+
 	if (id === 'status-layout') {
 		lines.push(
 			'',
@@ -466,11 +494,14 @@ function get_setting_metadata(
 			'Empty rows collapse automatically.',
 		);
 	}
+
 	if (id === 'preset') {
 		lines.push('', 'Layout references:');
+
 		for (const reference of FOOTER_RESEARCH_REFERENCES.slice(0, 3)) {
 			lines.push(`• ${reference.name}: ${reference.takeaways[0]}`);
 		}
 	}
+
 	return lines;
 }

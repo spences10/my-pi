@@ -1,3 +1,4 @@
+import { make_theme } from '../../../tools/test-sdk.js';
 import type {
 	MessageRenderOptions,
 	Theme,
@@ -11,20 +12,25 @@ import {
 } from './rendering.js';
 
 const fg = vi.fn((_color: string, text: string) => text);
+
 const key_hint: MessageRenderOptions['keyHint'] = (
 	_key,
 	description,
 ) => `alt+o ${description}`;
-const theme = {
-	fg,
-	bold: (text: string) => text,
-} as unknown as Theme;
+
+const theme: Theme = make_theme();
+
+vi.spyOn(theme, 'fg').mockImplementation(fg);
+
+vi.spyOn(theme, 'bold').mockImplementation((text) => text);
+
 const options: MessageRenderOptions = {
 	expanded: false,
 	outputPad: 1,
 	keyHint: key_hint,
 	keyText: () => 'alt+o',
 };
+
 const info: WorkerInfo = {
 	id: 'worker-1',
 	name: 'reviewer',
@@ -35,6 +41,7 @@ const info: WorkerInfo = {
 	pid: 123,
 	result: 'Review complete.\nTwo findings.',
 };
+
 const message = {
 	role: 'custom' as const,
 	customType: 'rpc-worker-report',
@@ -44,20 +51,38 @@ const message = {
 	details: info,
 	timestamp: 0,
 };
-const context = {
+
+const context: Parameters<
+	typeof worker_tool_renderers.renderResult
+>[3] = {
+	args: {},
+	toolCallId: 'call',
+	invalidate: () => {},
+	lastComponent: undefined,
+	state: {},
+	cwd: '/repo',
+	executionStarted: true,
+	argsComplete: true,
+	isPartial: false,
 	expanded: false,
+	showImages: false,
 	isError: false,
+	durationMs: undefined,
+	outputPad: 0,
+	keyText: (keybinding) => keybinding,
 	keyHint: key_hint,
-} as Parameters<typeof worker_tool_renderers.renderResult>[3];
+};
 
 describe('worker rendering', () => {
 	it('shows a single-line result preview without altering the report', () => {
 		const before = JSON.stringify(message);
+
 		const lines = render_worker_report(
 			message,
 			options,
 			theme,
 		)!.render(120);
+
 		expect(lines).toHaveLength(1);
 		expect(lines[0]).toContain(
 			'Worker · reviewer · finished: Review complete.',
@@ -76,6 +101,7 @@ describe('worker rendering', () => {
 		)!
 			.render(240)
 			.join('\n');
+
 		for (const line of message.content.split('\n'))
 			expect(text).toContain(line);
 		expect(text).toContain('/repo/session.jsonl');
@@ -88,9 +114,11 @@ describe('worker rendering', () => {
 			...message,
 			details: { ...info, error: 'Worker crashed\nExit code 1' },
 		};
+
 		const text = render_worker_report(failed, options, theme)!.render(
 			120,
 		)[0];
+
 		expect(text).toContain('failed: Worker crashed');
 		expect(fg).toHaveBeenCalledWith(
 			'error',
@@ -109,11 +137,13 @@ describe('worker rendering', () => {
 					result: '✅ 完了'.repeat(50),
 				},
 			};
+
 			const lines = render_worker_report(
 				wide,
 				options,
 				theme,
 			)!.render(width);
+
 			expect(lines).toHaveLength(1);
 			expect(visibleWidth(lines[0]!)).toBeLessThanOrEqual(width);
 		},
@@ -126,16 +156,20 @@ describe('worker rendering', () => {
 			task: 'Review code\nand tests',
 			cwd: '/repo',
 		};
+
 		const compact = worker_tool_renderers
 			.renderCall(args, theme, context)
 			.render(100);
+
 		expect(compact).toHaveLength(1);
 		expect(compact[0]).toContain('Workers · spawn · reviewer');
 		expect(compact[0]).not.toContain('Review code');
+
 		const expanded = worker_tool_renderers
 			.renderCall(args, theme, { ...context, expanded: true })
 			.render(200)
 			.join('\n');
+
 		for (const line of JSON.stringify(args, null, 2).split('\n'))
 			expect(expanded).toContain(line);
 	});
@@ -150,6 +184,7 @@ describe('worker rendering', () => {
 			],
 			details: info,
 		};
+
 		const compact = worker_tool_renderers
 			.renderResult(
 				result,
@@ -158,8 +193,10 @@ describe('worker rendering', () => {
 				context,
 			)
 			.render(100);
+
 		expect(compact).toHaveLength(1);
 		expect(compact[0]).toContain('reviewer · idle');
+
 		const expanded = worker_tool_renderers
 			.renderResult(
 				result,
@@ -169,8 +206,10 @@ describe('worker rendering', () => {
 			)
 			.render(200)
 			.join('\n');
+
 		for (const line of result.content[0]!.text.split('\n'))
 			expect(expanded).toContain(line);
+
 		const list = worker_tool_renderers
 			.renderResult(
 				{ ...result, details: [info, info] },
@@ -179,6 +218,7 @@ describe('worker rendering', () => {
 				context,
 			)
 			.render(100);
+
 		expect(list[0]).toContain('2 owned workers');
 	});
 
@@ -192,6 +232,7 @@ describe('worker rendering', () => {
 			],
 			details: info,
 		};
+
 		const text = worker_tool_renderers
 			.renderResult(
 				result,
@@ -200,6 +241,7 @@ describe('worker rendering', () => {
 				{ ...context, isError: true },
 			)
 			.render(100)[0];
+
 		expect(text).toContain('Cannot stop worker');
 		expect(fg).toHaveBeenCalledWith('error', 'Cannot stop worker');
 	});
@@ -213,7 +255,9 @@ describe('worker rendering', () => {
 				context,
 			)
 			.render(100);
+
 		expect(partial[0]).toContain('Working…');
+
 		const empty = worker_tool_renderers
 			.renderResult(
 				{ content: [], details: undefined },
@@ -222,6 +266,7 @@ describe('worker rendering', () => {
 				context,
 			)
 			.render(100);
+
 		expect(empty[0]).toContain('(no text result)');
 	});
 });

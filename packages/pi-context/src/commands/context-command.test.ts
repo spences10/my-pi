@@ -1,5 +1,8 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import {
+	make_api,
+	make_command_context,
+} from '../../../../tools/test-sdk.js';
 import {
 	purge_context,
 	show_context_list,
@@ -22,22 +25,17 @@ vi.mock('../ui/settings.js', () => ({
 	show_context_stats: vi.fn(),
 }));
 
-type RegisteredCommand = {
-	description: string;
-	getArgumentCompletions?: (
-		prefix: string,
-	) => Array<{ value: string }>;
-	handler: (args: string, ctx: unknown) => Promise<void>;
-};
+function registered_commands() {
+	const pi = make_api();
+	const register_command = vi.spyOn(pi, 'registerCommand');
+	register_context_commands(pi);
 
-function fake_pi() {
-	const commands = new Map<string, RegisteredCommand>();
-	const pi = {
-		registerCommand(name: string, command: RegisteredCommand) {
-			commands.set(name, command);
-		},
-	} as unknown as ExtensionAPI;
-	return { pi, commands };
+	return new Map(
+		register_command.mock.calls.map(([name, command]) => [
+			name,
+			command,
+		]),
+	);
 }
 
 describe('register_context_commands', () => {
@@ -46,9 +44,7 @@ describe('register_context_commands', () => {
 	});
 
 	it('registers context commands and completions', () => {
-		const { pi, commands } = fake_pi();
-
-		register_context_commands(pi);
+		const commands = registered_commands();
 
 		expect([...commands.keys()].sort()).toEqual([
 			'context',
@@ -63,9 +59,15 @@ describe('register_context_commands', () => {
 	});
 
 	it('routes empty UI context, stats, settings, and list subcommands', async () => {
-		const { pi, commands } = fake_pi();
-		register_context_commands(pi);
-		const ctx = { hasUI: true, ui: { notify: vi.fn() } };
+		const commands = registered_commands();
+
+		const notify = vi.fn();
+
+		const ctx = make_command_context({
+			hasUI: true,
+			ui: { notify },
+		});
+
 		const command = commands.get('context')!;
 
 		await command.handler('', ctx);
@@ -83,9 +85,15 @@ describe('register_context_commands', () => {
 	});
 
 	it('validates list and purge arguments before dispatching', async () => {
-		const { pi, commands } = fake_pi();
-		register_context_commands(pi);
-		const ctx = { hasUI: false, ui: { notify: vi.fn() } };
+		const commands = registered_commands();
+
+		const notify = vi.fn();
+
+		const ctx = make_command_context({
+			hasUI: false,
+			ui: { notify },
+		});
+
 		const command = commands.get('context')!;
 
 		await command.handler('list nope', ctx);
@@ -95,7 +103,7 @@ describe('register_context_commands', () => {
 		await command.handler('purge nope', ctx);
 		await command.handler('unknown', ctx);
 
-		expect(ctx.ui.notify).toHaveBeenCalledWith(
+		expect(notify).toHaveBeenCalledWith(
 			'Usage: /context list [limit]',
 			'warning',
 		);
@@ -108,11 +116,11 @@ describe('register_context_commands', () => {
 		expect(purge_context).toHaveBeenCalledWith(ctx, {
 			older_than_days: 7,
 		});
-		expect(ctx.ui.notify).toHaveBeenCalledWith(
+		expect(notify).toHaveBeenCalledWith(
 			'Usage: /context purge [older-than-days] | expired | source <source-id>',
 			'warning',
 		);
-		expect(ctx.ui.notify).toHaveBeenCalledWith(
+		expect(notify).toHaveBeenCalledWith(
 			'Unknown context command: unknown. Use list, stats, settings, or purge.',
 			'warning',
 		);

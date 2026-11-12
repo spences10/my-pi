@@ -12,6 +12,7 @@ import {
 } from './secrets.js';
 
 export { HoldSpace } from './hold-space.js';
+
 export {
 	forget_talk_secrets,
 	read_talk_secrets,
@@ -24,23 +25,29 @@ async function prompt_for_secret(
 	return ctx.ui.custom<string | undefined>(
 		(tui, theme, _kb, done) => {
 			const input = new Input();
+
 			return {
 				focused: true,
 				handleInput(data: string) {
 					if (matchesKey(data, Key.enter)) {
 						done(input.getValue().trim() || undefined);
+
 						return;
 					}
+
 					if (matchesKey(data, Key.escape)) {
 						done(undefined);
+
 						return;
 					}
+
 					input.handleInput(data);
 					tui.requestRender();
 				},
 				render(_width: number) {
 					const label = theme.fg('accent', 'Deepgram API key: ');
 					const masked = '•'.repeat(input.getValue().length);
+
 					return [`${label}${masked}`];
 				},
 				invalidate() {},
@@ -60,7 +67,9 @@ export default function talk(pi: ExtensionAPI): void {
 		if (process.env.DEEPGRAM_API_KEY ?? process.env.DEEPGRAM) {
 			return 'environment';
 		}
+
 		if (read_talk_secrets().apiKey) return 'stored';
+
 		return undefined;
 	}
 
@@ -90,6 +99,7 @@ export default function talk(pi: ExtensionAPI): void {
 			on_start: () => {
 				if (dictation?.active) return false;
 				dictation?.start();
+
 				return dictation?.active ?? false;
 			},
 			on_stop: () => dictation?.stop(),
@@ -104,6 +114,7 @@ export default function talk(pi: ExtensionAPI): void {
 		if (ctx.mode !== 'tui') return;
 		context = ctx;
 		enabled = read_talk_secrets().enabled;
+
 		if (enabled && current_api_key()) activate(ctx);
 	});
 
@@ -112,17 +123,22 @@ export default function talk(pi: ExtensionAPI): void {
 		handler: async (args, ctx) => {
 			if (ctx.mode !== 'tui') return;
 			const action = args.trim().toLowerCase() || 'status';
+
 			if (action === 'setup') {
 				const proceed = await ctx.ui.confirm(
 					'Set up Talk',
 					'Paste your Deepgram API key in the next prompt. It will be masked and stored locally with private permissions. Esc cancels.',
 				);
+
 				if (!proceed) return;
 				const apiKey = await prompt_for_secret(ctx);
+
 				if (!apiKey) {
 					ctx.ui.notify('Talk setup cancelled.', 'info');
+
 					return;
 				}
+
 				enabled = true;
 				write_talk_secrets({ enabled, apiKey });
 				activate(ctx);
@@ -130,16 +146,20 @@ export default function talk(pi: ExtensionAPI): void {
 					'Talk is ready. Hold Space to dictate.',
 					'info',
 				);
+
 				return;
 			}
+
 			if (action === 'on') {
 				if (!current_api_key()) {
 					ctx.ui.notify(
 						'Talk needs a Deepgram API key. Run /talk setup.',
 						'warning',
 					);
+
 					return;
 				}
+
 				enabled = true;
 				write_talk_secrets({
 					enabled,
@@ -147,8 +167,10 @@ export default function talk(pi: ExtensionAPI): void {
 				});
 				activate(ctx);
 				ctx.ui.notify('Talk is on.', 'info');
+
 				return;
 			}
+
 			if (action === 'off') {
 				enabled = false;
 				write_talk_secrets({
@@ -161,17 +183,22 @@ export default function talk(pi: ExtensionAPI): void {
 					'Talk is off. Your saved key was kept.',
 					'info',
 				);
+
 				return;
 			}
+
 			if (action === 'forget') {
 				if (!read_talk_secrets().apiKey) {
 					ctx.ui.notify('Talk has no saved key to remove.', 'info');
+
 					return;
 				}
+
 				const confirmed = await ctx.ui.confirm(
 					'Forget Talk key?',
 					'This removes the saved Deepgram API key and turns Talk off.',
 				);
+
 				if (!confirmed) return;
 				enabled = false;
 				forget_talk_secrets();
@@ -181,12 +208,15 @@ export default function talk(pi: ExtensionAPI): void {
 					'Talk is off and its saved key was removed.',
 					'info',
 				);
+
 				return;
 			}
+
 			if (action === 'status') {
 				const source = key_source();
 				let state: string;
 				let next: string;
+
 				if (!source) {
 					state = 'not configured';
 					next = 'Run /talk setup.';
@@ -194,12 +224,15 @@ export default function talk(pi: ExtensionAPI): void {
 					state = enabled ? 'ready' : 'off';
 					next = enabled ? 'Hold Space to dictate.' : 'Run /talk on.';
 				}
+
 				ctx.ui.notify(
 					`Talk\nState: ${state}\nKey: ${source ?? 'none'}\nNext: ${next}`,
 					'info',
 				);
+
 				return;
 			}
+
 			ctx.ui.notify(
 				'Use /talk setup, /talk on, /talk off, /talk forget, or /talk status.',
 				'warning',

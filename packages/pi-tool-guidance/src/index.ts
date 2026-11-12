@@ -30,8 +30,10 @@ export function tool_guidance(
 		'edit',
 		'write',
 	];
+
 	const indirect =
 		selected.includes('codemode') || selected.includes('tool_search');
+
 	const reachable = tools.filter(
 		(tool) =>
 			tool.exposure !== 'hidden' &&
@@ -39,6 +41,7 @@ export function tool_guidance(
 				(indirect &&
 					['codemode', 'deferred'].includes(tool.exposure))),
 	);
+
 	const names = reachable
 		.flatMap((tool) => [
 			tool.name,
@@ -46,19 +49,24 @@ export function tool_guidance(
 			...(tool.namespace?.aliases ?? []),
 		])
 		.join('\n');
+
 	// Pi lists configured indirect servers before their background connections complete.
 	const servers = indirect
 		? (options.sections?.mcp_servers ?? '')
 		: '';
+
 	const available = `${names}\n${servers}`.toLowerCase();
+
 	const shell =
 		selected.some((name) => ['bash', 'powershell'].includes(name)) ||
 		reachable.some((tool) =>
 			['bash', 'powershell'].includes(tool.name),
 		);
+
 	const editing =
 		selected.some((name) => ['edit', 'write'].includes(name)) ||
 		reachable.some((tool) => ['edit', 'write'].includes(tool.name));
+
 	return [
 		shell ? NOPEEK_GUIDANCE : '',
 		shell && editing ? VALIDATION_GUIDANCE : '',
@@ -77,6 +85,7 @@ export default function tool_guidance_extension(
 			event.systemPromptOptions,
 			pi.getAllTools(),
 		);
+
 		if (guidance)
 			event.systemPromptOptions.sections.my_pi_tool_guidance =
 				guidance;

@@ -2,7 +2,14 @@
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"noEmit": true,
-		"allowImportingTsExtensions": true
+		"allowImportingTsExtensions": true,
+		"allowJs": true,
+		"checkJs": true
 	},
-	"include": ["vite.config.ts", "tools/**/*.ts", "scripts/**/*.ts"]
+	"include": [
+		"vite.config.ts",
+		"tools/**/*.ts",
+		"tools/test-*.js",
+		"scripts/**/*.ts"
+	]
 }

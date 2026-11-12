@@ -41,6 +41,7 @@ export function get_git_summary(
 		ahead: 0,
 		behind: 0,
 	};
+
 	try {
 		const output = execFileSync(
 			'git',
@@ -52,10 +53,13 @@ export function get_git_summary(
 				timeout: 500,
 			},
 		);
+
 		for (const line of output.split('\n')) {
 			if (!line) continue;
+
 			if (line.startsWith('## ')) {
 				const match = line.match(/^## ([^.\s]+|[^.]+?)(?:\.\.\.)?/);
+
 				if (match?.[1] && !summary.branch) summary.branch = match[1];
 				const ahead = line.match(/ahead (\d+)/);
 				const behind = line.match(/behind (\d+)/);
@@ -63,18 +67,23 @@ export function get_git_summary(
 				summary.behind = behind ? Number(behind[1]) : 0;
 				continue;
 			}
+
 			const index_status = line[0];
 			const worktree_status = line[1];
+
 			if (line.startsWith('??')) {
 				summary.untracked += 1;
 				continue;
 			}
+
 			if (index_status !== ' ') summary.staged += 1;
+
 			if (worktree_status !== ' ') summary.dirty += 1;
 		}
 	} catch {
 		return summary;
 	}
+
 	return summary;
 }
 
@@ -84,12 +93,19 @@ export function format_git_summary(
 ): string | undefined {
 	const icons = GIT_ICONS[icon_mode];
 	const parts: string[] = [];
+
 	if (summary.branch) parts.push(`${icons.branch}${summary.branch}`);
+
 	if (summary.dirty) parts.push(`${icons.dirty}${summary.dirty}`);
+
 	if (summary.staged) parts.push(`${icons.staged}${summary.staged}`);
+
 	if (summary.untracked)
 		parts.push(`${icons.untracked}${summary.untracked}`);
+
 	if (summary.ahead) parts.push(`${icons.ahead}${summary.ahead}`);
+
 	if (summary.behind) parts.push(`${icons.behind}${summary.behind}`);
+
 	return parts.length > 0 ? parts.join(' ') : undefined;
 }

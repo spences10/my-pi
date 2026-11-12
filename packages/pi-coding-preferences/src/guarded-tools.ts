@@ -18,25 +18,37 @@ export function register_guarded_tools(
 ): void {
 	function checked_writer(cwd: string) {
 		const config = resolve_naming_config(get_config(cwd));
+
 		return async (path: string, content: string) => {
 			if (config && supports_naming(path)) {
 				let previous: string | undefined;
+
 				try {
 					previous = await readFile(path, 'utf8');
 				} catch (error) {
-					if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+					if (
+						!(
+							error instanceof Error &&
+							'code' in error &&
+							error.code === 'ENOENT'
+						)
+					)
 						throw error;
 				}
+
 				assert_naming(path, content, previous, config);
 			}
+
 			await writeFile(path, content, 'utf8');
 		};
 	}
+
 	const cwd = process.cwd();
 	pi.registerTool({
 		...createWriteToolDefinition(cwd),
 		execute(...args) {
 			const current_cwd = args[4].cwd;
+
 			return createWriteToolDefinition(current_cwd, {
 				operations: {
 					mkdir: async (dir) => {
@@ -51,6 +63,7 @@ export function register_guarded_tools(
 		...createEditToolDefinition(cwd),
 		execute(...args) {
 			const current_cwd = args[4].cwd;
+
 			return createEditToolDefinition(current_cwd, {
 				operations: {
 					readFile,

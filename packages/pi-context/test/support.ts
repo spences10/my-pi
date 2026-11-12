@@ -10,6 +10,7 @@ const stores: ContextStore[] = [];
 export function temp_path(prefix: string, filename: string): string {
 	const dir = mkdtempSync(join(tmpdir(), prefix));
 	dirs.push(dir);
+
 	return join(dir, filename);
 }
 
@@ -29,7 +30,9 @@ export function create_context_store(
 		db_path: temp_db(prefix),
 		...options,
 	});
+
 	stores.push(store);
+
 	return store;
 }
 
@@ -37,6 +40,7 @@ export function track_context_store(
 	store: ContextStore,
 ): ContextStore {
 	stores.push(store);
+
 	return store;
 }
 
@@ -48,6 +52,7 @@ afterEach(() => {
 			// already closed
 		}
 	}
+
 	for (const dir of dirs.splice(0)) {
 		rmSync(dir, { recursive: true, force: true });
 	}

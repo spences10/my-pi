@@ -49,7 +49,9 @@ function cli(args: string[]) {
 			env: { ...process.env, RAYON_NUM_THREADS: '2' },
 		},
 	);
+
 	assert.ifError(result.error);
+
 	return result;
 }
 
@@ -71,6 +73,7 @@ void test('JSON overrides inherit defaults and CLI flags win per nested field', 
 			},
 		}),
 	);
+
 	const options = preview_options([
 		'--config',
 		path,
@@ -85,6 +88,7 @@ void test('JSON overrides inherit defaults and CLI flags win per nested field', 
 		'--output',
 		join(dir, 'custom.png'),
 	]);
+
 	assert.ok(!options.help);
 	assert.equal(options.config.project, load_preview_config().project);
 	assert.equal(options.config.model, 'cli-model');
@@ -114,6 +118,7 @@ void test('booleans, empty footer overrides and pnpm argument separators work', 
 		'--footer-right',
 		'',
 	]);
+
 	assert.ok(!options.help);
 	assert.equal(options.config.border.enabled, true);
 	assert.equal(options.config.footer.enabled, false);
@@ -125,6 +130,7 @@ void test('booleans, empty footer overrides and pnpm argument separators work', 
 
 void test('unknown fields, invalid nested values and oversized inputs fail explicitly', () => {
 	const base = load_preview_config();
+
 	for (const invalid of [
 		null,
 		[],
@@ -154,6 +160,7 @@ void test('unknown fields, invalid nested values and oversized inputs fail expli
 	]) {
 		assert.throws(() => parse_preview_config(invalid, base));
 	}
+
 	assert.throws(
 		() => preview_options(['--border-width', 'nope']),
 		/must be a number/,
@@ -178,10 +185,11 @@ void test('missing and malformed JSON fail without echoing file contents', (t) =
 	writeFileSync(path, 'PRIVATE_SENTINEL not json');
 	assert.throws(
 		() => load_preview_config(path),
-		(error: unknown) => {
-			assert.ok(error instanceof Error);
-			assert.match(error.message, /valid JSON/);
-			assert.doesNotMatch(error.message, /PRIVATE_SENTINEL/);
+		(cause: unknown) => {
+			assert.ok(cause instanceof Error);
+			assert.match(cause.message, /valid JSON/);
+			assert.doesNotMatch(cause.message, /PRIVATE_SENTINEL/);
+
 			return true;
 		},
 	);
@@ -198,6 +206,7 @@ void test('rounded gradient borders and the editor area match the reference layo
 		},
 		fixture,
 	);
+
 	const svg = render_preview_svg('1.2.3', config);
 	assert.match(svg, /width="1188" height="668"/);
 	assert.match(svg, /rx="18"/);
@@ -205,10 +214,12 @@ void test('rounded gradient borders and the editor area match the reference layo
 	assert.match(svg, /stop-color="#9d4dff"/);
 	assert.match(svg, /stop-color="#00eaff"/);
 	assert.match(svg, /fill="#fff7ff"/);
+
 	const compact = render_preview_svg(
 		'1.2.3',
 		parse_preview_config({ footer: { editor: false } }, config),
 	);
+
 	assert.doesNotMatch(compact, /fill="#fff7ff"/);
 	assert.match(compact, /height="569"/);
 });
@@ -221,15 +232,18 @@ void test('gradient, rounding and editor CLI overrides work without changing sol
 		'18',
 		'--footer-editor',
 	]);
+
 	assert.ok(!options.help);
 	assert.deepEqual(options.config.border.gradient, ['#123', '#abc']);
 	assert.equal(options.config.border.radius, 18);
 	assert.equal(options.config.footer.editor, true);
+
 	const solid = preview_options([
 		'--border-color',
 		'#fff',
 		'--no-footer-editor',
 	]);
+
 	assert.ok(!solid.help);
 	assert.equal(solid.config.border.gradient, null);
 	assert.equal(solid.config.footer.editor, false);
@@ -244,17 +258,21 @@ void test('gradient, rounding and editor CLI overrides work without changing sol
 
 void test('border and footer can be hidden independently and empty row lists collapse', () => {
 	const base = fixture;
+
 	const no_border = render_preview_svg(
 		'1.2.3',
 		parse_preview_config({ border: { enabled: false } }, base),
 	);
+
 	assert.doesNotMatch(no_border, /data-preview-border/);
 	assert.match(no_border, /~\/repos\/my-pi/);
+
 	for (const footer of [{ enabled: false }, { rows: [] }]) {
 		const svg = render_preview_svg(
 			'1.2.3',
 			parse_preview_config({ footer }, base),
 		);
+
 		assert.match(svg, /data-preview-border/);
 		assert.match(svg, /height="470"/);
 		assert.doesNotMatch(svg, /~\/repos\/my-pi/);
@@ -285,6 +303,7 @@ void test('footer templates are literal data, XML is escaped, and Unicode rows s
 		},
 		load_preview_config(),
 	);
+
 	const svg = render_preview_svg('1.2.3', config);
 	assert.match(svg, /stroke="#abc" stroke-width="2"/);
 	assert.match(svg, /rx="9"/);
@@ -294,6 +313,7 @@ void test('footer templates are literal data, XML is escaped, and Unicode rows s
 	assert.match(svg, /\$\(not-a-command\)/);
 	assert.doesNotMatch(svg, /<script>/);
 	const width = Number(svg.match(/<svg[^>]* width="(\d+)"/)![1]);
+
 	for (const [, x] of svg.matchAll(/<text x="([\d.]+)"/g)) {
 		assert.ok(Number(x) >= 18 && Number(x) < width - 18);
 	}
@@ -306,6 +326,7 @@ void test('config changes participate in preview freshness', (t) => {
 	const base = fixture;
 	generate_preview('1.2.3', output, base);
 	assert.equal(check_preview('1.2.3', output, base), true);
+
 	for (const override of [
 		{ border: { color: '#fff' } },
 		{ footer: { rows: [{ left: 'changed' }] } },
@@ -320,15 +341,19 @@ void test('config changes participate in preview freshness', (t) => {
 			false,
 		);
 	}
+
 	const hidden = parse_preview_config(
 		{ footer: { enabled: false } },
 		base,
 	);
+
 	generate_preview('1.2.3', output, hidden);
+
 	const changed_hidden = parse_preview_config(
 		{ footer: { color: '#fff' } },
 		hidden,
 	);
+
 	assert.equal(
 		render_preview_svg('1.2.3', hidden) ===
 			render_preview_svg('1.2.3', changed_hidden),
@@ -341,6 +366,7 @@ void test('the real CLI creates custom output, checks read-only, and uses the pa
 	const dir = mkdtempSync(join(tmpdir(), 'my-pi-cli-'));
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
 	const output = join(dir, 'nested', 'preview.png');
+
 	const args = [
 		'--output',
 		output,
@@ -353,16 +379,19 @@ void test('the real CLI creates custom output, checks read-only, and uses the pa
 		'--footer-right',
 		'{version}',
 	];
+
 	const generated = cli(args);
 	assert.equal(generated.status, 0, generated.stderr);
 	const image = readFileSync(output);
 	const metadata = readFileSync(`${output}.json`, 'utf8');
+
 	const { version } = JSON.parse(
 		readFileSync(
 			new URL('../../packages/my-pi/package.json', import.meta.url),
 			'utf8',
 		),
 	);
+
 	assert.equal(JSON.parse(metadata).version, version);
 	const checked = cli([...args, '--check']);
 	assert.equal(checked.status, 0, checked.stderr);
@@ -381,6 +410,7 @@ void test('CLI help and invalid options never write output', (t) => {
 	const help = cli(['--help', '--output', output]);
 	assert.equal(help.status, 0, help.stderr);
 	assert.match(help.stdout, /Precedence:/);
+
 	for (const flags of [
 		['--border-color', 'red'],
 		['--footer-colour', '#fff'],
@@ -388,6 +418,7 @@ void test('CLI help and invalid options never write output', (t) => {
 		const invalid = cli(['--output', output, ...flags]);
 		assert.equal(invalid.status, 1);
 	}
+
 	assert.equal(existsSync(output), false);
 	assert.equal(existsSync(`${output}.json`), false);
 });

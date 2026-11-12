@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { make_command_context } from '../../../tools/test-sdk.js';
 import {
 	existsSync,
 	mkdirSync,
@@ -19,6 +19,12 @@ import {
 	it,
 } from 'vite-plus/test';
 import { temp_config, temp_db } from '../test/support.js';
+import {
+	capture_extension,
+	hook_text,
+	tool_result_event,
+	tool_text,
+} from '../test/tool-fixtures.js';
 import context_sidecar, {
 	get_context_store,
 	is_context_sidecar_enabled,
@@ -26,75 +32,17 @@ import context_sidecar, {
 	set_context_sidecar_enabled,
 } from './index.js';
 
-type FakeContext = {
-	cwd: string;
-	sessionManager?: {
-		getSessionFile?: () => string | undefined;
-		getSessionId?: () => string | undefined;
-	};
-};
-
-type HookHandler = (
-	event: Record<string, unknown>,
-	ctx?: FakeContext,
-) => Promise<unknown>;
-
-type ToolResult = {
-	content: Array<{ type: string; text: string }>;
-	details?: unknown;
-};
-
-type RegisteredTool = {
-	name: string;
-	execute: (
-		tool_call_id: string,
-		params: Record<string, unknown>,
-		signal?: AbortSignal,
-		on_update?: unknown,
-		ctx?: FakeContext,
-	) => ToolResult | Promise<ToolResult>;
-};
-
-type RegisteredCommand = {
-	handler: (args: string, ctx: CommandContext) => Promise<void>;
-};
-
-type CommandContext = {
-	ui: { notify: (message: string, type: string) => void };
-};
-
 let dirs: string[] = [];
 const original_context_db = process.env.MY_PI_CONTEXT_DB;
+
 const original_retention_days =
 	process.env.MY_PI_CONTEXT_RETENTION_DAYS;
+
 const original_purge_on_shutdown =
 	process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
+
 const original_max_mb = process.env.MY_PI_CONTEXT_MAX_MB;
 const original_context_config = process.env.MY_PI_CONTEXT_CONFIG;
-
-function create_fake_pi(): {
-	pi: ExtensionAPI;
-	hooks: Map<string, HookHandler[]>;
-	tools: Map<string, RegisteredTool>;
-	commands: Map<string, RegisteredCommand>;
-} {
-	const hooks = new Map<string, HookHandler[]>();
-	const tools = new Map<string, RegisteredTool>();
-	const commands = new Map<string, RegisteredCommand>();
-	const pi = {
-		on(name: string, handler: HookHandler) {
-			hooks.set(name, [...(hooks.get(name) ?? []), handler]);
-		},
-		registerTool(tool: unknown) {
-			const registered = tool as RegisteredTool;
-			tools.set(registered.name, registered);
-		},
-		registerCommand(name: string, command: unknown) {
-			commands.set(name, command as RegisteredCommand);
-		},
-	} as unknown as ExtensionAPI;
-	return { pi, hooks, tools, commands };
-}
 
 function large_output(token = 'needle-token'): string {
 	return Array.from({ length: 340 }, (_value, index) =>
@@ -105,18 +53,16 @@ function large_output(token = 'needle-token'): string {
 function source_id_from(text: string): string {
 	const match = text.match(/Source: (ctx_[^\n]+)/);
 	expect(match).not.toBeNull();
+
 	return match![1];
 }
 
-function fake_context(
-	cwd: string,
-	session_file?: string,
-): FakeContext {
+function fake_context(cwd: string, session_file: string) {
 	return {
 		cwd,
 		sessionManager: {
 			getSessionFile: () => session_file,
-			getSessionId: () => session_file?.replace(/\.jsonl$/, ''),
+			getSessionId: () => session_file.replace(/\.jsonl$/, ''),
 		},
 	};
 }
@@ -127,25 +73,31 @@ beforeEach(() => {
 
 afterEach(() => {
 	set_context_sidecar_enabled(false);
+
 	if (original_context_db === undefined)
 		delete process.env.MY_PI_CONTEXT_DB;
 	else process.env.MY_PI_CONTEXT_DB = original_context_db;
+
 	if (original_retention_days === undefined)
 		delete process.env.MY_PI_CONTEXT_RETENTION_DAYS;
 	else
 		process.env.MY_PI_CONTEXT_RETENTION_DAYS =
 			original_retention_days;
+
 	if (original_purge_on_shutdown === undefined)
 		delete process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN;
 	else
 		process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN =
 			original_purge_on_shutdown;
+
 	if (original_max_mb === undefined)
 		delete process.env.MY_PI_CONTEXT_MAX_MB;
 	else process.env.MY_PI_CONTEXT_MAX_MB = original_max_mb;
+
 	if (original_context_config === undefined)
 		delete process.env.MY_PI_CONTEXT_CONFIG;
 	else process.env.MY_PI_CONTEXT_CONFIG = original_context_config;
+
 	for (const dir of dirs)
 		rmSync(dir, { recursive: true, force: true });
 	dirs = [];
@@ -154,9 +106,7 @@ afterEach(() => {
 describe('context_sidecar extension', () => {
 	it('registers lifecycle hooks, retrieval tools, and stats command', async () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
-		const fake = create_fake_pi();
-
-		context_sidecar(fake.pi);
+		const fake = capture_extension(context_sidecar);
 
 		expect(is_context_sidecar_enabled()).toBe(true);
 		expect([...fake.tools.keys()].sort()).toEqual([
@@ -168,14 +118,11 @@ describe('context_sidecar extension', () => {
 			'context_stats',
 		]);
 		expect(fake.commands.has('context-stats')).toBe(true);
-		expect(fake.hooks.get('tool_result')).toHaveLength(1);
+		expect(fake.hook_count('tool_result')).toBe(1);
 
-		await fake.hooks.get('session_shutdown')![0]({});
+		await fake.session_shutdown();
 		expect(is_context_sidecar_enabled()).toBe(false);
-		await fake.hooks.get('session_start')![0](
-			{},
-			{ cwd: '/tmp/project' },
-		);
+		await fake.session_start({ cwd: '/tmp/project' });
 		expect(is_context_sidecar_enabled()).toBe(true);
 	});
 
@@ -183,13 +130,14 @@ describe('context_sidecar extension', () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
 		process.env.MY_PI_CONTEXT_RETENTION_DAYS = '1';
 		process.env.MY_PI_CONTEXT_PURGE_ON_SHUTDOWN = 'true';
-		const fake = create_fake_pi();
-		context_sidecar(fake.pi);
+		const fake = capture_extension(context_sidecar);
+
 		const stale = get_context_store().store({
 			text: `stale-lifecycle-token\n${'a '.repeat(100)}`,
 			tool_name: 'bash',
 			force: true,
 		});
+
 		const fresh = get_context_store().store({
 			text: `fresh-lifecycle-token\n${'b '.repeat(100)}`,
 			tool_name: 'bash',
@@ -197,9 +145,11 @@ describe('context_sidecar extension', () => {
 			project_path: '/repo',
 			session_id: '/sessions/current.jsonl',
 		});
+
 		const db = new DatabaseSync(get_context_store().db_path, {
 			enableForeignKeyConstraints: true,
 		});
+
 		try {
 			db.prepare(
 				'UPDATE context_sources SET created_at = ? WHERE id = ?',
@@ -208,8 +158,7 @@ describe('context_sidecar extension', () => {
 			db.close();
 		}
 
-		await fake.hooks.get('session_start')![0](
-			{},
+		await fake.session_start(
 			fake_context('/repo', '/sessions/current.jsonl'),
 		);
 		expect(
@@ -223,7 +172,7 @@ describe('context_sidecar extension', () => {
 			}),
 		).toHaveLength(fresh!.chunk_count);
 
-		await fake.hooks.get('session_shutdown')![0]({});
+		await fake.session_shutdown();
 		expect(is_context_sidecar_enabled()).toBe(false);
 		set_context_sidecar_enabled(true, {
 			db_path: process.env.MY_PI_CONTEXT_DB,
@@ -247,15 +196,19 @@ describe('context_sidecar extension', () => {
 				'',
 			),
 		);
-		const fake = create_fake_pi();
 		const notifications: string[] = [];
-		context_sidecar(fake.pi);
+		const fake = capture_extension(context_sidecar);
 
-		await fake.commands.get('context')!.handler('settings light', {
-			ui: {
-				notify: (message: string) => notifications.push(message),
-			},
-		});
+		await fake.commands.get('context')!.handler(
+			'settings light',
+			make_command_context({
+				ui: {
+					notify: (message: string) => {
+						notifications.push(message);
+					},
+				},
+			}),
+		);
 
 		expect(load_context_settings_config()).toMatchObject({
 			preset: 'light',
@@ -268,40 +221,41 @@ describe('context_sidecar extension', () => {
 	it('stores and searches with session/project scope from extension context', async () => {
 		const db_path = temp_db();
 		process.env.MY_PI_CONTEXT_DB = db_path;
-		const fake = create_fake_pi();
-		context_sidecar(fake.pi);
-		const tool_result = fake.hooks.get('tool_result')![0];
+		const fake = capture_extension(context_sidecar);
 		const project_a = fake_context('/repo-a', '/sessions/a.jsonl');
 		const project_b = fake_context('/repo-b', '/sessions/b.jsonl');
 
-		const a = (await tool_result(
-			{
+		const a = await fake.tool_result(
+			tool_result_event({
 				toolName: 'bash',
 				content: [
 					{ type: 'text', text: large_output('scope-token-a') },
 				],
-			},
+			}),
 			project_a,
-		)) as ToolResult;
-		await tool_result(
-			{
+		);
+
+		await fake.tool_result(
+			tool_result_event({
 				toolName: 'bash',
 				content: [
 					{ type: 'text', text: large_output('scope-token-b') },
 				],
-			},
+			}),
 			project_b,
 		);
 
 		const db = new DatabaseSync(db_path, {
 			enableForeignKeyConstraints: true,
 		});
+
 		try {
 			const row = db
 				.prepare(
 					'SELECT session_id, project_path FROM context_sources WHERE id = ?',
 				)
-				.get(source_id_from(a.content[0].text));
+				.get(source_id_from(hook_text(a)));
+
 			expect(row).toMatchObject({
 				session_id: '/sessions/a.jsonl',
 				project_path: '/repo-a',
@@ -319,8 +273,9 @@ describe('context_sidecar extension', () => {
 				undefined,
 				project_a,
 			);
-		expect(scoped.content[0].text).toContain('scope-token-a');
-		expect(scoped.content[0].text).not.toContain('scope-token-b');
+
+		expect(tool_text(scoped)).toContain('scope-token-a');
+		expect(tool_text(scoped)).not.toContain('scope-token-b');
 
 		const global = await fake.tools
 			.get('context_search')!
@@ -331,8 +286,9 @@ describe('context_sidecar extension', () => {
 				undefined,
 				project_a,
 			);
-		expect(global.content[0].text).toContain('scope-token-a');
-		expect(global.content[0].text).toContain('scope-token-b');
+
+		expect(tool_text(global)).toContain('scope-token-a');
+		expect(tool_text(global)).toContain('scope-token-b');
 
 		const list = await fake.tools
 			.get('context_list')!
@@ -343,26 +299,25 @@ describe('context_sidecar extension', () => {
 				undefined,
 				project_a,
 			);
-		expect(list.content[0].text).toContain('Project: /repo-a');
-		expect(list.content[0].text).toContain(
-			'Session: /sessions/a.jsonl',
-		);
-		expect(list.content[0].text).not.toContain('Project: /repo-b');
+
+		expect(tool_text(list)).toContain('Project: /repo-a');
+		expect(tool_text(list)).toContain('Session: /sessions/a.jsonl');
+		expect(tool_text(list)).not.toContain('Project: /repo-b');
 		expect(list.details).toMatchObject({ count: 1 });
 	});
 
 	it('replaces oversized text results and leaves small, recursive, and non-text results alone', async () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
-		const fake = create_fake_pi();
-		context_sidecar(fake.pi);
-		const tool_result = fake.hooks.get('tool_result')![0];
-
+		const fake = capture_extension(context_sidecar);
 		expect(
-			await tool_result({
-				toolName: 'bash',
-				content: [{ type: 'text', text: 'small output' }],
-			}),
+			await fake.tool_result(
+				tool_result_event({
+					toolName: 'bash',
+					content: [{ type: 'text', text: 'small output' }],
+				}),
+			),
 		).toBeUndefined();
+
 		for (const toolName of [
 			'context_search',
 			'context_get',
@@ -371,32 +326,42 @@ describe('context_sidecar extension', () => {
 			'context_purge',
 		]) {
 			expect(
-				await tool_result({
-					toolName,
-					content: [
-						{ type: 'text', text: large_output(`skip-${toolName}`) },
-					],
-				}),
+				await fake.tool_result(
+					tool_result_event({
+						toolName,
+						content: [
+							{
+								type: 'text',
+								text: large_output(`skip-${toolName}`),
+							},
+						],
+					}),
+				),
 			).toBeUndefined();
 		}
+
 		expect(
-			await tool_result({
-				toolName: 'bash',
-				content: [{ type: 'image', data: 'ignored' }],
-			}),
+			await fake.tool_result(
+				tool_result_event({
+					toolName: 'bash',
+					content: [
+						{ type: 'image', data: 'ignored', mimeType: 'image/png' },
+					],
+				}),
+			),
 		).toBeUndefined();
 
-		const replacement = (await tool_result({
-			toolName: 'bash',
-			input: { command: 'generate large output' },
-			content: [{ type: 'text', text: large_output('hook-token') }],
-		})) as ToolResult;
-
-		expect(replacement.content[0].text).toContain(
-			'[context-sidecar]',
+		const replacement = await fake.tool_result(
+			tool_result_event({
+				toolName: 'bash',
+				input: { command: 'generate large output' },
+				content: [{ type: 'text', text: large_output('hook-token') }],
+			}),
 		);
-		expect(replacement.content[0].text).toContain('context_search');
-		const source_id = source_id_from(replacement.content[0].text);
+
+		expect(hook_text(replacement)).toContain('[context-sidecar]');
+		expect(hook_text(replacement)).toContain('context_search');
+		const source_id = source_id_from(hook_text(replacement));
 		expect(
 			get_context_store().search('hook-token', { source_id }),
 		).toHaveLength(1);
@@ -404,20 +369,21 @@ describe('context_sidecar extension', () => {
 
 	it('does not re-index an existing context-sidecar receipt', async () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
-		const fake = create_fake_pi();
-		context_sidecar(fake.pi);
+		const fake = capture_extension(context_sidecar);
+
 		const stored = get_context_store().store({
 			text: large_output('receipt-token'),
 			tool_name: 'mcp__demo__large',
 			force: true,
 		});
-		const tool_result = fake.hooks.get('tool_result')![0];
 
 		expect(
-			await tool_result({
-				toolName: 'mcp__demo__large',
-				content: [{ type: 'text', text: stored!.receipt }],
-			}),
+			await fake.tool_result(
+				tool_result_event({
+					toolName: 'mcp__demo__large',
+					content: [{ type: 'text', text: stored!.receipt }],
+				}),
+			),
 		).toBeUndefined();
 		expect(get_context_store().list({ global: true })).toHaveLength(
 			1,
@@ -431,14 +397,16 @@ describe('context_sidecar extension', () => {
 
 	it('searches, retrieves, reports stats, purges, and notifies through registered tools', async () => {
 		process.env.MY_PI_CONTEXT_DB = temp_db();
-		const fake = create_fake_pi();
-		context_sidecar(fake.pi);
-		const tool_result = fake.hooks.get('tool_result')![0];
-		const replacement = (await tool_result({
-			toolName: 'bash',
-			content: [{ type: 'text', text: large_output('tool-token') }],
-		})) as ToolResult;
-		const source_id = source_id_from(replacement.content[0].text);
+		const fake = capture_extension(context_sidecar);
+
+		const replacement = await fake.tool_result(
+			tool_result_event({
+				toolName: 'bash',
+				content: [{ type: 'text', text: large_output('tool-token') }],
+			}),
+		);
+
+		const source_id = source_id_from(hook_text(replacement));
 
 		const search = await fake.tools
 			.get('context_search')!
@@ -446,14 +414,16 @@ describe('context_sidecar extension', () => {
 				query: 'tool-token',
 				limit: 1,
 			});
-		expect(search.content[0].text).toContain('tool-token');
+
+		expect(tool_text(search)).toContain('tool-token');
 		expect(search.details).toMatchObject({ count: 1 });
 
 		const list = await fake.tools
 			.get('context_list')!
 			.execute('call-list', { limit: 1 });
-		expect(list.content[0].text).toContain(source_id);
-		expect(list.content[0].text).toContain('Tool: bash');
+
+		expect(tool_text(list)).toContain(source_id);
+		expect(tool_text(list)).toContain('Tool: bash');
 		expect(list.details).toMatchObject({ count: 1 });
 
 		const get = await fake.tools
@@ -461,7 +431,8 @@ describe('context_sidecar extension', () => {
 			.execute('call-2', {
 				source_id,
 			});
-		expect(get.content[0].text).toContain('tool-token');
+
+		expect(tool_text(get)).toContain('tool-token');
 		expect(get.details).toMatchObject({ count: 1 });
 
 		const alias_get = await fake.tools
@@ -470,24 +441,28 @@ describe('context_sidecar extension', () => {
 				source_id,
 				chunk_id: '0001',
 			});
-		expect(alias_get.content[0].text).toContain('tool-token');
+
+		expect(tool_text(alias_get)).toContain('tool-token');
 		expect(alias_get.details).toMatchObject({ count: 1 });
 
 		const export_dir = mkdtempSync(
 			join(tmpdir(), 'pi-context-export-'),
 		);
+
 		dirs.push(export_dir);
+
 		const exported = await fake.tools
 			.get('context_export')!
 			.execute('call-export', {
 				source_id,
 				file_path: join(export_dir, 'export.txt'),
 			});
-		expect(exported.content[0].text).toContain('Exported 1 chunk(s)');
-		expect(exported.content[0].text).toContain(
+
+		expect(tool_text(exported)).toContain('Exported 1 chunk(s)');
+		expect(tool_text(exported)).toContain(
 			join(export_dir, 'export.txt'),
 		);
-		expect(exported.content[0].text).not.toContain('tool-token');
+		expect(tool_text(exported)).not.toContain('tool-token');
 		expect(
 			readFileSync(join(export_dir, 'export.txt'), 'utf8'),
 		).toContain('tool-token');
@@ -502,6 +477,7 @@ describe('context_sidecar extension', () => {
 			dirname(process.env.MY_PI_CONTEXT_DB!),
 			'context-exports',
 		);
+
 		mkdirSync(managed_export_dir, { recursive: true });
 		const stale_export = join(managed_export_dir, 'stale.txt');
 		writeFileSync(stale_export, 'old export');
@@ -511,8 +487,9 @@ describe('context_sidecar extension', () => {
 		const default_export = await fake.tools
 			.get('context_export')!
 			.execute('call-export-default', { source_id });
+
 		const managed_file = join(managed_export_dir, `${source_id}.txt`);
-		expect(default_export.content[0].text).toContain(managed_file);
+		expect(tool_text(default_export)).toContain(managed_file);
 		expect(readFileSync(managed_file, 'utf8')).toContain(
 			'tool-token',
 		);
@@ -530,18 +507,18 @@ describe('context_sidecar extension', () => {
 				source_id,
 				chunk_id: 'missing',
 			});
-		expect(missing_chunk.content[0].text).toContain(
+
+		expect(tool_text(missing_chunk)).toContain(
 			'No chunk found for chunk_id "missing".',
 		);
-		expect(missing_chunk.content[0].text).toContain(
-			'Valid ordinals: 1',
-		);
-		expect(missing_chunk.content[0].text).toContain('Try chunk_id:');
+		expect(tool_text(missing_chunk)).toContain('Valid ordinals: 1');
+		expect(tool_text(missing_chunk)).toContain('Try chunk_id:');
 
 		const stats = await fake.tools
 			.get('context_stats')!
 			.execute('call-3', {});
-		expect(stats.content[0].text).toContain('context-sidecar stats');
+
+		expect(tool_text(stats)).toContain('context-sidecar stats');
 		expect(stats.details).toMatchObject({ sources: 1, chunks: 1 });
 
 		get_context_store({
@@ -557,13 +534,8 @@ describe('context_sidecar extension', () => {
 
 		const scoped_stats = await fake.tools
 			.get('context_stats')!
-			.execute(
-				'call-3a',
-				{},
-				undefined,
-				undefined,
-				fake_context(process.cwd()),
-			);
+			.execute('call-3a', {});
+
 		expect(scoped_stats.details).toMatchObject({
 			sources: 1,
 			global_sources: 2,
@@ -578,20 +550,25 @@ describe('context_sidecar extension', () => {
 				undefined,
 				fake_context('/tmp/project', '/sessions/current.jsonl'),
 			);
-		expect(global_stats.content[0].text).toContain('Scope: global');
+
+		expect(tool_text(global_stats)).toContain('Scope: global');
 		expect(global_stats.details).toMatchObject({
 			sources: 2,
 			global_sources: 2,
 		});
 
 		const notifications: string[] = [];
-		await fake.commands.get('context-stats')!.handler('', {
-			ui: {
-				notify(message: string, type: string) {
-					notifications.push(`${type}:${message}`);
+		await fake.commands.get('context-stats')!.handler(
+			'',
+			make_command_context({
+				hasUI: false,
+				ui: {
+					notify(message, type) {
+						notifications.push(`${type}:${message}`);
+					},
 				},
-			},
-		});
+			}),
+		);
 		expect(notifications[0]).toContain('info:Enabled: true');
 		expect(notifications[0]).toContain('Scope: global');
 
@@ -600,10 +577,11 @@ describe('context_sidecar extension', () => {
 			.execute('call-4', {
 				source_id,
 			});
-		expect(purge.content[0].text).toContain(
+
+		expect(tool_text(purge)).toContain(
 			'Deleted 1 context source(s).',
 		);
-		expect(purge.content[0].text).toContain(`source_id=${source_id}`);
+		expect(tool_text(purge)).toContain(`source_id=${source_id}`);
 		expect(purge.details).toMatchObject({ deleted: 1, source_id });
 
 		const empty = await fake.tools
@@ -611,9 +589,10 @@ describe('context_sidecar extension', () => {
 			.execute('call-5', {
 				source_id,
 			});
-		expect(empty.content[0].text).toContain(
+
+		expect(tool_text(empty)).toContain(
 			`Source ${source_id} was not found`,
 		);
-		expect(empty.content[0].text).toContain('expired');
+		expect(tool_text(empty)).toContain('expired');
 	});
 });

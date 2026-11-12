@@ -27,6 +27,7 @@ describe('public observability types', () => {
 				import.meta.url,
 			),
 		);
+
 		const project = fileURLToPath(
 			new URL('../tsconfig.compatibility.json', import.meta.url),
 		);

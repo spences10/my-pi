@@ -13,6 +13,7 @@ export default function provider(pi: ExtensionAPI) {
 		models: [{ id: 'test', name: 'Deterministic worker test' }],
 		tokensPerSecond: 1000000,
 	});
+
 	pi.registerProvider('worker-test', {
 		api: core.api,
 		apiKey: 'test',
@@ -22,20 +23,23 @@ export default function provider(pi: ExtensionAPI) {
 			core.setResponses([
 				async (context) => {
 					const last = context.messages.at(-1);
+
 					if (last?.role === 'toolResult')
 						return fauxAssistantMessage(
 							'tool result: ' + JSON.stringify(last.content),
 						);
+
 					const text = context.messages
 						.filter((message) => message.role === 'user')
 						.at(-1)?.content;
-					const prompt =
-						typeof text === 'string'
-							? text
-							: (text ?? [])
-									.filter((block) => block.type === 'text')
-									.map((block) => block.text)
-									.join('\n');
+
+					const prompt = Array.isArray(text)
+						? text
+								.filter((block) => block.type === 'text')
+								.map((block) => block.text)
+								.join('\n')
+						: (text ?? '');
+
 					if (prompt.startsWith('spawn-owned:')) {
 						return fauxAssistantMessage(
 							fauxToolCall('workers', {
@@ -48,6 +52,7 @@ export default function provider(pi: ExtensionAPI) {
 							{ stopReason: 'toolUse' },
 						);
 					}
+
 					if (prompt.startsWith('send-owned:')) {
 						return fauxAssistantMessage(
 							fauxToolCall('workers', {
@@ -58,6 +63,7 @@ export default function provider(pi: ExtensionAPI) {
 							{ stopReason: 'toolUse' },
 						);
 					}
+
 					if (prompt.startsWith('send-peer:')) {
 						return fauxAssistantMessage(
 							fauxToolCall('team', {
@@ -69,13 +75,16 @@ export default function provider(pi: ExtensionAPI) {
 							{ stopReason: 'toolUse' },
 						);
 					}
+
 					if (prompt === 'approval')
 						return fauxAssistantMessage(fauxToolCall('probe', {}), {
 							stopReason: 'toolUse',
 						});
+
 					return fauxAssistantMessage('reply: ' + prompt);
 				},
 			]);
+
 			return core.streamSimple(model, context, options);
 		},
 	});
@@ -89,6 +98,7 @@ export default function provider(pi: ExtensionAPI) {
 				'Allow probe?',
 				'Test only',
 			);
+
 			return {
 				content: [
 					{ type: 'text', text: approved ? 'approved' : 'denied' },

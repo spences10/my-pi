@@ -1,9 +1,103 @@
-import { describe, expect, it } from 'vite-plus/test';
+import type {
+	ContextEvent,
+	ContextEventResult,
+	ExtensionHandler,
+	ToolResultEvent,
+	ToolResultEventResult,
+} from '@earendil-works/pi-coding-agent';
+import { describe, expect, it, vi } from 'vite-plus/test';
+import {
+	make_api,
+	make_command_context,
+	make_context,
+	make_ui,
+} from '../../../tools/test-sdk.js';
+
 import filter_output, {
 	looks_like_ssh_config,
 	redact_ssh_config_metadata,
 	redact_text,
 } from './index.js';
+
+type AgentMessage = ContextEvent['messages'][number];
+
+type ToolResultHook = ExtensionHandler<
+	ToolResultEvent,
+	ToolResultEventResult
+>;
+
+type ContextHook = ExtensionHandler<ContextEvent, ContextEventResult>;
+
+function text_blocks(
+	result: ToolResultEventResult | void,
+): Array<string | undefined> {
+	return (result?.content ?? []).map((block) =>
+		block.type === 'text' ? block.text : undefined,
+	);
+}
+
+/** Registers the extension against a fixture API and exposes its hooks. */
+async function capture_redaction() {
+	const hooks = new Map<string, Function>();
+
+	const pi = make_api({
+		on(name: string, handler: Function) {
+			hooks.set(name, handler);
+
+			return () => hooks.delete(name);
+		},
+	});
+
+	const register_command = vi.spyOn(pi, 'registerCommand');
+	await filter_output(pi);
+
+	return {
+		async tool_result(
+			input: { path: string; offset?: number },
+			texts: string[],
+		) {
+			// SAFETY: `pi.on('tool_result', ...)` accepts only handlers with this signature.
+			const hook = hooks.get('tool_result') as ToolResultHook;
+
+			return hook(
+				{
+					type: 'tool_result',
+					toolCallId: 'call',
+					toolName: 'read',
+					input,
+					content: texts.map((text) => ({ type: 'text', text })),
+					isError: false,
+					details: undefined,
+				},
+				make_context(),
+			);
+		},
+		async context(messages: AgentMessage[]) {
+			// SAFETY: `pi.on('context', ...)` accepts only handlers with this signature.
+			const hook = hooks.get('context') as ContextHook;
+
+			return hook({ type: 'context', messages }, make_context());
+		},
+		async stats() {
+			const notifications: string[] = [];
+
+			const command = register_command.mock.calls.find(
+				([name]) => name === 'redact-stats',
+			)?.[1];
+
+			await command?.handler(
+				'',
+				make_command_context({
+					ui: make_ui({
+						notify: (message) => notifications.push(message),
+					}),
+				}),
+			);
+
+			return notifications;
+		},
+	};
+}
 
 describe('redact_text', () => {
 	it('redacts AWS access keys', () => {
@@ -25,6 +119,7 @@ describe('redact_text', () => {
 	it('redacts uppercase AWS secret env vars', () => {
 		const input =
 			'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY01';
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:AWS Secret Key]');
@@ -36,6 +131,7 @@ describe('redact_text', () => {
 	it('redacts bearer tokens', () => {
 		const input =
 			'Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456';
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain('[REDACTED:Bearer Token]');
@@ -57,6 +153,7 @@ describe('redact_text', () => {
 	it('redacts connection strings with passwords', () => {
 		const input =
 			'postgres://user:super-secret-password@localhost:5432/app';
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(1);
 		expect(redacted).toContain(
@@ -83,13 +180,16 @@ describe('redact_text', () => {
 				.join('')
 				.repeat(5),
 		};
+
 		const input = JSON.stringify(values);
 		const { redacted, count } = redact_text(input);
 
 		expect(count).toBe(5);
+
 		for (const value of Object.values(values)) {
 			expect(redacted).not.toContain(value);
 		}
+
 		expect(redacted).toContain('[REDACTED:Generic Password Field]');
 	});
 
@@ -100,16 +200,20 @@ describe('redact_text', () => {
 			service: ['fake', '-service-password-', 'value'].join(''),
 			uppercase: ['fake', '-uppercase-token-', 'value'].join(''),
 		};
+
 		const input = `auth_token = "${values.auth}"
 cursor_secret = "${values.cursor}"
 service_password = '${values.service}' # primary
 AUTH_TOKEN = "${values.uppercase}"`;
+
 		const { redacted, count } = redact_text(input);
 
 		expect(count).toBe(4);
+
 		for (const value of Object.values(values)) {
 			expect(redacted).not.toContain(value);
 		}
+
 		expect(redacted).toContain(
 			`service_password = '[REDACTED:Generic Password Field]' # primary`,
 		);
@@ -153,6 +257,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 			'-----BEGIN PRIVATE KEY-----',
 			'Q0FOQVJZX1BSSVZBVEVfS0VZX0ZJUlNUX0NIVU5L',
 		].join('\n');
+
 		const { redacted, count } = redact_text(private_key_chunk);
 
 		expect(count).toBe(1);
@@ -166,117 +271,80 @@ AUTH_TOKEN = "${values.uppercase}"`;
 		const input = Buffer.from(
 			'ordinary build artifact content without credentials',
 		).toString('base64');
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
 	});
 
 	it('tracks and redacts private-key continuations across read chunks', async () => {
-		let tool_result_handler:
-			| ((event: Record<string, unknown>) => unknown)
-			| undefined;
-		const pi = {
-			on(
-				name: string,
-				handler: (event: Record<string, unknown>) => unknown,
-			) {
-				if (name === 'tool_result') tool_result_handler = handler;
-			},
-			registerCommand() {},
-		};
-		await filter_output(pi as never);
+		const redaction = await capture_redaction();
 		const path = '/tmp/chunked-private-key.pem';
+
 		const first_chunk = [
 			'-----BEGIN PRIVATE KEY-----',
 			'Q0FOQVJZX0ZJUlNUX0NIVU5LX1BSSVZBVEVfS0VZ',
 		].join('\n');
+
 		const second_chunk = [
 			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==',
 			'-----END PRIVATE KEY-----',
 		].join('\n');
 
-		await tool_result_handler?.({
-			toolName: 'read',
-			input: { path },
-			content: [{ type: 'text', text: first_chunk }],
-		});
-		const result = (await tool_result_handler?.({
-			toolName: 'read',
-			input: { path, offset: 2 },
-			content: [{ type: 'text', text: second_chunk }],
-		})) as { content?: Array<{ text?: string }> };
+		await redaction.tool_result({ path }, [first_chunk]);
 
-		expect(result.content?.[0]?.text).toContain(
+		const result = text_blocks(
+			await redaction.tool_result({ path, offset: 2 }, [
+				second_chunk,
+			]),
+		);
+
+		expect(result[0]).toContain(
 			'[REDACTED:Private Key continuation]',
 		);
-		expect(result.content?.[0]?.text).not.toContain(
+		expect(result[0]).not.toContain(
 			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==',
 		);
 	});
 
 	it('redacts private-key continuations split across text content blocks', async () => {
-		let tool_result_handler:
-			| ((event: Record<string, unknown>) => unknown)
-			| undefined;
-		const pi = {
-			on(
-				name: string,
-				handler: (event: Record<string, unknown>) => unknown,
-			) {
-				if (name === 'tool_result') tool_result_handler = handler;
-			},
-			registerCommand() {},
-		};
-		await filter_output(pi as never);
+		const redaction = await capture_redaction();
 		const continuation = 'Q0FOQVJZX1BSSVZBVEVfQk9EWV9DT05URU5U';
-		const result = (await tool_result_handler?.({
-			toolName: 'read',
-			input: { path: '/tmp/split-content-key.pem' },
-			content: [
-				{ type: 'text', text: `-----${'BEGIN PRIVATE KEY-----'}\n` },
-				{ type: 'text', text: continuation },
-			],
-		})) as { content?: Array<{ text?: string }> };
 
-		expect(result.content?.[1]?.text).toContain(
+		const result = text_blocks(
+			await redaction.tool_result(
+				{ path: '/tmp/split-content-key.pem' },
+				[`-----${'BEGIN PRIVATE KEY-----'}\n`, continuation],
+			),
+		);
+
+		expect(result[1]).toContain(
 			'[REDACTED:Private Key continuation]',
 		);
-		expect(result.content?.[1]?.text).not.toContain(continuation);
+		expect(result[1]).not.toContain(continuation);
 	});
 
 	it('normalizes read paths before tracking private-key continuations', async () => {
-		let tool_result_handler:
-			| ((event: Record<string, unknown>) => unknown)
-			| undefined;
-		const pi = {
-			on(
-				name: string,
-				handler: (event: Record<string, unknown>) => unknown,
-			) {
-				if (name === 'tool_result') tool_result_handler = handler;
-			},
-			registerCommand() {},
-		};
-		await filter_output(pi as never);
+		const redaction = await capture_redaction();
+
 		const continuation =
 			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==';
-		await tool_result_handler?.({
-			toolName: 'read',
-			input: { path: '/tmp/equivalent-key.pem' },
-			content: [
-				{ type: 'text', text: `-----${'BEGIN PRIVATE KEY-----'}\n` },
-			],
-		});
-		const result = (await tool_result_handler?.({
-			toolName: 'read',
-			input: { path: '/tmp/./equivalent-key.pem', offset: 2 },
-			content: [{ type: 'text', text: continuation }],
-		})) as { content?: Array<{ text?: string }> };
 
-		expect(result.content?.[0]?.text).toContain(
+		await redaction.tool_result({ path: '/tmp/equivalent-key.pem' }, [
+			`-----${'BEGIN PRIVATE KEY-----'}\n`,
+		]);
+
+		const result = text_blocks(
+			await redaction.tool_result(
+				{ path: '/tmp/./equivalent-key.pem', offset: 2 },
+				[continuation],
+			),
+		);
+
+		expect(result[0]).toContain(
 			'[REDACTED:Private Key continuation]',
 		);
-		expect(result.content?.[0]?.text).not.toContain(continuation);
+		expect(result[0]).not.toContain(continuation);
 	});
 
 	it('redacts GitHub fine-grained PATs', () => {
@@ -325,9 +393,11 @@ AUTH_TOKEN = "${values.uppercase}"`;
 
 	it('keeps Host * and Match all unchanged', () => {
 		const input = `Host *\n  ServerAliveInterval 30\nMatch all\n  ForwardAgent no\n`;
+
 		const { redacted, count } = redact_text(input, {
 			force_ssh_config: true,
 		});
+
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
 	});
@@ -335,6 +405,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 	it('does not treat ordinary prose as SSH config', () => {
 		const input =
 			'User deploy should run HostName setup in docs first.';
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
@@ -342,9 +413,11 @@ AUTH_TOKEN = "${values.uppercase}"`;
 
 	it('can force SSH redaction for config fragments', () => {
 		const input = 'HostName 10.42.0.7';
+
 		const { redacted, count } = redact_text(input, {
 			force_ssh_config: true,
 		});
+
 		expect(count).toBe(1);
 		expect(redacted).toBe('HostName [REDACTED:SSH HostName]');
 	});
@@ -372,6 +445,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 			null,
 			2,
 		);
+
 		const markdown = `${input}\n[repo](https://github.com/spences10/my-pi)\n[npm](https://www.npmjs.com/package/@spences10/pi-redact)`;
 		const { redacted, count } = redact_text(markdown);
 		expect(count).toBe(0);
@@ -381,6 +455,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 	it('does not redact ordinary source variables that contain token', () => {
 		const input =
 			"const first_token = command.trim().split(/\\s+/)[0] ?? 'hook';";
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
@@ -389,6 +464,7 @@ AUTH_TOKEN = "${values.uppercase}"`;
 	it('does not broaden prefixed config matching into source declarations', () => {
 		const input = `const service_password = "configuration-placeholder-value";
 let cursor_secret = "another-placeholder-value";`;
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
@@ -409,6 +485,7 @@ let cursor_secret = "another-placeholder-value";`;
 - Prefer nopeek for secret-safe loading.
 
 See https://github.com/spences10/nopeek for details.`;
+
 		const { redacted, count } = redact_text(input);
 		expect(count).toBe(0);
 		expect(redacted).toBe(input);
@@ -425,68 +502,45 @@ See https://github.com/spences10/nopeek for details.`;
 
 describe('filter_output', () => {
 	it('redacts direct shell output in model context and counts it once', async () => {
-		let context_handler:
-			| ((event: Record<string, unknown>) => unknown)
-			| undefined;
-		let stats_handler:
-			| ((
-					args: string,
-					ctx: { ui: { notify(message: string): void } },
-			  ) => unknown)
-			| undefined;
-		const pi = {
-			on(
-				name: string,
-				handler: (event: Record<string, unknown>) => unknown,
-			) {
-				if (name === 'context') context_handler = handler;
-			},
-			registerCommand(
-				name: string,
-				options: {
-					handler: (
-						args: string,
-						ctx: { ui: { notify(message: string): void } },
-					) => unknown;
-				},
-			) {
-				if (name === 'redact-stats') stats_handler = options.handler;
-			},
-		};
-		await filter_output(pi as never);
+		const redaction = await capture_redaction();
 		const secret = ['fake', '-shell-secret-', 'value'].join('');
-		const shell_message = {
+
+		const shell_message: AgentMessage = {
 			role: 'bashExecution',
 			command: 'cat /tmp/pi-redact-test.toml',
 			output: `password = "${secret}"`,
 			exitCode: 0,
 			cancelled: false,
+			truncated: false,
 			timestamp: 1_234,
 		};
-		const user_message = {
+
+		const user_message: AgentMessage = {
 			role: 'user',
 			content: [{ type: 'text', text: `password = "${secret}"` }],
 			timestamp: 1_235,
 		};
-		const event = { messages: [shell_message, user_message] };
 
-		const first = (await context_handler?.(event)) as {
-			messages?: Array<Record<string, unknown>>;
-		};
-		const second = (await context_handler?.(event)) as {
-			messages?: Array<Record<string, unknown>>;
-		};
-		const notifications: string[] = [];
-		await stats_handler?.('', {
-			ui: { notify: (message) => notifications.push(message) },
-		});
+		const messages = [shell_message, user_message];
 
-		expect(first.messages?.[0]?.output).toContain(
+		const first = await redaction.context(messages);
+		const second = await redaction.context(messages);
+		const notifications = await redaction.stats();
+
+		const output_of = (result: ContextEventResult | void) => {
+			const message = result?.messages?.[0];
+
+			return message?.role === 'bashExecution'
+				? message.output
+				: undefined;
+		};
+
+		expect(output_of(first)).toContain(
 			'[REDACTED:Generic Password Field]',
 		);
-		expect(first.messages?.[0]?.output).not.toContain(secret);
-		expect(second.messages?.[0]?.output).not.toContain(secret);
-		expect(first.messages?.[1]).toEqual(user_message);
+		expect(output_of(first)).not.toContain(secret);
+		expect(output_of(second)).not.toContain(secret);
+		expect(first?.messages?.[1]).toEqual(user_message);
 		expect(shell_message.output).toContain(secret);
 		expect(notifications).toEqual([
 			'Secrets redacted this session: 1',

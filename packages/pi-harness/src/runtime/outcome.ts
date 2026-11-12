@@ -18,7 +18,11 @@ function now_iso(): string {
 }
 
 function unique(values: Array<string | undefined>): string[] {
-	return [...new Set(values.filter(Boolean) as string[])];
+	return [
+		...new Set(
+			values.filter((value): value is string => Boolean(value)),
+		),
+	];
 }
 
 function changed_files(
@@ -29,6 +33,7 @@ function changed_files(
 	const logged_files = log.flatMap(
 		(entry) => entry.changed_files ?? [],
 	);
+
 	return unique([
 		...collect_task_changed_files(cwd, policy),
 		...logged_files,
@@ -51,6 +56,7 @@ export function collect_harness_outcome(
 	const contract = read_contract(harness_dir);
 	const status_file = read_status(harness_dir);
 	const execution_cwd = resolve(cwd ?? contract.policy.cwd);
+
 	const validation_evidence = status_file.log
 		.filter((entry) => entry.evidence)
 		.map((entry) => ({
@@ -58,6 +64,7 @@ export function collect_harness_outcome(
 			phase: entry.phase,
 			evidence: entry.evidence ?? '',
 		}));
+
 	const remaining_risks =
 		latest_log_value(status_file.log, 'remaining_risks') ??
 		(status_file.status === 'failed'
@@ -109,10 +116,12 @@ export function render_outcome_markdown(
 		? outcome.validation.evidence
 				.map((entry) => {
 					const phase = entry.phase ? ` (${entry.phase})` : '';
+
 					return `- ${entry.timestamp}${phase}: ${entry.evidence}`;
 				})
 				.join('\n')
 		: '- No validation evidence recorded';
+
 	return `# Harness outcome: ${outcome.id}
 
 - Status: ${outcome.status}${outcome.phase ? ` (${outcome.phase})` : ''}
@@ -170,5 +179,6 @@ export function write_outcome_artifacts(
 		paths.outcome_markdown,
 		render_outcome_markdown(outcome),
 	);
+
 	return outcome;
 }

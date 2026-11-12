@@ -1,6 +1,8 @@
 import { existsSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
+import * as v from 'valibot';
 import {
 	afterEach,
 	beforeEach,
@@ -13,6 +15,7 @@ import { TelemetryDatabase } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEST_DB_PATH = join(__dirname, 'telemetry-test.db');
+
 const busy_error = Object.assign(new Error('database is locked'), {
 	code: 'ERR_SQLITE_ERROR',
 	errcode: 5,
@@ -33,6 +36,7 @@ describe('TelemetryDatabase', () => {
 		} catch {
 			// already closed in test
 		}
+
 		db = null;
 		rmSync(TEST_DB_PATH, { force: true });
 	});
@@ -47,19 +51,25 @@ describe('TelemetryDatabase', () => {
 			schema_version: 1,
 		});
 
-		const version = db?.read_rows<{
-			user_version: number;
-		}>('PRAGMA user_version');
+		const version = db?.read_rows(
+			'PRAGMA user_version',
+			v.object({ user_version: v.number() }),
+		);
+
 		expect(version).toEqual([{ user_version: 1 }]);
 
-		const journal_mode = db?.read_rows<{
-			journal_mode: string;
-		}>('PRAGMA journal_mode');
+		const journal_mode = db?.read_rows(
+			'PRAGMA journal_mode',
+			v.object({ journal_mode: v.string() }),
+		);
+
 		expect(journal_mode).toEqual([{ journal_mode: 'wal' }]);
 
-		const busy_timeout = db?.read_rows<{
-			timeout: number;
-		}>('PRAGMA busy_timeout');
+		const busy_timeout = db?.read_rows(
+			'PRAGMA busy_timeout',
+			v.object({ timeout: v.number() }),
+		);
+
 		expect(busy_timeout).toEqual([{ timeout: 5000 }]);
 	});
 
@@ -67,11 +77,20 @@ describe('TelemetryDatabase', () => {
 		const run = vi.fn(() => {
 			throw busy_error;
 		});
-		(
-			db as unknown as { stmt_insert_run: { run: typeof run } }
-		).stmt_insert_run = {
-			run,
-		};
+
+		class BusyDatabase extends DatabaseSync {
+			override prepare(sql: string) {
+				const statement = super.prepare(sql);
+
+				if (sql.includes('INSERT INTO runs'))
+					vi.spyOn(statement, 'run').mockImplementation(run);
+
+				return statement;
+			}
+		}
+
+		db?.close();
+		db = new TelemetryDatabase(BusyDatabase, TEST_DB_PATH);
 
 		expect(() =>
 			db?.insert_run({
@@ -159,15 +178,17 @@ describe('TelemetryDatabase', () => {
 			schema_version: 1,
 		});
 
-		const runs = db?.read_rows<{
-			id: string;
-			model_provider: string;
-			model_id: string;
-			eval_case_id: string;
-			success: number;
-		}>(
+		const runs = db?.read_rows(
 			'SELECT id, model_provider, model_id, eval_case_id, success FROM runs',
+			v.object({
+				id: v.string(),
+				model_provider: v.string(),
+				model_id: v.string(),
+				eval_case_id: v.string(),
+				success: v.number(),
+			}),
 		);
+
 		expect(runs).toEqual([
 			{
 				id: 'run-1',
@@ -178,13 +199,15 @@ describe('TelemetryDatabase', () => {
 			},
 		]);
 
-		const tool_calls = db?.read_rows<{
-			tool_call_id: string;
-			partial_update_count: number;
-			is_error: number;
-		}>(
+		const tool_calls = db?.read_rows(
 			'SELECT tool_call_id, partial_update_count, is_error FROM tool_calls',
+			v.object({
+				tool_call_id: v.string(),
+				partial_update_count: v.number(),
+				is_error: v.number(),
+			}),
 		);
+
 		expect(tool_calls).toEqual([
 			{
 				tool_call_id: 'tool-1',
@@ -207,6 +230,7 @@ describe('TelemetryDatabase', () => {
 			eval_attempt: null,
 			eval_suite: 'repeatable',
 		};
+
 		db!.insert_run(matching);
 		db!.insert_run({
 			...matching,
@@ -368,10 +392,14 @@ describe('TelemetryDatabase', () => {
 			error_message: 'telemetry disabled',
 		});
 
-		const rows = db?.read_rows<{
-			success: number | null;
-			error_message: string | null;
-		}>("SELECT success, error_message FROM runs WHERE id = 'run-2'");
+		const rows = db?.read_rows(
+			"SELECT success, error_message FROM runs WHERE id = 'run-2'",
+			v.object({
+				success: v.nullable(v.number()),
+				error_message: v.nullable(v.string()),
+			}),
+		);
+
 		expect(rows).toEqual([
 			{
 				success: null,

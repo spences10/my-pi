@@ -21,20 +21,24 @@ import {
 } from './index.js';
 
 const cleanup: string[] = [];
+
 afterEach(() => {
 	for (const dir of cleanup.splice(0).reverse())
 		rmSync(dir, { recursive: true, force: true });
 });
+
 async function run(command: string, cwd: string) {
 	const result = spawnSync('bash', ['-lc', command], {
 		cwd,
 		encoding: 'utf8',
 	});
+
 	return {
 		passed: result.status === 0,
 		output: result.stdout + result.stderr,
 	};
 }
+
 function fixture(commands = ['printf checked']) {
 	const cwd = mkdtempSync(join(tmpdir(), 'pi-harness-verification-'));
 	cleanup.push(cwd);
@@ -44,6 +48,7 @@ function fixture(commands = ['printf checked']) {
 		join(cwd, 'src/index.ts'),
 		'export const value = 1;\n',
 	);
+
 	const { harness_dir, contract } = create_harness_runtime(
 		{
 			task: 'Verified work',
@@ -52,7 +57,9 @@ function fixture(commands = ['printf checked']) {
 		},
 		cwd,
 	);
+
 	cleanup.push(harness_dir);
+
 	return { cwd, harness_dir, contract };
 }
 
@@ -68,11 +75,13 @@ describe('accepted checks and scope', () => {
 	});
 	it('allows tests, deep globs, and ordinary git flags without blanket command bans', () => {
 		const { contract, harness_dir, cwd } = fixture();
+
 		const amended = amend_harness_runtime({
 			harness_dir,
 			reason: 'Focus implementation',
 			allowed_paths: ['src/**/*.ts'],
 		});
+
 		mkdirSync(join(cwd, 'src/a/b'), { recursive: true });
 		writeFileSync(join(cwd, 'src/a/b/value.test.ts'), 'export {};\n');
 		expect(
@@ -95,11 +104,13 @@ describe('accepted checks and scope', () => {
 				validation_commands: ['true'],
 			}),
 		).toThrow('accepted validation');
+
 		const widened = amend_harness_runtime({
 			harness_dir,
 			reason: 'Try a wider strategy',
 			allowed_paths: ['.'],
 		});
+
 		expect(widened.policy.allowed_paths).toEqual(
 			contract.policy.allowed_paths,
 		);
@@ -113,6 +124,7 @@ describe('accepted checks and scope', () => {
 				stdio: 'ignore',
 			}).status,
 		).toBe(1);
+
 		const protected_run = create_harness_runtime(
 			{
 				task: 'Protected tests',
@@ -121,6 +133,7 @@ describe('accepted checks and scope', () => {
 			},
 			cwd,
 		);
+
 		cleanup.push(protected_run.harness_dir);
 		expect(() =>
 			amend_harness_runtime({
@@ -155,9 +168,11 @@ describe('completion verification', () => {
 			],
 			{ stdio: 'ignore' },
 		);
+
 		const worktree = mkdtempSync(
 			join(tmpdir(), 'pi-harness-linked-'),
 		);
+
 		cleanup.push(worktree);
 		execFileSync(
 			'git',
@@ -176,9 +191,11 @@ describe('completion verification', () => {
 			{ harness_dir, status: 'completed' },
 			{ run, cwd: worktree },
 		);
+
 		const outcome = JSON.parse(
 			readFileSync(join(harness_dir, 'outcome.json'), 'utf8'),
 		);
+
 		expect(outcome.execution_cwd).toBe(worktree);
 		expect(outcome.changed_files).toEqual(['src/index.ts']);
 		expect(
@@ -196,15 +213,18 @@ describe('completion verification', () => {
 				{ run, cwd: other.cwd },
 			),
 		).rejects.toThrow('accepted repository');
+
 		const status = await update_harness_runtime(
 			{ harness_dir, status: 'completed' },
 			{
 				run: async (command, cwd) => {
 					const result = await run(command, cwd);
+
 					return { ...result, output: 'x'.repeat(1024 * 1024 + 100) };
 				},
 			},
 		);
+
 		expect(
 			readFileSync(status.log.at(-1)!.checks![0].output_file).length,
 		).toBe(1024 * 1024);
@@ -212,10 +232,12 @@ describe('completion verification', () => {
 
 	it('runs accepted checks and drift review before recording completion, with bounded output references', async () => {
 		const { harness_dir } = fixture();
+
 		const status = await update_harness_runtime(
 			{ harness_dir, status: 'completed' },
 			{ run },
 		);
+
 		expect(status.status).toBe('completed');
 		const checks = status.log.at(-1)!.checks!;
 		expect(checks).toHaveLength(2);
@@ -259,6 +281,7 @@ describe('completion verification', () => {
 	});
 	it('records failed checks and permits ordinary fix-and-retry loops', async () => {
 		const { harness_dir, cwd } = fixture(['test -f src/ready']);
+
 		for (let attempt = 0; attempt < 2; attempt++) {
 			await expect(
 				update_harness_runtime(
@@ -267,6 +290,7 @@ describe('completion verification', () => {
 				),
 			).rejects.toThrow('Validation failed');
 		}
+
 		writeFileSync(join(cwd, 'src/ready'), 'ready\n');
 		expect(
 			(
@@ -299,6 +323,7 @@ describe('completion verification', () => {
 		const { harness_dir } = fixture([
 			'printf changed > src/index.ts',
 		]);
+
 		await expect(
 			update_harness_runtime(
 				{ harness_dir, status: 'completed' },
@@ -324,6 +349,7 @@ describe('completion verification', () => {
 					signal: controller.signal,
 					run: async () => {
 						controller.abort();
+
 						return { passed: true, output: 'interrupted' };
 					},
 				},
@@ -358,6 +384,7 @@ describe('completion verification', () => {
 								JSON.stringify(modified),
 							);
 						}
+
 						return run(command, cwd);
 					},
 				},
@@ -367,18 +394,22 @@ describe('completion verification', () => {
 	it('blocks concurrent API amendments and status mutations during validation', async () => {
 		const { harness_dir } = fixture(['true']);
 		let release!: () => void;
+
 		const gate = new Promise<void>((resolve) => {
 			release = resolve;
 		});
+
 		const completion = update_harness_runtime(
 			{ harness_dir, status: 'completed' },
 			{
 				run: async (command, cwd) => {
 					await gate;
+
 					return run(command, cwd);
 				},
 			},
 		);
+
 		expect(() =>
 			amend_harness_runtime({
 				harness_dir: join(harness_dir, '.'),

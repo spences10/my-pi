@@ -242,6 +242,11 @@ push request alone does not require another run.
 Use `/lsp status` to inspect active clients and `/lsp restart` after
 dependency installs or language-server crashes.
 
+Tool request results are
+[validated before use](src/response-schemas.ts). A malformed result
+rejects that request without stopping subsequent requests on the
+client.
+
 Language servers stop after five minutes without an active LSP request
 and start again on demand. Set `MY_PI_LSP_IDLE_TIMEOUT_MS` to a
 positive timeout in milliseconds, or set it to `0` to keep idle

@@ -5,6 +5,7 @@ import type {
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import * as v from 'valibot';
 
 const STATUS_KEY = 'kimi-usage';
 const KIMI_PROVIDER = 'kimi-coding';
@@ -32,82 +33,165 @@ export function is_kimi_provider(
 	return provider === KIMI_PROVIDER;
 }
 
-function read_record(
-	value: unknown,
-): Record<string, unknown> | undefined {
-	return value && typeof value === 'object'
-		? (value as Record<string, unknown>)
-		: undefined;
-}
+type JsonValue =
+	| null
+	| string
+	| number
+	| boolean
+	| JsonValue[]
+	| { [key: string]: JsonValue };
 
-function read_string(value: unknown): string | undefined {
-	return typeof value === 'string' && value.trim()
-		? value
-		: undefined;
-}
+const text_schema = v.fallback(
+	v.optional(
+		v.pipe(
+			v.string(),
+			v.check((text) => text.trim() !== ''),
+		),
+	),
+	undefined,
+);
 
 /** Kimi returns quota numbers as strings ("100", "4"); accept numbers too. */
-function read_amount(value: unknown): number | undefined {
-	if (typeof value === 'number' && Number.isFinite(value))
-		return value;
-	if (typeof value === 'string') {
-		const parsed = Number(value);
-		if (Number.isFinite(parsed)) return parsed;
-	}
-	return undefined;
-}
+const amount_schema = v.fallback(
+	v.optional(
+		v.union([
+			v.pipe(v.number(), v.finite()),
+			v.pipe(v.string(), v.transform(Number), v.finite()),
+		]),
+	),
+	undefined,
+);
 
-function read_reset_seconds(value: unknown): number | undefined {
-	const text = read_string(value);
-	if (!text) return undefined;
-	const ms = Date.parse(text);
-	return Number.isFinite(ms) ? Math.floor(ms / 1000) : undefined;
-}
+const reset_seconds_schema = v.fallback(
+	v.optional(
+		v.pipe(
+			v.string(),
+			v.check((text) => text.trim() !== ''),
+			v.transform(Date.parse),
+			v.finite(),
+			v.transform((ms) => Math.floor(ms / 1000)),
+		),
+	),
+	undefined,
+);
 
-function window_seconds(window: unknown): number | undefined {
-	const record = read_record(window);
-	const duration = read_amount(record?.duration);
-	const unit = read_string(record?.timeUnit);
+const detail_schema = v.fallback(
+	v.optional(
+		v.object({
+			limit: amount_schema,
+			used: amount_schema,
+			resetTime: reset_seconds_schema,
+		}),
+	),
+	undefined,
+);
+
+const usage_payload_schema = v.fallback(
+	v.object({
+		usage: detail_schema,
+		limits: v.fallback(
+			v.array(
+				v.fallback(
+					v.object({
+						window: v.fallback(
+							v.optional(
+								v.object({
+									duration: amount_schema,
+									timeUnit: text_schema,
+								}),
+							),
+							undefined,
+						),
+						detail: detail_schema,
+					}),
+					{ window: undefined, detail: undefined },
+				),
+			),
+			[],
+		),
+		user: v.fallback(
+			v.optional(
+				v.object({
+					membership: v.fallback(
+						v.optional(v.object({ level: text_schema })),
+						undefined,
+					),
+				}),
+			),
+			undefined,
+		),
+	}),
+	{ usage: undefined, limits: [], user: undefined },
+);
+
+type UsagePayload = v.InferOutput<typeof usage_payload_schema>;
+
+type UsageWindowInput = UsagePayload['limits'][number]['window'];
+
+type UsageDetail = UsagePayload['usage'];
+
+function window_seconds(
+	window: UsageWindowInput,
+): number | undefined {
+	const duration = window?.duration;
+	const unit = window?.timeUnit;
+
 	if (duration === undefined || !unit) return undefined;
+
 	if (unit.includes('MINUTE')) return duration * 60;
+
 	if (unit.includes('HOUR')) return duration * 60 * 60;
+
 	if (unit.includes('DAY')) return duration * 24 * 60 * 60;
+
 	if (unit.includes('MONTH')) return duration * 30 * 24 * 60 * 60;
+
 	return duration;
 }
 
-function parse_window(detail: unknown): KimiUsageWindow | undefined {
-	const record = read_record(detail);
-	const limit = read_amount(record?.limit);
-	const used = read_amount(record?.used);
+function parse_window(
+	detail: UsageDetail,
+): KimiUsageWindow | undefined {
+	const limit = detail?.limit;
+	const used = detail?.used;
+
 	if (!limit || used === undefined) return undefined;
+
 	return {
 		usedPercent: Math.round((used / limit) * 1000) / 10,
-		resetAtSeconds: read_reset_seconds(record?.resetTime),
+		resetAtSeconds: detail?.resetTime,
 	};
 }
 
+const auth_schema = v.object({
+	[KIMI_PROVIDER]: v.fallback(
+		v.optional(v.object({ key: text_schema, access: text_schema })),
+		undefined,
+	),
+});
+
 export function parse_kimi_usage_response(
-	payload: unknown,
+	payload: JsonValue,
 ): KimiUsageSnapshot | null {
-	const root = read_record(payload);
-	const weekly = parse_window(root?.usage);
+	const root = v.parse(usage_payload_schema, payload);
+	const weekly = parse_window(root.usage);
+
 	if (!weekly) return null;
 
-	const limits = Array.isArray(root?.limits) ? root.limits : [];
 	const windows: { window: KimiUsageWindow; seconds?: number }[] = [];
-	for (const entry of limits) {
-		const record = read_record(entry);
-		const window = parse_window(record?.detail);
+
+	for (const entry of root.limits) {
+		const window = parse_window(entry.detail);
+
 		if (!window) continue;
-		windows.push({ window, seconds: window_seconds(record?.window) });
+		windows.push({ window, seconds: window_seconds(entry.window) });
 	}
+
 	windows.sort(
 		(a, b) => (a.seconds ?? Infinity) - (b.seconds ?? Infinity),
 	);
 
-	const membership = read_record(root?.user)?.membership;
-	const level = read_string(read_record(membership)?.level);
+	const level = root.user?.membership?.level;
 
 	// Shortest rolling window (5h) is primary, weekly quota secondary.
 	const primary = windows[0]?.window ?? weekly;
@@ -126,9 +210,12 @@ function compact_reset(
 ): string {
 	if (!resetAtSeconds) return '';
 	const remaining_ms = resetAtSeconds * 1000 - nowMs;
+
 	if (remaining_ms <= 0) return 'now';
 	const hours = Math.ceil(remaining_ms / (60 * 60 * 1000));
+
 	if (hours < 24) return `${hours}h`;
+
 	return `${Math.ceil(hours / 24)}d`;
 }
 
@@ -141,6 +228,7 @@ function format_window(
 	nowMs: number,
 ): string {
 	const reset = compact_reset(window.resetAtSeconds, nowMs);
+
 	return reset
 		? `${reset} ${percent(window.usedPercent)}`
 		: percent(window.usedPercent);
@@ -151,9 +239,11 @@ export function format_kimi_usage_status(
 	nowMs = Date.now(),
 ): string {
 	const parts = [`kimi ${format_window(snapshot.primary, nowMs)}`];
+
 	if (snapshot.secondary) {
 		parts.push(format_window(snapshot.secondary, nowMs));
 	}
+
 	return parts.join(' · ');
 }
 
@@ -164,8 +254,11 @@ export function get_kimi_usage_tone(
 		snapshot.primary.usedPercent,
 		snapshot.secondary?.usedPercent ?? 0,
 	);
+
 	if (max_used >= 100) return 'error';
+
 	if (max_used >= 80) return 'warning';
+
 	return 'dim';
 }
 
@@ -174,23 +267,29 @@ export async function read_kimi_credential(
 	env: NodeJS.ProcessEnv = process.env,
 ): Promise<string | null> {
 	try {
-		const auth = JSON.parse(
-			await readFile(authPath, 'utf8'),
-		) as unknown;
-		const entry = read_record(read_record(auth)?.[KIMI_PROVIDER]);
+		const auth = v.safeParse(
+			auth_schema,
+			JSON.parse(await readFile(authPath, 'utf8')),
+		);
+
+		const entry = auth.success
+			? auth.output[KIMI_PROVIDER]
+			: undefined;
+
 		// OAuth login: { type: "oauth", access, refresh, expires }
 		// API key login: { type: "api_key", key }
-		const key = read_string(entry?.key) ?? read_string(entry?.access);
+		const key = entry?.key ?? entry?.access;
+
 		if (key) return key;
 	} catch {
 		// Fall through to the environment variable.
 	}
-	return read_string(env.KIMI_API_KEY) ?? null;
+
+	return v.parse(text_schema, env.KIMI_API_KEY) ?? null;
 }
 
 function active_provider(ctx: ExtensionContext): string | undefined {
-	return (ctx as ExtensionContext & { model?: { provider?: string } })
-		.model?.provider;
+	return ctx.model?.provider;
 }
 
 function themed(
@@ -198,16 +297,14 @@ function themed(
 	tone: KimiUsageTone,
 	text: string,
 ): string {
-	const theme = (
-		ctx.ui as {
-			theme?: { fg?: (tone: string, text: string) => string };
-		}
-	).theme;
+	const theme = ctx.ui.theme;
+
 	return theme?.fg ? theme.fg(tone, text) : text;
 }
 
 async function fetch_kimi_usage(): Promise<KimiUsageSnapshot | null> {
 	const token = await read_kimi_credential();
+
 	if (!token) return null;
 
 	const response = await fetch(KIMI_USAGE_URL, {
@@ -217,8 +314,10 @@ async function fetch_kimi_usage(): Promise<KimiUsageSnapshot | null> {
 			'User-Agent': KIMI_USER_AGENT,
 		},
 	});
+
 	if (!response.ok)
 		throw new Error(`Kimi usage failed: ${response.status}`);
+
 	return parse_kimi_usage_response(await response.json());
 }
 
@@ -236,14 +335,17 @@ export default async function kimi_usage(pi: ExtensionAPI) {
 		if (!ctx.hasUI || !is_kimi_provider(active_provider(ctx))) {
 			stop_interval();
 			ctx.ui.setStatus(STATUS_KEY, undefined);
+
 			return;
 		}
 
 		try {
 			const snapshot = await fetch_kimi_usage();
+
 			const text = snapshot
 				? format_kimi_usage_status(snapshot)
 				: undefined;
+
 			ctx.ui.setStatus(
 				STATUS_KEY,
 				snapshot
@@ -272,14 +374,14 @@ export default async function kimi_usage(pi: ExtensionAPI) {
 
 	pi.on('turn_end', async (_event, ctx) => {
 		const now = Date.now();
+
 		if (now - last_turn_refresh < TURN_REFRESH_DEBOUNCE_MS) return;
 		last_turn_refresh = now;
 		await publish(ctx);
 	});
 
 	pi.on('after_provider_response', async (event, ctx) => {
-		if ((event as { status?: number }).status === 429)
-			await publish(ctx);
+		if (event.status === 429) await publish(ctx);
 	});
 
 	pi.on('session_shutdown', async (_event, ctx) => {

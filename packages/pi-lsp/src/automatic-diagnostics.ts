@@ -6,9 +6,14 @@ import {
 	type TurnEndEvent,
 	type TurnEndEventResult,
 } from '@earendil-works/pi-coding-agent';
+import * as v from 'valibot';
 import type { LspServerManager } from './server-manager.js';
 import { detect_language } from './servers.js';
 import { run_diagnostics_many } from './tools.js';
+
+const tool_path_input_schema = v.looseObject({
+	path: v.fallback(v.optional(v.string()), undefined),
+});
 
 export function create_automatic_diagnostics(
 	manager: LspServerManager,
@@ -27,8 +32,10 @@ export function create_automatic_diagnostics(
 			(!isEditToolResult(event) && !isWriteToolResult(event))
 		)
 			return;
-		const path = event.input.path;
-		if (typeof path !== 'string' || !detect_language(path)) return;
+		// Tool input is model-supplied; a non-string path decodes to undefined.
+		const { path } = v.parse(tool_path_input_schema, event.input);
+
+		if (path === undefined || !detect_language(path)) return;
 		pending_files.add(manager.resolve_abs(path));
 	}
 
@@ -38,12 +45,16 @@ export function create_automatic_diagnostics(
 	): Promise<TurnEndEventResult | undefined> {
 		if (event.outcome !== 'completed' || ctx.signal?.aborted) {
 			reset();
+
 			return;
 		}
+
 		const files = Array.from(pending_files);
 		pending_files.clear();
+
 		if (files.length === 0) return;
 		const current_generation = generation;
+
 		const result = await run_diagnostics_many(
 			manager,
 			files,
@@ -51,8 +62,10 @@ export function create_automatic_diagnostics(
 			ctx,
 			ctx.signal,
 		);
+
 		if (current_generation !== generation || ctx.signal?.aborted)
 			return;
+
 		return {
 			entries: [
 				...event.entries,

@@ -25,34 +25,49 @@ const SESSION_TABS: SessionTab[] = [
 	'context',
 ];
 
+/** The tab named by a query value, falling back to the trace tab. */
+export function session_tab(value: string | null): SessionTab {
+	return SESSION_TABS.find((tab) => tab === value) ?? 'trace';
+}
+
 // Views live in the query string: /sessions and /events are API paths,
 // and the fragment carries the dashboard token.
 export function parse_route(url: URL): Route {
 	const view = url.searchParams.get('view');
+
 	if (view === 'sessions') return { name: 'sessions' };
+
 	if (view === 'tools') return { name: 'tools' };
 	const id = url.searchParams.get('session');
+
 	if (view === 'session' && id) {
-		const tab = url.searchParams.get('tab') as SessionTab | null;
+		const tab = session_tab(url.searchParams.get('tab'));
+
 		return {
 			name: 'session',
 			id,
-			tab: tab && SESSION_TABS.includes(tab) ? tab : 'trace',
+			tab,
 			span: url.searchParams.get('span'),
 		};
 	}
+
 	return { name: 'overview' };
 }
 
 export function href(route: Route): string {
 	if (route.name === 'overview') return '/';
+
 	if (route.name !== 'session') return `/?view=${route.name}`;
+
 	const params = new URLSearchParams({
 		view: 'session',
 		session: route.id,
 	});
+
 	if (route.tab !== 'trace') params.set('tab', route.tab);
+
 	if (route.span) params.set('span', route.span);
+
 	return `/?${params}`;
 }
 
@@ -80,5 +95,6 @@ export function is_app_navigation(
 	)
 		return false;
 	const url = new URL(anchor.href);
+
 	return url.origin === origin && url.pathname === '/';
 }

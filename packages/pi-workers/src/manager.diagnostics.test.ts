@@ -8,6 +8,7 @@ import { WorkerManager, type WorkerInfo } from './manager.js';
 const fixture = fileURLToPath(
 	new URL('./fixtures/diagnostic-child.ts', import.meta.url),
 );
+
 // Deliberately synthetic, matching the isolated child fixture.
 const secret = 'sk-synthetic-worker-diagnostic-1234567890';
 const managers: WorkerManager[] = [];
@@ -17,6 +18,7 @@ afterEach(async () => {
 	await Promise.all(
 		managers.splice(0).map((manager) => manager.dispose()),
 	);
+
 	for (const directory of directories.splice(0))
 		rmSync(directory, { recursive: true, force: true });
 });
@@ -25,8 +27,10 @@ function setup(...args: string[]) {
 	const directory = mkdtempSync(
 		join(tmpdir(), 'pi-worker-diagnostics-'),
 	);
+
 	directories.push(directory);
 	const completed: WorkerInfo[] = [];
+
 	const manager = new WorkerManager({
 		command: process.execPath,
 		args: [fixture, ...args],
@@ -36,7 +40,9 @@ function setup(...args: string[]) {
 		on_dialogs_end: () => {},
 		on_ui: () => {},
 	});
+
 	managers.push(manager);
+
 	return {
 		manager,
 		completed,
@@ -44,7 +50,7 @@ function setup(...args: string[]) {
 	};
 }
 
-function expect_redacted(value: unknown) {
+function expect_redacted(value: string | undefined) {
 	const text = JSON.stringify(value);
 	expect(text).not.toContain(secret);
 	expect(text).toContain('[REDACTED:');
@@ -56,14 +62,18 @@ async function expect_safe_error(
 ) {
 	const error = await promise.then(
 		() => undefined,
-		(error: unknown) => error,
+		(cause: unknown) => cause,
 	);
+
 	expect(error).toBeInstanceOf(Error);
+
+	if (!(error instanceof Error)) throw error;
+
 	expect(String(error)).toContain(label);
 	expect_redacted(String(error));
 	// Raw causes or original diagnostic fields must not escape either.
 	expect(JSON.stringify(error)).not.toContain(secret);
-	expect((error as Error).stack).not.toContain(secret);
+	expect(error.stack).not.toContain(secret);
 }
 
 describe('worker diagnostics', () => {
@@ -87,6 +97,7 @@ describe('worker diagnostics', () => {
 				message === 'reject' ? 'Prompt refused' : 'Worker exited (7)',
 			);
 			expect_redacted(manager.list()[0].error);
+
 			if (message === 'crash') expect_redacted(completed[0].error);
 		},
 	);
@@ -102,30 +113,39 @@ describe('worker diagnostics', () => {
 		'protects %s diagnostics for %s without retaining a raw tail',
 		async (action, mode) => {
 			const password_value = 'synthetic-boundary-value-1234567890';
+
 			const { manager, completed, options } = setup(
 				...(action === 'spawn' ? ['--diagnostic-mode=' + mode] : []),
 			);
+
 			const operation =
 				action === 'spawn'
 					? manager.spawn(options)
 					: manager.send((await manager.spawn(options)).id, mode);
-			const error = await operation.catch((error: unknown) => error);
+
+			const error = await operation.catch((cause: unknown) => cause);
 			expect(error).toBeInstanceOf(Error);
+
+			if (!(error instanceof Error)) throw error;
+
 			expect(completed).toHaveLength(1);
+
 			for (const output of [
 				String(error),
-				(error as Error).stack,
+				error.stack,
 				JSON.stringify(error),
 				JSON.stringify(manager.list()),
 				JSON.stringify(completed),
 			])
 				expect(output).not.toContain(password_value);
+
 			for (const diagnostic of [
-				(error as Error).message,
+				error.message,
 				manager.list()[0].error,
 				completed[0].error,
 			]) {
 				expect(diagnostic).toContain('Worker exited (7)');
+
 				if (mode === 'split-stderr')
 					expect(diagnostic).toContain('[REDACTED:');
 				else expect(diagnostic).toContain('stderr omitted');
@@ -153,6 +173,7 @@ describe('worker diagnostics', () => {
 				(await manager.send(worker.id, 'handled')).result,
 			);
 			expect_redacted(manager.list()[0].result);
+
 			if (task === 'error') {
 				expect_redacted(completed[0].error);
 				expect_redacted(manager.list()[0].error);
