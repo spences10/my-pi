@@ -8,16 +8,20 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import * as v from 'valibot';
 
 const SECRETS_FILE = 'my-pi-secrets.json';
 
-type SecretsFile = {
-	version: 1;
-	packages: Record<
-		string,
-		{ deepgramApiKey?: string; enabled?: boolean } | undefined
-	>;
-};
+const secrets_file_schema = v.looseObject({
+	packages: v.nullish(v.looseObject({}), () => ({})),
+});
+
+const talk_secrets_schema = v.object({
+	enabled: v.fallback(v.boolean(), false),
+	deepgramApiKey: v.fallback(v.optional(v.string()), undefined),
+});
+
+type SecretsFile = v.InferOutput<typeof secrets_file_schema>;
 
 function empty_secrets(): SecretsFile {
 	return { version: 1, packages: {} };
@@ -27,18 +31,19 @@ export function read_talk_secrets(
 	path = join(getAgentDir(), SECRETS_FILE),
 ) {
 	try {
-		const parsed = JSON.parse(
-			readFileSync(path, 'utf8'),
-		) as SecretsFile;
+		const parsed = v.parse(
+			secrets_file_schema,
+			JSON.parse(readFileSync(path, 'utf8')),
+		);
 
-		const talk = parsed.packages?.['pi-talk'];
+		const talk = v.parse(
+			talk_secrets_schema,
+			parsed.packages['pi-talk'],
+		);
 
 		return {
-			enabled: talk?.enabled === true,
-			apiKey:
-				typeof talk?.deepgramApiKey === 'string'
-					? talk.deepgramApiKey
-					: undefined,
+			enabled: talk.enabled,
+			apiKey: talk.deepgramApiKey,
 		};
 	} catch {
 		return { enabled: false, apiKey: undefined };
@@ -52,7 +57,10 @@ export function write_talk_secrets(
 	let secrets = empty_secrets();
 
 	try {
-		secrets = JSON.parse(readFileSync(path, 'utf8')) as SecretsFile;
+		secrets = v.parse(
+			secrets_file_schema,
+			JSON.parse(readFileSync(path, 'utf8')),
+		);
 	} catch (error) {
 		if (
 			!(error instanceof Error) ||
@@ -64,7 +72,6 @@ export function write_talk_secrets(
 	}
 
 	secrets.version = 1;
-	secrets.packages ??= {};
 	secrets.packages['pi-talk'] = value.apiKey
 		? { enabled: value.enabled, deepgramApiKey: value.apiKey }
 		: { enabled: value.enabled };
@@ -84,14 +91,17 @@ export function forget_talk_secrets(
 	let secrets: SecretsFile;
 
 	try {
-		secrets = JSON.parse(readFileSync(path, 'utf8')) as SecretsFile;
+		secrets = v.parse(
+			secrets_file_schema,
+			JSON.parse(readFileSync(path, 'utf8')),
+		);
 	} catch {
 		return;
 	}
 
-	delete secrets.packages?.['pi-talk'];
+	delete secrets.packages['pi-talk'];
 
-	if (Object.keys(secrets.packages ?? {}).length === 0) {
+	if (Object.keys(secrets.packages).length === 0) {
 		rmSync(path, { force: true });
 
 		return;
