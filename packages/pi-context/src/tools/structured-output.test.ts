@@ -6,6 +6,7 @@ import {
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { Static } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import {
@@ -13,6 +14,23 @@ import {
 	set_context_sidecar_enabled,
 } from '../store.js';
 import { register_context_tools } from './index.js';
+import {
+	context_search_output_schema,
+	context_get_output_schema,
+	context_list_output_schema,
+	context_stats_output_schema,
+	context_purge_output_schema,
+	context_export_output_schema,
+} from './output-schemas.js';
+
+const output_schemas = {
+	context_search: context_search_output_schema,
+	context_get: context_get_output_schema,
+	context_list: context_list_output_schema,
+	context_stats: context_stats_output_schema,
+	context_purge: context_purge_output_schema,
+	context_export: context_export_output_schema,
+};
 
 // Exercise real tool implementations, including empty/missing results, against their declarations.
 describe('context structured outputs', () => {
@@ -40,11 +58,16 @@ describe('context structured outputs', () => {
 			tool_name: 'bash',
 		})!;
 
-		const execute = async (
-			name: string,
-			args: Record<string, unknown>,
-		) => {
+		const execute = async <
+			Name extends keyof typeof output_schemas,
+			Args,
+		>(
+			name: Name,
+			args: Args,
+		): Promise<Static<(typeof output_schemas)[Name]>> => {
 			const tool = tools.find((item) => item.name === name)!;
+
+			Value.Assert(tool.parameters, args);
 
 			const result = await tool.execute(
 				'test',
@@ -54,11 +77,10 @@ describe('context structured outputs', () => {
 				ctx,
 			);
 
-			expect(
-				Value.Check(tool.outputSchema!, result.structuredContent),
-			).toBe(true);
+			expect(tool.outputSchema).toBe(output_schemas[name]);
+			Value.Assert(output_schemas[name], result.structuredContent);
 
-			return result.structuredContent as Record<string, unknown>;
+			return result.structuredContent;
 		};
 
 		try {

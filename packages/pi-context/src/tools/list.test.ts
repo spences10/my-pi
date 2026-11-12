@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { capture_tool, tool_text } from '../../test/tool-fixtures.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,17 +12,6 @@ import { register_context_list_tool } from './list.js';
 const dirs: string[] = [];
 const original_context_db = process.env.MY_PI_CONTEXT_DB;
 
-type RegisteredTool = {
-	name: string;
-	description: string;
-	promptSnippet: string;
-	parameters: { properties: Record<string, { description: string }> };
-	execute: (...args: unknown[]) => Promise<{
-		content: Array<{ text: string }>;
-		details: { count?: number; [key: string]: unknown };
-	}>;
-};
-
 function temp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-list-'));
 	dirs.push(dir);
@@ -30,15 +19,8 @@ function temp_db(): string {
 	return join(dir, 'context.db');
 }
 
-function register_tool(): RegisteredTool {
-	let tool: RegisteredTool | undefined;
-	register_context_list_tool({
-		registerTool(value: RegisteredTool) {
-			tool = value;
-		},
-	} as ExtensionAPI);
-
-	return tool!;
+function register_tool() {
+	return capture_tool(register_context_list_tool);
 }
 
 afterEach(() => {
@@ -86,16 +68,16 @@ describe('context_list tool', () => {
 			},
 		);
 
-		expect(scoped.content[0].text).toContain('Project: /repo-a');
-		expect(scoped.content[0].text).not.toContain('Project: /repo-b');
-		expect(scoped.details.count).toBe(1);
+		expect(tool_text(scoped)).toContain('Project: /repo-a');
+		expect(tool_text(scoped)).not.toContain('Project: /repo-b');
+		expect(scoped.details).toMatchObject({ count: 1 });
 
 		const explicit = await tool.execute('call', {
 			project_path: '/repo-b',
 			limit: 10,
 		});
 
-		expect(explicit.content[0].text).toContain('Tool: read');
-		expect(explicit.details.count).toBe(1);
+		expect(tool_text(explicit)).toContain('Tool: read');
+		expect(explicit.details).toMatchObject({ count: 1 });
 	});
 });

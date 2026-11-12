@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { capture_tool, tool_text } from '../../test/tool-fixtures.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,17 +12,6 @@ import { register_context_search_tool } from './search.js';
 const dirs: string[] = [];
 const original_context_db = process.env.MY_PI_CONTEXT_DB;
 
-type RegisteredTool = {
-	name: string;
-	description: string;
-	promptSnippet: string;
-	parameters: { properties: Record<string, { description: string }> };
-	execute: (...args: unknown[]) => Promise<{
-		content: Array<{ text: string }>;
-		details: { count?: number; [key: string]: unknown };
-	}>;
-};
-
 function temp_db(): string {
 	const dir = mkdtempSync(join(tmpdir(), 'pi-context-search-'));
 	dirs.push(dir);
@@ -30,15 +19,8 @@ function temp_db(): string {
 	return join(dir, 'context.db');
 }
 
-function register_tool(): RegisteredTool {
-	let tool: RegisteredTool | undefined;
-	register_context_search_tool({
-		registerTool(value: RegisteredTool) {
-			tool = value;
-		},
-	} as ExtensionAPI);
-
-	return tool!;
+function register_tool() {
+	return capture_tool(register_context_search_tool);
 }
 
 afterEach(() => {
@@ -83,11 +65,17 @@ describe('context_search tool', () => {
 		expect(tool.description).toContain('full_content:true');
 		expect(tool.description).toContain('not broad retrieval');
 		expect(tool.promptSnippet).toContain('export broad results');
-		expect(
-			tool.parameters.properties.full_content.description,
-		).toContain('Last resort for small matches');
-		expect(result.content[0].text).toContain('alpha-token');
-		expect(result.content[0].text).toContain('beta-token');
-		expect(result.details.count).toBe(2);
+		expect(tool.parameters).toMatchObject({
+			properties: {
+				full_content: {
+					description: expect.stringContaining(
+						'Last resort for small matches',
+					),
+				},
+			},
+		});
+		expect(tool_text(result)).toContain('alpha-token');
+		expect(tool_text(result)).toContain('beta-token');
+		expect(result.details).toMatchObject({ count: 2 });
 	});
 });
