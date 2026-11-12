@@ -1,7 +1,9 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from '@earendil-works/pi-coding-agent';
+import {
+	make_api,
+	make_context,
+	make_model,
+} from '../../../tools/test-sdk.js';
+import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { TeamDatabase } from '@spences10/pi-team-mode/coordination';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -79,10 +81,14 @@ async function setup(
 	const register_message_renderer = vi.fn();
 	const active_tools = ['workers'];
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const pi = {
-		on: (name: string, handler: Function) =>
-			events.set(name, handler),
+	const pi = make_api({
+		on: (name: string, handler: Function) => {
+			events.set(name, handler);
+
+			return () => {
+				events.delete(name);
+			};
+		},
 		registerTool: (tool: { name: string; execute: Function }) =>
 			tools.set(tool.name, tool),
 		registerCommand: (name: string, command: { handler: Function }) =>
@@ -91,21 +97,20 @@ async function setup(
 		getThinkingLevel: () => 'high',
 		sendMessage: send_message,
 		registerMessageRenderer: register_message_renderer,
-	} as unknown as ExtensionAPI;
+	});
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const ctx = {
+	const ctx = make_context({
 		cwd: directory,
 		isIdle: () => true,
 		mode,
 		hasUI: has_ui,
-		model: { provider: 'test', id: 'model' },
+		model: make_model({ provider: 'test', id: 'model' }),
 		sessionManager: {
 			getSessionFile: () => '/tmp/parent.jsonl',
 			getSessionId: () => 'parent',
 		},
 		ui: { confirm, input, select, notify },
-	} as unknown as ExtensionContext;
+	});
 
 	workers(pi);
 	await events.get('session_start')?.({}, ctx);

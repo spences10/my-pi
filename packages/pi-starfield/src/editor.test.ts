@@ -1,15 +1,10 @@
-import {
-	CustomEditor,
-	Theme,
-	type KeybindingsManager,
-} from '@earendil-works/pi-coding-agent';
+import { CustomEditor, Theme } from '@earendil-works/pi-coding-agent';
 import {
 	CombinedAutocompleteProvider,
 	CURSOR_MARKER,
 	stripTerminalSequences,
 	visibleWidth,
 	type EditorTheme,
-	type TUI,
 } from '@earendil-works/pi-tui';
 import {
 	afterEach,
@@ -25,6 +20,8 @@ import {
 	type StarfieldMode,
 } from './editor.js';
 import { star_color, star_frame } from './stars.js';
+import { make_tui } from '../../../tools/test-terminal.js';
+import { make_keybindings } from '../../../tools/test-sdk.js';
 
 const identity = (text: string) => text;
 
@@ -39,10 +36,7 @@ const editor_theme: EditorTheme = {
 	},
 };
 
-// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial terminal fixture; only the supplied callbacks are exercised.
-const keybindings = {
-	matches: () => false,
-} as unknown as KeybindingsManager;
+const editor_keybindings = make_keybindings({});
 
 function make_theme(
 	background = '#202020',
@@ -64,13 +58,7 @@ function make_theme(
 }
 
 function setup() {
-	const request_render = vi.fn();
-
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial terminal fixture; only the supplied callbacks are exercised.
-	const tui = {
-		terminal: { rows: 40 },
-		requestRender: request_render,
-	} as unknown as TUI;
+	const { tui, request_render } = make_tui();
 
 	let mode: StarfieldMode = 'on';
 	let active = true;
@@ -81,20 +69,25 @@ function setup() {
 		suggestion = undefined;
 	});
 
-	const editor = new StarfieldEditor(tui, editor_theme, keybindings, {
-		theme: () => theme,
-		mode: () => mode,
-		active: () => active,
-		suggestion: () => suggestion,
-		on_accept_suggestion: on_accept,
-	});
+	const editor = new StarfieldEditor(
+		tui,
+		editor_theme,
+		editor_keybindings,
+		{
+			theme: () => theme,
+			mode: () => mode,
+			active: () => active,
+			suggestion: () => suggestion,
+			on_accept_suggestion: on_accept,
+		},
+	);
 
 	editor.focused = true;
 
 	return {
 		editor,
 		request_render,
-		base: new CustomEditor(tui, editor_theme, keybindings),
+		base: new CustomEditor(tui, editor_theme, editor_keybindings),
 		set_mode: (value: StarfieldMode) => {
 			mode = value;
 		},

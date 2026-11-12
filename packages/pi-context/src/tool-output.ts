@@ -1,9 +1,12 @@
-import type { ToolResultEvent } from '@earendil-works/pi-coding-agent';
 import { is_text_content } from './context-scope.js';
 
 /** Prefer native machine-readable output over an already truncated chat preview. */
 export function select_context_output(
-	event: ToolResultEvent,
+	event: {
+		toolName: string;
+		structuredContent?: unknown;
+		details?: unknown;
+	},
 	visible_text: string,
 ): string {
 	const value: unknown = event.structuredContent;

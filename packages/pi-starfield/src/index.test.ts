@@ -1,3 +1,11 @@
+import {
+	make_api,
+	make_context,
+	make_model,
+	make_model_registry,
+	make_stream,
+	make_assistant_message,
+} from '../../../tools/test-sdk.js';
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
@@ -28,23 +36,22 @@ type EditorFactory = Parameters<
 >[0];
 
 function setup(mode: ExtensionContext['mode'] = 'tui') {
-	const handlers = new Map<
-		string,
-		(event: unknown, ctx: ExtensionContext) => void
-	>();
+	const handlers = new Map<string, Function>();
 
 	let command: Parameters<ExtensionAPI['registerCommand']>[1];
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const api = {
-		on: (
-			name: string,
-			handler: (event: unknown, ctx: ExtensionContext) => void,
-		) => handlers.set(name, handler),
+	const api = make_api({
+		on: (name: string, handler: Function) => {
+			handlers.set(name, handler);
+
+			return () => {
+				handlers.delete(name);
+			};
+		},
 		registerCommand: (_name: string, value: typeof command) => {
 			command = value;
 		},
-	} as unknown as ExtensionAPI;
+	});
 
 	let factory: EditorFactory;
 	const notify = vi.fn();
@@ -53,24 +60,27 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 		factory = value;
 	});
 
-	const stream_simple = vi.fn(() => ({
-		result: async () => ({
-			content: [{ type: 'text', text: '"run the tests"' }],
-		}),
-	}));
+	const stream_simple = vi.fn(() =>
+		make_stream(async () =>
+			make_assistant_message({
+				content: [{ type: 'text', text: '"run the tests"' }],
+			}),
+		),
+	);
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const ctx = {
+	const ctx = make_context({
 		mode,
 		hasUI: mode === 'tui' || mode === 'rpc',
-		model: { id: 'test-model' },
-		modelRegistry: { streamSimple: stream_simple },
+		model: make_model({ id: 'test-model' }),
+		modelRegistry: make_model_registry({
+			streamSimple: stream_simple,
+		}),
 		ui: {
 			getEditorComponent: () => factory,
 			setEditorComponent: set_editor,
 			notify,
 		},
-	} as unknown as ExtensionContext;
+	});
 
 	starfield(api);
 
@@ -230,7 +240,7 @@ describe('starfield extension', () => {
 
 			app.emit('agent_end', turn);
 			expect(app.stream_simple).toHaveBeenCalledWith(
-				{ id: 'test-model' },
+				app.ctx.model,
 				expect.objectContaining({ systemPrompt: expect.any(String) }),
 				expect.objectContaining({ maxTokens: 60 }),
 			);

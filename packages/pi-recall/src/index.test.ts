@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { make_api } from '../../../tools/test-sdk.js';
+
 import { describe, expect, it, vi } from 'vite-plus/test';
 import recall, * as recall_entrypoint from './index.js';
 
@@ -17,14 +18,19 @@ async function register_extension() {
 
 	const on = vi.fn((name: string, handler: Function) => {
 		handlers.set(name, handler);
+
+		return () => {
+			handlers.delete(name);
+		};
 	});
 
 	const register_command = vi.fn();
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	await recall({
-		on,
-		registerCommand: register_command,
-	} as unknown as ExtensionAPI);
+	await recall(
+		make_api({
+			on,
+			registerCommand: register_command,
+		}),
+	);
 
 	return { handlers, on, register_command };
 }

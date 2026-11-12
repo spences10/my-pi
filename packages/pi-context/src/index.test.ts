@@ -1,3 +1,4 @@
+import { make_api } from '../../../tools/test-sdk.js';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import {
 	existsSync,
@@ -85,10 +86,18 @@ function create_fake_pi(): {
 	const tools = new Map<string, RegisteredTool>();
 	const commands = new Map<string, RegisteredCommand>();
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const pi = {
-		on(name: string, handler: HookHandler) {
-			hooks.set(name, [...(hooks.get(name) ?? []), handler]);
+	const pi = make_api({
+		on(name: string, handler: Function) {
+			// SAFETY: these tests invoke only the context extension's registered hooks.
+			const hook = handler as HookHandler;
+			hooks.set(name, [...(hooks.get(name) ?? []), hook]);
+
+			return () => {
+				hooks.set(
+					name,
+					(hooks.get(name) ?? []).filter((value) => value !== hook),
+				);
+			};
 		},
 		registerTool(tool: unknown) {
 			const registered = tool as RegisteredTool;
@@ -97,7 +106,7 @@ function create_fake_pi(): {
 		registerCommand(name: string, command: unknown) {
 			commands.set(name, command as RegisteredCommand);
 		},
-	} as unknown as ExtensionAPI;
+	});
 
 	return { pi, hooks, tools, commands };
 }

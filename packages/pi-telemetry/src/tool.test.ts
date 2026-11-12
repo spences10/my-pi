@@ -1,4 +1,9 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import {
+	make_api,
+	make_tool_context,
+	make_model,
+} from '../../../tools/test-sdk.js';
+
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,23 +16,11 @@ import {
 import { create_telemetry_extension } from './index.js';
 import type { TelemetryStore } from './types.js';
 
-type Handler = (event: unknown, ctx: unknown) => Promise<void>;
-
-interface Tool {
-	execute: (
-		id: string,
-		params: Record<string, unknown>,
-		signal: undefined,
-		update: undefined,
-		ctx: unknown,
-	) => Promise<{ content: Array<{ text: string }> }>;
-}
-
-const ctx = {
+const ctx = make_tool_context({
 	cwd: '/project',
-	model: { provider: 'test', id: 'model' },
+	model: make_model({ provider: 'test', id: 'model' }),
 	sessionManager: { getSessionFile: () => '/sessions/one.jsonl' },
-};
+});
 
 function fake_store(): TelemetryStore {
 	return {
@@ -84,18 +77,20 @@ describe('telemetry tool', () => {
 			save_telemetry_config({ version: 1, enabled: true });
 		}
 
-		const handlers = new Map<string, Handler>();
-		let tool: Tool | undefined;
+		const handlers = new Map<string, Function>();
 
-		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-		const pi = {
-			on: (name: string, handler: Handler) =>
-				handlers.set(name, handler),
-			registerCommand: () => {},
-			registerTool: (definition: Tool) => {
-				tool = definition;
+		const pi = make_api({
+			on: (name: string, handler: Function) => {
+				handlers.set(name, handler);
+
+				return () => {
+					handlers.delete(name);
+				};
 			},
-		} as unknown as ExtensionAPI;
+			registerCommand: () => {},
+		});
+
+		const register_tool = vi.spyOn(pi, 'registerTool');
 
 		await create_telemetry_extension({
 			...options,
@@ -104,9 +99,24 @@ describe('telemetry tool', () => {
 			now: () => 1000,
 		})(pi);
 
-		const call = async (params: Record<string, unknown>) =>
-			(await tool!.execute('id', params, undefined, undefined, ctx))
-				.content[0]!.text;
+		const tool = register_tool.mock.calls[0][0];
+
+		const call = async (params: Record<string, unknown>) => {
+			const result = await tool.execute(
+				'id',
+				params,
+				undefined,
+				undefined,
+				ctx,
+			);
+
+			const content = result.content[0];
+
+			if (content?.type !== 'text')
+				throw new Error('Expected telemetry text result');
+
+			return content.text;
+		};
 
 		const emit = (name: string, event: unknown = {}) =>
 			handlers.get(name)!(event, ctx);

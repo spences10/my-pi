@@ -1,6 +1,6 @@
+import { make_context } from '../../../tools/test-sdk.js';
 import {
 	SettingsManager,
-	type ExtensionContext,
 	type SessionStartEvent,
 } from '@earendil-works/pi-coding-agent';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -23,13 +23,12 @@ function setup(last_version?: string) {
 
 	const notify = vi.fn();
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const ctx = {
+	const ctx = make_context({
 		mode: 'tui',
 		cwd: '/tmp',
 		sessionManager: { getEntries: () => [] },
 		ui: { notify },
-	} as unknown as ExtensionContext;
+	});
 
 	return { settings, create, notify, ctx };
 }

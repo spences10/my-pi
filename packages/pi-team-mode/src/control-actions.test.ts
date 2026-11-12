@@ -1,4 +1,5 @@
-import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import { make_command_context } from '../../../tools/test-sdk.js';
+
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,11 +24,10 @@ async function setup() {
 	let actor = 'owner';
 	const notify = vi.fn();
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const ctx = {
+	const ctx = make_command_context({
 		cwd: '/repo',
 		ui: { notify },
-	} as unknown as ExtensionCommandContext;
+	});
 
 	const deps = {
 		coordination_db: db,

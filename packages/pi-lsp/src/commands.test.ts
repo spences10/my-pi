@@ -58,8 +58,8 @@ describe('lsp command', () => {
 		const { pi, tools, commands } = create_test_pi();
 
 		const { ctx, notifications } = create_command_context([
-			'restart-all',
-			undefined,
+			['\u001b[B', '\u001b[B', '\u001b[B', '\u001b[B', '\r'],
+			['\u001b'],
 		]);
 
 		await register_test_lsp_extension(pi, {

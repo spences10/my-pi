@@ -1,4 +1,9 @@
 import {
+	make_api,
+	make_context,
+	make_model,
+} from '../../../tools/test-sdk.js';
+import {
 	Theme,
 	type ExtensionAPI,
 	type ExtensionContext,
@@ -11,12 +16,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { logo_lines } from './logo.js';
 import startup_screen, { render_splash } from './startup-screen.js';
+import { make_tui } from '../../../tools/test-terminal.js';
 
-type HeaderFactory = NonNullable<
-	Parameters<ExtensionContext['ui']['setHeader']>[0]
->;
-
-type Handler = (event: unknown, ctx: ExtensionContext) => void;
+type Handler = Function;
 
 type Command = Parameters<ExtensionAPI['registerCommand']>[1];
 
@@ -61,35 +63,34 @@ function harness(mode: ExtensionContext['mode'] = 'tui') {
 	const handlers = new Map<string, Handler>();
 	const commands = new Map<string, Command>();
 	const set_header = vi.fn<ExtensionContext['ui']['setHeader']>();
-	const request_render = vi.fn();
+	const { tui, request_render } = make_tui();
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const ctx = {
+	const ctx = make_context({
 		mode,
 		cwd: '/work/my-project',
-		model: { id: 'first-model' },
+		model: make_model({ id: 'first-model' }),
 		ui: { setHeader: set_header },
-	} as unknown as ExtensionContext;
+	});
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	startup_screen({
-		on: (name: string, handler: Handler) =>
-			handlers.set(name, handler),
-		registerCommand: (name: string, command: Command) =>
-			commands.set(name, command),
-	} as unknown as ExtensionAPI);
+	startup_screen(
+		make_api({
+			on: (name: string, handler: Handler) => {
+				handlers.set(name, handler);
+
+				return () => {
+					handlers.delete(name);
+				};
+			},
+			registerCommand: (name: string, command: Command) =>
+				commands.set(name, command),
+		}),
+	);
 
 	function component() {
 		const factory = set_header.mock.calls.at(-1)?.[0];
 		expect(factory).toBeTypeOf('function');
 
-		return factory!(
-			// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-			{
-				requestRender: request_render,
-			} as unknown as Parameters<HeaderFactory>[0],
-			theme,
-		);
+		return factory!(tui, theme);
 	}
 
 	return {

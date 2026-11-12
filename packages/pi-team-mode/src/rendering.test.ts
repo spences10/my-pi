@@ -1,3 +1,4 @@
+import { make_theme } from '../../../tools/test-sdk.js';
 import type {
 	MessageRenderOptions,
 	Theme,
@@ -18,11 +19,11 @@ const key_hint: MessageRenderOptions['keyHint'] = (
 	description,
 ) => `alt+o ${description}`;
 
-// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial theme fixture; only color and emphasis callbacks are exercised.
-const theme = {
-	fg,
-	bold: (text: string) => text,
-} as unknown as Theme;
+const theme: Theme = make_theme();
+
+vi.spyOn(theme, 'fg').mockImplementation(fg);
+
+vi.spyOn(theme, 'bold').mockImplementation((text) => text);
 
 const options: MessageRenderOptions = {
 	expanded: false,

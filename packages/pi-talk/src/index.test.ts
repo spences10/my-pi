@@ -1,7 +1,5 @@
-import {
-	getAgentDir,
-	type ExtensionAPI,
-} from '@earendil-works/pi-coding-agent';
+import { make_api } from '../../../tools/test-sdk.js';
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,11 +8,20 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { FakeSocket, setup_dictation } from '../test/helpers.js';
 import talk, { write_talk_secrets } from './index.js';
 
-vi.mock('@earendil-works/pi-coding-agent', () => ({
-	getAgentDir: vi.fn(),
-}));
+vi.mock(
+	'@earendil-works/pi-coding-agent',
+	async (import_original) => ({
+		...(await import_original<
+			typeof import('@earendil-works/pi-coding-agent')
+		>()),
+		getAgentDir: vi.fn(),
+	}),
+);
 
-vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
+vi.mock('node:child_process', async (import_original) => ({
+	...(await import_original<typeof import('node:child_process')>()),
+	spawn: vi.fn(),
+}));
 
 const temporary_dirs: string[] = [];
 
@@ -39,12 +46,13 @@ function setup_extension(enabled = true) {
 	const on = vi.fn();
 	const registerCommand = vi.fn();
 	const registerShortcut = vi.fn();
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	talk({
-		on,
-		registerCommand,
-		registerShortcut,
-	} as unknown as ExtensionAPI);
+	talk(
+		make_api({
+			on,
+			registerCommand,
+			registerShortcut,
+		}),
+	);
 	on.mock.calls.find(([event]) => event === 'session_start')?.[1](
 		{},
 		state.ctx,

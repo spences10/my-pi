@@ -1,7 +1,5 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from '@earendil-works/pi-coding-agent';
+import { make_api, make_context } from '../../../tools/test-sdk.js';
+
 import { write_package_settings } from '@spences10/pi-settings';
 import {
 	mkdirSync,
@@ -197,11 +195,17 @@ EOF`;
 		write_package_settings('svelteGuardrails', { mode: 'warn' });
 
 		const events = new Map<string, Function>();
-		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-		svelte_guardrails({
-			on: (name: string, handler: Function) =>
-				events.set(name, handler),
-		} as unknown as ExtensionAPI);
+		svelte_guardrails(
+			make_api({
+				on: (name: string, handler: Function) => {
+					events.set(name, handler);
+
+					return () => {
+						events.delete(name);
+					};
+				},
+			}),
+		);
 
 		const notifications: string[] = [];
 
@@ -215,12 +219,11 @@ EOF`;
 					content: '<script>$effect(() => {})</script>',
 				},
 			} satisfies Parameters<typeof should_block_svelte_effect>[0],
-			// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-			{
+			make_context({
 				ui: {
 					notify: (message: string) => notifications.push(message),
 				},
-			} as unknown as ExtensionContext,
+			}),
 		);
 
 		expect(result).toBeUndefined();

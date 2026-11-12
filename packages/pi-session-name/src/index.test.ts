@@ -1,7 +1,12 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from '@earendil-works/pi-coding-agent';
+import {
+	make_api,
+	make_context,
+	make_model,
+	make_model_registry,
+	make_assistant_message,
+	make_stream,
+} from '../../../tools/test-sdk.js';
+
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import session_name, { clean_name, naming_context } from './index.js';
 
@@ -12,54 +17,64 @@ function fixture() {
 	let session = 'one';
 	let leaf = 'leaf-one';
 
-	const messages = [
-		{ role: 'user', content: 'Fix session naming' },
-		{
-			role: 'assistant',
+	const messages: [
+		import('@earendil-works/pi-ai').UserMessage,
+		import('@earendil-works/pi-ai').AssistantMessage,
+	] = [
+		{ role: 'user', content: 'Fix session naming', timestamp: 0 },
+		make_assistant_message({
 			content: [{ type: 'text', text: 'Fixed the naming issue' }],
-			stopReason: 'stop',
-		},
+		}),
 	];
 
-	const result = {
+	const result = make_assistant_message({
 		content: [{ type: 'text', text: 'Fix Session Naming' }],
-		stopReason: 'stop',
-	};
+	});
 
 	const streamSimple = vi.fn(
 		(
 			_model: unknown,
 			_context: unknown,
 			_options: { signal: AbortSignal },
-		) => ({ result: async () => result }),
+		) => make_stream(async () => result),
 	);
 
 	const setSessionName = vi.fn((value: string) => {
 		name = value;
 	});
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	session_name({
-		on: (key: string, handler: Function) => events.set(key, handler),
-		registerCommand: (key: string, command: { handler: Function }) =>
-			commands.set(key, command),
-		getSessionName: () => name,
-		setSessionName,
-	} as unknown as ExtensionAPI);
+	session_name(
+		make_api({
+			on: (key: string, handler: Function) => {
+				events.set(key, handler);
+
+				return () => {
+					events.delete(key);
+				};
+			},
+			registerCommand: (
+				key: string,
+				command: { handler: Function },
+			) => commands.set(key, command),
+			getSessionName: () => name,
+			setSessionName,
+		}),
+	);
 	const notify = vi.fn();
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const ctx = {
+	const ctx = make_context({
 		mode: 'tui',
-		model: {
+		model: make_model({
 			id: 'configured-model',
 			provider: 'configured-provider',
-		},
-		modelRegistry: { streamSimple },
+		}),
+		modelRegistry: make_model_registry({ streamSimple }),
 		sessionManager: {
 			getBranch: () =>
 				messages.map((message, index) => ({
 					id: `${leaf}-${index}`,
+					parentId: null,
+					timestamp: new Date(0).toISOString(),
 					type: 'message',
 					message,
 				})),
@@ -67,7 +82,7 @@ function fixture() {
 			getLeafId: () => leaf,
 		},
 		ui: { notify },
-	} as unknown as ExtensionContext;
+	});
 
 	return {
 		ctx,
@@ -174,12 +189,14 @@ describe('session naming', () => {
 	])('discards a delayed result after %s changes', async (change) => {
 		const f = fixture();
 		let resolve!: (value: typeof f.result) => void;
-		f.streamSimple.mockReturnValue({
-			result: () =>
-				new Promise((done) => {
-					resolve = done;
-				}),
-		});
+		f.streamSimple.mockReturnValue(
+			make_stream(
+				() =>
+					new Promise((done) => {
+						resolve = done;
+					}),
+			),
+		);
 		f.emit('agent_settled');
 
 		if (change === 'manual') f.setName('manual');
@@ -199,12 +216,14 @@ describe('session naming', () => {
 	it('ignores metadata-only leaf changes from timer or other observers', async () => {
 		const f = fixture();
 		let resolve!: (value: typeof f.result) => void;
-		f.streamSimple.mockReturnValue({
-			result: () =>
-				new Promise((done) => {
-					resolve = done;
-				}),
-		});
+		f.streamSimple.mockReturnValue(
+			make_stream(
+				() =>
+					new Promise((done) => {
+						resolve = done;
+					}),
+			),
+		);
 		f.emit('agent_settled');
 		f.ctx.sessionManager.getLeafId = () =>
 			'new-observer-metadata-leaf';
@@ -216,12 +235,14 @@ describe('session naming', () => {
 	it('cancels stale work when a new run starts and can name the next exchange', async () => {
 		const f = fixture();
 		let resolve!: (value: typeof f.result) => void;
-		f.streamSimple.mockReturnValueOnce({
-			result: () =>
-				new Promise((done) => {
-					resolve = done;
-				}),
-		});
+		f.streamSimple.mockReturnValueOnce(
+			make_stream(
+				() =>
+					new Promise((done) => {
+						resolve = done;
+					}),
+			),
+		);
 		f.emit('agent_settled');
 		f.emit('agent_start');
 		resolve(f.result);
@@ -234,11 +255,11 @@ describe('session naming', () => {
 
 	it('reports provider failures once and supports explicit retry', async () => {
 		const f = fixture();
-		f.streamSimple.mockReturnValueOnce({
-			result: async () => {
+		f.streamSimple.mockReturnValueOnce(
+			make_stream(async () => {
 				throw new Error('provider failed');
-			},
-		});
+			}),
+		);
 		f.emit('agent_settled');
 		await flush();
 		f.emit('agent_settled');
@@ -251,7 +272,7 @@ describe('session naming', () => {
 		expect(f.setSessionName).toHaveBeenCalledTimes(1);
 	});
 
-	it.each(['error', 'aborted', 'empty'])(
+	it.each(['error', 'aborted', 'empty'] as const)(
 		'ignores unusable model response: %s',
 		async (kind) => {
 			const f = fixture();
@@ -267,12 +288,14 @@ describe('session naming', () => {
 		vi.useFakeTimers();
 		const f = fixture();
 		let resolve!: (value: typeof f.result) => void;
-		f.streamSimple.mockReturnValue({
-			result: () =>
-				new Promise((done) => {
-					resolve = done;
-				}),
-		});
+		f.streamSimple.mockReturnValue(
+			make_stream(
+				() =>
+					new Promise((done) => {
+						resolve = done;
+					}),
+			),
+		);
 		f.emit('agent_settled');
 		expect(vi.getTimerCount()).toBe(1);
 		f.emit('session_shutdown');
@@ -286,12 +309,14 @@ describe('session naming', () => {
 		vi.useFakeTimers();
 		const f = fixture();
 		let resolve!: (value: typeof f.result) => void;
-		f.streamSimple.mockReturnValue({
-			result: () =>
-				new Promise((done) => {
-					resolve = done;
-				}),
-		});
+		f.streamSimple.mockReturnValue(
+			make_stream(
+				() =>
+					new Promise((done) => {
+						resolve = done;
+					}),
+			),
+		);
 		f.emit('agent_settled');
 		await vi.advanceTimersByTimeAsync(15000);
 		expect(f.streamSimple.mock.calls[0]![2].signal.aborted).toBe(
@@ -305,9 +330,9 @@ describe('session naming', () => {
 			expect.stringContaining('timed out'),
 			'warning',
 		);
-		f.streamSimple.mockReturnValueOnce({
-			result: async () => f.result,
-		});
+		f.streamSimple.mockReturnValueOnce(
+			make_stream(async () => f.result),
+		);
 		await f.command();
 		expect(f.setSessionName).toHaveBeenCalledTimes(1);
 	});

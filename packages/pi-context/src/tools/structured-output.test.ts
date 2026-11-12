@@ -1,12 +1,13 @@
-import type {
-	ExtensionAPI,
-	ToolDefinition,
-} from '@earendil-works/pi-coding-agent';
+import {
+	make_api,
+	make_tool_context,
+} from '../../../../tools/test-sdk.js';
+
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Value } from 'typebox/value';
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import {
 	get_context_store,
 	set_context_sidecar_enabled,
@@ -19,16 +20,15 @@ describe('context structured outputs', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'pi-context-structured-'));
 		const previous = process.env.MY_PI_CONTEXT_DB;
 		process.env.MY_PI_CONTEXT_DB = join(dir, 'context.db');
-		const tools: ToolDefinition[] = [];
-		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-		register_context_tools({
-			registerTool: (tool: ToolDefinition) => tools.push(tool),
-		} as unknown as ExtensionAPI);
+		const pi = make_api();
+		const register_tool = vi.spyOn(pi, 'registerTool');
+		register_context_tools(pi);
+		const tools = register_tool.mock.calls.map(([tool]) => tool);
 
-		const ctx = {
+		const ctx = make_tool_context({
 			cwd: dir,
 			sessionManager: { getSessionId: () => 'test' },
-		};
+		});
 
 		const store = get_context_store({
 			project_path: dir,
@@ -51,7 +51,7 @@ describe('context structured outputs', () => {
 				args,
 				undefined,
 				undefined,
-				ctx as never,
+				ctx,
 			);
 
 			expect(

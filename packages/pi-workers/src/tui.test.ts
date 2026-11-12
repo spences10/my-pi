@@ -1,12 +1,17 @@
-import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import {
-	getKeybindings,
-	visibleWidth,
-	type Component,
-} from '@earendil-works/pi-tui';
+	make_context,
+	make_theme,
+	make_keybindings,
+} from '../../../tools/test-sdk.js';
+import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { visibleWidth, type Component } from '@earendil-works/pi-tui';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { WorkerInfo } from './manager.js';
 import { show_workers } from './tui.js';
+import {
+	make_terminal,
+	make_tui,
+} from '../../../tools/test-terminal.js';
 
 const dialogs = vi.hoisted(() => ({
 	input: vi.fn(async (): Promise<string | undefined> => undefined),
@@ -27,6 +32,13 @@ beforeEach(() => {
 });
 
 type CustomFactory = Parameters<ExtensionContext['ui']['custom']>[0];
+
+type TypedCustomFactory<T> = (
+	tui: Parameters<CustomFactory>[0],
+	theme: Parameters<CustomFactory>[1],
+	keybindings: Parameters<CustomFactory>[2],
+	done: (result: T) => void,
+) => ReturnType<CustomFactory>;
 
 type Step = (component: Component) => void;
 
@@ -57,7 +69,7 @@ function worker(overrides: Partial<WorkerInfo> = {}): WorkerInfo {
 
 function setup(steps: Step[], workers = [worker()]) {
 	const screens: string[][] = [];
-	const terminal = { rows: 40 };
+	const terminal = make_terminal();
 
 	const manager = {
 		list: vi.fn(() => workers.map((info) => ({ ...info }))),
@@ -76,46 +88,41 @@ function setup(steps: Step[], workers = [worker()]) {
 		notify: vi.fn(),
 		input: dialogs.input,
 		confirm: dialogs.confirm,
-		custom: vi.fn(
-			async (factory: CustomFactory, options: unknown) => {
-				expect(options).toMatchObject({ overlay: true });
-				let finished = false;
-				let result: unknown;
+		custom: async <T>(
+			factory: TypedCustomFactory<T>,
+			options?: unknown,
+		) => {
+			expect(options).toMatchObject({ overlay: true });
+			let finished = false;
+			let result!: T;
 
-				const component = await factory(
-					// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-					{
-						terminal,
-						requestRender: vi.fn(),
-					} as unknown as Parameters<CustomFactory>[0],
-					{
-						fg: (_color: string, text: string) => text,
-						bold: (text: string) => text,
-					} as Parameters<CustomFactory>[1],
-					getKeybindings() as Parameters<CustomFactory>[2],
-					(value) => {
-						finished = true;
-						result = value;
-					},
-				);
+			const component = await factory(
+				make_tui(terminal).tui,
+				make_theme(),
+				make_keybindings(),
+				(value) => {
+					finished = true;
+					result = value;
+				},
+			);
 
-				screens.push(component.render(100));
-				const step = steps.shift();
+			screens.push(component.render(100));
+			const step = steps.shift();
 
-				if (!step) throw new Error('Unexpected custom screen');
-				step(component);
-				expect(finished, 'screen must finish through done()').toBe(
-					true,
-				);
-				component.dispose?.();
+			if (!step) throw new Error('Unexpected custom screen');
+			step(component);
+			expect(finished, 'screen must finish through done()').toBe(
+				true,
+			);
+			component.dispose?.();
 
-				return result;
-			},
-		),
+			return result;
+		},
 	};
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const ctx = { mode: 'tui', ui } as unknown as ExtensionContext;
+	vi.spyOn(ui, 'custom');
+
+	const ctx = make_context({ mode: 'tui', ui });
 
 	return {
 		ui,

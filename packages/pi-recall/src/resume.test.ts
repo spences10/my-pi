@@ -1,4 +1,8 @@
-import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import {
+	make_command_context,
+	make_custom_ui,
+} from '../../../tools/test-sdk.js';
+
 import { existsSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
@@ -48,60 +52,21 @@ function create_ctx(
 		.fn()
 		.mockResolvedValue({ cancelled: false });
 
-	const request_render = vi.fn();
-
-	const custom = vi.fn(
-		(
-			factory: (
-				tui: { requestRender: () => void },
-				theme: {
-					fg: (_color: string, text: string) => string;
-					bg: (_color: string, text: string) => string;
-					bold: (text: string) => string;
-				},
-				keybindings: {
-					matches: (data: string, action: string) => boolean;
-				},
-				done: (result?: unknown) => void,
-			) => { handleInput?: (data: string) => void },
-		) =>
-			new Promise((resolve) => {
-				const component = factory(
-					{ requestRender: request_render },
-					{
-						fg: (_color, text) => text,
-						bg: (_color, text) => text,
-						bold: (text) => text,
-					},
-					{
-						matches: (data, action) =>
-							(data === 'enter' && action === 'tui.select.confirm') ||
-							(data === 'escape' && action === 'tui.select.cancel') ||
-							(data === 'tab' && action === 'tui.input.tab'),
-					},
-					resolve,
-				);
-
-				for (const [index, key] of (
-					options.keys ?? ['enter']
-				).entries()) {
-					setTimeout(() => component.handleInput?.(key), index * 5);
-				}
-			}),
+	const keys = (options.keys ?? ['enter']).map(
+		(key) =>
+			({ enter: '\r', escape: '\u001b', tab: '\t' })[key] ?? key,
 	);
 
-	return {
-		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-		ctx: {
-			cwd: '/tmp/project',
-			hasUI: options.has_ui ?? true,
-			ui: { notify, custom },
-			switchSession: switch_session,
-		} as unknown as ExtensionCommandContext,
-		notify,
-		switch_session,
-		custom,
-	};
+	const ctx = make_command_context({
+		cwd: '/tmp/project',
+		hasUI: options.has_ui ?? true,
+		ui: { notify, custom: make_custom_ui([keys]) },
+		switchSession: switch_session,
+	});
+
+	const custom = vi.spyOn(ctx.ui, 'custom');
+
+	return { ctx, notify, switch_session, custom };
 }
 
 afterEach(() => {

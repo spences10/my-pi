@@ -1,7 +1,8 @@
-import type {
-	ExtensionAPI,
-	ExtensionCommandContext,
-} from '@earendil-works/pi-coding-agent';
+import {
+	make_command_context,
+	make_custom_ui,
+} from '../../../tools/test-sdk.js';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { rmSync } from 'node:fs';
 import { afterEach, vi } from 'vite-plus/test';
 import {
@@ -98,9 +99,7 @@ afterEach(() => {
 	}
 });
 
-export function create_command_context(
-	modal_results: unknown[] = [],
-) {
+export function create_command_context(modal_steps: string[][] = []) {
 	const notifications: Array<{ message: string; level?: string }> =
 		[];
 
@@ -115,32 +114,17 @@ export function create_command_context(
 	);
 
 	return {
-		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-		ctx: {
-			mode: 'tui',
+		ctx: make_command_context({
+			mode: modal_steps.length ? 'tui' : 'rpc',
 			hasUI: true,
 			ui: {
 				notify(message: string, level?: string) {
 					notifications.push({ message, level });
 				},
 				select,
-				custom: modal_results.length
-					? vi.fn(async (create_component: Function) => {
-							create_component(
-								{ requestRender: vi.fn() },
-								{
-									fg: (_color: string, text: string) => text,
-									bold: (text: string) => text,
-								},
-								{},
-								vi.fn(),
-							);
-
-							return modal_results.shift();
-						})
-					: undefined,
+				custom: make_custom_ui(modal_steps),
 			},
-		} as unknown as ExtensionCommandContext,
+		}),
 		notifications,
 		selections,
 		select,

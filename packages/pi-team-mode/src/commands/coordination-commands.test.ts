@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { TeamDatabase } from '../db/index.js';
 import { handle_session_command } from './coordination-commands.js';
-import type { TeamCommandDeps } from './types.js';
+import { make_command_context } from '../../../../tools/test-sdk.js';
+import { make_command_deps } from '../../test/command-fixture.js';
 
 const dirs: string[] = [];
 
@@ -35,16 +36,15 @@ describe('coordination commands', () => {
 			});
 			const notifications: string[] = [];
 
-			// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Command fixture supplies only dependencies exercised by this test.
-			const deps = {
-				ctx: {
+			const deps = await make_command_deps({
+				ctx: make_command_context({
 					ui: {
 						notify: (message: string) => notifications.push(message),
 					},
-				},
+				}),
 				coordination_db: db,
 				get_session_id: () => 'worker',
-			} as unknown as TeamCommandDeps;
+			});
 
 			await handle_session_command(deps, ['inbox']);
 			await handle_session_command(deps, ['inbox', '--full']);

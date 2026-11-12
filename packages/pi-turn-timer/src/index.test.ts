@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { make_api } from '../../../tools/test-sdk.js';
+
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import turn_timer, {
 	format_clock,
@@ -9,13 +10,19 @@ function fixture(mode = 'tui') {
 	const events = new Map<string, Function>();
 	const appendEntry = vi.fn();
 	const registerEntryRenderer = vi.fn();
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	turn_timer({
-		on: (name: string, handler: Function) =>
-			events.set(name, handler),
-		appendEntry,
-		registerEntryRenderer,
-	} as unknown as ExtensionAPI);
+	turn_timer(
+		make_api({
+			on: (name: string, handler: Function) => {
+				events.set(name, handler);
+
+				return () => {
+					events.delete(name);
+				};
+			},
+			appendEntry,
+			registerEntryRenderer,
+		}),
+	);
 
 	const ctx = {
 		mode,

@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { make_api } from '../../../tools/test-sdk.js';
+
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -33,8 +34,7 @@ function fixture() {
 	const sendUserMessage = vi.fn();
 	let branch: unknown[] = [];
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const api = {
+	const api = make_api({
 		appendEntry,
 		setActiveTools,
 		getActiveTools: () => [
@@ -54,10 +54,15 @@ function fixture() {
 			exposure?: string;
 			executionMode?: string;
 		}) => tools.set(definition.name, definition),
-		on: (name: string, handler: Function) =>
-			handlers.set(name, handler),
+		on: (name: string, handler: Function) => {
+			handlers.set(name, handler);
+
+			return () => {
+				handlers.delete(name);
+			};
+		},
 		sendUserMessage,
-	} as unknown as ExtensionAPI;
+	});
 
 	const ctx = {
 		cwd,

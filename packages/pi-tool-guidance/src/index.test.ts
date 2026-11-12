@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { make_api } from '../../../tools/test-sdk.js';
+
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vite-plus/test';
 import guidance, { tool_guidance } from './index.js';
@@ -138,13 +139,16 @@ describe('tool guidance', () => {
 
 	it('mutates only its named section, preserves custom prompts, and clears stale guidance', () => {
 		let handler!: Function;
-		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-		guidance({
-			on: (_name: string, fn: Function) => {
-				handler = fn;
-			},
-			getAllTools: () => [],
-		} as unknown as ExtensionAPI);
+		guidance(
+			make_api({
+				on: (_name: string, fn: Function) => {
+					handler = fn;
+
+					return () => {};
+				},
+				getAllTools: () => [],
+			}),
+		);
 
 		const event = {
 			systemPrompt: 'USER SYSTEM AND APPEND',

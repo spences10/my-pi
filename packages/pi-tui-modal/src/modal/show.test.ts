@@ -1,5 +1,5 @@
 import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
-import type { Component, TUI } from '@earendil-works/pi-tui';
+import type { Component } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import {
 	show_command_output_modal,
@@ -11,6 +11,10 @@ import {
 	show_text_modal,
 } from './show.js';
 import type { ModalTheme } from './types.js';
+import {
+	make_terminal,
+	make_tui,
+} from '../../../../tools/test-terminal.js';
 
 type CustomFactory = Parameters<
 	ExtensionCommandContext['ui']['custom']
@@ -41,11 +45,7 @@ function create_ctx(
 			let resolved = result;
 
 			const component = await factory(
-				// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial terminal fixture; only the supplied callbacks are exercised.
-				{
-					terminal: { rows: terminal_rows },
-					requestRender: vi.fn(),
-				} as unknown as TUI,
+				make_tui(make_terminal({ rows: terminal_rows })).tui,
 				theme as CustomFactoryArgs[1],
 				{} as CustomFactoryArgs[2],
 				(value: unknown) => {

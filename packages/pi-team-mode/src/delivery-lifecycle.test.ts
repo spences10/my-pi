@@ -1,8 +1,7 @@
+import { make_context, make_api } from '../../../tools/test-sdk.js';
 import type {
 	AgentBeforeSettleEventResult,
 	BeforeAgentStartEventResult,
-	ExtensionAPI,
-	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,6 +10,8 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { create_peer_message_delivery } from './coordination-formatting.js';
 import { TeamDatabase } from './db/index.js';
 import team_mode from './index.js';
+
+type DeliveryHook = (...args: never[]) => unknown;
 
 vi.mock('./coordination-broker.js', () => ({
 	ensure_coordination_broker: vi.fn(async () => {}),
@@ -71,27 +72,40 @@ async function setup(reconcile = false) {
 			])
 		: undefined;
 
-	const handlers = new Map<string, (...args: never[]) => unknown>();
+	const handlers = new Map<string, DeliveryHook>();
 	const isIdle = vi.fn(() => true);
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	const ctx = {
+	const ctx = make_context({
 		cwd: '/repo',
 		isIdle,
 		sessionManager: {
 			getSessionId: () => 'receiver',
 			getSessionFile: () => undefined,
 			getBranch: () =>
-				historical ? [{ type: 'custom_message', ...historical }] : [],
+				historical
+					? [
+							{
+								id: 'historical',
+								parentId: null,
+								timestamp: new Date(0).toISOString(),
+								type: 'custom_message',
+								...historical,
+							},
+						]
+					: [],
 		},
-	} as unknown as ExtensionContext;
+	});
 
-	const pi = {
-		on: vi.fn(
-			(name: string, handler: (...args: never[]) => unknown) => {
-				handlers.set(name, handler);
-			},
-		),
+	const mock_api = {
+		on: (name: string, handler: Function) => {
+			// SAFETY: the lifecycle fixture invokes only hooks registered by team-mode.
+			const hook = handler as DeliveryHook;
+			handlers.set(name, hook);
+
+			return () => {
+				handlers.delete(name);
+			};
+		},
 		getSessionName: () => undefined,
 		getActiveTools: () => ['team'],
 		registerCommand: vi.fn(),
@@ -100,11 +114,12 @@ async function setup(reconcile = false) {
 		sendMessage: vi.fn(),
 	};
 
+	const pi = make_api(mock_api);
+
 	const emit = async (name: string, event: unknown = {}) =>
 		handlers.get(name)?.(event as never, ctx as never);
 
-	// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- Partial SDK fixture; only exercised members are provided.
-	await team_mode(pi as unknown as ExtensionAPI);
+	await team_mode(pi);
 	cleanup.push(async () => {
 		await emit('session_shutdown');
 		db.close();
@@ -112,7 +127,15 @@ async function setup(reconcile = false) {
 	});
 	await emit('session_start');
 
-	return { db, send, emit, isIdle, pi, handlers, historical };
+	return {
+		db,
+		send,
+		emit,
+		isIdle,
+		pi: mock_api,
+		handlers,
+		historical,
+	};
 }
 
 function user_start() {
