@@ -41,7 +41,7 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
 		"@napi-rs/image": "catalog:",
-		"@oxlint/plugins": "1.91.0",
+		"@oxlint/plugins": "1.93.0",
 		"@resvg/resvg-js": "catalog:",
 		"@types/node": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
