@@ -1,29 +1,36 @@
+import {
+	is_json_scalar,
+	json_number,
+	json_object,
+	json_string,
+	type JsonValue,
+} from '../../../json';
 import type { DashboardEvent } from './api.js';
 
-/* oxlint-disable anti-slop/no-unknown-returns, anti-slop/no-unsafe-dictionary-type -- Generic path inspection leaves arbitrary payload values unvalidated. */
 export function payload_value(
-	payload: Record<string, unknown> | undefined,
+	payload: Record<string, JsonValue> | undefined,
 	path: string,
-): unknown {
-	return path.split('.').reduce<unknown>((value, key) => {
-		if (!value || typeof value !== 'object') return undefined;
-
-		// SAFETY: The guard excludes null and primitives; property values remain unknown.
-		return (value as Record<string, unknown>)[key];
-	}, payload);
+): JsonValue | undefined {
+	return path
+		.split('.')
+		.reduce<JsonValue | undefined>(
+			(value, key) =>
+				Array.isArray(value)
+					? value.find((_, index) => String(index) === key)
+					: json_object(value)?.[key],
+			payload,
+		);
 }
 
-/* oxlint-enable anti-slop/no-unknown-returns, anti-slop/no-unsafe-dictionary-type */
+export function text_preview(
+	value: JsonValue | undefined,
+	limit = 220,
+): string {
+	if (value === null || value === undefined) return '';
 
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Previewing arbitrary payloads is this helper's contract.
-export function text_preview(value: unknown, limit = 220): string {
-	if (value == null) return '';
-	let text: string;
-
-	if (typeof value === 'string') text = value;
-	else if (typeof value === 'number' || typeof value === 'boolean')
-		text = String(value);
-	else text = JSON.stringify(value);
+	const text = is_json_scalar(value)
+		? String(value)
+		: JSON.stringify(value);
 
 	return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
@@ -38,9 +45,9 @@ export function type_label(type: string): string {
 /** One line that says what the event is about. */
 export function event_summary(event: DashboardEvent): string {
 	const payload = event.payload ?? {};
-	const tool = payload.toolName;
+	const tool = json_string(payload.toolName);
 
-	if (typeof tool === 'string') {
+	if (tool !== undefined) {
 		const input =
 			payload_value(payload, 'input.command') ??
 			payload_value(payload, 'input.path') ??
@@ -49,50 +56,50 @@ export function event_summary(event: DashboardEvent): string {
 		return input ? `${tool} · ${text_preview(input, 140)}` : tool;
 	}
 
-	const message = payload_value(payload, 'message.role');
+	const message = json_string(payload_value(payload, 'message.role'));
 
-	if (typeof message === 'string') {
-		const stop = payload_value(payload, 'message.stopReason');
+	if (message !== undefined) {
+		const stop = json_string(
+			payload_value(payload, 'message.stopReason'),
+		);
 
-		return typeof stop === 'string'
-			? `${message} · ${stop}`
-			: message;
+		return stop !== undefined ? `${message} · ${stop}` : message;
 	}
 
-	if (typeof payload.prompt === 'string')
-		return text_preview(payload.prompt, 160);
+	const prompt = json_string(payload.prompt);
 
-	if (typeof payload.reason === 'string') return payload.reason;
+	if (prompt !== undefined) return text_preview(prompt, 160);
 
-	if (typeof payload.turnIndex === 'number')
-		return `turn ${payload.turnIndex}`;
+	const reason = json_string(payload.reason);
 
-	if (typeof payload.status === 'number')
-		return `HTTP ${payload.status}`;
+	if (reason !== undefined) return reason;
 
-	if (typeof payload.name === 'string') return payload.name;
+	const turn_index = json_number(payload.turnIndex);
 
-	return '';
+	if (turn_index !== undefined) return `turn ${turn_index}`;
+
+	const status = json_number(payload.status);
+
+	if (status !== undefined) return `HTTP ${status}`;
+
+	return json_string(payload.name) ?? '';
 }
 
-/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type -- Recursively inspect arbitrary external payloads without claiming a domain schema. */
-function has_error_value(value: unknown): boolean {
-	if (!value || typeof value !== 'object') return false;
-	// SAFETY: The guard excludes null and primitives; every property remains unknown.
-	const record = value as Record<string, unknown>;
+function has_error_value(value: JsonValue | undefined): boolean {
+	if (Array.isArray(value)) return value.some(has_error_value);
+	const record = json_object(value);
+
+	if (!record) return false;
 
 	if (
 		record.isError === true ||
 		record.stopReason === 'error' ||
-		(typeof record.status === 'string' &&
-			record.status.toLowerCase() === 'error')
+		json_string(record.status)?.toLowerCase() === 'error'
 	)
 		return true;
 
 	return Object.values(record).some(has_error_value);
 }
-
-/* oxlint-enable anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type */
 
 export function event_has_error(event: DashboardEvent): boolean {
 	return event.type === 'error' || has_error_value(event.payload);

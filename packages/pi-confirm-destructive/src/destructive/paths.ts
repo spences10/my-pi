@@ -7,6 +7,7 @@ import {
 	relative,
 	resolve,
 } from 'node:path';
+import * as v from 'valibot';
 import { get_git_recoverability, is_git_recoverable } from './git.js';
 
 function is_path_within(parent: string, child: string): boolean {
@@ -15,15 +16,12 @@ function is_path_within(parent: string, child: string): boolean {
 	return Boolean(rel) && !rel.startsWith('..') && !isAbsolute(rel);
 }
 
-function is_missing_path_error(cause: unknown): boolean {
-	if (!cause || typeof cause !== 'object' || !('code' in cause)) {
-		return false;
-	}
-
-	return ['ENOENT', 'ENOTDIR'].includes(
-		String((cause as { code: unknown }).code),
-	);
-}
+const missing_path_error_schema = v.pipe(
+	v.looseObject({ code: v.unknown() }),
+	v.check((error) =>
+		['ENOENT', 'ENOTDIR'].includes(String(error.code)),
+	),
+);
 
 function resolve_existing_path_components(
 	path: string,
@@ -42,10 +40,11 @@ function resolve_existing_path_components(
 
 				return undefined;
 			} catch (lstat_error) {
-				if (!is_missing_path_error(lstat_error)) return undefined;
+				if (!v.is(missing_path_error_schema, lstat_error))
+					return undefined;
 			}
 
-			if (!is_missing_path_error(error)) return undefined;
+			if (!v.is(missing_path_error_schema, error)) return undefined;
 		}
 
 		const parent = dirname(candidate);

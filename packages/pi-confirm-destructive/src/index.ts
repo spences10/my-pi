@@ -20,6 +20,7 @@ import {
 	extract_bash_create_paths,
 	extract_created_temp_paths_from_result,
 } from './destructive/shell.js';
+import { parse_tool_input } from './destructive/tool-input.js';
 import type { DestructiveAction } from './destructive/types.js';
 
 export type { DestructiveAction } from './destructive/types.js';
@@ -98,9 +99,9 @@ export default async function confirm_destructive(pi: ExtensionAPI) {
 			ctx,
 		): Promise<ToolCallEventResult | void> => {
 			if (event.toolName === 'write') {
-				const path = event.input.path;
+				const { path } = parse_tool_input(event.input);
 
-				if (typeof path === 'string' && path.trim()) {
+				if (path?.trim()) {
 					const absolute = resolve(ctx.cwd, path);
 
 					if (!existsSync(absolute)) {
@@ -110,9 +111,9 @@ export default async function confirm_destructive(pi: ExtensionAPI) {
 			}
 
 			if (event.toolName === 'bash') {
-				const command = event.input.command;
+				const { command } = parse_tool_input(event.input);
 
-				if (typeof command === 'string') {
+				if (command !== undefined) {
 					const paths = extract_bash_create_paths(command, ctx.cwd);
 
 					if (paths.length > 0) {

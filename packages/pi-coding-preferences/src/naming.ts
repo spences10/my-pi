@@ -25,7 +25,7 @@ export function resolve_naming_config(
 
 	if (
 		config !== undefined &&
-		(!config || typeof config !== 'object' || Array.isArray(config))
+		(!(config instanceof Object) || Array.isArray(config))
 	)
 		throw new Error(
 			'codingPreferences.naming must be an object or false.',

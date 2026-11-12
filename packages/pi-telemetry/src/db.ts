@@ -439,13 +439,13 @@ export class TelemetryDatabase {
 				? `WHERE ${conditions.join(' AND ')}`
 				: '';
 
-		const limit_clause =
-			typeof filters.limit === 'number' && filters.limit > 0
-				? 'LIMIT ?'
-				: '';
+		const limit = filters.limit;
 
-		if (limit_clause) {
-			params.push(filters.limit!);
+		const limit_clause =
+			limit !== undefined && limit > 0 ? 'LIMIT ?' : '';
+
+		if (limit !== undefined && limit_clause) {
+			params.push(limit);
 		}
 
 		const rows = this.db

@@ -1,4 +1,4 @@
-import type { JsonRecord } from './json.js';
+import { metadata_text, type JsonRecord } from './json.js';
 
 export type StandbyIntent =
 	| 'subordinate'
@@ -69,11 +69,8 @@ export function standby_label(
 ): string | undefined {
 	if (!is_standby_session(metadata)) return undefined;
 
-	const intent =
-		typeof metadata.intent === 'string' ? metadata.intent : 'standby';
-
-	const alias =
-		typeof metadata.alias === 'string' ? metadata.alias : undefined;
+	const intent = metadata_text(metadata, 'intent') ?? 'standby';
+	const alias = metadata_text(metadata, 'alias');
 
 	return alias
 		? `standby:${intent} as ${alias}`

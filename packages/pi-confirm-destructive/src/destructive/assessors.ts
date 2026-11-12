@@ -20,6 +20,7 @@ import {
 	extract_shell_invocations,
 	type ShellInvocation,
 } from './shell.js';
+import { parse_tool_input, type ToolInput } from './tool-input.js';
 import type { DestructiveAction } from './types.js';
 
 const DESTRUCTIVE_CUSTOM_TOOL_NAME =
@@ -574,25 +575,16 @@ function assess_file_write(
 
 function assess_file_edit(
 	cwd: string,
-	input: { path?: unknown; edits?: unknown },
+	input: ToolInput,
 	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
-	const path =
-		typeof input.path === 'string' ? input.path : undefined;
-
-	const edits = Array.isArray(input.edits) ? input.edits : [];
+	const path = input.path;
 	let removed_chars = 0;
 	let added_chars = 0;
 
-	for (const edit of edits) {
-		if (!edit || typeof edit !== 'object') continue;
-		const old_text = (edit as { oldText?: unknown }).oldText;
-		const new_text = (edit as { newText?: unknown }).newText;
-
-		if (typeof old_text === 'string')
-			removed_chars += old_text.length;
-
-		if (typeof new_text === 'string') added_chars += new_text.length;
+	for (const edit of input.edits) {
+		removed_chars += edit.oldText?.length ?? 0;
+		added_chars += edit.newText?.length ?? 0;
 	}
 
 	if (removed_chars === 0 || removed_chars - added_chars < 200)
@@ -620,16 +612,14 @@ function assess_file_edit(
 
 function assess_custom_tool(
 	event: ToolCallEvent,
+	input: ToolInput,
 ): DestructiveAction | undefined {
 	if (!DESTRUCTIVE_CUSTOM_TOOL_NAME.test(event.toolName))
 		return undefined;
 
-	const input_query =
-		'query' in event.input ? event.input.query : undefined;
-
 	const query =
-		typeof input_query === 'string'
-			? `\n\nQuery: ${preview(input_query)}`
+		input.query !== undefined
+			? `\n\nQuery: ${preview(input.query)}`
 			: '';
 
 	return {
@@ -645,26 +635,24 @@ export function assess_tool_call(
 	cwd: string,
 	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
-	if (event.toolName === 'bash') {
-		const command = (event.input as { command?: unknown }).command;
+	const input = parse_tool_input(event.input);
 
-		return typeof command === 'string'
-			? assess_bash_command(command, cwd, session_created_paths)
+	if (event.toolName === 'bash') {
+		return input.command !== undefined
+			? assess_bash_command(input.command, cwd, session_created_paths)
 			: undefined;
 	}
 
 	if (event.toolName === 'write') {
-		const path = event.input.path;
-
 		// The SDK types this as string, but tool input is model-supplied.
-		return typeof path === 'string'
-			? assess_file_write(cwd, path, session_created_paths)
+		return input.path !== undefined
+			? assess_file_write(cwd, input.path, session_created_paths)
 			: undefined;
 	}
 
 	if (event.toolName === 'edit') {
-		return assess_file_edit(cwd, event.input, session_created_paths);
+		return assess_file_edit(cwd, input, session_created_paths);
 	}
 
-	return assess_custom_tool(event);
+	return assess_custom_tool(event, input);
 }

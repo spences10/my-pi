@@ -1,4 +1,5 @@
-import type { PayloadObject } from './json.js';
+import * as v from 'valibot';
+import type { PayloadObject, PayloadValue } from './json.js';
 
 const SECRET_KEY_RE =
 	/(api[_-]?key|authorization|bearer|client[_-]?secret|cookie|password|secret|token)/i;
@@ -28,17 +29,17 @@ export function redact_text(value: string): string {
 
 export function redact_value<T>(
 	value: T,
-): T | string | unknown[] | PayloadObject {
-	if (typeof value === 'string') return redact_text(value);
+): T | string | PayloadValue[] | PayloadObject {
+	if (v.is(v.string(), value)) return redact_text(value);
 
 	if (Array.isArray(value))
 		return value.map((item) => redact_value(item));
 
-	if (!value || typeof value !== 'object') return value;
+	if (!value || !v.is(v.object({}), value)) return value;
 
 	const output: PayloadObject = {};
 
-	for (const [key, item] of Object.entries(value)) {
+	for (const [key, item] of Object.entries<PayloadValue>(value)) {
 		output[key] = is_secret_key(key)
 			? '[REDACTED]'
 			: redact_value(item);

@@ -43,6 +43,19 @@ export const summarizable_schema: v.GenericSchema<
 	null,
 );
 
+const optional_summarizable = v.optional(summarizable_schema);
+
+/** Decodes the tool-argument fields the summaries read from an args object. */
+const tool_args_schema = v.looseObject({
+	timeout: optional_summarizable,
+	command: optional_summarizable,
+	content: optional_summarizable,
+	edits: optional_summarizable,
+	path: v.fallback(v.optional(v.string()), undefined),
+	offset: v.fallback(v.optional(v.number()), undefined),
+	limit: v.fallback(v.optional(v.number()), undefined),
+});
+
 interface ObjectValueSummary {
 	type: ValueSummary;
 	keys: ValueSummary;
@@ -57,8 +70,9 @@ export function safe_json_stringify(
 	try {
 		return JSON.stringify(value);
 	} catch {
+		// Only bigint and cyclic or throwing objects fail to serialize.
 		return JSON.stringify({
-			type: typeof value,
+			type: v.is(v.bigint(), value) ? 'bigint' : 'object',
 			unserializable: true,
 		});
 	}
@@ -70,7 +84,7 @@ export function summarize_value(
 ): ValueSummary {
 	if (value == null) return null;
 
-	if (typeof value === 'string') {
+	if (v.is(v.string(), value)) {
 		return {
 			type: 'string',
 			bytes: Buffer.byteLength(value, 'utf-8'),
@@ -78,11 +92,7 @@ export function summarize_value(
 		};
 	}
 
-	if (
-		typeof value === 'number' ||
-		typeof value === 'boolean' ||
-		typeof value === 'bigint'
-	) {
+	if (v.is(v.union([v.number(), v.boolean(), v.bigint()]), value)) {
 		return value;
 	}
 
@@ -99,7 +109,7 @@ export function summarize_value(
 		};
 	}
 
-	if (typeof value === 'object') {
+	if (v.is(v.looseObject({}), value)) {
 		const entries = Object.entries(value);
 
 		const summary: ObjectValueSummary = {
@@ -130,7 +140,7 @@ export function summarize_value(
 	}
 
 	return {
-		type: typeof value,
+		type: v.is(v.symbol(), value) ? 'symbol' : 'function',
 	};
 }
 
@@ -138,12 +148,13 @@ export function summarize_tool_args(
 	tool_name: string,
 	args: SummarizableValue,
 ): string | null {
-	if (!args || typeof args !== 'object') {
+	const parsed = v.safeParse(tool_args_schema, args);
+
+	if (!parsed.success) {
 		return safe_json_stringify(summarize_value(args));
 	}
 
-	// SAFETY: `args` is non-null and an object here; arrays have no named fields, so the lookups below read undefined.
-	const input = args as { [key: string]: SummarizableValue };
+	const input = parsed.output;
 
 	switch (tool_name) {
 		case 'bash':
@@ -157,10 +168,9 @@ export function summarize_tool_args(
 		case 'edit':
 			return safe_json_stringify({
 				tool: tool_name,
-				path: typeof input.path === 'string' ? input.path : null,
-				offset:
-					typeof input.offset === 'number' ? input.offset : null,
-				limit: typeof input.limit === 'number' ? input.limit : null,
+				path: input.path ?? null,
+				offset: input.offset ?? null,
+				limit: input.limit ?? null,
 				content: summarize_value(input.content),
 				edits: summarize_value(input.edits),
 			});

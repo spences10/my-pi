@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { Type } from 'typebox';
+import * as v from 'valibot';
 import {
 	LspClientStartError,
 	type LspDiagnostic,
@@ -7,6 +8,10 @@ import {
 	type LspHover,
 	type LspLocation,
 } from './client.js';
+import {
+	coded_error_schema,
+	marked_string_text_schema,
+} from './response-schemas.js';
 import {
 	get_server_config,
 	list_supported_languages,
@@ -235,6 +240,12 @@ export function to_lsp_tool_error(
 		};
 	}
 
+	const parsed_error = v.safeParse(coded_error_schema, cause);
+
+	const coded_error = parsed_error.success
+		? parsed_error.output
+		: undefined;
+
 	return {
 		kind: 'tool_execution_failed',
 		file,
@@ -243,13 +254,7 @@ export function to_lsp_tool_error(
 		command,
 		install_hint,
 		message: cause instanceof Error ? cause.message : String(cause),
-		code:
-			typeof cause === 'object' &&
-			cause !== null &&
-			'code' in cause &&
-			typeof (cause as { code?: unknown }).code === 'string'
-				? (cause as { code: string }).code
-				: undefined,
+		code: coded_error?.code,
 	};
 }
 
@@ -335,7 +340,7 @@ export function format_hover(hover: LspHover | null): string {
 			| string
 			| { language?: string; value: string }
 			| { kind: string; value: string },
-	): string => (typeof item === 'string' ? item : (item.value ?? ''));
+	): string => v.parse(marked_string_text_schema, item);
 
 	if (Array.isArray(contents)) {
 		return (

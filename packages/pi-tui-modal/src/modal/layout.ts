@@ -71,7 +71,7 @@ export function normalize_text(
 	value: ModalText | undefined,
 ): string[] {
 	if (!value) return [];
-	const resolved = typeof value === 'function' ? value() : value;
+	const resolved = value instanceof Function ? value() : value;
 
 	return Array.isArray(resolved) ? resolved : [resolved];
 }
@@ -80,9 +80,10 @@ export function parse_size_value(
 	value: number | string | undefined,
 	total: number,
 ): number | undefined {
-	if (typeof value === 'number') return value;
+	if (value === undefined) return undefined;
 
-	if (typeof value !== 'string') return undefined;
+	// Last resort: number | string is a domain union with no other discriminator.
+	if (v.is(v.number(), value)) return value;
 	const match = value.match(/^(\d+(?:\.\d+)?)%$/);
 
 	return match
@@ -93,10 +94,11 @@ export function parse_size_value(
 export function get_vertical_margin(
 	margin: OverlayOptions['margin'],
 ): number {
-	if (typeof margin === 'number') return Math.max(0, margin) * 2;
+	if (!(margin instanceof Object))
+		return Math.max(0, margin ?? 0) * 2;
 
 	return (
-		Math.max(0, margin?.top ?? 0) + Math.max(0, margin?.bottom ?? 0)
+		Math.max(0, margin.top ?? 0) + Math.max(0, margin.bottom ?? 0)
 	);
 }
 
@@ -192,7 +194,7 @@ export function normalize_metadata(
 	item: SettingItem | undefined,
 ): string[] {
 	if (!value) return [];
-	const resolved = typeof value === 'function' ? value(item) : value;
+	const resolved = value instanceof Function ? value(item) : value;
 
 	if (!resolved) return [];
 
@@ -337,7 +339,9 @@ export function make_settings_theme(
 }
 
 export function is_focusable(value: unknown): value is Focusable {
-	return Boolean(
-		value && typeof value === 'object' && 'focused' in value,
+	return (
+		value instanceof Object &&
+		!(value instanceof Function) &&
+		'focused' in value
 	);
 }

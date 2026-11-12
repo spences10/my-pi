@@ -22,7 +22,7 @@ import {
 	find_stale_sessions,
 	type ProcessAliveCheck,
 } from '../session-liveness.js';
-import type { JsonRecord } from '../json.js';
+import { metadata_text, type JsonRecord } from '../json.js';
 import { DeliveryPolicy } from './delivery-policy.js';
 import {
 	map_artifact,
@@ -650,17 +650,22 @@ export class TeamDatabase {
 				);
 				const sender = this.get_session(input.from_session_id);
 				const recipient = this.get_session(session_id);
-				let owned_group: unknown;
+				let owned_group: string | undefined;
 
 				if (sender?.parent_session_id)
-					owned_group = sender.metadata.worker_group_id;
+					owned_group = metadata_text(
+						sender.metadata,
+						'worker_group_id',
+					);
 				else if (
 					recipient?.parent_session_id === input.from_session_id
 				)
-					owned_group = recipient.metadata.worker_group_id;
+					owned_group = metadata_text(
+						recipient.metadata,
+						'worker_group_id',
+					);
 
-				let delivery_group =
-					typeof owned_group === 'string' ? owned_group : undefined;
+				let delivery_group = owned_group;
 
 				if (input.scope === 'group') delivery_group = input.target;
 				this.delivery.enroll_receipt(

@@ -10,6 +10,7 @@ import {
 	references_result_schema,
 	document_symbols_result_schema,
 	diagnostic_result_schema,
+	coded_error_schema,
 	json_rpc_message_schema,
 	publish_diagnostics_params_schema,
 } from './response-schemas.js';
@@ -76,6 +77,12 @@ export type JsonValue =
 	| null
 	| JsonValue[]
 	| { [key: string]: JsonValue | undefined };
+
+/** JSON-RPC ids are numbers or numeric strings; anything else matches no request. */
+const numeric_id_schema = v.union([
+	v.number(),
+	v.pipe(v.string(), v.regex(/^-?\d+$/), v.transform(Number)),
+]);
 
 type JsonRpcMessage = v.InferOutput<typeof json_rpc_message_schema>;
 
@@ -616,14 +623,8 @@ export class LspClient extends EventEmitter {
 	}
 
 	#handle_message(message: JsonRpcMessage): void {
-		let numeric_id: number | null = null;
-
-		if (typeof message.id === 'number') numeric_id = message.id;
-		else if (
-			typeof message.id === 'string' &&
-			/^-?\d+$/.test(message.id)
-		)
-			numeric_id = Number(message.id);
+		const parsed_id = v.safeParse(numeric_id_schema, message.id);
+		const numeric_id = parsed_id.success ? parsed_id.output : null;
 
 		if (numeric_id != null && this.#pending.has(numeric_id)) {
 			const pending = this.#pending.get(numeric_id)!;
@@ -662,7 +663,7 @@ export class LspClient extends EventEmitter {
 			if (!open_doc) return;
 
 			if (
-				typeof params.version === 'number' &&
+				params.version != null &&
 				params.version !== open_doc.version
 			) {
 				return;
@@ -747,11 +748,8 @@ export function file_path_to_uri(file_path: string): string {
 	return pathToFileURL(file_path).href;
 }
 
-function error_code(cause: unknown): string | undefined {
-	return typeof cause === 'object' &&
-		cause !== null &&
-		'code' in cause &&
-		typeof (cause as { code?: unknown }).code === 'string'
-		? (cause as { code: string }).code
-		: undefined;
+function error_code(cause: Error): string | undefined {
+	const parsed = v.safeParse(coded_error_schema, cause);
+
+	return parsed.success ? parsed.output.code : undefined;
 }

@@ -68,9 +68,7 @@ export function summarize_completed_peer_messages(
 			return (
 				sum +
 				Buffer.byteLength(
-					typeof content === 'string'
-						? content
-						: JSON.stringify(content),
+					Array.isArray(content) ? JSON.stringify(content) : content,
 				)
 			);
 		},

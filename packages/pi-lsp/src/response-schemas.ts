@@ -127,3 +127,18 @@ export const json_rpc_message_schema = v.looseObject({
 		}),
 	),
 });
+
+/** A hover item reduced to its text: plain strings and `{ value }` objects. */
+export const marked_string_text_schema = v.fallback(
+	v.union([
+		v.string(),
+		v.pipe(
+			v.looseObject({ value: v.optional(v.string()) }),
+			v.transform((item) => item.value ?? ''),
+		),
+	]),
+	'',
+);
+
+/** Anything carrying a string `code`, such as a Node system error. */
+export const coded_error_schema = v.looseObject({ code: v.string() });

@@ -33,13 +33,12 @@ export default function provider(pi: ExtensionAPI) {
 						.filter((message) => message.role === 'user')
 						.at(-1)?.content;
 
-					const prompt =
-						typeof text === 'string'
-							? text
-							: (text ?? [])
-									.filter((block) => block.type === 'text')
-									.map((block) => block.text)
-									.join('\n');
+					const prompt = Array.isArray(text)
+						? text
+								.filter((block) => block.type === 'text')
+								.map((block) => block.text)
+								.join('\n')
+						: (text ?? '');
 
 					if (prompt.startsWith('spawn-owned:')) {
 						return fauxAssistantMessage(

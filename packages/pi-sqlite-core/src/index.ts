@@ -1,3 +1,5 @@
+import * as v from 'valibot';
+
 export const DEFAULT_SQLITE_BUSY_TIMEOUT_MS = 5000;
 
 export const SQLITE_PERSISTENT_PRAGMAS = `
@@ -31,22 +33,24 @@ export function sqlite_pragmas(
 	};
 }
 
-export function is_sqlite_busy(cause: unknown): boolean {
-	if (typeof cause !== 'object' || cause === null) return false;
+const sqlite_busy_schema = v.looseObject({
+	code: v.literal('ERR_SQLITE_ERROR'),
+	errcode: v.optional(v.unknown()),
+	errstr: v.optional(v.unknown()),
+	message: v.fallback(v.optional(v.string()), undefined),
+});
 
-	const candidate = cause as {
-		code?: unknown;
-		errcode?: unknown;
-		errstr?: unknown;
-		message?: unknown;
-	};
+export function is_sqlite_busy(cause: unknown): boolean {
+	const parsed = v.safeParse(sqlite_busy_schema, cause);
+
+	if (!parsed.success) return false;
+
+	const { errcode, errstr, message } = parsed.output;
 
 	return (
-		candidate.code === 'ERR_SQLITE_ERROR' &&
-		(candidate.errcode === 5 ||
-			candidate.errstr === 'database is locked' ||
-			(typeof candidate.message === 'string' &&
-				candidate.message.includes('database is locked')))
+		errcode === 5 ||
+		errstr === 'database is locked' ||
+		(message?.includes('database is locked') ?? false)
 	);
 }
 

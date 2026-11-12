@@ -1,4 +1,5 @@
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
+import * as v from 'valibot';
 import { to_session_row } from './event-rows.js';
 import type {
 	DailyStats,
@@ -44,7 +45,7 @@ function nullable_number(
 function nullable_text(
 	value: SQLOutputValue | undefined,
 ): string | null {
-	return typeof value === 'string' ? value : null;
+	return v.parse(v.fallback(v.nullable(v.string()), null), value);
 }
 
 /** Nearest-rank percentile of an ascending array; 0 when empty. */
@@ -301,6 +302,10 @@ export function create_stats_queries(db: DatabaseSync) {
 			(row) => {
 				const tool = row.type === 'tool_execution_end';
 
+				const tool_call_id = tool
+					? nullable_text(row.tool_call_id)
+					: null;
+
 				return {
 					kind: tool ? 'tool' : 'model',
 					session_id: String(row.session_id),
@@ -314,9 +319,7 @@ export function create_stats_queries(db: DatabaseSync) {
 							: nullable_text(row.model)) ??
 						(tool ? 'tool' : 'model'),
 					span_id:
-						tool && typeof row.tool_call_id === 'string'
-							? `tool:${row.tool_call_id}`
-							: null,
+						tool_call_id === null ? null : `tool:${tool_call_id}`,
 					error_text: nullable_text(row.error_text),
 					exit_code: nullable_number(row.exit_code),
 					duration_ms: nullable_number(row.duration_ms),

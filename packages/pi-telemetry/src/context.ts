@@ -2,6 +2,7 @@ import type {
 	ExtensionContext,
 	SessionShutdownEvent,
 } from '@earendil-works/pi-coding-agent';
+import * as v from 'valibot';
 import type { EvalMetadata } from './types.js';
 
 export function parse_int(value: string | undefined): number | null {
@@ -30,6 +31,11 @@ interface RunOutcome {
 	error_message: string | null;
 }
 
+const model_identity_schema = v.object({
+	provider: v.fallback(v.nullable(v.string()), null),
+	id: v.fallback(v.nullable(v.string()), null),
+});
+
 export function get_model_identity(
 	model:
 		| Pick<NonNullable<ExtensionContext['model']>, 'id' | 'provider'>
@@ -40,11 +46,7 @@ export function get_model_identity(
 		return { provider: null, id: null };
 	}
 
-	return {
-		provider:
-			typeof model.provider === 'string' ? model.provider : null,
-		id: typeof model.id === 'string' ? model.id : null,
-	};
+	return v.parse(model_identity_schema, model);
 }
 
 export function get_session_file(

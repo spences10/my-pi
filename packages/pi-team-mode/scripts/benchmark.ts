@@ -258,9 +258,9 @@ await scenario('completed_context', ({ db, send }) => {
 			return (
 				sum +
 				Buffer.byteLength(
-					typeof message.content === 'string'
-						? message.content
-						: JSON.stringify(message.content),
+					Array.isArray(message.content)
+						? JSON.stringify(message.content)
+						: message.content,
 				)
 			);
 		}, 0);

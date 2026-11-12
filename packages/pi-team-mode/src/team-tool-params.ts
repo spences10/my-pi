@@ -1,5 +1,6 @@
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type, type TSchema } from 'typebox';
+import * as v from 'valibot';
 import { MAX_TEAM_LIST_LIMIT } from './pagination.js';
 
 export type TeamUiMode = 'auto' | 'compact' | 'full' | 'off';
@@ -309,13 +310,23 @@ const ACTION_ALLOWED_FIELDS = {
 	readonly (keyof TeamToolParams)[]
 >;
 
+const non_blank_text_schema = v.pipe(
+	v.string(),
+	v.trim(),
+	v.nonEmpty(),
+);
+
+function has_text(
+	value: TeamToolParams[keyof TeamToolParams],
+): boolean {
+	return v.safeParse(non_blank_text_schema, value).success;
+}
+
 function require_tool_field(
 	params: TeamToolParams,
 	field: keyof TeamToolParams,
 ): void {
-	const value = params[field];
-
-	if (typeof value === 'string' && value.trim()) return;
+	if (has_text(params[field])) return;
 	throw new Error(
 		`Invalid team tool action ${params.action}: missing required field ${field}`,
 	);
@@ -326,13 +337,7 @@ function require_tool_any_field(
 	fields: (keyof TeamToolParams)[],
 	label: string,
 ): void {
-	if (
-		fields.some((field) => {
-			const value = params[field];
-
-			return typeof value === 'string' && value.trim();
-		})
-	) {
+	if (fields.some((field) => has_text(params[field]))) {
 		return;
 	}
 

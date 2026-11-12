@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as v from 'valibot';
 import type {
 	ExtensionContext,
 	ExtensionEvent,
@@ -53,9 +54,13 @@ function observability_harness(options?: {
 	const fetch_mock = vi
 		.spyOn(globalThis, 'fetch')
 		.mockImplementation(async (_input, init) => {
-			if (typeof init?.body !== 'string')
+			const request_body = v.safeParse(v.string(), init?.body);
+
+			if (!request_body.success)
 				throw new TypeError('Expected a JSON request body');
-			sent.push(...(JSON.parse(init.body) as ObservabilityEvent[]));
+			sent.push(
+				...(JSON.parse(request_body.output) as ObservabilityEvent[]),
+			);
 
 			return new Response(null, { status: 200 });
 		});
@@ -209,8 +214,9 @@ describe('resolve_observability_config', () => {
 			.mockImplementation(async (input, init) => {
 				let url: string;
 
-				if (typeof input === 'string') url = input;
-				else url = input instanceof URL ? input.href : input.url;
+				if (input instanceof URL) url = input.href;
+				else if (input instanceof Request) url = input.url;
+				else url = input;
 				requests.push({
 					authorization: new Headers(init?.headers).get(
 						'authorization',
@@ -740,7 +746,7 @@ describe('EventQueue body limit', () => {
 			.spyOn(globalThis, 'fetch')
 			.mockImplementation(async (_input, init) => {
 				requests += 1;
-				const body = typeof init?.body === 'string' ? init.body : '';
+				const body = v.parse(v.fallback(v.string(), ''), init?.body);
 
 				if (Buffer.byteLength(body) > max_bytes)
 					return new Response(JSON.stringify({ max_bytes }), {

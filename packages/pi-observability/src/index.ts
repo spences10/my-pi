@@ -10,7 +10,13 @@ import { homedir } from 'node:os';
 import * as v from 'valibot';
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { health_proof_matches } from './health-auth.js';
-import type { PayloadObject } from './json.js';
+import {
+	is_json_scalar,
+	json_string,
+	payload_object,
+	type PayloadObject,
+	type PayloadValue,
+} from './json.js';
 import { assistant_text, message_schema } from './message-text.js';
 import { resolve_observability_token } from './options.js';
 import {
@@ -44,16 +50,16 @@ export const DEFAULT_OBSERVABILITY_URL = 'http://127.0.0.1:43190';
 /** What `pi.getFlag` and `process.env` hand back. */
 type ConfigValue = string | boolean | undefined;
 
-type TagInput = ConfigValue | readonly TagInput[];
+type TagInput = ConfigValue | TagInput[];
 
 const health_body_schema = v.looseObject({
 	proof: v.fallback(v.optional(v.string()), undefined),
 });
 
 function as_string(value: ConfigValue): string | undefined {
-	return typeof value === 'string' && value.length > 0
-		? value
-		: undefined;
+	const text = json_string(value);
+
+	return text !== undefined && text.length > 0 ? text : undefined;
 }
 
 function as_boolean(value: ConfigValue): boolean {
@@ -71,9 +77,11 @@ export function parse_tags(value: TagInput): string[] {
 		return value.flatMap((item) => parse_tags(item));
 	}
 
-	if (typeof value !== 'string') return [];
+	const text = json_string(value);
 
-	return value
+	if (text === undefined) return [];
+
+	return text
 		.split(',')
 		.map((tag) => tag.trim())
 		.filter(Boolean);
@@ -156,21 +164,18 @@ export function resolve_dashboard_command(
 	return 'web';
 }
 
-function summarize_metric_value<T>(value: T): T | PayloadObject {
-	if (!value || typeof value !== 'object') return value;
+function summarize_metric_value(value: PayloadValue): PayloadValue {
+	if (value === null || value === undefined || is_json_scalar(value))
+		return value;
 
 	if (Array.isArray(value))
 		return { type: 'array', length: value.length };
 	const summary: PayloadObject = {};
 
 	for (const [key, child] of Object.entries(value)) {
-		if (
-			typeof child === 'number' ||
-			typeof child === 'string' ||
-			typeof child === 'boolean'
-		) {
+		if (is_json_scalar(child)) {
 			summary[key] = child;
-		} else if (child && typeof child === 'object') {
+		} else if (child) {
 			summary[key] = summarize_metric_value(child);
 		}
 	}
@@ -227,6 +232,8 @@ function detailed_object_summary(
 	};
 
 	for (const [child_key, child] of Object.entries(value)) {
+		const text = json_string(child);
+
 		if (child_key === 'usage' || child_key === 'cost') {
 			summary[child_key] = summarize_metric_value(child);
 		} else if (
@@ -245,24 +252,17 @@ function detailed_object_summary(
 			].includes(child_key)
 		) {
 			summary[child_key] =
-				typeof child === 'string'
-					? summarize_text(child, 500)
+				text !== undefined
+					? summarize_text(text, 500)
 					: summarize_metric_value(child);
 		} else if (child_key === 'instructions') {
 			summary[child_key] =
-				typeof child === 'string'
-					? text_fingerprint(child)
+				text !== undefined
+					? text_fingerprint(text)
 					: summarize_metric_value(child);
-		} else if (
-			key === 'input' &&
-			(typeof child === 'string' ||
-				typeof child === 'number' ||
-				typeof child === 'boolean')
-		) {
+		} else if (key === 'input' && is_json_scalar(child)) {
 			summary[child_key] =
-				typeof child === 'string'
-					? summarize_text(child, 2000)
-					: child;
+				text !== undefined ? summarize_text(text, 2000) : child;
 		}
 	}
 
@@ -360,7 +360,7 @@ export function summarize_payload<T>(
 	detail_level: ObservabilityConfig['detail_level'] = 'detailed',
 	event_type?: ObservabilityEventType,
 ): T | PayloadObject {
-	if (!event || typeof event !== 'object') return event;
+	if (!event || !v.is(v.looseObject({}), event)) return event;
 	// SAFETY: Only objects reach this point; fields are read and copied into the summary, never mutated.
 	const object = event as PayloadObject;
 	const summary: PayloadObject = {};
@@ -382,6 +382,8 @@ export function summarize_payload<T>(
 
 	for (const [key, value] of Object.entries(object)) {
 		if (key in summary) continue;
+		const text = json_string(value);
+		const nested = payload_object(value);
 
 		if (key === 'contextUsage') {
 			if (value === null) {
@@ -392,17 +394,14 @@ export function summarize_payload<T>(
 			summary[key] = v.parse(context_usage_summary_schema, value);
 		} else if (key === 'usage' || key === 'cost') {
 			summary[key] = summarize_metric_value(value);
-		} else if (typeof value === 'string') {
+		} else if (text !== undefined) {
 			summary[key] = summarize_text(
-				value,
+				text,
 				key.toLowerCase().includes('prompt') ? 4000 : 500,
 			);
 		} else if (Array.isArray(value)) {
 			summary[key] = { type: 'array', length: value.length };
-		} else if (value && typeof value === 'object') {
-			// SAFETY: Arrays and primitives were handled by the branches above, leaving an object.
-			const nested = value as PayloadObject;
-
+		} else if (nested !== undefined) {
 			if (detail_level === 'summary') {
 				const metadata = {
 					type: 'object',
@@ -431,9 +430,9 @@ export function summarize_payload<T>(
 				const message = summary[key] as PayloadObject;
 
 				for (const field of ['model', 'responseModel']) {
-					const identifier = nested[field];
+					const identifier = json_string(nested[field]);
 
-					if (typeof identifier === 'string')
+					if (identifier !== undefined)
 						message[field] = summarize_text(identifier, 500);
 				}
 			}
@@ -616,14 +615,21 @@ export function open_dashboard(url: string): void {
 	child.unref();
 }
 
+const rejected_body_schema = v.object({
+	max_bytes: v.fallback(v.optional(v.number()), undefined),
+});
+
 async function rejected_body_limit(
 	response: Response,
 ): Promise<number | null> {
 	try {
-		const body = (await response.json()) as { max_bytes?: unknown };
+		const { max_bytes } = v.parse(
+			rejected_body_schema,
+			await response.json(),
+		);
 
-		return typeof body.max_bytes === 'number' && body.max_bytes > 0
-			? body.max_bytes
+		return max_bytes !== undefined && max_bytes > 0
+			? max_bytes
 			: null;
 	} catch {
 		return null;

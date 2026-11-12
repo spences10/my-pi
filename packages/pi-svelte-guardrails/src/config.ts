@@ -2,6 +2,7 @@ import { read_package_settings } from '@spences10/pi-settings';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
+import * as v from 'valibot';
 
 export type SvelteGuardrailsMode = 'block' | 'warn' | 'off';
 
@@ -30,24 +31,30 @@ export function get_svelte_guardrails_config_path(): string {
 	return join(xdg, 'my-pi', 'svelte-guardrails.json');
 }
 
+const config_schema = v.object({
+	blockEffect: v.fallback(
+		v.boolean(),
+		DEFAULT_SVELTE_GUARDRAILS_CONFIG.blockEffect,
+	),
+	allow: v.fallback(
+		v.pipe(
+			v.array(v.fallback(v.optional(v.string()), undefined)),
+			v.transform((items) =>
+				items.filter((item): item is string => item !== undefined),
+			),
+		),
+		DEFAULT_SVELTE_GUARDRAILS_CONFIG.allow,
+	),
+	mode: v.fallback(
+		v.picklist(['block', 'warn', 'off']),
+		DEFAULT_SVELTE_GUARDRAILS_CONFIG.mode,
+	),
+});
+
 export function normalize_svelte_guardrails_config(
 	value: Partial<SvelteGuardrailsConfig>,
 ): SvelteGuardrailsConfig {
-	return {
-		version: 1,
-		blockEffect:
-			typeof value.blockEffect === 'boolean'
-				? value.blockEffect
-				: DEFAULT_SVELTE_GUARDRAILS_CONFIG.blockEffect,
-		allow: Array.isArray(value.allow)
-			? value.allow.filter(
-					(item): item is string => typeof item === 'string',
-				)
-			: DEFAULT_SVELTE_GUARDRAILS_CONFIG.allow,
-		mode: is_svelte_guardrails_mode(value.mode)
-			? value.mode
-			: DEFAULT_SVELTE_GUARDRAILS_CONFIG.mode,
-	};
+	return { version: 1, ...v.parse(config_schema, value) };
 }
 
 export function get_project_svelte_guardrails_config_path(
@@ -92,12 +99,6 @@ function read_svelte_guardrails_config_file(
 	} catch {
 		return {};
 	}
-}
-
-function is_svelte_guardrails_mode(
-	value: unknown,
-): value is SvelteGuardrailsMode {
-	return value === 'block' || value === 'warn' || value === 'off';
 }
 
 export function is_path_allowed(

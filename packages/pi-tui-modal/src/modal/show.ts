@@ -153,7 +153,7 @@ export async function show_picker_modal(
 
 						if (selected_footer !== undefined) return selected_footer;
 
-						if (typeof options.footer === 'function') {
+						if (options.footer instanceof Function) {
 							return options.footer();
 						}
 

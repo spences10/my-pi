@@ -16,10 +16,14 @@ export function diagnostic_error(cause: unknown): Error {
 
 export function worker_snapshot(info: WorkerInfo): WorkerInfo {
 	// WorkerInfo is flat; sanitize every string, including child-supplied paths.
-	return Object.fromEntries(
-		Object.entries(info).map(([key, value]) => [
+	const { pid: _pid, ...text_fields } = info;
+
+	const sanitized = Object.fromEntries(
+		Object.entries(text_fields).map(([key, value]) => [
 			key,
-			typeof value === 'string' ? diagnostic_text(value) : value,
+			value === undefined ? undefined : diagnostic_text(value),
 		]),
-	) as WorkerInfo;
+	);
+
+	return Object.assign({}, info, sanitized);
 }

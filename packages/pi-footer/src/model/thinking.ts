@@ -41,7 +41,7 @@ export function get_current_thinking_level(
 
 		if (
 			entry.type === 'thinking_level_change' &&
-			typeof entry.thinkingLevel === 'string' &&
+			entry.thinkingLevel !== undefined &&
 			is_model_thinking_level(entry.thinkingLevel)
 		) {
 			if (!ctx.model?.reasoning) return 'off';

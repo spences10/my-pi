@@ -76,7 +76,7 @@ async function with_file_state(
 	signal: AbortSignal | undefined,
 	run: (
 		result: FileState,
-	) => Promise<string | { text: string; details: LspToolDetails }>,
+	) => Promise<{ text: string; details?: LspToolDetails }>,
 ) {
 	const resolved = await manager.resolve_file_state(
 		file,
@@ -99,9 +99,6 @@ async function with_file_state(
 			command: result.state.command,
 			workspace_root: result.state.workspace_root,
 		};
-
-		if (typeof output === 'string')
-			return make_tool_result(output, details);
 
 		return make_tool_result(output.text, {
 			...details,
@@ -273,7 +270,9 @@ export function register_lsp_tools(
 							};
 						}
 
-						return format_diagnostics(result.abs, diagnostics);
+						return {
+							text: format_diagnostics(result.abs, diagnostics),
+						};
 					},
 				),
 		}),
@@ -360,16 +359,18 @@ export function register_lsp_tools(
 						const symbols =
 							await result.state.client.document_symbols(result.uri);
 
-						return format_symbol_matches(
-							result.abs,
-							params.query,
-							find_symbol_matches(symbols, params.query, {
-								max_results: params.max_results ?? 20,
-								top_level_only: params.top_level_only ?? false,
-								exact_match: params.exact_match ?? false,
-								kinds: new Set(params.kinds ?? []),
-							}),
-						);
+						return {
+							text: format_symbol_matches(
+								result.abs,
+								params.query,
+								find_symbol_matches(symbols, params.query, {
+									max_results: params.max_results ?? 20,
+									top_level_only: params.top_level_only ?? false,
+									exact_match: params.exact_match ?? false,
+									kinds: new Set(params.kinds ?? []),
+								}),
+							),
+						};
 					},
 				),
 		}),
@@ -406,7 +407,7 @@ export function register_lsp_tools(
 							},
 						);
 
-						return format_hover(hover);
+						return { text: format_hover(hover) };
 					},
 				),
 		}),
@@ -443,10 +444,12 @@ export function register_lsp_tools(
 							},
 						);
 
-						return format_locations(
-							locations,
-							'No definition found.',
-						);
+						return {
+							text: format_locations(
+								locations,
+								'No definition found.',
+							),
+						};
 					},
 				),
 		}),
@@ -481,10 +484,12 @@ export function register_lsp_tools(
 							params.include_declaration ?? true,
 						);
 
-						return format_locations(
-							locations,
-							'No references found.',
-						);
+						return {
+							text: format_locations(
+								locations,
+								'No references found.',
+							),
+						};
 					},
 				),
 		}),
@@ -514,7 +519,9 @@ export function register_lsp_tools(
 						const symbols =
 							await result.state.client.document_symbols(result.uri);
 
-						return format_document_symbols(result.abs, symbols);
+						return {
+							text: format_document_symbols(result.abs, symbols),
+						};
 					},
 				),
 		}),

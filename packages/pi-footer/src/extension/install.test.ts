@@ -36,7 +36,7 @@ describe('install_footer', () => {
 		const factory = set_footer.mock.calls[0]?.[0];
 		expect(factory).toBeTypeOf('function');
 
-		if (typeof factory !== 'function')
+		if (!(factory instanceof Function))
 			throw new Error('missing footer factory');
 
 		const footer = factory(

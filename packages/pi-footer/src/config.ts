@@ -81,7 +81,7 @@ function normalize_status_layout(
 		),
 	);
 
-	if (!layout || typeof layout !== 'object') return normalized;
+	if (!layout) return normalized;
 
 	for (const [key, value] of Object.entries(layout)) {
 		const placement = normalize_status_placement(value);
@@ -92,35 +92,22 @@ function normalize_status_layout(
 	return normalized;
 }
 
+const LEGACY_STATUS_PLACEMENTS = new Map<
+	string,
+	FooterStatusPlacement
+>([
+	['primary-left', { row: 1, alignment: 'left', hidden: false }],
+	['primary-right', { row: 1, alignment: 'right', hidden: false }],
+	['secondary-left', { row: 2, alignment: 'left', hidden: false }],
+	['secondary-right', { row: 2, alignment: 'right', hidden: false }],
+	['hidden', { row: 1, alignment: 'left', hidden: true }],
+]);
+
 function normalize_status_placement(
 	value: StoredStatusPlacement,
 ): FooterStatusPlacement | undefined {
-	if (typeof value === 'string') {
-		const legacy = new Map<string, FooterStatusPlacement>([
-			['primary-left', { row: 1, alignment: 'left', hidden: false }],
-			[
-				'primary-right',
-				{ row: 1, alignment: 'right', hidden: false },
-			],
-			[
-				'secondary-left',
-				{ row: 2, alignment: 'left', hidden: false },
-			],
-			[
-				'secondary-right',
-				{
-					row: 2,
-					alignment: 'right',
-					hidden: false,
-				},
-			],
-			['hidden', { row: 1, alignment: 'left', hidden: true }],
-		]);
-
-		return legacy.get(value);
-	}
-
-	if (!value || typeof value !== 'object') return undefined;
+	if (!(value instanceof Object))
+		return LEGACY_STATUS_PLACEMENTS.get(value);
 
 	if (
 		!Number.isInteger(value.row) ||

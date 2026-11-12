@@ -9,6 +9,7 @@ import {
 } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { StringDecoder } from 'node:string_decoder';
+import * as v from 'valibot';
 
 type JsonValue =
 	| string
@@ -19,6 +20,11 @@ type JsonValue =
 	| { [key: string]: JsonValue };
 
 export type RpcRecord = Record<string, JsonValue>;
+
+/** Correlation id of a response record; any non-string id matches nothing. */
+const rpc_record_id_schema = v.looseObject({
+	id: v.fallback(v.optional(v.string()), undefined),
+});
 
 interface ProcessIdentity {
 	pid: number;
@@ -139,14 +145,22 @@ export class WorkerProcess {
 				try {
 					const record: RpcRecord = JSON.parse(line);
 
-					const pending =
-						typeof record.id === 'string'
-							? this.pending.get(record.id)
-							: undefined;
+					const parsed_id = v.safeParse(rpc_record_id_schema, record);
 
-					if (record.type === 'response' && pending) {
+					const id = parsed_id.success
+						? parsed_id.output.id
+						: undefined;
+
+					const pending =
+						id === undefined ? undefined : this.pending.get(id);
+
+					if (
+						record.type === 'response' &&
+						id !== undefined &&
+						pending
+					) {
 						clearTimeout(pending.timer);
-						this.pending.delete(record.id as string);
+						this.pending.delete(id);
 
 						const failure: unknown = record.error;
 

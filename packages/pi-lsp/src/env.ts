@@ -45,11 +45,11 @@ export function create_child_process_env(
 	for (const key of allowed_keys) {
 		const value = source_env[key];
 
-		if (typeof value === 'string') env[key] = value;
+		if (value !== undefined) env[key] = value;
 	}
 
 	for (const [key, value] of Object.entries(explicit_env)) {
-		if (typeof value === 'string') env[key] = value;
+		env[key] = value;
 	}
 
 	return env;

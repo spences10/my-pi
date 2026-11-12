@@ -27,13 +27,13 @@ const edits_schema = v.fallback(
 );
 
 const tool_input_schema = v.looseObject({
-	path: v.optional(v.unknown()),
-	file_path: v.optional(v.unknown()),
-	filePath: v.optional(v.unknown()),
+	path: v.fallback(v.optional(v.string()), undefined),
+	file_path: v.fallback(v.optional(v.string()), undefined),
+	filePath: v.fallback(v.optional(v.string()), undefined),
 	content: v.optional(v.unknown()),
 	newText: v.optional(v.unknown()),
 	edits: v.optional(v.unknown()),
-	command: v.optional(v.unknown()),
+	command: v.fallback(v.optional(v.string()), undefined),
 });
 
 type SvelteToolInput = v.InferOutput<typeof tool_input_schema>;
@@ -52,8 +52,7 @@ export function find_svelte_path(
 	input: SvelteToolInput,
 ): string | undefined {
 	for (const value of [input.path, input.file_path, input.filePath]) {
-		if (typeof value === 'string' && is_svelte_path(value))
-			return value;
+		if (value !== undefined && is_svelte_path(value)) return value;
 	}
 
 	return undefined;
@@ -149,7 +148,7 @@ export function assess_svelte_effect(
 	if (event.toolName === 'bash') {
 		const command = input.command;
 
-		if (typeof command !== 'string') return undefined;
+		if (command === undefined) return undefined;
 
 		if (!contains_disallowed_effect(command)) return undefined;
 		const path = extract_bash_svelte_path(command);

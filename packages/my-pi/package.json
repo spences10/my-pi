@@ -79,6 +79,7 @@
 		"@earendil-works/pi-ai": "catalog:",
 		"@types/node": "catalog:",
 		"typescript": "catalog:",
+		"valibot": "catalog:",
 		"vite-plus": "catalog:"
 	},
 	"engines": {

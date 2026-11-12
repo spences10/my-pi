@@ -5,6 +5,7 @@ import type {
 } from '@earendil-works/pi-coding-agent';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import * as v from 'valibot';
 import {
 	HARNESS_ASSESSMENT_CUSTOM_TYPE,
 	assessment_active,
@@ -48,6 +49,19 @@ const tool_text = (text: string) => ({
 	content: [{ type: 'text' as const, text }],
 	details: {},
 });
+
+/** The first present path alias of a mutation tool call; it must be a string. */
+const mutation_path_schema = v.pipe(
+	v.looseObject({
+		path: v.optional(v.unknown()),
+		file_path: v.optional(v.unknown()),
+		filePath: v.optional(v.unknown()),
+	}),
+	v.transform(
+		(input) => input.path ?? input.file_path ?? input.filePath,
+	),
+	v.string(),
+);
 
 export function should_inject_harness_prompt(
 	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
@@ -419,15 +433,12 @@ export default function harness(pi: ExtensionAPI) {
 		}
 
 		if (event.toolName === 'write' || event.toolName === 'edit') {
-			const input: {
-				path?: unknown;
-				file_path?: unknown;
-				filePath?: unknown;
-			} = event.input;
+			const parsed_path = v.safeParse(
+				mutation_path_schema,
+				event.input,
+			);
 
-			const path = input.path ?? input.file_path ?? input.filePath;
-
-			if (typeof path !== 'string')
+			if (!parsed_path.success)
 				return {
 					block: true,
 					reason: 'Harness mutation requires a known file path',
@@ -442,7 +453,7 @@ export default function harness(pi: ExtensionAPI) {
 
 			const result = check_path_allowed(
 				{ ...contract, policy: { ...contract.policy, cwd } },
-				path,
+				parsed_path.output,
 			);
 
 			if (!result.ok) return { block: true, reason: result.reason };

@@ -8,6 +8,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as v from 'valibot';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { WorkerManager, type WorkerInfo } from './manager.js';
 import { WorkerProcess } from './rpc.js';
@@ -330,10 +331,11 @@ describe('real upstream Pi RPC workers', () => {
 		cleanup.push(() => peer.stop());
 		peer.start();
 		const state = await peer.request({ type: 'get_state' });
-		const peer_id = state.sessionId;
+		const parsed_peer_id = v.safeParse(v.string(), state.sessionId);
 
-		if (typeof peer_id !== 'string')
+		if (!parsed_peer_id.success)
 			throw new Error('Peer did not report a session id');
+		const peer_id = parsed_peer_id.output;
 
 		const worker = await manager.spawn({
 			...options,

@@ -28,6 +28,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as v from 'valibot';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 
 type Case = {
@@ -483,10 +484,11 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 					);
 					const target = test_case.file ?? input.path;
 
-					const path =
-						typeof target === 'string'
-							? join(dir, target)
-							: undefined;
+					const target_path = v.safeParse(v.string(), target);
+
+					const path = target_path.success
+						? join(dir, target_path.output)
+						: undefined;
 
 					if (path && initial !== undefined)
 						writeFileSync(path, initial);

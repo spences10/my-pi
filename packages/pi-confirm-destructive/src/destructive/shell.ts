@@ -2,6 +2,7 @@ import type { ToolResultEvent } from '@earendil-works/pi-coding-agent';
 import { existsSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { is_temp_path } from './paths.js';
+import { part_text } from './tool-input.js';
 
 interface ShellToken {
 	kind: 'word' | 'operator';
@@ -786,14 +787,7 @@ export function command_may_create_temp_path(
 }
 
 function text_content(event: ToolResultEvent): string {
-	return event.content
-		.map((part) => {
-			if ('text' in part && typeof part.text === 'string')
-				return part.text;
-
-			return '';
-		})
-		.join('');
+	return event.content.map(part_text).join('');
 }
 
 export function extract_created_temp_paths_from_result(

@@ -84,12 +84,12 @@ export const default_config: CodingPreferencesConfig = {
 };
 
 const tool_input_schema = v.looseObject({
-	path: v.optional(v.unknown()),
-	file_path: v.optional(v.unknown()),
-	filePath: v.optional(v.unknown()),
-	command: v.optional(v.unknown()),
-	content: v.optional(v.unknown()),
-	newText: v.optional(v.unknown()),
+	path: v.fallback(v.optional(v.string()), undefined),
+	file_path: v.fallback(v.optional(v.string()), undefined),
+	filePath: v.fallback(v.optional(v.string()), undefined),
+	command: v.fallback(v.optional(v.string()), undefined),
+	content: v.fallback(v.optional(v.string()), undefined),
+	newText: v.fallback(v.optional(v.string()), undefined),
 	edits: v.optional(v.unknown()),
 });
 
@@ -104,14 +104,14 @@ function path_value_from(
 ): TargetValue | undefined {
 	const input = tool_input(event);
 
-	const candidates: Array<[string, unknown]> = [
+	const candidates: Array<[string, string | undefined]> = [
 		['path', input.path],
 		['file_path', input.file_path],
 		['filePath', input.filePath],
 	];
 
 	for (const [key, value] of candidates) {
-		if (typeof value === 'string') {
+		if (value !== undefined) {
 			return { field: `input.${key}`, value };
 		}
 	}
@@ -124,7 +124,7 @@ function command_value_from(
 ): TargetValue | undefined {
 	const command = tool_input(event).command;
 
-	return typeof command === 'string'
+	return command !== undefined
 		? { field: 'input.command', value: command }
 		: undefined;
 }
@@ -140,7 +140,7 @@ function input_values(
 	value: InputNode,
 	field = 'input',
 ): TargetValue[] {
-	if (typeof value === 'string') return [{ field, value }];
+	if (value === null) return [];
 
 	if (Array.isArray(value)) {
 		return value.flatMap((item, index) =>
@@ -148,7 +148,7 @@ function input_values(
 		);
 	}
 
-	if (!value || typeof value !== 'object') return [];
+	if (!(value instanceof Object)) return [{ field, value }];
 
 	return Object.entries(value).flatMap(([key, item]) =>
 		input_values(item, `${field}.${key}`),
@@ -175,7 +175,7 @@ function target_values(
 		const input = tool_input(event);
 
 		if (event.toolName === 'write') {
-			return typeof input.content === 'string'
+			return input.content !== undefined
 				? [{ field: 'input.content', value: input.content }]
 				: [];
 		}
@@ -183,7 +183,7 @@ function target_values(
 		if (event.toolName !== 'edit') return [];
 		const replacements: TargetValue[] = [];
 
-		if (typeof input.newText === 'string') {
+		if (input.newText !== undefined) {
 			replacements.push({
 				field: 'input.newText',
 				value: input.newText,

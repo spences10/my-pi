@@ -14,9 +14,9 @@ No quotes, no preamble. If there is no obvious next step, reply with nothing.`;
 function text_of(message: MessageLike | undefined): string {
 	if (!message) return '';
 
-	if (typeof message.content === 'string') return message.content;
+	if (!Array.isArray(message.content)) return message.content ?? '';
 
-	return (message.content ?? [])
+	return message.content
 		.filter((block) => block.type === 'text' && block.text)
 		.map((block) => block.text)
 		.join('\n');

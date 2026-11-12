@@ -27,3 +27,16 @@ export const json_record_schema: v.GenericSchema<
 	unknown,
 	JsonRecord
 > = v.record(v.string(), json_value_schema);
+
+const optional_text_schema = v.fallback(
+	v.optional(v.string()),
+	undefined,
+);
+
+/** The string stored under a metadata key, or undefined when absent or not text. */
+export function metadata_text(
+	metadata: JsonRecord,
+	key: string,
+): string | undefined {
+	return v.parse(optional_text_schema, metadata[key]);
+}

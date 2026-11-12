@@ -62,7 +62,7 @@ export default function turn_timer(pi: ExtensionAPI): void {
 			const duration = entry.data?.duration_ms;
 
 			if (
-				typeof duration !== 'number' ||
+				duration === undefined ||
 				!Number.isFinite(duration) ||
 				duration < 0
 			)

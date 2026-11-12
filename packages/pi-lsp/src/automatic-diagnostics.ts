@@ -6,9 +6,14 @@ import {
 	type TurnEndEvent,
 	type TurnEndEventResult,
 } from '@earendil-works/pi-coding-agent';
+import * as v from 'valibot';
 import type { LspServerManager } from './server-manager.js';
 import { detect_language } from './servers.js';
 import { run_diagnostics_many } from './tools.js';
+
+const tool_path_input_schema = v.looseObject({
+	path: v.fallback(v.optional(v.string()), undefined),
+});
 
 export function create_automatic_diagnostics(
 	manager: LspServerManager,
@@ -27,9 +32,10 @@ export function create_automatic_diagnostics(
 			(!isEditToolResult(event) && !isWriteToolResult(event))
 		)
 			return;
-		const path = event.input.path;
+		// Tool input is model-supplied; a non-string path decodes to undefined.
+		const { path } = v.parse(tool_path_input_schema, event.input);
 
-		if (typeof path !== 'string' || !detect_language(path)) return;
+		if (path === undefined || !detect_language(path)) return;
 		pending_files.add(manager.resolve_abs(path));
 	}
 

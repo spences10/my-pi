@@ -244,6 +244,20 @@ function event_usage(events: ObservabilityEvent[]): UsageMetrics {
 	return totals;
 }
 
+const non_negative_or_null = v.fallback(
+	v.nullable(v.pipe(v.number(), v.finite(), v.minValue(0))),
+	null,
+);
+
+const context_usage_schema = v.object({
+	contextWindow: v.fallback(
+		v.nullable(v.pipe(v.number(), v.finite())),
+		null,
+	),
+	tokens: non_negative_or_null,
+	percent: non_negative_or_null,
+});
+
 /** Latest native snapshot wins, including an explicit unavailable value. */
 function latest_context_usage(
 	events: ObservabilityEvent[],
@@ -254,32 +268,18 @@ function latest_context_usage(
 
 		if (!Object.hasOwn(payload, 'contextUsage')) continue;
 		const usage = record_value(payload, 'contextUsage');
-		const context_window = usage.contextWindow;
 
-		if (
-			typeof context_window !== 'number' ||
-			!Number.isFinite(context_window) ||
-			context_window <= 0
-		)
-			return null;
+		const { contextWindow, tokens, percent } = v.parse(
+			context_usage_schema,
+			usage,
+		);
 
-		const tokens =
-			typeof usage.tokens === 'number' &&
-			Number.isFinite(usage.tokens) &&
-			usage.tokens >= 0
-				? usage.tokens
-				: null;
+		if (contextWindow === null || contextWindow <= 0) return null;
 
 		return {
 			tokens,
-			context_window,
-			percent:
-				tokens !== null &&
-				typeof usage.percent === 'number' &&
-				Number.isFinite(usage.percent) &&
-				usage.percent >= 0
-					? usage.percent
-					: null,
+			context_window: contextWindow,
+			percent: tokens === null ? null : percent,
 			ts: event.ts,
 			model: event.model ?? null,
 		};

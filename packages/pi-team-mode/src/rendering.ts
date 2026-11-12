@@ -9,13 +9,12 @@ import type { TeamToolParams } from './team-tool-params.js';
 export const render_peer_message: MessageRenderer<
 	TeamModePeerMessageDetails
 > = (message, options, theme) => {
-	const content =
-		typeof message.content === 'string'
-			? message.content
-			: message.content
-					.filter((block) => block.type === 'text')
-					.map((block) => block.text)
-					.join('\n');
+	const content = Array.isArray(message.content)
+		? message.content
+				.filter((block) => block.type === 'text')
+				.map((block) => block.text)
+				.join('\n')
+		: message.content;
 
 	if (options.expanded)
 		return new Text(content, options.outputPad, 0);

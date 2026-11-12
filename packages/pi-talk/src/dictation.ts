@@ -1,5 +1,35 @@
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { spawn } from 'node:child_process';
+import * as v from 'valibot';
+
+const deepgram_message_schema = v.pipe(
+	v.string(),
+	v.parseJson(),
+	v.object({
+		type: v.fallback(v.optional(v.string()), undefined),
+		is_final: v.fallback(v.optional(v.boolean()), undefined),
+		channel: v.fallback(
+			v.optional(
+				v.object({
+					alternatives: v.fallback(
+						v.optional(
+							v.array(
+								v.object({
+									transcript: v.fallback(
+										v.optional(v.string()),
+										undefined,
+									),
+								}),
+							),
+						),
+						undefined,
+					),
+				}),
+			),
+			undefined,
+		),
+	}),
+);
 
 const DEEPGRAM_URL =
 	'wss://api.deepgram.com/v1/listen?model=nova-3&encoding=linear16&sample_rate=16000&channels=1&smart_format=true&interim_results=false';
@@ -82,29 +112,24 @@ export class Dictation {
 		};
 
 		socket.onmessage = (event) => {
-			if (this.socket !== socket || typeof event.data !== 'string')
+			if (this.socket !== socket) return;
+
+			// Binary frames and non-transcript messages fail the decode and are ignored.
+			const parsed = v.safeParse(deepgram_message_schema, event.data);
+
+			if (!parsed.success) return;
+			const message = parsed.output;
+
+			if (message.type === 'Error') {
+				this.fail('Deepgram rejected the audio stream.');
+
 				return;
-
-			try {
-				const message = JSON.parse(event.data) as {
-					type?: string;
-					is_final?: boolean;
-					channel?: { alternatives?: Array<{ transcript?: string }> };
-				};
-
-				if (message.type === 'Error') {
-					this.fail('Deepgram rejected the audio stream.');
-
-					return;
-				}
-
-				const text =
-					message.channel?.alternatives?.[0]?.transcript?.trim();
-
-				if (message.is_final && text) this.transcript.push(text);
-			} catch {
-				// Ignore non-transcript messages.
 			}
+
+			const text =
+				message.channel?.alternatives?.[0]?.transcript?.trim();
+
+			if (message.is_final && text) this.transcript.push(text);
 		};
 
 		socket.onerror = () => {

@@ -9,7 +9,7 @@ function row_text(
 	value: SQLOutputValue | undefined,
 	fallback: string,
 ): string {
-	return typeof value === 'string' ? value : fallback;
+	return v.parse(v.fallback(v.string(), fallback), value);
 }
 
 export function to_row_event(

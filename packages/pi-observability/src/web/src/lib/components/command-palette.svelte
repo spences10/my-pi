@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { json_string } from '../../../../json';
 	import { api, type DashboardEvent } from '#lib/api.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Command from '#lib/components/ui/command/index.js';
@@ -136,9 +137,9 @@
 	// Tool events open their span in the trace; others open the
 	// session's event list.
 	function event_href(event: DashboardEvent): string {
-		const call_id = event.payload?.toolCallId;
+		const call_id = json_string(event.payload?.toolCallId);
 
-		return typeof call_id === 'string'
+		return call_id !== undefined
 			? session_href(event.session_id, 'trace', `tool:${call_id}`)
 			: session_href(event.session_id, 'events');
 	}

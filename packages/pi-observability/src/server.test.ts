@@ -22,8 +22,9 @@ async function fetch(
 ): Promise<Response> {
 	let url: string;
 
-	if (typeof input === 'string') url = input;
-	else url = input instanceof URL ? input.href : input.url;
+	if (input instanceof URL) url = input.href;
+	else if (input instanceof Request) url = input.url;
+	else url = input;
 
 	const server = servers.find((candidate) =>
 		url.startsWith(candidate.url),

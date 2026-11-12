@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { json_string } from '../../../../../json';
 	import type { DashboardEvent } from '#lib/api.js';
 	import CodeBlock from '#lib/components/code-block.svelte';
 	import CopyButton from '#lib/components/copy-button.svelte';
@@ -57,8 +58,10 @@
 			'query',
 			'url',
 		]
-			.map((key) => payload_value(call?.payload, `input.${key}`))
-			.find((item): item is string => typeof item === 'string');
+			.map((key) =>
+				json_string(payload_value(call?.payload, `input.${key}`)),
+			)
+			.find((item) => item !== undefined);
 
 		return value ?? span?.detail ?? null;
 	});

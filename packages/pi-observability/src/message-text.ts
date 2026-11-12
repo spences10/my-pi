@@ -37,8 +37,7 @@ export function assistant_text(message: MessageView): {
 	if (message.role !== 'assistant') return null;
 	let text = '';
 
-	if (typeof message.content === 'string') text = message.content;
-	else if (message.content)
+	if (Array.isArray(message.content))
 		text = message.content
 			.flatMap((part) =>
 				part.type === 'text' && part.text !== undefined
@@ -46,6 +45,7 @@ export function assistant_text(message: MessageView): {
 					: [],
 			)
 			.join('\n');
+	else if (message.content !== undefined) text = message.content;
 
 	return {
 		text: text.slice(0, response_text_chars),

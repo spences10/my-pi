@@ -23,6 +23,7 @@ import {
 import { format_coordination_identity } from './coordination-formatting.js';
 import { CoordinationPoller } from './coordination-poller.js';
 import { TeamDatabase } from './db/index.js';
+import { metadata_text } from './json.js';
 import {
 	render_peer_message,
 	team_tool_renderers,
@@ -271,10 +272,10 @@ export default async function team_mode(pi: ExtensionAPI) {
 				)
 			: undefined;
 
-		const worker_id =
-			typeof own_session?.metadata.worker_id === 'string'
-				? own_session.metadata.worker_id
-				: 'unknown';
+		const worker_id = own_session
+			? (metadata_text(own_session.metadata, 'worker_id') ??
+				'unknown')
+			: 'unknown';
 
 		event.systemPromptOptions.sections.team_mode =
 			append_team_system_prompt('', {
