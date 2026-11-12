@@ -1,4 +1,9 @@
+import * as v from 'valibot';
 import type { CoordinationSession } from './db/index.js';
+
+const permission_error_schema = v.looseObject({
+	code: v.literal('EPERM'),
+});
 
 export type ProcessAliveCheck = (pid: number) => boolean;
 
@@ -8,7 +13,7 @@ export function is_process_alive(pid: number): boolean {
 
 		return true;
 	} catch (error) {
-		return (error as NodeJS.ErrnoException).code === 'EPERM';
+		return v.is(permission_error_schema, error);
 	}
 }
 

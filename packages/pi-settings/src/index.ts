@@ -109,6 +109,7 @@ export function read_settings_section<T>(
 ): T {
 	const settings = read_settings();
 
+	// SAFETY: the stored section is untyped JSON; callers pick T and pass the fallback for an absent section, so T is their own contract for its shape and is not validated here.
 	return (
 		settings[key] === undefined ? fallback : settings[key]
 	) as T;
@@ -120,6 +121,7 @@ export function read_package_settings<T>(
 ): T {
 	const packages = read_settings().packages ?? {};
 
+	// SAFETY: the stored entry is untyped JSON; callers pick T and pass the fallback for an absent entry, so T is their own contract for its shape and is not validated here.
 	return (
 		packages[name] === undefined ? fallback : packages[name]
 	) as T;
@@ -140,6 +142,7 @@ export function write_package_settings<T>(
 export function read_trust_settings<T>(name: string, fallback: T): T {
 	const trust = read_settings().trust ?? {};
 
+	// SAFETY: the stored entry is untyped JSON; callers pick T and pass the fallback for an absent entry, so T is their own contract for its shape and is not validated here.
 	return (trust[name] === undefined ? fallback : trust[name]) as T;
 }
 

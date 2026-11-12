@@ -205,8 +205,7 @@ export async function read_codex_access_token(
 }
 
 function active_provider(ctx: ExtensionContext): string | undefined {
-	return (ctx as ExtensionContext & { model?: { provider?: string } })
-		.model?.provider;
+	return ctx.model?.provider;
 }
 
 function themed(
@@ -214,11 +213,7 @@ function themed(
 	tone: CodexUsageTone,
 	text: string,
 ): string {
-	const theme = (
-		ctx.ui as {
-			theme?: { fg?: (tone: string, text: string) => string };
-		}
-	).theme;
+	const theme = ctx.ui.theme;
 
 	return theme?.fg ? theme.fg(tone, text) : text;
 }
@@ -303,8 +298,7 @@ export default async function codex_usage(pi: ExtensionAPI) {
 	});
 
 	pi.on('after_provider_response', async (event, ctx) => {
-		if ((event as { status?: number }).status === 429)
-			await publish(ctx);
+		if (event.status === 429) await publish(ctx);
 	});
 
 	pi.on('session_shutdown', async (_event, ctx) => {

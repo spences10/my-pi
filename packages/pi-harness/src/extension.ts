@@ -1,10 +1,10 @@
 import type {
-	BeforeAgentStartEvent,
 	ExtensionAPI,
 	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { Value } from 'typebox/value';
 import * as v from 'valibot';
 import {
 	HARNESS_ASSESSMENT_CUSTOM_TYPE,
@@ -13,6 +13,7 @@ import {
 	create_assessment_state,
 	format_assessment_record,
 	harness_assess_params_schema,
+	harness_assessment_state_schema,
 	harness_assessment_submit_params_schema,
 	submit_assessment_record,
 	type HarnessAssessmentState,
@@ -50,6 +51,18 @@ const tool_text = (text: string) => ({
 	details: {},
 });
 
+const active_state_schema = v.object({
+	active_harness_dir: v.optional(v.string()),
+});
+
+/** The command of a bash tool call; a missing command is empty. */
+const bash_command_schema = v.pipe(
+	v.looseObject({
+		command: v.optional(v.fallback(v.string(), ''), ''),
+	}),
+	v.transform((input) => input.command),
+);
+
 /** The first present path alias of a mutation tool call; it must be a string. */
 const mutation_path_schema = v.pipe(
 	v.looseObject({
@@ -63,9 +76,9 @@ const mutation_path_schema = v.pipe(
 	v.string(),
 );
 
-export function should_inject_harness_prompt(
-	event: Pick<BeforeAgentStartEvent, 'systemPromptOptions'>,
-): boolean {
+export function should_inject_harness_prompt(event: {
+	systemPromptOptions?: { selectedTools?: string[] | undefined };
+}): boolean {
 	const selected = event.systemPromptOptions?.selectedTools;
 
 	return (
@@ -138,13 +151,21 @@ export default function harness(pi: ExtensionAPI) {
 		for (const entry of ctx.sessionManager.getBranch()) {
 			if (entry.type !== 'custom') continue;
 
-			if (entry.customType === HARNESS_CUSTOM_TYPE)
-				active_harness_dir = (
-					entry.data as { active_harness_dir?: string } | undefined
-				)?.active_harness_dir;
+			if (entry.customType === HARNESS_CUSTOM_TYPE) {
+				const state = v.safeParse(active_state_schema, entry.data);
+
+				active_harness_dir = state.success
+					? state.output.active_harness_dir
+					: undefined;
+			}
 
 			if (entry.customType === HARNESS_ASSESSMENT_CUSTOM_TYPE)
-				assessment = entry.data as HarnessAssessmentState | undefined;
+				assessment = Value.Check(
+					harness_assessment_state_schema,
+					entry.data,
+				)
+					? entry.data
+					: undefined;
 		}
 
 		if (
@@ -424,10 +445,8 @@ export default function harness(pi: ExtensionAPI) {
 		const contract = read_contract(active_harness_dir);
 
 		if (event.toolName === 'bash') {
-			const result = check_command_allowed(
-				contract,
-				String((event.input as { command?: string }).command ?? ''),
-			);
+			const command = v.parse(bash_command_schema, event.input);
+			const result = check_command_allowed(contract, command);
 
 			if (!result.ok) return { block: true, reason: result.reason };
 		}

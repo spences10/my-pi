@@ -24,6 +24,7 @@
 	import {
 		href,
 		session_href,
+		session_tab,
 		type SessionTab,
 	} from '#lib/router.js';
 	import { router } from '#lib/router.svelte.js';
@@ -77,7 +78,7 @@
 	);
 
 	function select_tab(value: string): void {
-		router.navigate(session_href(id, value as SessionTab), {
+		router.navigate(session_href(id, session_tab(value)), {
 			replace: true,
 		});
 	}

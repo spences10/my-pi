@@ -87,7 +87,10 @@ export function file_state(
 			.update(content)
 			.digest('hex');
 	} catch (error) {
-		const code = (error as NodeJS.ErrnoException).code;
+		const code =
+			error instanceof Error && 'code' in error
+				? error.code
+				: undefined;
 
 		if (code === 'ENOENT' || code === 'ENOTDIR')
 			return hash.update('missing').digest('hex');

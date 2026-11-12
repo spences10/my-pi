@@ -1,4 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
+import * as v from 'valibot';
+import { stream_event_schema } from '../../../response-schemas';
 import { api_fetch, type DashboardEvent } from './api.js';
 
 const ACTIVE_WINDOW_MS = 90_000;
@@ -108,7 +110,9 @@ class Live {
 		if (type === 'hello') this.connected = true;
 
 		if (type === 'event' && data.length > 0)
-			this.receive(JSON.parse(data.join('\n')) as DashboardEvent);
+			this.receive(
+				v.parse(stream_event_schema, JSON.parse(data.join('\n'))),
+			);
 	}
 
 	async #consume(signal: AbortSignal): Promise<void> {

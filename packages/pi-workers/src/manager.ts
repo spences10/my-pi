@@ -1,4 +1,3 @@
-import type { RpcExtensionUIRequest } from '@earendil-works/pi-coding-agent';
 import { randomUUID } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
@@ -20,6 +19,63 @@ const worker_state_schema = v.object({
 	model: v.nullish(
 		v.object({ provider: v.string(), id: v.string() }),
 	),
+});
+
+const dialog_request_base = {
+	type: v.literal('extension_ui_request'),
+	id: v.string(),
+};
+
+/** The dialog requests a worker can raise; other UI requests need no answer. */
+const dialog_request_schema = v.variant('method', [
+	v.object({
+		...dialog_request_base,
+		method: v.literal('select'),
+		title: v.string(),
+		options: v.array(v.string()),
+		timeout: v.optional(v.number()),
+	}),
+	v.object({
+		...dialog_request_base,
+		method: v.literal('confirm'),
+		title: v.string(),
+		message: v.string(),
+		timeout: v.optional(v.number()),
+	}),
+	v.object({
+		...dialog_request_base,
+		method: v.literal('input'),
+		title: v.string(),
+		placeholder: v.optional(v.string()),
+		timeout: v.optional(v.number()),
+	}),
+	v.object({
+		...dialog_request_base,
+		method: v.literal('editor'),
+		title: v.string(),
+		prefill: v.optional(v.string()),
+	}),
+]);
+
+export type WorkerDialogRequest = v.InferOutput<
+	typeof dialog_request_schema
+>;
+
+const assistant_message_schema = v.object({
+	role: v.fallback(v.optional(v.string()), undefined),
+	content: v.fallback(
+		v.optional(
+			v.array(
+				v.object({
+					type: v.fallback(v.string(), ''),
+					text: v.fallback(v.optional(v.string()), undefined),
+				}),
+			),
+		),
+		undefined,
+	),
+	stopReason: v.fallback(v.optional(v.string()), undefined),
+	errorMessage: v.fallback(v.optional(v.string()), undefined),
 });
 
 export interface WorkerInfo {
@@ -68,7 +124,7 @@ export interface ManagerOptions {
 	on_complete(info: WorkerInfo): void;
 	on_ui(
 		id: string,
-		request: RpcExtensionUIRequest,
+		request: WorkerDialogRequest,
 		respond: (response: DialogResponse) => void,
 	): void;
 	on_dialogs_end(id: string): void;
@@ -325,19 +381,19 @@ export class WorkerManager {
 			return;
 
 		if (event.type === 'extension_ui_request') {
-			this.options.on_ui(
-				info.id,
-				event as RpcExtensionUIRequest,
-				(response) => {
-					try {
-						worker.process.write({
-							type: 'extension_ui_response',
-							id: event.id as string,
-							...response,
-						});
-					} catch {}
-				},
-			);
+			const request = v.safeParse(dialog_request_schema, event);
+
+			if (!request.success) return;
+
+			this.options.on_ui(info.id, request.output, (response) => {
+				try {
+					worker.process.write({
+						type: 'extension_ui_response',
+						id: request.output.id,
+						...response,
+					});
+				} catch {}
+			});
 		} else if (event.type === 'agent_start') {
 			if (!worker.active) {
 				info.result = undefined;
@@ -348,12 +404,14 @@ export class WorkerManager {
 			worker.active = true;
 			info.status = 'running';
 		} else if (event.type === 'message_end') {
-			const message = event.message as {
-				role?: string;
-				content?: { type: string; text?: string }[];
-				stopReason?: string;
-				errorMessage?: string;
-			};
+			const parsed_message = v.safeParse(
+				assistant_message_schema,
+				event.message,
+			);
+
+			if (!parsed_message.success) return;
+
+			const message = parsed_message.output;
 
 			if (message.role !== 'assistant') return;
 

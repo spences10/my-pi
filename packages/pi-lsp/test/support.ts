@@ -1,4 +1,5 @@
 import {
+	make_api,
 	make_command_context,
 	make_custom_ui,
 } from '../../../tools/test-sdk.js';
@@ -55,22 +56,23 @@ export function create_test_pi() {
 	const commands = new RequiredMap<string, { handler: Function }>();
 	const events = new RequiredMap<string, Function>();
 
-	const pi = {
-		registerTool(definition: {
-			name: string;
-			execute: Function;
-			constrainedSampling?: unknown;
-			parameters: { additionalProperties?: boolean };
-		}) {
-			tools.set(definition.name, definition);
-		},
-		registerCommand(name: string, definition: { handler: Function }) {
-			commands.set(name, definition);
-		},
+	const pi = make_api({
 		on(name: string, handler: Function) {
 			events.set(name, handler);
+
+			return () => events.delete(name);
 		},
-	} as ExtensionAPI;
+	});
+
+	vi.spyOn(pi, 'registerTool').mockImplementation((definition) => {
+		tools.set(definition.name, definition);
+	});
+
+	vi.spyOn(pi, 'registerCommand').mockImplementation(
+		(name, definition) => {
+			commands.set(name, definition);
+		},
+	);
 
 	return { pi, tools, commands, events };
 }

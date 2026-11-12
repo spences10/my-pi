@@ -1,3 +1,4 @@
+import * as v from 'valibot';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -79,14 +80,21 @@ describe('retry-safe messages', () => {
 		).toEqual(first);
 		expect(db.list_inbox('receiver')).toEqual([]);
 		expect(
-			db.read_rows('SELECT message_id FROM messages'),
+			db.read_rows(
+				'SELECT message_id FROM messages',
+				v.looseObject({}),
+			),
 		).toHaveLength(1);
 		expect(
-			db.read_rows('SELECT message_id FROM message_receipts'),
+			db.read_rows(
+				'SELECT message_id FROM message_receipts',
+				v.looseObject({}),
+			),
 		).toHaveLength(1);
 		expect(
 			db.read_rows(
 				"SELECT message_id FROM events WHERE type = 'message_sent'",
+				v.looseObject({}),
 			),
 		).toHaveLength(1);
 	});
@@ -297,7 +305,10 @@ describe('surfacing is not completion', () => {
 			)?.acknowledged_at,
 		).toBeUndefined();
 		expect(
-			db.read_rows('SELECT message_id FROM messages'),
+			db.read_rows(
+				'SELECT message_id FROM messages',
+				v.looseObject({}),
+			),
 		).toHaveLength(2);
 	});
 });

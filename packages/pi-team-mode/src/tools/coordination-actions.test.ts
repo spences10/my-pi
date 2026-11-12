@@ -44,7 +44,7 @@ describe('coordination actions', () => {
 					message: 'peer-only hello',
 				},
 				{
-					ctx: { cwd: '/repo' } as never,
+					ctx: { cwd: '/repo' },
 					coordination_db: db,
 					notify_coordination_messages: notify,
 					require_session_id: () => 'lead',

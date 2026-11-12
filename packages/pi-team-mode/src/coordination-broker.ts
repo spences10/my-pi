@@ -3,17 +3,20 @@ import {
 	type Server,
 	type ServerResponse,
 } from 'node:http';
+import * as v from 'valibot';
 
 export const COORDINATION_BROKER_PORT_ENV =
 	'MY_PI_COORDINATION_BROKER_PORT';
 
 const DEFAULT_COORDINATION_BROKER_PORT = 43191;
 
-type BrokerEvent = {
-	type: 'messages';
-	to_session_ids: string[];
-	message_id?: string;
-};
+const broker_event_schema = v.object({
+	type: v.literal('messages'),
+	to_session_ids: v.array(v.string()),
+	message_id: v.optional(v.string()),
+});
+
+type BrokerEvent = v.InferOutput<typeof broker_event_schema>;
 
 type BrokerClient = {
 	session_id: string;
@@ -88,9 +91,10 @@ export async function ensure_coordination_broker(): Promise<void> {
 		}
 
 		if (request.method === 'POST' && url.pathname === '/notify') {
-			const event = JSON.parse(
-				await read_body(request),
-			) as BrokerEvent;
+			const event = v.parse(
+				broker_event_schema,
+				JSON.parse(await read_body(request)),
+			);
 
 			notify_clients(event);
 			response.writeHead(204).end();

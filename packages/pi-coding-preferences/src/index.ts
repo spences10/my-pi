@@ -8,12 +8,14 @@ import {
 	input_node_schema,
 	read_settings_section,
 	type InputNode,
+	type JsonValue,
 } from '@spences10/pi-settings';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import * as v from 'valibot';
 import { register_guarded_tools } from './guarded-tools.js';
 import {
+	naming_config_schema,
 	resolve_naming_config,
 	type NamingConfig,
 } from './naming.js';
@@ -219,25 +221,65 @@ export function get_project_config_path(cwd = process.cwd()): string {
 	return join(resolve(cwd), '.pi', 'coding-preferences.json');
 }
 
+const preference_rule_schema: v.GenericSchema<
+	unknown,
+	PreferenceRuleConfig
+> = v.object({
+	name: v.string(),
+	toolNames: v.exactOptional(v.array(v.string())),
+	pattern: v.string(),
+	target: v.exactOptional(
+		v.picklist(['command', 'path', 'input', 'content']),
+	),
+	reason: v.string(),
+});
+
+const config_file_schema: v.GenericSchema<
+	unknown,
+	Partial<CodingPreferencesConfig> | null | undefined
+> = v.nullish(
+	v.object({
+		rules: v.exactOptional(v.array(preference_rule_schema)),
+		naming: v.exactOptional(naming_config_schema),
+	}),
+);
+
+/** The most specific validation message, so a bad naming style names itself. */
+function issue_message(issue: v.BaseIssue<unknown>): string {
+	// Nested issue paths are relative to their parent issue.
+	const deepest = (issue.issues ?? [])
+		.filter((nested) => (nested.path?.length ?? 0) > 0)
+		.sort((a, b) => (b.path?.length ?? 0) - (a.path?.length ?? 0))[0];
+
+	return deepest ? issue_message(deepest) : issue.message;
+}
+
+function parse_config_file(
+	raw: JsonValue | undefined,
+): Partial<CodingPreferencesConfig> | undefined {
+	const parsed = v.safeParse(config_file_schema, raw);
+
+	if (!parsed.success)
+		throw new Error(issue_message(parsed.issues[0]));
+
+	return parsed.output ?? undefined;
+}
+
 function read_config_file(
 	path: string,
 ): Partial<CodingPreferencesConfig> | undefined {
-	let parsed: Partial<CodingPreferencesConfig> | undefined;
-
 	if (path === get_global_config_path()) {
-		parsed = read_settings_section<
-			Partial<CodingPreferencesConfig> | undefined
-		>('codingPreferences', undefined);
-	} else {
-		if (!existsSync(path)) return undefined;
-		parsed = JSON.parse(
-			readFileSync(path, 'utf8'),
-		) as Partial<CodingPreferencesConfig>;
+		return parse_config_file(
+			read_settings_section<JsonValue | undefined>(
+				'codingPreferences',
+				undefined,
+			),
+		);
 	}
 
-	if (!parsed) return undefined;
+	if (!existsSync(path)) return undefined;
 
-	return parsed;
+	return parse_config_file(JSON.parse(readFileSync(path, 'utf8')));
 }
 
 export function load_config(

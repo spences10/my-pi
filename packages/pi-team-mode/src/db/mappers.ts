@@ -1,3 +1,4 @@
+import * as v from 'valibot';
 import type {
 	ArtifactRow,
 	CoordinationArtifact,
@@ -34,7 +35,7 @@ export function map_session(row: SessionRow): CoordinationSession {
 		session_alias: optional(row.session_alias),
 		parent_session_id: optional(row.parent_session_id),
 		pool: row.pool,
-		tags: parse_json(row.tags_json, []),
+		tags: parse_json(row.tags_json, v.array(v.string()), []),
 		metadata: parse_json_record(row.metadata_json),
 		created_at: row.created_at,
 		updated_at: row.updated_at,

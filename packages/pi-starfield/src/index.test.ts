@@ -1,6 +1,8 @@
 import {
 	make_api,
+	make_command_context,
 	make_context,
+	type ContextOverrides,
 	make_model,
 	make_model_registry,
 	make_stream,
@@ -9,7 +11,6 @@ import {
 import type {
 	AgentEndEvent,
 	ExtensionAPI,
-	ExtensionCommandContext,
 	ExtensionContext,
 	ExtensionUIContext,
 } from '@earendil-works/pi-coding-agent';
@@ -69,7 +70,7 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 		),
 	);
 
-	const ctx = make_context({
+	const overrides: ContextOverrides = {
 		mode,
 		hasUI: mode === 'tui' || mode === 'rpc',
 		model: make_model({ id: 'test-model' }),
@@ -81,7 +82,10 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 			setEditorComponent: set_editor,
 			notify,
 		},
-	});
+	};
+
+	const ctx = make_context(overrides);
+	const command_ctx = make_command_context(overrides);
 
 	starfield(api);
 
@@ -92,8 +96,7 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 		stream_simple,
 		emit: (event: string, payload: Partial<AgentEndEvent> = {}) =>
 			handlers.get(event)?.(payload, ctx),
-		command: (args: string) =>
-			command.handler(args, ctx as ExtensionCommandContext),
+		command: (args: string) => command.handler(args, command_ctx),
 		get_factory: () => factory,
 		set_factory: (value: EditorFactory) => {
 			factory = value;

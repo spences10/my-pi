@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import * as v from 'valibot';
 
 interface EvalSuite {
 	version: number;
@@ -30,6 +31,38 @@ interface EvalAssertions {
 	stderr_not_contains?: string[];
 	output_not_contains?: string[];
 }
+
+const assertions_schema: v.GenericSchema<unknown, EvalAssertions> =
+	v.object({
+		exit_code: v.exactOptional(v.number()),
+		stdout_contains: v.exactOptional(v.array(v.string())),
+		stderr_contains: v.exactOptional(v.array(v.string())),
+		output_contains: v.exactOptional(v.array(v.string())),
+		stdout_not_contains: v.exactOptional(v.array(v.string())),
+		stderr_not_contains: v.exactOptional(v.array(v.string())),
+		output_not_contains: v.exactOptional(v.array(v.string())),
+	});
+
+const case_schema: v.GenericSchema<unknown, EvalCase> = v.object({
+	id: v.string(),
+	description: v.exactOptional(v.string()),
+	command: v.string(),
+	args: v.exactOptional(v.array(v.string())),
+	timeout_ms: v.exactOptional(v.number()),
+	env: v.exactOptional(v.record(v.string(), v.string())),
+	requires_env: v.exactOptional(v.array(v.string())),
+	assert: assertions_schema,
+});
+
+const suite_schema: v.GenericSchema<unknown, EvalSuite> = v.object({
+	version: v.number(),
+	name: v.pipe(v.string(), v.nonEmpty()),
+	cases: v.array(case_schema),
+});
+
+const suite_version_schema = v.object({
+	version: v.optional(v.unknown()),
+});
 
 interface EvalResult {
 	id: string;
@@ -82,21 +115,22 @@ function read_suite(path: string): EvalSuite {
 		throw new Error(`Eval suite not found: ${path}`);
 	}
 
-	const suite = JSON.parse(
-		readFileSync(absolute, 'utf-8'),
-	) as EvalSuite;
+	const raw = JSON.parse(readFileSync(absolute, 'utf-8'));
+	const { version } = v.parse(suite_version_schema, raw);
 
-	if (suite.version !== 1) {
+	if (version !== 1) {
 		throw new Error(
-			`Unsupported eval suite version: ${suite.version}`,
+			`Unsupported eval suite version: ${String(version)}`,
 		);
 	}
 
-	if (!suite.name || !Array.isArray(suite.cases)) {
+	const suite = v.safeParse(suite_schema, raw);
+
+	if (!suite.success) {
 		throw new Error('Invalid eval suite: expected name and cases');
 	}
 
-	return suite;
+	return suite.output;
 }
 
 function missing_env(required: string[] | undefined): string[] {

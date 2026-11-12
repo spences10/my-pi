@@ -1,7 +1,15 @@
+import * as v from 'valibot';
+
 // Deliberately synthetic secret-shaped data, never a real credential.
 const secret = 'sk-synthetic-worker-diagnostic-1234567890';
 const password_value = 'synthetic-boundary-value-1234567890';
 let buffer = '';
+
+const command_schema = v.object({
+	type: v.string(),
+	id: v.string(),
+	message: v.optional(v.string()),
+});
 
 const send = (value: object) =>
 	process.stdout.write(JSON.stringify(value) + '\n');
@@ -46,11 +54,10 @@ process.stdin.on('data', (data) => {
 	let index: number;
 
 	while ((index = buffer.indexOf('\n')) >= 0) {
-		const command = JSON.parse(buffer.slice(0, index)) as {
-			type: string;
-			id: string;
-			message?: string;
-		};
+		const command = v.parse(
+			command_schema,
+			JSON.parse(buffer.slice(0, index)),
+		);
 
 		buffer = buffer.slice(index + 1);
 

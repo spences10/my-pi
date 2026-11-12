@@ -1,25 +1,29 @@
+export const OBSERVABILITY_EVENT_TYPES = [
+	'session_start',
+	'session_shutdown',
+	'session_info_changed',
+	'agent_start',
+	'agent_end',
+	'turn_start',
+	'turn_end',
+	'message_start',
+	'message_end',
+	'tool_call',
+	'tool_result',
+	'tool_execution_start',
+	'tool_execution_update',
+	'tool_execution_end',
+	'model_select',
+	'provider_request',
+	'provider_response',
+	'compaction',
+	'branch_nav',
+	'error',
+	'custom',
+] as const;
+
 export type ObservabilityEventType =
-	| 'session_start'
-	| 'session_shutdown'
-	| 'session_info_changed'
-	| 'agent_start'
-	| 'agent_end'
-	| 'turn_start'
-	| 'turn_end'
-	| 'message_start'
-	| 'message_end'
-	| 'tool_call'
-	| 'tool_result'
-	| 'tool_execution_start'
-	| 'tool_execution_update'
-	| 'tool_execution_end'
-	| 'model_select'
-	| 'provider_request'
-	| 'provider_response'
-	| 'compaction'
-	| 'branch_nav'
-	| 'error'
-	| 'custom';
+	(typeof OBSERVABILITY_EVENT_TYPES)[number];
 
 export interface ObservabilityEvent<P = unknown> {
 	event_id: string;

@@ -2,6 +2,7 @@ import { make_context, make_api } from '../../../tools/test-sdk.js';
 import type {
 	AgentBeforeSettleEventResult,
 	BeforeAgentStartEventResult,
+	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,8 +33,27 @@ interface EventFixture {
 }
 
 type DeliveryHook = (
-	...args: never[]
+	event: EventFixture,
+	ctx: ExtensionContext,
 ) => DeliveryHookResult | Promise<DeliveryHookResult>;
+
+function before_start_result(
+	result: DeliveryHookResult,
+): BeforeAgentStartEventResult {
+	if (!result || !('message' in result))
+		throw new Error('expected a before_agent_start result');
+
+	return result;
+}
+
+function before_settle_result(
+	result: DeliveryHookResult,
+): AgentBeforeSettleEventResult {
+	if (!result || !('continue' in result))
+		throw new Error('expected an agent_before_settle result');
+
+	return result;
+}
 
 vi.mock('./coordination-broker.js', () => ({
 	ensure_coordination_broker: vi.fn(async () => {}),
@@ -139,7 +159,7 @@ async function setup(reconcile = false) {
 	const pi = make_api(mock_api);
 
 	const emit = async (name: string, event: EventFixture = {}) =>
-		handlers.get(name)?.(event as never, ctx as never);
+		handlers.get(name)?.(event, ctx);
 
 	await team_mode(pi);
 	cleanup.push(async () => {
@@ -198,10 +218,9 @@ describe('upstream Team Mode lifecycle integration', () => {
 		vi.advanceTimersByTime(1000);
 		expect(pi.sendMessage).not.toHaveBeenCalled();
 
-		const result = (await emit(
-			'before_agent_start',
-			user_start(),
-		)) as BeforeAgentStartEventResult;
+		const result = before_start_result(
+			await emit('before_agent_start', user_start()),
+		);
 
 		expect(result.message?.content).toContain('Build running');
 		await emit('message_end', {
@@ -233,10 +252,12 @@ describe('upstream Team Mode lifecycle integration', () => {
 		).toBeUndefined();
 		send();
 
-		const result = (await emit('agent_before_settle', {
-			outcome: 'completed',
-			context: { canContinue: false },
-		})) as AgentBeforeSettleEventResult;
+		const result = before_settle_result(
+			await emit('agent_before_settle', {
+				outcome: 'completed',
+				context: { canContinue: false },
+			}),
+		);
 
 		expect(result.continue).toBe(true);
 		expect(result.entries).toHaveLength(1);
@@ -259,10 +280,9 @@ describe('upstream Team Mode lifecycle integration', () => {
 		vi.advanceTimersByTime(2000);
 		expect(pi.sendMessage).not.toHaveBeenCalled();
 
-		const result = (await emit(
-			'before_agent_start',
-			user_start(),
-		)) as BeforeAgentStartEventResult;
+		const result = before_start_result(
+			await emit('before_agent_start', user_start()),
+		);
 
 		expect(result.message?.content).toContain('Review required');
 	});

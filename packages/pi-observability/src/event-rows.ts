@@ -1,9 +1,21 @@
 import type { SQLOutputValue } from 'node:sqlite';
 import * as v from 'valibot';
-import type {
-	DashboardSession,
-	ObservabilityEvent,
+import {
+	type DashboardSession,
+	OBSERVABILITY_EVENT_TYPES,
+	type ObservabilityEvent,
 } from './types.js';
+
+const event_type_schema = v.fallback(
+	v.picklist(OBSERVABILITY_EVENT_TYPES),
+	'custom',
+);
+
+const tags_schema = v.fallback(v.array(v.string()), []);
+
+function row_tags(value: SQLOutputValue | undefined): string[] {
+	return v.parse(tags_schema, JSON.parse(row_text(value, '[]')));
+}
 
 function row_text(
 	value: SQLOutputValue | undefined,
@@ -20,11 +32,11 @@ export function to_row_event(
 		session_id: row_text(row.session_id, ''),
 		seq: Number(row.seq),
 		ts: row_text(row.ts, ''),
-		type: row.type as ObservabilityEvent['type'],
+		type: v.parse(event_type_schema, row.type),
 		cwd: '',
 		session_name: row_text(row.session_name, '') || undefined,
 		pool: row_text(row.pool, 'default'),
-		tags: JSON.parse(row_text(row.tags_json, '[]')) as string[],
+		tags: row_tags(row.tags_json),
 		provider: row_text(row.provider, '') || undefined,
 		model: row_text(row.model, '') || undefined,
 		payload: JSON.parse(row_text(row.payload_json, '{}')),
@@ -41,7 +53,7 @@ export function to_session_row(
 		agent_name: row_text(row.agent_name, '') || undefined,
 		session_name: row_text(row.session_name, '') || undefined,
 		pool: row_text(row.pool, 'default'),
-		tags: JSON.parse(row_text(row.tags_json, '[]')) as string[],
+		tags: row_tags(row.tags_json),
 		provider: row_text(row.provider, '') || undefined,
 		model: row_text(row.model, '') || undefined,
 		first_ts: row_text(row.first_ts, ''),

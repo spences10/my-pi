@@ -26,7 +26,13 @@ export function register_guarded_tools(
 				try {
 					previous = await readFile(path, 'utf8');
 				} catch (error) {
-					if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+					if (
+						!(
+							error instanceof Error &&
+							'code' in error &&
+							error.code === 'ENOENT'
+						)
+					)
 						throw error;
 				}
 

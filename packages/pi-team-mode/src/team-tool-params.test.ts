@@ -1,3 +1,4 @@
+import * as v from 'valibot';
 import { describe, expect, it } from 'vite-plus/test';
 import {
 	TEAM_ACTIONS,
@@ -10,12 +11,12 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 		expect(TEAM_ACTIONS).toContain('session_send');
 		expect(TEAM_ACTIONS).toContain('group_send');
 		expect(TEAM_ACTIONS).toContain('artifact_create');
-		expect(TEAM_ACTIONS).not.toContain('member_spawn' as never);
+		const actions: readonly string[] = TEAM_ACTIONS;
+		expect(actions).not.toContain('member_spawn');
 		expect(
-			(
-				TeamToolParams as {
-					additionalProperties?: boolean;
-				}
+			v.parse(
+				v.looseObject({ additionalProperties: v.boolean() }),
+				TeamToolParams,
 			).additionalProperties,
 		).toBe(false);
 	});
@@ -39,11 +40,14 @@ describe('packages/pi-team-mode/src/team-tool-params.ts', () => {
 				message: 'ignored',
 			}),
 		).toThrow(/message is not allowed/);
+
+		const params_with_unknown_field = {
+			action: 'session_list',
+			unexpected: true,
+		} as const;
+
 		expect(() =>
-			validate_team_tool_params({
-				action: 'session_list',
-				unexpected: true,
-			} as never),
+			validate_team_tool_params(params_with_unknown_field),
 		).toThrow(/unexpected is not allowed/);
 	});
 

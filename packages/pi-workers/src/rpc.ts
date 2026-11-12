@@ -21,6 +21,24 @@ type JsonValue =
 
 export type RpcRecord = Record<string, JsonValue>;
 
+const json_value_schema: v.GenericSchema<unknown, JsonValue> = v.lazy(
+	() =>
+		v.union([
+			v.string(),
+			v.number(),
+			v.boolean(),
+			v.null(),
+			v.array(json_value_schema),
+			v.record(v.string(), json_value_schema),
+		]),
+);
+
+/** Response `data`; anything but a JSON object resolves as empty. */
+const rpc_data_schema: v.GenericSchema<unknown, RpcRecord> = v.record(
+	v.string(),
+	json_value_schema,
+);
+
 /** Correlation id of a response record; any non-string id matches nothing. */
 const rpc_record_id_schema = v.looseObject({
 	id: v.fallback(v.optional(v.string()), undefined),
@@ -164,9 +182,17 @@ export class WorkerProcess {
 
 						const failure: unknown = record.error;
 
+						const parsed_data = v.safeParse(
+							rpc_data_schema,
+							record.data ?? {},
+						);
+
 						if (record.success === false)
 							pending.reject(new Error(String(failure)));
-						else pending.resolve((record.data ?? {}) as RpcRecord);
+						else
+							pending.resolve(
+								parsed_data.success ? parsed_data.output : {},
+							);
 					} else if (record.type !== 'response') {
 						this.options.on_record(record);
 					}

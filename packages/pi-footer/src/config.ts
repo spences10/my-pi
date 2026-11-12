@@ -12,6 +12,7 @@ import {
 	FOOTER_TONES,
 	FOOTER_WIDGETS,
 	GIT_ICON_MODES,
+	find_option,
 	STATUS_LABEL_MODES,
 	type FooterState,
 	type FooterStatusPlacement,
@@ -19,7 +20,7 @@ import {
 
 export function load_footer_state(): FooterState {
 	try {
-		const parsed = read_package_settings<Partial<FooterState>>(
+		const parsed = read_package_settings<StoredFooterState>(
 			'footer',
 			{},
 		);
@@ -34,43 +35,48 @@ export function save_footer_state(state: FooterState): void {
 	write_package_settings('footer', state);
 }
 
+/** Persisted placements may predate the object shape and be a legacy string. */
+type StoredStatusPlacement =
+	| string
+	| { row?: number; alignment?: string; hidden?: boolean };
+
+/** Persisted footer state may be partial and hold legacy placement values. */
+export type StoredFooterState = Partial<
+	Omit<FooterState, 'status_layout'>
+> & {
+	status_layout?: Record<string, StoredStatusPlacement>;
+};
+
 export function normalize_footer_state(
-	state: Partial<FooterState>,
+	state: StoredFooterState,
 ): FooterState {
 	return {
-		preset: FOOTER_PRESETS.includes(state.preset as never)
-			? state.preset!
-			: DEFAULT_FOOTER_STATE.preset,
-		density: FOOTER_DENSITIES.includes(state.density as never)
-			? state.density!
-			: DEFAULT_FOOTER_STATE.density,
-		status_label_mode: STATUS_LABEL_MODES.includes(
-			state.status_label_mode as never,
-		)
-			? state.status_label_mode!
-			: DEFAULT_FOOTER_STATE.status_label_mode,
+		preset:
+			find_option(FOOTER_PRESETS, state.preset) ??
+			DEFAULT_FOOTER_STATE.preset,
+		density:
+			find_option(FOOTER_DENSITIES, state.density) ??
+			DEFAULT_FOOTER_STATE.density,
+		status_label_mode:
+			find_option(STATUS_LABEL_MODES, state.status_label_mode) ??
+			DEFAULT_FOOTER_STATE.status_label_mode,
 		status_layout: normalize_status_layout(state.status_layout),
-		tone: FOOTER_TONES.includes(state.tone as never)
-			? state.tone!
-			: DEFAULT_FOOTER_STATE.tone,
-		git_icon_mode: GIT_ICON_MODES.includes(
-			state.git_icon_mode as never,
-		)
-			? state.git_icon_mode!
-			: DEFAULT_FOOTER_STATE.git_icon_mode,
+		tone:
+			find_option(FOOTER_TONES, state.tone) ??
+			DEFAULT_FOOTER_STATE.tone,
+		git_icon_mode:
+			find_option(GIT_ICON_MODES, state.git_icon_mode) ??
+			DEFAULT_FOOTER_STATE.git_icon_mode,
 		widgets: {
 			...DEFAULT_FOOTER_WIDGETS,
 			...Object.fromEntries(
 				Object.entries(state.widgets ?? {}).filter(([key]) =>
-					FOOTER_WIDGETS.includes(key as never),
+					FOOTER_WIDGETS.some((widget) => widget === key),
 				),
 			),
 		},
 	};
 }
-
-/** Persisted placements may predate the object shape and be a legacy string. */
-type StoredStatusPlacement = string | Partial<FooterStatusPlacement>;
 
 function normalize_status_layout(
 	layout: Record<string, StoredStatusPlacement> | undefined,
@@ -109,17 +115,25 @@ function normalize_status_placement(
 	if (!(value instanceof Object))
 		return LEGACY_STATUS_PLACEMENTS.get(value);
 
+	const row = value.row;
+
+	const alignment = find_option(
+		FOOTER_STATUS_ALIGNMENTS,
+		value.alignment,
+	);
+
 	if (
-		!Number.isInteger(value.row) ||
-		(value.row ?? 0) < 1 ||
-		(value.row ?? 0) > 99 ||
-		!FOOTER_STATUS_ALIGNMENTS.includes(value.alignment as never)
+		row === undefined ||
+		!Number.isInteger(row) ||
+		row < 1 ||
+		row > 99 ||
+		alignment === undefined
 	)
 		return undefined;
 
 	return {
-		row: value.row!,
-		alignment: value.alignment!,
+		row,
+		alignment,
 		hidden: value.hidden === true,
 	};
 }

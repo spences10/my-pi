@@ -1,7 +1,8 @@
 import {
 	make_api,
-	make_context,
+	make_command_context,
 	make_model,
+	make_theme,
 } from '../../../tools/test-sdk.js';
 import {
 	Theme,
@@ -22,11 +23,11 @@ type Handler = Function;
 
 type Command = Parameters<ExtensionAPI['registerCommand']>[1];
 
-function make_theme(
+function make_splash_theme(
 	mode: 'truecolor' | '256color' = 'truecolor',
 	accent = '#ff00b4',
 ): Theme {
-	return new Theme(
+	return make_theme(
 		{
 			accent,
 			muted: '#888888',
@@ -38,16 +39,16 @@ function make_theme(
 			syntaxFunction: '#ccff00',
 			thinkingHigh: '#ffbd2b',
 			mdCode: '#42a0ff',
-		} as ConstructorParameters<typeof Theme>[0],
+		},
 		{
 			userMessageBg: '#07020d',
 			selectedBg: '#07020d',
-		} as ConstructorParameters<typeof Theme>[1],
+		},
 		mode,
 	);
 }
 
-const theme = make_theme();
+const theme = make_splash_theme();
 
 const info = {
 	version: '0.6.0',
@@ -65,7 +66,7 @@ function harness(mode: ExtensionContext['mode'] = 'tui') {
 	const set_header = vi.fn<ExtensionContext['ui']['setHeader']>();
 	const { tui, request_render } = make_tui();
 
-	const ctx = make_context({
+	const ctx = make_command_context({
 		mode,
 		cwd: '/work/my-project',
 		model: make_model({ id: 'first-model' }),
@@ -137,14 +138,14 @@ describe('My-Pi splash rendering', () => {
 	);
 
 	it('uses Pi colour conversion on 256-colour terminals', () => {
-		const indexed = make_theme('256color');
+		const indexed = make_splash_theme('256color');
 		const rendered = render_splash(indexed, 80, info).join('\n');
 		expect(rendered).toContain('\x1b[38;5;');
 		expect(rendered).not.toContain('\x1b[38;2;');
 	});
 
 	it('uses the theme supplied for each render instead of cached colours', () => {
-		const other_theme = make_theme('truecolor', '#888888');
+		const other_theme = make_splash_theme('truecolor', '#888888');
 		expect(render_splash(other_theme, 80, info)).not.toEqual(
 			render_splash(theme, 80, info),
 		);
@@ -208,7 +209,7 @@ describe('My-Pi splash lifecycle', () => {
 		state.component();
 		await state.commands
 			.get('builtin-header')!
-			.handler('', state.ctx as Parameters<Command['handler']>[1]);
+			.handler('', state.ctx);
 		expect(state.set_header).toHaveBeenLastCalledWith(undefined);
 		state.handlers.get('model_select')!(
 			{ model: { id: 'later-model' } },

@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { normalize_footer_state } from './config.js';
-import {
-	DEFAULT_FOOTER_STATUS_LAYOUT,
-	type FooterState,
-} from './presets/types.js';
+import { DEFAULT_FOOTER_STATUS_LAYOUT } from './presets/types.js';
 
 describe('normalize_footer_state', () => {
 	it('merges valid custom status placements with defaults', () => {
@@ -25,7 +22,7 @@ describe('normalize_footer_state', () => {
 			status_layout: {
 				mcp: 'primary-right',
 				custom: 'secondary-left',
-			} as never,
+			},
 		});
 
 		expect(state.status_layout.mcp).toEqual({
@@ -44,8 +41,8 @@ describe('normalize_footer_state', () => {
 		const state = normalize_footer_state({
 			status_layout: {
 				mcp: { row: 0, alignment: 'somewhere', hidden: false },
-			} as never,
-		} as Partial<FooterState>);
+			},
+		});
 
 		expect(state.status_layout.mcp).toEqual({
 			row: 2,

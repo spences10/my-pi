@@ -13,6 +13,8 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { WorkerManager, type WorkerInfo } from './manager.js';
 import { WorkerProcess } from './rpc.js';
 
+const address_schema = v.object({ port: v.number() });
+
 const cli = join(
 	dirname(
 		fileURLToPath(
@@ -65,15 +67,17 @@ async function setup() {
 		if (server.server.listening) resolve();
 		else server.server.once('listening', resolve);
 	});
-	server.url = `http://127.0.0.1:${(server.server.address() as { port: number }).port}`;
+	server.url = `http://127.0.0.1:${v.parse(address_schema, server.server.address()).port}`;
 	cleanup.push(() => server.close());
 	const port_server = createServer();
 	await new Promise<void>((resolve) =>
 		port_server.listen(0, '127.0.0.1', resolve),
 	);
 
-	const broker_port = (port_server.address() as { port: number })
-		.port;
+	const broker_port = v.parse(
+		address_schema,
+		port_server.address(),
+	).port;
 
 	await new Promise<void>((resolve, reject) =>
 		port_server.close((error) => (error ? reject(error) : resolve())),
@@ -145,10 +149,13 @@ async function observed_sessions(server: RunningObservabilityServer) {
 
 	expect(response.ok).toBe(true);
 
-	return (
-		(await response.json()) as {
-			sessions: { session_id: string; event_count: number }[];
-		}
+	return v.parse(
+		v.object({
+			sessions: v.array(
+				v.object({ session_id: v.string(), event_count: v.number() }),
+			),
+		}),
+		await response.json(),
 	).sessions;
 }
 
@@ -189,7 +196,7 @@ describe('real upstream Pi RPC workers', () => {
 			cleanup.push(() => parent.stop());
 			parent.start();
 			const state = await parent.request({ type: 'get_state' });
-			const parent_id = state.sessionId as string;
+			const parent_id = v.parse(v.string(), state.sessionId);
 			await parent.request({
 				type: 'prompt',
 				message: '/workers pause',

@@ -2,12 +2,10 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as v from 'valibot';
-import type {
-	ExtensionContext,
-	ExtensionEvent,
-} from '@earendil-works/pi-coding-agent';
+import type { ExtensionEvent } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import {
+	make_api,
 	make_assistant_message,
 	make_context,
 } from '../../../tools/test-sdk.js';
@@ -20,14 +18,11 @@ import observability, {
 	summarize_payload,
 	text_fingerprint,
 } from './index.js';
-import type { PayloadObject } from './json.js';
 import { redact_value, truncate_json_value } from './redact.js';
+import { stream_event_schema } from './response-schemas.js';
 import type { ObservabilityEvent } from './types.js';
 
-type ObservedHandler = (
-	event: Partial<ExtensionEvent>,
-	ctx: ExtensionContext,
-) => Promise<void>;
+type SentEvent = v.InferOutput<typeof stream_event_schema>;
 
 function observability_harness(options?: {
 	configured_name?: string;
@@ -35,7 +30,7 @@ function observability_harness(options?: {
 	forward_session_id?: boolean;
 	session_name?: string;
 }) {
-	const handlers = new Map<string, ObservedHandler>();
+	const handlers = new Map<string, Function>();
 
 	const session_name = options?.session_name;
 
@@ -49,7 +44,7 @@ function observability_harness(options?: {
 			| undefined => undefined,
 	);
 
-	const sent: ObservabilityEvent[] = [];
+	const sent: SentEvent[] = [];
 
 	const fetch_mock = vi
 		.spyOn(globalThis, 'fetch')
@@ -59,13 +54,16 @@ function observability_harness(options?: {
 			if (!request_body.success)
 				throw new TypeError('Expected a JSON request body');
 			sent.push(
-				...(JSON.parse(request_body.output) as ObservabilityEvent[]),
+				...v.parse(
+					v.array(stream_event_schema),
+					JSON.parse(request_body.output),
+				),
 			);
 
 			return new Response(null, { status: 200 });
 		});
 
-	const flags = new Map<string, unknown>([
+	const flags = new Map<string, string | boolean>([
 		['observability-url', 'http://observability.test'],
 		...(options?.configured_name
 			? ([['observability-name', options.configured_name]] as const)
@@ -78,14 +76,16 @@ function observability_harness(options?: {
 			: []),
 	]);
 
-	const pi = {
-		registerFlag: vi.fn(),
-		registerCommand: vi.fn(),
+	const pi = make_api({
 		getFlag: (name: string) => flags.get(name),
-		on: (name: string, handler: never) => handlers.set(name, handler),
-	};
+		on(name: string, handler: Function) {
+			handlers.set(name, handler);
 
-	observability(pi as never);
+			return () => handlers.delete(name);
+		},
+	});
+
+	observability(pi);
 
 	const ctx = make_context({
 		cwd: '/repo',
@@ -169,15 +169,14 @@ describe('resolve_observability_config', () => {
 	});
 
 	it('uses flags and environment fallbacks', () => {
-		const flags = new Map<string, unknown>([
+		const flags = new Map<string, string | boolean>([
 			['observability-url', 'http://127.0.0.1:43190'],
 			['observability-tag', 'one,two'],
 		]);
 
 		const config = resolve_observability_config(
 			{
-				getFlag: (key) =>
-					flags.get(key) as string | boolean | undefined,
+				getFlag: (key) => flags.get(key),
 			},
 			{
 				MY_PI_OBSERVABILITY_POOL: 'test',
@@ -229,17 +228,18 @@ describe('resolve_observability_config', () => {
 				});
 			});
 
-		const handlers = new Map<string, ObservedHandler>();
+		const handlers = new Map<string, Function>();
 
-		const pi = {
-			registerFlag: vi.fn(),
-			registerCommand: vi.fn(),
+		const pi = make_api({
 			getFlag: () => undefined,
-			on: (name: string, handler: never) =>
-				handlers.set(name, handler),
-		};
+			on(name: string, handler: Function) {
+				handlers.set(name, handler);
 
-		observability(pi as never);
+				return () => handlers.delete(name);
+			},
+		});
+
+		observability(pi);
 
 		const ctx = make_context({
 			cwd: '/repo',
@@ -488,11 +488,11 @@ describe('payload safety', () => {
 
 		const summary = summarize_payload({
 			payload: { model: 'm', instructions },
-		}) as { payload: PayloadObject };
+		});
 
-		expect(summary.payload.instructions).toEqual(
-			text_fingerprint(instructions),
-		);
+		expect(summary).toMatchObject({
+			payload: { instructions: text_fingerprint(instructions) },
+		});
 		expect(text_fingerprint(instructions)).toMatchObject({
 			type: 'string',
 			length: instructions.length,
@@ -600,7 +600,7 @@ describe('context usage snapshots', () => {
 			await harness.trigger('session_shutdown');
 
 			const snapshots = harness.sent.map(
-				(event) => (event.payload as PayloadObject).contextUsage,
+				(event) => event.payload.contextUsage,
 			);
 
 			expect(snapshots[0]).toEqual({
@@ -739,7 +739,7 @@ function queue_event(seq: number, text = 'ok'): ObservabilityEvent {
 
 describe('EventQueue body limit', () => {
 	function limited_server(max_bytes: number) {
-		const accepted: ObservabilityEvent[] = [];
+		const accepted: SentEvent[] = [];
 		let requests = 0;
 
 		const fetch_mock = vi
@@ -752,7 +752,9 @@ describe('EventQueue body limit', () => {
 					return new Response(JSON.stringify({ max_bytes }), {
 						status: 413,
 					});
-				accepted.push(...(JSON.parse(body) as ObservabilityEvent[]));
+				accepted.push(
+					...v.parse(v.array(stream_event_schema), JSON.parse(body)),
+				);
 
 				return new Response('{}', { status: 200 });
 			});

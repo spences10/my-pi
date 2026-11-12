@@ -93,10 +93,8 @@ describe('assistant response text', () => {
 
 		expect(event.payload).toMatchObject({
 			responseTextTruncated: true,
+			responseText: expect.stringMatching(/^\[REDACTED\] /),
 		});
-		expect(
-			(event.payload as { responseText: string }).responseText,
-		).toMatch(/^\[REDACTED\] /);
 		expect(JSON.stringify(event.payload)).not.toContain(
 			'private reasoning',
 		);

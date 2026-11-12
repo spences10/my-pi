@@ -5,19 +5,19 @@ import {
 } from '@earendil-works/pi-ai';
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 
-const VALID_THINKING_LEVELS = new Set<ModelThinkingLevel>([
+const VALID_THINKING_LEVELS: readonly ModelThinkingLevel[] = [
 	'off',
 	'minimal',
 	'low',
 	'medium',
 	'high',
 	'xhigh',
-]);
+];
 
 function is_model_thinking_level(
 	level: string,
 ): level is ModelThinkingLevel {
-	return VALID_THINKING_LEVELS.has(level as ModelThinkingLevel);
+	return VALID_THINKING_LEVELS.some((valid) => valid === level);
 }
 
 export function get_default_footer_thinking_level(
@@ -34,14 +34,10 @@ export function get_current_thinking_level(
 	const entries = ctx.sessionManager.getEntries();
 
 	for (let i = entries.length - 1; i >= 0; i--) {
-		const entry = entries[i] as {
-			type?: string;
-			thinkingLevel?: string;
-		};
+		const entry = entries[i];
 
 		if (
-			entry.type === 'thinking_level_change' &&
-			entry.thinkingLevel !== undefined &&
+			entry?.type === 'thinking_level_change' &&
 			is_model_thinking_level(entry.thinkingLevel)
 		) {
 			if (!ctx.model?.reasoning) return 'off';

@@ -1,7 +1,4 @@
-import type {
-	ExtensionAPI,
-	ExtensionContext,
-} from '@earendil-works/pi-coding-agent';
+import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { execFileSync } from 'node:child_process';
 import {
 	mkdirSync,
@@ -13,6 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import { make_api } from '../../../tools/test-sdk.js';
 import confirm_destructive, {
 	assess_bash_command,
 	assess_tool_call,
@@ -21,11 +19,13 @@ import confirm_destructive, {
 function create_test_pi() {
 	const events = new Map<string, Function>();
 
-	const pi = {
+	const pi = make_api({
 		on(name: string, handler: Function) {
 			events.set(name, handler);
+
+			return () => events.delete(name);
 		},
-	} as ExtensionAPI;
+	});
 
 	return { pi, events };
 }

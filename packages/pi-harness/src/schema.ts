@@ -135,74 +135,103 @@ export type HarnessReadParams = Static<
 	typeof harness_read_params_schema
 >;
 
-export type HarnessStatus =
-	| 'created'
-	| 'running'
-	| 'reviewing'
-	| 'completed'
-	| 'failed';
+export const harness_status_schema = Type.Union([
+	Type.Literal('created'),
+	Type.Literal('running'),
+	Type.Literal('reviewing'),
+	Type.Literal('completed'),
+	Type.Literal('failed'),
+]);
+
+export type HarnessStatus = Static<typeof harness_status_schema>;
 
 export type HarnessThinking = Static<typeof thinking_levels_schema>;
 
-export interface HarnessPolicy {
-	cwd: string;
-	forbidden_paths: string[];
-	allowed_paths?: string[];
-	allow_test_changes?: boolean;
-	validation_commands?: string[];
-	forbidden_commands: string[];
-	baseline_changed_files: string[];
-	baseline_file_states?: Record<string, string>;
-}
+const harness_role_schema = Type.Object({
+	model: Type.Optional(Type.String()),
+	thinking: Type.Optional(thinking_levels_schema),
+});
 
-export interface HarnessScaffold {
-	version: number;
-	task: string;
-	planner: { model?: string; thinking?: HarnessThinking };
-	executor: { model?: string; thinking?: HarnessThinking };
-	reviewer: { model?: string; thinking?: HarnessThinking };
-	allowed_paths: string[];
-	validation_commands: string[];
-	allow_test_changes: boolean;
-	escalation_rules: string[];
-}
+export const harness_policy_schema = Type.Object({
+	cwd: Type.String(),
+	forbidden_paths: Type.Array(Type.String()),
+	allowed_paths: Type.Optional(Type.Array(Type.String())),
+	allow_test_changes: Type.Optional(Type.Boolean()),
+	validation_commands: Type.Optional(Type.Array(Type.String())),
+	forbidden_commands: Type.Array(Type.String()),
+	baseline_changed_files: Type.Array(Type.String()),
+	baseline_file_states: Type.Optional(
+		Type.Record(Type.String(), Type.String()),
+	),
+});
 
-export interface HarnessAmendment {
-	timestamp: string;
-	requested_by: 'user' | 'planner';
-	reason: string;
-	from_version: number;
-	to_version: number;
-	changes: string[];
-}
+export type HarnessPolicy = Static<typeof harness_policy_schema>;
 
-export interface HarnessContract {
-	version: typeof HARNESS_VERSION;
-	id: string;
-	created_at: string;
-	status: HarnessStatus;
-	policy: HarnessPolicy;
-	scaffold: HarnessScaffold;
-	amendments: HarnessAmendment[];
-}
+export const harness_scaffold_schema = Type.Object({
+	version: Type.Number(),
+	task: Type.String(),
+	planner: harness_role_schema,
+	executor: harness_role_schema,
+	reviewer: harness_role_schema,
+	allowed_paths: Type.Array(Type.String()),
+	validation_commands: Type.Array(Type.String()),
+	allow_test_changes: Type.Boolean(),
+	escalation_rules: Type.Array(Type.String()),
+});
 
-export interface HarnessLogEntry {
-	timestamp: string;
-	status?: HarnessStatus;
-	phase?: string;
-	note?: string;
-	evidence?: string;
-	team_status?: string;
-	remaining_risks?: string[];
-	changed_files?: string[];
-	checks?: HarnessValidationCheck[];
-}
+export type HarnessScaffold = Static<typeof harness_scaffold_schema>;
 
-export interface HarnessValidationCheck {
-	command: string;
-	passed: boolean;
-	output_file: string;
-}
+export const harness_amendment_schema = Type.Object({
+	timestamp: Type.String(),
+	requested_by: Type.Union([
+		Type.Literal('user'),
+		Type.Literal('planner'),
+	]),
+	reason: Type.String(),
+	from_version: Type.Number(),
+	to_version: Type.Number(),
+	changes: Type.Array(Type.String()),
+});
+
+export type HarnessAmendment = Static<
+	typeof harness_amendment_schema
+>;
+
+export const harness_contract_schema = Type.Object({
+	version: Type.Number(),
+	id: Type.String(),
+	created_at: Type.String(),
+	status: harness_status_schema,
+	policy: harness_policy_schema,
+	scaffold: harness_scaffold_schema,
+	amendments: Type.Array(harness_amendment_schema),
+});
+
+export type HarnessContract = Static<typeof harness_contract_schema>;
+
+export const harness_validation_check_schema = Type.Object({
+	command: Type.String(),
+	passed: Type.Boolean(),
+	output_file: Type.String(),
+});
+
+export type HarnessValidationCheck = Static<
+	typeof harness_validation_check_schema
+>;
+
+export const harness_log_entry_schema = Type.Object({
+	timestamp: Type.String(),
+	status: Type.Optional(harness_status_schema),
+	phase: Type.Optional(Type.String()),
+	note: Type.Optional(Type.String()),
+	evidence: Type.Optional(Type.String()),
+	team_status: Type.Optional(Type.String()),
+	remaining_risks: Type.Optional(Type.Array(Type.String())),
+	changed_files: Type.Optional(Type.Array(Type.String())),
+	checks: Type.Optional(Type.Array(harness_validation_check_schema)),
+});
+
+export type HarnessLogEntry = Static<typeof harness_log_entry_schema>;
 
 export interface HarnessOutcome {
 	id: string;
@@ -228,9 +257,13 @@ export interface HarnessOutcome {
 	log: HarnessLogEntry[];
 }
 
-export interface HarnessStatusFile {
-	id: string;
-	status: HarnessStatus;
-	phase?: string;
-	log: HarnessLogEntry[];
-}
+export const harness_status_file_schema = Type.Object({
+	id: Type.String(),
+	status: harness_status_schema,
+	phase: Type.Optional(Type.String()),
+	log: Type.Array(harness_log_entry_schema),
+});
+
+export type HarnessStatusFile = Static<
+	typeof harness_status_file_schema
+>;

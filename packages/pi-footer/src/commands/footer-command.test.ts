@@ -9,9 +9,10 @@ import {
 	it,
 	vi,
 } from 'vite-plus/test';
+import { make_api } from '../../../../tools/test-sdk.js';
 import { load_footer_state } from '../config.js';
 import { DEFAULT_FOOTER_STATE } from '../presets/types.js';
-import { make_context } from '../test-utils.js';
+import { make_command_context } from '../test-utils.js';
 import { register_footer_command } from './footer-command.js';
 
 const modal_mocks = vi.hoisted(() => ({
@@ -46,7 +47,8 @@ describe('register_footer_command', () => {
 
 	it('persists the current state when the footer command closes', async () => {
 		modal_mocks.show_settings_modal.mockResolvedValueOnce(undefined);
-		const register_command = vi.fn();
+		const pi = make_api();
+		const register_command = vi.spyOn(pi, 'registerCommand');
 
 		const state = {
 			...DEFAULT_FOOTER_STATE,
@@ -58,14 +60,11 @@ describe('register_footer_command', () => {
 			),
 		};
 
-		register_footer_command(
-			{ registerCommand: register_command } as never,
-			state,
-		);
+		register_footer_command(pi, state);
 
 		await register_command.mock.calls[0]?.[1].handler(
 			'',
-			make_context() as never,
+			make_command_context(),
 		);
 
 		expect(load_footer_state().density).toBe('expanded');
@@ -99,7 +98,8 @@ describe('register_footer_command', () => {
 				return 'mcp';
 			})
 			.mockResolvedValueOnce(undefined);
-		const register_command = vi.fn();
+		const pi = make_api();
+		const register_command = vi.spyOn(pi, 'registerCommand');
 
 		const state = {
 			...DEFAULT_FOOTER_STATE,
@@ -110,14 +110,11 @@ describe('register_footer_command', () => {
 			),
 		};
 
-		register_footer_command(
-			{ registerCommand: register_command } as never,
-			state,
-		);
+		register_footer_command(pi, state);
 		const command = register_command.mock.calls[0]?.[1];
 		expect(command).toBeDefined();
 
-		await command.handler('', make_context() as never);
+		await command.handler('', make_command_context());
 
 		expect(state.status_layout.mcp).toEqual({
 			row: 3,

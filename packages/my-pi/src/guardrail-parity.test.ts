@@ -1,3 +1,4 @@
+import { make_ui } from '../../../tools/test-sdk.js';
 import {
 	fauxAssistantMessage,
 	fauxProvider,
@@ -10,7 +11,6 @@ import {
 	ModelRuntime,
 	SessionManager,
 	SettingsManager,
-	type ExtensionUIContext,
 	type ToolCallEvent,
 } from '@earendil-works/pi-coding-agent';
 import coding_preferences, {
@@ -427,11 +427,11 @@ describe('guardrails through the real upstream tool execution pipeline', () => {
 				const warnings: string[] = [];
 				await session.bindExtensions({
 					onError: (error) => errors.push(error),
-					uiContext: {
+					uiContext: make_ui({
 						notify: (message: string) => {
 							warnings.push(message);
 						},
-					} as ExtensionUIContext,
+					}),
 				});
 				session.setActiveToolsByName([
 					'write',

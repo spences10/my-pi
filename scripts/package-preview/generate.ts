@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import * as v from 'valibot';
 import {
 	load_preview_config,
 	parse_preview_config,
@@ -216,6 +217,8 @@ export function check_preview(
 	}
 }
 
+const package_version_schema = v.object({ version: v.string() });
+
 if (import.meta.main) {
 	try {
 		const options = preview_options(process.argv.slice(2));
@@ -223,9 +226,10 @@ if (import.meta.main) {
 		if (options.help) {
 			console.log(preview_help);
 		} else {
-			const { version } = JSON.parse(
-				readFileSync(package_path, 'utf8'),
-			) as { version: string };
+			const { version } = v.parse(
+				package_version_schema,
+				JSON.parse(readFileSync(package_path, 'utf8')),
+			);
 
 			if (options.check) {
 				if (

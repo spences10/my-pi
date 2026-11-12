@@ -4,7 +4,6 @@ import {
 	with_sqlite_transaction,
 } from '@spences10/pi-sqlite-core';
 import { createServer, type ServerResponse } from 'node:http';
-import type { SQLOutputValue } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import * as v from 'valibot';
 import {
@@ -49,6 +48,10 @@ import { create_stats_queries, parse_since } from './stats.js';
 import { create_timeline_query } from './timeline.js';
 import { trace_summary } from './trace-summary.js';
 import type { ObservabilityEvent } from './types.js';
+
+const next_seq_row_schema = v.optional(
+	v.looseObject({ seq: v.optional(v.number()) }),
+);
 
 export { resolve_observability_server_options } from './options.js';
 
@@ -152,9 +155,10 @@ export function start_observability_server(
 		if (!valid_event(event)) return null;
 		const tags_json = JSON.stringify(event.tags ?? []);
 
-		const next_seq_row = statements.next_event_seq.get(
-			event.session_id,
-		) as { seq?: number } | undefined;
+		const next_seq_row = v.parse(
+			next_seq_row_schema,
+			statements.next_event_seq.get(event.session_id),
+		);
 
 		const server_event = {
 			...event,
@@ -315,11 +319,7 @@ export function start_observability_server(
 
 				const pool = req_url.searchParams.get('pool') ?? '';
 
-				const rows = statements.list_sessions.all(
-					pool,
-					pool,
-					limit,
-				) as Record<string, SQLOutputValue>[];
+				const rows = statements.list_sessions.all(pool, pool, limit);
 
 				const tag = req_url.searchParams.get('tag');
 
@@ -403,18 +403,13 @@ export function start_observability_server(
 					is_trace ? MAX_TRACE_EVENTS : 1000,
 				);
 
-				const rows = statements.list_events.all(
-					session_id,
-					limit,
-				) as Record<string, SQLOutputValue>[];
+				const rows = statements.list_events.all(session_id, limit);
 
 				const events = rows.map(to_row_event);
 
 				if (!is_trace) return json(res, 200, { events });
 
-				const session_row = statements.get_session.get(session_id) as
-					| Record<string, SQLOutputValue>
-					| undefined;
+				const session_row = statements.get_session.get(session_id);
 
 				const session = session_row
 					? to_session_row(session_row)
@@ -444,7 +439,7 @@ export function start_observability_server(
 					query,
 					query ? `%${query}%` : '',
 					limit,
-				) as Record<string, SQLOutputValue>[];
+				);
 
 				return json(res, 200, { events: rows.map(to_row_event) });
 			}

@@ -6,6 +6,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
+import * as v from 'valibot';
 import { HARNESS_ASSESSMENT_CUSTOM_TYPE } from './assessment.js';
 import harness from './extension.js';
 import { HARNESS_SYSTEM_PROMPT } from './prompt.js';
@@ -164,7 +165,11 @@ async function create(
 		([kind]) => kind === HARNESS_CUSTOM_TYPE,
 	);
 
-	const dir = entry![1].active_harness_dir as string;
+	const dir = v.parse(
+		v.object({ active_harness_dir: v.string() }),
+		entry![1],
+	).active_harness_dir;
+
 	cleanup.push(dir);
 
 	return dir;
@@ -187,11 +192,10 @@ describe('harness extension', () => {
 		const f = fixture();
 		harness(f.api);
 
+		const sections: Record<string, string> = {};
+
 		const event = {
-			systemPromptOptions: {
-				selectedTools: ['codemode'],
-				sections: {} as Record<string, string>,
-			},
+			systemPromptOptions: { selectedTools: ['codemode'], sections },
 		};
 
 		await f.handlers.get('before_agent_start')!(event);

@@ -3,6 +3,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import * as v from 'valibot';
 
 type Finding = { file: string; message: string; detail?: string };
 
@@ -31,6 +32,10 @@ function workspace_of(file: string): string | null {
 	return match ? `${match[1]}/${match[2]}` : null;
 }
 
+const package_name_schema = v.object({
+	name: v.optional(v.string()),
+});
+
 function package_name_from_workspace(
 	workspace: string | null,
 ): string | null {
@@ -38,9 +43,10 @@ function package_name_from_workspace(
 	const package_json = `${workspace}/package.json`;
 
 	try {
-		const pkg = JSON.parse(readFileSync(package_json, 'utf8')) as {
-			name?: string;
-		};
+		const pkg = v.parse(
+			package_name_schema,
+			JSON.parse(readFileSync(package_json, 'utf8')),
+		);
 
 		return pkg.name ?? null;
 	} catch {

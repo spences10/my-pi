@@ -7,6 +7,7 @@ import {
 	realpathSync,
 	statSync,
 } from 'node:fs';
+import * as v from 'valibot';
 import {
 	delimiter,
 	dirname,
@@ -333,6 +334,10 @@ function has_project_typescript(cwd: string): boolean {
 	);
 }
 
+const package_manifest_schema = v.object({
+	version: v.optional(v.string()),
+});
+
 function resolve_native_typescript_server(
 	cwd: string,
 ): LspServerConfig | undefined {
@@ -344,11 +349,10 @@ function resolve_native_typescript_server(
 		if (!command || !existsSync(package_json)) continue;
 
 		try {
-			const manifest = JSON.parse(
-				readFileSync(package_json, 'utf8'),
-			) as {
-				version?: string;
-			};
+			const manifest = v.parse(
+				package_manifest_schema,
+				JSON.parse(readFileSync(package_json, 'utf8')),
+			);
 
 			const major = Number.parseInt(
 				manifest.version?.split('.')[0] ?? '',
@@ -410,11 +414,17 @@ const PYTHON_SERVERS = {
 		install_hint: 'Install Pyright with: pip install pyright',
 	},
 } satisfies Record<
-	string,
+	PythonServer,
 	{ command: string; args: string[]; install_hint: string }
 >;
 
-type PythonServer = keyof typeof PYTHON_SERVERS;
+const python_server_schema = v.picklist([
+	'pylsp',
+	'basedpyright',
+	'pyright',
+]);
+
+type PythonServer = v.InferOutput<typeof python_server_schema>;
 
 const TYPE_CHECKING_SERVERS: PythonServer[] = [
 	'basedpyright',
@@ -429,13 +439,15 @@ function resolve_python_server(
 	const selection = env[PYTHON_SERVER_ENV]?.trim() || 'auto';
 
 	if (selection !== 'auto') {
-		if (!Object.hasOwn(PYTHON_SERVERS, selection)) {
+		const parsed = v.safeParse(python_server_schema, selection);
+
+		if (!parsed.success) {
 			throw new Error(
 				`${PYTHON_SERVER_ENV} must be auto, pylsp, basedpyright, or pyright (received ${JSON.stringify(selection)}).`,
 			);
 		}
 
-		const backend = selection as PythonServer;
+		const backend = parsed.output;
 
 		const config =
 			(allow_project_local && find_local_server(cwd, [backend])) ||

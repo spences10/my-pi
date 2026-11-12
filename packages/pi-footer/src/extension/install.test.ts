@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
+import { make_tui } from '../../../../tools/test-terminal.js';
 import { DEFAULT_FOOTER_STATE } from '../presets/types.js';
 import {
 	make_context,
@@ -21,7 +22,7 @@ describe('install_footer', () => {
 	});
 
 	it('registers a footer renderer and branch-change invalidation', () => {
-		const request_render = vi.fn();
+		const { tui } = make_tui();
 		const dispose = vi.fn();
 
 		const footer_data = make_footer_data({
@@ -39,11 +40,7 @@ describe('install_footer', () => {
 		if (!(factory instanceof Function))
 			throw new Error('missing footer factory');
 
-		const footer = factory(
-			{ requestRender: request_render } as never,
-			test_theme,
-			footer_data,
-		);
+		const footer = factory(tui, test_theme, footer_data);
 
 		expect(footer.render(100).length).toBeGreaterThan(0);
 		footer.dispose?.();

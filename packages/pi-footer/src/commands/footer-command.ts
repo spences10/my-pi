@@ -1,7 +1,6 @@
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
-	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import { SelectList, type SettingItem } from '@earendil-works/pi-tui';
 import {
@@ -22,15 +21,10 @@ import {
 	FOOTER_WIDGETS,
 	GIT_ICON_MODES,
 	STATUS_LABEL_MODES,
-	type FooterDensity,
-	type FooterPreset,
+	find_option,
 	type FooterState,
-	type FooterStatusAlignment,
 	type FooterStatusPlacement,
-	type FooterTone,
 	type FooterWidget,
-	type GitIconMode,
-	type StatusLabelMode,
 } from '../presets/types.js';
 import { FOOTER_RESEARCH_REFERENCES } from '../reference/research.js';
 import { render_footer_lines } from '../render/footer-lines.js';
@@ -187,7 +181,13 @@ async function configure_footer_widgets(
 						const selected = list.getSelectedItem();
 
 						if (!selected) return;
-						const widget = selected.value as FooterWidget;
+
+						const widget = find_option(
+							FOOTER_WIDGETS,
+							selected.value,
+						);
+
+						if (!widget) return;
 						state.widgets[widget] = !state.widgets[widget];
 						selected.description = format_widget_state(state, widget);
 						save_footer_state(state);
@@ -296,13 +296,13 @@ async function configure_footer_status(
 		on_change: (id, new_value) => {
 			if (id === 'row') placement.row = Number(new_value);
 
-			if (
-				id === 'alignment' &&
-				FOOTER_STATUS_ALIGNMENTS.includes(
-					new_value as FooterStatusAlignment,
-				)
-			) {
-				placement.alignment = new_value as FooterStatusAlignment;
+			const alignment = find_option(
+				FOOTER_STATUS_ALIGNMENTS,
+				new_value,
+			);
+
+			if (id === 'alignment' && alignment) {
+				placement.alignment = alignment;
 			}
 
 			if (id === 'visibility')
@@ -369,7 +369,7 @@ function get_widget_modal_subtitle(
 		return ['Choose footer building blocks to show or hide.'];
 
 	const lines = render_footer_lines(
-		ctx as ExtensionContext,
+		ctx,
 		ctx.ui.theme,
 		footer_data,
 		state,
@@ -398,40 +398,28 @@ function apply_footer_setting(
 	id: string,
 	new_value: string,
 ): void {
-	if (
-		id === 'preset' &&
-		FOOTER_PRESETS.includes(new_value as FooterPreset)
-	) {
-		state.preset = new_value as FooterPreset;
-	}
+	const preset = find_option(FOOTER_PRESETS, new_value);
+	const density = find_option(FOOTER_DENSITIES, new_value);
+	const tone = find_option(FOOTER_TONES, new_value);
 
-	if (
-		id === 'density' &&
-		FOOTER_DENSITIES.includes(new_value as FooterDensity)
-	) {
-		state.density = new_value as FooterDensity;
-	}
+	const status_label_mode = find_option(
+		STATUS_LABEL_MODES,
+		new_value,
+	);
 
-	if (
-		id === 'tone' &&
-		FOOTER_TONES.includes(new_value as FooterTone)
-	) {
-		state.tone = new_value as FooterTone;
-	}
+	const git_icon_mode = find_option(GIT_ICON_MODES, new_value);
 
-	if (
-		id === 'status-labels' &&
-		STATUS_LABEL_MODES.includes(new_value as StatusLabelMode)
-	) {
-		state.status_label_mode = new_value as StatusLabelMode;
-	}
+	if (id === 'preset' && preset) state.preset = preset;
 
-	if (
-		id === 'git-icons' &&
-		GIT_ICON_MODES.includes(new_value as GitIconMode)
-	) {
-		state.git_icon_mode = new_value as GitIconMode;
-	}
+	if (id === 'density' && density) state.density = density;
+
+	if (id === 'tone' && tone) state.tone = tone;
+
+	if (id === 'status-labels' && status_label_mode)
+		state.status_label_mode = status_label_mode;
+
+	if (id === 'git-icons' && git_icon_mode)
+		state.git_icon_mode = git_icon_mode;
 }
 
 function get_setting_detail(id: string): string | undefined {
@@ -467,7 +455,7 @@ function get_footer_preview(
 		return ['Preview unavailable before footer setup.'];
 
 	const lines = render_footer_lines(
-		ctx as ExtensionContext,
+		ctx,
 		ctx.ui.theme,
 		footer_data,
 		state,

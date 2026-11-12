@@ -1,4 +1,7 @@
-import { read_package_settings } from '@spences10/pi-settings';
+import {
+	read_package_settings,
+	type JsonValue,
+} from '@spences10/pi-settings';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
@@ -51,8 +54,19 @@ const config_schema = v.object({
 	),
 });
 
+/** One config file's fields before validation; bad values are replaced on normalization. */
+const config_file_schema = v.object({
+	blockEffect: v.optional(v.unknown()),
+	allow: v.optional(v.unknown()),
+	mode: v.optional(v.unknown()),
+});
+
+type SvelteGuardrailsConfigFile = v.InferOutput<
+	typeof config_file_schema
+>;
+
 export function normalize_svelte_guardrails_config(
-	value: Partial<SvelteGuardrailsConfig>,
+	value: SvelteGuardrailsConfigFile,
 ): SvelteGuardrailsConfig {
 	return { version: 1, ...v.parse(config_schema, value) };
 }
@@ -82,20 +96,21 @@ export function load_svelte_guardrails_config(
 
 function read_svelte_guardrails_config_file(
 	path: string,
-): Partial<SvelteGuardrailsConfig> {
+): SvelteGuardrailsConfigFile {
 	try {
 		if (path === get_svelte_guardrails_config_path()) {
-			return read_package_settings<Partial<SvelteGuardrailsConfig>>(
-				'svelteGuardrails',
-				{},
+			return v.parse(
+				config_file_schema,
+				read_package_settings<JsonValue>('svelteGuardrails', {}),
 			);
 		}
 
 		if (!existsSync(path)) return {};
 
-		return JSON.parse(
-			readFileSync(path, 'utf-8'),
-		) as Partial<SvelteGuardrailsConfig>;
+		return v.parse(
+			config_file_schema,
+			JSON.parse(readFileSync(path, 'utf-8')),
+		);
 	} catch {
 		return {};
 	}

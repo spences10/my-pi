@@ -10,11 +10,9 @@ import {
 
 describe('describe_session_shutdown', () => {
 	it('formats shutdown reasons without a target session', () => {
-		expect(
-			describe_session_shutdown({ reason: 'quit' } as Parameters<
-				typeof describe_session_shutdown
-			>[0]),
-		).toBe('session shutdown (quit)');
+		expect(describe_session_shutdown({ reason: 'quit' })).toBe(
+			'session shutdown (quit)',
+		);
 	});
 
 	it('includes target session file when present', () => {

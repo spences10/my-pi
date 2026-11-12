@@ -1,15 +1,17 @@
 import type { JsonValue } from '../../../json';
-import type {
-	DashboardSession,
-	FailureRow,
-	ObservabilityEvent,
-	OverviewResponse,
-	SessionSpansResponse,
-	SessionStats,
-	SessionTimeline,
-	ToolStats,
-	TraceSummary,
-} from '../../../types';
+import * as v from 'valibot';
+import {
+	events_response_schema,
+	failures_response_schema,
+	overview_response_schema,
+	session_spans_response_schema,
+	session_stats_response_schema,
+	session_timeline_schema,
+	sessions_response_schema,
+	tools_response_schema,
+	trace_summary_schema,
+} from '../../../response-schemas';
+import type { ObservabilityEvent } from '../../../types';
 
 export type DashboardEvent = ObservabilityEvent<
 	Record<string, JsonValue>
@@ -61,8 +63,11 @@ export async function api_fetch(
 	return response;
 }
 
-async function get_json<T>(path: string): Promise<T> {
-	return (await (await api_fetch(path)).json()) as T;
+async function get_json<T>(
+	path: string,
+	schema: v.GenericSchema<unknown, T>,
+): Promise<T> {
+	return v.parse(schema, await (await api_fetch(path)).json());
 }
 
 function query(
@@ -83,38 +88,48 @@ const session_path = (id: string) =>
 
 export const api = {
 	overview: (since: string | null, limit = 12) =>
-		get_json<OverviewResponse>(
+		get_json(
 			`/stats/overview${query({ since, limit })}`,
+			overview_response_schema,
 		),
 	tools: (since: string | null) =>
-		get_json<{ tools: ToolStats[] }>(
+		get_json(
 			`/stats/tools${query({ since })}`,
+			tools_response_schema,
 		),
 	session_stats: (since: string | null, limit = 500) =>
-		get_json<{ sessions: SessionStats[] }>(
+		get_json(
 			`/stats/sessions${query({ since, limit })}`,
+			session_stats_response_schema,
 		),
 	sessions: (limit = 200) =>
-		get_json<{ sessions: DashboardSession[] }>(
+		get_json(
 			`/sessions${query({ limit })}`,
+			sessions_response_schema,
 		),
 	trace: (id: string) =>
-		get_json<TraceSummary>(`${session_path(id)}/trace`),
+		get_json(`${session_path(id)}/trace`, trace_summary_schema),
 	spans: (id: string) =>
-		get_json<SessionSpansResponse>(`${session_path(id)}/spans`),
+		get_json(
+			`${session_path(id)}/spans`,
+			session_spans_response_schema,
+		),
 	timeline: (id: string) =>
-		get_json<SessionTimeline>(`${session_path(id)}/timeline`),
+		get_json(`${session_path(id)}/timeline`, session_timeline_schema),
 	failures: (since: string | null, limit = 50) =>
-		get_json<{ failures: FailureRow[] }>(
+		get_json(
 			`/stats/failures${query({ since, limit })}`,
+			failures_response_schema,
 		),
 	/** Substring search over every stored event payload. */
 	search_events: (q: string, limit = 12) =>
-		get_json<{ events: DashboardEvent[] }>(
+		get_json(
 			`/events/search${query({ q, limit })}`,
+			events_response_schema,
 		),
 	events: (id: string, limit = 1000) =>
-		get_json<{ events: DashboardEvent[] }>(
+		get_json(
 			`${session_path(id)}/events${query({ limit })}`,
+			events_response_schema,
 		),
 };

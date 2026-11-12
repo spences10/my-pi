@@ -111,3 +111,11 @@ export const DEFAULT_FOOTER_STATE: FooterState = {
 	git_icon_mode: 'nerd',
 	widgets: DEFAULT_FOOTER_WIDGETS,
 };
+
+/** Return the matching member of a literal list, so no cast is needed. */
+export function find_option<T extends string>(
+	options: readonly T[],
+	value: string | undefined,
+): T | undefined {
+	return options.find((option) => option === value);
+}

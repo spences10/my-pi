@@ -1,9 +1,9 @@
+import { make_model_registry } from '../../../tools/test-sdk.js';
 import {
 	DefaultResourceLoader,
 	ExtensionRunner,
 	SessionManager,
 	type InlineExtension,
-	type ModelRegistry,
 } from '@earendil-works/pi-coding-agent';
 import {
 	existsSync,
@@ -135,7 +135,7 @@ describe('Pi prompt compatibility', () => {
 				loaded.runtime,
 				cwd,
 				SessionManager.inMemory(cwd),
-				{} as ModelRegistry,
+				make_model_registry(),
 			);
 
 			const errors: unknown[] = [];

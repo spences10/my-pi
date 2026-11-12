@@ -12,11 +12,10 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vite-plus/test';
+import * as v from 'valibot';
 import harness from './extension.js';
-import {
-	HARNESS_CUSTOM_TYPE,
-	type HarnessStatusFile,
-} from './schema.js';
+import { read_status } from './runtime/files.js';
+import { HARNESS_CUSTOM_TYPE } from './schema.js';
 
 // Execute the wrapped codemode tool without a model request. Its nested calls
 // still run through Pi's real tool validation, hooks, and cancellation pipeline.
@@ -185,8 +184,10 @@ return await tools.harness_create(${JSON.stringify({
 
 				if (!entry || entry.type !== 'custom')
 					throw new Error('Harness was not activated');
-				harness_dir = (entry.data as { active_harness_dir: string })
-					.active_harness_dir;
+				harness_dir = v.parse(
+					v.object({ active_harness_dir: v.string() }),
+					entry.data,
+				).active_harness_dir;
 
 				const update_finished = new Promise<void>((resolve) => {
 					session!.subscribe((event) => {
@@ -212,9 +213,7 @@ return await tools.harness_create(${JSON.stringify({
 				// Cancellation can return before nested calls finish unwinding.
 				await update_finished;
 
-				const status = JSON.parse(
-					readFileSync(join(harness_dir, 'status.json'), 'utf8'),
-				) as HarnessStatusFile;
+				const status = read_status(harness_dir);
 
 				expect(status.status).toBe(
 					scenario === 'passed' ? 'completed' : 'failed',

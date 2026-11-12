@@ -1,13 +1,51 @@
 import { parse, type AST } from 'svelte/compiler';
 import ts from 'typescript';
+import * as v from 'valibot';
 
-export type NamingStyle = 'snake_case' | 'camelCase' | 'PascalCase';
+const naming_style_schema = v.picklist([
+	'snake_case',
+	'camelCase',
+	'PascalCase',
+]);
 
-export type NamingConfig = {
-	variables?: NamingStyle | false;
-	functions?: NamingStyle | false;
-	types?: NamingStyle | false;
-};
+export type NamingStyle = v.InferOutput<typeof naming_style_schema>;
+
+const NAMING_STYLE_MESSAGE =
+	'Invalid codingPreferences.naming style. Use snake_case, camelCase, PascalCase, or false.';
+
+const NAMING_OBJECT_MESSAGE =
+	'codingPreferences.naming must be an object or false.';
+
+const naming_style_setting_schema = v.union(
+	[v.literal(false), naming_style_schema],
+	NAMING_STYLE_MESSAGE,
+);
+
+/** The `naming` section of a coding-preferences file: a style per category, or false. */
+export const naming_config_schema = v.union(
+	[
+		v.literal(false),
+		v.pipe(
+			v.object({
+				variables: v.exactOptional(naming_style_setting_schema),
+				functions: v.exactOptional(naming_style_setting_schema),
+				types: v.exactOptional(naming_style_setting_schema),
+			}),
+			v.check((config) => !Array.isArray(config)),
+		),
+	],
+	NAMING_OBJECT_MESSAGE,
+);
+
+const node_offsets_schema = v.object({
+	start: v.number(),
+	end: v.number(),
+});
+
+export type NamingConfig = Exclude<
+	v.InferOutput<typeof naming_config_schema>,
+	false
+>;
 
 type NamingCategory = keyof NamingConfig;
 
@@ -214,10 +252,10 @@ function violations_in(
 		if (!script) return [];
 
 		// Svelte supplies offsets on its ESTree nodes, beyond the ESTree types.
-		const { start, end } = script.content as typeof script.content & {
-			start: number;
-			end: number;
-		};
+		const { start, end } = v.parse(
+			node_offsets_schema,
+			script.content,
+		);
 
 		return script_violations(
 			`${path}.ts`,

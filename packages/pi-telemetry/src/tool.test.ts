@@ -42,10 +42,19 @@ function fake_store(): TelemetryStore {
 		finish_tool_call: vi.fn(),
 		insert_provider_request: vi.fn(),
 		finish_provider_request: vi.fn(),
-		get_stats: vi.fn(),
+		get_stats: vi.fn(() => ({
+			runs: 0,
+			turns: 0,
+			tool_calls: 0,
+			provider_requests: 0,
+			schema_version: 1,
+			db_bytes: 0,
+			wal_bytes: 0,
+			total_bytes: 0,
+		})),
 		query_runs: vi.fn(() => []),
 		close: vi.fn(),
-	} as TelemetryStore;
+	};
 }
 
 describe('telemetry tool', () => {

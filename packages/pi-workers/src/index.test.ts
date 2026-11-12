@@ -15,12 +15,22 @@ import {
 	expect,
 	it,
 	vi,
+	type Mock,
 } from 'vite-plus/test';
 import workers, { worker_launch } from './index.js';
 import type { ManagerOptions } from './manager.js';
 
-const state = vi.hoisted(() => ({
-	options: undefined as ManagerOptions | undefined,
+interface HoistedState {
+	options: ManagerOptions | undefined;
+	dispose: Mock;
+	spawn: Mock<() => Promise<{ id: string }>>;
+	send: Mock;
+	stop: Mock;
+	show_workers: Mock;
+}
+
+const state = vi.hoisted((): HoistedState => ({
+	options: undefined,
 	dispose: vi.fn(),
 	spawn: vi.fn(async () => ({ id: 'owned' })),
 	send: vi.fn(),

@@ -17,8 +17,9 @@ function read_range(): RangeKey {
 	try {
 		const stored = localStorage.getItem(storage_key);
 
-		if (RANGES.some((range) => range.key === stored))
-			return stored as RangeKey;
+		const range = RANGES.find((range) => range.key === stored);
+
+		if (range) return range.key;
 	} catch {
 		// Fall through to the default.
 	}

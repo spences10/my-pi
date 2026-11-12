@@ -1,14 +1,26 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type {
-	HarnessContract,
-	HarnessLogEntry,
-	HarnessOutcome,
-	HarnessStatusFile,
+import { Value } from 'typebox/value';
+import type { Static, TSchema } from 'typebox';
+import {
+	harness_contract_schema,
+	harness_status_file_schema,
+	type HarnessContract,
+	type HarnessLogEntry,
+	type HarnessOutcome,
+	type HarnessStatusFile,
 } from '../schema.js';
 
-export function json_read<T>(path: string): T {
-	return JSON.parse(readFileSync(path, 'utf8')) as T;
+export function json_read<S extends TSchema>(
+	path: string,
+	schema: S,
+): Static<S> {
+	const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+
+	if (!Value.Check(schema, parsed))
+		throw new Error(`Invalid harness file: ${path}`);
+
+	return parsed;
 }
 
 export function json_write(
@@ -39,14 +51,16 @@ export function harness_paths(harness_dir: string) {
 }
 
 export function read_contract(harness_dir: string): HarnessContract {
-	return json_read<HarnessContract>(
+	return json_read(
 		harness_paths(harness_dir).contract,
+		harness_contract_schema,
 	);
 }
 
 export function read_status(harness_dir: string): HarnessStatusFile {
-	return json_read<HarnessStatusFile>(
+	return json_read(
 		harness_paths(harness_dir).status,
+		harness_status_file_schema,
 	);
 }
 

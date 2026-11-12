@@ -189,7 +189,7 @@ describe('syntax-aware naming', () => {
 		).toThrow('camelCase');
 		expect(resolve_naming_config(undefined)).toEqual(config);
 		expect(resolve_naming_config(false)).toBe(false);
-		expect(() => resolve_naming_config([] as never)).toThrow(
+		expect(() => resolve_naming_config(JSON.parse('[]'))).toThrow(
 			'must be an object or false',
 		);
 
@@ -214,7 +214,7 @@ describe('syntax-aware naming', () => {
 			),
 		).toThrow('naming.functions');
 		expect(() =>
-			resolve_naming_config({ variables: 'invalid' } as never),
+			resolve_naming_config(JSON.parse('{"variables":"invalid"}')),
 		).toThrow('Invalid codingPreferences.naming style');
 	});
 });

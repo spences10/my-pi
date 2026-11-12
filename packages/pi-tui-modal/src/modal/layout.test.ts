@@ -107,8 +107,10 @@ describe('modal layout helpers', () => {
 		expect(count_text_lines(() => ['one', '', 'two'], 10)).toBe(2);
 		expect(
 			normalize_metadata((item) => item?.label, {
+				id: 'label',
 				label: 'Label',
-			} as Parameters<typeof normalize_metadata>[1]),
+				currentValue: '',
+			}),
 		).toEqual(['Label']);
 		expect(value_color('✓ enabled')).toBe('success');
 		expect(value_color('sync queued')).toBe('warning');

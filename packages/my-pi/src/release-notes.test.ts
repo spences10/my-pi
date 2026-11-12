@@ -1,6 +1,10 @@
-import { make_context } from '../../../tools/test-sdk.js';
+import {
+	make_assistant_message,
+	make_context,
+} from '../../../tools/test-sdk.js';
 import {
 	SettingsManager,
+	type SessionEntry,
 	type SessionStartEvent,
 } from '@earendil-works/pi-coding-agent';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -11,7 +15,7 @@ const startup = { type: 'session_start', reason: 'startup' } as const;
 
 afterEach(() => vi.restoreAllMocks());
 
-function setup(last_version?: string) {
+function setup(last_version?: string, entries: SessionEntry[] = []) {
 	const settings = SettingsManager.inMemory();
 
 	if (last_version)
@@ -26,7 +30,7 @@ function setup(last_version?: string) {
 	const ctx = make_context({
 		mode: 'tui',
 		cwd: '/tmp',
-		sessionManager: { getEntries: () => [] },
+		sessionManager: { getEntries: () => entries },
 		ui: { notify },
 	});
 
@@ -95,9 +99,16 @@ describe('launcher release notices', () => {
 	);
 
 	it('leaves notices pending when continuing a session with messages', () => {
-		const { create, notify, ctx } = setup('0.7.0');
-		ctx.sessionManager.getEntries = () =>
-			[{ type: 'message' }] as never;
+		const { create, notify, ctx } = setup('0.7.0', [
+			{
+				type: 'message',
+				id: 'entry-1',
+				parentId: null,
+				timestamp: '2026-01-01T00:00:00.000Z',
+				message: make_assistant_message(),
+			},
+		]);
+
 		notify_release_update('0.8.0', startup, ctx);
 		expect(create).not.toHaveBeenCalled();
 		expect(notify).not.toHaveBeenCalled();

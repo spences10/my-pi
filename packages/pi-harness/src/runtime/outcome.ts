@@ -18,7 +18,11 @@ function now_iso(): string {
 }
 
 function unique(values: Array<string | undefined>): string[] {
-	return [...new Set(values.filter(Boolean) as string[])];
+	return [
+		...new Set(
+			values.filter((value): value is string => Boolean(value)),
+		),
+	];
 }
 
 function changed_files(

@@ -66,11 +66,14 @@ async function expect_safe_error(
 	);
 
 	expect(error).toBeInstanceOf(Error);
+
+	if (!(error instanceof Error)) throw error;
+
 	expect(String(error)).toContain(label);
 	expect_redacted(String(error));
 	// Raw causes or original diagnostic fields must not escape either.
 	expect(JSON.stringify(error)).not.toContain(secret);
-	expect((error as Error).stack).not.toContain(secret);
+	expect(error.stack).not.toContain(secret);
 }
 
 describe('worker diagnostics', () => {
@@ -122,11 +125,14 @@ describe('worker diagnostics', () => {
 
 			const error = await operation.catch((cause: unknown) => cause);
 			expect(error).toBeInstanceOf(Error);
+
+			if (!(error instanceof Error)) throw error;
+
 			expect(completed).toHaveLength(1);
 
 			for (const output of [
 				String(error),
-				(error as Error).stack,
+				error.stack,
 				JSON.stringify(error),
 				JSON.stringify(manager.list()),
 				JSON.stringify(completed),
@@ -134,7 +140,7 @@ describe('worker diagnostics', () => {
 				expect(output).not.toContain(password_value);
 
 			for (const diagnostic of [
-				(error as Error).message,
+				error.message,
 				manager.list()[0].error,
 				completed[0].error,
 			]) {

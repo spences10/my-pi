@@ -491,7 +491,7 @@ describe('harness guidance', () => {
 			expect(
 				should_inject_harness_prompt({
 					systemPromptOptions: { selectedTools: selected_tools },
-				} as Parameters<typeof should_inject_harness_prompt>[0]),
+				}),
 			).toBe(expected);
 		},
 	);

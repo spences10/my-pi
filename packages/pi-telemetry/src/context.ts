@@ -21,7 +21,7 @@ export function get_eval_metadata(): EvalMetadata {
 	};
 }
 
-interface ModelIdentity {
+export interface ModelIdentity {
 	provider: string | null;
 	id: string | null;
 }
@@ -52,11 +52,7 @@ export function get_model_identity(
 export function get_session_file(
 	ctx: ExtensionContext,
 ): string | null {
-	const session_manager = ctx.sessionManager as {
-		getSessionFile?: () => string | undefined;
-	};
-
-	return session_manager.getSessionFile?.() ?? null;
+	return ctx.sessionManager.getSessionFile?.() ?? null;
 }
 
 interface OutcomeMessage {

@@ -3,8 +3,19 @@ import type {
 	ToolRenderers,
 } from '@earendil-works/pi-coding-agent';
 import { Text, TruncatedText } from '@earendil-works/pi-tui';
+import * as v from 'valibot';
 import type { TeamModePeerMessageDetails } from './coordination-formatting.js';
-import type { TeamToolParams } from './team-tool-params.js';
+
+const optional_text = v.fallback(v.optional(v.string()), undefined);
+
+const call_params_schema = v.looseObject({
+	action: optional_text,
+	to: optional_text,
+	from: optional_text,
+	team_id: optional_text,
+	artifact_id: optional_text,
+	name: optional_text,
+});
 
 export const render_peer_message: MessageRenderer<
 	TeamModePeerMessageDetails
@@ -58,7 +69,7 @@ export const team_tool_renderers: Required<
 				0,
 				0,
 			);
-		const params = args as Partial<TeamToolParams>;
+		const params = v.parse(call_params_schema, args);
 
 		const target =
 			params.to ??

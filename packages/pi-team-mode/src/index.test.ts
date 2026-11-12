@@ -6,6 +6,21 @@ import {
 	validate_team_tool_params,
 } from './index.js';
 
+function prompt_options(selectedTools: string[]) {
+	return {
+		cwd: '/repo',
+		selectedTools,
+		hiddenTools: [],
+		toolSnippets: {},
+		toolGuidelines: {},
+		promptGuidelines: [],
+		appendSystemPrompt: '',
+		sections: {},
+		contextFiles: [],
+		skills: [],
+	};
+}
+
 describe('packages/pi-team-mode/src/index.ts', () => {
 	it('loads without side effects', async () => {
 		await expect(import('./index.js')).resolves.toBeDefined();
@@ -20,12 +35,12 @@ describe('packages/pi-team-mode/src/index.ts', () => {
 		expect(should_inject_team_prompt({})).toBe(true);
 		expect(
 			should_inject_team_prompt({
-				systemPromptOptions: { selectedTools: ['team'] } as never,
+				systemPromptOptions: prompt_options(['team']),
 			}),
 		).toBe(true);
 		expect(
 			should_inject_team_prompt({
-				systemPromptOptions: { selectedTools: ['other'] } as never,
+				systemPromptOptions: prompt_options(['other']),
 			}),
 		).toBe(false);
 	});

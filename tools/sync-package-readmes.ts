@@ -2,22 +2,30 @@
 /// <reference types="node" />
 
 import { globSync, readFileSync, writeFileSync } from 'node:fs';
+import * as v from 'valibot';
 
 const check_only = !process.argv.includes('--write');
 
 const region_pattern =
 	/<!-- package-readme:(header|install|development):start([^>]*) -->\n[\s\S]*?\n<!-- package-readme:\1:end -->/g;
 
-function package_manifest(readme: string): {
-	name: string;
-	scripts?: Record<string, string>;
-} {
-	return JSON.parse(
-		readFileSync(
-			readme.replace(/README\.md$/, 'package.json'),
-			'utf8',
+const package_manifest_schema = v.object({
+	name: v.string(),
+	scripts: v.exactOptional(v.record(v.string(), v.string())),
+});
+
+function package_manifest(
+	readme: string,
+): v.InferOutput<typeof package_manifest_schema> {
+	return v.parse(
+		package_manifest_schema,
+		JSON.parse(
+			readFileSync(
+				readme.replace(/README\.md$/, 'package.json'),
+				'utf8',
+			),
 		),
-	) as { name: string; scripts?: Record<string, string> };
+	);
 }
 
 function header_block(name: string, attributes: string): string {

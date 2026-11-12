@@ -8,17 +8,26 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import * as v from 'valibot';
 import { summarize_completed_peer_messages } from '../dist/context.js';
-import {
-	create_peer_message_delivery,
-	type TeamModePeerMessageDelivery,
-} from '../dist/coordination-formatting.js';
+import { create_peer_message_delivery } from '../dist/coordination-formatting.js';
 import { CoordinationPoller } from '../dist/coordination-poller.js';
 import { TeamDatabase } from '../dist/db/index.js';
 import { delivery_message_ids } from '../dist/delivery.js';
 import { execute_coordination_action } from '../dist/tools/coordination-actions.js';
 
 type Metrics = Record<string, number>;
+
+const metrics_schema = v.record(v.string(), v.number());
+
+/** The parts of a delivered peer message that the benchmark measures. */
+const delivered_message_schema = v.object({
+	content: v.string(),
+	details: v.object({
+		represented_message_ids: v.optional(v.array(v.string())),
+		messages: v.array(v.looseObject({ message_id: v.string() })),
+	}),
+});
 
 const results: Record<string, Metrics> = {};
 
@@ -64,7 +73,7 @@ async function scenario(
 		});
 
 		const deliveries: {
-			message: TeamModePeerMessageDelivery;
+			message: v.InferOutput<typeof delivered_message_schema>;
 			wakeup: boolean;
 		}[] = [];
 
@@ -79,19 +88,21 @@ async function scenario(
 		});
 
 		const record = (
-			message: TeamModePeerMessageDelivery,
+			message: Parameters<
+				Pick<ExtensionAPI, 'sendMessage'>['sendMessage']
+			>[0],
 			wakeup: boolean,
 		) => {
-			deliveries.push({ message, wakeup });
+			deliveries.push({
+				message: v.parse(delivered_message_schema, message),
+				wakeup,
+			});
 			poller.confirm_delivery({ role: 'custom', ...message });
 		};
 
 		const pi: Scenario['pi'] = {
 			sendMessage(message, options) {
-				record(
-					message as TeamModePeerMessageDelivery,
-					!!options?.triggerTurn,
-				);
+				record(message, !!options?.triggerTurn);
 
 				if (options?.triggerTurn) active = true;
 			},
@@ -288,9 +299,12 @@ if (outputIndex >= 0)
 const baselineIndex = process.argv.indexOf('--baseline');
 
 if (baselineIndex >= 0) {
-	const baseline = JSON.parse(
-		readFileSync(process.argv[baselineIndex + 1]!, 'utf8'),
-	) as Record<string, Metrics>;
+	const baseline = v.parse(
+		v.record(v.string(), metrics_schema),
+		JSON.parse(
+			readFileSync(process.argv[baselineIndex + 1]!, 'utf8'),
+		),
+	);
 
 	for (const [name, result] of Object.entries(results)) {
 		if (!baseline[name]) continue;

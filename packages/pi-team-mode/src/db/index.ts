@@ -35,7 +35,6 @@ import { apply_migrations } from './migrate.js';
 import { CONNECTION_PRAGMAS, PERSISTENT_PRAGMAS } from './schema.js';
 import { prepare_statements } from './statements.js';
 import type {
-	ArtifactRow,
 	CoordinationArtifact,
 	CoordinationArtifactInput,
 	CoordinationArtifactKind,
@@ -52,9 +51,6 @@ import type {
 	CoordinationSessionInput,
 	CoordinationSessionStatus,
 	DatabaseSyncConstructor,
-	GroupRow,
-	InboxRow,
-	SessionRow,
 	TeamDatabaseStatements,
 } from './types.js';
 import {
@@ -65,6 +61,30 @@ import {
 	optional,
 	parse_json_record,
 } from './util.js';
+
+const idempotent_message_row_schema = v.optional(
+	v.object({
+		message_id: v.string(),
+		request_hash: v.nullable(v.string()),
+	}),
+);
+
+const prunable_receipt_count_schema = v.object({
+	count: v.union([v.number(), v.bigint()]),
+});
+
+/** A `messages` row: an inbox row without its per-recipient receipt columns. */
+const message_row_schema = v.optional(
+	v.omit(inbox_row_schema, [
+		'to_session_id',
+		'delivered_at',
+		'read_at',
+		'acknowledged_at',
+		'receipt_created_at',
+		'from_agent_name',
+		'from_cwd',
+	]),
+);
 
 export { LATEST_TEAM_SCHEMA_VERSION } from './schema.js';
 
@@ -157,11 +177,11 @@ export class TeamDatabase {
 	}
 
 	get_session(session_id: string): CoordinationSession | undefined {
-		const row = this.statements.get_session.get(session_id) as
-			| SessionRow
-			| undefined;
+		const row = this.statements.get_session.get(session_id);
 
-		return row ? map_session(row) : undefined;
+		return row
+			? map_session(v.parse(session_row_schema, row))
+			: undefined;
 	}
 
 	list_sessions(
@@ -338,11 +358,11 @@ export class TeamDatabase {
 	get_artifact(
 		artifact_id: string,
 	): CoordinationArtifact | undefined {
-		const row = this.statements.get_artifact.get(artifact_id) as
-			| ArtifactRow
-			| undefined;
+		const row = this.statements.get_artifact.get(artifact_id);
 
-		return row ? map_artifact(row) : undefined;
+		return row
+			? map_artifact(v.parse(artifact_row_schema, row))
+			: undefined;
 	}
 
 	list_artifacts(
@@ -424,11 +444,9 @@ export class TeamDatabase {
 		group_id_or_name: string,
 		options: { cwd?: string } = {},
 	): CoordinationGroup | undefined {
-		const exact = this.statements.get_group.get(group_id_or_name) as
-			| GroupRow
-			| undefined;
+		const exact = this.statements.get_group.get(group_id_or_name);
 
-		if (exact) return map_group(exact);
+		if (exact) return map_group(v.parse(group_row_schema, exact));
 
 		const rows = v.parse(
 			v.array(group_row_schema),
@@ -606,13 +624,14 @@ export class TeamDatabase {
 
 		return this.transaction(() => {
 			if (input.idempotency_key !== undefined) {
-				const existing = this.db
-					.prepare(
-						'SELECT message_id, request_hash FROM messages WHERE from_session_id = ? AND idempotency_key = ?',
-					)
-					.get(input.from_session_id, input.idempotency_key) as
-					| { message_id: string; request_hash: string }
-					| undefined;
+				const existing = v.parse(
+					idempotent_message_row_schema,
+					this.db
+						.prepare(
+							'SELECT message_id, request_hash FROM messages WHERE from_session_id = ? AND idempotency_key = ?',
+						)
+						.get(input.from_session_id, input.idempotency_key),
+				);
 
 				if (existing) {
 					if (existing.request_hash !== request_hash)
@@ -860,10 +879,13 @@ export class TeamDatabase {
 
 		let cleanup_result: CoordinationCleanupResult | undefined;
 		this.transaction(() => {
-			const receipt_row = this.statements.count_prunable_receipts.get(
-				reference,
-				cutoff,
-			) as { count: number | bigint };
+			const receipt_row = v.parse(
+				prunable_receipt_count_schema,
+				this.statements.count_prunable_receipts.get(
+					reference,
+					cutoff,
+				),
+			);
 
 			const events = changes(
 				this.statements.prune_events.run(cutoff),
@@ -923,8 +945,11 @@ export class TeamDatabase {
 		return get_user_version(this.db);
 	}
 
-	read_rows<T>(query: string): T[] {
-		return this.db.prepare(query).all() as T[];
+	read_rows<TSchema extends v.GenericSchema>(
+		query: string,
+		row_schema: TSchema,
+	): Array<v.InferOutput<TSchema>> {
+		return v.parse(v.array(row_schema), this.db.prepare(query).all());
 	}
 
 	close(): void {
@@ -960,20 +985,12 @@ export class TeamDatabase {
 	private list_message_by_id(
 		message_id: string,
 	): CoordinationMessage | undefined {
-		const row = this.db
-			.prepare('SELECT * FROM messages WHERE message_id = ?')
-			.get(message_id) as
-			| Omit<
-					InboxRow,
-					| 'to_session_id'
-					| 'delivered_at'
-					| 'read_at'
-					| 'acknowledged_at'
-					| 'receipt_created_at'
-					| 'from_agent_name'
-					| 'from_cwd'
-			  >
-			| undefined;
+		const row = v.parse(
+			message_row_schema,
+			this.db
+				.prepare('SELECT * FROM messages WHERE message_id = ?')
+				.get(message_id),
+		);
 
 		if (!row) return undefined;
 

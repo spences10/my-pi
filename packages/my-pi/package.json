@@ -73,13 +73,13 @@
 		"@spences10/pi-tool-guidance": "workspace:*",
 		"@spences10/pi-tui-modal": "workspace:*",
 		"@spences10/pi-turn-timer": "workspace:*",
-		"@spences10/pi-workers": "workspace:*"
+		"@spences10/pi-workers": "workspace:*",
+		"valibot": "catalog:"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "catalog:",
 		"@types/node": "catalog:",
 		"typescript": "catalog:",
-		"valibot": "catalog:",
 		"vite-plus": "catalog:"
 	},
 	"engines": {

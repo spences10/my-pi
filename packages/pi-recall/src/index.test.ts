@@ -35,6 +35,16 @@ async function register_extension() {
 	return { handlers, on, register_command };
 }
 
+function before_agent_start(
+	handlers: Map<string, Function>,
+): PromptHandler {
+	const handler = handlers.get('before_agent_start');
+
+	if (!handler) throw new Error('Expected a before_agent_start hook');
+
+	return (event) => handler(event);
+}
+
 describe('recall extension', () => {
 	it('preserves the published prompt guard named export', () => {
 		expect(recall_entrypoint.should_inject_recall_prompt).toBeTypeOf(
@@ -79,9 +89,7 @@ describe('recall extension', () => {
 		async (selectedTools) => {
 			const { handlers } = await register_extension();
 
-			const handler = handlers.get(
-				'before_agent_start',
-			) as PromptHandler;
+			const handler = before_agent_start(handlers);
 
 			const event: PromptEvent = {
 				systemPrompt: 'base',
@@ -105,9 +113,7 @@ describe('recall extension', () => {
 	it('clears its section when bash becomes unavailable', async () => {
 		const { handlers } = await register_extension();
 
-		const handler = handlers.get(
-			'before_agent_start',
-		) as PromptHandler;
+		const handler = before_agent_start(handlers);
 
 		const event: PromptEvent = {
 			systemPrompt: 'base',

@@ -14,28 +14,43 @@ import {
 import { show_modal } from '@spences10/pi-tui-modal';
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { open_dashboard } from './index.js';
-import type { JsonValue } from './json.js';
+import * as v from 'valibot';
+import { json_value_schema } from './json.js';
 
-interface DashboardSession {
-	session_id: string;
-	pool?: string;
-	agent_name?: string;
-	cwd?: string;
-	model?: string;
-	provider?: string;
-	last_ts?: string;
-	event_count?: number;
-	tags?: string[];
-}
+const dashboard_session_schema = v.object({
+	session_id: v.string(),
+	pool: v.optional(v.string()),
+	agent_name: v.optional(v.string()),
+	cwd: v.optional(v.string()),
+	model: v.optional(v.string()),
+	provider: v.optional(v.string()),
+	last_ts: v.optional(v.string()),
+	event_count: v.optional(v.number()),
+	tags: v.optional(v.array(v.string())),
+});
 
-interface DashboardEvent {
-	event_id: string;
-	session_id: string;
-	seq: number;
-	ts: string;
-	type: string;
-	payload?: Record<string, JsonValue>;
-}
+type DashboardSession = v.InferOutput<
+	typeof dashboard_session_schema
+>;
+
+const dashboard_event_schema = v.object({
+	event_id: v.string(),
+	session_id: v.string(),
+	seq: v.number(),
+	ts: v.string(),
+	type: v.string(),
+	payload: v.optional(v.record(v.string(), json_value_schema)),
+});
+
+type DashboardEvent = v.InferOutput<typeof dashboard_event_schema>;
+
+const sessions_body_schema = v.object({
+	sessions: v.optional(v.array(dashboard_session_schema)),
+});
+
+const events_body_schema = v.object({
+	events: v.optional(v.array(dashboard_event_schema)),
+});
 
 interface DashboardSnapshot {
 	sessions: DashboardSession[];
@@ -53,6 +68,7 @@ function api_url(server_url: string, path: string): string {
 async function fetch_json<T>(
 	server_url: string,
 	path: string,
+	schema: v.GenericSchema<unknown, T>,
 	token?: string,
 ): Promise<T> {
 	const headers: Record<string, string> = {};
@@ -65,7 +81,7 @@ async function fetch_json<T>(
 
 	if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-	return (await response.json()) as T;
+	return v.parse(schema, await response.json());
 }
 
 async function fetch_observability_snapshot(
@@ -73,9 +89,10 @@ async function fetch_observability_snapshot(
 	token?: string,
 	limit = 40,
 ): Promise<DashboardSnapshot> {
-	const body = await fetch_json<{ sessions?: DashboardSession[] }>(
+	const body = await fetch_json(
 		server_url,
 		`/sessions?limit=${limit}`,
+		sessions_body_schema,
 		token,
 	);
 
@@ -84,11 +101,10 @@ async function fetch_observability_snapshot(
 
 	const pairs = await Promise.all(
 		selected.map(async (session) => {
-			const events_body = await fetch_json<{
-				events?: DashboardEvent[];
-			}>(
+			const events_body = await fetch_json(
 				server_url,
 				`/sessions/${encodeURIComponent(session.session_id)}/events?limit=200`,
+				events_body_schema,
 				token,
 			);
 

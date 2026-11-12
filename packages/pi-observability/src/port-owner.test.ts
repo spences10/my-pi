@@ -1,21 +1,14 @@
-import { execFileSync } from 'node:child_process';
-import {
-	beforeEach,
-	describe,
-	expect,
-	it,
-	vi,
-	type Mock,
-} from 'vite-plus/test';
+import type { execFileSync } from 'node:child_process';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { describe_port_owner } from './port-owner.js';
 
-vi.mock('node:child_process', () => ({
-	execFileSync: vi.fn(),
-}));
+const mocked_exec = vi.hoisted(() =>
+	vi.fn<(...args: Parameters<typeof execFileSync>) => string>(),
+);
 
-const mocked_exec = vi.mocked(execFileSync) as Mock<
-	(...args: Parameters<typeof execFileSync>) => string
->;
+vi.mock('node:child_process', () => ({
+	execFileSync: mocked_exec,
+}));
 
 describe('describe_port_owner', () => {
 	beforeEach(() => {

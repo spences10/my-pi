@@ -1,3 +1,4 @@
+import * as v from 'valibot';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -60,18 +61,28 @@ describe('TeamDatabase coordination store', () => {
 			expect(existsSync(db_path)).toBe(true);
 			expect(db.get_schema_version()).toBe(6);
 			expect(
-				db.read_rows<{ name: string }>(
+				db.read_rows(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'message_receipts'",
+					v.object({ name: v.string() }),
 				),
 			).toEqual([{ name: 'message_receipts' }]);
 			expect(
-				db.read_rows<{ journal_mode: string }>('PRAGMA journal_mode'),
+				db.read_rows(
+					'PRAGMA journal_mode',
+					v.object({ journal_mode: v.string() }),
+				),
 			).toEqual([{ journal_mode: 'wal' }]);
 			expect(
-				db.read_rows<{ foreign_keys: number }>('PRAGMA foreign_keys'),
+				db.read_rows(
+					'PRAGMA foreign_keys',
+					v.object({ foreign_keys: v.number() }),
+				),
 			).toEqual([{ foreign_keys: 1 }]);
 			expect(
-				db.read_rows<{ timeout: number }>('PRAGMA busy_timeout'),
+				db.read_rows(
+					'PRAGMA busy_timeout',
+					v.object({ timeout: v.number() }),
+				),
 			).toEqual([{ timeout: 5000 }]);
 		} finally {
 			db.close();
@@ -97,8 +108,9 @@ describe('TeamDatabase coordination store', () => {
 		try {
 			expect(db.get_schema_version()).toBe(6);
 			expect(
-				db.read_rows<{ name: string }>(
+				db.read_rows(
 					"SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('session_runtimes', 'runtime_events') ORDER BY name",
+					v.object({ name: v.string() }),
 				),
 			).toEqual([
 				{ name: 'runtime_events' },
@@ -127,8 +139,9 @@ describe('TeamDatabase coordination store', () => {
 		try {
 			expect(db.get_schema_version()).toBe(6);
 			expect(
-				db.read_rows<{ name: string }>(
+				db.read_rows(
 					"SELECT name FROM pragma_table_info('sessions') WHERE name IN ('thinking_level', 'availability') ORDER BY name",
+					v.object({ name: v.string() }),
 				),
 			).toEqual([
 				{ name: 'availability' },
@@ -635,16 +648,20 @@ describe('TeamDatabase coordination store', () => {
 			expect(db.get_session('pending-sender')).toBeDefined();
 			expect(db.get_session('pending-recipient')).toBeDefined();
 			expect(
-				db.read_rows<{ message_id: string }>(
+				db.read_rows(
 					'SELECT message_id FROM messages',
+					v.object({ message_id: v.string() }),
 				),
 			).toEqual([{ message_id: pending.message_id }]);
 			expect(
-				db.read_rows<{ message_id: string }>(
+				db.read_rows(
 					'SELECT message_id FROM message_receipts',
+					v.object({ message_id: v.string() }),
 				),
 			).toEqual([{ message_id: pending.message_id }]);
-			expect(db.read_rows('SELECT * FROM events')).toEqual([]);
+			expect(
+				db.read_rows('SELECT * FROM events', v.looseObject({})),
+			).toEqual([]);
 		} finally {
 			db.close();
 		}

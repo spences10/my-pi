@@ -10,11 +10,7 @@ import {
 	readFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
-import {
-	DatabaseSync,
-	type SQLOutputValue,
-	type StatementSync,
-} from 'node:sqlite';
+import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import * as v from 'valibot';
 import {
 	derive_event_columns,
@@ -165,16 +161,32 @@ export function prepare_db(db_path: string): PreparedDatabase {
 	};
 }
 
+const table_info_rows_schema = v.array(
+	v.looseObject({ name: v.string() }),
+);
+
+const backfill_rows_schema = v.array(
+	v.looseObject({
+		event_id: v.string(),
+		type: v.string(),
+		payload_json: v.string(),
+	}),
+);
+
 function table_columns(db: DatabaseSync, table: string): Set<string> {
-	const rows = db
-		.prepare(`PRAGMA table_info(${table})`)
-		.all() as Array<{ name: string }>;
+	const rows = v.parse(
+		table_info_rows_schema,
+		db.prepare(`PRAGMA table_info(${table})`).all(),
+	);
 
 	return new Set(rows.map((row) => row.name));
 }
 
 function scalar(db: DatabaseSync, sql: string): number {
-	const row = db.prepare(sql).get() as Record<string, SQLOutputValue>;
+	const row = v.parse(
+		v.record(v.string(), v.unknown()),
+		db.prepare(sql).get(),
+	);
 
 	return Number(Object.values(row)[0] ?? 0);
 }
@@ -241,13 +253,12 @@ function backfill_event_columns(db: DatabaseSync): void {
 		`UPDATE events SET ${assignments} WHERE event_id = ?`,
 	);
 
-	const rows = db
-		.prepare('SELECT event_id, type, payload_json FROM events')
-		.all() as Array<{
-		event_id: string;
-		type: string;
-		payload_json: string;
-	}>;
+	const rows = v.parse(
+		backfill_rows_schema,
+		db
+			.prepare('SELECT event_id, type, payload_json FROM events')
+			.all(),
+	);
 
 	with_sqlite_transaction(
 		db,

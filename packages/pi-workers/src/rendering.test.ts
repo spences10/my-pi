@@ -52,11 +52,26 @@ const message = {
 	timestamp: 0,
 };
 
-const context = {
+const context: Parameters<
+	typeof worker_tool_renderers.renderResult
+>[3] = {
+	args: {},
+	toolCallId: 'call',
+	invalidate: () => {},
+	lastComponent: undefined,
+	state: {},
+	cwd: '/repo',
+	executionStarted: true,
+	argsComplete: true,
+	isPartial: false,
 	expanded: false,
+	showImages: false,
 	isError: false,
+	durationMs: undefined,
+	outputPad: 0,
+	keyText: (keybinding) => keybinding,
 	keyHint: key_hint,
-} as Parameters<typeof worker_tool_renderers.renderResult>[3];
+};
 
 describe('worker rendering', () => {
 	it('shows a single-line result preview without altering the report', () => {

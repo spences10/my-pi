@@ -1,6 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as v from 'valibot';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { create_health_proof } from './health-auth.js';
 import {
@@ -8,11 +9,18 @@ import {
 	start_observability_server,
 	type RunningObservabilityServer,
 } from './server.js';
-import type {
-	ObservabilityEvent,
-	OverviewResponse,
-	SessionSpansResponse,
-} from './types.js';
+import {
+	events_response_schema,
+	failures_response_schema,
+	overview_response_schema,
+	session_spans_response_schema,
+	session_stats_response_schema,
+	session_timeline_schema,
+	sessions_response_schema,
+	tools_response_schema,
+	trace_summary_schema,
+} from './response-schemas.js';
+import type { ObservabilityEvent } from './types.js';
 
 const servers: RunningObservabilityServer[] = [];
 
@@ -171,9 +179,10 @@ describe('start_observability_server', () => {
 
 		const sessions_response = await fetch(`${server.url}/sessions`);
 
-		const sessions_body = (await sessions_response.json()) as {
-			sessions: Array<{ session_id: string; event_count: number }>;
-		};
+		const sessions_body = v.parse(
+			sessions_response_schema,
+			await sessions_response.json(),
+		);
 
 		expect(sessions_body.sessions[0]).toMatchObject({
 			session_id: 'session-1',
@@ -184,9 +193,10 @@ describe('start_observability_server', () => {
 			`${server.url}/sessions/session-1/events`,
 		);
 
-		const events_body = (await events_response.json()) as {
-			events: ObservabilityEvent[];
-		};
+		const events_body = v.parse(
+			events_response_schema,
+			await events_response.json(),
+		);
 
 		expect(events_body.events.map((item) => item.seq)).toEqual([
 			1, 0,
@@ -196,9 +206,10 @@ describe('start_observability_server', () => {
 			`${server.url}/sessions/session-1/trace`,
 		);
 
-		const trace_body = (await trace_response.json()) as {
-			metrics: { events: number };
-		};
+		const trace_body = v.parse(
+			trace_summary_schema,
+			await trace_response.json(),
+		);
 
 		expect(trace_body.metrics.events).toBe(2);
 	});
@@ -251,14 +262,10 @@ describe('start_observability_server', () => {
 			`${server.url}/sessions/session-1/trace`,
 		);
 
-		const trace_body = (await trace_response.json()) as {
-			metrics: {
-				input_tokens: number;
-				output_tokens: number;
-				total_tokens: number;
-				cost_usd: number;
-			};
-		};
+		const trace_body = v.parse(
+			trace_summary_schema,
+			await trace_response.json(),
+		);
 
 		expect(trace_body.metrics).toMatchObject({
 			input_tokens: 2000,
@@ -303,14 +310,10 @@ describe('start_observability_server', () => {
 			`${server.url}/sessions/session-1/trace`,
 		);
 
-		const trace_body = (await trace_response.json()) as {
-			metrics: {
-				input_tokens: number;
-				output_tokens: number;
-				total_tokens: number;
-				cost_usd: number;
-			};
-		};
+		const trace_body = v.parse(
+			trace_summary_schema,
+			await trace_response.json(),
+		);
 
 		expect(trace_body.metrics).toMatchObject({
 			input_tokens: 1000,
@@ -344,9 +347,10 @@ describe('start_observability_server', () => {
 
 		const response = await fetch(`${server.url}/sessions`);
 
-		const body = (await response.json()) as {
-			sessions: Array<{ agent_name?: string; session_name?: string }>;
-		};
+		const body = v.parse(
+			sessions_response_schema,
+			await response.json(),
+		);
 
 		expect(body.sessions[0]).toMatchObject({
 			agent_name: 'worker-a',
@@ -364,9 +368,10 @@ describe('start_observability_server', () => {
 		});
 		const cleared_response = await fetch(`${server.url}/sessions`);
 
-		const cleared_body = (await cleared_response.json()) as {
-			sessions: Array<{ agent_name?: string; session_name?: string }>;
-		};
+		const cleared_body = v.parse(
+			sessions_response_schema,
+			await cleared_response.json(),
+		);
 
 		expect(cleared_body.sessions[0]?.agent_name).toBe('worker-a');
 		expect(cleared_body.sessions[0]?.session_name).toBeUndefined();
@@ -475,9 +480,10 @@ describe('start_observability_server', () => {
 			`${server.url}/sessions/session-1/events`,
 		);
 
-		const events_body = (await events_response.json()) as {
-			events: ObservabilityEvent[];
-		};
+		const events_body = v.parse(
+			events_response_schema,
+			await events_response.json(),
+		);
 
 		expect(events_body.events.map((item) => item.seq)).toEqual([
 			2, 1, 0,
@@ -512,9 +518,10 @@ describe('start_observability_server', () => {
 			`${server.url}/sessions/session-1/events?limit=200`,
 		);
 
-		const events_body = (await events_response.json()) as {
-			events: ObservabilityEvent[];
-		};
+		const events_body = v.parse(
+			events_response_schema,
+			await events_response.json(),
+		);
 
 		expect(events_body.events).toHaveLength(10);
 		expect(events_body.events[0]?.seq).toBe(100);
@@ -610,9 +617,12 @@ describe('start_observability_server', () => {
 
 		expect(await ingest.json()).toMatchObject({ ingested: 5 });
 
-		const overview = (await (
-			await fetch(`${server.url}/stats/overview?since=not-a-date`)
-		).json()) as OverviewResponse;
+		const overview = v.parse(
+			overview_response_schema,
+			await (
+				await fetch(`${server.url}/stats/overview?since=not-a-date`)
+			).json(),
+		);
 
 		expect(overview).toMatchObject({
 			since: null,
@@ -628,25 +638,32 @@ describe('start_observability_server', () => {
 			sessions: [{ session_id: 'session-1', turns: 1 }],
 		});
 
-		const spans = (await (
-			await fetch(`${server.url}/sessions/session-1/spans`)
-		).json()) as SessionSpansResponse;
+		const spans = v.parse(
+			session_spans_response_schema,
+			await (
+				await fetch(`${server.url}/sessions/session-1/spans`)
+			).json(),
+		);
 
 		expect(spans).toMatchObject({
 			turns: [{ turn_index: 0, provider_ms: 600, tool_ms: 240 }],
 			tools: [{ tool_call_id: 'c1', is_error: 1, duration_ms: 240 }],
 		});
 
-		const timeline = (await (
-			await fetch(`${server.url}/sessions/session-1/timeline`)
-		).json()) as { runs: Array<{ children: unknown[] }> };
+		const timeline = v.parse(
+			session_timeline_schema,
+			await (
+				await fetch(`${server.url}/sessions/session-1/timeline`)
+			).json(),
+		);
 
 		expect(timeline.runs.length).toBeGreaterThan(0);
 		expect(JSON.stringify(timeline)).toContain('"kind":"tool"');
 
-		const failures = (await (
-			await fetch(`${server.url}/stats/failures`)
-		).json()) as { failures: unknown[] };
+		const failures = v.parse(
+			failures_response_schema,
+			await (await fetch(`${server.url}/stats/failures`)).json(),
+		);
 
 		expect(failures.failures).toEqual([
 			expect.objectContaining({
@@ -657,15 +674,19 @@ describe('start_observability_server', () => {
 			}),
 		]);
 
-		const tools = (await (
-			await fetch(`${server.url}/stats/tools`)
-		).json()) as { tools: unknown[] };
+		const tools = v.parse(
+			tools_response_schema,
+			await (await fetch(`${server.url}/stats/tools`)).json(),
+		);
 
 		expect(tools.tools).toHaveLength(1);
 
-		const sessions = (await (
-			await fetch(`${server.url}/stats/sessions?limit=1`)
-		).json()) as { sessions: unknown[] };
+		const sessions = v.parse(
+			session_stats_response_schema,
+			await (
+				await fetch(`${server.url}/stats/sessions?limit=1`)
+			).json(),
+		);
 
 		expect(sessions.sessions).toHaveLength(1);
 

@@ -1,4 +1,5 @@
 import {
+	make_command_context as sdk_command_context,
 	make_context as sdk_context,
 	make_model,
 	make_model_registry,
@@ -6,6 +7,7 @@ import {
 	type ContextOverrides,
 } from '../../../tools/test-sdk.js';
 import type {
+	ExtensionCommandContext,
 	ExtensionContext,
 	ReadonlyFooterDataProvider,
 } from '@earendil-works/pi-coding-agent';
@@ -31,13 +33,13 @@ export function make_footer_data(
 		getExtensionStatuses: vi.fn(() => new Map()),
 		onBranchChange: vi.fn(() => vi.fn()),
 		...overrides,
-	} as ReadonlyFooterDataProvider;
+	};
 }
 
-export function make_context(
-	overrides: ContextOverrides = {},
-): ExtensionContext {
-	return sdk_context({
+function footer_context_overrides(
+	overrides: ContextOverrides,
+): ContextOverrides {
+	return {
 		hasUI: true,
 		cwd: '/home/scott/repos/my-pi',
 		model: make_model({ id: 'claude-sonnet' }),
@@ -60,5 +62,17 @@ export function make_context(
 			notify: vi.fn(),
 		},
 		...overrides,
-	});
+	};
+}
+
+export function make_context(
+	overrides: ContextOverrides = {},
+): ExtensionContext {
+	return sdk_context(footer_context_overrides(overrides));
+}
+
+export function make_command_context(
+	overrides: ContextOverrides = {},
+): ExtensionCommandContext {
+	return sdk_command_context(footer_context_overrides(overrides));
 }

@@ -1,5 +1,5 @@
 import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
-import type { Component } from '@earendil-works/pi-tui';
+import { isFocusable, type Component } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import {
 	show_command_output_modal,
@@ -10,7 +10,10 @@ import {
 	show_settings_modal,
 	show_text_modal,
 } from './show.js';
-import type { ModalTheme } from './types.js';
+import {
+	make_keybindings,
+	make_theme,
+} from '../../../../tools/test-sdk.js';
 import {
 	make_terminal,
 	make_tui,
@@ -31,11 +34,6 @@ type ModalTestFactory = (
 	done: (result: ModalTestResult) => void,
 ) => ReturnType<CustomFactory>;
 
-const theme: ModalTheme = {
-	fg: (_color: string, text: string) => text,
-	bold: (text: string) => text,
-};
-
 function create_ctx(
 	result?: ModalTestResult,
 	send_input?: string,
@@ -55,14 +53,16 @@ function create_ctx(
 
 			const component = await factory(
 				make_tui(make_terminal({ rows: terminal_rows })).tui,
-				theme as CustomFactoryArgs[1],
-				{} as CustomFactoryArgs[2],
+				make_theme(),
+				make_keybindings(),
 				(value) => {
 					resolved = value;
 				},
 			);
 
-			(component as Component & { focused: boolean }).focused = true;
+			const focus_target: Component = component;
+
+			if (isFocusable(focus_target)) focus_target.focused = true;
 			rendered_lines.push(...component.render(100));
 
 			if (send_input) component.handleInput?.(send_input);
@@ -75,6 +75,7 @@ function create_ctx(
 	return {
 		ctx: {
 			ui: {
+				// SAFETY: each test passes the canned result of the type its show_* helper resolves with, so this mock's untyped result matches the helper's `custom<T>` call.
 				custom: custom as ExtensionCommandContext['ui']['custom'],
 				notify,
 			},

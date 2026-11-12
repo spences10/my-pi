@@ -9,15 +9,18 @@ import {
 
 describe('telemetry summaries', () => {
 	it('summarizes bash commands without storing command text', () => {
-		const summary = JSON.parse(
-			summarize_tool_args('bash', {
-				command: `secret-token-${'x'.repeat(100)}`,
-				timeout: 120,
-			})!,
-		) as {
-			command: { type: string; bytes: number };
-			timeout: number;
-		};
+		const summary = v.parse(
+			v.object({
+				command: v.object({ type: v.string(), bytes: v.number() }),
+				timeout: v.number(),
+			}),
+			JSON.parse(
+				summarize_tool_args('bash', {
+					command: `secret-token-${'x'.repeat(100)}`,
+					timeout: 120,
+				})!,
+			),
+		);
 
 		expect(summary.timeout).toBe(120);
 		expect(summary.command.type).toBe('string');

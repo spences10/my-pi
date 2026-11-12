@@ -30,6 +30,7 @@ import {
 	get_session_file,
 	get_stop_reason,
 	infer_run_outcome,
+	type ModelIdentity,
 } from './context.js';
 import type { TelemetryQueryFilters } from './db.js';
 import { default_load_store } from './store-loader.js';
@@ -134,10 +135,7 @@ export function create_telemetry_extension(
 			options.enabled,
 		);
 
-		let current_model = {
-			provider: null as string | null,
-			id: null as string | null,
-		};
+		let current_model: ModelIdentity = { provider: null, id: null };
 
 		let active_run: ActiveRun | null = null;
 		let enabled_by_tool = false;

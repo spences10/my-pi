@@ -21,7 +21,10 @@ import {
 } from './editor.js';
 import { star_color, star_frame } from './stars.js';
 import { make_tui } from '../../../tools/test-terminal.js';
-import { make_keybindings } from '../../../tools/test-sdk.js';
+import {
+	make_keybindings,
+	make_theme as make_sdk_theme,
+} from '../../../tools/test-sdk.js';
 
 const identity = (text: string) => text;
 
@@ -42,17 +45,17 @@ function make_theme(
 	background = '#202020',
 	mode: 'truecolor' | '256color' = 'truecolor',
 ): Theme {
-	return new Theme(
+	return make_sdk_theme(
 		{
 			muted: '#d0d0d0',
 			dim: '#888888',
 			text: '#eeeeee',
 			thinkingXhigh: '#888888',
-		} as ConstructorParameters<typeof Theme>[0],
+		},
 		{
 			userMessageBg: background,
 			selectedBg: background,
-		} as ConstructorParameters<typeof Theme>[1],
+		},
 		mode,
 	);
 }

@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import * as v from 'valibot';
 
 void test('the published logo entrypoint works with only the compiled logo artifacts', (t) => {
 	const dir = mkdtempSync(join(tmpdir(), 'my-pi-logo-'));
@@ -24,9 +25,10 @@ void test('the published logo entrypoint works with only the compiled logo artif
 	const target = join(dir, 'node_modules', 'my-pi');
 	mkdirSync(join(target, 'dist'), { recursive: true });
 
-	const manifest = JSON.parse(
-		readFileSync(join(source, 'package.json'), 'utf8'),
-	) as { files: string[] };
+	const manifest = v.parse(
+		v.object({ files: v.array(v.string()) }),
+		JSON.parse(readFileSync(join(source, 'package.json'), 'utf8')),
+	);
 
 	assert.ok(manifest.files.includes('dist'));
 

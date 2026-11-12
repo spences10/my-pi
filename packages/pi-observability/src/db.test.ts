@@ -98,11 +98,7 @@ describe('prepare_db', () => {
 		const { db } = prepare_db(db_path);
 
 		try {
-			const columns = db
-				.prepare('PRAGMA table_info(sessions)')
-				.all() as Array<{
-				name: string;
-			}>;
+			const columns = db.prepare('PRAGMA table_info(sessions)').all();
 
 			expect(columns.map((column) => column.name)).toContain(
 				'session_name',
@@ -455,11 +451,10 @@ describe('prepare_db', () => {
 				parent_tool_call_id: 'p1',
 			});
 
-			const columns = (
-				db.prepare('PRAGMA table_info(tool_spans)').all() as Array<{
-					name: string;
-				}>
-			).map((column) => column.name);
+			const columns = db
+				.prepare('PRAGMA table_info(tool_spans)')
+				.all()
+				.map((column) => column.name);
 
 			expect(columns).toEqual(
 				expect.arrayContaining(['error_text', 'exit_code']),

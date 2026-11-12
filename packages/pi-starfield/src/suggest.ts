@@ -1,8 +1,21 @@
 import type { Context } from '@earendil-works/pi-ai';
+import * as v from 'valibot';
 
-type Block = { type: string; text?: string };
+const block_schema = v.looseObject({
+	type: v.string(),
+	text: v.optional(v.string()),
+});
 
-type MessageLike = { role?: string; content?: string | Block[] };
+/** A message as far as suggestions care; anything unreadable counts as empty. */
+const message_schema = v.fallback(
+	v.looseObject({
+		role: v.optional(v.string()),
+		content: v.optional(v.union([v.string(), v.array(block_schema)])),
+	}),
+	{},
+);
+
+type MessageLike = v.InferOutput<typeof message_schema>;
 
 const MAX_REPLY_CHARS = 4000;
 const MAX_SUGGESTION_CHARS = 120;
@@ -26,7 +39,9 @@ function text_of(message: MessageLike | undefined): string {
 export function suggestion_context(
 	messages: readonly unknown[],
 ): Context | undefined {
-	const typed = [...(messages as MessageLike[])].reverse();
+	const typed = messages
+		.map((message) => v.parse(message_schema, message))
+		.reverse();
 
 	const user = text_of(
 		typed.find((message) => message.role === 'user'),

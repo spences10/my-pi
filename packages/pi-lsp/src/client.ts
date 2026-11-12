@@ -550,7 +550,7 @@ export class LspClient extends EventEmitter {
 			} catch (error) {
 				clearTimeout(timer);
 				this.#pending.delete(id);
-				reject(error as Error);
+				reject(error);
 			}
 		});
 	}
@@ -720,28 +720,20 @@ export function normalize_document_symbol_result(
 ): LspDocumentSymbol[] {
 	if (!result) return [];
 
-	if (
-		result.length === 0 ||
-		('range' in result[0] && 'selectionRange' in result[0])
-	) {
-		return result as LspDocumentSymbol[];
-	}
+	return result.map((entry) => {
+		if ('location' in entry) {
+			return {
+				name: entry.name,
+				kind: entry.kind,
+				range: entry.location.range,
+				selectionRange: entry.location.range,
+				containerName: entry.containerName,
+				uri: entry.location.uri,
+			};
+		}
 
-	const symbol_info = result as Array<{
-		name: string;
-		kind: number;
-		location: LspLocation;
-		containerName?: string;
-	}>;
-
-	return symbol_info.map((entry) => ({
-		name: entry.name,
-		kind: entry.kind,
-		range: entry.location.range,
-		selectionRange: entry.location.range,
-		containerName: entry.containerName,
-		uri: entry.location.uri,
-	}));
+		return entry;
+	});
 }
 
 export function file_path_to_uri(file_path: string): string {

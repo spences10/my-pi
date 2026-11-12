@@ -14,6 +14,7 @@ import {
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import * as v from 'valibot';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { load_telemetry_config } from './config.js';
 import { TelemetryDatabase, type TelemetryRunSummary } from './db.js';
@@ -121,11 +122,16 @@ describe('native Pi telemetry lifecycle', () => {
 							pi.on('tool_execution_end', (event) => {
 								if (!query_ids.has(event.toolCallId)) return;
 
-								const result = event.result as {
-									content: Array<{ text: string }>;
-								};
+								const result = v.parse(
+									v.object({
+										content: v.tuple([
+											v.object({ text: v.string() }),
+										]),
+									}),
+									event.result,
+								);
 
-								snapshots.push(JSON.parse(result.content[0]!.text));
+								snapshots.push(JSON.parse(result.content[0].text));
 							});
 						},
 					],
@@ -182,6 +188,7 @@ describe('native Pi telemetry lifecycle', () => {
 					expect(
 						database.read_rows(
 							`SELECT * FROM ${table} WHERE ended_at IS NULL`,
+							v.looseObject({}),
 						),
 					).toEqual([]);
 				}

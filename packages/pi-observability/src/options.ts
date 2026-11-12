@@ -61,7 +61,13 @@ export function resolve_observability_token(
 
 		return existing;
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+		if (
+			!(
+				error instanceof Error &&
+				'code' in error &&
+				error.code === 'ENOENT'
+			)
+		)
 			throw error;
 	}
 
@@ -77,7 +83,13 @@ export function resolve_observability_token(
 
 		return generated;
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code !== 'EEXIST')
+		if (
+			!(
+				error instanceof Error &&
+				'code' in error &&
+				error.code === 'EEXIST'
+			)
+		)
 			throw error;
 		const existing = readFileSync(path, 'utf8').trim();
 

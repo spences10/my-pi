@@ -13,13 +13,11 @@ import {
 	visibleWidth,
 	type Color,
 } from '@earendil-works/pi-tui';
-import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { logo_lines } from './logo.js';
+import { read_package_version } from './package-version.js';
 
-const { version } = JSON.parse(
-	readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-) as { version: string };
+const version = read_package_version();
 
 const segmenter = new Intl.Segmenter(undefined, {
 	granularity: 'grapheme',

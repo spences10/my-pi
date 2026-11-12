@@ -13,8 +13,6 @@ import type {
 	TurnSpanRow,
 } from './types.js';
 
-type Row = Record<string, SQLOutputValue>;
-
 const SINCE_FILTER = '($since IS NULL OR ts >= $since)';
 
 /** Returns a normalized ISO timestamp, or null for missing/invalid input. */
@@ -117,11 +115,11 @@ export function create_stats_queries(db: DatabaseSync) {
 	`);
 
 	function totals(since: string | null): StatsTotals {
-		const row = (totals_statement.get({ since }) ?? {}) as Row;
+		const row = totals_statement.get({ since }) ?? {};
 
-		const durations = (
-			provider_durations_statement.all({ since }) as Row[]
-		).map((item) => count(item.duration_ms));
+		const durations = provider_durations_statement
+			.all({ since })
+			.map((item) => count(item.duration_ms));
 
 		return {
 			sessions: count(row.sessions),
@@ -143,7 +141,7 @@ export function create_stats_queries(db: DatabaseSync) {
 	}
 
 	function daily(since: string | null): DailyStats[] {
-		return (daily_statement.all({ since }) as Row[]).map((row) => ({
+		return daily_statement.all({ since }).map((row) => ({
 			day: String(row.day),
 			sessions: count(row.sessions),
 			turns: count(row.turns),
@@ -168,7 +166,7 @@ export function create_stats_queries(db: DatabaseSync) {
 			}
 		>();
 
-		for (const row of tool_spans_statement.all({ since }) as Row[]) {
+		for (const row of tool_spans_statement.all({ since })) {
 			const name = nullable_text(row.tool_name) ?? 'unknown tool';
 
 			const group = groups.get(name) ?? {
@@ -209,18 +207,18 @@ export function create_stats_queries(db: DatabaseSync) {
 		since: string | null,
 		limit: number,
 	): SessionStats[] {
-		return (
-			session_stats_statement.all({ since, limit }) as Row[]
-		).map((row) => ({
-			...to_session_row(row),
-			turns: count(row.turns),
-			tool_calls: count(row.tool_calls),
-			tool_errors: count(row.tool_errors),
-			input_tokens: count(row.input_tokens),
-			output_tokens: count(row.output_tokens),
-			cache_read_tokens: count(row.cache_read_tokens),
-			cost_usd: count(row.cost_usd),
-		}));
+		return session_stats_statement
+			.all({ since, limit })
+			.map((row) => ({
+				...to_session_row(row),
+				turns: count(row.turns),
+				tool_calls: count(row.tool_calls),
+				tool_errors: count(row.tool_errors),
+				input_tokens: count(row.input_tokens),
+				output_tokens: count(row.output_tokens),
+				cache_read_tokens: count(row.cache_read_tokens),
+				cost_usd: count(row.cost_usd),
+			}));
 	}
 
 	function overview(
@@ -237,41 +235,41 @@ export function create_stats_queries(db: DatabaseSync) {
 	}
 
 	function session_spans(session_id: string): SessionSpansResponse {
-		const turns: TurnSpanRow[] = (
-			turn_spans_statement.all({ session_id }) as Row[]
-		).map((row) => ({
-			start_seq: count(row.start_seq),
-			turn_index: nullable_number(row.turn_index),
-			start_ts: String(row.start_ts),
-			end_ts: String(row.end_ts),
-			interrupted: row.interrupted === 1,
-			duration_ms: count(row.duration_ms),
-			stop_reason: nullable_text(row.stop_reason),
-			provider_ms: nullable_number(row.provider_ms),
-			tool_ms: nullable_number(row.tool_ms),
-			tool_calls: count(row.tool_calls),
-			tool_errors: count(row.tool_errors),
-			input_tokens: nullable_number(row.input_tokens),
-			output_tokens: nullable_number(row.output_tokens),
-			cache_read_tokens: nullable_number(row.cache_read_tokens),
-			cache_write_tokens: nullable_number(row.cache_write_tokens),
-			cost_usd: nullable_number(row.cost_usd),
-		}));
+		const turns: TurnSpanRow[] = turn_spans_statement
+			.all({ session_id })
+			.map((row) => ({
+				start_seq: count(row.start_seq),
+				turn_index: nullable_number(row.turn_index),
+				start_ts: String(row.start_ts),
+				end_ts: String(row.end_ts),
+				interrupted: row.interrupted === 1,
+				duration_ms: count(row.duration_ms),
+				stop_reason: nullable_text(row.stop_reason),
+				provider_ms: nullable_number(row.provider_ms),
+				tool_ms: nullable_number(row.tool_ms),
+				tool_calls: count(row.tool_calls),
+				tool_errors: count(row.tool_errors),
+				input_tokens: nullable_number(row.input_tokens),
+				output_tokens: nullable_number(row.output_tokens),
+				cache_read_tokens: nullable_number(row.cache_read_tokens),
+				cache_write_tokens: nullable_number(row.cache_write_tokens),
+				cost_usd: nullable_number(row.cost_usd),
+			}));
 
-		const tools: ToolSpanRow[] = (
-			tool_span_rows_statement.all({ session_id }) as Row[]
-		).map((row) => ({
-			tool_call_id: String(row.tool_call_id),
-			tool_name: nullable_text(row.tool_name),
-			start_ts: String(row.start_ts),
-			end_ts: nullable_text(row.end_ts),
-			duration_ms: nullable_number(row.duration_ms),
-			is_error: nullable_number(row.is_error),
-			update_count: nullable_number(row.update_count),
-			error_text: nullable_text(row.error_text),
-			exit_code: nullable_number(row.exit_code),
-			parent_tool_call_id: nullable_text(row.parent_tool_call_id),
-		}));
+		const tools: ToolSpanRow[] = tool_span_rows_statement
+			.all({ session_id })
+			.map((row) => ({
+				tool_call_id: String(row.tool_call_id),
+				tool_name: nullable_text(row.tool_name),
+				start_ts: String(row.start_ts),
+				end_ts: nullable_text(row.end_ts),
+				duration_ms: nullable_number(row.duration_ms),
+				is_error: nullable_number(row.is_error),
+				update_count: nullable_number(row.update_count),
+				error_text: nullable_text(row.error_text),
+				exit_code: nullable_number(row.exit_code),
+				parent_tool_call_id: nullable_text(row.parent_tool_call_id),
+			}));
 
 		return { turns, tools };
 	}
@@ -298,34 +296,31 @@ export function create_stats_queries(db: DatabaseSync) {
 		since: string | null,
 		limit: number,
 	): FailureRow[] {
-		return (failures_statement.all({ since, limit }) as Row[]).map(
-			(row) => {
-				const tool = row.type === 'tool_execution_end';
+		return failures_statement.all({ since, limit }).map((row) => {
+			const tool = row.type === 'tool_execution_end';
 
-				const tool_call_id = tool
-					? nullable_text(row.tool_call_id)
-					: null;
+			const tool_call_id = tool
+				? nullable_text(row.tool_call_id)
+				: null;
 
-				return {
-					kind: tool ? 'tool' : 'model',
-					session_id: String(row.session_id),
-					session_name: nullable_text(row.session_name),
-					agent_name: nullable_text(row.agent_name),
-					cwd: nullable_text(row.cwd),
-					ts: String(row.ts),
-					name:
-						(tool
-							? nullable_text(row.tool_name)
-							: nullable_text(row.model)) ??
-						(tool ? 'tool' : 'model'),
-					span_id:
-						tool_call_id === null ? null : `tool:${tool_call_id}`,
-					error_text: nullable_text(row.error_text),
-					exit_code: nullable_number(row.exit_code),
-					duration_ms: nullable_number(row.duration_ms),
-				};
-			},
-		);
+			return {
+				kind: tool ? 'tool' : 'model',
+				session_id: String(row.session_id),
+				session_name: nullable_text(row.session_name),
+				agent_name: nullable_text(row.agent_name),
+				cwd: nullable_text(row.cwd),
+				ts: String(row.ts),
+				name:
+					(tool
+						? nullable_text(row.tool_name)
+						: nullable_text(row.model)) ?? (tool ? 'tool' : 'model'),
+				span_id:
+					tool_call_id === null ? null : `tool:${tool_call_id}`,
+				error_text: nullable_text(row.error_text),
+				exit_code: nullable_number(row.exit_code),
+				duration_ms: nullable_number(row.duration_ms),
+			};
+		});
 	}
 
 	return {

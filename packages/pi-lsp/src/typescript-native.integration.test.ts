@@ -6,14 +6,15 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { make_context } from '../../../tools/test-sdk.js';
 import { LspServerManager } from './server-manager.js';
 
 const dirs: string[] = [];
 
-const ctx = {
+const ctx = make_context({
 	hasUI: false,
 	ui: { select: async () => undefined },
-} as never;
+});
 
 afterEach(() => {
 	for (const dir of dirs.splice(0)) {

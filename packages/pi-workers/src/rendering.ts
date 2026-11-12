@@ -3,7 +3,24 @@ import type {
 	ToolRenderers,
 } from '@earendil-works/pi-coding-agent';
 import { Text, TruncatedText } from '@earendil-works/pi-tui';
+import * as v from 'valibot';
 import type { WorkerInfo } from './manager.js';
+
+const call_params_schema = v.looseObject({
+	action: v.fallback(v.optional(v.string()), undefined),
+	name: v.fallback(v.optional(v.string()), undefined),
+	worker: v.fallback(v.optional(v.string()), undefined),
+});
+
+/** The parts of worker tool details that the result preview reads. */
+const result_details_schema = v.union([
+	v.array(v.unknown()),
+	v.looseObject({
+		name: v.string(),
+		status: v.string(),
+		error: v.fallback(v.optional(v.string()), undefined),
+	}),
+]);
 
 export const render_worker_report: MessageRenderer<WorkerInfo> = (
 	message,
@@ -54,11 +71,7 @@ export const worker_tool_renderers: Required<
 				0,
 			);
 
-		const params = args as {
-			action?: string;
-			name?: string;
-			worker?: string;
-		};
+		const params = v.parse(call_params_schema, args);
 
 		const target = params.name ?? params.worker;
 
@@ -79,10 +92,14 @@ export const worker_tool_renderers: Required<
 
 		if (options.expanded) return new Text(text, 0, 0);
 
-		const info = result.details as
-			| WorkerInfo
-			| WorkerInfo[]
-			| undefined;
+		const parsed_details = v.safeParse(
+			result_details_schema,
+			result.details,
+		);
+
+		const info = parsed_details.success
+			? parsed_details.output
+			: undefined;
 
 		let preview = text.trim().split('\n')[0];
 

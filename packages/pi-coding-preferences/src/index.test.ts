@@ -30,13 +30,16 @@ type TestToolCallEvent = Parameters<
 	typeof should_block_coding_preference
 >[0];
 
-function event(toolName: string, input: TestToolCallEvent['input']) {
+function event(
+	toolName: string,
+	input: TestToolCallEvent['input'],
+): TestToolCallEvent {
 	return {
 		type: 'tool_call',
 		toolName,
 		toolCallId: 'test',
 		input,
-	} as TestToolCallEvent;
+	};
 }
 
 function write_project_config(

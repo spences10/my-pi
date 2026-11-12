@@ -105,10 +105,7 @@ export function get_vertical_margin(
 export function get_terminal_rows(tui: {
 	terminal?: { rows?: number };
 }): number {
-	const rows = (tui as { terminal?: { rows?: number } }).terminal
-		?.rows;
-
-	return rows ?? process.stdout.rows ?? 24;
+	return tui.terminal?.rows ?? process.stdout.rows ?? 24;
 }
 
 export function get_border_line_count(

@@ -37,29 +37,45 @@ export type HarnessAssessmentRecord = Static<
 export type HarnessAssessmentRecommendation =
 	HarnessAssessmentRecord['recommendation'];
 
-export type HarnessAssessmentSource =
-	| 'agent'
-	| 'user'
-	| 'harness-create';
+export const harness_assessment_source_schema = Type.Union([
+	Type.Literal('agent'),
+	Type.Literal('user'),
+	Type.Literal('harness-create'),
+]);
 
-export type HarnessAssessmentStatus =
-	| 'assessing'
-	| 'assessed'
-	| 'awaiting_approval'
-	| 'approved'
-	| 'rejected';
+export type HarnessAssessmentSource = Static<
+	typeof harness_assessment_source_schema
+>;
 
-export interface HarnessAssessmentState {
-	id: string;
-	version: number;
-	status: HarnessAssessmentStatus;
-	task: string;
-	source: HarnessAssessmentSource;
-	started_at: string;
-	tools_before_assessment?: string[];
-	record?: HarnessAssessmentRecord;
-	decision?: HarnessAssessmentRecommendation;
-}
+export const harness_assessment_status_schema = Type.Union([
+	Type.Literal('assessing'),
+	Type.Literal('assessed'),
+	Type.Literal('awaiting_approval'),
+	Type.Literal('approved'),
+	Type.Literal('rejected'),
+]);
+
+export type HarnessAssessmentStatus = Static<
+	typeof harness_assessment_status_schema
+>;
+
+export const harness_assessment_state_schema = Type.Object({
+	id: Type.String(),
+	version: Type.Number(),
+	status: harness_assessment_status_schema,
+	task: Type.String(),
+	source: harness_assessment_source_schema,
+	started_at: Type.String(),
+	tools_before_assessment: Type.Optional(Type.Array(Type.String())),
+	record: Type.Optional(harness_assessment_submit_params_schema),
+	decision: Type.Optional(
+		harness_assessment_submit_params_schema.properties.recommendation,
+	),
+});
+
+export type HarnessAssessmentState = Static<
+	typeof harness_assessment_state_schema
+>;
 
 export function create_assessment_state(
 	task: string,
