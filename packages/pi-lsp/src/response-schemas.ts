@@ -106,3 +106,24 @@ export const diagnostic_result_schema = v.nullish(
 		items: v.optional(v.array(diagnostic_schema)),
 	}),
 );
+
+export const publish_diagnostics_params_schema = v.looseObject({
+	uri: v.string(),
+	version: v.nullish(v.number()),
+	diagnostics: v.array(diagnostic_schema),
+});
+
+export const json_rpc_message_schema = v.looseObject({
+	jsonrpc: v.optional(v.string()),
+	id: v.optional(v.union([v.number(), v.string()])),
+	method: v.optional(v.string()),
+	params: v.optional(v.unknown()),
+	result: v.optional(v.unknown()),
+	error: v.optional(
+		v.looseObject({
+			code: v.number(),
+			message: v.string(),
+			data: v.optional(v.unknown()),
+		}),
+	),
+});

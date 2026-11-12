@@ -7,6 +7,7 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import * as v from 'valibot';
 
 export interface MyPiSettingsFile {
 	version: 1;
@@ -52,17 +53,46 @@ export function write_settings(settings: MyPiSettingsFile): void {
 	renameSync(tmp, path);
 }
 
-export function extract_input_strings(value: unknown): string[] {
-	if (typeof value === 'string') return [value];
+export type InputNode =
+	| string
+	| null
+	| InputNode[]
+	| { [key: string]: InputNode };
+
+const input_container_schema: v.GenericSchema<
+	unknown,
+	InputNode[] | { [key: string]: InputNode }
+> = v.union([
+	v.array(v.lazy(() => input_node_schema)),
+	v.record(
+		v.string(),
+		v.lazy(() => input_node_schema),
+	),
+]);
+
+/**
+ * Decodes model-supplied tool input: strings, arrays and objects are kept
+ * and every other leaf collapses to null, which carries no text.
+ */
+export const input_node_schema: v.GenericSchema<unknown, InputNode> =
+	v.union([
+		v.string(),
+		input_container_schema,
+		v.pipe(
+			v.unknown(),
+			v.transform(() => null),
+		),
+	]);
+
+export function extract_input_strings(value: InputNode): string[] {
+	if (value === null) return [];
 
 	if (Array.isArray(value))
 		return value.flatMap(extract_input_strings);
 
-	if (!value || typeof value !== 'object') return [];
+	if (v.is(v.string(), value)) return [value];
 
-	return Object.values(value as Record<string, unknown>).flatMap(
-		extract_input_strings,
-	);
+	return Object.values(value).flatMap(extract_input_strings);
 }
 
 export function read_settings_section<T>(

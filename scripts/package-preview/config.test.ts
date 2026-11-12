@@ -185,10 +185,10 @@ void test('missing and malformed JSON fail without echoing file contents', (t) =
 	writeFileSync(path, 'PRIVATE_SENTINEL not json');
 	assert.throws(
 		() => load_preview_config(path),
-		(error: unknown) => {
-			assert.ok(error instanceof Error);
-			assert.match(error.message, /valid JSON/);
-			assert.doesNotMatch(error.message, /PRIVATE_SENTINEL/);
+		(cause: unknown) => {
+			assert.ok(cause instanceof Error);
+			assert.match(cause.message, /valid JSON/);
+			assert.doesNotMatch(cause.message, /PRIVATE_SENTINEL/);
 
 			return true;
 		},

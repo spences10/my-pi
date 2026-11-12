@@ -50,7 +50,7 @@ function setup(...args: string[]) {
 	};
 }
 
-function expect_redacted(value: unknown) {
+function expect_redacted(value: string | undefined) {
 	const text = JSON.stringify(value);
 	expect(text).not.toContain(secret);
 	expect(text).toContain('[REDACTED:');
@@ -62,7 +62,7 @@ async function expect_safe_error(
 ) {
 	const error = await promise.then(
 		() => undefined,
-		(error: unknown) => error,
+		(cause: unknown) => cause,
 	);
 
 	expect(error).toBeInstanceOf(Error);
@@ -120,7 +120,7 @@ describe('worker diagnostics', () => {
 					? manager.spawn(options)
 					: manager.send((await manager.spawn(options)).id, mode);
 
-			const error = await operation.catch((error: unknown) => error);
+			const error = await operation.catch((cause: unknown) => cause);
 			expect(error).toBeInstanceOf(Error);
 			expect(completed).toHaveLength(1);
 

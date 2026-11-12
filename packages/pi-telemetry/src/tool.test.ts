@@ -22,6 +22,15 @@ const ctx = make_tool_context({
 	sessionManager: { getSessionFile: () => '/sessions/one.jsonl' },
 });
 
+type EventFixture = {
+	[key: string]:
+		| string
+		| number
+		| boolean
+		| EventFixture
+		| EventFixture[];
+};
+
 function fake_store(): TelemetryStore {
 	return {
 		insert_run: vi.fn(),
@@ -118,7 +127,7 @@ describe('telemetry tool', () => {
 			return content.text;
 		};
 
-		const emit = (name: string, event: unknown = {}) =>
+		const emit = (name: string, event: EventFixture = {}) =>
 			handlers.get(name)!(event, ctx);
 
 		return { call, store, emit, handlers, db_path, load_store };

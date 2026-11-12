@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import * as v from 'valibot';
 import type {
 	ContextUsageSnapshot,
 	DashboardSession,
@@ -27,77 +28,88 @@ function duration_ms(events: ObservabilityEvent[]): number {
 		: 0;
 }
 
-function number_value(value: unknown): number {
-	if (typeof value === 'number' && Number.isFinite(value))
-		return value;
+const payload_record_schema = v.fallback(
+	v.pipe(
+		v.looseObject({}),
+		v.check((value) => !Array.isArray(value)),
+	),
+	{},
+);
 
-	if (typeof value === 'string') {
-		const parsed = Number(value);
+type PayloadRecord = v.InferOutput<typeof payload_record_schema>;
 
-		return Number.isFinite(parsed) ? parsed : 0;
-	}
-
-	return 0;
-}
+const number_schema = v.fallback(
+	v.union([
+		v.pipe(v.number(), v.finite()),
+		v.pipe(v.string(), v.transform(Number), v.finite()),
+	]),
+	0,
+);
 
 function record_value(
-	record: Record<string, unknown>,
+	record: PayloadRecord,
 	key: string,
-): Record<string, unknown> {
-	const value = record[key];
-
-	return value && typeof value === 'object' && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
+): PayloadRecord {
+	return v.parse(payload_record_schema, record[key]);
 }
 
-function text_value(value: unknown, fallback = ''): string {
-	if (typeof value === 'string') return value;
+const text_schema = v.union([
+	v.string(),
+	v.pipe(v.union([v.number(), v.boolean()]), v.transform(String)),
+]);
 
-	if (typeof value === 'number' || typeof value === 'boolean')
-		return String(value);
+/** Whether a tool payload, or anything nested in it, reports a failure. */
+const structured_error_schema: v.GenericSchema<unknown, boolean> =
+	v.fallback(
+		v.lazy(() =>
+			v.pipe(
+				v.looseObject({}),
+				v.transform((record: PayloadRecord) => {
+					const status = v.safeParse(
+						v.pipe(v.string(), v.toLowerCase()),
+						record.status,
+					);
 
-	return fallback;
-}
+					return (
+						record.isError === true ||
+						record.error === true ||
+						v.is(v.looseObject({}), record.error) ||
+						(status.success &&
+							['error', 'failed', 'failure'].includes(
+								status.output,
+							)) ||
+						Object.values(record).some((child) =>
+							v.parse(structured_error_schema, child),
+						)
+					);
+				}),
+			),
+		),
+		false,
+	);
 
 function tool_id(event: ObservabilityEvent): string {
-	const payload = (event.payload ?? {}) as Record<string, unknown>;
+	const payload = v.parse(payload_record_schema, event.payload);
 
-	return text_value(
+	return v.parse(
+		v.fallback(text_schema, ''),
 		payload.toolCallId ?? payload.tool_call_id ?? payload.id,
 	);
 }
 
 function tool_name(event: ObservabilityEvent): string {
-	const payload = (event.payload ?? {}) as Record<string, unknown>;
+	const payload = v.parse(payload_record_schema, event.payload);
 
-	return text_value(
+	return v.parse(
+		v.fallback(text_schema, 'unknown tool'),
 		payload.toolName ?? payload.tool_name ?? payload.name,
-		'unknown tool',
 	);
-}
-
-function has_structured_error(value: unknown): boolean {
-	if (!value || typeof value !== 'object') return false;
-	const record = value as Record<string, unknown>;
-
-	if (
-		record.isError === true ||
-		record.error === true ||
-		(typeof record.error === 'object' && record.error !== null) ||
-		(typeof record.status === 'string' &&
-			['error', 'failed', 'failure'].includes(
-				record.status.toLowerCase(),
-			))
-	)
-		return true;
-
-	return Object.values(record).some(has_structured_error);
 }
 
 function event_has_error(event: ObservabilityEvent): boolean {
 	return (
-		event.type === 'error' || has_structured_error(event.payload)
+		event.type === 'error' ||
+		v.parse(structured_error_schema, event.payload)
 	);
 }
 
@@ -107,19 +119,21 @@ type UsageMetrics = Pick<
 >;
 
 function first_number(
-	record: Record<string, unknown>,
+	record: PayloadRecord,
 	...keys: string[]
 ): number {
 	for (const key of keys) {
-		if (record[key] !== undefined) return number_value(record[key]);
+		if (record[key] !== undefined)
+			return v.parse(number_schema, record[key]);
 	}
 
 	return 0;
 }
 
-function add_usage(target: UsageMetrics, payload: unknown): boolean {
-	if (!payload || typeof payload !== 'object') return false;
-	const record = payload as Record<string, unknown>;
+function add_usage(
+	target: UsageMetrics,
+	record: PayloadRecord,
+): boolean {
 	const usage = record_value(record, 'usage');
 
 	if (!Object.keys(usage).length) return false;
@@ -162,7 +176,7 @@ function add_usage(target: UsageMetrics, payload: unknown): boolean {
 
 function add_entry_usage(
 	totals: UsageMetrics,
-	entry: Record<string, unknown>,
+	entry: PayloadRecord,
 ): boolean {
 	if (entry.type === 'message') {
 		const message = record_value(entry, 'message');
@@ -198,7 +212,7 @@ function session_file_usage(
 			'\n',
 		)) {
 			if (!line.trim()) continue;
-			const entry = JSON.parse(line) as Record<string, unknown>;
+			const entry: PayloadRecord = JSON.parse(line);
 			found_usage = add_entry_usage(totals, entry) || found_usage;
 		}
 
@@ -218,7 +232,7 @@ function event_usage(events: ObservabilityEvent[]): UsageMetrics {
 
 	for (const event of events) {
 		if (event.type !== 'message_end') continue;
-		const payload = (event.payload ?? {}) as Record<string, unknown>;
+		const payload = v.parse(payload_record_schema, event.payload);
 		add_usage(
 			totals,
 			Object.keys(record_value(payload, 'message')).length
@@ -236,7 +250,7 @@ function latest_context_usage(
 ): ContextUsageSnapshot | null {
 	for (let index = events.length - 1; index >= 0; index -= 1) {
 		const event = events[index]!;
-		const payload = (event.payload ?? {}) as Record<string, unknown>;
+		const payload = v.parse(payload_record_schema, event.payload);
 
 		if (!Object.hasOwn(payload, 'contextUsage')) continue;
 		const usage = record_value(payload, 'contextUsage');

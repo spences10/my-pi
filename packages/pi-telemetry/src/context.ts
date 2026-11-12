@@ -57,32 +57,32 @@ export function get_session_file(
 	return session_manager.getSessionFile?.() ?? null;
 }
 
-export function get_stop_reason(message: unknown): string | null {
-	if (!message || typeof message !== 'object') return null;
-
-	const stop_reason = (message as { stopReason?: unknown })
-		.stopReason;
-
-	return typeof stop_reason === 'string' ? stop_reason : null;
+interface OutcomeMessage {
+	role?: string;
+	stopReason?: string;
+	errorMessage?: string;
 }
 
-export function get_error_message(message: unknown): string | null {
-	if (!message || typeof message !== 'object') return null;
+export function get_stop_reason(
+	message: OutcomeMessage | undefined,
+): string | null {
+	return message?.stopReason ?? null;
+}
 
-	const error_message = (message as { errorMessage?: unknown })
-		.errorMessage;
-
-	return typeof error_message === 'string' ? error_message : null;
+export function get_error_message(
+	message: OutcomeMessage | undefined,
+): string | null {
+	return message?.errorMessage ?? null;
 }
 
 export function infer_run_outcome(event: {
 	type?: unknown;
-	messages: Array<{
-		role: string;
-		content?: unknown;
-		stopReason?: unknown;
-		errorMessage?: unknown;
-	}>;
+	messages: Array<
+		OutcomeMessage & {
+			role: string;
+			content?: unknown;
+		}
+	>;
 }): RunOutcome {
 	const assistant_messages = event.messages.filter(
 		(message) => message.role === 'assistant',

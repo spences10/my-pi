@@ -69,8 +69,11 @@ export function normalize_footer_state(
 	};
 }
 
+/** Persisted placements may predate the object shape and be a legacy string. */
+type StoredStatusPlacement = string | Partial<FooterStatusPlacement>;
+
 function normalize_status_layout(
-	layout: unknown,
+	layout: Record<string, StoredStatusPlacement> | undefined,
 ): FooterState['status_layout'] {
 	const normalized: FooterState['status_layout'] = Object.fromEntries(
 		Object.entries(DEFAULT_FOOTER_STATUS_LAYOUT).map(
@@ -90,7 +93,7 @@ function normalize_status_layout(
 }
 
 function normalize_status_placement(
-	value: unknown,
+	value: StoredStatusPlacement,
 ): FooterStatusPlacement | undefined {
 	if (typeof value === 'string') {
 		const legacy = new Map<string, FooterStatusPlacement>([
@@ -118,20 +121,19 @@ function normalize_status_placement(
 	}
 
 	if (!value || typeof value !== 'object') return undefined;
-	const candidate = value as Partial<FooterStatusPlacement>;
 
 	if (
-		!Number.isInteger(candidate.row) ||
-		(candidate.row ?? 0) < 1 ||
-		(candidate.row ?? 0) > 99 ||
-		!FOOTER_STATUS_ALIGNMENTS.includes(candidate.alignment as never)
+		!Number.isInteger(value.row) ||
+		(value.row ?? 0) < 1 ||
+		(value.row ?? 0) > 99 ||
+		!FOOTER_STATUS_ALIGNMENTS.includes(value.alignment as never)
 	)
 		return undefined;
 
 	return {
-		row: candidate.row!,
-		alignment: candidate.alignment!,
-		hidden: candidate.hidden === true,
+		row: value.row!,
+		alignment: value.alignment!,
+		hidden: value.hidden === true,
 	};
 }
 

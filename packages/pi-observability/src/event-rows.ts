@@ -1,14 +1,19 @@
+import type { SQLOutputValue } from 'node:sqlite';
+import * as v from 'valibot';
 import type {
 	DashboardSession,
 	ObservabilityEvent,
 } from './types.js';
 
-function row_text(value: unknown, fallback: string): string {
+function row_text(
+	value: SQLOutputValue | undefined,
+	fallback: string,
+): string {
 	return typeof value === 'string' ? value : fallback;
 }
 
 export function to_row_event(
-	row: Record<string, unknown>,
+	row: Record<string, SQLOutputValue>,
 ): ObservabilityEvent {
 	return {
 		event_id: row_text(row.event_id, ''),
@@ -27,7 +32,7 @@ export function to_row_event(
 }
 
 export function to_session_row(
-	row: Record<string, unknown>,
+	row: Record<string, SQLOutputValue>,
 ): DashboardSession {
 	return {
 		session_id: row_text(row.session_id, ''),
@@ -45,17 +50,16 @@ export function to_session_row(
 	};
 }
 
+const valid_event_schema = v.looseObject({
+	event_id: v.string(),
+	session_id: v.string(),
+	seq: v.pipe(v.number(), v.integer()),
+	ts: v.string(),
+	type: v.string(),
+});
+
 export function valid_event(
 	value: unknown,
 ): value is ObservabilityEvent {
-	if (!value || typeof value !== 'object') return false;
-	const event = value as Partial<ObservabilityEvent>;
-
-	return (
-		typeof event.event_id === 'string' &&
-		typeof event.session_id === 'string' &&
-		Number.isInteger(event.seq) &&
-		typeof event.ts === 'string' &&
-		typeof event.type === 'string'
-	);
+	return v.is(valid_event_schema, value);
 }

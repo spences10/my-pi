@@ -301,8 +301,8 @@ describe('worker extension', () => {
 		const { confirm } = await setup();
 		confirm.mockImplementation(
 			(
-				_title?: unknown,
-				_message?: unknown,
+				_title?: string,
+				_message?: string,
 				options?: { signal?: AbortSignal },
 			) =>
 				new Promise<boolean>((resolve) =>

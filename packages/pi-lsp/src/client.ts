@@ -10,17 +10,19 @@ import {
 	references_result_schema,
 	document_symbols_result_schema,
 	diagnostic_result_schema,
+	json_rpc_message_schema,
+	publish_diagnostics_params_schema,
 } from './response-schemas.js';
 
-export interface LspPosition {
+export type LspPosition = {
 	line: number;
 	character: number;
-}
+};
 
-export interface LspRange {
+export type LspRange = {
 	start: LspPosition;
 	end: LspPosition;
-}
+};
 
 export interface LspLocation {
 	uri: string;
@@ -66,14 +68,16 @@ export interface LspHover {
 	range?: LspRange;
 }
 
-interface JsonRpcMessage {
-	jsonrpc: '2.0';
-	id?: number | string;
-	method?: string;
-	params?: unknown;
-	result?: unknown;
-	error?: { code: number; message: string; data?: unknown };
-}
+/** A value that survives a JSON round trip. */
+export type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue | undefined };
+
+type JsonRpcMessage = v.InferOutput<typeof json_rpc_message_schema>;
 
 export interface LspClientOptions {
 	command: string;
@@ -81,7 +85,7 @@ export interface LspClientOptions {
 	root_uri: string;
 	language_id_for_uri: (uri: string) => string | undefined;
 	request_timeout_ms?: number;
-	initialization_options?: Record<string, unknown>;
+	initialization_options?: Record<string, JsonValue>;
 }
 
 export class LspClientStartError extends Error {
@@ -116,7 +120,7 @@ export class LspClient extends EventEmitter {
 	#pending = new Map<
 		number,
 		{
-			resolve: (v: unknown) => void;
+			resolve: (message: JsonRpcMessage) => void;
 			reject: (e: Error) => void;
 			timer: NodeJS.Timeout;
 		}
@@ -503,7 +507,7 @@ export class LspClient extends EventEmitter {
 
 	#request<T>(
 		method: string,
-		params: unknown,
+		params: JsonValue,
 		result_schema: v.GenericSchema<unknown, T>,
 		timeout_override?: number,
 	): Promise<T> {
@@ -523,9 +527,9 @@ export class LspClient extends EventEmitter {
 			}, timeout_ms);
 
 			this.#pending.set(id, {
-				resolve: (result) => {
+				resolve: (message) => {
 					try {
-						resolve(v.parse(result_schema, result));
+						resolve(v.parse(result_schema, message.result));
 					} catch (error) {
 						reject(error);
 					}
@@ -544,7 +548,7 @@ export class LspClient extends EventEmitter {
 		});
 	}
 
-	#notify(method: string, params: unknown): void {
+	#notify(method: string, params: JsonValue): void {
 		this.#send({ jsonrpc: '2.0', method, params });
 	}
 
@@ -563,9 +567,9 @@ export class LspClient extends EventEmitter {
 		this.#proc.stdin.write(Buffer.concat([header, body]));
 	}
 
-	#emit_error(error: unknown): void {
+	#emit_error(cause: unknown): void {
 		if (this.listenerCount('error') > 0) {
-			this.emit('error', error);
+			this.emit('error', cause);
 		}
 	}
 
@@ -600,7 +604,10 @@ export class LspClient extends EventEmitter {
 
 			try {
 				this.#handle_message(
-					JSON.parse(body.toString('utf8')) as JsonRpcMessage,
+					v.parse(
+						json_rpc_message_schema,
+						JSON.parse(body.toString('utf8')),
+					),
 				);
 			} catch (error) {
 				this.#emit_error(error);
@@ -630,7 +637,7 @@ export class LspClient extends EventEmitter {
 					),
 				);
 			} else {
-				pending.resolve(message.result);
+				pending.resolve(message);
 			}
 
 			return;
@@ -640,11 +647,13 @@ export class LspClient extends EventEmitter {
 			message.method === 'textDocument/publishDiagnostics' &&
 			message.params
 		) {
-			const params = message.params as {
-				uri: string;
-				version?: number | null;
-				diagnostics: LspDiagnostic[];
-			};
+			const parsed = v.safeParse(
+				publish_diagnostics_params_schema,
+				message.params,
+			);
+
+			if (!parsed.success) return;
+			const params = parsed.output;
 
 			// Diagnostics for a closed document or an earlier version are
 			// stale; they must not answer for the current text.
@@ -738,11 +747,11 @@ export function file_path_to_uri(file_path: string): string {
 	return pathToFileURL(file_path).href;
 }
 
-function error_code(error: unknown): string | undefined {
-	return typeof error === 'object' &&
-		error !== null &&
-		'code' in error &&
-		typeof (error as { code?: unknown }).code === 'string'
-		? (error as { code: string }).code
+function error_code(cause: unknown): string | undefined {
+	return typeof cause === 'object' &&
+		cause !== null &&
+		'code' in cause &&
+		typeof (cause as { code?: unknown }).code === 'string'
+		? (cause as { code: string }).code
 		: undefined;
 }

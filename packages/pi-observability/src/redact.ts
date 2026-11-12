@@ -45,7 +45,7 @@ export function redact_value<T>(
 	return output;
 }
 
-export function safe_json(value: unknown): string {
+export function safe_json<T>(value: T): string {
 	try {
 		return JSON.stringify(value);
 	} catch {

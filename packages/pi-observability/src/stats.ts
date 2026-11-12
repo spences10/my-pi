@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { to_session_row } from './event-rows.js';
 import type {
 	DailyStats,
@@ -12,7 +12,7 @@ import type {
 	TurnSpanRow,
 } from './types.js';
 
-type Row = Record<string, unknown>;
+type Row = Record<string, SQLOutputValue>;
 
 const SINCE_FILTER = '($since IS NULL OR ts >= $since)';
 
@@ -26,20 +26,24 @@ export function parse_since(
 	return Number.isNaN(time.valueOf()) ? null : time.toISOString();
 }
 
-function count(value: unknown): number {
+function count(value: SQLOutputValue | undefined): number {
 	const number = Number(value ?? 0);
 
 	return Number.isFinite(number) ? number : 0;
 }
 
-function nullable_number(value: unknown): number | null {
+function nullable_number(
+	value: SQLOutputValue | undefined,
+): number | null {
 	if (value === null || value === undefined) return null;
 	const number = Number(value);
 
 	return Number.isFinite(number) ? number : null;
 }
 
-function nullable_text(value: unknown): string | null {
+function nullable_text(
+	value: SQLOutputValue | undefined,
+): string | null {
 	return typeof value === 'string' ? value : null;
 }
 

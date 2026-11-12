@@ -5,6 +5,7 @@ import {
 	bounded_peer_delivery,
 	delivery_message_ids,
 	peer_delivery_details,
+	type PeerDeliveryCandidate,
 } from './delivery.js';
 
 const HEARTBEAT_INTERVAL_MS = 10_000;
@@ -48,7 +49,7 @@ export class CoordinationPoller {
 		this.surfaced.clear();
 	}
 
-	confirm_delivery(message: unknown): void {
+	confirm_delivery(message: PeerDeliveryCandidate): void {
 		const session_id = this.options.get_session_id();
 
 		if (!session_id) return;

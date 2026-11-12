@@ -11,11 +11,13 @@ import {
 } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import * as v from 'valibot';
 import {
 	derive_event_columns,
 	EVENT_COLUMN_NAMES,
 	event_column_values,
 } from './event-columns.js';
+import { type JsonValue, json_value_schema } from './json.js';
 
 export const OBSERVABILITY_SCHEMA_VERSION = 2;
 
@@ -247,17 +249,20 @@ function backfill_event_columns(db: DatabaseSync): void {
 		db,
 		() => {
 			for (const row of rows) {
-				let payload: unknown;
+				let parsed: JsonValue;
 
 				try {
-					payload = JSON.parse(row.payload_json);
+					parsed = v.parse(
+						json_value_schema,
+						JSON.parse(row.payload_json),
+					);
 				} catch {
 					continue;
 				}
 
 				update.run(
 					...event_column_values(
-						derive_event_columns(row.type, payload),
+						derive_event_columns(row.type, parsed),
 					),
 					row.event_id,
 				);

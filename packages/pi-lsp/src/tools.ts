@@ -4,6 +4,7 @@ import {
 	type ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
+import type { JsonValue } from './client.js';
 import {
 	find_symbol_matches,
 	format_diagnostics,
@@ -25,7 +26,12 @@ import {
 
 const DIAGNOSTICS_MANY_CONCURRENCY = 8;
 
-function make_tool_result(text: string, details: unknown = {}) {
+type LspToolDetails = Record<string, JsonValue>;
+
+function make_tool_result(
+	text: string,
+	details: LspToolDetails = {},
+) {
 	return {
 		content: [{ type: 'text' as const, text }],
 		details,
@@ -70,7 +76,7 @@ async function with_file_state(
 	signal: AbortSignal | undefined,
 	run: (
 		result: FileState,
-	) => Promise<string | { text: string; details: object }>,
+	) => Promise<string | { text: string; details: LspToolDetails }>,
 ) {
 	const resolved = await manager.resolve_file_state(
 		file,

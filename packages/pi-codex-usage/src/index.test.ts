@@ -54,6 +54,29 @@ describe('parse_codex_usage_response', () => {
 	});
 });
 
+describe('parse_codex_usage_response tolerance', () => {
+	it('drops non-numeric secondary values and non-object payloads', () => {
+		expect(parse_codex_usage_response(null)).toBeNull();
+		expect(
+			parse_codex_usage_response({
+				plan_type: 7,
+				rate_limit: {
+					primary_window: { used_percent: 3 },
+					secondary_window: 'bad',
+				},
+				rate_limit_reset_credits: [],
+			}),
+		).toEqual({
+			planType: undefined,
+			primaryUsedPercent: 3,
+			primaryResetAtSeconds: undefined,
+			secondaryUsedPercent: undefined,
+			secondaryResetAtSeconds: undefined,
+			resetCredits: undefined,
+		});
+	});
+});
+
 describe('format_codex_usage_status', () => {
 	it('formats compact primary and secondary windows', () => {
 		expect(

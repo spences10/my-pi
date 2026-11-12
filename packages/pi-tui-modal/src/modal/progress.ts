@@ -177,14 +177,14 @@ export async function run_with_progress_modal<T>(
 							: { status: 'success', value },
 					);
 				})
-				.catch((error: unknown) => {
+				.catch((cause: unknown) => {
 					if (state.cancelled || abort_controller.signal.aborted) {
 						done({ status: 'cancelled' });
 
 						return;
 					}
 
-					done({ status: 'error', error });
+					done({ status: 'error', error: cause });
 				});
 
 			return body;

@@ -1,3 +1,5 @@
+import * as v from 'valibot';
+
 export type ValueSummary =
 	| null
 	| undefined
@@ -8,13 +10,48 @@ export type ValueSummary =
 	| ValueSummary[]
 	| { [key: string]: ValueSummary };
 
+/** Any runtime value a tool argument, result or provider payload can hold. */
+export type SummarizableValue =
+	| null
+	| undefined
+	| string
+	| number
+	| boolean
+	| bigint
+	| symbol
+	| ((...args: never[]) => void)
+	| SummarizableValue[]
+	| { [key: string]: SummarizableValue };
+
+/** Shallow boundary parse for payloads typed `unknown` by the SDK. */
+export const summarizable_schema: v.GenericSchema<
+	unknown,
+	SummarizableValue
+> = v.fallback(
+	v.union([
+		v.null(),
+		v.undefined(),
+		v.string(),
+		v.number(),
+		v.boolean(),
+		v.bigint(),
+		v.symbol(),
+		v.function(),
+		v.array(v.any()),
+		v.record(v.string(), v.any()),
+	]),
+	null,
+);
+
 interface ObjectValueSummary {
 	type: ValueSummary;
 	keys: ValueSummary;
 	[key: string]: ValueSummary;
 }
 
-export function safe_json_stringify(value: unknown): string | null {
+export function safe_json_stringify(
+	value: SummarizableValue,
+): string | null {
 	if (value === undefined) return null;
 
 	try {
@@ -28,7 +65,7 @@ export function safe_json_stringify(value: unknown): string | null {
 }
 
 export function summarize_value(
-	value: unknown,
+	value: SummarizableValue,
 	depth = 0,
 ): ValueSummary {
 	if (value == null) return null;
@@ -63,7 +100,7 @@ export function summarize_value(
 	}
 
 	if (typeof value === 'object') {
-		const entries = Object.entries(value as Record<string, unknown>);
+		const entries = Object.entries(value);
 
 		const summary: ObjectValueSummary = {
 			type: 'object',
@@ -99,13 +136,14 @@ export function summarize_value(
 
 export function summarize_tool_args(
 	tool_name: string,
-	args: unknown,
+	args: SummarizableValue,
 ): string | null {
 	if (!args || typeof args !== 'object') {
 		return safe_json_stringify(summarize_value(args));
 	}
 
-	const input = args as Record<string, unknown>;
+	// SAFETY: `args` is non-null and an object here; arrays have no named fields, so the lookups below read undefined.
+	const input = args as { [key: string]: SummarizableValue };
 
 	switch (tool_name) {
 		case 'bash':
@@ -135,7 +173,7 @@ export function summarize_tool_args(
 }
 
 export function summarize_tool_result(
-	result: unknown,
+	result: SummarizableValue,
 ): string | null {
 	return safe_json_stringify(summarize_value(result));
 }
@@ -150,7 +188,7 @@ export function summarize_headers(
 }
 
 export function summarize_provider_payload(
-	payload: unknown,
+	payload: SummarizableValue,
 ): string | null {
 	return safe_json_stringify(summarize_value(payload));
 }

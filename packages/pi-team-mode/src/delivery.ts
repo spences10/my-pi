@@ -1,54 +1,58 @@
+import * as v from 'valibot';
 import {
 	create_peer_message_delivery,
 	TEAM_MODE_PEER_MESSAGE_CUSTOM_TYPE,
 	type TeamModePeerMessageDelivery,
-	type TeamModePeerMessageDetails,
 } from './coordination-formatting.js';
 import type { CoordinationInboxMessage } from './db/index.js';
 
 export const MAX_DELIVERY_BYTES = 4096;
 export const MAX_DELIVERY_MESSAGES = 8;
 
+const peer_delivery_message_schema = v.object({
+	customType: v.literal(TEAM_MODE_PEER_MESSAGE_CUSTOM_TYPE),
+	details: v.looseObject({
+		schema_version: v.literal(1),
+		source: v.literal('team-mode-peer'),
+		authority: v.literal('peer-only'),
+		direct_user_authority: v.literal(false),
+		recipient_session_id: v.string(),
+		represented_message_ids: v.optional(v.array(v.string())),
+		messages: v.array(v.looseObject({ message_id: v.string() })),
+	}),
+});
+
+export type PeerDeliveryDetails = v.InferOutput<
+	typeof peer_delivery_message_schema
+>['details'];
+
+/** The fields of a session message or entry that can carry a peer delivery. */
+export interface PeerDeliveryCandidate {
+	role?: string;
+	customType?: string;
+	details?: unknown;
+}
+
 export function peer_delivery_details(
-	message: unknown,
+	message: PeerDeliveryCandidate,
 	session_id: string,
-): TeamModePeerMessageDetails | undefined {
-	if (!message || typeof message !== 'object') return;
-
-	const value = message as {
-		customType?: string;
-		details?: TeamModePeerMessageDetails;
-	};
-
-	const details = value.details;
+): PeerDeliveryDetails | undefined {
+	const parsed = v.safeParse(peer_delivery_message_schema, message);
 
 	if (
-		value.customType !== TEAM_MODE_PEER_MESSAGE_CUSTOM_TYPE ||
-		details?.schema_version !== 1 ||
-		details.source !== 'team-mode-peer' ||
-		details.authority !== 'peer-only' ||
-		details.direct_user_authority !== false ||
-		details.recipient_session_id !== session_id ||
-		!Array.isArray(details.messages) ||
-		!details.messages.every(
-			(item) =>
-				item &&
-				typeof item === 'object' &&
-				typeof item.message_id === 'string',
-		) ||
-		(details.represented_message_ids !== undefined &&
-			(!Array.isArray(details.represented_message_ids) ||
-				!details.represented_message_ids.every(
-					(id) => typeof id === 'string',
-				)))
+		!parsed.success ||
+		parsed.output.details.recipient_session_id !== session_id
 	)
 		return;
 
-	return details;
+	return parsed.output.details;
 }
 
 export function delivery_message_ids(
-	details: TeamModePeerMessageDetails,
+	details: Pick<
+		PeerDeliveryDetails,
+		'represented_message_ids' | 'messages'
+	>,
 ): string[] {
 	return [
 		...new Set([

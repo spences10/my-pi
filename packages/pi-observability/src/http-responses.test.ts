@@ -13,14 +13,14 @@ function fake_response() {
 	const response = {
 		status: 0,
 		headers: {} as Record<string, string>,
-		body: undefined as unknown,
+		body: undefined as string | Buffer | undefined,
 		writeHead(status: number, headers: Record<string, string>) {
 			this.status = status;
 			this.headers = headers;
 
 			return this;
 		},
-		end(body: unknown) {
+		end(body: string | Buffer) {
 			this.body = body;
 
 			return this;

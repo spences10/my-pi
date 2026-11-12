@@ -90,7 +90,7 @@ function setup(steps: Step[], workers = [worker()]) {
 		confirm: dialogs.confirm,
 		custom: async <T>(
 			factory: TypedCustomFactory<T>,
-			options?: unknown,
+			options?: Parameters<ExtensionContext['ui']['custom']>[1],
 		) => {
 			expect(options).toMatchObject({ overlay: true });
 			let finished = false;

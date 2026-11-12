@@ -3,7 +3,11 @@ import type {
 	ToolCallEvent,
 	ToolCallEventResult,
 } from '@earendil-works/pi-coding-agent';
-import { extract_input_strings } from '@spences10/pi-settings';
+import * as v from 'valibot';
+import {
+	extract_input_strings,
+	input_node_schema,
+} from '@spences10/pi-settings';
 import {
 	is_path_allowed,
 	load_svelte_guardrails_config,
@@ -11,14 +15,25 @@ import {
 } from './config.js';
 
 const SVELTE_FILE_RE = /\.svelte(?:\.|$|\?)/;
+
+const edits_schema = v.fallback(
+	v.array(
+		v.fallback(
+			v.optional(v.object({ newText: v.optional(v.unknown()) })),
+			undefined,
+		),
+	),
+	[],
+);
+
 const EFFECT_RE = /\$effect(?:\s*\(|\s*\.)/;
 
-export function is_svelte_path(value: unknown): boolean {
-	return typeof value === 'string' && SVELTE_FILE_RE.test(value);
+export function is_svelte_path(value: string): boolean {
+	return SVELTE_FILE_RE.test(value);
 }
 
-export function contains_disallowed_effect(value: unknown): boolean {
-	return typeof value === 'string' && EFFECT_RE.test(value);
+export function contains_disallowed_effect(value: string): boolean {
+	return EFFECT_RE.test(value);
 }
 
 export function find_svelte_path(
@@ -75,17 +90,17 @@ function proposed_content(
 	tool_name: string,
 ): string[] {
 	if (tool_name === 'write')
-		return extract_input_strings(input.content);
-	const edits = Array.isArray(input.edits) ? input.edits : [];
+		return extract_input_strings(
+			v.parse(input_node_schema, input.content),
+		);
+	const edits = v.parse(edits_schema, input.edits);
 
-	return extract_input_strings([
-		input.newText,
-		...edits.map((edit: unknown) =>
-			edit && typeof edit === 'object'
-				? (edit as Record<string, unknown>).newText
-				: undefined,
-		),
-	]);
+	return extract_input_strings(
+		v.parse(input_node_schema, [
+			input.newText,
+			...edits.map((edit) => edit?.newText),
+		]),
+	);
 }
 
 export interface SvelteEffectAssessment {
@@ -124,9 +139,9 @@ export function assess_svelte_effect(
 	if (event.toolName === 'bash') {
 		const command = input.command;
 
-		if (!contains_disallowed_effect(command)) return undefined;
-
 		if (typeof command !== 'string') return undefined;
+
+		if (!contains_disallowed_effect(command)) return undefined;
 		const path = extract_bash_svelte_path(command);
 
 		if (!path || is_path_allowed(path, config.allow, cwd))

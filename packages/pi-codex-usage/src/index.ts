@@ -5,6 +5,7 @@ import type {
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import * as v from 'valibot';
 
 const STATUS_KEY = 'codex-usage';
 const CODEX_PROVIDER = 'openai-codex';
@@ -29,46 +30,93 @@ export function is_codex_provider(
 	return provider === CODEX_PROVIDER;
 }
 
-function read_number(value: unknown): number | undefined {
-	return typeof value === 'number' && Number.isFinite(value)
-		? value
-		: undefined;
-}
+type JsonValue =
+	| null
+	| string
+	| number
+	| boolean
+	| JsonValue[]
+	| { [key: string]: JsonValue };
 
-function read_record(
-	value: unknown,
-): Record<string, unknown> | undefined {
-	return value && typeof value === 'object'
-		? (value as Record<string, unknown>)
-		: undefined;
-}
+const number_schema = v.fallback(
+	v.optional(v.pipe(v.number(), v.finite())),
+	undefined,
+);
+
+const window_schema = v.fallback(
+	v.optional(
+		v.object({
+			used_percent: number_schema,
+			reset_at: number_schema,
+		}),
+	),
+	undefined,
+);
+
+const usage_payload_schema = v.fallback(
+	v.object({
+		plan_type: v.fallback(v.optional(v.string()), undefined),
+		rate_limit: v.fallback(
+			v.optional(
+				v.object({
+					primary_window: window_schema,
+					secondary_window: window_schema,
+				}),
+			),
+			undefined,
+		),
+		rate_limit_reset_credits: v.fallback(
+			v.optional(v.object({ available_count: number_schema })),
+			undefined,
+		),
+	}),
+	{
+		plan_type: undefined,
+		rate_limit: undefined,
+		rate_limit_reset_credits: undefined,
+	},
+);
+
+const auth_schema = v.object({
+	[CODEX_PROVIDER]: v.fallback(
+		v.optional(
+			v.object({
+				access: v.fallback(
+					v.optional(
+						v.pipe(
+							v.string(),
+							v.check((text) => text.trim() !== ''),
+						),
+					),
+					undefined,
+				),
+			}),
+		),
+		undefined,
+	),
+});
 
 export function parse_codex_usage_response(
-	payload: unknown,
+	payload: JsonValue,
 ): CodexUsageSnapshot | null {
-	const root = read_record(payload);
-	const rate_limit = read_record(root?.rate_limit);
-	const primary = read_record(rate_limit?.primary_window);
+	const root = v.parse(usage_payload_schema, payload);
+	const primary = root.rate_limit?.primary_window;
 
 	if (!primary) return null;
 
-	const primary_used = read_number(primary.used_percent);
+	const primary_used = primary.used_percent;
 
 	if (primary_used === undefined) return null;
 
-	const secondary = read_record(rate_limit?.secondary_window);
-	const reset_credits = read_record(root?.rate_limit_reset_credits);
+	const secondary = root.rate_limit?.secondary_window;
 
 	return {
-		planType:
-			typeof root?.plan_type === 'string'
-				? root.plan_type
-				: undefined,
+		planType: root.plan_type,
 		primaryUsedPercent: primary_used,
-		primaryResetAtSeconds: read_number(primary.reset_at),
-		secondaryUsedPercent: read_number(secondary?.used_percent),
-		secondaryResetAtSeconds: read_number(secondary?.reset_at),
-		resetCredits: read_number(reset_credits?.available_count),
+		primaryResetAtSeconds: primary.reset_at,
+		secondaryUsedPercent: secondary?.used_percent,
+		secondaryResetAtSeconds: secondary?.reset_at,
+		resetCredits: root.rate_limit_reset_credits?.available_count,
 	};
 }
 
@@ -141,17 +189,16 @@ export async function read_codex_access_token(
 	authPath = join(homedir(), '.pi', 'agent', 'auth.json'),
 ): Promise<string | null> {
 	try {
-		const auth = JSON.parse(
-			await readFile(authPath, 'utf8'),
-		) as unknown;
+		const auth = v.safeParse(
+			auth_schema,
+			JSON.parse(await readFile(authPath, 'utf8')),
+		);
 
-		const root = read_record(auth);
-		const codex = read_record(root?.[CODEX_PROVIDER]);
-		const access = codex?.access;
-
-		return typeof access === 'string' && access.trim()
-			? access
-			: null;
+		return (
+			(auth.success
+				? auth.output[CODEX_PROVIDER]?.access
+				: undefined) ?? null
+		);
 	} catch {
 		return null;
 	}

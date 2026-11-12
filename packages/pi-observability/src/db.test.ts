@@ -14,6 +14,7 @@ import {
 	derive_event_columns,
 	event_column_values,
 } from './event-columns.js';
+import type { JsonValue } from './json.js';
 
 const dirs: string[] = [];
 
@@ -288,9 +289,7 @@ describe('prepare_db', () => {
 		const { db, statements } = prepare_db(tmp_db());
 
 		try {
-			const fixtures: Array<
-				[number, string, Record<string, unknown>]
-			> = [
+			const fixtures: Array<[number, string, JsonValue]> = [
 				[0, 'turn_start', { turnIndex: 54 }],
 				[1, 'provider_request', {}],
 				[600, boundary, { reason: 'resume' }],

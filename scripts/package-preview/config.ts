@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 
-export interface PreviewConfig {
+import * as v from 'valibot';
+
+export type PreviewConfig = {
 	model: string;
 	project: string;
 	border: {
@@ -17,29 +19,44 @@ export interface PreviewConfig {
 		color: string;
 		rows: { left: string; right: string }[];
 	};
-}
+};
 
 const default_config_path = new URL(
 	'../../assets/pi-package-preview.config.json',
 	import.meta.url,
 );
 
-function object(
-	value: unknown,
-	path: string,
-	keys: string[],
-): Record<string, unknown> {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) {
-		throw new Error(`${path} must be an object.`);
-	}
+export type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue | undefined };
 
-	for (const key of Object.keys(value)) {
-		if (!keys.includes(key)) {
-			throw new Error(`Unknown property in ${path}: ${key}.`);
-		}
-	}
+function object_schema<
+	const Entries extends Record<string, v.GenericSchema>,
+>(path: string, entries: Entries) {
+	const message = `${path} must be an object.`;
+	const keys = Object.keys(entries);
 
-	return value as Record<string, unknown>;
+	return v.pipe(
+		v.custom((input) => !Array.isArray(input), message),
+		v.looseObject(entries, message),
+		v.rawCheck(({ dataset, addIssue }) => {
+			if (!dataset.typed) return;
+
+			for (const key of Object.keys(dataset.value)) {
+				if (!keys.includes(key)) {
+					addIssue({
+						message: `Unknown property in ${path}: ${key}.`,
+					});
+
+					return;
+				}
+			}
+		}),
+	);
 }
 
 function single_line(value: string): boolean {
@@ -58,140 +75,193 @@ function single_line(value: string): boolean {
 	return true;
 }
 
-function text(value: unknown, path: string): string {
-	if (
-		typeof value !== 'string' ||
-		value.length > 240 ||
-		!single_line(value)
-	) {
-		throw new Error(
-			`${path} must be a single-line string of at most 240 characters.`,
-		);
-	}
+function text_schema(path: string) {
+	const message = `${path} must be a single-line string of at most 240 characters.`;
 
-	return value;
-}
-
-function color(value: unknown, path: string): string {
-	if (
-		typeof value !== 'string' ||
-		!/^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(value)
-	) {
-		throw new Error(`${path} must be a #RGB or #RRGGBB colour.`);
-	}
-
-	return value;
-}
-
-function gradient(value: unknown): string[] | null {
-	if (value === null) return null;
-
-	if (!Array.isArray(value) || value.length < 2 || value.length > 8) {
-		throw new Error(
-			'border.gradient must be null or an array of 2–8 colours.',
-		);
-	}
-
-	return value.map((stop: unknown, index) =>
-		color(stop, `border.gradient[${index}]`),
+	return v.pipe(
+		v.string(message),
+		v.maxLength(240, message),
+		v.check(single_line, message),
 	);
 }
 
-function boolean(value: unknown, path: string): boolean {
-	if (typeof value !== 'boolean')
-		throw new Error(`${path} must be a boolean.`);
-
-	return value;
+function color_schema(path: string) {
+	return v.pipe(
+		v.string(`${path} must be a #RGB or #RRGGBB colour.`),
+		v.regex(
+			/^#(?:[\da-f]{3}|[\da-f]{6})$/i,
+			`${path} must be a #RGB or #RRGGBB colour.`,
+		),
+	);
 }
 
-function number(
-	value: unknown,
-	path: string,
-	min: number,
-	max: number,
-): number {
-	if (
-		typeof value !== 'number' ||
-		!Number.isFinite(value) ||
-		value < min ||
-		value > max
-	) {
-		throw new Error(
-			`${path} must be a number between ${min} and ${max}.`,
-		);
-	}
-
-	return value;
+function boolean_schema(path: string) {
+	return v.boolean(`${path} must be a boolean.`);
 }
 
-function rows(value: unknown): PreviewConfig['footer']['rows'] {
-	if (!Array.isArray(value) || value.length > 6) {
-		throw new Error(
-			'footer.rows must be an array of at most 6 rows.',
-		);
-	}
+function number_schema(path: string, min: number, max: number) {
+	const message = `${path} must be a number between ${min} and ${max}.`;
 
-	return value.map((row: unknown, index) => {
-		const path = `footer.rows[${index}]`;
-		const parsed = object(row, path, ['left', 'right']);
-
-		return {
-			left: text(
-				parsed.left === undefined ? '' : parsed.left,
-				`${path}.left`,
-			),
-			right: text(
-				parsed.right === undefined ? '' : parsed.right,
-				`${path}.right`,
-			),
-		};
-	});
+	return v.pipe(
+		v.number(message),
+		v.finite(message),
+		v.minValue(min, message),
+		v.maxValue(max, message),
+	);
 }
+
+const gradient_schema = v.nullable(
+	v.pipe(
+		v.array(
+			v.unknown(),
+			'border.gradient must be null or an array of 2–8 colours.',
+		),
+		v.minLength(
+			2,
+			'border.gradient must be null or an array of 2–8 colours.',
+		),
+		v.maxLength(
+			8,
+			'border.gradient must be null or an array of 2–8 colours.',
+		),
+		v.rawTransform(({ dataset, addIssue, NEVER }) => {
+			const colours: string[] = [];
+
+			for (const [index, stop] of dataset.value.entries()) {
+				const result = v.safeParse(
+					color_schema(`border.gradient[${index}]`),
+					stop,
+				);
+
+				if (!result.success) {
+					addIssue({ message: result.issues[0].message });
+
+					return NEVER;
+				}
+
+				colours.push(result.output);
+			}
+
+			return colours;
+		}),
+	),
+);
+
+const rows_schema = v.pipe(
+	v.array(
+		v.unknown(),
+		'footer.rows must be an array of at most 6 rows.',
+	),
+	v.maxLength(6, 'footer.rows must be an array of at most 6 rows.'),
+	v.rawTransform(({ dataset, addIssue, NEVER }) => {
+		const rows: { left: string; right: string }[] = [];
+		const optional = v.optional(v.unknown());
+
+		for (const [index, row] of dataset.value.entries()) {
+			const path = `footer.rows[${index}]`;
+
+			const parsed = v.safeParse(
+				object_schema(path, { left: optional, right: optional }),
+				row,
+			);
+
+			if (!parsed.success) {
+				addIssue({ message: parsed.issues[0].message });
+
+				return NEVER;
+			}
+
+			const left = v.safeParse(
+				text_schema(`${path}.left`),
+				fallback(parsed.output.left, ''),
+			);
+
+			if (!left.success) {
+				addIssue({ message: left.issues[0].message });
+
+				return NEVER;
+			}
+
+			const right = v.safeParse(
+				text_schema(`${path}.right`),
+				fallback(parsed.output.right, ''),
+			);
+
+			if (!right.success) {
+				addIssue({ message: right.issues[0].message });
+
+				return NEVER;
+			}
+
+			rows.push({ left: left.output, right: right.output });
+		}
+
+		return rows;
+	}),
+);
 
 function fallback<T, U>(value: T | undefined, base: U): T | U {
 	return value === undefined ? base : value;
 }
 
 export function parse_preview_config(
-	value: unknown,
+	value: JsonValue,
 	base?: PreviewConfig,
 ): PreviewConfig {
-	const root = object(value, 'config', [
-		'model',
-		'project',
-		'border',
-		'footer',
-	]);
+	const optional = v.optional(v.unknown());
 
-	const border = object(fallback(root.border, {}), 'border', [
-		'enabled',
-		'color',
-		'width',
-		'radius',
-		'gradient',
-	]);
+	const root = v.parse(
+		object_schema('config', {
+			model: optional,
+			project: optional,
+			border: optional,
+			footer: optional,
+		}),
+		value,
+	);
 
-	const footer = object(fallback(root.footer, {}), 'footer', [
-		'enabled',
-		'separator',
-		'editor',
-		'color',
-		'rows',
-	]);
+	const border = v.parse(
+		object_schema('border', {
+			enabled: optional,
+			color: optional,
+			width: optional,
+			radius: optional,
+			gradient: optional,
+		}),
+		fallback(root.border, {}),
+	);
+
+	const footer = v.parse(
+		object_schema('footer', {
+			enabled: optional,
+			separator: optional,
+			editor: optional,
+			color: optional,
+			rows: optional,
+		}),
+		fallback(root.footer, {}),
+	);
 
 	return {
-		model: text(fallback(root.model, base?.model), 'model'),
-		project: text(fallback(root.project, base?.project), 'project'),
+		model: v.parse(
+			text_schema('model'),
+			fallback(root.model, base?.model),
+		),
+		project: v.parse(
+			text_schema('project'),
+			fallback(root.project, base?.project),
+		),
 		border: {
-			enabled: boolean(
+			enabled: v.parse(
+				boolean_schema('border.enabled'),
 				fallback(border.enabled, base?.border.enabled),
-				'border.enabled',
 			),
-			color: color(
+			color: v.parse(
+				color_schema('border.color'),
 				fallback(border.color, base?.border.color),
-				'border.color',
 			),
-			gradient: gradient(
+			gradient: v.parse(
+				gradient_schema,
 				fallback(
 					border.gradient,
 					border.color === undefined
@@ -199,37 +269,36 @@ export function parse_preview_config(
 						: null,
 				),
 			),
-			width: number(
+			width: v.parse(
+				number_schema('border.width', 0.5, 8),
 				fallback(border.width, base?.border.width),
-				'border.width',
-				0.5,
-				8,
 			),
-			radius: number(
+			radius: v.parse(
+				number_schema('border.radius', 0, 32),
 				fallback(border.radius, base?.border.radius),
-				'border.radius',
-				0,
-				32,
 			),
 		},
 		footer: {
-			enabled: boolean(
+			enabled: v.parse(
+				boolean_schema('footer.enabled'),
 				fallback(footer.enabled, base?.footer.enabled),
-				'footer.enabled',
 			),
-			editor: boolean(
+			editor: v.parse(
+				boolean_schema('footer.editor'),
 				fallback(footer.editor, base?.footer.editor ?? false),
-				'footer.editor',
 			),
-			separator: boolean(
+			separator: v.parse(
+				boolean_schema('footer.separator'),
 				fallback(footer.separator, base?.footer.separator),
-				'footer.separator',
 			),
-			color: color(
+			color: v.parse(
+				color_schema('footer.color'),
 				fallback(footer.color, base?.footer.color),
-				'footer.color',
 			),
-			rows: rows(fallback(footer.rows, base?.footer.rows)),
+			rows: v.parse(
+				rows_schema,
+				fallback(footer.rows, base?.footer.rows),
+			),
 		},
 	};
 }
@@ -246,7 +315,7 @@ function read_config(
 		throw new Error(`Cannot read preview config: ${path.toString()}`);
 	}
 
-	let parsed: unknown;
+	let parsed: JsonValue;
 
 	try {
 		parsed = JSON.parse(content);

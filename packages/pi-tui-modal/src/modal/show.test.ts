@@ -22,13 +22,22 @@ type CustomFactory = Parameters<
 
 type CustomFactoryArgs = Parameters<CustomFactory>;
 
+type ModalTestResult = string | boolean | undefined;
+
+type ModalTestFactory = (
+	tui: CustomFactoryArgs[0],
+	theme: CustomFactoryArgs[1],
+	keybindings: CustomFactoryArgs[2],
+	done: (result: ModalTestResult) => void,
+) => ReturnType<CustomFactory>;
+
 const theme: ModalTheme = {
 	fg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
 };
 
 function create_ctx(
-	result?: unknown,
+	result?: ModalTestResult,
 	send_input?: string,
 	terminal_rows = 24,
 ) {
@@ -37,7 +46,7 @@ function create_ctx(
 
 	const custom = vi.fn(
 		async (
-			factory: Parameters<ExtensionCommandContext['ui']['custom']>[0],
+			factory: ModalTestFactory,
 			_options: Parameters<
 				ExtensionCommandContext['ui']['custom']
 			>[1],
@@ -48,7 +57,7 @@ function create_ctx(
 				make_tui(make_terminal({ rows: terminal_rows })).tui,
 				theme as CustomFactoryArgs[1],
 				{} as CustomFactoryArgs[2],
-				(value: unknown) => {
+				(value) => {
 					resolved = value;
 				},
 			);

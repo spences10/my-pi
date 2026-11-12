@@ -4,7 +4,9 @@ import {
 	with_sqlite_transaction,
 } from '@spences10/pi-sqlite-core';
 import { createServer, type ServerResponse } from 'node:http';
+import type { SQLOutputValue } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
+import * as v from 'valibot';
 import {
 	content_type,
 	read_dashboard_asset,
@@ -37,6 +39,7 @@ import {
 	generate_observability_token,
 	resolve_observability_server_options,
 } from './options.js';
+import { json_value_schema } from './json.js';
 import { describe_port_owner } from './port-owner.js';
 import type {
 	ObservabilityServerOptions,
@@ -158,6 +161,8 @@ export function start_observability_server(
 			seq: next_seq_row?.seq ?? 0,
 		};
 
+		const payload = v.parse(json_value_schema, event.payload ?? {});
+
 		const result = statements.insert_event.run(
 			server_event.event_id,
 			server_event.session_id,
@@ -166,11 +171,11 @@ export function start_observability_server(
 			server_event.type,
 			server_event.pool ?? 'default',
 			tags_json,
-			JSON.stringify(server_event.payload ?? {}),
+			JSON.stringify(payload),
 			server_event.provider ?? null,
 			server_event.model ?? null,
 			...event_column_values(
-				derive_event_columns(server_event.type, server_event.payload),
+				derive_event_columns(server_event.type, payload),
 			),
 		);
 
@@ -314,7 +319,7 @@ export function start_observability_server(
 					pool,
 					pool,
 					limit,
-				) as Record<string, unknown>[];
+				) as Record<string, SQLOutputValue>[];
 
 				const tag = req_url.searchParams.get('tag');
 
@@ -401,14 +406,14 @@ export function start_observability_server(
 				const rows = statements.list_events.all(
 					session_id,
 					limit,
-				) as Record<string, unknown>[];
+				) as Record<string, SQLOutputValue>[];
 
 				const events = rows.map(to_row_event);
 
 				if (!is_trace) return json(res, 200, { events });
 
 				const session_row = statements.get_session.get(session_id) as
-					| Record<string, unknown>
+					| Record<string, SQLOutputValue>
 					| undefined;
 
 				const session = session_row
@@ -439,7 +444,7 @@ export function start_observability_server(
 					query,
 					query ? `%${query}%` : '',
 					limit,
-				) as Record<string, unknown>[];
+				) as Record<string, SQLOutputValue>[];
 
 				return json(res, 200, { events: rows.map(to_row_event) });
 			}

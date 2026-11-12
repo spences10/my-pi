@@ -7,6 +7,7 @@ import {
 	make_stream,
 } from '../../../tools/test-sdk.js';
 
+import type { Api, Context, Model } from '@earendil-works/pi-ai';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import session_name, { clean_name, naming_context } from './index.js';
 
@@ -33,8 +34,8 @@ function fixture() {
 
 	const streamSimple = vi.fn(
 		(
-			_model: unknown,
-			_context: unknown,
+			_model: Model<Api>,
+			_context: Context,
 			_options: { signal: AbortSignal },
 		) => make_stream(async () => result),
 	);

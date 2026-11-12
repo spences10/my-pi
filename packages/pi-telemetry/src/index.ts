@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { Type } from 'typebox';
+import * as v from 'valibot';
 import {
 	COMMANDS,
 	DEFAULT_QUERY_LIMIT,
@@ -33,12 +34,11 @@ import {
 import type { TelemetryQueryFilters } from './db.js';
 import { default_load_store } from './store-loader.js';
 import {
-	safe_json_stringify,
 	summarize_headers,
 	summarize_provider_payload,
 	summarize_tool_args,
 	summarize_tool_result,
-	summarize_value,
+	summarizable_schema,
 } from './summaries.js';
 import type {
 	ActiveRun,
@@ -839,7 +839,7 @@ export function create_telemetry_extension(
 				result_summary_json: summarize_tool_result(event.result),
 				error_message:
 					event.isError && event.result != null
-						? safe_json_stringify(summarize_value(event.result))
+						? summarize_tool_result(event.result)
 						: null,
 			});
 		});
@@ -854,7 +854,7 @@ export function create_telemetry_extension(
 				turn_id: current_turn?.id ?? null,
 				started_at: now(),
 				payload_summary_json: summarize_provider_payload(
-					event.payload,
+					v.parse(summarizable_schema, event.payload),
 				),
 			});
 			provider_request_ids.push(request_id);

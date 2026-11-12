@@ -369,3 +369,24 @@ EOF`;
 		rmSync(dir, { recursive: true, force: true });
 	});
 });
+
+describe('svelte guardrails edit tolerance', () => {
+	it('skips malformed edit entries and still finds $effect in valid ones', () => {
+		const input = {
+			path: 'src/App.svelte',
+			edits: [null, 'text', { newText: '$effect(() => {})' }],
+		};
+
+		expect(
+			should_block_svelte_effect(
+				{
+					type: 'tool_call',
+					toolName: 'edit',
+					toolCallId: 'e1',
+					input,
+				} satisfies Parameters<typeof should_block_svelte_effect>[0],
+				block_config,
+			),
+		).toContain('was not created or modified');
+	});
+});

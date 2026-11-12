@@ -1,7 +1,15 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type {
+	ExtensionContext,
+	ExtensionEvent,
+} from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vite-plus/test';
+import {
+	make_assistant_message,
+	make_context,
+} from '../../../tools/test-sdk.js';
 import observability, {
 	create_event_envelope,
 	EventQueue,
@@ -14,16 +22,18 @@ import observability, {
 import { redact_value, truncate_json_value } from './redact.js';
 import type { ObservabilityEvent } from './types.js';
 
+type ObservedHandler = (
+	event: Partial<ExtensionEvent>,
+	ctx: ExtensionContext,
+) => Promise<void>;
+
 function observability_harness(options?: {
 	configured_name?: string;
 	configured_token?: string;
 	forward_session_id?: boolean;
 	session_name?: string;
 }) {
-	const handlers = new Map<
-		string,
-		(event: unknown, ctx: unknown) => Promise<void>
-	>();
+	const handlers = new Map<string, ObservedHandler>();
 
 	const session_name = options?.session_name;
 
@@ -71,23 +81,24 @@ function observability_harness(options?: {
 
 	observability(pi as never);
 
-	const ctx = {
+	const ctx = make_context({
 		cwd: '/repo',
-		model: undefined,
 		getContextUsage: context_usage,
 		sessionManager: {
 			getSessionId: () => 'session-1',
 			getSessionFile: () => '/sessions/session-1.jsonl',
 			getSessionName: () => session_name,
 		},
-	};
+	});
 
 	return {
 		fetch_mock,
 		sent,
 		context_usage,
-		trigger: async (name: string, event: unknown = {}) =>
-			handlers.get(name)?.(event, ctx),
+		trigger: async (
+			name: string,
+			event: Partial<ExtensionEvent> = {},
+		) => handlers.get(name)?.(event, ctx),
 	};
 }
 
@@ -211,10 +222,7 @@ describe('resolve_observability_config', () => {
 				});
 			});
 
-		const handlers = new Map<
-			string,
-			(event: unknown, ctx: unknown) => Promise<void>
-		>();
+		const handlers = new Map<string, ObservedHandler>();
 
 		const pi = {
 			registerFlag: vi.fn(),
@@ -226,15 +234,14 @@ describe('resolve_observability_config', () => {
 
 		observability(pi as never);
 
-		const ctx = {
+		const ctx = make_context({
 			cwd: '/repo',
-			model: undefined,
 			sessionManager: {
 				getSessionId: () => 'session-1',
 				getSessionFile: () => undefined,
 				getSessionName: () => undefined,
 			},
-		};
+		});
 
 		try {
 			await expect(
@@ -559,7 +566,7 @@ describe('context usage snapshots', () => {
 			await harness.trigger('session_start');
 			expect(harness.context_usage).toHaveBeenCalledTimes(1);
 			await harness.trigger('message_end', {
-				message: { role: 'assistant' },
+				message: make_assistant_message(),
 			});
 			expect(harness.context_usage).toHaveBeenCalledTimes(1);
 			harness.context_usage.mockReturnValue({

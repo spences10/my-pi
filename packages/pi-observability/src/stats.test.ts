@@ -7,6 +7,7 @@ import {
 	derive_event_columns,
 	event_column_values,
 } from './event-columns.js';
+import type { JsonValue } from './json.js';
 import {
 	create_stats_queries,
 	parse_since,
@@ -21,7 +22,7 @@ afterEach(() => {
 	dirs.length = 0;
 });
 
-type Fixture = [string, string, Record<string, unknown>];
+type Fixture = [string, string, JsonValue];
 
 // Noon UTC keeps the local calendar day equal to the UTC day for
 // time zones within ±11 hours.

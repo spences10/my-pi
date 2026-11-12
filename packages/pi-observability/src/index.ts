@@ -1,14 +1,16 @@
 import type {
 	ExtensionAPI,
 	ExtensionContext,
+	ExtensionEvent,
 } from '@earendil-works/pi-coding-agent';
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import { homedir } from 'node:os';
+import * as v from 'valibot';
 import { authenticated_dashboard_url } from './dashboard-url.js';
 import { health_proof_matches } from './health-auth.js';
-import { assistant_text } from './message-text.js';
+import { assistant_text, message_schema } from './message-text.js';
 import { resolve_observability_token } from './options.js';
 import {
 	redact_value,
@@ -38,23 +40,32 @@ const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_MAX_QUEUE_SIZE = 10_000;
 export const DEFAULT_OBSERVABILITY_URL = 'http://127.0.0.1:43190';
 
-function as_string(value: unknown): string | undefined {
+/** What `pi.getFlag` and `process.env` hand back. */
+type ConfigValue = string | boolean | undefined;
+
+type TagInput = ConfigValue | readonly TagInput[];
+
+const health_body_schema = v.looseObject({
+	proof: v.fallback(v.optional(v.string()), undefined),
+});
+
+function as_string(value: ConfigValue): string | undefined {
 	return typeof value === 'string' && value.length > 0
 		? value
 		: undefined;
 }
 
-function as_boolean(value: unknown): boolean {
+function as_boolean(value: ConfigValue): boolean {
 	return value === true || value === 'true' || value === '1';
 }
 
 function detail_level(
-	value: unknown,
+	value: ConfigValue,
 ): ObservabilityConfig['detail_level'] {
 	return value === 'summary' ? 'summary' : 'detailed';
 }
 
-export function parse_tags(value: unknown): string[] {
+export function parse_tags(value: TagInput): string[] {
 	if (Array.isArray(value)) {
 		return value.flatMap((item) => parse_tags(item));
 	}
@@ -260,48 +271,71 @@ function detailed_object_summary(
 	return summary;
 }
 
-function record_of(value: unknown): Record<string, unknown> {
-	return value && typeof value === 'object' && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
+const text_content_schema = v.fallback(
+	v.pipe(
+		v.array(v.unknown()),
+		v.transform((blocks) =>
+			blocks
+				.flatMap((block) => {
+					const text = v.safeParse(
+						v.object({ type: v.literal('text'), text: v.string() }),
+						block,
+					);
 
-/** Text blocks of a tool result, joined in order. */
-function content_text(content: unknown): string {
-	if (!Array.isArray(content)) return '';
+					return text.success ? [text.output.text] : [];
+				})
+				.join('\n'),
+		),
+	),
+	'',
+);
 
-	return content
-		.map((item) => record_of(item))
-		.filter(
-			(item) => item.type === 'text' && typeof item.text === 'string',
-		)
-		.map((item) => item.text as string)
-		.join('\n');
-}
+const exit_code_source_schema = v.fallback(
+	v.object({
+		exit_code: v.fallback(v.optional(v.number()), undefined),
+		exitCode: v.fallback(v.optional(v.number()), undefined),
+	}),
+	{ exit_code: undefined, exitCode: undefined },
+);
+
+const failure_result_schema = v.object({
+	content: text_content_schema,
+	structuredContent: exit_code_source_schema,
+	details: exit_code_source_schema,
+});
+
+/** The parts of a tool_result or tool_execution_end event a failure report reads. */
+export const failure_event_schema = v.object({
+	content: text_content_schema,
+	structuredContent: exit_code_source_schema,
+	details: exit_code_source_schema,
+	result: v.fallback(
+		failure_result_schema,
+		v.parse(failure_result_schema, {}),
+	),
+});
+
+export type FailureEvent = v.InferOutput<typeof failure_event_schema>;
 
 /**
  * What a failed tool call reported: its full text output and exit code.
  * tool_result carries content at the top level; tool_execution_end
  * carries it under result.
  */
-export function failure_details(
-	event: Record<string, unknown>,
-): FailureDetails {
-	const result = record_of(event.result);
-
-	const text =
-		content_text(event.content) || content_text(result.content);
+export function failure_details(event: FailureEvent): FailureDetails {
+	const { result } = event;
+	const text = event.content || result.content;
 
 	const sources = [
-		record_of(event.structuredContent),
-		record_of(event.details),
-		record_of(result.structuredContent),
-		record_of(result.details),
+		event.structuredContent,
+		event.details,
+		result.structuredContent,
+		result.details,
 	];
 
 	const exit_code = sources
 		.flatMap((source) => [source.exit_code, source.exitCode])
-		.find((value): value is number => typeof value === 'number');
+		.find((value) => value !== undefined);
 
 	const details: ReturnType<typeof failure_details> = {};
 
@@ -311,6 +345,17 @@ export function failure_details(
 
 	return details;
 }
+
+const nullable_number = v.fallback(v.nullable(v.number()), null);
+
+const context_usage_summary_schema = v.fallback(
+	v.object({
+		tokens: nullable_number,
+		contextWindow: nullable_number,
+		percent: nullable_number,
+	}),
+	{ tokens: null, contextWindow: null, percent: null },
+);
 
 export function summarize_payload<T>(
 	event: T,
@@ -340,23 +385,12 @@ export function summarize_payload<T>(
 		if (key in summary) continue;
 
 		if (key === 'contextUsage') {
-			const usage = record_of(value);
-
 			if (value === null) {
 				summary[key] = null;
 				continue;
 			}
 
-			summary[key] = {
-				tokens:
-					typeof usage.tokens === 'number' ? usage.tokens : null,
-				contextWindow:
-					typeof usage.contextWindow === 'number'
-						? usage.contextWindow
-						: null,
-				percent:
-					typeof usage.percent === 'number' ? usage.percent : null,
-			};
+			summary[key] = v.parse(context_usage_summary_schema, value);
 		} else if (key === 'usage' || key === 'cost') {
 			summary[key] = summarize_metric_value(value);
 		} else if (typeof value === 'string') {
@@ -413,7 +447,8 @@ export function summarize_payload<T>(
 		detail_level === 'detailed' &&
 		(event_type ?? object.type) === 'message_end'
 	) {
-		const response = assistant_text(object.message);
+		const message = v.parse(message_schema, object.message);
+		const response = message && assistant_text(message);
 
 		if (response) {
 			summary.responseText = response.text;
@@ -423,7 +458,9 @@ export function summarize_payload<T>(
 
 	// Failures keep the full output; it is what explains the error.
 	if (detail_level === 'detailed' && object.isError === true) {
-		const failure = failure_details(object);
+		const failure = failure_details(
+			v.parse(failure_event_schema, object),
+		);
 
 		if (failure.error_text !== undefined)
 			summary.errorText = failure.error_text;
@@ -435,9 +472,9 @@ export function summarize_payload<T>(
 	return summary;
 }
 
-export function create_event_envelope(
+export function create_event_envelope<P>(
 	type: ObservabilityEventType,
-	payload: unknown,
+	payload: P,
 	session: SessionInfo,
 	seq: number,
 	config: Pick<
@@ -488,9 +525,15 @@ async function local_server_status(
 		);
 
 		if (!response.ok) return 'untrusted';
-		const body = (await response.json()) as { proof?: unknown };
 
-		return health_proof_matches(token, challenge, body.proof)
+		const body = v.safeParse(
+			health_body_schema,
+			await response.json(),
+		);
+
+		if (!body.success) return 'untrusted';
+
+		return health_proof_matches(token, challenge, body.output.proof)
 			? 'authenticated'
 			: 'untrusted';
 	} catch {
@@ -586,13 +629,9 @@ async function rejected_body_limit(
 	}
 }
 
-function is_truncated_payload(payload: unknown): boolean {
-	return (
-		!!payload &&
-		typeof payload === 'object' &&
-		(payload as { truncated?: unknown }).truncated === true
-	);
-}
+const truncated_payload_schema = v.looseObject({
+	truncated: v.literal(true),
+});
 
 /**
  * Fits one event under the server's body limit. The preview is a slice
@@ -679,7 +718,7 @@ export class EventQueue {
 					);
 				} else if (
 					max_bytes &&
-					!is_truncated_payload(batch[0]!.payload)
+					!v.is(truncated_payload_schema, batch[0]!.payload)
 				) {
 					this.queue[0] = shrink_event_to_fit(batch[0]!, max_bytes);
 				} else {
@@ -827,10 +866,7 @@ export default function observability(pi: ExtensionAPI) {
 	let seq = 0;
 	const tool_update_counts = new Map<string, number>();
 
-	function emit(
-		type: ObservabilityEventType,
-		payload: unknown,
-	): void {
+	function emit<P>(type: ObservabilityEventType, payload: P): void {
 		if (!config || !queue || !session) return;
 		queue.push(
 			create_event_envelope(type, payload, session, seq++, config),
@@ -842,17 +878,21 @@ export default function observability(pi: ExtensionAPI) {
 		obs_type: ObservabilityEventType,
 		capture_context = false,
 	): void {
+		// SAFETY: `observe` is only called with event names whose handlers receive an ExtensionEvent and ExtensionContext.
 		(
 			pi.on as (
 				name: string,
-				handler: (event: unknown, ctx: ExtensionContext) => void,
+				handler: (
+					event: ExtensionEvent,
+					ctx: ExtensionContext,
+				) => void,
 			) => void
 		)(pi_event, (event, ctx) =>
 			emit(
 				obs_type,
 				capture_context
 					? {
-							...record_of(event),
+							...event,
 							contextUsage: ctx.getContextUsage() ?? null,
 						}
 					: event,

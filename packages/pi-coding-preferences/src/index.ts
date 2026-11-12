@@ -4,9 +4,14 @@ import {
 	type ToolCallEvent,
 	type ToolCallEventResult,
 } from '@earendil-works/pi-coding-agent';
-import { read_settings_section } from '@spences10/pi-settings';
+import {
+	input_node_schema,
+	read_settings_section,
+	type InputNode,
+} from '@spences10/pi-settings';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import * as v from 'valibot';
 import { register_guarded_tools } from './guarded-tools.js';
 import {
 	resolve_naming_config,
@@ -108,8 +113,15 @@ function command_value_from(
 		: undefined;
 }
 
+const edit_new_text_schema = v.fallback(
+	v.object({
+		newText: v.fallback(v.optional(v.string()), undefined),
+	}),
+	{},
+);
+
 function input_values(
-	value: unknown,
+	value: InputNode,
 	field = 'input',
 ): TargetValue[] {
 	if (typeof value === 'string') return [{ field, value }];
@@ -122,8 +134,8 @@ function input_values(
 
 	if (!value || typeof value !== 'object') return [];
 
-	return Object.entries(value as Record<string, unknown>).flatMap(
-		([key, item]) => input_values(item, `${field}.${key}`),
+	return Object.entries(value).flatMap(([key, item]) =>
+		input_values(item, `${field}.${key}`),
 	);
 }
 
@@ -162,24 +174,25 @@ function target_values(
 			});
 		}
 
-		if (Array.isArray(input.edits)) {
-			input.edits.forEach((edit: unknown, index) => {
-				if (!edit || typeof edit !== 'object') return;
-				const value = (edit as Record<string, unknown>).newText;
+		const edits = v.safeParse(
+			v.array(edit_new_text_schema),
+			input.edits,
+		);
 
-				if (typeof value === 'string') {
-					replacements.push({
-						field: `input.edits[${index}].newText`,
-						value,
-					});
-				}
+		if (edits.success) {
+			edits.output.forEach((edit, index) => {
+				if (edit.newText === undefined) return;
+				replacements.push({
+					field: `input.edits[${index}].newText`,
+					value: edit.newText,
+				});
 			});
 		}
 
 		return replacements;
 	}
 
-	return input_values(event.input);
+	return input_values(v.parse(input_node_schema, event.input));
 }
 
 export function get_global_config_path(): string {

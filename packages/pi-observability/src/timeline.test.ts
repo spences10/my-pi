@@ -1,6 +1,8 @@
+import * as v from 'valibot';
 import { describe, expect, it } from 'vite-plus/test';
 import { derive_event_columns } from './event-columns.js';
 import { summarize_payload } from './index.js';
+import { type JsonValue, json_value_schema } from './json.js';
 import { build_timeline, type TimelineEventRow } from './timeline.js';
 
 let seq = 0;
@@ -8,7 +10,7 @@ let seq = 0;
 function row(
 	second: number,
 	type: string,
-	payload: Record<string, unknown> = {},
+	payload: JsonValue = {},
 ): TimelineEventRow {
 	const columns = derive_event_columns(type, payload);
 
@@ -47,17 +49,20 @@ describe('build_timeline', () => {
 		(detail_level) => {
 			seq = 0;
 
-			const payload = summarize_payload(
-				{
-					message: {
-						role: 'assistant',
-						model: 'virtual-model',
-						responseModel: 'concrete-model',
-						stopReason: 'stop',
+			const payload = v.parse(
+				json_value_schema,
+				summarize_payload(
+					{
+						message: {
+							role: 'assistant',
+							model: 'virtual-model',
+							responseModel: 'concrete-model',
+							stopReason: 'stop',
+						},
 					},
-				},
-				detail_level,
-			) as Record<string, unknown>;
+					detail_level,
+				),
+			);
 
 			const timeline = build_timeline([
 				row(0, 'agent_start'),
@@ -85,12 +90,19 @@ describe('build_timeline', () => {
 			const timeline = build_timeline([
 				row(0, 'provider_request'),
 				row(1, 'message_end', {
-					message: {
-						role: 'assistant',
-						model: 'gpt-test',
-						responseModel: response_model,
-						stopReason: 'stop',
-					},
+					message:
+						response_model === undefined
+							? {
+									role: 'assistant',
+									model: 'gpt-test',
+									stopReason: 'stop',
+								}
+							: {
+									role: 'assistant',
+									model: 'gpt-test',
+									responseModel: response_model,
+									stopReason: 'stop',
+								},
 				}),
 			]);
 
@@ -115,20 +127,23 @@ describe('build_timeline', () => {
 				],
 			};
 
-			const payload = (() => {
-				if (mode === 'raw') return { message };
+			const payload = v.parse(
+				json_value_schema,
+				(() => {
+					if (mode === 'raw') return { message };
 
-				if (mode === 'historical')
-					return {
-						message: { role: 'assistant', stopReason: 'stop' },
-					};
+					if (mode === 'historical')
+						return {
+							message: { role: 'assistant', stopReason: 'stop' },
+						};
 
-				return summarize_payload(
-					{ message },
-					mode === 'summary' ? 'summary' : 'detailed',
-					'message_end',
-				);
-			})();
+					return summarize_payload(
+						{ message },
+						mode === 'summary' ? 'summary' : 'detailed',
+						'message_end',
+					);
+				})(),
+			);
 
 			const timeline = build_timeline([
 				row(0, 'provider_request'),

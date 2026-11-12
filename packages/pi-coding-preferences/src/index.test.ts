@@ -13,9 +13,13 @@ import {
 	type CodingPreferencesConfig,
 } from './index.js';
 
-vi.mock('@spences10/pi-settings', () => ({
-	read_settings_section: vi.fn(),
-}));
+vi.mock(
+	import('@spences10/pi-settings'),
+	async (import_original) => ({
+		...(await import_original()),
+		read_settings_section: vi.fn(),
+	}),
+);
 
 vi.mock('@earendil-works/pi-coding-agent', () => ({
 	getAgentDir: () =>

@@ -31,10 +31,10 @@ export function sqlite_pragmas(
 	};
 }
 
-export function is_sqlite_busy(error: unknown): boolean {
-	if (typeof error !== 'object' || error === null) return false;
+export function is_sqlite_busy(cause: unknown): boolean {
+	if (typeof cause !== 'object' || cause === null) return false;
 
-	const candidate = error as {
+	const candidate = cause as {
 		code?: unknown;
 		errcode?: unknown;
 		errstr?: unknown;
@@ -86,7 +86,7 @@ export function with_sqlite_busy_retry<T>(
 		attempts?: number;
 		delay_ms?: number;
 		operation?: string;
-		on_busy?: (attempt: number, error: unknown) => void;
+		on_busy?: (attempt: number, cause: unknown) => void;
 	} = {},
 ): T {
 	const attempts = Math.max(1, options.attempts ?? 3);
@@ -96,10 +96,10 @@ export function with_sqlite_busy_retry<T>(
 	for (let attempt = 1; attempt <= attempts; attempt++) {
 		try {
 			return fn();
-		} catch (error) {
-			if (!is_sqlite_busy(error)) throw error;
-			last_error = error;
-			options.on_busy?.(attempt, error);
+		} catch (cause) {
+			if (!is_sqlite_busy(cause)) throw cause;
+			last_error = cause;
+			options.on_busy?.(attempt, cause);
 
 			if (attempt < attempts) sleep_sync(delay_ms * attempt);
 		}

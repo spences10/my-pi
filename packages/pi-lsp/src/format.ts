@@ -23,7 +23,7 @@ export interface LspFormatServerState {
 	last_used_at?: number;
 }
 
-export interface LspToolErrorDetails {
+export type LspToolErrorDetails = {
 	kind:
 		| 'unsupported_language'
 		| 'server_start_failed'
@@ -35,7 +35,7 @@ export interface LspToolErrorDetails {
 	workspace_root?: string;
 	install_hint?: string;
 	code?: string;
-}
+};
 
 export class LspToolError extends Error {
 	details: LspToolErrorDetails;
@@ -212,14 +212,14 @@ export function to_lsp_tool_error(
 	workspace_root: string,
 	command: string,
 	install_hint: string | undefined,
-	error: unknown,
+	cause: unknown,
 ): LspToolErrorDetails {
-	if (error instanceof LspToolError) {
-		return error.details;
+	if (cause instanceof LspToolError) {
+		return cause.details;
 	}
 
-	if (error instanceof LspClientStartError) {
-		const missing_binary = error.code === 'ENOENT';
+	if (cause instanceof LspClientStartError) {
+		const missing_binary = cause.code === 'ENOENT';
 
 		return {
 			kind: 'server_start_failed',
@@ -228,10 +228,10 @@ export function to_lsp_tool_error(
 			workspace_root,
 			command,
 			install_hint,
-			code: error.code,
+			code: cause.code,
 			message: missing_binary
 				? `command "${command}" not found`
-				: error.message,
+				: cause.message,
 		};
 	}
 
@@ -242,13 +242,13 @@ export function to_lsp_tool_error(
 		workspace_root,
 		command,
 		install_hint,
-		message: error instanceof Error ? error.message : String(error),
+		message: cause instanceof Error ? cause.message : String(cause),
 		code:
-			typeof error === 'object' &&
-			error !== null &&
-			'code' in error &&
-			typeof (error as { code?: unknown }).code === 'string'
-				? (error as { code: string }).code
+			typeof cause === 'object' &&
+			cause !== null &&
+			'code' in cause &&
+			typeof (cause as { code?: unknown }).code === 'string'
+				? (cause as { code: string }).code
 				: undefined,
 	};
 }

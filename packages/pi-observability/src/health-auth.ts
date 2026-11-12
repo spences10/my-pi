@@ -22,9 +22,9 @@ export function create_health_proof(
 export function health_proof_matches(
 	token: string,
 	challenge: string,
-	proof: unknown,
+	proof: string | undefined,
 ): boolean {
-	if (typeof proof !== 'string') return false;
+	if (proof === undefined) return false;
 	const expected = Buffer.from(create_health_proof(token, challenge));
 	const provided = Buffer.from(proof);
 

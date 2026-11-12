@@ -9,8 +9,10 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vite-plus/test';
+import * as v from 'valibot';
 import {
 	extract_input_strings,
+	input_node_schema,
 	get_settings_path,
 	read_package_settings,
 	read_settings,
@@ -146,11 +148,13 @@ describe('@spences10/pi-settings', () => {
 
 	it('extracts nested input strings from arrays and objects', () => {
 		expect(
-			extract_input_strings({
-				command: 'pnpm test',
-				meta: [{ path: 'src/App.svelte' }, false, null],
-				count: 1,
-			}),
+			extract_input_strings(
+				v.parse(input_node_schema, {
+					command: 'pnpm test',
+					meta: [{ path: 'src/App.svelte' }, false, null],
+					count: 1,
+				}),
+			),
 		).toEqual(['pnpm test', 'src/App.svelte']);
 	});
 

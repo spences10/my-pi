@@ -1,6 +1,6 @@
-export function format_git_error(error: unknown): string {
+export function format_git_error(cause: unknown): string {
 	const message =
-		error instanceof Error ? error.message : String(error);
+		cause instanceof Error ? cause.message : String(cause);
 
 	if (message.includes('No staged changes'))
 		return 'No staged changes to commit.';

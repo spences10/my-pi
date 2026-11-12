@@ -5,11 +5,11 @@ export function diagnostic_text(text: string): string {
 	return redact_text(text).redacted;
 }
 
-export function diagnostic_error(error: unknown): Error {
+export function diagnostic_error(cause: unknown): Error {
 	// Do not retain the raw error as a cause: diagnostics can contain secrets.
 	return new Error(
 		diagnostic_text(
-			error instanceof Error ? error.message : String(error),
+			cause instanceof Error ? cause.message : String(cause),
 		),
 	);
 }

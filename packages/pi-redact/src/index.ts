@@ -5,8 +5,12 @@ import type {
 	ImageContent,
 	TextContent,
 } from '@earendil-works/pi-ai';
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ToolResultEvent,
+} from '@earendil-works/pi-coding-agent';
 import { resolve } from 'node:path';
+import * as v from 'valibot';
 
 interface SecretPattern {
 	name: string;
@@ -313,8 +317,7 @@ function redact_secret_patterns(text: string): RedactionResult {
 	return { redacted: result, count };
 }
 
-function is_ssh_config_path(path: unknown): boolean {
-	if (typeof path !== 'string') return false;
+function is_ssh_config_path(path: string): boolean {
 	const normalized = path.replaceAll('\\', '/').toLowerCase();
 
 	return /(?:^|\/)(?:\.ssh\/(?:config|config\.d\/.+|conf\.d\/.+)|ssh_config)$/.test(
@@ -322,15 +325,13 @@ function is_ssh_config_path(path: unknown): boolean {
 	);
 }
 
-function should_force_ssh_config_redaction(event: {
-	toolName?: string;
-	input?: unknown;
-}): boolean {
-	if (event.toolName !== 'read') return false;
+const read_input_schema = v.object({ path: v.string() });
 
-	if (!event.input || typeof event.input !== 'object') return false;
+function read_input_path(event: ToolResultEvent): string | undefined {
+	if (event.toolName !== 'read') return undefined;
+	const parsed = v.safeParse(read_input_schema, event.input);
 
-	return is_ssh_config_path((event.input as { path?: unknown }).path);
+	return parsed.success ? parsed.output.path : undefined;
 }
 
 function is_text_content(
@@ -403,15 +404,10 @@ export default async function filter_output(pi: ExtensionAPI) {
 	pi.on('tool_result', async (event) => {
 		if (!event.content) return;
 
-		const force_ssh_config = should_force_ssh_config_redaction(event);
+		const input_path = read_input_path(event);
 
-		const input_path =
-			event.toolName === 'read' &&
-			event.input &&
-			typeof event.input === 'object' &&
-			typeof (event.input as { path?: unknown }).path === 'string'
-				? (event.input as { path: string }).path
-				: undefined;
+		const force_ssh_config =
+			input_path !== undefined && is_ssh_config_path(input_path);
 
 		const normalized_input_path = input_path
 			? resolve(input_path)

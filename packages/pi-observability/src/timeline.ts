@@ -1,6 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite';
 import * as v from 'valibot';
-import { assistant_text } from './message-text.js';
+import {
+	assistant_text,
+	type MessageView,
+	message_schema,
+} from './message-text.js';
 import type {
 	SessionTimeline,
 	TimelineSpan,
@@ -50,6 +54,22 @@ const timeline_event_row_schema = v.object({
 
 const PREVIEW_CHARS = 160;
 
+const preview_schema = v.fallback(
+	v.nullable(
+		v.pipe(
+			v.string(),
+			v.transform((value) => value.trim().replace(/\s+/g, ' ')),
+			v.nonEmpty(),
+			v.transform((line) =>
+				line.length > PREVIEW_CHARS
+					? `${line.slice(0, PREVIEW_CHARS)}…`
+					: line,
+			),
+		),
+	),
+	null,
+);
+
 const INPUT_PREVIEW_KEYS = [
 	'command',
 	'path',
@@ -58,27 +78,56 @@ const INPUT_PREVIEW_KEYS = [
 	'query',
 	'url',
 	'action',
-];
+] as const;
 
-function parse_payload(json: string): Record<string, unknown> {
+const input_preview_schema = v.fallback(
+	v.object({
+		command: preview_schema,
+		path: preview_schema,
+		file_path: preview_schema,
+		pattern: preview_schema,
+		query: preview_schema,
+		url: preview_schema,
+		action: preview_schema,
+	}),
+	{
+		command: null,
+		path: null,
+		file_path: null,
+		pattern: null,
+		query: null,
+		url: null,
+		action: null,
+	},
+);
+
+const timeline_payload_schema = v.object({
+	prompt: preview_schema,
+	input: input_preview_schema,
+	message: message_schema,
+	responseText: v.fallback(v.optional(v.string()), undefined),
+	responseTextTruncated: v.fallback(
+		v.optional(v.boolean()),
+		undefined,
+	),
+	updateCount: v.fallback(v.optional(v.number()), undefined),
+});
+
+type TimelinePayload = v.InferOutput<typeof timeline_payload_schema>;
+
+const empty_payload = v.parse(timeline_payload_schema, {});
+
+function parse_payload(json: string): TimelinePayload {
 	try {
-		const value: unknown = JSON.parse(json);
+		const parsed = v.safeParse(
+			timeline_payload_schema,
+			JSON.parse(json),
+		);
 
-		return value && typeof value === 'object'
-			? (value as Record<string, unknown>)
-			: {};
+		return parsed.success ? parsed.output : empty_payload;
 	} catch {
-		return {};
+		return empty_payload;
 	}
-}
-
-function preview(value: unknown): string | null {
-	if (typeof value !== 'string' || !value.trim()) return null;
-	const line = value.trim().replace(/\s+/g, ' ');
-
-	return line.length > PREVIEW_CHARS
-		? `${line.slice(0, PREVIEW_CHARS)}…`
-		: line;
 }
 
 /**
@@ -86,28 +135,19 @@ function preview(value: unknown): string | null {
  * summaries kept `role` only list the keys, and only assistant
  * messages have a stopReason.
  */
-function is_assistant_message(message: unknown): boolean {
-	if (!message || typeof message !== 'object') return false;
-	const record = message as Record<string, unknown>;
+function is_assistant_message(
+	message: MessageView | undefined,
+): message is MessageView {
+	if (!message) return false;
 
-	if (typeof record.role === 'string')
-		return record.role === 'assistant';
+	if (message.role !== undefined) return message.role === 'assistant';
 
-	return (
-		Array.isArray(record.keys) && record.keys.includes('stopReason')
-	);
+	return message.keys?.includes('stopReason') ?? false;
 }
 
-function input_preview(
-	payload: Record<string, unknown>,
-): string | null {
-	const input = payload.input;
-
-	if (!input || typeof input !== 'object') return null;
-	const record = input as Record<string, unknown>;
-
+function input_preview(payload: TimelinePayload): string | null {
 	for (const key of INPUT_PREVIEW_KEYS) {
-		const text = preview(record[key]);
+		const text = payload.input[key];
 
 		if (text) return text;
 	}
@@ -259,7 +299,7 @@ export function build_timeline(
 				run = open(
 					'run',
 					`run:${row.seq}`,
-					preview(payload.prompt) ?? 'Prompt',
+					payload.prompt ?? 'Prompt',
 					row,
 					null,
 				);
@@ -319,22 +359,13 @@ export function build_timeline(
 			}
 
 			case 'message_end': {
-				const message = payload.message as
-					| Record<string, unknown>
-					| undefined;
+				const message = payload.message;
 
 				if (!is_assistant_message(message) || !model?.open) break;
 				close(model, row);
 
-				const requested =
-					typeof message?.model === 'string'
-						? message.model
-						: model.requested_model;
-
-				const response =
-					typeof message?.responseModel === 'string'
-						? message.responseModel
-						: undefined;
+				const requested = message.model ?? model.requested_model;
+				const response = message.responseModel;
 
 				model.requested_model = requested || model.requested_model;
 				model.response_model = response || undefined;
@@ -344,7 +375,7 @@ export function build_timeline(
 					model.name = `${model.name} → ${response}`;
 
 				const visible_response =
-					typeof payload.responseText === 'string'
+					payload.responseText !== undefined
 						? {
 								text: payload.responseText,
 								truncated: payload.responseTextTruncated === true,
@@ -355,8 +386,8 @@ export function build_timeline(
 				// mistake omitted content for a genuine tool-only response.
 				if (
 					visible_response &&
-					(typeof payload.responseText === 'string' ||
-						message?.content !== undefined)
+					(payload.responseText !== undefined ||
+						message.content !== undefined)
 				) {
 					model.response_text = visible_response.text;
 					model.response_text_truncated = visible_response.truncated;
@@ -418,9 +449,7 @@ export function build_timeline(
 				span.exit_code ??= row.exit_code;
 
 				if (row.type === 'tool_execution_end') {
-					const updates = payload.updateCount;
-					span.update_count =
-						typeof updates === 'number' ? updates : null;
+					span.update_count = payload.updateCount ?? null;
 				}
 
 				break;

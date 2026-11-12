@@ -133,7 +133,7 @@ export function create_command_context(modal_steps: string[][] = []) {
 
 export function create_deferred<T>() {
 	let resolve!: (value: T | PromiseLike<T>) => void;
-	let reject!: (reason?: unknown) => void;
+	let reject!: (cause?: unknown) => void;
 
 	const promise = new Promise<T>((res, rej) => {
 		resolve = res;

@@ -110,6 +110,29 @@ describe('parse_kimi_usage_response', () => {
 	});
 });
 
+describe('parse_kimi_usage_response tolerance', () => {
+	it('ignores malformed windows, blank levels and non-object entries', () => {
+		const snapshot = parse_kimi_usage_response({
+			usage: { limit: 100, used: 'x1' },
+			limits: [],
+		});
+
+		expect(snapshot).toBeNull();
+		expect(parse_kimi_usage_response(null)).toBeNull();
+		expect(
+			parse_kimi_usage_response({
+				usage: { limit: '100', used: '10', resetTime: 'nope' },
+				limits: ['bad', null, { detail: 7 }],
+				user: { membership: { level: '  ' } },
+			}),
+		).toEqual({
+			membershipLevel: undefined,
+			primary: { usedPercent: 10, resetAtSeconds: undefined },
+			secondary: undefined,
+		});
+	});
+});
+
 describe('format_kimi_usage_status', () => {
 	it('formats compact primary and secondary windows', () => {
 		expect(

@@ -15,13 +15,13 @@ function is_path_within(parent: string, child: string): boolean {
 	return Boolean(rel) && !rel.startsWith('..') && !isAbsolute(rel);
 }
 
-function is_missing_path_error(error: unknown): boolean {
-	if (!error || typeof error !== 'object' || !('code' in error)) {
+function is_missing_path_error(cause: unknown): boolean {
+	if (!cause || typeof cause !== 'object' || !('code' in cause)) {
 		return false;
 	}
 
 	return ['ENOENT', 'ENOTDIR'].includes(
-		String((error as { code: unknown }).code),
+		String((cause as { code: unknown }).code),
 	);
 }
 

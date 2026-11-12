@@ -3,6 +3,7 @@ import {
 	wrapTextWithAnsi,
 	type Focusable,
 	type OverlayOptions,
+	type SelectList,
 	type SelectListTheme,
 	type SettingItem,
 	type SettingsListTheme,
@@ -76,7 +77,7 @@ export function normalize_text(
 }
 
 export function parse_size_value(
-	value: unknown,
+	value: number | string | undefined,
 	total: number,
 ): number | undefined {
 	if (typeof value === 'number') return value;
@@ -180,10 +181,10 @@ export function fit_visible_items(
 }
 
 export function set_component_max_visible(
-	component: unknown,
+	component: SelectList | SettingsList,
 	max_visible: number,
 ): void {
-	(component as { maxVisible?: number }).maxVisible = max_visible;
+	Reflect.set(component, 'maxVisible', max_visible);
 }
 
 export function normalize_metadata(

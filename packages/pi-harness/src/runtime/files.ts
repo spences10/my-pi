@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type {
 	HarnessContract,
 	HarnessLogEntry,
+	HarnessOutcome,
 	HarnessStatusFile,
 } from '../schema.js';
 
@@ -10,7 +11,10 @@ export function json_read<T>(path: string): T {
 	return JSON.parse(readFileSync(path, 'utf8')) as T;
 }
 
-export function json_write(path: string, value: unknown): void {
+export function json_write(
+	path: string,
+	value: HarnessContract | HarnessOutcome | HarnessStatusFile,
+): void {
 	writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 

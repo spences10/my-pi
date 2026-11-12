@@ -204,13 +204,11 @@ describe('automatic LSP diagnostics', () => {
 		});
 		let finished = false;
 
-		const pending = events
-			.get('turn_end')(boundary(), ctx)
-			.then((result: unknown) => {
-				finished = true;
+		const pending = events.get('turn_end')(boundary(), ctx);
 
-				return result;
-			});
+		void pending.then(() => {
+			finished = true;
+		});
 
 		await vi.waitFor(() =>
 			expect(wait_for_diagnostics).toHaveBeenCalledTimes(1),

@@ -1,5 +1,31 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type {
+	DashboardSession,
+	FailureRow,
+	ObservabilityEvent,
+	OverviewResponse,
+	SessionSpansResponse,
+	SessionStats,
+	SessionTimeline,
+	ToolStats,
+	TraceSummary,
+} from './types.js';
+
+/** Every JSON body the dashboard server answers with. */
+export type JsonResponseBody =
+	| { error: string; max_bytes?: number }
+	| { ok: true; proof?: string }
+	| { ingested: number; rejected: number }
+	| { sessions: DashboardSession[] | SessionStats[] }
+	| { tools: ToolStats[] }
+	| { failures: FailureRow[] }
+	| { events: ObservabilityEvent[] }
+	| OverviewResponse
+	| SessionSpansResponse
+	| SessionTimeline
+	| TraceSummary
+	| Record<string, never>;
 
 export function text(
 	res: ServerResponse,
@@ -18,7 +44,7 @@ export function text(
 export function json(
 	res: ServerResponse,
 	status: number,
-	body: unknown,
+	body: JsonResponseBody,
 ): void {
 	res.writeHead(status, {
 		'content-type': 'application/json',

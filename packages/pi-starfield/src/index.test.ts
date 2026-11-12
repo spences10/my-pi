@@ -7,6 +7,7 @@ import {
 	make_assistant_message,
 } from '../../../tools/test-sdk.js';
 import type {
+	AgentEndEvent,
 	ExtensionAPI,
 	ExtensionCommandContext,
 	ExtensionContext,
@@ -89,7 +90,7 @@ function setup(mode: ExtensionContext['mode'] = 'tui') {
 		set_editor,
 		notify,
 		stream_simple,
-		emit: (event: string, payload: unknown = {}) =>
+		emit: (event: string, payload: Partial<AgentEndEvent> = {}) =>
 			handlers.get(event)?.(payload, ctx),
 		command: (args: string) =>
 			command.handler(args, ctx as ExtensionCommandContext),
@@ -228,13 +229,13 @@ describe('starfield extension', () => {
 			app.emit('session_start');
 			await app.command(mode);
 
-			const turn = {
+			const turn: AgentEndEvent = {
+				type: 'agent_end',
 				messages: [
-					{ role: 'user', content: 'fix the bug' },
-					{
-						role: 'assistant',
+					{ role: 'user', content: 'fix the bug', timestamp: 0 },
+					make_assistant_message({
 						content: [{ type: 'text', text: 'Fixed.' }],
-					},
+					}),
 				],
 			};
 

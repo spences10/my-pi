@@ -46,6 +46,7 @@
 		"@types/node": "catalog:",
 		"@vitest/coverage-v8": "catalog:",
 		"my-pi": "workspace:*",
+		"valibot": "catalog:",
 		"vite": "catalog:",
 		"vite-plus": "catalog:",
 		"vitest": "catalog:"

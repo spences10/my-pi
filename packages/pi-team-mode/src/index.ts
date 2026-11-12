@@ -1,4 +1,5 @@
 import type {
+	BeforeAgentStartEvent,
 	ExtensionAPI,
 	ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
@@ -40,11 +41,9 @@ import {
 import { execute_team_tool } from './tool-executor.js';
 
 function extract_latest_user_text(
-	event: unknown,
+	event: BeforeAgentStartEvent,
 ): string | undefined {
-	const prompt = (event as { prompt?: unknown }).prompt;
-
-	return typeof prompt === 'string' ? prompt : undefined;
+	return event.messageType === 'user' ? event.prompt : undefined;
 }
 
 function register_standby_session(

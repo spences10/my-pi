@@ -542,10 +542,10 @@ export function assess_bash_command(
 
 function assess_file_write(
 	cwd: string,
-	path: unknown,
+	path: string,
 	session_created_paths: ReadonlySet<string> = new Set(),
 ): DestructiveAction | undefined {
-	if (typeof path !== 'string' || !path.trim()) return undefined;
+	if (!path.trim()) return undefined;
 	const absolute = resolve(cwd, path);
 
 	if (!existsSync(absolute)) return undefined;
@@ -653,11 +653,12 @@ export function assess_tool_call(
 	}
 
 	if (event.toolName === 'write') {
-		return assess_file_write(
-			cwd,
-			event.input.path,
-			session_created_paths,
-		);
+		const path = event.input.path;
+
+		// The SDK types this as string, but tool input is model-supplied.
+		return typeof path === 'string'
+			? assess_file_write(cwd, path, session_created_paths)
+			: undefined;
 	}
 
 	if (event.toolName === 'edit') {

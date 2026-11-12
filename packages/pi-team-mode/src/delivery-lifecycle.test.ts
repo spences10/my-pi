@@ -16,6 +16,21 @@ type DeliveryHookResult =
 	| BeforeAgentStartEventResult
 	| AgentBeforeSettleEventResult;
 
+interface EventFixture {
+	aborted?: boolean;
+	outcome?: string;
+	context?: { canContinue: boolean };
+	message?: { role: string } & Partial<
+		NonNullable<BeforeAgentStartEventResult['message']>
+	>;
+	messageType?: string;
+	prompt?: string;
+	systemPromptOptions?: {
+		selectedTools: string[];
+		sections: Record<string, string>;
+	};
+}
+
 type DeliveryHook = (
 	...args: never[]
 ) => DeliveryHookResult | Promise<DeliveryHookResult>;
@@ -123,7 +138,7 @@ async function setup(reconcile = false) {
 
 	const pi = make_api(mock_api);
 
-	const emit = async (name: string, event: unknown = {}) =>
+	const emit = async (name: string, event: EventFixture = {}) =>
 		handlers.get(name)?.(event as never, ctx as never);
 
 	await team_mode(pi);
