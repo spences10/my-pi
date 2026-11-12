@@ -144,7 +144,9 @@ export function resolve_dashboard_command(
 	return 'web';
 }
 
-function summarize_metric_value(value: unknown): unknown {
+function summarize_metric_value<T>(
+	value: T,
+): T | Record<string, unknown> {
 	if (!value || typeof value !== 'object') return value;
 
 	if (Array.isArray(value))
@@ -293,11 +295,11 @@ export function failure_details(event: Record<string, unknown>): {
 	return details;
 }
 
-export function summarize_payload(
-	event: unknown,
+export function summarize_payload<T>(
+	event: T,
 	detail_level: ObservabilityConfig['detail_level'] = 'detailed',
 	event_type?: ObservabilityEventType,
-): unknown {
+): T | Record<string, unknown> {
 	if (!event || typeof event !== 'object') return event;
 	const object = event as Record<string, unknown>;
 	const summary: Record<string, unknown> = {};

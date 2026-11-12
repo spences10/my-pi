@@ -725,6 +725,9 @@ importers:
       typebox:
         specifier: '*'
         version: 1.4.6
+      valibot:
+        specifier: 'catalog:'
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'

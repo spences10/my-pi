@@ -1,5 +1,8 @@
 import { make_api } from '../../../tools/test-sdk.js';
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ToolResultEventResult,
+} from '@earendil-works/pi-coding-agent';
 import {
 	existsSync,
 	mkdirSync,
@@ -38,7 +41,7 @@ type FakeContext = {
 type HookHandler = (
 	event: Record<string, unknown>,
 	ctx?: FakeContext,
-) => Promise<unknown>;
+) => Promise<ToolResultEventResult | void>;
 
 type ToolResult = {
 	content: Array<{ type: string; text: string }>;

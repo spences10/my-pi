@@ -112,7 +112,7 @@ export function with_sqlite_busy_retry<T>(
 }
 
 export function with_sqlite_transaction<T>(
-	db: { exec(sql: string): unknown },
+	db: { exec(sql: string): void },
 	fn: () => T,
 	options: {
 		immediate?: boolean;

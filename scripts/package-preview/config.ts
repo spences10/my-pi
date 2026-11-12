@@ -148,7 +148,7 @@ function rows(value: unknown): PreviewConfig['footer']['rows'] {
 	});
 }
 
-function fallback(value: unknown, base: unknown): unknown {
+function fallback<T, U>(value: T | undefined, base: U): T | U {
 	return value === undefined ? base : value;
 }
 
@@ -234,7 +234,10 @@ export function parse_preview_config(
 	};
 }
 
-function read_config(path: string | URL): unknown {
+function read_config(
+	path: string | URL,
+	base?: PreviewConfig,
+): PreviewConfig {
 	let content: string;
 
 	try {
@@ -243,21 +246,21 @@ function read_config(path: string | URL): unknown {
 		throw new Error(`Cannot read preview config: ${path.toString()}`);
 	}
 
+	let parsed: unknown;
+
 	try {
-		return JSON.parse(content) as unknown;
+		parsed = JSON.parse(content);
 	} catch {
 		throw new Error(
 			`Preview config must contain valid JSON: ${path.toString()}`,
 		);
 	}
+
+	return parse_preview_config(parsed, base);
 }
 
 export function load_preview_config(path?: string): PreviewConfig {
-	const defaults = parse_preview_config(
-		read_config(default_config_path),
-	);
+	const defaults = read_config(default_config_path);
 
-	return path === undefined
-		? defaults
-		: parse_preview_config(read_config(path), defaults);
+	return path === undefined ? defaults : read_config(path, defaults);
 }

@@ -1,4 +1,7 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+	ExtensionAPI,
+	ToolResultEventResult,
+} from '@earendil-works/pi-coding-agent';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,7 +16,7 @@ import {
 type HookHandler = (
 	event: unknown,
 	ctx?: unknown,
-) => Promise<unknown>;
+) => Promise<ToolResultEventResult | void>;
 
 const dirs: string[] = [];
 const original_context_db = process.env.MY_PI_CONTEXT_DB;

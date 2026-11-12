@@ -348,7 +348,7 @@ export class TelemetryDatabase {
 		);
 	}
 
-	private write(fn: () => unknown): void {
+	private write(fn: () => void): void {
 		safe_sqlite_tick(fn);
 	}
 

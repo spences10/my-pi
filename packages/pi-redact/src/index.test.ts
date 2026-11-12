@@ -1,4 +1,13 @@
+import type {
+	ContextEventResult,
+	ToolResultEventResult,
+} from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vite-plus/test';
+
+type RedactionHandler = (
+	event: Record<string, unknown>,
+) => Promise<ContextEventResult | ToolResultEventResult | undefined>;
+
 import filter_output, {
 	looks_like_ssh_config,
 	redact_ssh_config_metadata,
@@ -184,15 +193,10 @@ AUTH_TOKEN = "${values.uppercase}"`;
 	});
 
 	it('tracks and redacts private-key continuations across read chunks', async () => {
-		let tool_result_handler:
-			| ((event: Record<string, unknown>) => unknown)
-			| undefined;
+		let tool_result_handler: RedactionHandler | undefined;
 
 		const pi = {
-			on(
-				name: string,
-				handler: (event: Record<string, unknown>) => unknown,
-			) {
+			on(name: string, handler: RedactionHandler) {
 				if (name === 'tool_result') tool_result_handler = handler;
 			},
 			registerCommand() {},
@@ -232,15 +236,10 @@ AUTH_TOKEN = "${values.uppercase}"`;
 	});
 
 	it('redacts private-key continuations split across text content blocks', async () => {
-		let tool_result_handler:
-			| ((event: Record<string, unknown>) => unknown)
-			| undefined;
+		let tool_result_handler: RedactionHandler | undefined;
 
 		const pi = {
-			on(
-				name: string,
-				handler: (event: Record<string, unknown>) => unknown,
-			) {
+			on(name: string, handler: RedactionHandler) {
 				if (name === 'tool_result') tool_result_handler = handler;
 			},
 			registerCommand() {},
@@ -265,15 +264,10 @@ AUTH_TOKEN = "${values.uppercase}"`;
 	});
 
 	it('normalizes read paths before tracking private-key continuations', async () => {
-		let tool_result_handler:
-			| ((event: Record<string, unknown>) => unknown)
-			| undefined;
+		let tool_result_handler: RedactionHandler | undefined;
 
 		const pi = {
-			on(
-				name: string,
-				handler: (event: Record<string, unknown>) => unknown,
-			) {
+			on(name: string, handler: RedactionHandler) {
 				if (name === 'tool_result') tool_result_handler = handler;
 			},
 			registerCommand() {},
@@ -459,22 +453,17 @@ See https://github.com/spences10/nopeek for details.`;
 
 describe('filter_output', () => {
 	it('redacts direct shell output in model context and counts it once', async () => {
-		let context_handler:
-			| ((event: Record<string, unknown>) => unknown)
-			| undefined;
+		let context_handler: RedactionHandler | undefined;
 
 		let stats_handler:
 			| ((
 					args: string,
 					ctx: { ui: { notify(message: string): void } },
-			  ) => unknown)
+			  ) => void)
 			| undefined;
 
 		const pi = {
-			on(
-				name: string,
-				handler: (event: Record<string, unknown>) => unknown,
-			) {
+			on(name: string, handler: RedactionHandler) {
 				if (name === 'context') context_handler = handler;
 			},
 			registerCommand(
@@ -483,7 +472,7 @@ describe('filter_output', () => {
 					handler: (
 						args: string,
 						ctx: { ui: { notify(message: string): void } },
-					) => unknown;
+					) => void;
 				},
 			) {
 				if (name === 'redact-stats') stats_handler = options.handler;
@@ -519,7 +508,7 @@ describe('filter_output', () => {
 		};
 
 		const notifications: string[] = [];
-		await stats_handler?.('', {
+		stats_handler?.('', {
 			ui: { notify: (message) => notifications.push(message) },
 		});
 

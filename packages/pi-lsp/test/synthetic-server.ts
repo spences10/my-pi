@@ -172,6 +172,16 @@ function handle(message: ClientMessage): void {
 
 		if (delay) setTimeout(reply, Number(delay[1]));
 		else reply();
+	} else if (method === 'textDocument/hover') {
+		send({
+			jsonrpc: '2.0',
+			id,
+			result: {
+				contents: params.textDocument.uri.endsWith('/malformed.ts')
+					? 42
+					: 'hover docs',
+			},
+		});
 	} else if (method === 'shutdown') {
 		send({ jsonrpc: '2.0', id, result: null });
 	} else if (method === 'exit') {

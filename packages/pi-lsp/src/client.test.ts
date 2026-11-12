@@ -36,6 +36,38 @@ describe('LspClient.start', () => {
 		},
 	);
 
+	it('rejects a malformed server result without breaking subsequent requests', async () => {
+		const client = new LspClient({
+			command: process.execPath,
+			args: [
+				fileURLToPath(
+					new URL('../test/synthetic-server.ts', import.meta.url),
+				),
+			],
+			root_uri: 'file:///repo',
+			language_id_for_uri: () => 'typescript',
+			request_timeout_ms: 2_000,
+		});
+
+		try {
+			await client.start();
+			await expect(
+				client.hover('file:///repo/malformed.ts', {
+					line: 0,
+					character: 0,
+				}),
+			).rejects.toMatchObject({ name: 'ValiError' });
+			await expect(
+				client.hover('file:///repo/valid.ts', {
+					line: 0,
+					character: 0,
+				}),
+			).resolves.toEqual({ contents: 'hover docs' });
+		} finally {
+			await client.stop();
+		}
+	});
+
 	it('rejects quickly with a typed error when the server binary is missing', async () => {
 		const client = new LspClient({
 			command: '__my_pi_missing_lsp_binary__',

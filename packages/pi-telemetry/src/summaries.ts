@@ -1,3 +1,13 @@
+export type ValueSummary =
+	| null
+	| undefined
+	| string
+	| number
+	| boolean
+	| bigint
+	| ValueSummary[]
+	| { [key: string]: ValueSummary };
+
 export function safe_json_stringify(value: unknown): string | null {
 	if (value === undefined) return null;
 
@@ -11,7 +21,10 @@ export function safe_json_stringify(value: unknown): string | null {
 	}
 }
 
-export function summarize_value(value: unknown, depth = 0): unknown {
+export function summarize_value(
+	value: unknown,
+	depth = 0,
+): ValueSummary {
 	if (value == null) return null;
 
 	if (typeof value === 'string') {
@@ -46,7 +59,7 @@ export function summarize_value(value: unknown, depth = 0): unknown {
 	if (typeof value === 'object') {
 		const entries = Object.entries(value as Record<string, unknown>);
 
-		const summary: Record<string, unknown> = {
+		const summary: Record<string, ValueSummary> = {
 			type: 'object',
 			keys: entries.map(([key]) => key).slice(0, 20),
 		};

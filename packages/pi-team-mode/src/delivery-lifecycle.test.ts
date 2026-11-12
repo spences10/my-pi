@@ -11,7 +11,14 @@ import { create_peer_message_delivery } from './coordination-formatting.js';
 import { TeamDatabase } from './db/index.js';
 import team_mode from './index.js';
 
-type DeliveryHook = (...args: never[]) => unknown;
+type DeliveryHookResult =
+	| void
+	| BeforeAgentStartEventResult
+	| AgentBeforeSettleEventResult;
+
+type DeliveryHook = (
+	...args: never[]
+) => DeliveryHookResult | Promise<DeliveryHookResult>;
 
 vi.mock('./coordination-broker.js', () => ({
 	ensure_coordination_broker: vi.fn(async () => {}),

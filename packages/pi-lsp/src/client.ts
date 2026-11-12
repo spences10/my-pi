@@ -2,6 +2,15 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { pathToFileURL } from 'node:url';
 import { create_child_process_env } from './env.js';
+import * as v from 'valibot';
+import {
+	initialize_result_schema,
+	hover_result_schema,
+	definition_result_schema,
+	references_result_schema,
+	document_symbols_result_schema,
+	diagnostic_result_schema,
+} from './response-schemas.js';
 
 export interface LspPosition {
 	line: number;
@@ -238,15 +247,15 @@ export class LspClient extends EventEmitter {
 				: base_initialize_params;
 
 			const initialize_result = await Promise.race([
-				this.#request('initialize', initialize_params),
+				this.#request(
+					'initialize',
+					initialize_params,
+					initialize_result_schema,
+				),
 				start_failure,
 			]);
 
-			const capabilities = (
-				initialize_result as {
-					capabilities?: { diagnosticProvider?: unknown };
-				}
-			)?.capabilities;
+			const capabilities = initialize_result?.capabilities;
 
 			this.#supports_pull_diagnostics = Boolean(
 				capabilities?.diagnosticProvider,
@@ -315,10 +324,14 @@ export class LspClient extends EventEmitter {
 		uri: string,
 		position: LspPosition,
 	): Promise<LspHover | null> {
-		const result = (await this.#request('textDocument/hover', {
-			textDocument: { uri },
-			position,
-		})) as LspHover | null;
+		const result = await this.#request(
+			'textDocument/hover',
+			{
+				textDocument: { uri },
+				position,
+			},
+			hover_result_schema,
+		);
 
 		return result ?? null;
 	}
@@ -327,17 +340,16 @@ export class LspClient extends EventEmitter {
 		uri: string,
 		position: LspPosition,
 	): Promise<LspLocation[]> {
-		const result = (await this.#request('textDocument/definition', {
-			textDocument: { uri },
-			position,
-		})) as
-			| LspLocation
-			| LspLocation[]
-			| LspLocationLink
-			| LspLocationLink[]
-			| null;
+		const result = await this.#request(
+			'textDocument/definition',
+			{
+				textDocument: { uri },
+				position,
+			},
+			definition_result_schema,
+		);
 
-		return normalize_location_result(result);
+		return normalize_location_result(result ?? null);
 	}
 
 	async references(
@@ -345,32 +357,27 @@ export class LspClient extends EventEmitter {
 		position: LspPosition,
 		include_declaration: boolean,
 	): Promise<LspLocation[]> {
-		const result = (await this.#request('textDocument/references', {
-			textDocument: { uri },
-			position,
-			context: { includeDeclaration: include_declaration },
-		})) as LspLocation[] | null;
+		const result = await this.#request(
+			'textDocument/references',
+			{
+				textDocument: { uri },
+				position,
+				context: { includeDeclaration: include_declaration },
+			},
+			references_result_schema,
+		);
 
 		return result ?? [];
 	}
 
 	async document_symbols(uri: string): Promise<LspDocumentSymbol[]> {
-		const result = (await this.#request(
+		const result = await this.#request(
 			'textDocument/documentSymbol',
-			{
-				textDocument: { uri },
-			},
-		)) as
-			| LspDocumentSymbol[]
-			| Array<{
-					name: string;
-					kind: number;
-					location: LspLocation;
-					containerName?: string;
-			  }>
-			| null;
+			{ textDocument: { uri } },
+			document_symbols_result_schema,
+		);
 
-		return normalize_document_symbol_result(result);
+		return normalize_document_symbol_result(result ?? null);
 	}
 
 	/** Diagnostics received for the current document, or null if none arrived. */
@@ -396,11 +403,12 @@ export class LspClient extends EventEmitter {
 		if (cached) return cached;
 
 		if (this.#supports_pull_diagnostics) {
-			const response = (await this.#request(
+			const response = await this.#request(
 				'textDocument/diagnostic',
 				{ textDocument: { uri } },
+				diagnostic_result_schema,
 				timeout_ms,
-			)) as { items?: LspDiagnostic[] } | null;
+			);
 
 			if (
 				this.#open_docs.get(uri) !== document ||
@@ -453,7 +461,15 @@ export class LspClient extends EventEmitter {
 	async stop(): Promise<void> {
 		if (this.#initialized) {
 			try {
-				await this.#request('shutdown', null, 1000);
+				await this.#request(
+					'shutdown',
+					null,
+					v.pipe(
+						v.unknown(),
+						v.transform(() => {}),
+					),
+					1000,
+				);
 				this.#notify('exit', null);
 			} catch {
 				// Server may already be dead; proceed.
@@ -485,11 +501,12 @@ export class LspClient extends EventEmitter {
 		}
 	}
 
-	#request(
+	#request<T>(
 		method: string,
 		params: unknown,
+		result_schema: v.GenericSchema<unknown, T>,
 		timeout_override?: number,
-	): Promise<unknown> {
+	): Promise<T> {
 		return new Promise((resolve, reject) => {
 			const id = this.#next_id++;
 
@@ -505,7 +522,17 @@ export class LspClient extends EventEmitter {
 				}
 			}, timeout_ms);
 
-			this.#pending.set(id, { resolve, reject, timer });
+			this.#pending.set(id, {
+				resolve: (result) => {
+					try {
+						resolve(v.parse(result_schema, result));
+					} catch (error) {
+						reject(error);
+					}
+				},
+				reject,
+				timer,
+			});
 
 			try {
 				this.#send({ jsonrpc: '2.0', id, method, params });

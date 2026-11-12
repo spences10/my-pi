@@ -24,7 +24,9 @@ export function redact_text(value: string): string {
 	return redacted;
 }
 
-export function redact_value(value: unknown): unknown {
+export function redact_value<T>(
+	value: T,
+): T | string | unknown[] | Record<string, unknown> {
 	if (typeof value === 'string') return redact_text(value);
 
 	if (Array.isArray(value))
@@ -51,10 +53,16 @@ export function safe_json(value: unknown): string {
 	}
 }
 
-export function truncate_json_value(
-	value: unknown,
+interface TruncatedJsonValue {
+	truncated: true;
+	bytes: number;
+	preview: string;
+}
+
+export function truncate_json_value<T>(
+	value: T,
 	max_bytes: number,
-): unknown {
+): T | TruncatedJsonValue {
 	const json = safe_json(value);
 
 	if (Buffer.byteLength(json, 'utf8') <= max_bytes) return value;

@@ -299,6 +299,23 @@ describe('provider session attribution', () => {
 });
 
 describe('payload safety', () => {
+	it('preserves primitive and callable passthrough values', () => {
+		const values = [
+			undefined,
+			null,
+			false,
+			0,
+			12n,
+			Symbol('test'),
+			() => 42,
+		];
+
+		for (const value of values) {
+			expect(redact_value(value)).toBe(value);
+			expect(summarize_payload(value)).toBe(value);
+		}
+	});
+
 	it('redacts secret-looking keys recursively', () => {
 		expect(
 			redact_value({ nested: { api_key: 'abc', safe: 'ok' } }),
