@@ -34,14 +34,7 @@ function file_size(path: string): number {
 function count_stats(
 	store: ContextStoreMaintenanceTarget,
 	options: ContextScopeOptions,
-): {
-	sources: number;
-	chunks: number;
-	bytes_stored: number;
-	bytes_returned: number;
-	oldest_created_at: number | null;
-	newest_created_at: number | null;
-} {
+) {
 	const scoped = store.scoped_filter('context_sources', options);
 
 	const where_clause = scoped.where.length

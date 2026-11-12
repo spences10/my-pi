@@ -1,3 +1,4 @@
+import type { BuildSystemPromptOptions } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vite-plus/test';
 import {
 	create_mock_client,
@@ -15,11 +16,15 @@ describe('lsp prompt guidance', () => {
 				cwd: () => '/repo',
 			});
 
+			const sections: NonNullable<
+				BuildSystemPromptOptions['sections']
+			> = { unrelated: 'keep' };
+
 			const event = {
 				systemPrompt: 'base prompt',
 				systemPromptOptions: {
 					selectedTools: [tool],
-					sections: { unrelated: 'keep' } as Record<string, string>,
+					sections,
 				},
 			};
 

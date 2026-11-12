@@ -25,82 +25,106 @@ export interface LspServerConfig {
 	is_project_local?: boolean;
 }
 
-const EXTENSION_LANGUAGES: Record<string, string> = {
-	'.ts': 'typescript',
-	'.tsx': 'typescript',
-	'.mts': 'typescript',
-	'.cts': 'typescript',
-	'.js': 'typescript',
-	'.jsx': 'typescript',
-	'.mjs': 'typescript',
-	'.cjs': 'typescript',
-	'.py': 'python',
-	'.rs': 'rust',
-	'.go': 'go',
-	'.rb': 'ruby',
-	'.java': 'java',
-	'.lua': 'lua',
-	'.svelte': 'svelte',
-};
+const EXTENSION_LANGUAGES = new Map([
+	['.ts', 'typescript'],
+	['.tsx', 'typescript'],
+	['.mts', 'typescript'],
+	['.cts', 'typescript'],
+	['.js', 'typescript'],
+	['.jsx', 'typescript'],
+	['.mjs', 'typescript'],
+	['.cjs', 'typescript'],
+	['.py', 'python'],
+	['.rs', 'rust'],
+	['.go', 'go'],
+	['.rb', 'ruby'],
+	['.java', 'java'],
+	['.lua', 'lua'],
+	['.svelte', 'svelte'],
+]);
 
-const LANGUAGE_SERVERS: Record<string, LspServerConfig> = {
-	typescript: {
-		language: 'typescript',
-		command: 'typescript-language-server',
-		args: ['--stdio'],
-		backend: 'typescript-language-server',
-		install_hint:
-			'Install TypeScript LSP with: pnpm add -D typescript typescript-language-server',
-	},
-	python: {
-		language: 'python',
-		command: 'pylsp',
-		args: [],
-		install_hint:
-			'Install Python LSP with: pip install python-lsp-server',
-	},
-	rust: {
-		language: 'rust',
-		command: 'rust-analyzer',
-		args: [],
-		install_hint:
-			'Install Rust Analyzer and ensure the rust-analyzer binary is on PATH.',
-	},
-	go: {
-		language: 'go',
-		command: 'gopls',
-		args: ['serve'],
-		install_hint:
-			'Install Go LSP with: go install golang.org/x/tools/gopls@latest',
-	},
-	ruby: {
-		language: 'ruby',
-		command: 'solargraph',
-		args: ['stdio'],
-		install_hint: 'Install Ruby LSP with: gem install solargraph',
-	},
-	java: {
-		language: 'java',
-		command: 'jdtls',
-		args: [],
-		install_hint:
-			'Install Eclipse JDT Language Server and ensure the jdtls binary is on PATH.',
-	},
-	lua: {
-		language: 'lua',
-		command: 'lua-language-server',
-		args: [],
-		install_hint:
-			'Install Lua LSP and ensure the lua-language-server binary is on PATH.',
-	},
-	svelte: {
-		language: 'svelte',
-		command: 'svelteserver',
-		args: ['--stdio'],
-		install_hint:
-			'Install Svelte LSP with: pnpm add -D svelte-language-server (or volta install svelte-language-server)',
-	},
-};
+const LANGUAGE_SERVERS = new Map<string, LspServerConfig>([
+	[
+		'typescript',
+		{
+			language: 'typescript',
+			command: 'typescript-language-server',
+			args: ['--stdio'],
+			backend: 'typescript-language-server',
+			install_hint:
+				'Install TypeScript LSP with: pnpm add -D typescript typescript-language-server',
+		},
+	],
+	[
+		'python',
+		{
+			language: 'python',
+			command: 'pylsp',
+			args: [],
+			install_hint:
+				'Install Python LSP with: pip install python-lsp-server',
+		},
+	],
+	[
+		'rust',
+		{
+			language: 'rust',
+			command: 'rust-analyzer',
+			args: [],
+			install_hint:
+				'Install Rust Analyzer and ensure the rust-analyzer binary is on PATH.',
+		},
+	],
+	[
+		'go',
+		{
+			language: 'go',
+			command: 'gopls',
+			args: ['serve'],
+			install_hint:
+				'Install Go LSP with: go install golang.org/x/tools/gopls@latest',
+		},
+	],
+	[
+		'ruby',
+		{
+			language: 'ruby',
+			command: 'solargraph',
+			args: ['stdio'],
+			install_hint: 'Install Ruby LSP with: gem install solargraph',
+		},
+	],
+	[
+		'java',
+		{
+			language: 'java',
+			command: 'jdtls',
+			args: [],
+			install_hint:
+				'Install Eclipse JDT Language Server and ensure the jdtls binary is on PATH.',
+		},
+	],
+	[
+		'lua',
+		{
+			language: 'lua',
+			command: 'lua-language-server',
+			args: [],
+			install_hint:
+				'Install Lua LSP and ensure the lua-language-server binary is on PATH.',
+		},
+	],
+	[
+		'svelte',
+		{
+			language: 'svelte',
+			command: 'svelteserver',
+			args: ['--stdio'],
+			install_hint:
+				'Install Svelte LSP with: pnpm add -D svelte-language-server (or volta install svelte-language-server)',
+		},
+	],
+]);
 
 const WORKSPACE_MARKERS = [
 	'svelte.config.js',
@@ -129,11 +153,11 @@ const REPOSITORY_MARKERS = [
 export function detect_language(
 	file_path: string,
 ): string | undefined {
-	return EXTENSION_LANGUAGES[extname(file_path).toLowerCase()];
+	return EXTENSION_LANGUAGES.get(extname(file_path).toLowerCase());
 }
 
 export function list_supported_languages(): string[] {
-	return Object.keys(LANGUAGE_SERVERS).sort();
+	return Array.from(LANGUAGE_SERVERS.keys()).sort();
 }
 
 export interface ResolvedServerCommand {
@@ -181,7 +205,7 @@ export function get_server_config(
 		allow_project_local?: boolean;
 	} = {},
 ): LspServerConfig | undefined {
-	const base = LANGUAGE_SERVERS[language];
+	const base = LANGUAGE_SERVERS.get(language);
 
 	if (!base) return undefined;
 	const allow_project_local = options.allow_project_local ?? true;

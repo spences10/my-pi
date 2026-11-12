@@ -67,10 +67,7 @@ export function find_span(
 }
 
 /** Bar position inside a run, as percentages of the run's length. */
-export function bar_position(
-	span: TimelineSpan,
-	run: TimelineSpan,
-): { left: number; width: number } {
+export function bar_position(span: TimelineSpan, run: TimelineSpan) {
 	const length = Math.max(1, run.end_ms - run.start_ms);
 	const left = ((span.start_ms - run.start_ms) / length) * 100;
 	const width = ((span.end_ms - span.start_ms) / length) * 100;

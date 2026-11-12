@@ -56,7 +56,7 @@ export function write_context_export_file(
 export function cleanup_context_exports(
 	policy: ContextRetentionPolicy = parse_context_retention_policy(),
 	now = Date.now(),
-): { deleted: number; dir: string } {
+) {
 	const dir = context_export_dir();
 
 	if (policy.retention_days === null || !existsSync(dir))

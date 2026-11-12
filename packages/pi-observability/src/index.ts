@@ -175,11 +175,29 @@ function summarize_text(value: string, limit: number): string {
 // Provider requests repeat the same system prompt on every turn. The
 // agent_start event keeps a preview, so requests store only a
 // fingerprint that shows when the prompt changes.
-export function text_fingerprint(value: string): {
+interface TextFingerprint {
 	type: 'string';
 	length: number;
 	sha256: string;
-} {
+}
+
+interface ObjectSummary {
+	type: string | number | boolean;
+	keys: string[] | string | number | boolean;
+	[field: string]: unknown;
+}
+
+interface FailureDetails {
+	error_text?: string;
+	exit_code?: number;
+}
+
+type EventExportHeaders = {
+	'content-type': string;
+	authorization?: string;
+};
+
+export function text_fingerprint(value: string): TextFingerprint {
 	return {
 		type: 'string',
 		length: value.length,
@@ -193,8 +211,8 @@ export function text_fingerprint(value: string): {
 function detailed_object_summary(
 	key: string,
 	value: Record<string, unknown>,
-): Record<string, unknown> {
-	const summary: Record<string, unknown> = {
+): ObjectSummary {
+	const summary: ObjectSummary = {
 		type: 'object',
 		keys: Object.keys(value).slice(0, 20),
 	};
@@ -266,10 +284,9 @@ function content_text(content: unknown): string {
  * tool_result carries content at the top level; tool_execution_end
  * carries it under result.
  */
-export function failure_details(event: Record<string, unknown>): {
-	error_text?: string;
-	exit_code?: number;
-} {
+export function failure_details(
+	event: Record<string, unknown>,
+): FailureDetails {
 	const result = record_of(event.result);
 
 	const text =
@@ -634,7 +651,7 @@ export class EventQueue {
 		let retry_now = false;
 
 		try {
-			const headers: Record<string, string> = {
+			const headers: EventExportHeaders = {
 				'content-type': 'application/json',
 			};
 

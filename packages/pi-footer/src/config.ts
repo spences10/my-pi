@@ -72,7 +72,7 @@ export function normalize_footer_state(
 function normalize_status_layout(
 	layout: unknown,
 ): FooterState['status_layout'] {
-	const normalized = Object.fromEntries(
+	const normalized: FooterState['status_layout'] = Object.fromEntries(
 		Object.entries(DEFAULT_FOOTER_STATUS_LAYOUT).map(
 			([key, placement]) => [key, { ...placement }],
 		),
@@ -93,19 +93,28 @@ function normalize_status_placement(
 	value: unknown,
 ): FooterStatusPlacement | undefined {
 	if (typeof value === 'string') {
-		const legacy: Record<string, FooterStatusPlacement> = {
-			'primary-left': { row: 1, alignment: 'left', hidden: false },
-			'primary-right': { row: 1, alignment: 'right', hidden: false },
-			'secondary-left': { row: 2, alignment: 'left', hidden: false },
-			'secondary-right': {
-				row: 2,
-				alignment: 'right',
-				hidden: false,
-			},
-			hidden: { row: 1, alignment: 'left', hidden: true },
-		};
+		const legacy = new Map<string, FooterStatusPlacement>([
+			['primary-left', { row: 1, alignment: 'left', hidden: false }],
+			[
+				'primary-right',
+				{ row: 1, alignment: 'right', hidden: false },
+			],
+			[
+				'secondary-left',
+				{ row: 2, alignment: 'left', hidden: false },
+			],
+			[
+				'secondary-right',
+				{
+					row: 2,
+					alignment: 'right',
+					hidden: false,
+				},
+			],
+			['hidden', { row: 1, alignment: 'left', hidden: true }],
+		]);
 
-		return legacy[value];
+		return legacy.get(value);
 	}
 
 	if (!value || typeof value !== 'object') return undefined;

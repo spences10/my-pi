@@ -1,3 +1,4 @@
+import type { BuildSystemPromptOptions } from '@earendil-works/pi-coding-agent';
 import { make_api } from '../../../tools/test-sdk.js';
 
 import { readFileSync } from 'node:fs';
@@ -150,6 +151,10 @@ describe('tool guidance', () => {
 			}),
 		);
 
+		const sections: NonNullable<
+			BuildSystemPromptOptions['sections']
+		> = { unrelated: 'keep' };
+
 		const event = {
 			systemPrompt: 'USER SYSTEM AND APPEND',
 			systemPromptOptions: {
@@ -157,7 +162,7 @@ describe('tool guidance', () => {
 				customPrompt: 'USER SYSTEM',
 				appendSystemPrompt: 'USER APPEND',
 				selectedTools: ['bash'],
-				sections: { unrelated: 'keep' } as Record<string, string>,
+				sections,
 			},
 		};
 

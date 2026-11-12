@@ -64,10 +64,12 @@ const CONNECTION_PRAGMAS = sqlite_pragmas({
 	foreign_keys: false,
 }).connection;
 
-export function prepare_db(db_path: string): {
+export interface PreparedDatabase {
 	db: DatabaseSync;
 	statements: PreparedStatements;
-} {
+}
+
+export function prepare_db(db_path: string): PreparedDatabase {
 	mkdirSync(dirname(db_path), { recursive: true });
 	const db = new DatabaseSync(db_path);
 	// auto_vacuum only takes effect on a new database; existing

@@ -71,7 +71,7 @@ function write_generated_runtime(
 export function create_harness_runtime(
 	params: HarnessCreateParams,
 	default_cwd: string,
-): { harness_dir: string; contract: HarnessContract } {
+) {
 	const cwd = resolve(params.cwd ?? default_cwd);
 
 	if (

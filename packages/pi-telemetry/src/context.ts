@@ -20,15 +20,22 @@ export function get_eval_metadata(): EvalMetadata {
 	};
 }
 
+interface ModelIdentity {
+	provider: string | null;
+	id: string | null;
+}
+
+interface RunOutcome {
+	success: boolean | null;
+	error_message: string | null;
+}
+
 export function get_model_identity(
 	model:
 		| Pick<NonNullable<ExtensionContext['model']>, 'id' | 'provider'>
 		| null
 		| undefined,
-): {
-	provider: string | null;
-	id: string | null;
-} {
+): ModelIdentity {
 	if (!model) {
 		return { provider: null, id: null };
 	}
@@ -76,10 +83,7 @@ export function infer_run_outcome(event: {
 		stopReason?: unknown;
 		errorMessage?: unknown;
 	}>;
-}): {
-	success: boolean | null;
-	error_message: string | null;
-} {
+}): RunOutcome {
 	const assistant_messages = event.messages.filter(
 		(message) => message.role === 'assistant',
 	);

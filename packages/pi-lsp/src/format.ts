@@ -47,23 +47,25 @@ export class LspToolError extends Error {
 	}
 }
 
-const SYMBOL_KIND_LABELS: Record<number, string> = {
-	2: 'module',
-	3: 'namespace',
-	5: 'class',
-	6: 'method',
-	7: 'property',
-	8: 'field',
-	9: 'constructor',
-	11: 'interface',
-	12: 'function',
-	13: 'variable',
-	14: 'constant',
-	23: 'struct',
-	24: 'event',
-};
+const SYMBOL_KIND_LABELS = new Map([
+	[2, 'module'],
+	[3, 'namespace'],
+	[5, 'class'],
+	[6, 'method'],
+	[7, 'property'],
+	[8, 'field'],
+	[9, 'constructor'],
+	[11, 'interface'],
+	[12, 'function'],
+	[13, 'variable'],
+	[14, 'constant'],
+	[23, 'struct'],
+	[24, 'event'],
+]);
 
-export const SYMBOL_KIND_NAMES = Object.values(SYMBOL_KIND_LABELS);
+export const SYMBOL_KIND_NAMES = Array.from(
+	SYMBOL_KIND_LABELS.values(),
+);
 
 export const SYMBOL_KIND_SCHEMA = Type.Union(
 	SYMBOL_KIND_NAMES.map((name) => Type.Literal(name)),
@@ -479,7 +481,7 @@ function append_symbol_lines(
 }
 
 function symbol_kind_label(kind: number): string {
-	return SYMBOL_KIND_LABELS[kind] ?? 'symbol';
+	return SYMBOL_KIND_LABELS.get(kind) ?? 'symbol';
 }
 
 function file_url_to_path_or_value(uri: string): string {

@@ -23,9 +23,7 @@ const LATEST_TELEMETRY_SCHEMA_VERSION = 1;
 const PERSISTENT_PRAGMAS = SQLITE_PERSISTENT_PRAGMAS;
 const CONNECTION_PRAGMAS = SQLITE_CONNECTION_PRAGMAS;
 
-const MIGRATIONS: Record<number, string> = {
-	1: SCHEMA,
-};
+const MIGRATIONS = new Map([[1, SCHEMA]]);
 
 type DatabaseSyncConstructor =
 	typeof import('node:sqlite').DatabaseSync;
@@ -375,7 +373,7 @@ export class TelemetryDatabase {
 			next_version <= LATEST_TELEMETRY_SCHEMA_VERSION;
 			next_version++
 		) {
-			const migration = MIGRATIONS[next_version];
+			const migration = MIGRATIONS.get(next_version);
 
 			if (!migration) {
 				this.db.close();

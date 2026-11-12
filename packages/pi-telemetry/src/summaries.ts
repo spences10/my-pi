@@ -8,6 +8,12 @@ export type ValueSummary =
 	| ValueSummary[]
 	| { [key: string]: ValueSummary };
 
+interface ObjectValueSummary {
+	type: ValueSummary;
+	keys: ValueSummary;
+	[key: string]: ValueSummary;
+}
+
 export function safe_json_stringify(value: unknown): string | null {
 	if (value === undefined) return null;
 
@@ -59,7 +65,7 @@ export function summarize_value(
 	if (typeof value === 'object') {
 		const entries = Object.entries(value as Record<string, unknown>);
 
-		const summary: Record<string, ValueSummary> = {
+		const summary: ObjectValueSummary = {
 			type: 'object',
 			keys: entries.map(([key]) => key).slice(0, 20),
 		};

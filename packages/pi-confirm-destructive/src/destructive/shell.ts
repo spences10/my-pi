@@ -717,13 +717,14 @@ function option_takes_value(
 	command_name_to_check: string,
 	option: string,
 ): boolean {
-	const value_options: Record<string, string[]> = {
-		mkdir: ['-m', '--mode', '-Z', '--context'],
-		touch: ['-r', '--reference', '-d', '--date', '-t'],
-	};
+	const value_options = new Map([
+		['mkdir', ['-m', '--mode', '-Z', '--context']],
+		['touch', ['-r', '--reference', '-d', '--date', '-t']],
+	]);
 
 	return (
-		value_options[command_name_to_check]?.includes(option) ?? false
+		value_options.get(command_name_to_check)?.includes(option) ??
+		false
 	);
 }
 

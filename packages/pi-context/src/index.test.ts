@@ -1,8 +1,5 @@
 import { make_api } from '../../../tools/test-sdk.js';
-import type {
-	ExtensionAPI,
-	ToolResultEventResult,
-} from '@earendil-works/pi-coding-agent';
+import type { ToolResultEventResult } from '@earendil-works/pi-coding-agent';
 import {
 	existsSync,
 	mkdirSync,
@@ -79,12 +76,7 @@ const original_purge_on_shutdown =
 const original_max_mb = process.env.MY_PI_CONTEXT_MAX_MB;
 const original_context_config = process.env.MY_PI_CONTEXT_CONFIG;
 
-function create_fake_pi(): {
-	pi: ExtensionAPI;
-	hooks: Map<string, HookHandler[]>;
-	tools: Map<string, RegisteredTool>;
-	commands: Map<string, RegisteredCommand>;
-} {
+function create_fake_pi() {
 	const hooks = new Map<string, HookHandler[]>();
 	const tools = new Map<string, RegisteredTool>();
 	const commands = new Map<string, RegisteredCommand>();

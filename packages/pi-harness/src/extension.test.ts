@@ -1,3 +1,4 @@
+import type { BuildSystemPromptOptions } from '@earendil-works/pi-coding-agent';
 import { make_api } from '../../../tools/test-sdk.js';
 
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -117,11 +118,14 @@ it('adds harness context without freezing other prompt sections', async () => {
 	const f = fixture();
 	harness(f.api);
 
+	const sections: NonNullable<BuildSystemPromptOptions['sections']> =
+		{ unrelated: 'keep' };
+
 	const event = {
 		systemPrompt: 'custom system and append',
 		systemPromptOptions: {
 			selectedTools: ['codemode'],
-			sections: { unrelated: 'keep' } as Record<string, string>,
+			sections,
 		},
 	};
 

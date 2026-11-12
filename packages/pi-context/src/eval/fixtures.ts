@@ -14,10 +14,7 @@ export function make_noise_lines(
 	).join('\n');
 }
 
-export function source_texts(): Record<
-	string,
-	{ tool_name: string; text: string }
-> {
+export function source_texts() {
 	return {
 		'needle-log': {
 			tool_name: 'bash',

@@ -115,19 +115,20 @@ describe('build_timeline', () => {
 				],
 			};
 
-			let payload: Record<string, unknown>;
+			const payload = (() => {
+				if (mode === 'raw') return { message };
 
-			if (mode === 'raw') payload = { message };
-			else if (mode === 'historical')
-				payload = {
-					message: { role: 'assistant', stopReason: 'stop' },
-				};
-			else
-				payload = summarize_payload(
+				if (mode === 'historical')
+					return {
+						message: { role: 'assistant', stopReason: 'stop' },
+					};
+
+				return summarize_payload(
 					{ message },
 					mode === 'summary' ? 'summary' : 'detailed',
 					'message_end',
-				) as Record<string, unknown>;
+				);
+			})();
 
 			const timeline = build_timeline([
 				row(0, 'provider_request'),

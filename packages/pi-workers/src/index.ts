@@ -31,17 +31,22 @@ export {
 
 export { WorkerProcess } from './rpc.js';
 
+export interface WorkerLaunch {
+	command: string;
+	args: string[];
+}
+
 export function worker_launch(
 	argv = process.argv,
 	executable = process.execPath,
-): { command: string; args: string[] } {
+): WorkerLaunch {
 	const script = argv[1];
 
 	const generic_runtime = /^(node|bun)(\.exe)?$/.test(
 		basename(executable),
 	);
 
-	let command: { command: string; args: string[] };
+	let command: WorkerLaunch;
 
 	if (
 		script &&

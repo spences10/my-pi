@@ -14,7 +14,7 @@ export function sqlite_pragmas(
 		foreign_keys?: boolean;
 		busy_timeout_ms?: number;
 	} = {},
-): { persistent: string; connection: string } {
+) {
 	const foreign_keys = options.foreign_keys ?? true;
 
 	const busy_timeout_ms =
