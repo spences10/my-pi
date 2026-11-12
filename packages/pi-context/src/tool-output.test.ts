@@ -21,6 +21,37 @@ describe('select_context_output', () => {
 		},
 	);
 
+	it.each([undefined, null, 42, 'yes'])(
+		'keeps shell output when optional metadata is malformed: %j',
+		(truncated) => {
+			expect(
+				select({
+					toolName: 'bash',
+					structuredContent: {
+						output: 'complete',
+						truncated,
+						full_output_path: 42,
+					},
+				}),
+			).toBe('complete');
+		},
+	);
+
+	it('marks truncated output without inventing an invalid full-output path', () => {
+		const text = select({
+			toolName: 'powershell',
+			structuredContent: {
+				output: 'partial',
+				truncated: true,
+				full_output_path: 42,
+			},
+		});
+
+		expect(text).toContain('Partial native output');
+		expect(text).toContain('partial');
+		expect(text).not.toContain('Full output:');
+	});
+
 	it('marks bounded structured output as partial and preserves its full-output path', () => {
 		const text = select({
 			toolName: 'bash',

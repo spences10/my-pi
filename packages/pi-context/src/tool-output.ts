@@ -1,4 +1,19 @@
-import { is_text_content } from './context-scope.js';
+import * as v from 'valibot';
+
+const shell_output_schema = v.object({
+	output: v.string(),
+	truncated: v.fallback(v.boolean(), false),
+	full_output_path: v.fallback(v.optional(v.string()), undefined),
+});
+
+const mcp_output_schema = v.object({
+	content: v.array(
+		v.union([
+			v.object({ type: v.literal('text'), text: v.string() }),
+			v.object({ type: v.literal('image') }),
+		]),
+	),
+});
 
 /** Prefer native machine-readable output over an already truncated chat preview. */
 export function select_context_output(
@@ -9,47 +24,42 @@ export function select_context_output(
 	},
 	visible_text: string,
 ): string {
-	const value: unknown = event.structuredContent;
+	if (event.toolName === 'bash' || event.toolName === 'powershell') {
+		const parsed = v.safeParse(
+			shell_output_schema,
+			event.structuredContent,
+		);
 
-	const structured =
-		value && typeof value === 'object' && !Array.isArray(value)
-			? (value as Record<string, unknown>)
-			: undefined;
+		if (parsed.success) {
+			const structured = parsed.output;
 
-	if (
-		(event.toolName === 'bash' || event.toolName === 'powershell') &&
-		structured &&
-		typeof structured.output === 'string'
-	) {
-		if (structured.truncated === true) {
-			const path =
-				typeof structured.full_output_path === 'string'
-					? ` Full output: ${structured.full_output_path}`
-					: '';
+			if (structured.truncated) {
+				const path =
+					structured.full_output_path !== undefined
+						? ` Full output: ${structured.full_output_path}`
+						: '';
 
-			return `[Partial native output; omitted text is not indexed.${path}]\n${structured.output}`;
+				return `[Partial native output; omitted text is not indexed.${path}]\n${structured.output}`;
+			}
+
+			return structured.output;
 		}
-
-		return structured.output;
 	}
 
-	if (
-		event.toolName.startsWith('mcp__') &&
-		structured &&
-		Array.isArray(structured.content) &&
-		structured.content.every(
-			(item) =>
-				is_text_content(item) ||
-				(item &&
-					typeof item === 'object' &&
-					'type' in item &&
-					item.type === 'image'),
-		)
-	) {
-		const text = structured.content.filter(is_text_content);
+	if (event.toolName.startsWith('mcp__')) {
+		const parsed = v.safeParse(
+			mcp_output_schema,
+			event.structuredContent,
+		);
 
-		if (text.length > 0)
-			return text.map((item) => item.text).join('\n');
+		if (parsed.success) {
+			const text = parsed.output.content.filter(
+				(item) => item.type === 'text',
+			);
+
+			if (text.length > 0)
+				return text.map((item) => item.text).join('\n');
+		}
 	}
 
 	const details = event.details;
