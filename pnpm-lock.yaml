@@ -262,7 +262,7 @@ catalogs:
       version: 1.65.0
     shadcn-svelte:
       specifier: ^1.2.7
-      version: 1.8.0
+      version: 1.8.1
     svead:
       specifier: ^0.1.0
       version: 0.1.1
@@ -419,7 +419,7 @@ importers:
         version: 1.65.0
       shadcn-svelte:
         specifier: 'catalog:'
-        version: 1.8.0(svelte@5.57.3)
+        version: 1.8.1(svelte@5.57.3)
       svead:
         specifier: 'catalog:'
         version: 0.1.1(svelte@5.57.3)(typescript@6.0.3)
@@ -3820,8 +3820,8 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  shadcn-svelte@1.8.0:
-    resolution: {integrity: sha512-B9EEH85xYUdLP12Dyf6raqMbtOGLeg47wnSd7+dTCmWibO6jHZg85alBo0pQsJkAiQ8IolNU/5RBjyOxNl//HQ==}
+  shadcn-svelte@1.8.1:
+    resolution: {integrity: sha512-ZrhHNL3+AL8J+m8t+pzaNsJAcQnvzHFbpDr4zwS2sjRlXNXHjmWRHjXmuU/2Iq4UPnYh2QoEYfvGQBMG8M/d4A==}
     hasBin: true
     peerDependencies:
       svelte: ^5.0.0
@@ -6564,7 +6564,7 @@ snapshots:
 
   semver@7.8.5: {}
 
-  shadcn-svelte@1.8.0(svelte@5.57.3):
+  shadcn-svelte@1.8.1(svelte@5.57.3):
     dependencies:
       cn: 0.3.0
       commander: 14.0.3
