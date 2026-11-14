@@ -343,6 +343,83 @@ describe('assess_bash_command', () => {
 		).toBeTruthy();
 	});
 
+	it('allows PR output loops with variable filenames in a temp directory', () => {
+		const directory = tmp_dir();
+		writeFileSync(join(directory, 'pr-228.txt'), 'old output');
+		writeFileSync(join(directory, 'pr-228.diff'), 'old diff');
+
+		const command =
+			`for n in 228 227 224 220; do gh pr view "$n" > ${directory}/pr-$n.txt; ` +
+			`gh pr diff "$n" > ${directory}/pr-$n.diff; done; ` +
+			'node --version; pnpm --version; git log --oneline -20; ls *config*';
+
+		expect(assess_bash_command(command)).toBeUndefined();
+	});
+
+	it.each(['pr-$n.txt', '"pr-${n}.txt"', 'pr-*.txt'])(
+		'allows a shell-expanded temp output filename: %s',
+		(filename) => {
+			expect(
+				assess_bash_command(`echo output > ${tmpdir()}/${filename}`),
+			).toBeUndefined();
+		},
+	);
+
+	it('still detects expanded redirects without a literal temp parent', () => {
+		const directory = tmp_dir();
+
+		for (const path of [
+			`${work_dir()}/pr-$n.txt`,
+			`${directory}/$project/pr-$n.txt`,
+			`${directory}/../pr-$n.txt`,
+			'$TMPDIR/pr-$n.txt',
+			'pr-$n.txt',
+			'~/pr-$n.txt',
+		]) {
+			expect(
+				assess_bash_command(`echo output > ${path}`, directory),
+			).toBeTruthy();
+		}
+	});
+
+	it('checks other destructive actions alongside expanded temp redirects', () => {
+		const cwd = create_git_repo();
+		writeFileSync(join(cwd, 'untracked.md'), 'important');
+		const redirect = `echo output > ${tmp_dir()}/pr-$n.txt`;
+
+		for (const command of [
+			`${redirect}; echo replacement > untracked.md`,
+			`${redirect}; rm untracked.md`,
+			`${redirect}; git push --force`,
+			`${redirect}; dropdb production`,
+		]) {
+			expect(assess_bash_command(command, cwd)).toBeTruthy();
+		}
+	});
+
+	it.skipIf(process.platform === 'win32')(
+		'checks the literal parent of an expanded temp redirect for symlinks',
+		() => {
+			const link = join(tmp_dir(), 'outside-link');
+			symlinkSync(work_dir(), link, 'dir');
+
+			expect(
+				assess_bash_command(`echo output > ${link}/pr-$n.txt`),
+			).toBeTruthy();
+		},
+	);
+
+	it('preserves Git protection for expanded temp redirects', () => {
+		const cwd = create_git_repo(tmp_dir());
+		writeFileSync(join(cwd, 'tracked.md'), 'changed');
+
+		for (const directory of [cwd, join(cwd, '.git')]) {
+			expect(
+				assess_bash_command(`echo output > ${directory}/$name`),
+			).toBeTruthy();
+		}
+	});
+
 	it('treats the repository root as unrecoverable', () => {
 		const cwd = create_git_repo();
 		expect(assess_bash_command('rm -rf .', cwd)).toBeTruthy();

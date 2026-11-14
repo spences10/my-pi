@@ -65,12 +65,18 @@ Explicit absolute files and directories beneath the operating system's
 temporary directory are treated as disposable and can be overwritten
 or deleted without confirmation. Relative and tilde-expanded paths do
 not receive this exception, even when the current directory is
-temporary. The temporary-path exception is also rejected for the
-temporary root itself, wildcard or dynamic targets, parent-directory
-traversal, mixed temporary and non-temporary targets, symlinks that
-resolve outside the temporary directory, Git repository roots or
-metadata, and dirty tracked files. This exception does not apply to
-broad commands such as `find -delete` or to destructive Git, database,
+temporary. Overwrite redirections also allow shell-expanded filenames
+inside a literal absolute temporary directory, such as
+`> /tmp/pr-review/pr-$n.txt` in a loop. These use the literal parent
+directory for symlink and Git checks; the guard does not evaluate
+shell variables or inspect the eventual expanded filename.
+
+The temporary-path exception is otherwise rejected for the temporary
+root itself, wildcard or dynamic targets, parent-directory traversal,
+symlinks that resolve outside the temporary directory, Git repository
+roots or metadata, and dirty tracked files. Other targets in a mixed
+command are still checked. This exception does not apply to broad
+commands such as `find -delete` or to destructive Git, database,
 cloud, disk, and infrastructure operations.
 
 In interactive mode the prompt offers:

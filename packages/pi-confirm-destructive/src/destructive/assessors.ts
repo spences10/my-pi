@@ -1,6 +1,6 @@
 import type { ToolCallEvent } from '@earendil-works/pi-coding-agent';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import {
 	get_git_recoverability,
 	git,
@@ -245,7 +245,18 @@ function assess_overwrite_redirect(
 	const risky = paths.filter((path) => {
 		if (SAFE_REDIRECT_TARGETS.has(path)) return false;
 
-		if (!is_specific_literal_shell_path(path)) return true;
+		if (!is_specific_literal_shell_path(path)) {
+			// Shell-expanded filenames use their literal parent directory
+			// for the temp exception; do not evaluate shell expressions.
+			const directory = dirname(path);
+
+			return !(
+				is_specific_literal_shell_path(directory) &&
+				is_disposable_temp_path(cwd, path) &&
+				!is_git_protected_path(cwd, directory)
+			);
+		}
+
 		const absolute = resolve(cwd, path);
 
 		if (!existsSync(absolute)) return false;
