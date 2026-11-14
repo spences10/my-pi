@@ -57,6 +57,7 @@ describe('extensions', () => {
 			'session-name',
 			'tool-guidance',
 			'workers',
+			'ask-user',
 		]) {
 			expect(
 				EXTENSIONS.some((extension) => extension.key === key),

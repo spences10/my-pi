@@ -35,6 +35,7 @@ pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
 | `team-mode`           | [`pi-team-mode`](https://github.com/spences10/my-pi/tree/main/packages/pi-team-mode#readme)                     |
 | `workers`             | [`pi-workers`](https://github.com/spences10/my-pi/tree/main/packages/pi-workers#readme)                         |
 | `harness`             | [`pi-harness`](https://github.com/spences10/my-pi/tree/main/packages/pi-harness#readme)                         |
+| `ask-user`            | [`pi-ask-user`](https://github.com/spences10/my-pi/tree/main/packages/pi-ask-user#readme)                       |
 | `git-ui`              | [`pi-git-ui`](https://github.com/spences10/my-pi/tree/main/packages/pi-git-ui#readme)                           |
 | `turn-timer`          | [`pi-turn-timer`](https://github.com/spences10/my-pi/tree/main/packages/pi-turn-timer#readme)                   |
 | `session-name`        | [`pi-session-name`](https://github.com/spences10/my-pi/tree/main/packages/pi-session-name#readme)               |
@@ -72,6 +73,16 @@ Its source lives in `src/logo.ts`; the package exports the generated
 JavaScript and declarations from `dist/`. Preview commands run the
 normal launcher build first, so they also work from a fresh checkout
 without a separate logo build configuration.
+
+## Optional questionnaires
+
+`ask-user` adds `ask_user_question` for choosing from complete lists
+of projects, dependencies, or other concrete options. Search retains
+checked choices; comments qualify selections. Escape dismisses the
+picker and stops the current run so you can talk instead, without an
+automatic follow-up. See the
+[pi-ask-user README](https://github.com/spences10/my-pi/tree/main/packages/pi-ask-user#readme)
+for keys and local development.
 
 ## Session conveniences and tool guidance
 

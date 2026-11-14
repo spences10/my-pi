@@ -114,6 +114,14 @@ export const EXTENSIONS: readonly MyPiExtension[] = [
 		},
 	},
 	{
+		key: 'ask-user',
+		label: 'Ask user',
+		description:
+			'Searchable choices and comments; Escape back to chat',
+		load: async () =>
+			(await import('@spences10/pi-ask-user')).default,
+	},
+	{
 		key: 'git-ui',
 		label: 'Git UI',
 		description: 'Interactive staging, diff review, and commit',

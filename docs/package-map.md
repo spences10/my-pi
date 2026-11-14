@@ -33,6 +33,10 @@ prerequisites, commands, options, and local development.
 
 ### Sessions and workflows
 
+[pi-ask-user](../packages/pi-ask-user/README.md) provides optional
+searchable questionnaires with multiselect and comments. Dismiss a
+question to return to chat rather than accepting the offered choices.
+
 | Package                                                  | Purpose                                                |
 | -------------------------------------------------------- | ------------------------------------------------------ |
 | [pi-recall](../packages/pi-recall/README.md)             | Session-history reminders and background pirecall sync |

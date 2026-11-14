@@ -53,6 +53,9 @@ configuration are upstream Pi features. See the
 
 Additional bundled extensions:
 
+- [`@spences10/pi-ask-user`](./packages/pi-ask-user/README.md):
+  searchable questionnaires with multiselect, comments, and Escape
+  back to chat.
 - [`@spences10/pi-turn-timer`](./packages/pi-turn-timer/README.md):
   live timing and saved completion durations.
 - [`@spences10/pi-session-name`](./packages/pi-session-name/README.md):
