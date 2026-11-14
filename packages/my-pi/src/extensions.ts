@@ -38,18 +38,20 @@ export const EXTENSIONS: readonly MyPiExtension[] = [
 		description: 'Colourful themed header with the model and project',
 		load: async () => (await import('./startup-screen.js')).default,
 	},
-	{
-		key: 'filter-output',
-		label: 'Secret redaction',
-		description: 'Redacts likely secrets from tool output',
-		load: async () => (await import('@spences10/pi-redact')).default,
-	},
+	// user_bash stops at the first result: confirmation must run before
+	// redaction supplies its local shell operations.
 	{
 		key: 'confirm-destructive',
 		label: 'Confirm destructive',
 		description: 'Asks before destructive shell commands',
 		load: async () =>
 			(await import('@spences10/pi-confirm-destructive')).default,
+	},
+	{
+		key: 'filter-output',
+		label: 'Secret redaction',
+		description: 'Redacts likely secrets from tool output',
+		load: async () => (await import('@spences10/pi-redact')).default,
 	},
 	{
 		key: 'context-sidecar',

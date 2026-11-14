@@ -30,6 +30,15 @@ describe('extensions', () => {
 		expect(new Set(keys).size).toBe(keys.length);
 	});
 
+	it('runs destructive confirmation before the direct-shell redaction interceptor', () => {
+		const keys = EXTENSIONS.map((extension) => extension.key);
+		const confirmation = keys.indexOf('confirm-destructive');
+		const redaction = keys.indexOf('filter-output');
+
+		expect(confirmation).toBeGreaterThanOrEqual(0);
+		expect(redaction).toBeGreaterThan(confirmation);
+	});
+
 	it('loads every extension factory', async () => {
 		for (const extension of EXTENSIONS) {
 			expect(await extension.load(), extension.key).toBeTypeOf(

@@ -34,6 +34,8 @@ into Pi.
   limitations, and reproduction.
 - [Team Mode benchmarks](./pi-team-mode-benchmark.md): delivery noise,
   bounded batches, and quiet status updates.
+- [Redaction benchmarks](./pi-redact-benchmark.md): published versus
+  local speed, synthetic detection cases, and exact-value overhead.
 - [Website development](../apps/web/README.md): local preview and
   Cloudflare deployment.
 

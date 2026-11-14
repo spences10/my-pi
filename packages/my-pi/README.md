@@ -48,6 +48,12 @@ pnpx --allow-build=@google/genai --allow-build=protobufjs my-pi@latest
 | `starfield`           | [`pi-starfield`](https://github.com/spences10/my-pi/tree/main/packages/pi-starfield#readme)                     |
 | `themes`              | [`pi-themes`](https://github.com/spences10/my-pi/tree/main/packages/pi-themes#readme)                           |
 
+Destructive-command confirmation runs before secret redaction's direct
+shell interceptor, so redaction does not bypass confirmation for `!`
+commands. See
+[pi-redact's coverage and limitations](https://github.com/spences10/my-pi/tree/main/packages/pi-redact#readme)
+for custom shell backends and other hook boundaries.
+
 ## My-Pi splash
 
 The colourful My-Pi logo is back as a header extension, enabled by

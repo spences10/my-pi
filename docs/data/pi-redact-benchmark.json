@@ -1,0 +1,1595 @@
+{
+	"format_version": 1,
+	"completed": true,
+	"generated_at": "2026-11-14T17:32:17.959Z",
+	"runtime": {
+		"node": "v24.15.0",
+		"platform": "linux",
+		"arch": "x64",
+		"cpu": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M",
+		"logical_cpus": 24,
+		"load_average_start": [1.35, 1.21, 1.33]
+	},
+	"published": {
+		"requested": "latest",
+		"name": "@spences10/pi-redact",
+		"version": "0.0.16",
+		"tarball": "https://registry.npmjs.org/@spences10/pi-redact/-/pi-redact-0.0.16.tgz",
+		"integrity": "sha512-ed2iu1zSor0bStZyYqghh7dLI2Qc9lfRCGxYT7E6xv9TbaWo9ofw2v9Xyz/iDWqVKWxdW3IXikoR5V3rBN0Tpg==",
+		"shasum": "9c392ef52f9b30149fb7696a883fd33ca0f1b56a",
+		"published_at": "2026-11-04T20:34:32.208Z",
+		"minimum_release_age_minutes": 2880,
+		"download_command": "npm pack @spences10/pi-redact@0.0.16 --ignore-scripts --json",
+		"extraction_command": "tar -xzf spences10-pi-redact-0.0.16.tgz",
+		"files": [
+			{
+				"file": "index.js",
+				"sha256": "3d0c686765c6ebea82468bda19cfb8400da7e2a309f4a14c910bc29d440808c7"
+			}
+		],
+		"dependency_setup": "Extracted tarball package/node_modules links to the checkout node_modules; no dependency install or package lifecycle scripts run."
+	},
+	"local": {
+		"name": "@spences10/pi-redact",
+		"version": "0.0.16",
+		"files": [
+			{
+				"file": "index.js",
+				"sha256": "d81c2d80bc849603a0664d4f70b70e1667c1f1253160ffb6469f3b993222c658"
+			},
+			{
+				"file": "output.js",
+				"sha256": "37651aeb0db827ef944beedf5137b89560b347a86569443d2179a9b7caab96d3"
+			},
+			{
+				"file": "redaction.js",
+				"sha256": "ea8ddfb3ee7ce6e1f403d08e5b9c87ac8c52216ab49d148a0f12b8434e5bf70a"
+			}
+		]
+	},
+	"shared_dependencies": {
+		"checkout_packages": [
+			{
+				"name": "valibot",
+				"version": "1.5.0"
+			},
+			{
+				"name": "@earendil-works/pi-ai",
+				"version": "1.5.2"
+			},
+			{
+				"name": "@earendil-works/pi-coding-agent",
+				"version": "1.5.2"
+			}
+		],
+		"lockfile_sha256": "8555a93f86802b5b5c727c19f2352ded0884505f777250d9517844b75914a91c"
+	},
+	"method": {
+		"samples": 3,
+		"warmup_calls": 1,
+		"timeout_ms": 5000,
+		"timeout_scope": "entire child process: startup, import, warmup and all samples",
+		"exact_registry_size": 32,
+		"script_sha256": "b3db4612671785c411de0d8845c752e7cf7beb40fce7d42c6b600653d43a5633",
+		"corpus_sha256": "41d14f46c55a274438e859a210e96ce05d55bbb14020614d5128aa25b9e615e5",
+		"timing": "milliseconds per redact_text call, excludes import, fixture construction, warmup and serialization"
+	},
+	"timings": [
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 8192
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						93.393347, 73.73853300000002, 73.54803499999997
+					],
+					"median_ms": 73.73853300000002,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 8192
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.08952900000000596, 0.0694210000000055,
+						0.05983300000000469
+					],
+					"median_ms": 0.0694210000000055,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 8192
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.21148800000000278, 0.168647, 0.16261599999999987
+					],
+					"median_ms": 0.168647,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 8192
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						150.053828, 134.08210099999997, 93.60413400000004
+					],
+					"median_ms": 134.08210099999997,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 8192
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [61.880813, 62.197990000000004, 62.226755],
+					"median_ms": 62.197990000000004,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 8192
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						3.603956999999994, 2.933513999999988, 2.8750540000000058
+					],
+					"median_ms": 2.933513999999988,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 8192
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.10942599999999914, 0.09804400000000157,
+						0.08744499999999533
+					],
+					"median_ms": 0.09804400000000157,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 8192
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						34.16132099999999, 20.238842999999974, 17.54432
+					],
+					"median_ms": 20.238842999999974,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 8192
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						6.744160000000008, 6.306024999999991, 6.15761599999999
+					],
+					"median_ms": 6.306024999999991,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 8192
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.17510000000000048, 0.14882000000000062,
+						0.09964800000000196
+					],
+					"median_ms": 0.14882000000000062,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 8192
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.1910700000000034, 0.15226700000000193,
+						0.1557329999999979
+					],
+					"median_ms": 0.1557329999999979,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 8192
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.1894969999999958, 0.1809209999999979, 0.1754010000000008
+					],
+					"median_ms": 0.1809209999999979,
+					"redactions": 0,
+					"output_bytes": 8192
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 16384
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						382.69971400000003, 437.47242099999994, 406.054024
+					],
+					"median_ms": 406.054024,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 16384
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.22440200000000488, 0.17679299999999643,
+						0.15380900000000253
+					],
+					"median_ms": 0.17679299999999643,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 16384
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.5379530000000017, 0.493109000000004, 0.46407399999999654
+					],
+					"median_ms": 0.493109000000004,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 16384
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						556.4871159999999, 561.4583990000001, 515.608344
+					],
+					"median_ms": 556.4871159999999,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 16384
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						251.21749800000003, 247.72018200000002, 248.321645
+					],
+					"median_ms": 248.321645,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 16384
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						4.410516000000001, 4.159053, 4.0795030000000025
+					],
+					"median_ms": 4.159053,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 16384
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.21103699999999748, 0.16608199999999584,
+						0.14836000000000382
+					],
+					"median_ms": 0.16608199999999584,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 16384
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						92.47940500000001, 98.89262300000001, 100.32224499999995
+					],
+					"median_ms": 98.89262300000001,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 16384
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						13.443195999999993, 13.048472999999987, 13.109016000000011
+					],
+					"median_ms": 13.109016000000011,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 16384
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.15152599999999694, 0.12259000000000242,
+						0.12175899999999729
+					],
+					"median_ms": 0.12259000000000242,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 16384
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.48825899999999933, 0.5046700000000044,
+						0.42109299999999905
+					],
+					"median_ms": 0.48825899999999933,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 16384
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.5625700000000009, 0.5353680000000054, 0.5249489999999994
+					],
+					"median_ms": 0.5353680000000054,
+					"redactions": 0,
+					"output_bytes": 16384
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 32768
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						1152.1243680000002, 1162.145329, 1130.1494040000002
+					],
+					"median_ms": 1152.1243680000002,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 32768
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.24064399999999608, 0.32249799999999595,
+						0.22531399999999735
+					],
+					"median_ms": 0.24064399999999608,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 32768
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.7186939999999993, 0.6467880000000008, 0.6222620000000063
+					],
+					"median_ms": 0.6467880000000008,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 32768
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "timeout",
+				"process_timeout_ms": 5000
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 32768
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						998.8281510000002, 1006.123028, 1001.9723719999997
+					],
+					"median_ms": 1001.9723719999997,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 32768
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						5.732526, 5.439063000000004, 5.569298000000003
+					],
+					"median_ms": 5.569298000000003,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 32768
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.3585959999999986, 0.3019779999999983,
+						0.29341300000000103
+					],
+					"median_ms": 0.3019779999999983,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 32768
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						270.17369499999995, 265.5466110000001, 277.80126799999994
+					],
+					"median_ms": 270.17369499999995,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 32768
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						107.39336000000003, 105.51313999999996, 90.55623399999996
+					],
+					"median_ms": 105.51313999999996,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 32768
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.36826399999999637, 0.32616399999999857,
+						0.3021190000000047
+					],
+					"median_ms": 0.32616399999999857,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 32768
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.9433170000000004, 0.799475000000001, 0.7945059999999984
+					],
+					"median_ms": 0.799475000000001,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 32768
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						1.073822000000007, 1.0804250000000053, 1.070375999999996
+					],
+					"median_ms": 1.073822000000007,
+					"redactions": 0,
+					"output_bytes": 32768
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 51200
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "timeout",
+				"process_timeout_ms": 5000
+			}
+		},
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 51200
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.3524930000000026, 0.34999899999999684,
+						0.30268099999999976
+					],
+					"median_ms": 0.34999899999999684,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 51200
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						2.2416319999999956, 2.139438999999996, 2.0429170000000028
+					],
+					"median_ms": 2.139438999999996,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 51200
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "timeout",
+				"process_timeout_ms": 5000
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 51200
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "timeout",
+				"process_timeout_ms": 5000
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 51200
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						18.59738200000001, 19.317318000000014, 19.16418999999999
+					],
+					"median_ms": 19.16418999999999,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 51200
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.5519800000000004, 0.48339099999999746,
+						0.4706159999999997
+					],
+					"median_ms": 0.48339099999999746,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 51200
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [673.0301019999999, 655.34644, 654.036353],
+					"median_ms": 655.34644,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 51200
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						170.99248799999998, 125.68444499999993, 124.38334499999996
+					],
+					"median_ms": 125.68444499999993,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 51200
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.7394829999999999, 0.6395739999999961, 0.6137760000000014
+					],
+					"median_ms": 0.6395739999999961,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 51200
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.793374, 0.8558019999999971, 0.7255560000000045
+					],
+					"median_ms": 0.793374,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 51200
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						2.320178999999996, 2.2806949999999944, 2.386615000000006
+					],
+					"median_ms": 2.320178999999996,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 204800
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "timeout",
+				"process_timeout_ms": 5000
+			}
+		},
+		{
+			"fixture": {
+				"kind": "hex",
+				"bytes": 204800
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						2.6338400000000064, 2.6438579999999945, 2.5236230000000006
+					],
+					"median_ms": 2.6338400000000064,
+					"redactions": 0,
+					"output_bytes": 204800
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 204800
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						8.20864800000001, 8.034851000000003, 7.9229700000000065
+					],
+					"median_ms": 8.034851000000003,
+					"redactions": 0,
+					"output_bytes": 204800
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "eyJ",
+				"bytes": 204800
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "timeout",
+				"process_timeout_ms": 5000
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 204800
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "timeout",
+				"process_timeout_ms": 5000
+			}
+		},
+		{
+			"fixture": {
+				"kind": "whitespace",
+				"bytes": 204800
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						69.548291, 72.90217700000002, 72.37373199999996
+					],
+					"median_ms": 72.37373199999996,
+					"redactions": 0,
+					"output_bytes": 204800
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 204800
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						3.4391359999999906, 3.9143009999999947, 3.832777000000007
+					],
+					"median_ms": 3.832777000000007,
+					"redactions": 0,
+					"output_bytes": 204800
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "dotted",
+				"bytes": 204800
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "timeout",
+				"process_timeout_ms": 5000
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 204800
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "timeout",
+				"process_timeout_ms": 5000
+			}
+		},
+		{
+			"fixture": {
+				"kind": "pem_headers",
+				"bytes": 204800
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						1.2214600000000004, 1.1516889999999975, 1.222090999999999
+					],
+					"median_ms": 1.2214600000000004,
+					"redactions": 0,
+					"output_bytes": 204800
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 204800
+			},
+			"variant": "local",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						3.2000460000000004, 3.955829999999999, 2.789483000000004
+					],
+					"median_ms": 3.2000460000000004,
+					"redactions": 0,
+					"output_bytes": 204800
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 204800
+			},
+			"variant": "published",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						9.8827, 8.834576999999996, 9.185406999999998
+					],
+					"median_ms": 9.185406999999998,
+					"redactions": 0,
+					"output_bytes": 204800
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "normal",
+				"bytes": 4096
+			},
+			"variant": "published",
+			"iterations": 20,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.2975774000000001, 0.22768879999999997,
+						0.23101555000000004
+					],
+					"median_ms": 0.23101555000000004,
+					"redactions": 28,
+					"output_bytes": 3900
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "normal",
+				"bytes": 4096
+			},
+			"variant": "local",
+			"iterations": 20,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.14972744999999996, 0.1080544500000002,
+						0.08936279999999996
+					],
+					"median_ms": 0.1080544500000002,
+					"redactions": 28,
+					"output_bytes": 3900
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "normal",
+				"bytes": 51200
+			},
+			"variant": "local",
+			"iterations": 20,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						1.1171638000000002, 1.0768829500000003, 0.9239759999999997
+					],
+					"median_ms": 1.0768829500000003,
+					"redactions": 358,
+					"output_bytes": 48694
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "normal",
+				"bytes": 51200
+			},
+			"variant": "published",
+			"iterations": 20,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						1.5255233500000003, 1.5557812999999996, 1.5602997999999992
+					],
+					"median_ms": 1.5557812999999996,
+					"redactions": 358,
+					"output_bytes": 48694
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "normal",
+				"bytes": 204800
+			},
+			"variant": "published",
+			"iterations": 20,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [11.14373645, 9.463860550000001, 8.14217505],
+					"median_ms": 9.463860550000001,
+					"redactions": 1432,
+					"output_bytes": 194776
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "normal",
+				"bytes": 204800
+			},
+			"variant": "local",
+			"iterations": 20,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						4.68085585, 3.6728771500000006, 4.793719900000001
+					],
+					"median_ms": 4.68085585,
+					"redactions": 1432,
+					"output_bytes": 194776
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 51200
+			},
+			"variant": "local-exact-32",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						1.4322769999999991, 1.3109679999999884, 1.2148069999999933
+					],
+					"median_ms": 1.3109679999999884,
+					"redactions": 0,
+					"output_bytes": 51200
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "source",
+				"bytes": 204800
+			},
+			"variant": "local-exact-32",
+			"iterations": 1,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						3.3453390000000027, 3.4061939999999993, 3.1260869999999983
+					],
+					"median_ms": 3.3453390000000027,
+					"redactions": 0,
+					"output_bytes": 204800
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "normal",
+				"bytes": 4096
+			},
+			"variant": "local-exact-32",
+			"iterations": 20,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						0.35649235000000024, 0.2515371499999993,
+						0.23273880000000063
+					],
+					"median_ms": 0.2515371499999993,
+					"redactions": 57,
+					"output_bytes": 3726
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "normal",
+				"bytes": 51200
+			},
+			"variant": "local-exact-32",
+			"iterations": 20,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						1.8353001499999997, 1.62488345, 1.5702630999999996
+					],
+					"median_ms": 1.62488345,
+					"redactions": 716,
+					"output_bytes": 46546
+				}
+			}
+		},
+		{
+			"fixture": {
+				"kind": "normal",
+				"bytes": 204800
+			},
+			"variant": "local-exact-32",
+			"iterations": 20,
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"samples_ms": [
+						6.62749015, 6.082146150000002, 5.743854600000001
+					],
+					"median_ms": 6.082146150000002,
+					"redactions": 2864,
+					"output_bytes": 186184
+				}
+			}
+		}
+	],
+	"detection": [
+		{
+			"variant": "published",
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"secrets": [
+						{
+							"id": "github",
+							"masked": true
+						},
+						{
+							"id": "env",
+							"masked": true
+						},
+						{
+							"id": "json",
+							"masked": true
+						},
+						{
+							"id": "toml",
+							"masked": true
+						},
+						{
+							"id": "short-password",
+							"masked": false
+						},
+						{
+							"id": "url",
+							"masked": true
+						},
+						{
+							"id": "bearer",
+							"masked": true
+						},
+						{
+							"id": "slack",
+							"masked": true
+						},
+						{
+							"id": "private-key",
+							"masked": true
+						},
+						{
+							"id": "unlabelled",
+							"masked": false
+						},
+						{
+							"id": "base64",
+							"masked": false
+						},
+						{
+							"id": "url-encoded",
+							"masked": false
+						}
+					],
+					"benign": [
+						{
+							"input": "const token = tokens[index];",
+							"changed": true
+						},
+						{
+							"input": "const password = getPassword();",
+							"changed": true
+						},
+						{
+							"input": "const secret = config.secret;",
+							"changed": true
+						},
+						{
+							"input": "const api_key = process.env.API_KEY;",
+							"changed": true
+						},
+						{
+							"input": "let token: TokenEnvelope;",
+							"changed": true
+						},
+						{
+							"input": "const password = \"example-password\";",
+							"changed": true
+						},
+						{
+							"input": "password=********",
+							"changed": true
+						},
+						{
+							"input": "password=[REDACTED:Generic Password Field]",
+							"changed": false
+						},
+						{
+							"input": "Use `-----BEGIN PRIVATE KEY-----` to recognize a PEM header.",
+							"changed": true
+						},
+						{
+							"input": "const path = \"docs/sk-this-is-a-documentation-example.md\";",
+							"changed": true
+						},
+						{
+							"input": "const digest = \"16f3a8b92c4d570e\";",
+							"changed": false
+						},
+						{
+							"input": "export const item = queue.shift();",
+							"changed": false
+						}
+					],
+					"idempotence_failures": []
+				}
+			}
+		},
+		{
+			"variant": "local",
+			"measurement": {
+				"status": "ok",
+				"result": {
+					"secrets": [
+						{
+							"id": "github",
+							"masked": true
+						},
+						{
+							"id": "env",
+							"masked": true
+						},
+						{
+							"id": "json",
+							"masked": true
+						},
+						{
+							"id": "toml",
+							"masked": true
+						},
+						{
+							"id": "short-password",
+							"masked": false
+						},
+						{
+							"id": "url",
+							"masked": true
+						},
+						{
+							"id": "bearer",
+							"masked": true
+						},
+						{
+							"id": "slack",
+							"masked": true
+						},
+						{
+							"id": "private-key",
+							"masked": true
+						},
+						{
+							"id": "unlabelled",
+							"masked": false
+						},
+						{
+							"id": "base64",
+							"masked": false
+						},
+						{
+							"id": "url-encoded",
+							"masked": false
+						}
+					],
+					"benign": [
+						{
+							"input": "const token = tokens[index];",
+							"changed": false
+						},
+						{
+							"input": "const password = getPassword();",
+							"changed": false
+						},
+						{
+							"input": "const secret = config.secret;",
+							"changed": false
+						},
+						{
+							"input": "const api_key = process.env.API_KEY;",
+							"changed": false
+						},
+						{
+							"input": "let token: TokenEnvelope;",
+							"changed": false
+						},
+						{
+							"input": "const password = \"example-password\";",
+							"changed": false
+						},
+						{
+							"input": "password=********",
+							"changed": true
+						},
+						{
+							"input": "password=[REDACTED:Generic Password Field]",
+							"changed": false
+						},
+						{
+							"input": "Use `-----BEGIN PRIVATE KEY-----` to recognize a PEM header.",
+							"changed": false
+						},
+						{
+							"input": "const path = \"docs/sk-this-is-a-documentation-example.md\";",
+							"changed": true
+						},
+						{
+							"input": "const digest = \"16f3a8b92c4d570e\";",
+							"changed": false
+						},
+						{
+							"input": "export const item = queue.shift();",
+							"changed": false
+						}
+					],
+					"idempotence_failures": []
+				}
+			}
+		}
+	]
+}

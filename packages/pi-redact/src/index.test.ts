@@ -2,9 +2,14 @@ import type {
 	ContextEvent,
 	ContextEventResult,
 	ExtensionHandler,
+	ToolCallEvent,
+	ToolCallEventResult,
 	ToolResultEvent,
 	ToolResultEventResult,
 } from '@earendil-works/pi-coding-agent';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import {
 	make_api,
@@ -49,7 +54,7 @@ async function capture_redaction() {
 	});
 
 	const register_command = vi.spyOn(pi, 'registerCommand');
-	await filter_output(pi);
+	filter_output(pi);
 
 	return {
 		async tool_result(
@@ -68,6 +73,23 @@ async function capture_redaction() {
 					content: texts.map((text) => ({ type: 'text', text })),
 					isError: false,
 					details: undefined,
+				},
+				make_context(),
+			);
+		},
+		async tool_call(path: string, offset: number) {
+			// SAFETY: the hook was registered through ExtensionAPI.on('tool_call').
+			const hook = hooks.get('tool_call') as ExtensionHandler<
+				ToolCallEvent,
+				ToolCallEventResult
+			>;
+
+			return hook(
+				{
+					type: 'tool_call',
+					toolName: 'read',
+					toolCallId: 'read',
+					input: { path, offset },
 				},
 				make_context(),
 			);
@@ -277,34 +299,25 @@ AUTH_TOKEN = "${values.uppercase}"`;
 		expect(redacted).toBe(input);
 	});
 
-	it('tracks and redacts private-key continuations across read chunks', async () => {
+	it('blocks a genuine private-key source even when the first read starts mid-key', async () => {
 		const redaction = await capture_redaction();
-		const path = '/tmp/chunked-private-key.pem';
+		const dir = await mkdtemp(join(tmpdir(), 'pi-redact-source-'));
+		const path = join(dir, 'key.pem');
 
-		const first_chunk = [
-			'-----BEGIN PRIVATE KEY-----',
-			'Q0FOQVJZX0ZJUlNUX0NIVU5LX1BSSVZBVEVfS0VZ',
-		].join('\n');
-
-		const second_chunk = [
-			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==',
-			'-----END PRIVATE KEY-----',
-		].join('\n');
-
-		await redaction.tool_result({ path }, [first_chunk]);
-
-		const result = text_blocks(
-			await redaction.tool_result({ path, offset: 2 }, [
-				second_chunk,
-			]),
-		);
-
-		expect(result[0]).toContain(
-			'[REDACTED:Private Key continuation]',
-		);
-		expect(result[0]).not.toContain(
-			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==',
-		);
+		try {
+			await writeFile(
+				path,
+				`-----${'BEGIN PRIVATE KEY-----'}\n${'YWJj'.repeat(24)}\n-----${'END PRIVATE KEY-----'}`,
+			);
+			expect(await redaction.tool_call(path, 2)).toMatchObject({
+				block: true,
+			});
+			expect(await redaction.tool_call(path, 1)).toMatchObject({
+				block: true,
+			});
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
 	});
 
 	it('redacts private-key continuations split across text content blocks', async () => {
@@ -318,33 +331,28 @@ AUTH_TOKEN = "${values.uppercase}"`;
 			),
 		);
 
-		expect(result[1]).toContain(
-			'[REDACTED:Private Key continuation]',
-		);
-		expect(result[1]).not.toContain(continuation);
+		expect(result.join('')).toContain('[REDACTED:Private Key');
+		expect(result.join('')).not.toContain(continuation);
 	});
 
-	it('normalizes read paths before tracking private-key continuations', async () => {
+	it('checks path aliases and releases a path after the key file is replaced', async () => {
 		const redaction = await capture_redaction();
+		const dir = await mkdtemp(join(tmpdir(), 'pi-redact-source-'));
+		const path = join(dir, 'key.pem');
 
-		const continuation =
-			'Q0FOQVJZX1NFQ09ORF9DSFVOS19QUklWQVRFX0tFWQ==';
-
-		await redaction.tool_result({ path: '/tmp/equivalent-key.pem' }, [
-			`-----${'BEGIN PRIVATE KEY-----'}\n`,
-		]);
-
-		const result = text_blocks(
-			await redaction.tool_result(
-				{ path: '/tmp/./equivalent-key.pem', offset: 2 },
-				[continuation],
-			),
-		);
-
-		expect(result[0]).toContain(
-			'[REDACTED:Private Key continuation]',
-		);
-		expect(result[0]).not.toContain(continuation);
+		try {
+			await writeFile(
+				path,
+				`-----${'BEGIN PRIVATE KEY-----'}\n${'YWJj'.repeat(24)}\n-----${'END PRIVATE KEY-----'}`,
+			);
+			expect(
+				await redaction.tool_call(`${dir}/./key.pem`, 2),
+			).toMatchObject({ block: true });
+			await writeFile(path, 'ordinary documentation');
+			expect(await redaction.tool_call(path, 1)).toBeUndefined();
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
 	});
 
 	it('redacts GitHub fine-grained PATs', () => {
@@ -540,7 +548,10 @@ describe('filter_output', () => {
 		);
 		expect(output_of(first)).not.toContain(secret);
 		expect(output_of(second)).not.toContain(secret);
-		expect(first?.messages?.[1]).toEqual(user_message);
+		expect(JSON.stringify(first?.messages?.[1])).not.toContain(
+			secret,
+		);
+		expect(JSON.stringify(user_message)).toContain(secret);
 		expect(shell_message.output).toContain(secret);
 		expect(notifications).toEqual([
 			'Secrets redacted this session: 1',
