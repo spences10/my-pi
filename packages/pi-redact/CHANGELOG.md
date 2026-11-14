@@ -1,5 +1,13 @@
 # @spences10/pi-redact
 
+## 0.1.0
+
+### Minor Changes
+
+- fb35ffc: Improve secret detection and structured sanitization while
+  preserving live streaming, confirmation safeguards, and diagnostic
+  compatibility.
+
 ## 0.0.16
 
 ### Patch Changes

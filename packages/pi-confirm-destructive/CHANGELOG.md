@@ -1,5 +1,13 @@
 # @spences10/pi-confirm-destructive
 
+## 0.0.23
+
+### Patch Changes
+
+- f275897: Avoid unnecessary confirmations for temporary output
+  redirections containing variable filenames while preserving other
+  destructive checks.
+
 ## 0.0.22
 
 ### Patch Changes

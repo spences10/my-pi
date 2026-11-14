@@ -1,5 +1,26 @@
 # my-pi
 
+## 0.9.0
+
+### Minor Changes
+
+- 86be8e1: Add optional searchable questionnaires with categories,
+  question tabs, multiselect, comments, review, and dismissal to chat.
+
+### Patch Changes
+
+- fb35ffc: Improve secret detection and structured sanitization while
+  preserving live streaming, confirmation safeguards, and diagnostic
+  compatibility.
+- Updated dependencies [fb35ffc]
+- Updated dependencies [86be8e1]
+- Updated dependencies [f275897]
+  - @spences10/pi-redact@0.1.0
+  - @spences10/pi-ask-user@0.2.0
+  - @spences10/pi-confirm-destructive@0.0.23
+  - @spences10/pi-context@0.3.2
+  - @spences10/pi-workers@0.3.2
+
 ## 0.8.7
 
 ### Patch Changes
