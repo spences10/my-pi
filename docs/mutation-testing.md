@@ -59,8 +59,44 @@ copies. Check the report's tested files before claiming integration
 coverage.
 
 Static mutants remain enabled. Test selection is in the Vitest
-configuration rather than Stryker's `testFiles` option. There is no CI
-mutation-score gate or requirement to kill every mutant.
+configuration rather than Stryker's `testFiles` option. Local
+exploratory runs have no score gate.
+
+## CI score gates
+
+The [CI workflow](../.github/workflows/ci.yml) runs three mutation
+jobs on root pull-request and main-branch changes, using the same
+change filter as the ordinary CI job. Each target must meet its own
+floor:
+
+| Target                              | Measured baseline | Minimum score |
+| ----------------------------------- | ----------------: | ------------: |
+| Coding preferences `src/index.ts`   |            75.63% |           75% |
+| Harness `src/enforcement/policy.ts` |            78.82% |           78% |
+| Tool guidance `src/index.ts`        |            79.78% |           79% |
+
+These are the measured post-audit scores rounded down to whole
+percentages, not an arbitrary target of 100%. Stryker's full mutation
+score includes uncovered mutants in the denominator; killed and
+timed-out mutants count as detected. A stronger target cannot mask a
+weaker one because jobs are gated separately. These three targets do
+not represent whole-repository coverage.
+
+The [CI configuration](../stryker.ci.config.ts) reuses the local
+configuration and sets Stryker's native `thresholds.break` from
+`MUTATION_MIN_SCORE` (75 by default). A score below the floor exits
+nonzero and fails the job. Scores and mutant details appear in the job
+logs. Reproduce a job locally with:
+
+```bash
+MUTATION_TEST_DIR=packages/pi-harness MUTATION_MIN_SCORE=78 \
+  pnpm run test:mutation stryker.ci.config.ts \
+  --mutate packages/pi-harness/src/enforcement/policy.ts
+```
+
+The floors live in the workflow matrix. Review score changes against
+wanted behaviour rather than adding implementation-specific assertions
+solely to satisfy the gate.
 
 ## Audit scope
 
@@ -106,6 +142,10 @@ compare its status labels mechanically with the other runs.
   Behavioural tests remain. Other standalone imports were not deleted
   merely for being small; resolving an import proves loading, not an
   absence of side effects.
+- **Remove the progress-modal import-only test.** It still passed when
+  the entire function body was removed. The test is now deleted; the
+  [helper](../packages/pi-tui-modal/src/modal/progress.ts) and its
+  public export remain unchanged.
 - **Exercise configured rule boundaries.** The
   [coding-preferences tests](../packages/pi-coding-preferences/src/index.test.ts)
   now distinguish excluded tools and unrelated input fields from
@@ -179,7 +219,8 @@ The standalone tests for
 import their modules. The selected suite did not execute overview or
 error formatting, nor stage/unstage, bulk operations, or the
 partial/conflicted-file toggle protections. Those are documented UI
-capabilities, unlike the unused progress helper discussed below.
+capabilities, so the missing behavioural protection has a concrete
+purpose.
 
 Prefer tests of index/worktree effects in temporary repositories and
 of useful overview/error output. Preserve the existing discard tests:
@@ -222,15 +263,7 @@ content and chunk bounds. That is not automatically a missing test.
 Decide whether a specific readability property is wanted before
 freezing the current breakpoint algorithm or stopword list.
 
-## Open decisions
-
-The
-[progress-modal test](../packages/pi-tui-modal/src/modal/progress.test.ts)
-still passes if the entire exported function body is removed. Usage
-search found only its implementation and package-root export, not a
-repository caller. External callers are not ruled out. Establish
-whether this helper is wanted before adding behavioural tests or
-removing its public export; neither was done in this pass.
+## Remaining audit limits
 
 Default workflow preferences are not justified merely because tests
 preserve them. Keep user overrides and corrective-edit tests; do not
