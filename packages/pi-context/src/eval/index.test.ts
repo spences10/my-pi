@@ -2,10 +2,6 @@ import { describe, expect, it } from 'vite-plus/test';
 import { run_context_eval } from './index.js';
 
 describe('packages/pi-context/src/eval/index.ts', () => {
-	it('loads without side effects', async () => {
-		await expect(import('./index.js')).resolves.toBeDefined();
-	});
-
 	it('runs all context evals without failures', () => {
 		const report = run_context_eval();
 

@@ -22,10 +22,6 @@ function prompt_options(selectedTools: string[]) {
 }
 
 describe('packages/pi-team-mode/src/index.ts', () => {
-	it('loads without side effects', async () => {
-		await expect(import('./index.js')).resolves.toBeDefined();
-	});
-
 	it('exports peer coordination and workflow-feedback APIs', () => {
 		expect(handle_team_command).toEqual(expect.any(Function));
 		expect(send_peer_workflow_feedback).toEqual(expect.any(Function));

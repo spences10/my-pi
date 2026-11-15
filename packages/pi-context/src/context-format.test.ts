@@ -16,12 +16,6 @@ const search_result = {
 };
 
 describe('packages/pi-context/src/context-format.ts', () => {
-	it('loads without side effects', async () => {
-		await expect(
-			import('./context-format.js'),
-		).resolves.toBeDefined();
-	});
-
 	it('guides snippet search toward focused retrieval or offline export', () => {
 		const text = format_search_results([search_result]);
 

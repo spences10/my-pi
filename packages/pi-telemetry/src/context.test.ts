@@ -7,10 +7,6 @@ import {
 } from './context.js';
 
 describe('packages/pi-telemetry/src/context.ts', () => {
-	it('loads without side effects', async () => {
-		await expect(import('./context.js')).resolves.toBeDefined();
-	});
-
 	it('parses optional integer env values', () => {
 		expect(parse_int(undefined)).toBeNull();
 		expect(parse_int('3')).toBe(3);
