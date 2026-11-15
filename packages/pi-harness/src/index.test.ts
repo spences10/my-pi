@@ -322,6 +322,77 @@ describe('harness enforcement helpers', () => {
 		});
 	});
 
+	it('blocks forbidden paths even when the surrounding directory is allowed', () => {
+		const cwd = temp_project();
+
+		const { contract, harness_dir } = create_harness_runtime(
+			{
+				task: 'Protect a file within scope',
+				allowed_paths: ['src/**'],
+				forbidden_paths: ['src/private/**'],
+			},
+			cwd,
+		);
+
+		cleanup_paths.push(harness_dir);
+		expect(check_path_allowed(contract, 'src/public.ts')).toEqual({
+			ok: true,
+		});
+		expect(
+			check_path_allowed(contract, 'src/private/config.ts'),
+		).toMatchObject({ ok: false });
+	});
+
+	it('keeps project-wide scope inside cwd', () => {
+		const cwd = temp_project();
+
+		const { contract, harness_dir } = create_harness_runtime(
+			{ task: 'Project scope', allowed_paths: ['.'] },
+			cwd,
+		);
+
+		cleanup_paths.push(harness_dir);
+		expect(check_path_allowed(contract, 'src/index.ts')).toEqual({
+			ok: true,
+		});
+		expect(
+			check_path_allowed(contract, '../outside.ts'),
+		).toMatchObject({
+			ok: false,
+		});
+	});
+
+	it('honors a narrower scaffold test policy within the accepted scope', () => {
+		const cwd = temp_project();
+
+		const { contract, harness_dir } = create_harness_runtime(
+			{ task: 'Narrow test edits', allowed_paths: ['src/**'] },
+			cwd,
+		);
+
+		cleanup_paths.push(harness_dir);
+		expect(check_path_allowed(contract, 'src/index.test.ts')).toEqual(
+			{
+				ok: true,
+			},
+		);
+
+		const amended = amend_harness_runtime({
+			harness_dir,
+			reason: 'Keep this implementation step outside tests',
+			allow_test_changes: false,
+		});
+
+		expect(check_path_allowed(amended, 'src/index.ts')).toEqual({
+			ok: true,
+		});
+		expect(
+			check_path_allowed(amended, 'src/index.test.ts'),
+		).toMatchObject({
+			ok: false,
+		});
+	});
+
 	it('blocks forbidden commands', () => {
 		const cwd = temp_project();
 

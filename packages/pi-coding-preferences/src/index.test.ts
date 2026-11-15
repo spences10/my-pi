@@ -111,6 +111,53 @@ describe('coding preferences', () => {
 				config,
 			),
 		).toBeUndefined();
+		expect(
+			should_block_coding_preference(
+				event('powershell', { command: 'npm install' }),
+				config,
+			),
+		).toBeUndefined();
+		expect(
+			should_block_coding_preference(
+				event('bash', {
+					command: 'pnpm install',
+					description: 'npm install',
+				}),
+				config,
+			),
+		).toBeUndefined();
+	});
+
+	it('applies path rules to the file path, not proposed content', () => {
+		const config: CodingPreferencesConfig = {
+			rules: [
+				{
+					name: 'protected-file',
+					target: 'path',
+					pattern: '^protected\\.txt$',
+					reason: 'Do not change the protected file.',
+				},
+			],
+		};
+
+		expect(
+			find_coding_preference_violation(
+				event('write', { path: 'protected.txt', content: 'safe' }),
+				config,
+			),
+		).toMatchObject({
+			field: 'input.path',
+			rule_name: 'protected-file',
+		});
+		expect(
+			should_block_coding_preference(
+				event('write', {
+					path: 'safe.txt',
+					content: 'protected.txt',
+				}),
+				config,
+			),
+		).toBeUndefined();
 	});
 
 	it('reports the matching rule and nested input field without the match', () => {

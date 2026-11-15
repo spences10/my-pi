@@ -142,8 +142,8 @@ describe('tool guidance', () => {
 		let handler!: Function;
 		guidance(
 			make_api({
-				on: (_name: string, fn: Function) => {
-					handler = fn;
+				on: (name: string, fn: Function) => {
+					if (name === 'before_agent_start') handler = fn;
 
 					return () => {};
 				},

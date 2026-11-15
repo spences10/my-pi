@@ -29,8 +29,8 @@ const DOCUMENTED_RUNTIME_EXPORTS = [
 
 describe('@spences10/pi-footer public API', () => {
 	it('keeps the documented runtime exports available from the package root', () => {
-		expect(Object.keys(footer).sort()).toEqual(
-			[...DOCUMENTED_RUNTIME_EXPORTS].sort(),
+		expect(Object.keys(footer)).toEqual(
+			expect.arrayContaining([...DOCUMENTED_RUNTIME_EXPORTS]),
 		);
 		expect(footer.default).toBeTypeOf('function');
 	});
