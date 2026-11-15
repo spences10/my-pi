@@ -8,6 +8,13 @@ minimumReleaseAge: 2880
 overrides:
   vite@*: 'catalog:'
   vitest@*: 'catalog:'
+  '@stryker-mutator/core@10.1.1>typescript': 'catalog:typescript6'
+
+packageExtensions:
+  '@stryker-mutator/core@10.1.1':
+    dependencies:
+      # Stryker's sandbox preprocessor needs the JavaScript compiler API.
+      typescript: '*'
 
 catalog:
   '@changesets/cli': ^3.0.0

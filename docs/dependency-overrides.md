@@ -14,16 +14,28 @@ present.
 
 ## Current overrides
 
-| Selector   | Value      | Purpose                                                 |
-| ---------- | ---------- | ------------------------------------------------------- |
-| `vite@*`   | `catalog:` | Resolve Vite through the workspace's aliased Vite+ core |
-| `vitest@*` | `catalog:` | Keep Vitest aligned with the workspace toolchain        |
+| Selector                                  | Value                 | Purpose                                                                   |
+| ----------------------------------------- | --------------------- | ------------------------------------------------------------------------- |
+| `vite@*`                                  | `catalog:`            | Resolve Vite through the workspace's aliased Vite+ core                   |
+| `vitest@*`                                | `catalog:`            | Keep Vitest aligned with the workspace toolchain                          |
+| `@stryker-mutator/core@10.1.1>typescript` | `catalog:typescript6` | Supply the JavaScript compiler API used by Stryker's sandbox preprocessor |
 
 These are toolchain alignment overrides, not the old set of transitive
 security pins. Earlier versions of this page listed `brace-expansion`,
 `postcss`, `protobufjs`, `ws`, `js-yaml`, and `cookie` overrides;
 those selectors are absent from the current configuration. Their old
 advisory ranges are not a current audit.
+
+Stryker 10.1.1 imports TypeScript without declaring it as a
+dependency. A scoped `packageExtensions` entry adds that dependency,
+and the override above resolves it through the existing `typescript6`
+catalog. pnpm does not resolve catalog references directly inside
+`packageExtensions`. This avoids relying on a hoisted compiler from
+another workspace package: TypeScript 7 lacks the
+`parseConfigFileTextToJson` API Stryker calls. Remove this
+compatibility entry when Stryker declares a compatible dependency or
+no longer requires that API. Other packages' TypeScript versions are
+unchanged.
 
 ## Catalogs and release age
 
