@@ -30,6 +30,8 @@ into Pi.
 - [Dependency overrides](./dependency-overrides.md): current
   overrides, catalogs, and release-age configuration.
 - [Package releases](./releases.md): Changesets, publishing, and tags.
+- [Mutation testing](./mutation-testing.md): run Stryker and review
+  test intent, including the current audit findings.
 - [Context benchmarks](./pi-context-benchmark.md): measured workloads,
   limitations, and reproduction.
 - [Team Mode benchmarks](./pi-team-mode-benchmark.md): delivery noise,

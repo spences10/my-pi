@@ -78,6 +78,14 @@ tests, builds, smoke evals, and launcher help. The website has
 [its own workflow](../.github/workflows/web.yml) and
 [development instructions](../apps/web/README.md).
 
+## Mutation testing
+
+`pnpm run test:mutation` builds workspace packages and runs a focused
+Stryker audit. It is separate from ordinary tests and does not impose
+a mutation-score gate. See [Mutation testing](./mutation-testing.md)
+for selecting source files and tests, report locations, and the audit
+findings.
+
 ## Ternary expressions
 
 The `my-pi/no-nested-ternary` rule in

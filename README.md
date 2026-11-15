@@ -101,6 +101,7 @@ pnpm start            # node packages/my-pi/dist/index.js
 pnpm run preview:generate # refresh the shared README image
 pnpm run check
 pnpm run test
+pnpm run test:mutation # focused Stryker audit; see docs/mutation-testing.md
 ```
 
 ```text

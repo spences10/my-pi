@@ -1,0 +1,17 @@
+{
+	"$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+	"testRunner": "vitest",
+	"plugins": ["@stryker-mutator/vitest-runner"],
+	"vitest": {
+		"configFile": "vite-mutation.config.ts"
+	},
+	"mutate": ["packages/pi-coding-preferences/src/index.ts"],
+	"ignorePatterns": ["**/.env", "**/.env.*", "reports/**"],
+	"coverageAnalysis": "perTest",
+	"concurrency": 2,
+	"disableBail": true,
+	"reporters": ["clear-text", "progress", "html", "json"],
+	"thresholds": {
+		"break": 0
+	}
+}

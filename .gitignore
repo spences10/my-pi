@@ -5,3 +5,5 @@ dist/
 .security-review/
 
 coverage/
+.stryker-tmp/
+reports/mutation/
