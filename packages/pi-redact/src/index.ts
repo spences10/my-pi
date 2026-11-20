@@ -5,6 +5,7 @@ import {
 	create_redactor,
 	redact_entries,
 	redact_message,
+	redact_request_messages,
 	redacting_bash_operations,
 } from './output.js';
 
@@ -51,16 +52,23 @@ export default function filter_output(pi: ExtensionAPI) {
 	pi.on('message_end', (event) => ({
 		message: redact_message(event.message, redactor.text),
 	}));
-	pi.on('context', (event) => ({
-		messages: event.messages.map((message) =>
-			redact_message(message, redactor.text, true),
-		),
-	}));
-	pi.on('context_with_system', (event) => ({
-		messages: event.messages.map((message) =>
-			redact_message(message, redactor.text, true),
-		),
-	}));
+	// Return nothing when no message changed, so Pi keeps its system messages in place.
+	pi.on('context', (event) => {
+		const messages = redact_request_messages(
+			event.messages,
+			redactor.text,
+		);
+
+		return messages && { messages };
+	});
+	pi.on('context_with_system', (event) => {
+		const messages = redact_request_messages(
+			event.messages,
+			redactor.text,
+		);
+
+		return messages && { messages };
+	});
 	pi.on('user_bash', async () => {
 		const { createLocalBashOperations } =
 			await import('@earendil-works/pi-coding-agent');
