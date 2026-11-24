@@ -42,7 +42,7 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
 		"@napi-rs/image": "catalog:",
-		"@oxlint/plugins": "1.93.0",
+		"@oxlint/plugins": "1.94.0",
 		"@resvg/resvg-js": "catalog:",
 		"@stryker-mutator/core": "10.1.1",
 		"@stryker-mutator/vitest-runner": "10.1.1",
