@@ -283,7 +283,7 @@ catalogs:
       version: 4.7.8
     tailwind-merge:
       specifier: ^3.6.0
-      version: 3.7.0
+      version: 3.7.1
     tailwind-variants:
       specifier: ^4.0.0
       version: 4.0.2
@@ -446,7 +446,7 @@ importers:
         version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
       tailwind-merge:
         specifier: 'catalog:'
-        version: 3.7.0
+        version: 3.7.1
       tailwind-variants:
         specifier: 'catalog:'
         version: 4.0.2
@@ -874,7 +874,7 @@ importers:
         version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3)(typescript@6.0.3)
       tailwind-merge:
         specifier: 'catalog:'
-        version: 3.7.0
+        version: 3.7.1
       tailwind-variants:
         specifier: 'catalog:'
         version: 4.0.2
@@ -4686,8 +4686,8 @@ packages:
   tabbable@6.5.1:
     resolution: {integrity: sha512-dMCuwDUY6Noz3zVKLefBC4wq+aJV20yc7vWmM7uTNGwtQSFF5kX7OUIUsxuVajz/bdt5Xqdah3/0NLjth+cM5A==}
 
-  tailwind-merge@3.7.0:
-    resolution: {integrity: sha512-XPPUyAc+cvspz3lHTcR/QgPfW2A0lv/xQNIjX3HGhLR+Nq2lHaLq5MtTesHn8GUr3W3DguT2KT5x3NVgRtYwmA==}
+  tailwind-merge@3.7.1:
+    resolution: {integrity: sha512-v7y4BV4FUlO8exj/4M5UXKeoowDiuugVUg3tkMNIyOUCOHy5xp8+5aWQeXCtZ2491sUV1YPsVeM9EveZ6/xuZQ==}
 
   tailwind-variants@4.0.2:
     resolution: {integrity: sha512-sZvOFkfe5LlYG/crRX5IvP3oUHmJPu+7WmrLQFvF0kCRq51C+lurlzFMm/jURG/5keT7VOJ/it0N3jkzYux85w==}
@@ -8394,7 +8394,7 @@ snapshots:
 
   tabbable@6.5.1: {}
 
-  tailwind-merge@3.7.0: {}
+  tailwind-merge@3.7.1: {}
 
   tailwind-variants@4.0.2: {}
 
