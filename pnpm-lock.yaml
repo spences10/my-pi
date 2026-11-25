@@ -235,7 +235,7 @@ catalogs:
       version: 0.2.2
     '@twinkleplop/theme-night-owl':
       specifier: ^0.1.4
-      version: 0.1.4
+      version: 0.1.5
     '@twinkleplop/typescript':
       specifier: ^0.1.5
       version: 0.1.7
@@ -850,7 +850,7 @@ importers:
         version: 0.2.2
       '@twinkleplop/theme-night-owl':
         specifier: 'catalog:'
-        version: 0.1.4
+        version: 0.1.5
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -3022,8 +3022,8 @@ packages:
   '@twinkleplop/markdown@0.2.2':
     resolution: {integrity: sha512-ZUlqqJsLwQcGce932GjcyPwOSk2C2fxlmSGVOUP8gi2p6wZ3WMxqH/7LELoEBoARyX6uE6ajfFBK5tgv2MI95g==}
 
-  '@twinkleplop/theme-night-owl@0.1.4':
-    resolution: {integrity: sha512-Eq7Qpr660LEV9b4BAUmfdc56tIWO//S1iytgm63qAVYpMfL8jAJhuCCnCicbG/LkqLe7q9dZfjAsMAZQBrlFtA==}
+  '@twinkleplop/theme-night-owl@0.1.5':
+    resolution: {integrity: sha512-d0EBqHsYCr2iLOXmNI+JfqKdkFzYZHBhREUNijMmLQ0PBlsx7JfU4drhaMHViNfxxvn2aZzPip3FFz7goxK0Sw==}
 
   '@twinkleplop/typescript@0.1.7':
     resolution: {integrity: sha512-3lVdFUnOc40QQUJPnmTsiyTf7+RSEoXhDnmMwkUQ5Kzgemkk6eeXQGietPjxro8k+QuTAY/aQuWOtR/nUgfENw==}
@@ -6695,9 +6695,9 @@ snapshots:
     dependencies:
       '@twinkleplop/core': 0.3.2
 
-  '@twinkleplop/theme-night-owl@0.1.4':
+  '@twinkleplop/theme-night-owl@0.1.5':
     dependencies:
-      '@twinkleplop/core': 0.3.1
+      '@twinkleplop/core': 0.3.2
 
   '@twinkleplop/typescript@0.1.7':
     dependencies:
