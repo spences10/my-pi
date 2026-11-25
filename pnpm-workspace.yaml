@@ -52,7 +52,7 @@ catalog:
   pirecall: ^0.1.3
   playwright: ^1.60.0
   shadcn-svelte: ^1.2.7
-  svead: ^0.1.0
+  svead: ^0.2.0
   svelte: ^5.57.1
   svelte-check: ^4.7.6
   tailwind-merge: ^3.6.0
