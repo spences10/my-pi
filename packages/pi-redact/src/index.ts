@@ -52,15 +52,12 @@ export default function filter_output(pi: ExtensionAPI) {
 	pi.on('message_end', (event) => ({
 		message: redact_message(event.message, redactor.text),
 	}));
-	// Return nothing when no message changed, so Pi keeps its system messages in place.
-	pi.on('context', (event) => {
-		const messages = redact_request_messages(
-			event.messages,
-			redactor.text,
-		);
-
-		return messages && { messages };
-	});
+	// Redact request copies in `context_with_system`, not `context`. Pi treats any
+	// message list a `context` handler returns as a changed conversation and collapses
+	// every system message into one leading message, so a tool loaded later by
+	// `tool_search` rewrites the head of the request and misses the prompt cache.
+	// `context_with_system` output is sent as returned. Return nothing when no message
+	// changed.
 	pi.on('context_with_system', (event) => {
 		const messages = redact_request_messages(
 			event.messages,
