@@ -356,8 +356,8 @@ importers:
         specifier: 'catalog:'
         version: 1.16.0
       '@oxlint/plugins':
-        specifier: 1.94.0
-        version: 1.94.0
+        specifier: 1.95.0
+        version: 1.95.0
       '@resvg/resvg-js':
         specifier: 'catalog:'
         version: 2.6.2
@@ -2632,6 +2632,10 @@ packages:
 
   '@oxlint/plugins@1.94.0':
     resolution: {integrity: sha512-YT6htikBOBQ00XDxZpRZLZ0anEDo7h9s4+YvjRU0/Ng/cLd0D6SZQ3tsms4g/GDer/z8UKlegC5iptEfyRXJcw==}
+    engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+
+  '@oxlint/plugins@1.95.0':
+    resolution: {integrity: sha512-wb81nObfxWVASxtMQknyL4A387XDVuSIgpL1/wlhWzGpWLAGMzEvI+xWXJ242Bk8qqAmgDwG6ejetKnLISTGGw==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
 
   '@playwright/test@1.65.1':
@@ -6374,6 +6378,8 @@ snapshots:
     optional: true
 
   '@oxlint/plugins@1.94.0': {}
+
+  '@oxlint/plugins@1.95.0': {}
 
   '@playwright/test@1.65.1':
     dependencies:
