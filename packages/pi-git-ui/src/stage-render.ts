@@ -24,7 +24,7 @@ export function render_stage(
 	if (state.show_help) return render_help(state, width);
 
 	if (state.repo_overview) return render_repo_overview(state, width);
-	const lines = render_header(state, width);
+	const lines = [...render_header(state, width)];
 
 	if (state.message) lines.push(...render_message(state, width));
 
@@ -36,7 +36,7 @@ export function render_stage(
 function render_header(
 	state: StageRenderState,
 	width: number,
-): string[] {
+): readonly string[] {
 	const upstream = state.status.upstream
 		? ` • ${state.status.upstream} ↑${state.status.ahead} ↓${state.status.behind}`
 		: '';
@@ -57,7 +57,7 @@ function render_header(
 function render_message(
 	state: StageRenderState,
 	width: number,
-): string[] {
+): readonly string[] {
 	let color: 'accent' | 'warning' | 'dim' = 'dim';
 
 	if (state.busy) color = 'accent';

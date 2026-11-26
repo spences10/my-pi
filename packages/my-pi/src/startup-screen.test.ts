@@ -56,7 +56,7 @@ const info = {
 	project: 'my-project',
 };
 
-function plain(lines: string[]): string[] {
+function plain(lines: readonly string[]): string[] {
 	return lines.map((line) => stripTerminalSequences(line).trim());
 }
 

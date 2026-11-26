@@ -54,7 +54,7 @@ export function render_framed_modal(
 		theme.fg(resolved_style.border_color, text);
 
 	if (resolved_style.border === 'none') {
-		return content.render(width);
+		return [...content.render(width)];
 	}
 
 	if (resolved_style.border === 'line') {

@@ -106,7 +106,7 @@ function setup(steps: Step[], workers = [worker()]) {
 				},
 			);
 
-			screens.push(component.render(100));
+			screens.push([...component.render(100)]);
 			const step = steps.shift();
 
 			if (!step) throw new Error('Unexpected custom screen');
