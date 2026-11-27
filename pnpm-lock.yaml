@@ -187,14 +187,14 @@ catalogs:
       specifier: ^3.0.0
       version: 3.0.3
     '@earendil-works/pi-ai':
-      specifier: 1.6.0
-      version: 1.6.0
+      specifier: 1.6.1
+      version: 1.6.1
     '@earendil-works/pi-coding-agent':
-      specifier: 1.6.0
-      version: 1.6.0
+      specifier: 1.6.1
+      version: 1.6.1
     '@earendil-works/pi-tui':
-      specifier: 1.6.0
-      version: 1.6.0
+      specifier: 1.6.1
+      version: 1.6.1
     '@fontsource-variable/martian-mono':
       specifier: ^5.3.0
       version: 5.3.0
@@ -345,13 +345,13 @@ importers:
         version: 3.0.3
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@napi-rs/image':
         specifier: 'catalog:'
         version: 1.16.0
@@ -489,10 +489,10 @@ importers:
     dependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@spences10/pi-ask-user':
         specifier: workspace:*
         version: link:../pi-ask-user
@@ -574,7 +574,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -589,10 +589,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -614,7 +614,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -642,7 +642,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -658,7 +658,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -692,7 +692,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -714,13 +714,13 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -739,10 +739,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -758,7 +758,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -780,7 +780,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -805,7 +805,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -830,10 +830,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@fontsource-variable/martian-mono':
         specifier: 'catalog:'
         version: 5.3.0
@@ -912,10 +912,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -934,10 +934,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -952,10 +952,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -974,7 +974,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -1012,13 +1012,13 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -1040,7 +1040,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -1059,10 +1059,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -1087,13 +1087,13 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -1124,10 +1124,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -1147,7 +1147,7 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -1166,10 +1166,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -1184,10 +1184,10 @@ importers:
     devDependencies:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -1215,13 +1215,13 @@ importers:
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
-        version: 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)
+        version: 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
-        version: 1.6.0
+        version: 1.6.1
       '@spences10/pi-observability':
         specifier: workspace:*
         version: link:../pi-observability
@@ -1273,8 +1273,8 @@ packages:
     resolution: {integrity: sha512-eUtswnXu0+Ii9ieRK+0L7aPFV3Z/dnW2VntJzjBP9xs8s+8p5nBNuymIXtXwZ+5r5+XJP3e32nMkuZ/r0HozEA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-provider-node@3.972.83':
-    resolution: {integrity: sha512-jdso7ejzfRnatxMUZK4S/U6KbaDPCvfIV4XL+IQAPFDBt5rj5Fq595euqlK8Le4lNCMFR9oUpt+1l0aMgaayOQ==}
+  '@aws-sdk/credential-provider-node@3.972.82':
+    resolution: {integrity: sha512-znDkEOGXB8W3kG1LJUKP3foBZY/9qLM0eil/DxWXSp37XsdsRLQHE/d/OaCGGVgKpA6znR38h/+INk8do1FjiA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/credential-provider-process@3.972.71':
@@ -1725,38 +1725,38 @@ packages:
   '@dagrejs/graphlib@3.0.4':
     resolution: {integrity: sha512-HxZ7fCvAwTLCWCO0WjDkzAFQze8LdC6iOpKbetDKHIuDfIgMlIzYzqZ4nxwLlclQX+3ZVeZ1K2OuaOE2WWcyOg==}
 
-  '@earendil-works/pi-agent-core@1.6.0':
-    resolution: {integrity: sha512-IU/x+2XtE4KIdIkEndZssdLPbIUR38Btj+Q7vjIIXIK7GSamLtDH5jOw/dzBWAvWFAgZ2dslF5sPc6GcGOnS+w==}
+  '@earendil-works/pi-agent-core@1.6.1':
+    resolution: {integrity: sha512-1pkZKTaO1sSY0xVw/W45ULLQRg0rOOt6oJdeTG06upAeIq1UGHA0o+MR9UN6efPi7yW48uVinlFId7fwQilxvg==}
     engines: {node: '>=22.19.0'}
 
-  '@earendil-works/pi-ai@1.6.0':
-    resolution: {integrity: sha512-9hL+eygFDEiFp//cydeUfmFsKmEqpmvsNPb10Y1W8+m5K9O+sx1hMStfu6nukrBD5sl6mP4RykCYBBNEgsVLfw==}
-    engines: {node: '>=22.19.0'}
-    hasBin: true
-
-  '@earendil-works/pi-codemode@1.6.0':
-    resolution: {integrity: sha512-GAgAy7iJCVbeiuqq2dTIuNj3aXTMUeTF8Nu8LZs72e8ueGGDU5L3/D8VxzTHALIpQ1/q8u1tfmB3iYS2Nopchw==}
-    engines: {node: '>=22.19.0'}
-
-  '@earendil-works/pi-coding-agent@1.6.0':
-    resolution: {integrity: sha512-zX1BVEsshx7A2MRuQ6jfr3RJGWw4Wn+vLq5ZfmlvS1RskhRmByaSZVXH/zcwRrWHO7qPgs98pNCbPOEti/t0fQ==}
+  '@earendil-works/pi-ai@1.6.1':
+    resolution: {integrity: sha512-EyorgVyA2s4MxNl7YOapzOpdxrc8HUgxHEIOo8QRMK35P7PCOsSiWzMLf6ixKl3/obkg7I3wGJWHq+FdbUz43g==}
     engines: {node: '>=22.19.0'}
     hasBin: true
 
-  '@earendil-works/pi-mcp@1.6.0':
-    resolution: {integrity: sha512-dhqAR6MP8Fp3b8LEcBFOyxMZpGSozUAdzF0Dbl7OvojsjZrQsDV3ZKn85WRbwjHb4WjQUCVBsIZXwoyQxXeunw==}
+  '@earendil-works/pi-codemode@1.6.1':
+    resolution: {integrity: sha512-xogcFe38Ek/9cabCz6sP52FjUKtuNDwLmqeM1aQiwOF5rg7jZ//FRpnMeYyhvRyod2UYhhf/ojfg6rRdXi0peQ==}
     engines: {node: '>=22.19.0'}
 
-  '@earendil-works/pi-schema@1.6.0':
-    resolution: {integrity: sha512-jD0VRCUcFzWQ5zN82pOuoHNN42/3pu4E5krtpiKknvPq4g2m+fuO38lj+xnZhuVpYcd2G0qlmr8lE6ZMzkad7Q==}
+  '@earendil-works/pi-coding-agent@1.6.1':
+    resolution: {integrity: sha512-+VSb95N4PB+G7TLceg7wkbJT31BEeIBnUT9500g9a1rOsCx78CUw1YFGtLcRhS6jj8pdfm0fFwrakrMLu6lVAQ==}
+    engines: {node: '>=22.19.0'}
+    hasBin: true
+
+  '@earendil-works/pi-mcp@1.6.1':
+    resolution: {integrity: sha512-qGdAuqMsXjvOURevlc5alxPO1tRthTumFiSHU+QtNfCQpFIEMaec3RZC3mdjqLxRTKHjPBkJXzYPBGdB8bf1Zg==}
     engines: {node: '>=22.19.0'}
 
-  '@earendil-works/pi-telemetry@1.6.0':
-    resolution: {integrity: sha512-MNL0TvtpgoSfX7mBLSVgzxTW6yvT8VLEpHvbWnZsIp92FtqVvx+4q9DxWZdX8KvcQqBs0GseAgVnLdVFinjN9Q==}
+  '@earendil-works/pi-schema@1.6.1':
+    resolution: {integrity: sha512-Q/6W4IiDdIQUochCuvXFpglTByNTFTuMYvMqXjcRiOnxOl/3mQYLAZpZTpBSRWiS4WgeV7NyH/8dQp6ipYZeNg==}
     engines: {node: '>=22.19.0'}
 
-  '@earendil-works/pi-tui@1.6.0':
-    resolution: {integrity: sha512-nVtWZ4rYr3KHDla3skGAWG5XoITEUJCoEx1AsWv1yKxV7+v86ulD2hxVn/P+COI6jsoeQmj3orqHbCHZwAUsUg==}
+  '@earendil-works/pi-telemetry@1.6.1':
+    resolution: {integrity: sha512-3gyjVQlVrPwEq7ZCea8++prMwUkuNXM3v/mzTJ9knJAhqrYLxSVAjYzA1iC3KLq8ismmSQIcnFp++qTwQwNToA==}
+    engines: {node: '>=22.19.0'}
+
+  '@earendil-works/pi-tui@1.6.1':
+    resolution: {integrity: sha512-6WQPbhuoQKCIiu5Jp4S/cFdeqdm4SbAXlgCytsY/4ycR1sqHY4nB8xPTfGUucn61hVnN7hkOzI1CWNmE8UDQ3A==}
     engines: {node: '>=22.19.0'}
 
   '@emnapi/runtime@1.11.3':
@@ -1936,9 +1936,9 @@ packages:
   '@fontsource-variable/victor-mono@5.3.0':
     resolution: {integrity: sha512-xwUwrQ17BEofW/X5jRAXKxtQ0AFaSwH2/CKq6+ZuGUTiA9pmaYchM/7RvlyNcnGjIYT67DoJZuIRp4xpMjyFEw==}
 
-  '@google/genai@2.32.0':
-    resolution: {integrity: sha512-60c79uXpR0a47bmGqDxbXEBuQUalNmwo5mx5kqb91jIW4FoqpsLSt86DeVhRhtH5+s/16Wqxt3sXzFQn2U1OHQ==}
-    engines: {node: '>=20.0.0'}
+  '@google/genai@3.6.1':
+    resolution: {integrity: sha512-DQIkZkl+VoZc+RUSaJ41vRuywjQDpP0t/oUf5/ddQhNW6JsPjVULW2EgHmuJ1mrr6ACtrmUdPlqtNXF1yfKySg==}
+    engines: {node: '>=22.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
     peerDependenciesMeta:
@@ -5031,7 +5031,7 @@ snapshots:
   '@aws-sdk/client-bedrock-runtime@3.1127.0':
     dependencies:
       '@aws-sdk/core': 3.978.0
-      '@aws-sdk/credential-provider-node': 3.972.83
+      '@aws-sdk/credential-provider-node': 3.972.82
       '@aws-sdk/eventstream-handler-node': 3.972.34
       '@aws-sdk/middleware-eventstream': 3.972.29
       '@aws-sdk/middleware-websocket': 3.972.53
@@ -5097,7 +5097,7 @@ snapshots:
       '@smithy/types': 4.18.0
       tslib: 2.8.1
 
-  '@aws-sdk/credential-provider-node@3.972.83':
+  '@aws-sdk/credential-provider-node@3.972.82':
     dependencies:
       '@aws-sdk/credential-provider-env': 3.972.71
       '@aws-sdk/credential-provider-http': 3.972.73
@@ -5678,12 +5678,11 @@ snapshots:
 
   '@dagrejs/graphlib@3.0.4': {}
 
-  '@earendil-works/pi-agent-core@1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)':
+  '@earendil-works/pi-agent-core@1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
-      '@earendil-works/pi-schema': 1.6.0
+      '@earendil-works/pi-ai': 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
+      '@earendil-works/pi-schema': 1.6.1
     transitivePeerDependencies:
-      - '@aws-sdk/credential-provider-node'
       - '@modelcontextprotocol/sdk'
       - '@smithy/hash-node'
       - '@smithy/signature-v4'
@@ -5696,20 +5695,20 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)':
+  '@earendil-works/pi-ai@1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/sdk': 0.129.0(zod@4.4.3)
       '@aws-sdk/client-bedrock-runtime': 3.1127.0
-      '@earendil-works/pi-schema': 1.6.0
-      '@earendil-works/pi-telemetry': 1.6.0
-      '@google/genai': 2.32.0(supports-color@10.2.2)
+      '@aws-sdk/credential-provider-node': 3.972.82
+      '@earendil-works/pi-schema': 1.6.1
+      '@earendil-works/pi-telemetry': 1.6.1
+      '@google/genai': 3.6.1(supports-color@10.2.2)
       '@smithy/node-http-handler': 4.12.1
       http-proxy-agent: 9.1.0(supports-color@10.2.2)
       https-proxy-agent: 9.1.0(supports-color@10.2.2)
-      openai: 7.59.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
+      openai: 7.59.0(@aws-sdk/credential-provider-node@3.972.82)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
       partial-json: 0.1.7
     transitivePeerDependencies:
-      - '@aws-sdk/credential-provider-node'
       - '@modelcontextprotocol/sdk'
       - '@smithy/hash-node'
       - '@smithy/signature-v4'
@@ -5722,17 +5721,17 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-codemode@1.6.0':
+  '@earendil-works/pi-codemode@1.6.1':
     dependencies:
       quickjs-wasi: 3.6.2
 
-  '@earendil-works/pi-coding-agent@1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.22.0)(zod@4.4.3)':
+  '@earendil-works/pi-coding-agent@1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(ws@8.23.0)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-agent-core': 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
-      '@earendil-works/pi-ai': 1.6.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.22.0)(zod@4.4.3)
-      '@earendil-works/pi-codemode': 1.6.0
-      '@earendil-works/pi-mcp': 1.6.0
-      '@earendil-works/pi-tui': 1.6.0
+      '@earendil-works/pi-agent-core': 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 1.6.1(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(supports-color@10.2.2)(undici@8.12.4)(ws@8.23.0)(zod@4.4.3)
+      '@earendil-works/pi-codemode': 1.6.1
+      '@earendil-works/pi-mcp': 1.6.1
+      '@earendil-works/pi-tui': 1.6.1
       '@silvia-odwyer/photon-node': 0.3.4
       brace-expansion: 5.0.12
       chalk: 6.0.0
@@ -5751,7 +5750,6 @@ snapshots:
       undici: 8.12.4
       yaml: 2.9.0
     transitivePeerDependencies:
-      - '@aws-sdk/credential-provider-node'
       - '@modelcontextprotocol/sdk'
       - '@smithy/hash-node'
       - '@smithy/signature-v4'
@@ -5763,15 +5761,15 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-mcp@1.6.0':
+  '@earendil-works/pi-mcp@1.6.1':
     dependencies:
       cross-spawn: 7.0.6
 
-  '@earendil-works/pi-schema@1.6.0': {}
+  '@earendil-works/pi-schema@1.6.1': {}
 
-  '@earendil-works/pi-telemetry@1.6.0': {}
+  '@earendil-works/pi-telemetry@1.6.1': {}
 
-  '@earendil-works/pi-tui@1.6.0':
+  '@earendil-works/pi-tui@1.6.1':
     dependencies:
       get-east-asian-width: 1.6.0
       marked: 18.0.11
@@ -5877,12 +5875,12 @@ snapshots:
 
   '@fontsource-variable/victor-mono@5.3.0': {}
 
-  '@google/genai@2.32.0(supports-color@10.2.2)':
+  '@google/genai@3.6.1(supports-color@10.2.2)':
     dependencies:
       google-auth-library: 10.6.2(supports-color@10.2.2)
       p-retry: 4.6.2
       protobufjs: 7.6.5
-      ws: 8.22.0
+      ws: 8.23.0
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -8036,13 +8034,13 @@ snapshots:
 
   obug@3.0.0: {}
 
-  openai@7.59.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(undici@8.12.4)(ws@8.22.0)(zod@4.4.3):
+  openai@7.59.0(@aws-sdk/credential-provider-node@3.972.82)(@smithy/signature-v4@5.7.3)(google-auth-library@10.6.2(supports-color@10.2.2))(undici@8.12.4)(ws@8.23.0)(zod@4.4.3):
     optionalDependencies:
-      '@aws-sdk/credential-provider-node': 3.972.83
+      '@aws-sdk/credential-provider-node': 3.972.82
       '@smithy/signature-v4': 5.7.3
       google-auth-library: 10.6.2(supports-color@10.2.2)
       undici: 8.12.4
-      ws: 8.22.0
+      ws: 8.23.0
       zod: 4.4.3
 
   oxfmt@0.79.0(svelte@5.59.1)(vite-plus@1.8.0(@opentelemetry/api@1.9.0)(@types/node@26.6.7)(@vitest/browser-playwright@5.1.1)(@vitest/browser-preview@5.1.1)(@vitest/browser@5.1.1)(@vitest/coverage-v8@5.1.1)(@vitest/ui@5.1.1)(@voidzero-dev/vite-plus-core@8.3.8001(@types/node@26.6.7)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.0))(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.65.1)(svelte@5.59.1)(typescript@6.0.3)(vitest@5.1.1)(yaml@2.9.0)):
