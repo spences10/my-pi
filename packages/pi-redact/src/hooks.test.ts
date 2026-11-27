@@ -1,6 +1,7 @@
 import type {
 	ContextEvent,
 	ContextEventResult,
+	ContextWithSystemEvent,
 	ExtensionHandler,
 	MessageEndEvent,
 	MessageEndEventResult,
@@ -83,9 +84,9 @@ function capture_redaction() {
 				isError: false,
 				...event,
 			}),
-		context: (messages: ContextEvent['messages']) =>
-			invoke<ContextEvent, ContextEventResult>({
-				type: 'context',
+		context_with_system: (messages: ContextEvent['messages']) =>
+			invoke<ContextWithSystemEvent, ContextEventResult>({
+				type: 'context_with_system',
 				messages,
 			}),
 		message: (message: MessageEndEvent['message']) =>
@@ -98,6 +99,7 @@ function capture_redaction() {
 		shutdown: () =>
 			invoke({ type: 'session_shutdown', reason: 'quit' }),
 		start: () => invoke({ type: 'session_start' }),
+		handlers: () => [...hooks.keys()],
 		async stats() {
 			const notify = vi.fn();
 			await commands.mock.calls
@@ -180,43 +182,131 @@ describe('redaction hooks', () => {
 			timestamp: 1,
 		};
 
-		expect((await redact.context([message]))?.messages).toEqual([
-			message,
-		]);
+		expect(
+			await redact.context_with_system([message]),
+		).toBeUndefined();
 		redact.pi.events.emit('pi-redact:register-secrets', {
 			values: [opaque, 123],
 		});
-		expect((await redact.context([message]))?.messages).toEqual([
-			message,
-		]);
+		expect(
+			await redact.context_with_system([message]),
+		).toBeUndefined();
 		redact.pi.events.emit('pi-redact:register-secrets', {
 			values: ['', opaque],
 		});
 		expect(
 			JSON.stringify(
-				await redact.context(structuredClone([message])),
+				await redact.context_with_system(structuredClone([message])),
 			),
 		).not.toContain(opaque);
 		const first = await redact.stats();
-		await redact.context(structuredClone([message]));
+		await redact.context_with_system(structuredClone([message]));
 		expect(await redact.stats()).toEqual(first);
-		expect((await other.context([message]))?.messages).toEqual([
-			message,
-		]);
+		expect(
+			await other.context_with_system([message]),
+		).toBeUndefined();
 		await redact.shutdown();
 		redact.pi.events.emit('pi-redact:register-secrets', {
 			values: [opaque],
 		});
-		expect((await redact.context([message]))?.messages).toEqual([
-			message,
-		]);
+		expect(
+			await redact.context_with_system([message]),
+		).toBeUndefined();
 		await redact.start();
 		redact.pi.events.emit('pi-redact:register-secrets', {
 			values: [opaque],
 		});
 		expect(
-			JSON.stringify(await redact.context([message])),
+			JSON.stringify(await redact.context_with_system([message])),
 		).not.toContain(opaque);
+	});
+
+	it('redacts request copies only in context_with_system so Pi never collapses its system messages', async () => {
+		const redact = capture_redaction();
+
+		// Pi replays every system message as one leading head whenever a `context` handler returns a changed list,
+		// so tools loaded later by `tool_search` would rewrite the head and miss the prompt cache.
+		expect(redact.handlers()).toContain('context_with_system');
+		expect(redact.handlers()).not.toContain('context');
+	});
+
+	it('leaves a conversation without secrets alone so Pi keeps its system messages in place', async () => {
+		const redact = capture_redaction();
+
+		const messages: ContextEvent['messages'] = [
+			{
+				role: 'system',
+				content: 'base prompt',
+				sections: { rules: 'be brief' },
+				toolsAdded: [],
+				timestamp: 0,
+			},
+			{ role: 'user', content: 'hello', timestamp: 1 },
+			{
+				role: 'system',
+				content: '',
+				toolsAdded: [],
+				timestamp: 2,
+			},
+			{
+				role: 'toolResult',
+				toolCallId: 'call',
+				toolName: 'tool_search',
+				content: [{ type: 'text', text: 'Loaded 2 tools.' }],
+				isError: false,
+				timestamp: 3,
+			},
+		];
+
+		expect(
+			await redact.context_with_system(messages),
+		).toBeUndefined();
+	});
+
+	it('keeps untouched messages, including system messages, by identity and replaces only the ones it redacted', async () => {
+		const redact = capture_redaction();
+
+		const system = {
+			role: 'system' as const,
+			content: 'base prompt',
+			sections: { rules: 'be brief' },
+			toolsAdded: [],
+			timestamp: 0,
+		};
+
+		const loaded = {
+			role: 'system' as const,
+			content: '',
+			toolsAdded: [],
+			timestamp: 2,
+		};
+
+		const clean = {
+			role: 'user' as const,
+			content: 'hello',
+			timestamp: 1,
+		};
+
+		const secret = {
+			role: 'user' as const,
+			content: token,
+			timestamp: 3,
+		};
+
+		const result = await redact.context_with_system([
+			system,
+			clean,
+			loaded,
+			secret,
+		]);
+
+		expect(result?.messages?.[0]).toBe(system);
+		expect(result?.messages?.[1]).toBe(clean);
+		expect(result?.messages?.[2]).toBe(loaded);
+		expect(result?.messages?.[3]).not.toBe(secret);
+		expect(JSON.stringify(result?.messages?.[3])).not.toContain(
+			token,
+		);
 	});
 
 	it('masks finalized user/custom text but does not alter executable tool arguments or metadata', async () => {
@@ -254,7 +344,7 @@ describe('redaction hooks', () => {
 			finalized?.role === 'assistant' && finalized.content[0],
 		).toEqual(assistant.content[0]);
 
-		const fallback = (await redact.context([assistant]))
+		const fallback = (await redact.context_with_system([assistant]))
 			?.messages?.[0];
 
 		expect(
@@ -298,7 +388,7 @@ describe('redaction hooks', () => {
 		];
 
 		expect(
-			JSON.stringify(await redact.context(messages)),
+			JSON.stringify(await redact.context_with_system(messages)),
 		).not.toContain(token);
 		expect(JSON.stringify(messages)).toContain(token);
 	});

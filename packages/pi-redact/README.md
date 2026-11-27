@@ -76,10 +76,14 @@ for looking random.
 - `message_end` masks finalized message text before the normal agent
   loop persists it. Executable tool-call arguments and protocol IDs
   are not changed.
-- `context` and `context_with_system` sanitize request copies,
-  including user/custom text, old shell commands/output, summaries and
-  historical tool arguments. A bounded content-keyed cache works
-  across Pi's cloned messages and is invalidated on exact-value
+- `context_with_system` sanitizes request copies, including
+  user/custom text, old shell commands/output, summaries and
+  historical tool arguments. It returns nothing when no message
+  changed and keeps untouched messages, including Pi's system
+  messages, in place, so the prompt cache survives. (A `context`
+  handler that changes any message makes Pi collapse its system
+  messages into one leading message.) A bounded content-keyed cache
+  works across Pi's cloned messages and is invalidated on exact-value
   registration.
 - `session_before_compact` and `session_before_tree` sanitize cloned
   preparation messages and entries used by the default summarizers.

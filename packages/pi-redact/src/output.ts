@@ -321,6 +321,47 @@ export function redact_message(
 	}
 }
 
+/**
+ * Redact the conversation for a model request. Returns `undefined` when nothing needed
+ * redacting, and keeps the original object for every message that did not change.
+ *
+ * Pi compares the list a `context` handler returns with the original by identity. Any
+ * difference marks the conversation as changed, and Pi then collapses its system messages
+ * into one leading message holding the current tools. A tool loaded later by
+ * `tool_search` is folded into that head, which rewrites the prompt cache prefix.
+ */
+export function redact_request_messages(
+	messages: AgentMessage[],
+	redact: TextRedactor,
+): AgentMessage[] | undefined {
+	let any_changed = false;
+
+	const result = messages.map((message) => {
+		// Every change goes through `redact`, so a message it left alone is unchanged.
+		let changed = false;
+
+		const redacted = redact_message(
+			message,
+			(text, options) => {
+				const masked = redact(text, options);
+
+				if (masked !== text) changed = true;
+
+				return masked;
+			},
+			true,
+		);
+
+		if (!changed) return message;
+
+		any_changed = true;
+
+		return redacted;
+	});
+
+	return any_changed ? result : undefined;
+}
+
 export function redact_text_blocks<T extends string | ContentBlock[]>(
 	content: T,
 	redact: TextRedactor,

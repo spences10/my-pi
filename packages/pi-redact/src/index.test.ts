@@ -1,6 +1,7 @@
 import type {
 	ContextEvent,
 	ContextEventResult,
+	ContextWithSystemEvent,
 	ExtensionHandler,
 	ToolCallEvent,
 	ToolCallEventResult,
@@ -31,7 +32,10 @@ type ToolResultHook = ExtensionHandler<
 	ToolResultEventResult
 >;
 
-type ContextHook = ExtensionHandler<ContextEvent, ContextEventResult>;
+type ContextHook = ExtensionHandler<
+	ContextWithSystemEvent,
+	ContextEventResult
+>;
 
 function text_blocks(
 	result: ToolResultEventResult | void,
@@ -95,10 +99,13 @@ async function capture_redaction() {
 			);
 		},
 		async context(messages: AgentMessage[]) {
-			// SAFETY: `pi.on('context', ...)` accepts only handlers with this signature.
-			const hook = hooks.get('context') as ContextHook;
+			// SAFETY: `pi.on('context_with_system', ...)` accepts only handlers with this signature.
+			const hook = hooks.get('context_with_system') as ContextHook;
 
-			return hook({ type: 'context', messages }, make_context());
+			return hook(
+				{ type: 'context_with_system', messages },
+				make_context(),
+			);
 		},
 		async stats() {
 			const notifications: string[] = [];
