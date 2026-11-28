@@ -245,7 +245,7 @@ catalogs:
       version: 0.2.2
     '@twinkleplop/theme-night-owl':
       specifier: ^0.1.4
-      version: 0.1.5
+      version: 0.1.7
     '@twinkleplop/typescript':
       specifier: ^0.1.5
       version: 0.1.8
@@ -860,7 +860,7 @@ importers:
         version: 0.2.2
       '@twinkleplop/theme-night-owl':
         specifier: 'catalog:'
-        version: 0.1.5
+        version: 0.1.7
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.7
@@ -3048,6 +3048,9 @@ packages:
   '@twinkleplop/core@0.3.2':
     resolution: {integrity: sha512-K4sKQFqTSpEjFz4eCmJGQA6ivtZgpBKdZzu3AzKIP5jwstJWHPI5eWtJgfv6vTsxDVHr3WY02gXnwL3+Rzndhg==}
 
+  '@twinkleplop/core@0.4.1':
+    resolution: {integrity: sha512-NOErtBHmvj2HHQZut5auMTiPRNQO5/FO6IUtVunoRiaPV6bSmO+DYUPwo2AJck6NnaH9/iteD9uk8Pt1Liso8w==}
+
   '@twinkleplop/css@0.1.8':
     resolution: {integrity: sha512-OwPt+cYSOUP3sVXq7Zt6pWVY4ce87t1EUgyHakhz36TGxYitnIA7DXeFmoyHCnFW8ZjfNjKCa8HAwARLTZstmQ==}
 
@@ -3066,8 +3069,8 @@ packages:
   '@twinkleplop/markdown@0.2.2':
     resolution: {integrity: sha512-ZUlqqJsLwQcGce932GjcyPwOSk2C2fxlmSGVOUP8gi2p6wZ3WMxqH/7LELoEBoARyX6uE6ajfFBK5tgv2MI95g==}
 
-  '@twinkleplop/theme-night-owl@0.1.5':
-    resolution: {integrity: sha512-d0EBqHsYCr2iLOXmNI+JfqKdkFzYZHBhREUNijMmLQ0PBlsx7JfU4drhaMHViNfxxvn2aZzPip3FFz7goxK0Sw==}
+  '@twinkleplop/theme-night-owl@0.1.7':
+    resolution: {integrity: sha512-+estwV+y6t8MISY1/Y5oroySK47uYPdTHj8mvua13lTdRLxI4IYhMEVJXaYiNbF1EYe3a0NeQGTbWGCZCqaqxA==}
 
   '@twinkleplop/typescript@0.1.8':
     resolution: {integrity: sha512-5f0xc1HyY4YjwNUgLWX09T8tnKn5QrigLrOw+BLT0nQ+WWkeHeI7Knt8gmOnndba7H1fKLI1+kWOuNuHioX+5A==}
@@ -6738,6 +6741,8 @@ snapshots:
 
   '@twinkleplop/core@0.3.2': {}
 
+  '@twinkleplop/core@0.4.1': {}
+
   '@twinkleplop/css@0.1.8':
     dependencies:
       '@twinkleplop/core': 0.3.2
@@ -6766,9 +6771,9 @@ snapshots:
     dependencies:
       '@twinkleplop/core': 0.3.2
 
-  '@twinkleplop/theme-night-owl@0.1.5':
+  '@twinkleplop/theme-night-owl@0.1.7':
     dependencies:
-      '@twinkleplop/core': 0.3.2
+      '@twinkleplop/core': 0.4.1
 
   '@twinkleplop/typescript@0.1.8':
     dependencies:
