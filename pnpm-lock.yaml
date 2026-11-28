@@ -236,7 +236,7 @@ catalogs:
       version: 0.1.8
     '@twinkleplop/json':
       specifier: ^0.1.7
-      version: 0.1.8
+      version: 0.1.10
     '@twinkleplop/markdown':
       specifier: ^0.2.1
       version: 0.2.2
@@ -854,7 +854,7 @@ importers:
         version: 0.1.8
       '@twinkleplop/json':
         specifier: 'catalog:'
-        version: 0.1.8
+        version: 0.1.10
       '@twinkleplop/markdown':
         specifier: 'catalog:'
         version: 0.2.2
@@ -3048,6 +3048,9 @@ packages:
   '@twinkleplop/core@0.3.2':
     resolution: {integrity: sha512-K4sKQFqTSpEjFz4eCmJGQA6ivtZgpBKdZzu3AzKIP5jwstJWHPI5eWtJgfv6vTsxDVHr3WY02gXnwL3+Rzndhg==}
 
+  '@twinkleplop/core@0.4.1':
+    resolution: {integrity: sha512-NOErtBHmvj2HHQZut5auMTiPRNQO5/FO6IUtVunoRiaPV6bSmO+DYUPwo2AJck6NnaH9/iteD9uk8Pt1Liso8w==}
+
   '@twinkleplop/css@0.1.8':
     resolution: {integrity: sha512-OwPt+cYSOUP3sVXq7Zt6pWVY4ce87t1EUgyHakhz36TGxYitnIA7DXeFmoyHCnFW8ZjfNjKCa8HAwARLTZstmQ==}
 
@@ -3057,8 +3060,8 @@ packages:
   '@twinkleplop/javascript@0.1.8':
     resolution: {integrity: sha512-2VAws4GFrZ19Gfr7s6/cxoATIqVbOYEsmsASu1YZaPo/qBW7sLVqoWQlN7Ft1qakudgdoPFx7s71Caeyn+2C5g==}
 
-  '@twinkleplop/json@0.1.8':
-    resolution: {integrity: sha512-xa78PV+DSwZJRKkQ70ssk7aVgGU15OHZ54miC7jWklr7XLS74nie7B0fCX4fhQ3S9Z+pvHFimPE84cC0jz1Lbw==}
+  '@twinkleplop/json@0.1.10':
+    resolution: {integrity: sha512-Ho7SPOy4JA6upxl5+I6Z1HD3czQXVLgO0MjdDohcC3BF/lvCtBFdlohqOLVG4VH57jVTO8Ncv/LqN+sg9nQOuA==}
 
   '@twinkleplop/markdown-core@0.2.2':
     resolution: {integrity: sha512-PCQQFHGA4wRg3X4XGfiIv5z4ZePza8FHJEPWCiL19qkWnWHqR0JiDUnVmBIyc/YbxpCjhJjFe4r1JohWkJBZTQ==}
@@ -6740,6 +6743,8 @@ snapshots:
 
   '@twinkleplop/core@0.3.2': {}
 
+  '@twinkleplop/core@0.4.1': {}
+
   '@twinkleplop/css@0.1.8':
     dependencies:
       '@twinkleplop/core': 0.3.2
@@ -6756,9 +6761,9 @@ snapshots:
       '@twinkleplop/css': 0.1.8
       '@twinkleplop/html': 0.1.8
 
-  '@twinkleplop/json@0.1.8':
+  '@twinkleplop/json@0.1.10':
     dependencies:
-      '@twinkleplop/core': 0.3.2
+      '@twinkleplop/core': 0.4.1
 
   '@twinkleplop/markdown-core@0.2.2':
     dependencies:
