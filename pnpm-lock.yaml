@@ -239,7 +239,7 @@ catalogs:
       version: 0.1.8
     '@twinkleplop/markdown':
       specifier: ^0.2.1
-      version: 0.2.2
+      version: 0.2.4
     '@twinkleplop/markdown-core':
       specifier: ^0.2.0
       version: 0.2.2
@@ -857,7 +857,7 @@ importers:
         version: 0.1.8
       '@twinkleplop/markdown':
         specifier: 'catalog:'
-        version: 0.2.2
+        version: 0.2.4
       '@twinkleplop/theme-night-owl':
         specifier: 'catalog:'
         version: 0.1.5
@@ -3048,6 +3048,9 @@ packages:
   '@twinkleplop/core@0.3.2':
     resolution: {integrity: sha512-K4sKQFqTSpEjFz4eCmJGQA6ivtZgpBKdZzu3AzKIP5jwstJWHPI5eWtJgfv6vTsxDVHr3WY02gXnwL3+Rzndhg==}
 
+  '@twinkleplop/core@0.4.1':
+    resolution: {integrity: sha512-NOErtBHmvj2HHQZut5auMTiPRNQO5/FO6IUtVunoRiaPV6bSmO+DYUPwo2AJck6NnaH9/iteD9uk8Pt1Liso8w==}
+
   '@twinkleplop/css@0.1.8':
     resolution: {integrity: sha512-OwPt+cYSOUP3sVXq7Zt6pWVY4ce87t1EUgyHakhz36TGxYitnIA7DXeFmoyHCnFW8ZjfNjKCa8HAwARLTZstmQ==}
 
@@ -3063,8 +3066,8 @@ packages:
   '@twinkleplop/markdown-core@0.2.2':
     resolution: {integrity: sha512-PCQQFHGA4wRg3X4XGfiIv5z4ZePza8FHJEPWCiL19qkWnWHqR0JiDUnVmBIyc/YbxpCjhJjFe4r1JohWkJBZTQ==}
 
-  '@twinkleplop/markdown@0.2.2':
-    resolution: {integrity: sha512-ZUlqqJsLwQcGce932GjcyPwOSk2C2fxlmSGVOUP8gi2p6wZ3WMxqH/7LELoEBoARyX6uE6ajfFBK5tgv2MI95g==}
+  '@twinkleplop/markdown@0.2.4':
+    resolution: {integrity: sha512-INVYyFG6p0rT0MwqixJl/tKzAs1DdDaU2cJER9y4kUCCw8ucdleUBoS0dSjffn5cweoOBZkqEqKQ0yD+gYnpsA==}
 
   '@twinkleplop/theme-night-owl@0.1.5':
     resolution: {integrity: sha512-d0EBqHsYCr2iLOXmNI+JfqKdkFzYZHBhREUNijMmLQ0PBlsx7JfU4drhaMHViNfxxvn2aZzPip3FFz7goxK0Sw==}
@@ -6738,6 +6741,8 @@ snapshots:
 
   '@twinkleplop/core@0.3.2': {}
 
+  '@twinkleplop/core@0.4.1': {}
+
   '@twinkleplop/css@0.1.8':
     dependencies:
       '@twinkleplop/core': 0.3.2
@@ -6762,9 +6767,9 @@ snapshots:
     dependencies:
       '@twinkleplop/core': 0.3.2
 
-  '@twinkleplop/markdown@0.2.2':
+  '@twinkleplop/markdown@0.2.4':
     dependencies:
-      '@twinkleplop/core': 0.3.2
+      '@twinkleplop/core': 0.4.1
 
   '@twinkleplop/theme-night-owl@0.1.5':
     dependencies:
