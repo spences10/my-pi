@@ -296,7 +296,7 @@ catalogs:
       version: 3.7.1
     tailwind-variants:
       specifier: ^4.0.0
-      version: 4.0.2
+      version: 4.1.0
     tailwindcss:
       specifier: ^4.3.0
       version: 4.3.5
@@ -459,7 +459,7 @@ importers:
         version: 3.7.1
       tailwind-variants:
         specifier: 'catalog:'
-        version: 4.0.2
+        version: 4.1.0
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.5
@@ -887,7 +887,7 @@ importers:
         version: 3.7.1
       tailwind-variants:
         specifier: 'catalog:'
-        version: 4.0.2
+        version: 4.1.0
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.5
@@ -4707,8 +4707,8 @@ packages:
   tailwind-merge@3.7.1:
     resolution: {integrity: sha512-v7y4BV4FUlO8exj/4M5UXKeoowDiuugVUg3tkMNIyOUCOHy5xp8+5aWQeXCtZ2491sUV1YPsVeM9EveZ6/xuZQ==}
 
-  tailwind-variants@4.0.2:
-    resolution: {integrity: sha512-sZvOFkfe5LlYG/crRX5IvP3oUHmJPu+7WmrLQFvF0kCRq51C+lurlzFMm/jURG/5keT7VOJ/it0N3jkzYux85w==}
+  tailwind-variants@4.1.0:
+    resolution: {integrity: sha512-oAYpaB3eFFpitkhcaVD+q9Q+evW2L2AHC6uNuIMHqa8WZGVi17OanN4j5d1l99fGDYBWq9LYg0ew/458XVXWlQ==}
     engines: {node: '>=16.9.x', pnpm: '>=7.x'}
 
   tailwindcss@4.3.5:
@@ -8442,7 +8442,7 @@ snapshots:
 
   tailwind-merge@3.7.1: {}
 
-  tailwind-variants@4.0.2: {}
+  tailwind-variants@4.1.0: {}
 
   tailwindcss@4.3.5: {}
 
